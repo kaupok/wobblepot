@@ -1,191 +1,149 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
 
+// The pantry read and delete live in `@/lib/shopping/purchase`, tested against a
+// database in `purchase.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household, the body, and the
+// status each outcome maps to (HON-1208).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    pantryItem: {
-      findUnique: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/shopping/purchase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/purchase')>()),
+  unpurchaseIngredient: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import { unpurchaseIngredient } from '@/lib/shopping/purchase'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockPantryFindUnique = vi.mocked(prisma.pantryItem.findUnique)
-const mockPantryDelete = vi.mocked(prisma.pantryItem.delete)
-
-const mockHousehold = {
-  id: 'household-123',
-  name: 'Test Household',
-  timezone: 'Europe/Tallinn',
-  preferences: null,
-}
-
-const mockMembership = {
-  id: 'member-123',
-  householdId: 'household-123',
-  userId: 'user-123',
-  role: 'owner',
-  household: mockHousehold,
-}
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockUnpurchase = vi.mocked(unpurchaseIngredient)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
+} as never
+
+const membership = {
+  id: 'member-123',
+  householdId: 'household-123',
+  userId: 'user-123',
+  role: 'owner',
+  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'en' },
+} as never
+
+function post(body: unknown) {
+  return POST(
+    new Request('http://localhost/api/shopping-list/unpurchase', {
+      method: 'POST',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
 }
 
-function createRequest(body: unknown) {
-  return new Request('http://localhost/api/shopping-list/unpurchase', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
 }
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership)
+})
 
 describe('POST /api/shopping-list/unpurchase', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
+    })
+    expect(mockUnpurchase).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(null)
+    mockGetMembership.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
+    })
+    expect(mockUnpurchase).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const request = new Request('http://localhost/api/shopping-list/unpurchase', {
-      method: 'POST',
-      body: 'not valid json',
+    expect(await answer(post('not valid json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(mockUnpurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when ingredientId is missing', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+  it('returns 400 naming ingredientId when it is missing', async () => {
+    const { status, body } = await answer(post({}))
 
-    const response = await POST(createRequest({}))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
+    expect(status).toBe(400)
+    expect(body.error).toBe('Validation failed')
+    expect(Object.keys(body.details)).toEqual(['ingredientId'])
+    expect(mockUnpurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when item not in pantry', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockPantryFindUnique.mockResolvedValue(null)
+  it("removes the ingredient from the household's pantry", async () => {
+    mockUnpurchase.mockResolvedValue('removed')
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Item not found in pantry')
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'removed' },
+    })
+    // Without `keepWithQuantity`: the app's undo removes a row with a quantity.
+    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice')
   })
 
-  it('returns 400 when trying to unpurchase a staple item', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockPantryFindUnique.mockResolvedValue({
-      id: 'pantry-1',
-      isStaple: true,
-      updatedAt: new Date(),
-    } as never)
+  it.each([
+    ['not_in_pantry', 404, { error: 'Item not found in pantry' }],
+    ['staple', 400, { error: 'Cannot unpurchase staple items', reason: 'staple' }],
+    [
+      'too_old',
+      400,
+      { error: 'Cannot unpurchase items added more than 7 days ago', reason: 'too_old' },
+    ],
+  ] as const)('answers %s with %i', async (outcome, status, body) => {
+    mockUnpurchase.mockResolvedValue(outcome)
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Cannot unpurchase staple items')
-    expect(data.reason).toBe('staple')
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({ status, body })
   })
 
-  it('returns 400 when item was added more than 7 days ago', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+  it('reports an unexpected failure and returns 500', async () => {
+    const failure = new Error('connection lost')
+    mockUnpurchase.mockRejectedValue(failure)
 
-    const oldDate = new Date()
-    oldDate.setDate(oldDate.getDate() - 8)
-
-    mockPantryFindUnique.mockResolvedValue({
-      id: 'pantry-1',
-      isStaple: false,
-      updatedAt: oldDate,
-    } as never)
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Cannot unpurchase items added more than 7 days ago')
-    expect(data.reason).toBe('too_old')
-  })
-
-  it('successfully removes pantry item', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const recentDate = new Date()
-    recentDate.setDate(recentDate.getDate() - 1)
-
-    mockPantryFindUnique.mockResolvedValue({
-      id: 'pantry-1',
-      isStaple: false,
-      updatedAt: recentDate,
-    } as never)
-    mockPantryDelete.mockResolvedValue({} as never)
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.ingredientId).toBe('ing-1')
-    expect(data.action).toBe('removed')
-    expect(mockPantryDelete).toHaveBeenCalledWith({
-      where: { id: 'pantry-1' },
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to unmark item as purchased' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/shopping-list/unpurchase',
+      userId: 'user-123',
     })
   })
 })

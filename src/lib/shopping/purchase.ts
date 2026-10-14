@@ -5,11 +5,13 @@ import type { Prisma } from '@/generated/prisma/client'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { findHouseholdPlan } from './load-shopping-list'
 
 /**
  * Marking shopping list items purchased and unpurchased, shared by
- * `POST /api/shopping-list/purchase`, `POST /api/shopping-list/unpurchase` and
- * the `mark_purchased` MCP tool (HON-1154), so the two paths cannot drift.
+ * `POST /api/shopping-list/purchase`, `POST /api/shopping-list/unpurchase`,
+ * their plan-scoped twins under `/api/meal-plans/[id]/shopping-list` (HON-1208)
+ * and the `mark_purchased` MCP tool (HON-1154), so the paths cannot drift.
  * Purchasing an ingredient puts it in the pantry; unpurchasing takes it out.
  */
 
@@ -234,4 +236,37 @@ export async function unpurchaseIngredient(
     where: { id: pantryItem.id },
   })
   return 'removed'
+}
+
+/**
+ * `purchaseIngredients` for `POST /api/meal-plans/[id]/shopping-list/purchase`.
+ * The pantry is the household's, not the plan's, so the plan only has to be
+ * the household's. Throws `ShoppingPlanError` for a plan that does not exist
+ * or is another household's, before anything is written.
+ */
+export async function purchasePlanIngredients(
+  household: { id: string; locale: string | null },
+  planId: string,
+  ingredientIds: string[],
+): Promise<PurchaseOutcome> {
+  await findHouseholdPlan(household.id, planId)
+  return purchaseIngredients(household, ingredientIds)
+}
+
+/**
+ * `unpurchaseIngredient` for `POST /api/meal-plans/[id]/shopping-list/unpurchase`,
+ * without `keepWithQuantity`, so it never answers `has_quantity`. Throws
+ * `ShoppingPlanError` for a plan that does not exist or is another
+ * household's, before anything is deleted.
+ */
+export async function unpurchasePlanIngredient(
+  householdId: string,
+  planId: string,
+  ingredientId: string,
+): Promise<Exclude<UnpurchaseOutcome, 'has_quantity'>> {
+  await findHouseholdPlan(householdId, planId)
+  const outcome = await unpurchaseIngredient(householdId, ingredientId)
+  // Unreachable without `keepWithQuantity`; narrows the type for the route.
+  if (outcome === 'has_quantity') throw new Error('unpurchaseIngredient answered has_quantity')
+  return outcome
 }

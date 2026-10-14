@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { customItemUpdateSchema, updateCustomShoppingItem } from '@/lib/shopping/custom-items'
+import {
+  customItemUpdateSchema,
+  deleteCustomShoppingItem,
+  updateCustomShoppingItem,
+} from '@/lib/shopping/custom-items'
 
 /**
  * PATCH /api/shopping-list/custom/[id]
@@ -91,18 +94,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { household } = membership
     const { id } = await params
 
-    // Find and verify ownership
-    const item = await prisma.customShoppingItem.findUnique({
-      where: { id },
-    })
-
-    if (!item || item.householdId !== household.id) {
+    if (!(await deleteCustomShoppingItem(household.id, id))) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
-
-    await prisma.customShoppingItem.delete({
-      where: { id },
-    })
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {

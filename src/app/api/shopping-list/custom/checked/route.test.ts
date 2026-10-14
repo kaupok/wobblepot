@@ -1,107 +1,112 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DELETE } from './route'
 
+// The delete lives in `@/lib/shopping/custom-items`, tested against a database
+// in `custom-items.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household and the status
+// (HON-1208).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    customShoppingItem: {
-      deleteMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/shopping/custom-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/custom-items')>()),
+  clearCheckedCustomShoppingItems: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { clearCheckedCustomShoppingItems } from '@/lib/shopping/custom-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockDeleteMany = vi.mocked(prisma.customShoppingItem.deleteMany)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockClearChecked = vi.mocked(clearCheckedCustomShoppingItems)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
-}
+} as never
 
-const mockMembership = {
+const membership = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: {
-    id: 'household-123',
-    name: 'Test Household',
-    timezone: 'Europe/Tallinn',
-    preferences: null,
-  },
+  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'en' },
+} as never
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
 }
 
-describe('DELETE /api/shopping-list/custom/checked', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership)
+})
 
+describe('DELETE /api/shopping-list/custom/checked', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await DELETE()
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(DELETE())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
+    expect(mockClearChecked).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await DELETE()
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(DELETE())).toEqual({ status: 404, body: { error: 'No household found' } })
+    expect(mockClearChecked).not.toHaveBeenCalled()
   })
 
-  it('deletes checked items scoped to the caller household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockDeleteMany.mockResolvedValue({ count: 4 } as never)
+  it("clears the household's checked items and returns how many", async () => {
+    mockClearChecked.mockResolvedValue(4)
 
-    const response = await DELETE()
-    const data = await response.json()
+    expect(await answer(DELETE())).toEqual({
+      status: 200,
+      body: { success: true, deletedCount: 4 },
+    })
+    expect(mockClearChecked).toHaveBeenCalledWith('household-123')
+  })
 
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.deletedCount).toBe(4)
-    expect(mockDeleteMany).toHaveBeenCalledWith({
-      where: { householdId: 'household-123', checked: true },
+  it('returns a count of 0 when nothing was checked', async () => {
+    mockClearChecked.mockResolvedValue(0)
+
+    expect(await answer(DELETE())).toEqual({
+      status: 200,
+      body: { success: true, deletedCount: 0 },
     })
   })
 
-  it('returns 500 when Prisma throws', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockDeleteMany.mockRejectedValue(new Error('DB down'))
+  it('returns 500 and reports the error when the delete throws', async () => {
+    const error = new Error('DB down')
+    mockClearChecked.mockRejectedValue(error)
 
-    const response = await DELETE()
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to delete checked items')
+    expect(await answer(DELETE())).toEqual({
+      status: 500,
+      body: { error: 'Failed to delete checked items' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/shopping-list/custom/checked',
+      userId: 'user-123',
+      householdId: 'household-123',
+    })
   })
 })

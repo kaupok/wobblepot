@@ -16,6 +16,8 @@ Vitest and Testing Library. Colocate a test with its source file, use `describe`
 
 A test that exercises a query is a `*.db.test.ts` next to the `src/lib` module it tests, with no `vi.mock`: a mock cannot catch a wrong query. The `unit-db` project runs it against PGlite, an in-process Postgres with every migration applied, and empties the tables before each test except the rows the migrations seed. Run it with `pnpm test:db`; it needs no `DATABASE_URL`, and `pnpm test` excludes it. `pnpm test:coverage` includes it. Example: `src/lib/household.db.test.ts`.
 
+In that project `next-intl/server` resolves to `src/test/next-intl-server-shim.ts`, so a `src/lib` read that calls `getTranslations({ locale, namespace })` runs on the real catalogs. Pass the locale: the shim has no request to read one from. Example: `src/lib/shopping/load-shopping-list.db.test.ts`.
+
 ## Route tests
 
 The route keeps the session, the household, body validation and the status map. Every query and the rules that act on rows go in a `src/lib` function that throws a typed error per refusal. Its `*.db.test.ts` proves the rows. The route test mocks only that `src/lib` module and asserts status and body. Reference: `src/app/api/meal-plans/[id]/entries/[entryId]/route.ts` and `src/lib/meal-plans/entries.ts`.

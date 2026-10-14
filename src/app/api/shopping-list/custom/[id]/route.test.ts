@@ -1,84 +1,79 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PATCH, DELETE } from './route'
 
+// The ownership checks, the writes and the pantry upsert live in
+// `@/lib/shopping/custom-items`, tested against a database in
+// `custom-items.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household, the body, and the
+// status each outcome maps to (HON-1208).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    customShoppingItem: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    },
-    pantryItem: {
-      upsert: vi.fn(),
-    },
-    ingredient: {
-      findFirst: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/shopping/custom-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/custom-items')>()),
+  updateCustomShoppingItem: vi.fn(),
+  deleteCustomShoppingItem: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { deleteCustomShoppingItem, updateCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindUnique = vi.mocked(prisma.customShoppingItem.findUnique)
-const mockDelete = vi.mocked(prisma.customShoppingItem.delete)
-const mockTransaction = vi.mocked(prisma.$transaction)
-const mockIngredientFindFirst = vi.mocked(prisma.ingredient.findFirst)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockUpdate = vi.mocked(updateCustomShoppingItem)
+const mockDelete = vi.mocked(deleteCustomShoppingItem)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
-}
+} as never
 
-const mockMembership = {
+const membership = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: {
-    id: 'household-123',
-    name: 'Test Household',
-    timezone: 'Europe/Tallinn',
-    preferences: null,
-  },
+  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'en' },
+} as never
+
+const item = {
+  id: 'custom-1',
+  householdId: 'household-123',
+  name: 'Salt',
+  checked: true,
+  ingredientId: 'ing-salt',
+  createdAt: '2026-10-15T08:00:00.000Z',
+  ingredient: { id: 'ing-salt', name: 'Salt', category: 'spice' },
 }
 
-function patchRequest(id: string, body?: unknown, bodyString?: string) {
+function patch(id: string, body?: unknown, bodyString?: string) {
   return PATCH(
     new Request(`http://localhost/api/shopping-list/custom/${id}`, {
       method: 'PATCH',
-      body:
-        bodyString !== undefined
-          ? bodyString
-          : body !== undefined
-            ? JSON.stringify(body)
-            : undefined,
+      body: bodyString ?? (body !== undefined ? JSON.stringify(body) : undefined),
     }),
     { params: Promise.resolve({ id }) },
   )
 }
 
-function deleteRequest(id: string) {
+function del(id: string) {
   return DELETE(
     new Request(`http://localhost/api/shopping-list/custom/${id}`, { method: 'DELETE' }),
     {
@@ -87,559 +82,166 @@ function deleteRequest(id: string) {
   )
 }
 
-describe('PATCH /api/shopping-list/custom/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
 
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership)
+})
+
+describe('PATCH /api/shopping-list/custom/[id]', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(patch('custom-1', { checked: true }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 404 when item does not exist', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-
-    const response = await patchRequest('custom-nope', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Item not found')
-  })
-
-  it('returns 404 when item belongs to a different household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-OTHER',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Item not found')
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(await answer(patch('custom-1', { checked: true }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-
-    const response = await patchRequest('custom-1', undefined, 'not valid json')
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 400 for invalid schema (bad checked type)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-
-    const response = await patchRequest('custom-1', { checked: 'not-a-bool' })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-  })
-
-  it('toggles checked=true on unlinked item without pantry upsert', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Random thing',
-      checked: false,
-      ingredientId: null,
-    } as never)
-
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Random thing',
-      checked: true,
-      ingredientId: null,
-      ingredient: null,
+    expect(await answer(patch('custom-1', undefined, 'not valid json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-    const txUpsertSpy = vi.fn()
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
-    })
-
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.checked).toBe(true)
-    expect(txUpdateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'custom-1' }, data: { checked: true } }),
-    )
-    expect(txUpsertSpy).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('toggles checked=true on linked item and upserts pantry', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-    } as never)
+  it('returns 400 with details when checked is not a boolean', async () => {
+    const { status, body } = await answer(patch('custom-1', { checked: 'not-a-bool' }))
 
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
+    expect(status).toBe(400)
+    expect(body).toEqual({ error: 'Validation failed', details: { checked: [expect.any(String)] } })
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 with details when ingredientId is not a string', async () => {
+    const { status, body } = await answer(patch('custom-1', { ingredientId: 42 }))
+
+    expect(status).toBe(400)
+    expect(body).toEqual({
+      error: 'Validation failed',
+      details: { ingredientId: [expect.any(String)] },
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('updates the item for the household and returns 200 with the item alone', async () => {
+    mockUpdate.mockResolvedValue({ status: 'updated', item, replacedQuantity: 300 } as never)
+
+    expect(await answer(patch('custom-1', { checked: true, ingredientId: 'ing-salt' }))).toEqual({
+      status: 200,
+      body: { item },
+    })
+    expect(mockUpdate).toHaveBeenCalledWith('household-123', 'custom-1', {
       checked: true,
       ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
-    })
-    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: null })
-    const txPantryUpdateSpy = vi.fn()
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
-    })
-
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.checked).toBe(true)
-    expect(txUpsertSpy).toHaveBeenCalledWith({
-      where: {
-        householdId_ingredientId: {
-          householdId: 'household-123',
-          ingredientId: 'ing-salt',
-        },
-      },
-      create: {
-        householdId: 'household-123',
-        ingredientId: 'ing-salt',
-        quantity: null,
-        isStaple: false,
-      },
-      update: {},
-    })
-    expect(txPantryUpdateSpy).not.toHaveBeenCalled()
-  })
-
-  it('turns a "ran out" pantry quantity of 0 into "have some" when a linked item is checked', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-    } as never)
-
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: true,
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
-    })
-    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: 0 })
-    const txPantryUpdateSpy = vi.fn()
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
-    })
-
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.checked).toBe(true)
-    // The shopping list never reads a 0 as purchased (HON-1173).
-    expect(txPantryUpdateSpy).toHaveBeenCalledWith({
-      where: { id: 'pantry-salt' },
-      data: { quantity: null },
     })
   })
 
-  it('replaces a quantity the household entered with "have some" when checking a linked item', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-    } as never)
+  it('passes a null ingredientId through to unlink the item', async () => {
+    mockUpdate.mockResolvedValue({ status: 'updated', item, replacedQuantity: null } as never)
 
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: true,
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
-    })
-    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: 200 })
-    const txPantryUpdateSpy = vi.fn()
+    expect((await patch('custom-1', { ingredientId: null })).status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith('household-123', 'custom-1', { ingredientId: null })
+  })
 
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
-    })
+  it('returns 404 when the household has no item with this id', async () => {
+    mockUpdate.mockResolvedValue({ status: 'not_found' })
 
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.checked).toBe(true)
-    // The shopping list reads only null as purchased (HON-1176).
-    expect(txPantryUpdateSpy).toHaveBeenCalledWith({
-      where: { id: 'pantry-salt' },
-      data: { quantity: null },
+    expect(await answer(patch('custom-nope', { checked: true }))).toEqual({
+      status: 404,
+      body: { error: 'Item not found' },
     })
   })
 
-  it('does not upsert pantry when unchecking a linked item', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: true,
-      ingredientId: 'ing-salt',
-    } as never)
+  it('returns 400 when the ingredient is not available to the household', async () => {
+    mockUpdate.mockResolvedValue({ status: 'ingredient_not_found' })
 
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
+    expect(await answer(patch('custom-1', { ingredientId: 'ing-other' }))).toEqual({
+      status: 400,
+      body: { error: 'Ingredient not found' },
     })
-    const txUpsertSpy = vi.fn()
+  })
 
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
+  it('returns 500 and reports the error when the update throws', async () => {
+    const error = new Error('db down')
+    mockUpdate.mockRejectedValue(error)
+
+    expect(await answer(patch('custom-1', { checked: true }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to update item' },
     })
-
-    const response = await patchRequest('custom-1', { checked: false })
-
-    expect(response.status).toBe(200)
-    expect(txUpsertSpy).not.toHaveBeenCalled()
-  })
-
-  it('updates ingredientId without toggling checked', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-
-    const txUpdateSpy = vi.fn().mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/shopping-list/custom/[id]',
+      userId: 'user-123',
     })
-    const txUpsertSpy = vi.fn()
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy },
-      }
-      return (fn as (t: unknown) => Promise<unknown>)(tx)
-    })
-
-    mockIngredientFindFirst.mockResolvedValue({ id: 'ing-salt' } as never)
-
-    const response = await patchRequest('custom-1', { ingredientId: 'ing-salt' })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.ingredientId).toBe('ing-salt')
-    expect(txUpdateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'custom-1' },
-        data: { ingredientId: 'ing-salt' },
-      }),
-    )
-    expect(txUpsertSpy).not.toHaveBeenCalled()
-  })
-
-  // HON-889: a link to another household's ingredient reads exactly like a
-  // link to an unknown one, and neither reaches the write.
-  it("rejects linking another household's ingredient as not found", async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-    mockIngredientFindFirst.mockResolvedValue(null)
-
-    const response = await patchRequest('custom-1', { ingredientId: 'ing-other-household' })
-    const data = await response.json()
-
-    expect(mockIngredientFindFirst).toHaveBeenCalledWith({
-      where: {
-        id: 'ing-other-household',
-        OR: [{ householdId: null }, { householdId: 'household-123' }],
-      },
-      select: { id: true },
-    })
-    expect(response.status).toBe(400)
-    expect(data).toEqual({ error: 'Ingredient not found' })
-    expect(mockTransaction).not.toHaveBeenCalled()
-  })
-
-  it('rejects an empty-string ingredientId as not found rather than writing it', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-    mockIngredientFindFirst.mockResolvedValue(null)
-
-    const response = await patchRequest('custom-1', { ingredientId: '' })
-
-    expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'Ingredient not found' })
-    expect(mockTransaction).not.toHaveBeenCalled()
-  })
-
-  it('unlinks with ingredientId null without an ingredient lookup', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-    } as never)
-    const txUpdateSpy = vi.fn().mockResolvedValue({ id: 'custom-1', ingredientId: null })
-    mockTransaction.mockImplementation(async (fn) =>
-      (fn as (t: unknown) => Promise<unknown>)({
-        customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: vi.fn() },
-      }),
-    )
-
-    const response = await patchRequest('custom-1', { ingredientId: null })
-
-    expect(response.status).toBe(200)
-    expect(mockIngredientFindFirst).not.toHaveBeenCalled()
-    expect(txUpdateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { ingredientId: null } }),
-    )
-  })
-
-  it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-    } as never)
-    mockTransaction.mockRejectedValue(new Error('db down'))
-
-    const response = await patchRequest('custom-1', { checked: true })
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
-    // would not be JSON at all, which is the regression this guards.
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
-  })
-
-  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-    } as never)
-
-    const response = await patchRequest('custom-1', undefined, 'not json')
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
   })
 })
 
 describe('DELETE /api/shopping-list/custom/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await deleteRequest('custom-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(del('custom-1'))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
+    })
+    expect(mockDelete).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await deleteRequest('custom-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 404 when item does not exist', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-
-    const response = await deleteRequest('custom-nope')
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Item not found')
+    expect(await answer(del('custom-1'))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
+    })
     expect(mockDelete).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when item belongs to a different household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-OTHER',
-      name: 'Salt',
-    } as never)
+  it("deletes the household's item and returns success", async () => {
+    mockDelete.mockResolvedValue(true)
 
-    const response = await deleteRequest('custom-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Item not found')
-    expect(mockDelete).not.toHaveBeenCalled()
+    expect(await answer(del('custom-1'))).toEqual({ status: 200, body: { success: true } })
+    expect(mockDelete).toHaveBeenCalledWith('household-123', 'custom-1')
   })
 
-  it('deletes the item and returns success', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-    } as never)
-    mockDelete.mockResolvedValue({} as never)
+  it('returns 404 when the household has no item with this id', async () => {
+    mockDelete.mockResolvedValue(false)
 
-    const response = await deleteRequest('custom-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'custom-1' } })
+    expect(await answer(del('custom-nope'))).toEqual({
+      status: 404,
+      body: { error: 'Item not found' },
+    })
   })
 
-  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-    } as never)
-    mockDelete.mockRejectedValue(new Error('db down'))
+  it('returns 500 and reports the error when the delete throws', async () => {
+    const error = new Error('db down')
+    mockDelete.mockRejectedValue(error)
 
-    const response = await deleteRequest('custom-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
+    expect(await answer(del('custom-1'))).toEqual({
+      status: 500,
+      body: { error: 'Failed to delete item' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/shopping-list/custom/[id]',
+      userId: 'user-123',
+    })
   })
 })

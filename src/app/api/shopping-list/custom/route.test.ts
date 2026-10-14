@@ -1,362 +1,190 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
+
+// The matching and the writes live in `@/lib/shopping/custom-items`, tested
+// against a database in `custom-items.db.test.ts`. This file mocks that module
+// at the seam and asserts what the route owns: the session, the household, the
+// body, and the status each outcome maps to (HON-1208).
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    customShoppingItem: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      create: vi.fn(),
-    },
-    $queryRaw: vi.fn(),
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/shopping/custom-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/custom-items')>()),
+  addCustomShoppingItem: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { addCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindUnique = vi.mocked(prisma.customShoppingItem.findUnique)
-const mockUpdate = vi.mocked(prisma.customShoppingItem.update)
-const mockCreate = vi.mocked(prisma.customShoppingItem.create)
-const mockQueryRaw = vi.mocked(prisma.$queryRaw)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockAdd = vi.mocked(addCustomShoppingItem)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
+} as never
+
+const household = {
+  id: 'household-123',
+  name: 'Test Household',
+  timezone: 'Europe/Tallinn',
+  locale: 'et',
 }
 
-const mockMembership = {
+const membership = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: {
-    id: 'household-123',
-    name: 'Test Household',
-    timezone: 'Europe/Tallinn',
-    locale: 'en',
-    preferences: null,
-  },
+  household,
+} as never
+
+const item = {
+  id: 'custom-1',
+  householdId: 'household-123',
+  name: 'Salt',
+  checked: false,
+  ingredientId: 'ing-salt',
+  createdAt: '2026-10-15T08:00:00.000Z',
+  ingredient: { id: 'ing-salt', name: 'Salt', category: 'spice' },
 }
 
-/**
- * The auto-match's SQL text and values, with nested `Prisma.sql` fragments
- * flattened in.
- */
-function autoMatchQuery() {
-  const [strings, ...values] = mockQueryRaw.mock.calls[0] as unknown as [
-    TemplateStringsArray,
-    ...unknown[],
-  ]
-  const query = Prisma.sql(strings, ...values)
-  return { sql: query.strings.join('?'), values: query.values }
+function post(body?: unknown, bodyString?: string) {
+  return POST(
+    new Request('http://localhost/api/shopping-list/custom', {
+      method: 'POST',
+      body: bodyString ?? (body !== undefined ? JSON.stringify(body) : undefined),
+    }),
+  )
 }
 
-function createRequest(body?: unknown, bodyString?: string) {
-  return new Request('http://localhost/api/shopping-list/custom', {
-    method: 'POST',
-    body:
-      bodyString !== undefined ? bodyString : body !== undefined ? JSON.stringify(body) : undefined,
-  })
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
 }
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership)
+})
 
 describe('POST /api/shopping-list/custom', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    // Default: no fuzzy match
-    mockQueryRaw.mockResolvedValue([] as never)
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const response = await POST(createRequest(undefined, 'not valid json'))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 400 when name is empty', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const response = await POST(createRequest({ name: '' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 when name exceeds 200 chars', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const response = await POST(createRequest({ name: 'x'.repeat(201) }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('unchecks and returns 200 when item already exists and is checked (re-add)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: true,
-      ingredientId: null,
-    } as never)
-    mockUpdate.mockResolvedValue({
-      id: 'custom-1',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-      ingredient: null,
-    } as never)
-
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.item.checked).toBe(false)
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'custom-1' },
-      data: { checked: false },
-      include: expect.any(Object),
+    expect(await answer(post(undefined, 'not valid json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
-  it('returns 409 when unchecked duplicate exists', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
+  it.each([
+    ['empty', ''],
+    ['whitespace only', '   '],
+    ['over 200 characters', 'x'.repeat(201)],
+  ])('returns 400 with details when the name is %s', async (_label, name) => {
+    const { status, body } = await answer(post({ name }))
+
+    expect(status).toBe(400)
+    expect(body).toEqual({ error: 'Validation failed', details: { name: [expect.any(String)] } })
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 with details when the name is missing', async () => {
+    const { status, body } = await answer(post({}))
+
+    expect(status).toBe(400)
+    expect(body).toEqual({ error: 'Validation failed', details: { name: [expect.any(String)] } })
+  })
+
+  it('adds the trimmed name for the household and returns 201 with the created item', async () => {
+    mockAdd.mockResolvedValue({ status: 'created', item } as never)
+
+    expect(await answer(post({ name: '  Salt  ' }))).toEqual({ status: 201, body: { item } })
+    expect(mockAdd).toHaveBeenCalledWith(household, 'Salt')
+  })
+
+  it('returns 200 with the item when a checked item is reopened', async () => {
+    mockAdd.mockResolvedValue({ status: 'reopened', item } as never)
+
+    expect(await answer(post({ name: 'Salt' }))).toEqual({ status: 200, body: { item } })
+  })
+
+  it('returns 409 with the existing item when the name is on the list already', async () => {
     const existing = {
       id: 'custom-1',
       householdId: 'household-123',
       name: 'Salt',
       checked: false,
       ingredientId: null,
+      createdAt: '2026-10-15T08:00:00.000Z',
     }
-    mockFindUnique.mockResolvedValue(existing as never)
+    mockAdd.mockResolvedValue({ status: 'exists', existing } as never)
 
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(data.error).toBe('Item already exists')
-    expect(data.existing.id).toBe('custom-1')
-    expect(mockCreate).not.toHaveBeenCalled()
-  })
-
-  it('creates item with no match when fuzzy search returns nothing', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockQueryRaw.mockResolvedValue([] as never)
-    mockCreate.mockResolvedValue({
-      id: 'custom-new',
-      householdId: 'household-123',
-      name: 'Weird thing',
-      checked: false,
-      ingredientId: null,
-      ingredient: null,
-    } as never)
-
-    const response = await POST(createRequest({ name: 'Weird thing' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.item.id).toBe('custom-new')
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: {
-        householdId: 'household-123',
-        name: 'Weird thing',
-        ingredientId: null,
-      },
-      include: expect.any(Object),
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 409,
+      body: { error: 'Item already exists', existing },
     })
   })
 
-  it('creates item with matched ingredient when fuzzy search hits', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockQueryRaw.mockResolvedValue([
-      { id: 'ing-salt', name: 'Salt', category: 'seasoning', similarity: 0.9 },
-    ] as never)
-    mockCreate.mockResolvedValue({
-      id: 'custom-new',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
-    } as never)
+  it('returns 409 without an existing item when a concurrent add removed it again', async () => {
+    mockAdd.mockResolvedValue({ status: 'exists', existing: null })
 
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.item.ingredientId).toBe('ing-salt')
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: {
-        householdId: 'household-123',
-        name: 'Salt',
-        ingredientId: 'ing-salt',
-      },
-      include: expect.any(Object),
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 409,
+      body: { error: 'Item already exists' },
     })
   })
 
-  it("scopes the fuzzy match to global and this household's ingredients", async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockCreate.mockResolvedValue({ id: 'custom-new', ingredient: null } as never)
+  it('returns 500 and reports the error when adding throws', async () => {
+    const error = new Error('DB down')
+    mockAdd.mockRejectedValue(error)
 
-    await POST(createRequest({ name: 'Salt' }))
-
-    const { sql, values } = autoMatchQuery()
-    expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?\)/)
-    expect(values).toContain('household-123')
-    // English household: the English name alone, no translation join
-    expect(sql).not.toContain('ingredient_translation')
-    expect(sql).toContain('WHERE similarity(i.name, ?) >= ?')
-  })
-
-  // HON-911: an Estonian household types item names in Estonian.
-  it("matches an Estonian household's item against translated ingredient names", async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockMembership.household, locale: 'et' },
-    } as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockQueryRaw.mockResolvedValue([{ id: 'ing-potato', similarity: 1 }] as never)
-    mockCreate.mockResolvedValue({ id: 'custom-new', ingredientId: 'ing-potato' } as never)
-
-    const response = await POST(createRequest({ name: 'Kartul' }))
-
-    expect(response.status).toBe(201)
-    const { sql, values } = autoMatchQuery()
-    expect(sql).toContain(
-      'LEFT JOIN "ingredient_translation" t ON t."ingredientId" = i.id AND t.locale = ?',
-    )
-    expect(sql).toContain(
-      'WHERE GREATEST(similarity(i.name, ?), COALESCE(similarity(t.name, ?), 0)) >= ?',
-    )
-    expect(values).toEqual(expect.arrayContaining(['et', 'Kartul', 0.4, 'household-123']))
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: { householdId: 'household-123', name: 'Kartul', ingredientId: 'ing-potato' },
-      include: expect.any(Object),
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to create item' },
     })
-  })
-
-  it('swallows fuzzy search failure and creates item without match', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockQueryRaw.mockRejectedValue(new Error('similarity extension missing'))
-    mockCreate.mockResolvedValue({
-      id: 'custom-new',
-      householdId: 'household-123',
-      name: 'Salt',
-      checked: false,
-      ingredientId: null,
-      ingredient: null,
-    } as never)
-
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: {
-        householdId: 'household-123',
-        name: 'Salt',
-        ingredientId: null,
-      },
-      include: expect.any(Object),
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/shopping-list/custom',
+      userId: 'user-123',
     })
-  })
-
-  it('returns 409 when Prisma throws P2002 unique violation', async () => {
-    const { Prisma } = await import('@/generated/prisma/client')
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockCreate.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-        code: 'P2002',
-        clientVersion: 'test',
-      }),
-    )
-
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(data.error).toBe('Item already exists')
-  })
-
-  it('returns 500 when Prisma throws a generic error', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockCreate.mockRejectedValue(new Error('DB down'))
-
-    const response = await POST(createRequest({ name: 'Salt' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to create item')
   })
 })

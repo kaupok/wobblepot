@@ -1,22 +1,20 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
-import { computeShoppingList } from '@/lib/meal-planning/shopping-list'
-import { toDateString, parseLocalDate, getTodayInTimezone } from '@/lib/meal-planning/dates'
 import {
-  calendarDaysBetween,
-  formatRelativeDate,
-  formatAbsoluteDate,
-} from '@/lib/i18n/format-dates'
-import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+  loadPlanShoppingList,
+  ShoppingPlanError,
+  type ShoppingPlanRefusal,
+} from '@/lib/shopping/load-shopping-list'
 import { captureApiError } from '@/lib/errors'
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  // Auth check
+const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
+  planNotFound: { status: 404, error: 'Meal plan not found' },
+  otherHousehold: { status: 403, error: 'Access denied to this meal plan' },
+}
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -25,155 +23,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get household membership
   const membership = await getHouseholdMembership(session.user.id)
 
   if (!membership) {
     return NextResponse.json({ error: 'No household found' }, { status: 404 })
   }
 
-  const { household } = membership
-
-  // Extract plan ID from params
   const { id } = await params
 
   try {
-    // Fetch plan to verify existence and ownership
-    const plan = await prisma.mealPlan.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        householdId: true,
-        createdAt: true,
-      },
-    })
-
-    // Return 404 if plan not found
-    if (!plan) {
-      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    // Return 403 if plan belongs to different household
-    if (plan.householdId !== household.id) {
-      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-    }
-
-    // One locale for names, quantities and dates, resolved once from the
-    // household already in hand. `getLocale()` would repeat the session and
-    // membership reads, which React `cache()` does not dedupe in a Route
-    // Handler (HON-921).
-    const locale = resolveHouseholdLocale(household)
-
-    // Compute shopping list using HON-64 logic
-    // Pass timezone to filter out past meals (users don't need ingredients for missed meals)
-    const groupedList = await computeShoppingList(plan.id, household.id, household.timezone, locale)
-
-    // A date-namespace translator for the relative-date label.
-    // The reference for "today" is the household's local day, not the server's,
-    // so a household in Europe/Tallinn at 23:30 local sees the right label
-    // even when the server clock is in a different timezone.
-    const [tDates, tVague, tUnit] = await Promise.all([
-      getTranslations({ locale, namespace: 'dates' }),
-      getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
-      getTranslations({ locale, namespace: 'enums.Unit' }),
-    ])
-    const pieceLabel = tUnit('piece')
-    const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
-
-    // Fetch pantry items for purchase tracking
-    const pantryItems = await prisma.pantryItem.findMany({
-      where: { householdId: household.id },
-      select: {
-        ingredientId: true,
-        quantity: true,
-        updatedAt: true,
-      },
-    })
-    const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
-
-    // Transform to response format with display quantities and purchase status
-    let totalItems = 0
-    let purchasedItems = 0
-
-    const groups = groupedList.map((group) => {
-      // Map items with purchase status and needed-by date
-      const mappedItems = group.items.map((item) => {
-        const pantryItem = pantryMap.get(item.ingredientId)
-        // Item is purchased if its pantry quantity is null ("have some") and was
-        // set after the plan was created. A purchase always sets null, so any
-        // other quantity is not a purchase, as in `loadShoppingList`
-        // (HON-1173, HON-1176). `computeShoppingList` drops a null item today,
-        // so a listed item does not read as purchased; see `loadShoppingList`
-        // for why the condition stays.
-        const purchased = pantryItem
-          ? pantryItem.quantity === null && pantryItem.updatedAt >= plan.createdAt
-          : false
-
-        totalItems++
-        if (purchased) purchasedItems++
-
-        return {
-          ingredientId: item.ingredientId,
-          name: item.ingredient.name,
-          quantity: item.shoppingQuantity,
-          unit: item.ingredient.defaultUnit,
-          displayQuantity: formatShoppingQuantity(
-            item.shoppingQuantity,
-            displayUnit(item.ingredient),
-            locale,
-            item.isVague,
-            item.originalPhrase,
-            tVague,
-            pieceLabel,
-          ),
-          mealCount: item.mealCount,
-          purchased,
-          neededByDate: toDateString(item.earliestNeededDate),
-          neededByRelative: formatRelativeDate(item.earliestNeededDate, locale, tDates, {
-            referenceDate: todayInTz,
-            timeZone: household.timezone,
-          }),
-          neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate, locale, {
-            timeZone: household.timezone,
-          }),
-          // Same reference day as `neededByRelative`, so the warning colour and
-          // the "Today" label cannot disagree (HON-762). Overdue counts as today.
-          dueToday:
-            calendarDaysBetween(todayInTz, item.earliestNeededDate, household.timezone) <= 0,
-          isVague: item.isVague,
-        }
-      })
-
-      // Sort items: unpurchased by date ASC, then purchased at bottom
-      mappedItems.sort((a, b) => {
-        // Purchased items go to bottom
-        if (a.purchased !== b.purchased) {
-          return a.purchased ? 1 : -1
-        }
-        // Within same purchase status, sort by date (earliest first)
-        return a.neededByDate.localeCompare(b.neededByDate)
-      })
-
-      return {
-        category: group.category,
-        categoryLabel: group.categoryLabel,
-        items: mappedItems,
-      }
-    })
-
-    const response = {
-      planId: plan.id,
-      generatedAt: plan.createdAt.toISOString(),
-      groups,
-      summary: {
-        totalItems,
-        purchasedItems,
-        remainingItems: totalItems - purchasedItems,
-      },
-    }
-
-    return NextResponse.json(response, { status: 200 })
+    // The read, the purchase status and the formatting live in
+    // `loadPlanShoppingList`, in the household's locale (HON-921, HON-1208).
+    const list = await loadPlanShoppingList(membership.household, id)
+    return NextResponse.json(list, { status: 200 })
   } catch (error) {
+    if (error instanceof ShoppingPlanError) {
+      const { status, error: message } = REFUSALS[error.reason]
+      return NextResponse.json({ error: message }, { status })
+    }
     captureApiError(error, { route: '/api/meal-plans/[id]/shopping-list', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch shopping list' }, { status: 500 })
   }

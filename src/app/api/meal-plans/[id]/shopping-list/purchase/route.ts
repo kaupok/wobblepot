@@ -2,13 +2,10 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { compareIngredientIds } from '@/lib/meal-planning/pantry'
-import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { ShoppingPlanError, type ShoppingPlanRefusal } from '@/lib/shopping/load-shopping-list'
+import { purchasePlanIngredients } from '@/lib/shopping/purchase'
 
 const purchaseSchema = z
   .object({
@@ -23,20 +20,9 @@ const purchaseSchema = z
     message: 'Either ingredientId or ingredientIds must be provided',
   })
 
-type PurchaseResult = {
-  ingredientId: string
-  pantryItem: {
-    id: string
-    ingredient: {
-      id: string
-      name: string
-      category: string
-      defaultUnit: string
-    }
-    quantity: number | null
-    isStaple: boolean
-    updatedAt: string
-  }
+const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
+  planNotFound: { status: 404, error: 'Meal plan not found' },
+  otherHousehold: { status: 403, error: 'Access denied to this meal plan' },
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -58,20 +44,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { household } = membership
     const { id: planId } = await params
 
-    // Verify plan exists and belongs to household
-    const plan = await prisma.mealPlan.findUnique({
-      where: { id: planId },
-      select: { id: true, householdId: true },
-    })
-
-    if (!plan) {
-      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    if (plan.householdId !== household.id) {
-      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-    }
-
     let body
     try {
       body = await request.json()
@@ -88,136 +60,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // Normalize to array
     const ingredientIds = parsed.data.ingredientIds ?? [parsed.data.ingredientId!]
 
-    // Validate all ingredients exist and are global or this household's own.
-    // Another household's reads as invalid, so its id is not revealed (HON-889).
-    const ingredients = await prisma.ingredient.findMany({
-      where: {
-        id: { in: ingredientIds },
-        OR: [{ householdId: null }, { householdId: household.id }],
-      },
-      select: { id: true },
-    })
+    // The plan check, the ingredient scoping and the pantry transaction live in
+    // `purchasePlanIngredients`, shared with `/api/shopping-list/purchase`
+    // (HON-1208).
+    const outcome = await purchasePlanIngredients(household, planId, ingredientIds)
 
-    const foundIds = new Set(ingredients.map((i) => i.id))
-    const missingIds = ingredientIds.filter((id) => !foundIds.has(id))
-
-    if (missingIds.length > 0) {
+    if (outcome.status === 'invalid_ids') {
       return NextResponse.json(
-        { error: 'Invalid ingredient IDs', invalidIds: missingIds },
+        { error: 'Invalid ingredient IDs', invalidIds: outcome.invalidIds },
         { status: 400 },
       )
     }
 
-    // Take the pantry row locks in a deterministic order. Every transaction
-    // that locks more than one pantry row has to lock them in the same order:
-    // two that lock the same rows in opposite orders end up each holding the
-    // row the other needs next and deadlock (Postgres 40P01), and the catch
-    // below turns the aborted one into a 500 that rolls the whole purchase
-    // back. The realistic pair is this route and the meal-completion deduction
-    // in PATCH /api/meal-plans/[id]/entries/[entryId] — one member at the shop
-    // marking items purchased while another marks a meal cooked — so both sort
-    // with the same comparator (HON-625, HON-632).
-    //
-    // Deduped as well as sorted: `purchaseSchema` accepts a repeated
-    // `ingredientId`, and upserting one row twice in a single transaction is
-    // pure waste. The response is unaffected, because it is rebuilt below over
-    // the caller's array — a repeated id still appears at both of its
-    // positions.
-    const lockOrderedIngredientIds = [...new Set(ingredientIds)].sort(compareIngredientIds)
-
-    // The client inserts these rows straight into the pantry list, so they
-    // carry the household's name for each ingredient, as `loadPantry` does
-    // (HON-913).
-    const locale = resolveHouseholdLocale(household)
-
-    const select = {
-      id: true,
-      quantity: true,
-      isStaple: true,
-      updatedAt: true,
-      ingredient: {
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          defaultUnit: true,
-          ...ingredientTranslationsInclude(locale),
-        },
-      },
-    } satisfies Prisma.PantryItemSelect
-
-    // Upsert all items in a transaction
-    const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
-      const upserted = new Map<string, PurchaseResult>()
-
-      for (const ingredientId of lockOrderedIngredientIds) {
-        let pantryItem = await tx.pantryItem.upsert({
-          where: {
-            householdId_ingredientId: {
-              householdId: household.id,
-              ingredientId,
-            },
-          },
-          create: {
-            householdId: household.id,
-            ingredientId,
-            quantity: null,
-            isStaple: false,
-          },
-          update: {
-            // Touch updatedAt to mark as recently acquired
-          },
-          select,
-        })
-        // Buying it means "have some", the only state the shopping list reads
-        // as purchased, so a 0 or an entered quantity is replaced, as in
-        // `purchaseIngredients` (HON-1173, HON-1176). The upsert holds the
-        // row lock.
-        if (pantryItem.quantity !== null) {
-          pantryItem = await tx.pantryItem.update({
-            where: { id: pantryItem.id },
-            data: { quantity: null },
-            select,
-          })
-        }
-        const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
-
-        upserted.set(ingredientId, {
-          ingredientId,
-          pantryItem: {
-            id: pantryItem.id,
-            ingredient: {
-              id: ingredientShown.id,
-              name: ingredientShown.name,
-              category: ingredientShown.category,
-              defaultUnit: ingredientShown.defaultUnit,
-            },
-            quantity: pantryItem.quantity,
-            isStaple: pantryItem.isStaple,
-            updatedAt: pantryItem.updatedAt.toISOString(),
-          },
-        })
-      }
-
-      return upserted
-    })
-
-    // Response order is the caller's, deliberately not the lock order above.
-    // `results` is positional — a client that sent N ids reads them back at the
-    // positions it sent them — whereas the sort exists only to decide which
-    // row this transaction locks first, which is nothing the caller can see.
-    // The non-null assertion holds because `lockOrderedIngredientIds` is a
-    // permutation of the distinct values of `ingredientIds`, so every id here
-    // was upserted above.
-    const results: PurchaseResult[] = ingredientIds.map((ingredientId) =>
-      upsertedByIngredientId.get(ingredientId)!,
-    )
+    // This route has never returned `replacedQuantity`; only the MCP tool reads it.
+    const results = outcome.results.map(({ ingredientId, pantryItem }) => ({
+      ingredientId,
+      pantryItem,
+    }))
 
     return NextResponse.json({ success: true, results }, { status: 200 })
   } catch (error) {
+    if (error instanceof ShoppingPlanError) {
+      const { status, error: message } = REFUSALS[error.reason]
+      return NextResponse.json({ error: message }, { status })
+    }
     captureApiError(error, {
       route: '/api/meal-plans/[id]/shopping-list/purchase',
       userId: session.user.id,
