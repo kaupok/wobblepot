@@ -63,13 +63,12 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-// The review-row translation overlay (HON-913) reads translation rows directly.
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    ingredientTranslation: {
-      findMany: vi.fn(async () => []),
-    },
-  },
+// The review-row name overlay (HON-913) has its own tests in
+// `translate-match-results.test.ts`. Here it passes results through unless a
+// test says otherwise, so this file asserts the locale the route passes and
+// that the response carries the overlay's names (HON-1212).
+vi.mock('@/lib/ai/translate-match-results', () => ({
+  translateMatchResults: vi.fn(async (results: unknown) => results),
 }))
 
 import { auth } from '@/lib/auth'
@@ -81,7 +80,7 @@ import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { captureApiError } from '@/lib/errors'
 import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
-import { prisma } from '@/lib/prisma'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -91,7 +90,7 @@ const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
 const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockGetServerFlag = vi.mocked(getServerFlag)
-const mockTranslationFindMany = vi.mocked(prisma.ingredientTranslation.findMany)
+const mockTranslateMatchResults = vi.mocked(translateMatchResults)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -484,15 +483,27 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
   it('returns the household names for the review rows and their alternatives (HON-913)', async () => {
     mockGetMembership.mockResolvedValue(membership('et') as never)
     parseWithPepper()
-    mockTranslationFindMany.mockResolvedValueOnce([
-      { ingredientId: 'ing-pepper', name: 'must pipar' },
-      { ingredientId: 'ing-white', name: 'valge pipar' },
-    ] as never)
+    const estonian: Record<string, string> = {
+      'ing-pepper': 'must pipar',
+      'ing-white': 'valge pipar',
+    }
+    mockTranslateMatchResults.mockImplementationOnce(async (results) =>
+      results.map((r) =>
+        r.type === 'matched'
+          ? {
+              ...r,
+              ingredient: { ...r.ingredient, name: estonian[r.ingredient.id]! },
+              alternatives: r.alternatives?.map((alt) => ({ ...alt, name: estonian[alt.id]! })),
+            }
+          : r,
+      ),
+    )
 
     const response = await POST(jsonRequest({ text: 'Eesti retsept: 1 tl musta pipart.' }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
+    expect(mockTranslateMatchResults).toHaveBeenCalledWith(expect.any(Array), 'et')
     const [row] = data.recipe.ingredients
     expect(row.ingredient).toMatchObject({ id: 'ing-pepper', name: 'must pipar' })
     expect(row.alternatives.map((a: { name: string }) => a.name)).toEqual([
@@ -501,14 +512,14 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     ])
   })
 
-  it('keeps the English review-row names for an English household', async () => {
+  it('asks for the English review-row names for an English household', async () => {
     mockGetMembership.mockResolvedValue(membership('en') as never)
     parseWithPepper()
 
     const response = await POST(jsonRequest({ text: 'Recipe: 1 tsp black pepper.' }))
     const data = await response.json()
 
-    expect(mockTranslationFindMany).not.toHaveBeenCalled()
+    expect(mockTranslateMatchResults).toHaveBeenCalledWith(expect.any(Array), 'en')
     expect(data.recipe.ingredients[0].ingredient.name).toBe('black pepper')
   })
 
