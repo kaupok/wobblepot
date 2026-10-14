@@ -1,148 +1,134 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
 
+// The entry read lives in `@/lib/meal-plans/slot-context` (tested against a
+// database in `slot-context.db.test.ts`) and the ranking in
+// `@/lib/meal-planning/slot-suggestions` (`slot-suggestions.test.ts`). This
+// file mocks both at the seam and asserts what the route owns: the session,
+// the household, the rate limit, the cost cap, and the status each answer
+// maps to (HON-1206).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    mealPlanEntry: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-    },
-    favoriteMeal: {
-      findMany: vi.fn(),
-    },
-    meal: {
-      findMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/candidates', () => ({
-  getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
+vi.mock('@/lib/meal-plans/slot-context', () => ({
+  loadSlotEntry: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/pantry', () => ({
-  getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
+vi.mock('@/lib/meal-planning/slot-suggestions', () => ({
+  suggestForSlot: vi.fn(),
 }))
-
-vi.mock('@/lib/meal-planning/nutrition', () => ({
-  computeMealNutrition: vi.fn(() => ({
-    calories: 350,
-    protein: 25,
-    carbs: 35,
-    fat: 12,
-  })),
-}))
-
-// Only the jitter is replaced: the weights and scoreCandidate() stay real, so a test that
-// stubs the draw pins the ranking the route actually ships (HON-709).
-vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/meal-planning/candidate-score')>()
-  return { ...actual, randomScoreJitter: vi.fn(() => 0) }
-})
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
   retryAfterSeconds: vi.fn(() => 120),
 }))
 
-vi.mock('@/lib/ai/usage', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
-  return {
-    ...actual,
-    assertUnderCap: vi.fn(),
-  }
-})
+vi.mock('@/lib/ai/usage', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ai/usage')>()),
+  assertUnderCap: vi.fn(),
+}))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
-import { getCandidates } from '@/lib/meal-planning/candidates'
-import { assertUnderCap } from '@/lib/ai/usage'
+import { captureApiError } from '@/lib/errors'
+import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
+import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { randomScoreJitter } from '@/lib/meal-planning/candidate-score'
+import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockRandomJitter = vi.mocked(randomScoreJitter)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindFirstEntry = vi.mocked(prisma.mealPlanEntry.findFirst)
-const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
-const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
-const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
-const mockGetCandidates = vi.mocked(getCandidates)
-const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockLoadSlotEntry = vi.mocked(loadSlotEntry)
+const mockSuggestForSlot = vi.mocked(suggestForSlot)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
 } as never
 
+const household = {
+  id: 'household-123',
+  name: 'Test',
+  timezone: 'Europe/Tallinn',
+  locale: 'et',
+  preferences: null,
+}
+
 const mockMembership = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', preferences: null },
+  household,
 } as never
 
-const createParams = (id: string = 'plan-123', entryId: string = 'entry-123') =>
-  Promise.resolve({ id, entryId })
-
-const createRequest = () =>
-  new Request('http://localhost/api/meal-plans/plan-123/entries/entry-123/regenerate', {
-    method: 'POST',
-  })
-
-const mockEntry = {
+const entry = {
   id: 'entry-123',
   planId: 'plan-123',
   date: new Date('2099-01-28T00:00:00.000Z'),
   mealType: 'dinner',
   mealId: 'meal-current',
-  plan: {
-    id: 'plan-123',
-    householdId: 'household-123',
-  },
-  meal: {
-    id: 'meal-current',
-    timeMinutes: 30,
-    primaryProteinType: 'poultry',
-  },
+  meal: { id: 'meal-current', timeMinutes: 30, primaryProteinType: 'poultry' },
+} as const
+
+const post = () =>
+  POST(
+    new Request('http://localhost/api/meal-plans/plan-123/entries/entry-123/regenerate', {
+      method: 'POST',
+    }),
+    { params: Promise.resolve({ id: 'plan-123', entryId: 'entry-123' }) },
+  )
+
+async function answer(response: Response | Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
 }
 
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+  mockCheckRateLimit.mockResolvedValue({
+    allowed: true,
+    remaining: 59,
+    limit: 60,
+    resetAt: new Date('2026-02-01T12:00:00.000Z'),
+  })
+  mockAssertUnderCap.mockResolvedValue(undefined)
+  mockLoadSlotEntry.mockResolvedValue(entry as never)
+})
+
 describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockCheckRateLimit.mockResolvedValue({
-      allowed: true,
-      remaining: 59,
-      limit: 60,
-      resetAt: new Date('2026-02-01T12:00:00.000Z'),
-    })
-    mockAssertUnderCap.mockResolvedValue(undefined)
-    mockRandomJitter.mockReturnValue(0)
+  it('returns 401 when not authenticated', async () => {
+    mockGetSession.mockResolvedValue(null)
+
+    expect(await answer(post())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
+  })
+
+  it('returns 404 when user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
+
+    expect(await answer(post())).toEqual({ status: 404, body: { error: 'No household found' } })
   })
 
   it('returns 429 with Retry-After from the shared suggestions bucket, before any DB work', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
     mockCheckRateLimit.mockResolvedValue({
       allowed: false,
       remaining: 0,
@@ -150,427 +136,72 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
 
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await post()
 
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('120')
-    expect(data.error).toBe('Rate limit exceeded')
+    expect(await response.json()).toEqual({
+      error: 'Rate limit exceeded',
+      message: 'Maximum 60 suggestion requests per hour',
+      resetAt: '2026-02-01T12:00:00.000Z',
+    })
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-suggestions')
     expect(mockAssertUnderCap).not.toHaveBeenCalled()
-    expect(mockFindFirstEntry).not.toHaveBeenCalled()
-    expect(mockFindManyEntries).not.toHaveBeenCalled()
-    expect(mockGetCandidates).not.toHaveBeenCalled()
+    expect(mockLoadSlotEntry).not.toHaveBeenCalled()
   })
 
-  it('returns 401 when not authenticated', async () => {
-    mockGetSession.mockResolvedValue(null)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(null)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 404 when entry not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstEntry.mockResolvedValue(null)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Entry not found or access denied')
-  })
-
-  it('returns 404 when no alternatives available', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstEntry.mockResolvedValue(mockEntry as never)
-    mockFindManyEntries.mockResolvedValue([])
-    mockFindManyFavorites.mockResolvedValue([])
-    mockGetCandidates.mockResolvedValue([])
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No alternative meals available matching your preferences')
-  })
-
-  it('returns alternatives on success', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstEntry.mockResolvedValue(mockEntry as never)
-    mockFindManyEntries.mockResolvedValue([])
-    mockFindManyFavorites.mockResolvedValue([])
-
-    const mockCandidates = [
-      {
-        id: 'meal-alt-1',
-        name: 'Salmon Bowl',
-        kidFriendly: true,
-        primaryProteinType: 'fish',
-        topIngredients: [{ name: 'Salmon' }],
-        isFavorite: false,
-        isCustom: false,
-      },
-      {
-        id: 'meal-alt-2',
-        name: 'Beef Stir Fry',
-        kidFriendly: false,
-        primaryProteinType: 'beef',
-        topIngredients: [{ name: 'Beef' }],
-        isFavorite: true,
-        isCustom: true,
-      },
-    ]
-    mockGetCandidates.mockResolvedValue(mockCandidates as never)
-
-    // Mock timeMinutes lookup
-    mockFindManyMeals
-      .mockResolvedValueOnce([
-        { id: 'meal-alt-1', timeMinutes: 25 },
-        { id: 'meal-alt-2', timeMinutes: 35 },
-      ] as never)
-      // Mock full meal details
-      .mockResolvedValueOnce([
-        {
-          id: 'meal-alt-1',
-          name: 'Salmon Bowl',
-          description: 'Fresh salmon',
-          timeMinutes: 25,
-          kidFriendly: true,
-          primaryProteinType: 'fish',
-          suitableFor: ['dinner'],
-          imageUrl: 'https://blob/salmon.png',
-          imageStatus: 'ready',
-          imageHue: 30,
-          imagePromptVersion: 'v4',
-          components: [
-            {
-              ingredientId: 'ing-10',
-              quantityPerServing: 200,
-              isVague: false,
-              originalPhrase: null,
-              ingredient: {
-                id: 'ing-10',
-                name: 'Salmon',
-                category: 'protein',
-                defaultUnit: 'g',
-                gramsPerPiece: null,
-              },
-            },
-          ],
-        },
-        {
-          id: 'meal-alt-2',
-          name: 'Beef Stir Fry',
-          description: 'Quick stir fry',
-          timeMinutes: 35,
-          kidFriendly: false,
-          primaryProteinType: 'beef',
-          suitableFor: ['dinner'],
-          components: [],
-        },
-      ] as never)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.alternatives).toBeDefined()
-    expect(data.alternatives.length).toBeLessThanOrEqual(3)
-    expect(data.alternatives.length).toBeGreaterThan(0)
-
-    const alt = data.alternatives[0]
-    expect(alt.id).toBeDefined()
-    expect(alt.name).toBeDefined()
-    expect(alt.nutrition).toBeDefined()
-
-    // The card tint reads these straight off the payload (HON-746).
-    const salmon = data.alternatives.find((a: { id: string }) => a.id === 'meal-alt-1')
-    expect(salmon).toMatchObject({
-      imageUrl: 'https://blob/salmon.png',
-      imageStatus: 'ready',
-      imageHue: 30,
-    })
-
-    // The selector marks the household's own recipes (HON-948).
-    const isCustomById = Object.fromEntries(
-      data.alternatives.map((a: { id: string; isCustom: boolean }) => [a.id, a.isCustom]),
+  it('answers the cost cap before any DB work', async () => {
+    mockAssertUnderCap.mockRejectedValue(
+      new AiCostCapExceededError(new Date('2099-02-01T00:00:00.000Z'), 'Europe/Tallinn'),
     )
-    expect(isCustomById).toEqual({ 'meal-alt-1': false, 'meal-alt-2': true })
+
+    const { status, body } = await answer(post())
+
+    expect(status).toBe(429)
+    expect(body.error).toBe('AI usage cap exceeded')
+    expect(mockLoadSlotEntry).not.toHaveBeenCalled()
   })
 
-  describe('tie-break jitter', () => {
-    // A first-run household: no favourites, custom meals or pantry, so every candidate ties
-    // and the jitter alone decides the top 3.
-    const tiedPool = ['meal-a', 'meal-b', 'meal-c', 'meal-d', 'meal-e'].map((id) => ({
-      id,
-      name: id,
-      kidFriendly: false,
-      primaryProteinType: 'beef',
-      topIngredients: [],
-      isFavorite: false,
-      isCustom: false,
-    }))
+  it('returns 404 when the entry is not in this plan of this household', async () => {
+    mockLoadSlotEntry.mockResolvedValue(null)
 
-    function arrange() {
-      mockGetSession.mockResolvedValue(mockSession)
-      mockGetMembership.mockResolvedValue(mockMembership)
-      mockFindFirstEntry.mockResolvedValue(mockEntry as never)
-      mockFindManyEntries.mockResolvedValue([])
-      mockFindManyFavorites.mockResolvedValue([])
-      mockGetCandidates.mockResolvedValue(tiedPool as never)
-      mockFindManyMeals.mockImplementation((({ where }: { where: { id: { in: string[] } } }) =>
-        Promise.resolve(
-          where.id.in.map((id) => ({
-            id,
-            name: id,
-            description: null,
-            timeMinutes: 30,
-            kidFriendly: false,
-            primaryProteinType: 'beef',
-            suitableFor: ['dinner'],
-            components: [],
-          })),
-        )) as never)
-    }
-
-    function stubDraws(draws: Record<string, number>) {
-      mockRandomJitter.mockImplementation(({ candidateId }) => draws[candidateId] ?? 0)
-    }
-
-    async function topThree() {
-      const response = await POST(createRequest(), { params: createParams() })
-      const data = await response.json()
-      expect(response.status).toBe(200)
-      return data.alternatives.map((a: { id: string }) => a.id)
-    }
-
-    it('ranks a tied pool exactly by the stubbed jitter', async () => {
-      arrange()
-      stubDraws({ 'meal-a': 0.1, 'meal-b': 0.4, 'meal-c': 0.2, 'meal-d': 0.3, 'meal-e': 0 })
-
-      expect(await topThree()).toEqual(['meal-b', 'meal-d', 'meal-c'])
-      for (const { id } of tiedPool) {
-        expect(mockRandomJitter).toHaveBeenCalledWith({
-          entryId: 'entry-123',
-          dateString: expect.any(String),
-          candidateId: id,
-        })
-      }
+    expect(await answer(post())).toEqual({
+      status: 404,
+      body: { error: 'Entry not found or access denied' },
     })
+    expect(mockLoadSlotEntry).toHaveBeenCalledWith('household-123', 'plan-123', 'entry-123')
+    expect(mockSuggestForSlot).not.toHaveBeenCalled()
+  })
 
-    it('can return a different top 3 when the same entry is opened again', async () => {
-      arrange()
-      stubDraws({ 'meal-a': 0.4, 'meal-b': 0.3, 'meal-c': 0.2, 'meal-d': 0.1, 'meal-e': 0 })
-      const first = await topThree()
+  it('returns 404 when no meal passes the filters', async () => {
+    mockSuggestForSlot.mockResolvedValue([])
 
-      stubDraws({ 'meal-a': 0, 'meal-b': 0.1, 'meal-c': 0.2, 'meal-d': 0.3, 'meal-e': 0.4 })
-      const second = await topThree()
-
-      expect(first).toEqual(['meal-a', 'meal-b', 'meal-c'])
-      expect(second).toEqual(['meal-e', 'meal-d', 'meal-c'])
-    })
-
-    // HON-340: the household's own ratings move the ranking by more than any jitter draw.
-    it('asks for the household-scoped net rating on the candidate query', async () => {
-      arrange()
-      await topThree()
-
-      expect(mockGetCandidates).toHaveBeenCalledWith(
-        expect.objectContaining({ householdId: 'household-123', includeNetRating: true }),
-      )
-    })
-
-    it('lifts a liked meal and drops a disliked one past the jitter, and says why', async () => {
-      arrange()
-      mockGetCandidates.mockResolvedValue(
-        tiedPool.map((c) =>
-          c.id === 'meal-a'
-            ? { ...c, netRating: -2 }
-            : c.id === 'meal-e'
-              ? { ...c, netRating: 1 }
-              : { ...c, netRating: 0 },
-        ) as never,
-      )
-      // Jitter alone would pick a, b, c — a highest, e lowest.
-      stubDraws({ 'meal-a': 0.49, 'meal-b': 0.3, 'meal-c': 0.2, 'meal-d': 0.1, 'meal-e': 0 })
-
-      const response = await POST(createRequest(), { params: createParams() })
-      const data = await response.json()
-
-      expect(data.alternatives.map((a: { id: string }) => a.id)).toEqual([
-        'meal-e',
-        'meal-b',
-        'meal-c',
-      ])
-      expect(data.alternatives[0].ratingSignal).toBe('liked')
-      expect(data.alternatives[1]).not.toHaveProperty('ratingSignal')
-    })
-
-    it('surfaces a disliked meal that still makes the top 3 as disliked', async () => {
-      arrange()
-      mockGetCandidates.mockResolvedValue(
-        tiedPool.slice(0, 2).map((c) => (c.id === 'meal-a' ? { ...c, netRating: -1 } : c)) as never,
-      )
-      stubDraws({})
-
-      const response = await POST(createRequest(), { params: createParams() })
-      const data = await response.json()
-
-      expect(
-        data.alternatives.map((a: { id: string; ratingSignal?: string }) => a.ratingSignal),
-      ).toEqual([undefined, 'disliked'])
+    expect(await answer(post())).toEqual({
+      status: 404,
+      body: { error: 'No alternative meals available matching your preferences' },
     })
   })
 
-  it('excludes current meal from candidates', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstEntry.mockResolvedValue(mockEntry as never)
-    mockFindManyEntries.mockResolvedValue([])
-    mockFindManyFavorites.mockResolvedValue([])
+  it("ranks the entry in swap mode and the household's locale", async () => {
+    const alternatives = [{ id: 'meal-alt-1', name: 'Salmon Bowl' }]
+    mockSuggestForSlot.mockResolvedValue(alternatives as never)
 
-    // Return only the current meal as candidate — should result in empty after filtering
-    mockGetCandidates.mockResolvedValue([
-      {
-        id: 'meal-current',
-        name: 'Current Meal',
-        kidFriendly: true,
-        primaryProteinType: 'poultry',
-        topIngredients: [],
-        isFavorite: false,
-        isCustom: false,
-      },
-    ] as never)
-
-    const response = await POST(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No alternative meals available matching your preferences')
+    expect(await answer(post())).toEqual({ status: 200, body: { alternatives } })
+    expect(mockSuggestForSlot).toHaveBeenCalledWith(household, entry, 'swap', 'et')
   })
 
-  // Generation places the required fish dinner by position in its own range (`pickDay`): a
-  // seven-day range starting Wednesday reserves Friday. The Monday-to-Sunday recompute the swap
-  // routes used to run reserved Wednesday instead, so the routes must not restrict by protein
-  // at all (HON-892). `slots` and `dates` are not mocked in this file, so a reintroduced
-  // recompute would reach `getCandidates` here.
-  describe('protein slots (HON-892)', () => {
-    const wednesday = new Date(2026, 9, 7) // Wed 7 Oct 2026, first day of the generated range
+  it('reports an unexpected failure and returns 500', async () => {
+    const failure = new Error('connection lost')
+    mockSuggestForSlot.mockRejectedValue(failure)
 
-    function mealRow(id: string, primaryProteinType: string) {
-      return {
-        id,
-        name: id,
-        description: null,
-        timeMinutes: 30,
-        kidFriendly: false,
-        primaryProteinType,
-        suitableFor: ['dinner'],
-        components: [],
-      }
-    }
-
-    function arrange({
-      candidates,
-      preferences = null,
-      entry = {},
-    }: {
-      candidates: { id: string; primaryProteinType: string }[]
-      preferences?: Record<string, unknown> | null
-      entry?: Record<string, unknown>
-    }) {
-      mockGetSession.mockResolvedValue(mockSession)
-      mockGetMembership.mockResolvedValue({
-        ...(mockMembership as object),
-        household: { ...(mockMembership as { household: object }).household, preferences },
-      } as never)
-      mockFindFirstEntry.mockResolvedValue({ ...mockEntry, date: wednesday, ...entry } as never)
-      mockFindManyEntries.mockResolvedValue([])
-      mockFindManyFavorites.mockResolvedValue([])
-      mockGetCandidates.mockResolvedValue(
-        candidates.map(({ id, primaryProteinType }) => ({
-          id,
-          name: id,
-          kidFriendly: false,
-          primaryProteinType,
-          topIngredients: [],
-          isFavorite: false,
-          isCustom: false,
-        })) as never,
-      )
-      const byId = new Map(candidates.map((c) => [c.id, c.primaryProteinType]))
-      mockFindManyMeals.mockImplementation((({ where }: { where: { id: { in: string[] } } }) =>
-        Promise.resolve(where.id.in.map((id) => mealRow(id, byId.get(id)!)))) as never)
-    }
-
-    async function post() {
-      const response = await POST(createRequest(), { params: createParams() })
-      expect(response.status).toBe(200)
-      const data = await response.json()
-      return data.alternatives as { id: string; primaryProteinType: string }[]
-    }
-
-    function candidateFilters() {
-      expect(mockGetCandidates).toHaveBeenCalledTimes(1)
-      return mockGetCandidates.mock.calls[0]![0]
-    }
-
-    it('offers non-fish meals for a Wednesday dinner the Monday-based week reserved for fish', async () => {
-      arrange({
-        candidates: [
-          { id: 'meal-salmon', primaryProteinType: 'fish' },
-          { id: 'meal-beef', primaryProteinType: 'beef' },
-        ],
-      })
-
-      const alternatives = await post()
-
-      expect(candidateFilters()).not.toHaveProperty('primaryProteinType')
-      expect(alternatives.map((a) => a.primaryProteinType)).toContain('beef')
+    expect(await answer(post())).toEqual({
+      status: 500,
+      body: { error: 'Failed to generate alternatives' },
     })
-
-    it("ranks a candidate sharing the replaced meal's protein above an otherwise-equal one", async () => {
-      arrange({
-        entry: { meal: { id: 'meal-current', timeMinutes: 30, primaryProteinType: 'fish' } },
-        // Beef is listed first, so only the protein-type similarity can lift the fish meal.
-        candidates: [
-          { id: 'meal-beef', primaryProteinType: 'beef' },
-          { id: 'meal-salmon', primaryProteinType: 'fish' },
-        ],
-      })
-
-      const alternatives = await post()
-
-      expect(alternatives.map((a) => a.id)).toEqual(['meal-salmon', 'meal-beef'])
-    })
-
-    it("passes the household's dietary type to the candidate query as a hard filter", async () => {
-      arrange({
-        preferences: { dietaryType: 'vegetarian', allergensToAvoid: [], excludedIngredientIds: [] },
-        candidates: [{ id: 'meal-lentils', primaryProteinType: 'legume' }],
-      })
-
-      await post()
-
-      expect(candidateFilters()).toMatchObject({ dietaryType: 'vegetarian' })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/meal-plans/[id]/entries/[entryId]/regenerate',
+      userId: 'user-123',
+      feature: 'meal_regenerate',
     })
   })
 })

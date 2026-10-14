@@ -1,54 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST, DELETE } from './route'
 
+// The plan, slot and meal checks and every query live in
+// `@/lib/meal-plans/entries`, tested against a database in
+// `entries.db.test.ts`. This file mocks that module at the seam and asserts
+// what the route owns: the session, the household, body and query validation,
+// and the status and body each answer maps to (HON-1206).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    mealPlan: {
-      findFirst: vi.fn(),
-    },
-    mealPlanEntry: {
-      deleteMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-    },
-    meal: {
-      findFirst: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/dates', () => ({
-  parseLocalDate: vi.fn((dateStr: string) => new Date(`${dateStr}T00:00:00.000Z`)),
-  toDateString: vi.fn((d: Date) => d.toISOString().split('T')[0]),
+vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/entries')>()),
+  createEntry: vi.fn(),
+  deleteEntriesInRange: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import {
+  createEntry,
+  deleteEntriesInRange,
+  EntryCreateError,
+  type EntryCreateRefusal,
+} from '@/lib/meal-plans/entries'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindFirstPlan = vi.mocked(prisma.mealPlan.findFirst)
-const mockDeleteManyEntries = vi.mocked(prisma.mealPlanEntry.deleteMany)
-const mockFindFirstEntry = vi.mocked(prisma.mealPlanEntry.findFirst)
-const mockCreateEntry = vi.mocked(prisma.mealPlanEntry.create)
-const mockFindFirstMeal = vi.mocked(prisma.meal.findFirst)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockCreateEntry = vi.mocked(createEntry)
+const mockDeleteEntriesInRange = vi.mocked(deleteEntriesInRange)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -60,282 +55,183 @@ const mockMembership = {
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', preferences: null },
+  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
 } as never
 
-const createParams = (id: string = 'plan-123') => Promise.resolve({ id })
+const URL = 'http://localhost/api/meal-plans/plan-123/entries'
+const params = () => Promise.resolve({ id: 'plan-123' })
 
-const createPostRequest = (body: Record<string, unknown>) =>
-  new Request('http://localhost/api/meal-plans/plan-123/entries', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-
-const createDeleteRequest = (startDate = '2026-01-12', endDate = '2026-01-19') =>
-  new Request(
-    `http://localhost/api/meal-plans/plan-123/entries?startDate=${startDate}&endDate=${endDate}`,
-    { method: 'DELETE' },
+const post = (body: unknown) =>
+  POST(
+    new Request(URL, {
+      method: 'POST',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+    { params: params() },
   )
 
-describe('DELETE /api/meal-plans/[id]/entries', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+const del = (query = '?startDate=2026-01-12&endDate=2026-01-19') =>
+  DELETE(new Request(`${URL}${query}`, { method: 'DELETE' }), { params: params() })
 
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
+
+describe('DELETE /api/meal-plans/[id]/entries', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(del())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
+    expect(mockDeleteEntriesInRange).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(del())).toEqual({ status: 404, body: { error: 'No household found' } })
+    expect(mockDeleteEntriesInRange).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when plan not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue(null)
+  it.each(['', '?startDate=2026-01-12', '?endDate=2026-01-19'])(
+    'returns 400 without both date params (%s), before any delete',
+    async (query) => {
+      expect(await answer(del(query))).toEqual({
+        status: 400,
+        body: { error: 'startDate and endDate query params are required' },
+      })
+      expect(mockDeleteEntriesInRange).not.toHaveBeenCalled()
+    },
+  )
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
+  it("returns 404 when the plan is not the household's", async () => {
+    mockDeleteEntriesInRange.mockResolvedValue(null)
 
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Meal plan not found')
+    expect(await answer(del())).toEqual({ status: 404, body: { error: 'Meal plan not found' } })
   })
 
-  it('returns 400 when date range params are missing', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
+  it('deletes the range in local days and returns the count', async () => {
+    mockDeleteEntriesInRange.mockResolvedValue(5)
 
-    const request = new Request('http://localhost/api/meal-plans/plan-123/entries', {
-      method: 'DELETE',
+    expect(await answer(del())).toEqual({ status: 200, body: { success: true, deletedCount: 5 } })
+    expect(mockDeleteEntriesInRange).toHaveBeenCalledWith(
+      'household-123',
+      'plan-123',
+      new Date(2026, 0, 12),
+      new Date(2026, 0, 19),
+    )
+  })
+
+  it('reports an unexpected failure and returns 500', async () => {
+    const failure = new Error('connection lost')
+    mockDeleteEntriesInRange.mockRejectedValue(failure)
+
+    expect(await answer(del())).toEqual({
+      status: 500,
+      body: { error: 'Failed to delete entries' },
     })
-    const response = await DELETE(request, { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('startDate and endDate query params are required')
-  })
-
-  it('deletes entries within date range and returns success', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
-    mockDeleteManyEntries.mockResolvedValue({ count: 5 } as never)
-
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.deletedCount).toBe(5)
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/meal-plans/[id]/entries',
+      userId: 'user-123',
+    })
   })
 })
 
 describe('POST /api/meal-plans/[id]/entries', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  const created = {
+    id: 'new-entry',
+    date: '2099-01-28',
+    mealType: 'dinner',
+    status: 'planned',
+    mealId: 'meal-1',
+    note: null,
+  } as const
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createPostRequest({ date: '2099-01-27', mealType: 'dinner' }), {
-      params: createParams(),
+    expect(await answer(post({ date: '2099-01-27', mealType: 'dinner' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await POST(createPostRequest({ date: '2099-01-27', mealType: 'dinner' }), {
-      params: createParams(),
+    expect(await answer(post({ date: '2099-01-27', mealType: 'dinner' }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-
-    const request = new Request('http://localhost/api/meal-plans/plan-123/entries', {
-      method: 'POST',
-      body: 'not json',
+    expect(await answer(post('not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-
-    const response = await POST(request, { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
   })
 
-  it('returns 400 for invalid date format', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
+  it.each([
+    ['an invalid date format', { date: 'not-a-date', mealType: 'dinner' }],
+    ['an invalid meal type', { date: '2099-01-27', mealType: 'snack' }],
+  ])('returns 400 for %s', async (_label, body) => {
+    const { status, body: data } = await answer(post(body))
 
-    const response = await POST(createPostRequest({ date: 'not-a-date', mealType: 'dinner' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
+    expect(status).toBe(400)
     expect(data.error).toBe('Validation failed')
+    expect(mockCreateEntry).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for invalid mealType', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
+  it('creates the entry on the local day and returns it', async () => {
+    mockCreateEntry.mockResolvedValue(created)
 
-    const response = await POST(createPostRequest({ date: '2099-01-27', mealType: 'snack' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-  })
-
-  it('returns 404 when plan not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue(null)
-
-    const response = await POST(createPostRequest({ date: '2099-01-27', mealType: 'dinner' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Plan not found or access denied')
-  })
-
-  it('returns 409 when entry already exists for date and mealType', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
-    mockFindFirstEntry.mockResolvedValue({ id: 'existing-entry' } as never)
-
-    const response = await POST(createPostRequest({ date: '2099-01-28', mealType: 'dinner' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(data.error).toBe('Entry already exists for this date and meal type')
-  })
-
-  it('returns 404 when specified mealId does not exist', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
-    mockFindFirstEntry.mockResolvedValue(null)
-    mockFindFirstMeal.mockResolvedValue(null)
-
-    const response = await POST(
-      createPostRequest({ date: '2099-01-28', mealType: 'dinner', mealId: 'nonexistent' }),
-      { params: createParams() },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Meal not found')
-    // The lookup is scoped to system meals and this household's own, so
-    // another household's custom meal cannot be attached at creation time.
-    expect(mockFindFirstMeal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: 'nonexistent',
-          deletedAt: null,
-          OR: [{ householdId: null }, { householdId: 'household-123' }],
-        }),
-      }),
-    )
-  })
-
-  it('creates entry and returns formatted response on success', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
-    mockFindFirstEntry.mockResolvedValue(null)
-    mockFindFirstMeal.mockResolvedValue({ id: 'meal-1' } as never)
-    mockCreateEntry.mockResolvedValue({
-      id: 'new-entry',
-      date: new Date('2099-01-28T00:00:00.000Z'),
+    expect(
+      await answer(post({ date: '2099-01-28', mealType: 'dinner', mealId: 'meal-1' })),
+    ).toEqual({ status: 200, body: created })
+    expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
+      date: new Date(2099, 0, 28),
       mealType: 'dinner',
-      status: 'planned',
       mealId: 'meal-1',
-      note: null,
-    } as never)
-
-    const response = await POST(
-      createPostRequest({ date: '2099-01-28', mealType: 'dinner', mealId: 'meal-1' }),
-      { params: createParams() },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('new-entry')
-    expect(data.date).toBe('2099-01-28')
-    expect(data.mealType).toBe('dinner')
-    expect(data.status).toBe('planned')
-    expect(data.mealId).toBe('meal-1')
+    })
   })
 
-  it('creates entry without mealId', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstPlan.mockResolvedValue({
-      id: 'plan-123',
-    } as never)
-    mockFindFirstEntry.mockResolvedValue(null)
-    mockCreateEntry.mockResolvedValue({
-      id: 'new-entry',
-      date: new Date('2099-01-28T00:00:00.000Z'),
-      mealType: 'dinner',
-      status: 'planned',
-      mealId: null,
-      note: null,
-    } as never)
+  it.each([
+    ['planNotFound', 404, 'Plan not found or access denied'],
+    ['slotTaken', 409, 'Entry already exists for this date and meal type'],
+    ['mealNotFound', 404, 'Meal not found'],
+  ] satisfies [EntryCreateRefusal, number, string][])(
+    'answers %s with %i, unreported',
+    async (reason, status, error) => {
+      mockCreateEntry.mockRejectedValue(new EntryCreateError(reason))
 
-    const response = await POST(createPostRequest({ date: '2099-01-28', mealType: 'dinner' }), {
-      params: createParams(),
+      expect(await answer(post({ date: '2099-01-28', mealType: 'dinner' }))).toEqual({
+        status,
+        body: { error },
+      })
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    },
+  )
+
+  it('reports an unexpected failure and returns 500', async () => {
+    const failure = new Error('connection lost')
+    mockCreateEntry.mockRejectedValue(failure)
+
+    expect(await answer(post({ date: '2099-01-28', mealType: 'dinner' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to create entry' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.mealId).toBeNull()
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/meal-plans/[id]/entries',
+      userId: 'user-123',
+      householdId: 'household-123',
+    })
   })
 
   describe('restore after Clear (HON-1123)', () => {
@@ -352,85 +248,35 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     }
 
     beforeEach(() => {
-      mockGetSession.mockResolvedValue(mockSession)
-      mockGetMembership.mockResolvedValue(mockMembership)
-      mockFindFirstPlan.mockResolvedValue({ id: 'plan-123' } as never)
-      mockFindFirstEntry.mockResolvedValue(null)
-      mockFindFirstMeal.mockResolvedValue({ id: 'meal-1' } as never)
-      mockCreateEntry.mockResolvedValue({
-        id: 'restored-entry',
-        date: new Date('2099-01-28T00:00:00.000Z'),
+      mockCreateEntry.mockResolvedValue({ ...created, id: 'restored-entry', status: 'skipped' })
+    })
+
+    it("passes the cleared entry's fields through", async () => {
+      const { status } = await answer(post({ ...restoreBody, pantryDeducted: true }))
+
+      expect(status).toBe(200)
+      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
+        date: new Date(2099, 0, 28),
         mealType: 'dinner',
-        status: 'skipped',
         mealId: 'meal-1',
         note: 'Leftovers for lunch',
-      } as never)
-    })
-
-    it("writes the cleared entry's fields back", async () => {
-      const response = await POST(createPostRequest(restoreBody), { params: createParams() })
-
-      expect(response.status).toBe(200)
-      expect(mockCreateEntry).toHaveBeenCalledWith({
-        data: {
-          planId: 'plan-123',
-          date: new Date('2099-01-28T00:00:00.000Z'),
-          mealType: 'dinner',
-          mealId: 'meal-1',
-          status: 'skipped',
-          note: 'Leftovers for lunch',
-          noteX: 0.25,
-          noteY: 0.75,
-          servingOverride: 6,
-          rating: 'down',
-          pantryDeductedAt: null,
-        },
+        noteX: 0.25,
+        noteY: 0.75,
+        status: 'skipped',
+        servingOverride: 6,
+        rating: 'down',
+        pantryDeducted: true,
       })
     })
 
-    it('keeps the pantry charge of an entry that was cooked and reverted', async () => {
-      await POST(createPostRequest({ ...restoreBody, pantryDeducted: true }), {
-        params: createParams(),
-      })
+    it.each([
+      ['a completed entry', { status: 'completed' }],
+      ['a note position without a note', { note: null }],
+      ['half a note position', { noteY: null }],
+    ])('refuses %s', async (_label, override) => {
+      const { status } = await answer(post({ ...restoreBody, ...override }))
 
-      expect(mockCreateEntry).toHaveBeenCalledWith({
-        data: expect.objectContaining({ pantryDeductedAt: expect.any(Date) }),
-      })
-    })
-
-    it('refuses a completed entry', async () => {
-      const response = await POST(createPostRequest({ ...restoreBody, status: 'completed' }), {
-        params: createParams(),
-      })
-
-      expect(response.status).toBe(400)
-      expect(mockCreateEntry).not.toHaveBeenCalled()
-    })
-
-    it('refuses a note position without a note', async () => {
-      const response = await POST(createPostRequest({ ...restoreBody, note: null }), {
-        params: createParams(),
-      })
-
-      expect(response.status).toBe(400)
-      expect(mockCreateEntry).not.toHaveBeenCalled()
-    })
-
-    it('refuses half a note position', async () => {
-      const response = await POST(createPostRequest({ ...restoreBody, noteY: null }), {
-        params: createParams(),
-      })
-
-      expect(response.status).toBe(400)
-      expect(mockCreateEntry).not.toHaveBeenCalled()
-    })
-
-    it('leaves a slot that was refilled meanwhile alone', async () => {
-      mockFindFirstEntry.mockResolvedValue({ id: 'new-entry' } as never)
-
-      const response = await POST(createPostRequest(restoreBody), { params: createParams() })
-
-      expect(response.status).toBe(409)
+      expect(status).toBe(400)
       expect(mockCreateEntry).not.toHaveBeenCalled()
     })
   })

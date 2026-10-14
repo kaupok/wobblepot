@@ -18,25 +18,26 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    mealPlan: {
-      findUnique: vi.fn(),
-    },
-    mealPlanEntry: {
-      findMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+// The read and the payload live in `loadPlanEntries`, tested in
+// `load-plan-entries.test.ts`. This file asserts what the route owns: the
+// session, the household, query validation and the status (HON-1206).
+vi.mock('@/lib/meal-planning/load-plan-entries', () => ({
+  loadPlanEntries: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockPlanFindUnique = vi.mocked(prisma.mealPlan.findUnique)
-const mockEntriesFindMany = vi.mocked(prisma.mealPlanEntry.findMany)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockLoadPlanEntries = vi.mocked(loadPlanEntries)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -129,7 +130,6 @@ describe('GET /api/entries', () => {
   it('returns 400 for invalid status value', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
 
     const response = await GET(
       createRequest(
@@ -142,46 +142,27 @@ describe('GET /api/entries', () => {
     expect(data.error).toBe('Invalid status value')
   })
 
-  it('returns empty entries when household has no plan yet', async () => {
+  it("loads the household's entries for the local-day range", async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue(null)
+    const result = { planId: 'plan-1', entries: [{ id: 'entry-1' }] }
+    mockLoadPlanEntries.mockResolvedValue(result as never)
 
     const response = await GET(createRequest())
-    const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.entries).toEqual([])
-    expect(data.planId).toBeNull()
-    expect(mockPlanFindUnique).toHaveBeenCalledWith({
-      where: { householdId: 'household-123' },
+    expect(await response.json()).toEqual(result)
+    expect(mockLoadPlanEntries).toHaveBeenCalledWith(mockMembership.household, {
+      startDate: new Date(2026, 1, 2),
+      endDate: new Date(2026, 1, 9),
+      status: undefined,
     })
-    expect(mockEntriesFindMany).not.toHaveBeenCalled()
   })
 
-  it('scopes query by the household plan id and date range', async () => {
+  it('passes the status filter through', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([])
-
-    await GET(createRequest())
-
-    expect(mockEntriesFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          planId: 'plan-1',
-          date: expect.objectContaining({ gte: expect.any(Date), lt: expect.any(Date) }),
-        }),
-      }),
-    )
-  })
-
-  it('applies status filter when provided', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([])
+    mockLoadPlanEntries.mockResolvedValue({ planId: null, entries: [] } as never)
 
     await GET(
       createRequest(
@@ -189,365 +170,27 @@ describe('GET /api/entries', () => {
       ),
     )
 
-    expect(mockEntriesFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ planId: 'plan-1', status: 'planned' }),
-      }),
+    expect(mockLoadPlanEntries).toHaveBeenCalledWith(
+      mockMembership.household,
+      expect.objectContaining({ status: 'planned' }),
     )
   })
 
-  it('returns formatted entries with meal and components', async () => {
+  it('reports a failed read and returns 500', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: null,
-        note: null,
-        servingOverride: null,
-        pantryDeductedAt: null,
-        meal: {
-          id: 'meal-1',
-          name: 'Spaghetti Bolognese',
-          kidFriendly: true,
-          timeMinutes: 45,
-          preparationNotes: null,
-          primaryProteinType: 'red_meat',
-          components: [
-            {
-              ingredientId: 'ing-1',
-              quantityPerServing: 150,
-              isVague: false,
-              originalPhrase: null,
-              ingredient: {
-                id: 'ing-1',
-                name: 'Ground beef',
-                category: 'protein',
-                defaultUnit: 'g',
-                gramsPerPiece: null,
-                calories: 250,
-                protein: 26,
-                carbs: 0,
-                fat: 17,
-              },
-            },
-          ],
-        },
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.planId).toBe('plan-1')
-    expect(data.entries).toHaveLength(1)
-    const entry = data.entries[0]
-    expect(entry.id).toBe('entry-1')
-    expect(entry.mealType).toBe('dinner')
-    expect(entry.status).toBe('planned')
-    expect(entry.pantryDeducted).toBe(false)
-    expect(entry.meal).not.toBeNull()
-    expect(entry.meal.name).toBe('Spaghetti Bolognese')
-    expect(entry.meal.components).toHaveLength(1)
-    expect(entry.meal.components[0].ingredient.name).toBe('Ground beef')
-    expect(entry.meal.nutrition).toBeDefined()
-  })
-
-  it.each([
-    { householdId: 'household-123', isCustom: true },
-    { householdId: null, isCustom: false },
-  ])(
-    'sends the meal image state, with isCustom $isCustom for householdId $householdId',
-    async ({ householdId, isCustom }) => {
-      mockGetSession.mockResolvedValue(mockSession as never)
-      mockGetMembership.mockResolvedValue(mockMembership as never)
-      mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-      mockEntriesFindMany.mockResolvedValue([
-        {
-          id: 'entry-1',
-          date: new Date('2026-02-03T00:00:00'),
-          mealType: 'dinner',
-          status: 'planned',
-          rating: null,
-          preparationTips: null,
-          note: null,
-          servingOverride: null,
-          pantryDeductedAt: null,
-          meal: {
-            id: 'meal-1',
-            name: 'Spaghetti Bolognese',
-            kidFriendly: true,
-            timeMinutes: 45,
-            preparationNotes: null,
-            primaryProteinType: 'red_meat',
-            householdId,
-            imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
-            imageStatus: 'ready',
-            imageHue: 264,
-            imagePromptVersion: 'v4',
-            components: [],
-          },
-        },
-      ] as never)
-
-      const data = await (await GET(createRequest())).json()
-
-      expect(data.entries[0].meal).toMatchObject({
-        isCustom,
-        imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
-        imageStatus: 'ready',
-        imageHue: 264,
-      })
-    },
-  )
-
-  it('reports pantryDeducted for an entry that was charged, even after a revert', async () => {
-    // The card uses this to skip the deduction preview: the server will not
-    // charge the entry again, so a preview would promise a change that never
-    // happens (HON-651). The raw timestamp stays server-side.
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: null,
-        note: null,
-        servingOverride: null,
-        pantryDeductedAt: new Date('2026-02-03T19:00:00Z'),
-        meal: null,
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.entries[0].pantryDeducted).toBe(true)
-    expect(data.entries[0]).not.toHaveProperty('pantryDeductedAt')
-  })
-
-  it('returns description (null) for en households without re-translating', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: null,
-        note: null,
-        servingOverride: null,
-        meal: {
-          id: 'meal-1',
-          name: 'Spaghetti Bolognese',
-          description: 'Classic beef ragù over spaghetti.',
-          kidFriendly: true,
-          timeMinutes: 45,
-          preparationNotes: null,
-          primaryProteinType: 'red_meat',
-          components: [],
-        },
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.entries[0].meal.name).toBe('Spaghetti Bolognese')
-    // English household → canonical description passes through unchanged.
-    expect(data.entries[0].meal.description).toBe('Classic beef ragù over spaghetti.')
-  })
-
-  it('translates seeded meal name + description into the household locale (et)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockMembership.household, locale: 'et' },
-    } as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: null,
-        note: null,
-        servingOverride: null,
-        meal: {
-          id: 'meal-1',
-          name: 'Chicken Curry',
-          description: 'Creamy chicken curry.',
-          kidFriendly: true,
-          timeMinutes: 30,
-          preparationNotes: null,
-          primaryProteinType: 'poultry',
-          // Coalesced over the canonical English fields by translateMeal.
-          translations: [
-            {
-              locale: 'et',
-              name: 'Kanakarri',
-              description: 'Kreemjas kanakarri aromaatsete vürtsidega.',
-              preparationNotes: null,
-            },
-          ],
-          components: [
-            {
-              ingredientId: 'ing-1',
-              quantityPerServing: 200,
-              isVague: false,
-              originalPhrase: null,
-              ingredient: {
-                id: 'ing-1',
-                name: 'chicken breast',
-                category: 'protein',
-                defaultUnit: 'g',
-                gramsPerPiece: null,
-                calories: 165,
-                protein: 31,
-                carbs: 0,
-                fat: 4,
-                translations: [{ locale: 'et', name: 'kanafilee' }],
-              },
-            },
-          ],
-        },
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    const meal = data.entries[0].meal
-    expect(meal.name).toBe('Kanakarri')
-    expect(meal.description).toBe('Kreemjas kanakarri aromaatsete vürtsidega.')
-    // Ingredient names are localized too (HON-547 review).
-    expect(meal.components[0].ingredient.name).toBe('kanafilee')
-  })
-
-  it('parses stored preparationTips when present', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-
-    const tips = { pitfalls: ['Over-salt'], tip: 'Stir often' }
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: JSON.stringify(tips),
-        note: null,
-        servingOverride: null,
-        meal: null,
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.entries[0].preparationTips).toEqual(tips)
-    expect(data.entries[0].meal).toBeNull()
-  })
-
-  // The cook view shows these tips without asking the tips route, so tips
-  // priced at other servings must not reach it either (HON-1040).
-  it('drops stored preparationTips priced at other servings', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue({
-      ...mockMembership,
-      household: {
-        ...mockMembership.household,
-        // Two adults and a toddler at 0.5×: 2.5 servings, 3 members.
-        _count: { members: 3 },
-        members: [1, 1, 0.5].map((portionMultiplier) => ({ preferences: { portionMultiplier } })),
-      },
-    } as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-
-    const tips = { pitfalls: ['Over-salt'], tip: 'Stir often' }
-    const entry = (id: string, preparationTips: string) => ({
-      id,
-      date: new Date('2026-02-03T00:00:00'),
-      mealType: 'dinner',
-      status: 'planned',
-      rating: null,
-      preparationTips,
-      note: null,
-      servingOverride: null,
-      meal: null,
-    })
-    mockEntriesFindMany.mockResolvedValue([
-      // Cached before HON-1040: priced at the 3 members.
-      entry('legacy', JSON.stringify(tips)),
-      entry('priced-at-3', JSON.stringify({ ...tips, servings: 3 })),
-      entry('priced-at-2.5', JSON.stringify({ ...tips, servings: 2.5 })),
-    ] as never)
-
-    const data = await (await GET(createRequest())).json()
-
-    expect(data.entries.map((e: { preparationTips: unknown }) => e.preparationTips)).toEqual([
-      null,
-      null,
-      tips,
-    ])
-  })
-
-  it('handles entries with no meal assigned', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
-    mockEntriesFindMany.mockResolvedValue([
-      {
-        id: 'entry-empty',
-        date: new Date('2026-02-03T00:00:00'),
-        mealType: 'dinner',
-        status: 'planned',
-        rating: null,
-        preparationTips: null,
-        note: null,
-        servingOverride: null,
-        meal: null,
-      },
-    ] as never)
-
-    const response = await GET(createRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.entries[0].meal).toBeNull()
-  })
-
-  it('returns 500 when Prisma throws', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockPlanFindUnique.mockRejectedValue(new Error('DB down'))
+    const failure = new Error('DB down')
+    mockLoadPlanEntries.mockRejectedValue(failure)
 
     const response = await GET(createRequest())
     const data = await response.json()
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to fetch entries')
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/entries',
+      userId: 'user-123',
+      householdId: 'household-123',
+    })
   })
 })
