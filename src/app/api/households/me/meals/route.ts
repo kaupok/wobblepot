@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
-import { HOUSEHOLD_MEALS_DEFAULT_LIMIT, listHouseholdMeals } from '@/lib/household-meals'
+import {
+  createHouseholdMeal,
+  HOUSEHOLD_MEALS_DEFAULT_LIMIT,
+  HouseholdMealError,
+  listHouseholdMeals,
+} from '@/lib/household-meals'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { captureApiError } from '@/lib/errors'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
 const createMealSchema = z.object({
@@ -115,155 +117,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const {
-      name,
-      description,
-      preparationNotes,
-      sourceUrl,
-      timeMinutes,
-      kidFriendly,
-      suitableFor,
-      servings,
-      components,
-    } = parsed.data
+    const meal = await createHouseholdMeal(membership.household.id, parsed.data)
 
-    // Verify all ingredients exist and fetch their protein types. Another
-    // household's ingredient reads as not found, so its id is not revealed (HON-889).
-    const ingredientIds = components.map((c) => c.ingredientId)
-    const ingredients = await prisma.ingredient.findMany({
-      where: {
-        id: { in: ingredientIds },
-        OR: [{ householdId: null }, { householdId: membership.household.id }],
-      },
-      select: {
-        id: true,
-        proteinType: true,
-        protein: true,
-        defaultUnit: true,
-        gramsPerPiece: true,
-      },
-    })
-
-    if (ingredients.length !== ingredientIds.length) {
-      const foundIds = new Set(ingredients.map((i) => i.id))
-      const missingIds = ingredientIds.filter((id) => !foundIds.has(id))
-      return NextResponse.json({ error: 'Some ingredients not found', missingIds }, { status: 400 })
+    return NextResponse.json(meal, { status: 201 })
+  } catch (error) {
+    if (error instanceof HouseholdMealError && error.reason === 'ingredientsNotFound') {
+      return NextResponse.json(
+        { error: 'Some ingredients not found', missingIds: error.missingIds },
+        { status: 400 },
+      )
     }
 
-    // Derive primary protein type from ingredients
-    const ingredientMap = new Map(ingredients.map((i) => [i.id, i]))
-    const componentData = components.map((c) => ({
-      quantityPerServing: c.totalQuantity / servings,
-      ingredient: ingredientMap.get(c.ingredientId)!,
-    }))
-    const primaryProteinType = deriveProteinType(componentData)
-
-    // Create meal with components
-    const meal = await prisma.meal.create({
-      data: {
-        name,
-        description,
-        preparationNotes,
-        sourceUrl,
-        timeMinutes,
-        kidFriendly,
-        suitableFor,
-        servings,
-        primaryProteinType,
-        householdId: membership.household.id,
-        components: {
-          create: components.map((c) => ({
-            ingredientId: c.ingredientId,
-            quantityPerServing: c.totalQuantity / servings,
-            isVague: c.isVague ?? false,
-            originalPhrase: c.originalPhrase ?? null,
-          })),
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        preparationNotes: true,
-        sourceUrl: true,
-        timeMinutes: true,
-        kidFriendly: true,
-        primaryProteinType: true,
-        suitableFor: true,
-        servings: true,
-        createdAt: true,
-        updatedAt: true,
-        components: {
-          select: {
-            ingredientId: true,
-            quantityPerServing: true,
-            isVague: true,
-            originalPhrase: true,
-            ingredient: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                defaultUnit: true,
-                measuredByVolume: true,
-                gramsPerPiece: true,
-                calories: true,
-                protein: true,
-                carbs: true,
-                fat: true,
-                allergens: true,
-              },
-            },
-          },
-        },
-      },
-    })
-
-    const nutrition = computeMealNutrition(meal.components)
-
-    const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-
-    return NextResponse.json(
-      {
-        id: meal.id,
-        name: meal.name,
-        description: meal.description,
-        preparationNotes: meal.preparationNotes,
-        sourceUrl: meal.sourceUrl,
-        timeMinutes: meal.timeMinutes,
-        kidFriendly: meal.kidFriendly,
-        primaryProteinType: meal.primaryProteinType,
-        suitableFor: meal.suitableFor,
-        servings: meal.servings,
-        isCustom: true,
-        isFavorite: false,
-        createdAt: meal.createdAt,
-        updatedAt: meal.updatedAt,
-        components: meal.components.map((comp) => ({
-          ingredientId: comp.ingredientId,
-          quantityPerServing: comp.quantityPerServing,
-          isVague: comp.isVague,
-          originalPhrase: comp.originalPhrase,
-          ingredient: {
-            id: comp.ingredient.id,
-            name: comp.ingredient.name,
-            category: comp.ingredient.category,
-            defaultUnit: comp.ingredient.defaultUnit,
-            measuredByVolume: comp.ingredient.measuredByVolume,
-            gramsPerPiece: comp.ingredient.gramsPerPiece,
-          },
-        })),
-        nutrition: {
-          calories: Math.round(nutrition.calories),
-          protein: Math.round(nutrition.protein),
-          carbs: Math.round(nutrition.carbs),
-          fat: Math.round(nutrition.fat),
-        },
-        allergens,
-      },
-      { status: 201 },
-    )
-  } catch (error) {
     captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
