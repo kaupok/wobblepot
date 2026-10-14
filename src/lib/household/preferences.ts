@@ -1,5 +1,6 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 import type { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
 import { loadHouseholdServings } from '@/lib/household'
 import { findSynonym } from '@/lib/ingredient-aliases'
@@ -110,7 +111,10 @@ export async function getOrCreateMemberPreferences(memberId: string) {
   return preferences ?? prisma.memberPreferences.create({ data: { memberId } })
 }
 
-/** The membership row `updateMemberPreferences` needs, as `getHouseholdMembership` returns it. */
+/**
+ * The member whose preferences are saved, with their household as
+ * `getHouseholdMembership` returns it.
+ */
 export interface PreferencesMember {
   id: string
   householdId: string
@@ -135,33 +139,42 @@ export async function updateMemberPreferences(
   member: PreferencesMember,
   patch: MemberPreferencesPatch,
 ) {
+  return prisma.$transaction((tx) => writeMemberPreferences(tx, member, patch))
+}
+
+/**
+ * The write `updateMemberPreferences` makes, on a transaction the caller
+ * holds, so `updateMember` can save a name and preferences together.
+ */
+export async function writeMemberPreferences(
+  tx: Prisma.TransactionClient,
+  member: PreferencesMember,
+  patch: MemberPreferencesPatch,
+) {
   const { portionMultiplier } = patch
-  return prisma.$transaction(async (tx) => {
-    const stored =
-      portionMultiplier === undefined
-        ? null
-        : await tx.memberPreferences.findUnique({
-            where: { memberId: member.id },
-            select: { portionMultiplier: true },
-          })
-    // A missing preferences row is the column default, 1×.
-    const portionChanged =
-      portionMultiplier !== undefined && portionMultiplier !== (stored?.portionMultiplier ?? 1)
+  const stored =
+    portionMultiplier === undefined
+      ? null
+      : await tx.memberPreferences.findUnique({
+          where: { memberId: member.id },
+          select: { portionMultiplier: true },
+        })
+  // A missing preferences row is the column default, 1×.
+  const portionChanged =
+    portionMultiplier !== undefined && portionMultiplier !== (stored?.portionMultiplier ?? 1)
 
-    const saved = await tx.memberPreferences.upsert({
-      where: { memberId: member.id },
-      create: { memberId: member.id, ...patch },
-      update: patch,
-    })
-
-    if (
-      portionChanged &&
-      (await loadHouseholdServings(member.householdId, tx)) !==
-        sumPortions(member.household.members)
-    ) {
-      await invalidateFutureEntrySteps(tx, member.householdId, member.household.timezone)
-    }
-
-    return saved
+  const saved = await tx.memberPreferences.upsert({
+    where: { memberId: member.id },
+    create: { memberId: member.id, ...patch },
+    update: patch,
   })
+
+  if (
+    portionChanged &&
+    (await loadHouseholdServings(member.householdId, tx)) !== sumPortions(member.household.members)
+  ) {
+    await invalidateFutureEntrySteps(tx, member.householdId, member.household.timezone)
+  }
+
+  return saved
 }

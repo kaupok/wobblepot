@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { reminderUpdate, sendReminderConfirmEmail } from '@/lib/weekly-reminder'
+import { saveReminder, sendReminderConfirmEmail } from '@/lib/weekly-reminder'
 import { REMINDER_WEEKDAYS, type ReminderWeekday } from '@/lib/weekly-reminder-schedule'
 
 const bodySchema = z.object({
@@ -24,7 +23,7 @@ const bodySchema = z.object({
  * The caller's own weekly planning reminder (HON-1084). Body
  * `{ weekday: 1..7 | null }`: a weekday switches it on for that ISO weekday,
  * `null` switches it off. Any member with an account may call it, owner or
- * not, because the consent is theirs (`reminderUpdate` says what is written).
+ * not, because the consent is theirs (`saveReminder` says what is written).
  *
  * Switching it on while the address is not confirmed emails a confirm link
  * (HON-1113); the cron sends nothing until it is opened. Changing the day
@@ -53,27 +52,13 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const member = await prisma.householdMember.findUnique({
-      where: { userId: session.user.id },
-      select: {
-        id: true,
-        reminderWeekday: true,
-        reminderConsentAt: true,
-        reminderToken: true,
-        reminderConfirmToken: true,
-        reminderConfirmedAt: true,
-      },
-    })
-    if (!member) {
+    const saved = await saveReminder(session.user.id, parsed.data.weekday)
+    if (!saved) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const data = reminderUpdate(member, parsed.data.weekday)
-    await prisma.householdMember.update({ where: { id: member.id }, data })
-
-    const switchedOn = member.reminderWeekday === null && data.reminderWeekday !== null
-    if (switchedOn && !member.reminderConfirmedAt && data.reminderConfirmToken) {
-      const confirmEmail = await sendConfirmEmail(session.user, data.reminderConfirmToken)
+    if (saved.confirmToken) {
+      const confirmEmail = await sendConfirmEmail(session.user, saved.confirmToken)
       return NextResponse.json({ weekday: parsed.data.weekday, confirmEmail })
     }
 
