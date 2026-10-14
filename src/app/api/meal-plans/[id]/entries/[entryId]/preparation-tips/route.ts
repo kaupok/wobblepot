@@ -6,12 +6,11 @@ import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { STEPS_MODEL } from '@/lib/ai/models'
 import { STEPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildFullStepsRequest, buildSupplementaryStepsRequest } from '@/lib/ai/preparation-steps'
-import { parseCachedPreparationSteps, serializePreparationSteps } from '@/lib/preparation-steps'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -26,13 +25,13 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
+import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import {
+  cachePreparationTips,
+  EntryContextError,
+  loadEntryForAi,
+} from '@/lib/meal-plans/entry-context'
 import type { PreparationSteps } from '@/components/meal-plan/types'
 import type { PreparationStepsErrorCode } from '@/lib/ai/error-codes'
 
@@ -71,38 +70,7 @@ async function handlePOST(
   const locale = resolveHouseholdLocale(household)
 
   try {
-    const entry = await prisma.mealPlanEntry.findFirst({
-      where: {
-        id: entryId,
-        planId: planId,
-        plan: {
-          householdId: household.id,
-        },
-      },
-      include: {
-        meal: {
-          include: {
-            ...mealTranslationsInclude(locale),
-            components: {
-              include: {
-                ingredient: {
-                  select: {
-                    name: true,
-                    defaultUnit: true,
-                    measuredByVolume: true,
-                    ...ingredientTranslationsInclude(locale),
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    })
-
-    if (!entry) {
-      return NextResponse.json(errorBody('Entry not found', 'entry_not_found'), { status: 404 })
-    }
+    const entry = await loadEntryForAi(household.id, planId, entryId, locale)
 
     if (!entry.meal) {
       return NextResponse.json(errorBody('No meal assigned to this entry', 'no_meal'), {
@@ -292,28 +260,18 @@ async function handlePOST(
       tips = result.object
     }
 
-    // Cache tips as JSON in the database — but only while the inputs they were
-    // priced from still hold. This prompt was built from `entry.meal`,
-    // `entry.servingOverride` and `household.locale` as read at the top of the
-    // handler, and generation takes up to 45s; a swap, a `servingOverride`, a
-    // locale PATCH or an edit to the meal itself that commits in the meantime
-    // nulls this cache precisely because one of those inputs moved (HON-681,
-    // HON-683).
-    // An unconditional write would put the stale tips straight back, and every
-    // later read is a cache hit (above) — so the entry would keep pan sizes for
-    // a count nobody is cooking, permanently rather than for one request.
-    //
-    // Same trick the entry PATCH uses for the same class of ordering problem
-    // (`servingsWritableWhere` and its `updateManyAndReturn` claims):
-    // `updateMany` matches nothing when an input moved, and writes nothing.
-    // The caller still gets the tips it asked for — only the cache is guarded.
+    // Cache tips on the entry, but only while the inputs they were priced
+    // from still hold: `cachePreparationTips` pins the meal, the
+    // `servingOverride`, the stored locale and the meal's `updatedAt`, and
+    // writes nothing when one moved (HON-681, HON-683). The caller still gets
+    // the tips it asked for — only the cache is guarded.
     //
     // The household's servings are a further priced-from input, because
     // `getEffectiveServings` above falls back to them whenever the entry
     // carries no `servingOverride` — the default state of an entry. They are
     // the members' portions summed, so a member joining or leaving and a
-    // portion change both move them (HON-1040). They cannot join the `where`
-    // below: Prisma has no filter for an aggregate over a relation. And the
+    // portion change both move them (HON-1040). They cannot join the write's
+    // `where`: Prisma has no filter for an aggregate over a relation. And the
     // invalidation on those writes cannot cover this gap from its side either —
     // a row that is mid-generation holds `preparationTips: null`, which is
     // exactly what `invalidateFutureEntrySteps`'s `preparationTips: { not: null }`
@@ -323,7 +281,7 @@ async function handlePOST(
     //
     // This closes the 45s window to the microseconds between the read and the
     // write, which is the same residual exposure every input pinned in the
-    // `where` below carries — parity with them is the bar, not elimination.
+    // write carries — parity with them is the bar, not elimination.
     // HON-681 recorded the one-request window as accepted.
     const servingsNow =
       entry.servingOverride !== null
@@ -346,32 +304,24 @@ async function handlePOST(
       return NextResponse.json({ tips }, { status: 200 })
     }
 
-    await prisma.mealPlanEntry.updateMany({
-      where: {
-        id: entryId,
-        // A swap is the third writer that nulls this cache, and it resets
-        // `servingOverride` to null — which is what the common entry already
-        // stores, so the count alone would still match and the old meal's tips
-        // would land on the new one.
+    await cachePreparationTips(
+      {
+        entryId,
         mealId: entry.mealId,
         servingOverride: entry.servingOverride,
-        plan: { household: { locale: household.locale } },
-        // `PATCH /api/households/me/meals/[id]` is the fourth writer that
-        // nulls this cache, and it moves the meal's *contents* — name, time,
-        // notes, components — while `mealId` stays put, so none of the fields
-        // above would notice. `Meal.updatedAt` is `@updatedAt` and that route
-        // calls `meal.update` unconditionally, so it moves on every such edit
-        // and is the one field that does (HON-683). A meal edit the prompt
-        // does not read (a `sourceUrl` fix) bumps it too and discards this
-        // write — the caller still gets its tips, and the next open
-        // regenerates.
-        meal: { is: { updatedAt: entry.meal.updatedAt } },
+        mealUpdatedAt: entry.meal.updatedAt,
+        householdLocale: household.locale,
       },
-      data: { preparationTips: serializePreparationSteps(tips, effectiveServings) },
-    })
+      tips,
+      effectiveServings,
+    )
 
     return NextResponse.json({ tips }, { status: 200 })
   } catch (error) {
+    if (error instanceof EntryContextError) {
+      return NextResponse.json(errorBody('Entry not found', 'entry_not_found'), { status: 404 })
+    }
+
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries/[entryId]/preparation-tips',
       userId: session.user.id,

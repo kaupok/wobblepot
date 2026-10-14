@@ -7,7 +7,6 @@ import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
 import { COOK_QUESTION_AI_BUDGET_MS } from '@/lib/ai/budgets'
@@ -33,13 +32,13 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
+import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import {
+  EntryContextError,
+  loadEntryForAi,
+  loadPantryNamesForAi,
+} from '@/lib/meal-plans/entry-context'
 import type { CookQuestionErrorCode } from '@/lib/ai/error-codes'
 
 /**
@@ -138,38 +137,7 @@ async function handlePOST(
   }
 
   try {
-    const entry = await prisma.mealPlanEntry.findFirst({
-      where: {
-        id: entryId,
-        planId: planId,
-        plan: {
-          householdId: household.id,
-        },
-      },
-      include: {
-        meal: {
-          include: {
-            ...mealTranslationsInclude(locale),
-            components: {
-              include: {
-                ingredient: {
-                  select: {
-                    name: true,
-                    defaultUnit: true,
-                    measuredByVolume: true,
-                    ...ingredientTranslationsInclude(locale),
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    })
-
-    if (!entry) {
-      return NextResponse.json(errorBody('Entry not found', 'entry_not_found'), { status: 404 })
-    }
+    const entry = await loadEntryForAi(household.id, planId, entryId, locale)
 
     if (!entry.meal) {
       return NextResponse.json(errorBody('No meal assigned to this entry', 'no_meal'), {
@@ -210,18 +178,7 @@ async function handlePOST(
     }
 
     // Names only: the answer may say what the household has, never how much.
-    // In stock means a quantity left or none recorded; a 0 means it ran out.
-    const pantryItems = await prisma.pantryItem.findMany({
-      where: {
-        householdId: household.id,
-        OR: [{ isStaple: true }, { quantity: null }, { quantity: { gt: 0 } }],
-      },
-      select: {
-        isStaple: true,
-        ingredient: { select: { name: true, ...ingredientTranslationsInclude(locale) } },
-      },
-      orderBy: { ingredient: { name: 'asc' } },
-    })
+    const pantryItems = await loadPantryNamesForAi(household.id, locale)
 
     // The household's names, as the tips prompt reads them (HON-913).
     const shownMeal = translateMeal(entry.meal, locale)
@@ -385,6 +342,10 @@ async function handlePOST(
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
     })
   } catch (error) {
+    if (error instanceof EntryContextError) {
+      return NextResponse.json(errorBody('Entry not found', 'entry_not_found'), { status: 404 })
+    }
+
     captureApiError(error, errorContext)
 
     const statusCode = aiErrorStatusCode(error)

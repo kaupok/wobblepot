@@ -17,23 +17,14 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-// Every write the route could make is mocked so the tests can assert it never
-// makes one: the answer lives on the cook's screen only.
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    mealPlanEntry: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-    },
-    meal: { update: vi.fn(), updateMany: vi.fn() },
-    pantryItem: {
-      findMany: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      upsert: vi.fn(),
-    },
-  },
+// The lib seam, with the real error class. The cache write is mocked too, so
+// the tests can assert the route never makes it: the answer lives on the
+// cook's screen only.
+vi.mock('@/lib/meal-plans/entry-context', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/entry-context')>()),
+  loadEntryForAi: vi.fn(),
+  loadPantryNamesForAi: vi.fn(),
+  cachePreparationTips: vi.fn(),
 }))
 
 // The real `streamText` runs against a mock model, so the tests read the
@@ -125,7 +116,12 @@ async function readChunks(response: Response): Promise<string[]> {
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import {
+  cachePreparationTips,
+  EntryContextError,
+  loadEntryForAi,
+  loadPantryNamesForAi,
+} from '@/lib/meal-plans/entry-context'
 import { streamText } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
@@ -137,8 +133,8 @@ import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
-const mockPantryFindMany = vi.mocked(prisma.pantryItem.findMany)
+const mockLoadEntry = vi.mocked(loadEntryForAi)
+const mockLoadPantry = vi.mocked(loadPantryNamesForAi)
 const mockStreamText = vi.mocked(streamText)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
@@ -225,13 +221,7 @@ function promptSent(): string {
 }
 
 function expectNoWrites() {
-  expect(prisma.mealPlanEntry.update).not.toHaveBeenCalled()
-  expect(prisma.mealPlanEntry.updateMany).not.toHaveBeenCalled()
-  expect(prisma.meal.update).not.toHaveBeenCalled()
-  expect(prisma.meal.updateMany).not.toHaveBeenCalled()
-  expect(prisma.pantryItem.update).not.toHaveBeenCalled()
-  expect(prisma.pantryItem.updateMany).not.toHaveBeenCalled()
-  expect(prisma.pantryItem.upsert).not.toHaveBeenCalled()
+  expect(cachePreparationTips).not.toHaveBeenCalled()
 }
 
 describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
@@ -239,8 +229,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership() as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
-    mockPantryFindMany.mockResolvedValue([] as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
+    mockLoadPantry.mockResolvedValue([] as never)
     mockCheckRateLimit.mockResolvedValue({
       allowed: true,
       remaining: 59,
@@ -435,21 +425,19 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
   })
 
   it('scopes the entry lookup to the household and returns 404 when not found', async () => {
-    mockEntryFindFirst.mockResolvedValue(null)
+    mockLoadEntry.mockRejectedValue(new EntryContextError('not_found'))
 
     const response = await callPost()
 
     expect(response.status).toBe(404)
     expect((await response.json()).code).toBe('entry_not_found')
-    expect(mockEntryFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'entry-1', planId: 'plan-1', plan: { householdId: 'household-123' } },
-      }),
-    )
+    expect(mockLoadEntry).toHaveBeenCalledWith('household-123', 'plan-1', 'entry-1', 'en')
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+    expect(mockStreamText).not.toHaveBeenCalled()
   })
 
   it('returns 400 no_meal when the entry has no meal', async () => {
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ meal: null, mealId: null }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ meal: null, mealId: null }) as never)
 
     const response = await callPost()
 
@@ -511,7 +499,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
   })
 
   it('adds the cached pitfalls and tip, but answers about the steps the request sent', async () => {
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({
         preparationTips: JSON.stringify({
           steps: ['A cached step'],
@@ -539,7 +527,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
         restrictions: ['mild spice only'],
       }) as never,
     )
-    mockPantryFindMany.mockResolvedValue([
+    mockLoadPantry.mockResolvedValue([
       { isStaple: false, ingredient: { name: 'greek yoghurt' } },
       { isStaple: true, ingredient: { name: 'salt' } },
     ] as never)
@@ -551,15 +539,23 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expect(prompt).toContain('- salt (staple)')
     expect(prompt).toContain('MUST AVOID these allergens (safety-critical): tree_nuts')
     expect(prompt).toContain('Household restrictions (follow them): mild spice only')
-    expect(mockPantryFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          householdId: 'household-123',
-          OR: [{ isStaple: true }, { quantity: null }, { quantity: { gt: 0 } }],
-        },
-      }),
-    )
+    expect(mockLoadPantry).toHaveBeenCalledWith('household-123', 'en')
     expectNoWrites()
+  })
+
+  // The loaders read the translation rows for the locale they are given, so
+  // an Estonian household's prompt gets Estonian names (HON-913).
+  it("reads the entry and the pantry in the household's locale", async () => {
+    const membership = buildMembership()
+    mockGetMembership.mockResolvedValue({
+      ...membership,
+      household: { ...membership.household, locale: 'et' },
+    } as never)
+
+    await callPost()
+
+    expect(mockLoadEntry).toHaveBeenCalledWith('household-123', 'plan-1', 'entry-1', 'et')
+    expect(mockLoadPantry).toHaveBeenCalledWith('household-123', 'et')
   })
 
   it('streams the answer as plain text, chunk by chunk', async () => {
