@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { pantryQuantitySchema, updatePantryItem } from '@/lib/pantry/pantry-items'
+import { deletePantryItem, pantryQuantitySchema, updatePantryItem } from '@/lib/pantry/pantry-items'
 
 // The quantity rule (`>= 0` or `null`) is `pantryQuantitySchema`'s.
 //
@@ -99,21 +98,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     const { id } = await params
 
-    // Find the pantry item and verify it belongs to user's household
-    const pantryItem = await prisma.pantryItem.findFirst({
-      where: {
-        id,
-        householdId: membership.householdId,
-      },
-    })
+    const outcome = await deletePantryItem(membership.householdId, id)
 
-    if (!pantryItem) {
+    if (outcome.status === 'not_found') {
       return NextResponse.json({ error: 'Pantry item not found' }, { status: 404 })
     }
-
-    await prisma.pantryItem.delete({
-      where: { id },
-    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

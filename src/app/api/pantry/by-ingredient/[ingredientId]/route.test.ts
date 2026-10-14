@@ -1,142 +1,113 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DELETE } from './route'
 
+// The delete lives in `@/lib/pantry/pantry-items`, tested against a database in
+// `pantry-items.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household, and the status and
+// body each outcome maps to (HON-1209).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    pantryItem: {
-      findUnique: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/pantry/pantry-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/pantry/pantry-items')>()),
+  deletePantryItemByIngredient: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { deletePantryItemByIngredient } from '@/lib/pantry/pantry-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindUnique = vi.mocked(prisma.pantryItem.findUnique)
-const mockDelete = vi.mocked(prisma.pantryItem.delete)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockDelete = vi.mocked(deletePantryItemByIngredient)
 
 const mockSession = {
-  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-  session: { id: 'session-123' },
-}
+  user: { id: 'user-1', name: 'Test', email: 'test@example.com' },
+  session: { id: 'session-1' },
+} as never
 
 const mockMembership = {
-  id: 'member-123',
-  householdId: 'household-123',
-  userId: 'user-123',
+  id: 'member-1',
+  householdId: 'household-1',
+  userId: 'user-1',
   role: 'owner',
-  household: {
-    id: 'household-123',
-    name: 'Test Household',
-    timezone: 'Europe/Tallinn',
-    preferences: null,
-  },
-}
+  household: { id: 'household-1', name: 'Test', locale: 'en' },
+} as never
 
-function callDelete(ingredientId: string) {
-  return DELETE(new Request(`http://localhost/api/pantry/by-ingredient/${ingredientId}`), {
-    params: Promise.resolve({ ingredientId }),
+const del = () =>
+  DELETE(new Request('http://localhost/api/pantry/by-ingredient/ing-1', { method: 'DELETE' }), {
+    params: Promise.resolve({ ingredientId: 'ing-1' }),
   })
-}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
 
 describe('DELETE /api/pantry/by-ingredient/[ingredientId]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await callDelete('ing-1')
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(null)
-
-    const response = await callDelete('ing-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it("returns 404 when pantry item doesn't exist for caller's household", async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-
-    const response = await callDelete('ing-1')
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Pantry item not found')
-    // Must use compound unique scoped to caller's household
-    expect(mockFindUnique).toHaveBeenCalledWith({
-      where: {
-        householdId_ingredientId: {
-          householdId: 'household-123',
-          ingredientId: 'ing-1',
-        },
-      },
-    })
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
     expect(mockDelete).not.toHaveBeenCalled()
   })
 
-  it('deletes the pantry item and returns 204', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'pantry-1',
-      householdId: 'household-123',
-      ingredientId: 'ing-1',
-    } as never)
-    mockDelete.mockResolvedValue({} as never)
+  it('returns 404 when user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    const response = await callDelete('ing-1')
+    const response = await del()
 
-    expect(response.status).toBe(204)
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'pantry-1' } })
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockDelete).not.toHaveBeenCalled()
   })
 
-  it('returns 500 when Prisma throws', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue({
-      id: 'pantry-1',
-      householdId: 'household-123',
-      ingredientId: 'ing-1',
-    } as never)
+  it("returns 404 when the caller's pantry does not hold the ingredient", async () => {
+    mockDelete.mockResolvedValue({ status: 'not_found' })
+
+    const response = await del()
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Pantry item not found' })
+  })
+
+  it("removes the ingredient from the caller's pantry and returns 204", async () => {
+    mockDelete.mockResolvedValue({ status: 'deleted' })
+
+    const response = await del()
+
+    expect(response.status).toBe(204)
+    expect(await response.text()).toBe('')
+    expect(mockDelete).toHaveBeenCalledWith('household-1', 'ing-1')
+  })
+
+  it('returns 500 and reports an unexpected error', async () => {
     mockDelete.mockRejectedValue(new Error('DB down'))
 
-    const response = await callDelete('ing-1')
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to delete pantry item')
+    expect(await response.json()).toEqual({ error: 'Failed to delete pantry item' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })

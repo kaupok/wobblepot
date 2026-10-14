@@ -1,81 +1,60 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
-import enMessages from '../../../../messages/en.json'
-import etMessages from '../../../../messages/et.json'
 
-// `loadPantry` translates vague phrases with the household's locale through
-// `getTranslations({ locale, namespace })`; resolve it against the real catalogs.
-vi.mock('next-intl/server', async () => {
-  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
-  return {
-    getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
-      createTranslator({
-        locale,
-        messages: (locale === 'et' ? etMessages : enMessages) as never,
-        namespace: namespace as never,
-      }),
-    ),
-  }
-})
-
-function createMockRequest(url: string = 'http://localhost/api/pantry') {
-  return new NextRequest(url)
-}
+// The read lives in `@/lib/meal-planning/load-pantry` and the write in
+// `@/lib/pantry/pantry-items`, each tested against a database in its
+// `*.db.test.ts`. This file mocks both at the seam and asserts what the route
+// owns: the session, the household, the query string, body validation, and
+// the status and body each outcome maps to (HON-1209).
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-      count: vi.fn(),
-    },
-    pantryItem: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    ingredient: {
-      findFirst: vi.fn(),
-    },
-    mealPlanEntry: {
-      findMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/meal-planning/load-pantry', () => ({
+  loadPantry: vi.fn(),
+}))
+
+vi.mock('@/lib/pantry/pantry-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/pantry/pantry-items')>()),
+  createPantryItem: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { createPantryItem } from '@/lib/pantry/pantry-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockFindMany = vi.mocked(prisma.pantryItem.findMany)
-const mockFindUniquePantry = vi.mocked(prisma.pantryItem.findUnique)
-const mockCreatePantry = vi.mocked(prisma.pantryItem.create)
-const mockFindFirstIngredient = vi.mocked(prisma.ingredient.findFirst)
-const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockLoadPantry = vi.mocked(loadPantry)
+const mockCreatePantryItem = vi.mocked(createPantryItem)
+
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
 
 const mockHousehold = {
   id: 'household-123',
   name: 'Test Household',
   timezone: 'Europe/Tallinn',
   locale: 'en',
-  preferences: null,
-  _count: { members: 2 },
-  // The route reads the household servings off the members' portions, which
-  // ride along on the membership query (HON-596, HON-1040), rather than
-  // issuing a second `household_member` read.
   members: [{ preferences: { portionMultiplier: 1 } }, { preferences: { portionMultiplier: 1 } }],
 }
 
@@ -85,968 +64,231 @@ const mockMembership = {
   userId: 'user-123',
   role: 'owner',
   household: mockHousehold,
-}
+} as never
 
-const mockIngredient = {
-  id: 'ing-456',
-  name: 'Olive oil',
-  category: 'fat',
-  defaultUnit: 'g',
-}
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
 
 describe('GET /api/pantry', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  const get = (query = '') => GET(new NextRequest(`http://localhost/api/pantry${query}`))
+
+  const pantry = {
+    items: [
+      {
+        id: 'pantry-1',
+        ingredientId: 'ing-1',
+        ingredient: {
+          id: 'ing-1',
+          name: 'Chicken breast',
+          category: 'protein',
+          defaultUnit: 'g',
+          displayUnit: 'g',
+        },
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        neededQuantity: 700,
+        neededDisplayQuantity: '700g',
+        windowDays: 7,
+        isVague: false,
+      },
+    ],
+    windowDays: 7,
+  } as const
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET(createMockRequest())
-    const data = await response.json()
+    const response = await get()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockLoadPantry).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(null)
+    mockGetMembership.mockResolvedValue(null)
 
-    const response = await GET(createMockRequest())
-    const data = await response.json()
+    const response = await get()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockLoadPantry).not.toHaveBeenCalled()
   })
 
-  it('returns pantry items sorted by staples first then name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+  it("returns the household's pantry as loadPantry builds it", async () => {
+    mockLoadPantry.mockResolvedValue(pantry as never)
 
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: true,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: { id: 'ing-1', name: 'Olive oil', category: 'fat', defaultUnit: 'g' },
-      },
-      {
-        id: 'pantry-2',
-        householdId: 'household-123',
-        ingredientId: 'ing-2',
-        quantity: 500,
-        isStaple: false,
-        updatedAt: new Date('2024-01-05'),
-        ingredient: { id: 'ing-2', name: 'Chicken breast', category: 'protein', defaultUnit: 'g' },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    const response = await GET(createMockRequest())
-    const data = await response.json()
+    const response = await get('?days=7')
 
     expect(response.status).toBe(200)
-    expect(data.items).toHaveLength(2)
-    expect(data.items[0].isStaple).toBe(true)
-    expect(data.items[0].ingredient.name).toBe('Olive oil')
-    expect(data.items[1].quantity).toBe(500)
-    expect(mockFindMany).toHaveBeenCalledWith({
-      where: { householdId: 'household-123' },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            gramsPerPiece: true,
-            measuredByVolume: true,
-          },
-        },
-      },
+    expect(await response.json()).toEqual({
+      ...pantry,
+      items: [{ ...pantry.items[0], updatedAt: '2024-01-01T00:00:00.000Z' }],
     })
+    expect(mockLoadPantry).toHaveBeenCalledWith(mockHousehold, { days: 7 })
   })
 
-  it('orders an et household by the Estonian names, not the English ones (HON-920)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-
-    // English A–Z (apple, chocolate, onion, sugar) is not Estonian A–Z
-    // (sibul, suhkur, šokolaad, õun): the sort must run on the translated name,
-    // with Estonian collation.
-    const row = (id: string, name: string, etName: string, isStaple = false) => ({
-      id: `pantry-${id}`,
-      householdId: 'household-123',
-      ingredientId: `ing-${id}`,
-      quantity: null,
-      isStaple,
-      updatedAt: new Date('2024-01-01'),
-      ingredient: {
-        id: `ing-${id}`,
-        name,
-        category: 'other',
-        defaultUnit: 'g',
-        translations: [{ locale: 'et', name: etName }],
-      },
-    })
-    mockFindMany.mockResolvedValue([
-      row('1', 'Apple', 'õun'),
-      row('2', 'Chocolate', 'šokolaad'),
-      row('3', 'Onion', 'sibul'),
-      row('4', 'Sugar', 'suhkur'),
-      row('5', 'Barley', 'oder', true),
-    ] as never)
-
-    const response = await GET(createMockRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(
-      data.items.map((item: { ingredient: { name: string } }) => item.ingredient.name),
-    ).toEqual(['oder', 'sibul', 'suhkur', 'šokolaad', 'õun'])
-  })
-
-  it('returns empty items array when pantry is empty', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindMany.mockResolvedValue([])
-
-    const response = await GET(createMockRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items).toEqual([])
-  })
-
-  it('returns needed quantities when days param is provided', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Chicken breast',
-          category: 'protein',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    // Mock meal plan entries with components
-    const mockEntries = [
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: {
-          components: [
-            { ingredientId: 'ing-1', quantityPerServing: 150 },
-            { ingredientId: 'ing-2', quantityPerServing: 100 },
-          ],
-        },
-      },
-      {
-        id: 'entry-2',
-        date: new Date(),
-        status: 'planned',
-        meal: {
-          components: [{ ingredientId: 'ing-1', quantityPerServing: 200 }],
-        },
-      },
-    ]
-    mockFindManyEntries.mockResolvedValue(mockEntries as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.windowDays).toBe(7)
-    expect(data.items).toHaveLength(1)
-    // Household size 2, so (150 + 200) * 2 = 700g
-    expect(data.items[0].neededQuantity).toBe(700)
-    expect(data.items[0].neededDisplayQuantity).toBe('700g')
-    expect(data.items[0].windowDays).toBe(7)
-  })
-
-  it('scales needed quantities by a per-entry servingOverride', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Chicken breast',
-          category: 'protein',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    // Household of 2 cooking a dinner for 6. The shopping list has always
-    // honoured the override; the pantry row used to report 150 × 2 = 300g
-    // beside the shopping row's 900g for the same ingredient (HON-614).
-    mockFindManyEntries.mockResolvedValue([
-      {
-        servingOverride: 6,
-        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }] },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items[0].neededQuantity).toBe(900)
-    expect(data.items[0].neededDisplayQuantity).toBe('900g')
-  })
-
-  it('scales needed quantities by household size when no servingOverride is set', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Chicken breast',
-          category: 'protein',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    // Same fixture, override explicitly null: the household-size path must be
-    // untouched by the override fix — 150 × 2 = 300g.
-    mockFindManyEntries.mockResolvedValue([
-      {
-        servingOverride: null,
-        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 150 }] },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items[0].neededQuantity).toBe(300)
-    expect(data.items[0].neededDisplayQuantity).toBe('300g')
-  })
-
-  it('does not include needed quantities when days param is not provided', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Chicken breast',
-          category: 'protein',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    const response = await GET(createMockRequest())
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.windowDays).toBeNull()
-    expect(data.items[0].neededQuantity).toBeUndefined()
-    expect(data.items[0].neededDisplayQuantity).toBeUndefined()
-    expect(data.items[0].windowDays).toBeUndefined()
-  })
-
-  it('formats piece-based ingredients correctly', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Eggs',
-          category: 'protein',
-          defaultUnit: 'piece',
-          gramsPerPiece: 60,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    // Piece-unit quantities are stored as piece counts (HON-713): 1.5 eggs per serving
-    const mockEntries = [
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: {
-          components: [{ ingredientId: 'ing-1', quantityPerServing: 1.5 }],
-        },
-      },
-    ]
-    mockFindManyEntries.mockResolvedValue(mockEntries as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    // Household size 2, so 1.5 * 2 = 3 eggs — not divided by gramsPerPiece
-    expect(data.items[0].neededDisplayQuantity).toBe('3\u00a0pc')
-  })
-
-  // `isVague` tells the row its display is a phrase, so it must be set only
-  // when the formatter actually swapped the phrase in (HON-783).
   it.each([
-    { originalPhrase: 'to taste', display: 'to taste', isVague: true },
-    { originalPhrase: null, display: '400g', isVague: false },
-  ])(
-    'flags a vague need only when its phrase replaced the amount (phrase $originalPhrase)',
-    async ({ originalPhrase, display, isVague }) => {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-      mockFindFirst.mockResolvedValue(mockMembership as never)
-      mockFindMany.mockResolvedValue([
-        {
-          id: 'pantry-1',
-          householdId: 'household-123',
-          ingredientId: 'ing-1',
-          quantity: null,
-          isStaple: true,
-          updatedAt: new Date('2024-01-01'),
-          ingredient: { id: 'ing-1', name: 'Butter', category: 'dairy', defaultUnit: 'g' },
-        },
-      ] as never)
-      mockFindManyEntries.mockResolvedValue([
-        {
-          id: 'entry-1',
-          date: new Date(),
-          status: 'planned',
-          meal: {
-            components: [
-              { ingredientId: 'ing-1', quantityPerServing: 200, isVague: true, originalPhrase },
-            ],
-          },
-        },
-      ] as never)
+    ['', null],
+    ['?days=7', 7],
+    ['?days=14', 14],
+    ['?days=30', null],
+    ['?days=abc', null],
+  ])('reads "%s" as a window of %s days', async (query, days) => {
+    mockLoadPantry.mockResolvedValue({ items: [], windowDays: days } as never)
 
-      const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-      const data = await response.json()
+    await get(query)
 
-      expect(data.items[0].neededDisplayQuantity).toBe(display)
-      expect(data.items[0].isVague).toBe(isVague)
-    },
-  )
-
-  it('renders a vague need in the household language for et households (HON-917)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'Anna', email: 'anna@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-    mockFindMany.mockResolvedValue([
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: true,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: { id: 'ing-1', name: 'Sool', category: 'spice', defaultUnit: 'g' },
-      },
-    ] as never)
-    mockFindManyEntries.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: {
-          components: [
-            {
-              ingredientId: 'ing-1',
-              quantityPerServing: 1,
-              isVague: true,
-              originalPhrase: 'to taste',
-            },
-          ],
-        },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(data.items[0].neededDisplayQuantity).toBe('maitse järgi')
-    expect(data.items[0].isVague).toBe(true)
+    expect(mockLoadPantry).toHaveBeenCalledWith(mockHousehold, { days })
   })
 
-  it('formats kg needed quantities with a period decimal for en households', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+  it('returns 500 and reports a failed read', async () => {
+    mockLoadPantry.mockRejectedValue(new Error('db down'))
 
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Flour',
-          category: 'carb',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
+    const response = await get()
 
-    // 750g per serving × 2 = 1500g → crosses the kg threshold → "1.5kg".
-    mockFindManyEntries.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items[0].neededQuantity).toBe(1500)
-    expect(data.items[0].neededDisplayQuantity).toBe('1.5kg')
-  })
-
-  // A liquid shows its stored grams as millilitres, 1:1; the raw quantity stays
-  // in grams (HON-1054).
-  it('formats a measured-by-volume ingredient in ml and l', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    mockFindMany.mockResolvedValue([
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Milk',
-          category: 'dairy',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-          measuredByVolume: true,
-        },
-      },
-    ] as never)
-    mockFindManyEntries.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items[0].neededQuantity).toBe(1500)
-    expect(data.items[0].neededDisplayQuantity).toBe('1.5l')
-  })
-
-  it('formats kg needed quantities with a comma decimal for et households', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'Anna', email: 'anna@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    // Estonian household → locale-aware comma decimal separator.
-    mockFindFirst.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-
-    const mockItems = [
-      {
-        id: 'pantry-1',
-        householdId: 'household-123',
-        ingredientId: 'ing-1',
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-01'),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Jahu',
-          category: 'carb',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-        },
-      },
-    ]
-    mockFindMany.mockResolvedValue(mockItems as never)
-
-    // Same 1500g, but the et household must read "1,5kg" instead of "1.5kg".
-    mockFindManyEntries.mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: new Date(),
-        status: 'planned',
-        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
-      },
-    ] as never)
-
-    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.items[0].neededQuantity).toBe(1500)
-    expect(data.items[0].neededDisplayQuantity).toBe('1,5kg')
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to fetch pantry items' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('POST /api/pantry', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  const post = (body: unknown) =>
+    POST(
+      new Request('http://localhost/api/pantry', {
+        method: 'POST',
+        body: typeof body === 'string' ? body : JSON.stringify(body),
+      }),
+    )
+
+  const createdItem = {
+    id: 'pantry-new',
+    ingredientId: 'ing-456',
+    quantity: 500,
+    isStaple: true,
+    updatedAt: new Date('2024-01-10T00:00:00.000Z'),
+    ingredient: {
+      id: 'ing-456',
+      name: 'Olive oil',
+      category: 'fat',
+      defaultUnit: 'g',
+      measuredByVolume: true,
+    },
+  }
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post({ ingredientId: 'ing-456' })
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockCreatePantryItem).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: 'not valid json',
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post('not valid json')
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' })
   })
 
-  it('returns 400 when ingredientId is missing', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-
-    const response = await POST(request)
+  it.each([
+    ['a missing ingredientId', {}, 'ingredientId'],
+    ['an empty ingredientId', { ingredientId: '' }, 'ingredientId'],
+    ['a negative quantity', { ingredientId: 'ing-456', quantity: -1 }, 'quantity'],
+    ['a non-boolean isStaple', { ingredientId: 'ing-456', isStaple: 'yes' }, 'isStaple'],
+  ])('returns 400 for %s and creates nothing', async (_label, body, field) => {
+    const response = await post(body)
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
-    expect(data.details.ingredientId).toBeDefined()
-  })
-
-  it('returns 400 for a negative quantity and creates nothing', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456', quantity: -1 }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.quantity).toBeDefined()
-    // The "and writes nothing" half of the guard: validation runs before the
-    // household lookup, so a rejected body must never reach Prisma.
-    expect(mockCreatePantry).not.toHaveBeenCalled()
+    expect(Object.keys(data.details)).toEqual([field])
+    expect(mockCreatePantryItem).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(null)
+    mockGetMembership.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post({ ingredientId: 'ing-456' })
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockCreatePantryItem).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when ingredient does not exist', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(null)
+  // HON-889: another household's ingredient reads exactly like an unknown one.
+  it('returns 404 when the ingredient is not one the household can use', async () => {
+    mockCreatePantryItem.mockResolvedValue({ status: 'ingredient_not_found' })
 
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'nonexistent' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post({ ingredientId: 'ing-other-household' })
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('Ingredient not found')
+    expect(await response.json()).toEqual({ error: 'Ingredient not found' })
   })
 
-  // HON-889: another household's ingredient must read exactly like an unknown
-  // one, so the lookup is scoped and a foreign id falls out of it into the 404.
-  it("treats another household's ingredient as not found", async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(null)
+  it('returns 409 with the existing id when the ingredient is already in the pantry', async () => {
+    mockCreatePantryItem.mockResolvedValue({ status: 'exists', existingId: 'existing-item' })
 
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-other-household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(mockFindFirstIngredient).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: 'ing-other-household',
-          OR: [{ householdId: null }, { householdId: 'household-123' }],
-        },
-      }),
-    )
-    expect(response.status).toBe(404)
-    expect(data).toEqual({ error: 'Ingredient not found' })
-    expect(mockCreatePantry).not.toHaveBeenCalled()
-  })
-
-  it('returns 409 when ingredient already in pantry', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
-    mockFindUniquePantry.mockResolvedValue({
-      id: 'existing-pantry-item',
-      householdId: 'household-123',
-      ingredientId: 'ing-456',
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post({ ingredientId: 'ing-456' })
 
     expect(response.status).toBe(409)
-    expect(data.error).toBe('Ingredient already in pantry')
-    expect(data.existingId).toBe('existing-pantry-item')
+    expect(await response.json()).toEqual({
+      error: 'Ingredient already in pantry',
+      existingId: 'existing-item',
+    })
   })
 
-  it('creates pantry item with defaults', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
-    mockFindUniquePantry.mockResolvedValue(null)
+  it('creates the item and returns it with 201', async () => {
+    mockCreatePantryItem.mockResolvedValue({ status: 'created', item: createdItem })
 
-    const createdItem = {
-      id: 'pantry-new',
-      householdId: 'household-123',
-      ingredientId: 'ing-456',
-      quantity: null,
-      isStaple: false,
-      updatedAt: new Date('2024-01-10'),
-      ingredient: mockIngredient,
-    }
-    mockCreatePantry.mockResolvedValue(createdItem as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post({ ingredientId: 'ing-456', quantity: 500, isStaple: true })
 
     expect(response.status).toBe(201)
-    expect(data.id).toBe('pantry-new')
-    expect(data.quantity).toBe(null)
-    expect(data.isStaple).toBe(false)
-    expect(data.ingredient.name).toBe('Olive oil')
-    expect(mockCreatePantry).toHaveBeenCalledWith({
-      data: {
-        householdId: 'household-123',
-        ingredientId: 'ing-456',
-        quantity: null,
-        isStaple: false,
-      },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
-    })
-  })
-
-  it('returns the Estonian name in an et household, so the inserted row is not English (HON-913)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
-    mockFindUniquePantry.mockResolvedValue(null)
-    mockCreatePantry.mockResolvedValue({
+    // `measuredByVolume` is the MCP tool's; the route does not return it.
+    expect(await response.json()).toEqual({
       id: 'pantry-new',
-      householdId: 'household-123',
       ingredientId: 'ing-456',
-      quantity: null,
-      isStaple: false,
-      updatedAt: new Date('2024-01-10'),
-      ingredient: { ...mockIngredient, translations: [{ locale: 'et', name: 'Oliiviõli' }] },
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/pantry', {
-        method: 'POST',
-        body: JSON.stringify({ ingredientId: 'ing-456' }),
-      }),
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.ingredient).toEqual({
-      id: 'ing-456',
-      name: 'Oliiviõli',
-      category: 'fat',
-      defaultUnit: 'g',
+      ingredient: { id: 'ing-456', name: 'Olive oil', category: 'fat', defaultUnit: 'g' },
+      quantity: 500,
+      isStaple: true,
+      updatedAt: '2024-01-10T00:00:00.000Z',
     })
-    expect(mockCreatePantry.mock.calls[0]![0].include!.ingredient).toMatchObject({
-      select: { translations: { where: { locale: 'et' } } },
-    })
-  })
-
-  it('creates pantry item with quantity and isStaple', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
-    mockFindUniquePantry.mockResolvedValue(null)
-
-    const createdItem = {
-      id: 'pantry-new',
-      householdId: 'household-123',
+    expect(mockCreatePantryItem).toHaveBeenCalledWith(mockHousehold, {
       ingredientId: 'ing-456',
       quantity: 500,
       isStaple: true,
-      updatedAt: new Date('2024-01-10'),
-      ingredient: mockIngredient,
-    }
-    mockCreatePantry.mockResolvedValue(createdItem as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456', quantity: 500, isStaple: true }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.quantity).toBe(500)
-    expect(data.isStaple).toBe(true)
-    expect(mockCreatePantry).toHaveBeenCalledWith({
-      data: {
-        householdId: 'household-123',
-        ingredientId: 'ing-456',
-        quantity: 500,
-        isStaple: true,
-      },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
     })
   })
 
-  it('creates pantry item with explicit null quantity', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
-    mockFindUniquePantry.mockResolvedValue(null)
+  it.each([
+    ['no quantity and no isStaple', { ingredientId: 'ing-456' }],
+    ['an explicit null quantity', { ingredientId: 'ing-456', quantity: null }],
+  ])('creates with a null quantity and isStaple false for %s', async (_label, body) => {
+    mockCreatePantryItem.mockResolvedValue({ status: 'created', item: createdItem })
 
-    const createdItem = {
-      id: 'pantry-new',
-      householdId: 'household-123',
+    await post(body)
+
+    expect(mockCreatePantryItem).toHaveBeenCalledWith(mockHousehold, {
       ingredientId: 'ing-456',
       quantity: null,
       isStaple: false,
-      updatedAt: new Date('2024-01-10'),
-      ingredient: mockIngredient,
-    }
-    mockCreatePantry.mockResolvedValue(createdItem as never)
-
-    const request = new Request('http://localhost/api/pantry', {
-      method: 'POST',
-      body: JSON.stringify({ ingredientId: 'ing-456', quantity: null }),
     })
+  })
 
-    const response = await POST(request)
-    const data = await response.json()
+  it('returns 500 and reports an unexpected error', async () => {
+    mockCreatePantryItem.mockRejectedValue(new Error('db down'))
 
-    expect(response.status).toBe(201)
-    expect(data.quantity).toBe(null)
+    const response = await post({ ingredientId: 'ing-456' })
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to add pantry item' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })

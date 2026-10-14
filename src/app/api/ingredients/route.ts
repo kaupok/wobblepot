@@ -1,55 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
-import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { findSynonymMatches } from '@/lib/ingredient-synonym-match'
+import { searchIngredients } from '@/lib/ingredients/search'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
-/**
- * Minimum `similarity()` for a match. Unlike the meal search's
- * `word_similarity()` (HON-942), `similarity()` divides by the trigrams of both
- * strings, so a short query sharing only a name's first-letter trigram stays
- * well below this: a two-letter query has 3 trigrams and the shortest name has
- * at least 2, so one shared trigram scores at most 1 / (3 + 2 − 1) = 0.25.
- */
-const SIMILARITY_THRESHOLD = 0.3
-/**
- * Score for a strong synonym hit (HON-1100): the term picks out one other
- * English name, "zucc" or "all-purpose f" (`SynonymMatch.strong`). Such a hit is an
- * exact, curated match, but the row's own name can share almost no trigrams
- * with the term ("all-purpose fl" vs "plain flour"), so it gets a fixed score:
- * above any partial name hit, below an exact name hit (similarity 1). Typing
- * "all-purpose fl" then lists plain flour first, and typing a row's full name
- * still puts that row on top.
- *
- * A term that is only a generic word of the synonym ("all-purpose", "sweet", or
- * "pepper" in "red bell pepper") is not that kind of match, so the row keeps its own
- * name score and falls into the normal order.
- */
-const SYNONYM_SCORE = 0.9
-
-interface IngredientSearchResult {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-  gramsPerPiece: number | null
-  measuredByVolume: boolean
-  calories: number
-  protein: number
-  carbs: number
-  fat: number
-  similarity: number
-  /** The other English name the term matched; absent on a row found by its own name. */
-  matchedAs?: string
-}
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -74,104 +33,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use pg_trgm similarity search for fuzzy matching
-    // The similarity() function returns a value between 0 and 1
-    // We filter results with similarity >= threshold and order by relevance
-    const categoryFilter = category
-      ? Prisma.sql`AND i.category = ${category}::"IngredientCategory"`
-      : Prisma.empty
-
-    // Offer global ingredients and the caller's own household's, never another
-    // household's: the write routes reject those (HON-889). A user with no
-    // household gets globals only, since `= NULL` matches nothing.
+    // A user with no household still searches, the global ingredients only.
     const membership = await getHouseholdMembership(session.user.id)
-    const householdId = membership?.householdId ?? null
 
-    // Match and return the name the household sees on screen, not only the
-    // English one (HON-911). The household's locale, never Accept-Language.
-    const locale = resolveHouseholdLocale(membership?.household)
-    const match = ingredientNameMatchSql(search, locale)
-
-    const synonymMatches = findSynonymMatches(search)
-
-    const [nameHits, synonymRows] = await Promise.all([
-      prisma.$queryRaw<IngredientSearchResult[]>`
-        SELECT
-          i.id,
-          ${match.displayName} as name,
-          i.category,
-          i."defaultUnit",
-          i."gramsPerPiece",
-          i."measuredByVolume",
-          i.calories,
-          i.protein,
-          i.carbs,
-          i.fat,
-          ${match.score} as similarity
-        FROM "ingredient" i
-        ${match.join}
-        WHERE ${match.score} >= ${SIMILARITY_THRESHOLD}
-          AND (i."householdId" IS NULL OR i."householdId" = ${householdId}::text)
-        ${categoryFilter}
-        ORDER BY similarity DESC, name ASC
-        LIMIT ${limit}
-      `,
-      // Synonyms name global rows only, by their English pool name, so this
-      // matches `i.name` exactly and still returns the household's display name.
-      synonymMatches.length > 0
-        ? prisma.$queryRaw<(IngredientSearchResult & { poolName: string })[]>`
-            SELECT
-              i.id,
-              i.name as "poolName",
-              ${match.displayName} as name,
-              i.category,
-              i."defaultUnit",
-              i."gramsPerPiece",
-              i."measuredByVolume",
-              i.calories,
-              i.protein,
-              i.carbs,
-              i.fat,
-              ${match.score} as similarity
-            FROM "ingredient" i
-            ${match.join}
-            WHERE i.name IN (${Prisma.join(synonymMatches.map((m) => m.target))})
-              AND i."householdId" IS NULL
-            ${categoryFilter}
-          `
-        : Promise.resolve([]),
-    ])
-
-    const synonymByTarget = new Map(synonymMatches.map((m) => [m.target, m]))
-    const synonymHits = new Map<string, IngredientSearchResult>(
-      synonymRows.map(({ poolName, similarity, ...row }) => {
-        const hit = synonymByTarget.get(poolName)
-        const score = hit?.strong ? SYNONYM_SCORE : similarity
-        return [row.id, { ...row, similarity: score, matchedAs: hit?.synonym }]
-      }),
-    )
-
-    // A row is listed once. It keeps its name hit, without `matchedAs`, unless
-    // a strong synonym hit outranks that: typing "all-purpose flour" scores
-    // plain flour low by name, below the other flours.
-    let changed = false
-    const merged = nameHits.map((row) => {
-      const hit = synonymHits.get(row.id)
-      synonymHits.delete(row.id)
-      if (hit && hit.similarity > row.similarity) {
-        changed = true
-        return hit
-      }
-      return row
+    const ingredients = await searchIngredients({
+      search,
+      category,
+      limit,
+      householdId: membership?.householdId ?? null,
+      // Match and return the name the household sees on screen, not only the
+      // English one (HON-911). The household's locale, never Accept-Language.
+      locale: resolveHouseholdLocale(membership?.household),
     })
-
-    // Without a synonym hit, keep the database's order untouched.
-    const ingredients =
-      !changed && synonymHits.size === 0
-        ? nameHits
-        : [...merged, ...synonymHits.values()]
-            .sort((a, b) => b.similarity - a.similarity || a.name.localeCompare(b.name))
-            .slice(0, limit)
 
     return NextResponse.json({ ingredients })
   } catch (error) {
