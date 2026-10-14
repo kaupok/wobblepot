@@ -176,4 +176,12 @@ describe('the real repository', () => {
     )
     expect(checkBoundary(repoRoot, allowlist).violations).toEqual([])
   })
+
+  // HON-1218 emptied the list. A new entry is a regression, not an exception.
+  it('allowlists no file', () => {
+    const allowlist = parseAllowlist(
+      fs.readFileSync(path.join(scriptsDir, 'prisma-import-allowlist.txt'), 'utf8'),
+    )
+    expect(allowlist).toEqual([])
+  })
 })

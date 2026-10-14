@@ -7,10 +7,10 @@
  * be tested against a real database. On 2026-10-13, 40 files outside `src/lib`
  * still imported the client directly, and 94 test files mocked it to cope.
  *
- * Moving those 40 behind lib functions is the work of HON-1189 and HON-1191.
- * This check stops the count growing meanwhile: every file outside `src/lib`
- * that imports the client must be listed in `scripts/prisma-import-allowlist.txt`,
- * and that list only ever shrinks.
+ * HON-1189 and HON-1191 moved those 40 behind lib functions, and HON-1218
+ * emptied `scripts/prisma-import-allowlist.txt`. This check keeps it that way:
+ * every file outside `src/lib` that imports the client must be listed there,
+ * and the list stays empty, so any such file fails.
  *
  * Imports are found with `ts.preProcessFile`, not a regex. A regex also matches
  * the text inside strings and comments — `typography.stories.tsx` shows
