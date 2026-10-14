@@ -44,7 +44,7 @@ export function CookieBanner({ hasTabBar = false }: CookieBannerProps) {
                 // policy it asks consent for — the cookies section of the
                 // privacy policy (HON-457; gap left open by HON-462).
                 link: (chunks) => (
-                  <Link href="/privacy#cookies" className="underline">
+                  <Link href="/privacy#cookies" className="inline-link">
                     {chunks}
                   </Link>
                 ),

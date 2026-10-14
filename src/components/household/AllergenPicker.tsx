@@ -99,7 +99,7 @@ export function AllergenPicker({
       <Body id={noticeId} variant="muted">
         {t.rich('allergensAiNotice', {
           privacy: (chunks) => (
-            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="inline-link">
               {chunks}
             </Link>
           ),

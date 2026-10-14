@@ -61,7 +61,7 @@ export function StopRemindersForm({ token }: { token: string }) {
           <Body variant="muted" role="status">
             {t.rich('doneBody', {
               link: (chunks) => (
-                <Link href="/household" className="text-foreground underline underline-offset-2">
+                <Link href="/household" className="text-foreground inline-link">
                   {chunks}
                 </Link>
               ),

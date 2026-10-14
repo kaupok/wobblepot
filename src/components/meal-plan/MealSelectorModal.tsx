@@ -317,7 +317,7 @@ export function MealSelectorModal({
       <Body variant="muted" className="text-center">
         {tSelector.rich('emptyMyRecipes', {
           link: (chunks) => (
-            <a href="/recipes/import" className="text-primary underline">
+            <a href="/recipes/import" className="text-primary inline-link">
               {chunks}
             </a>
           ),

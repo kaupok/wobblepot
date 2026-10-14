@@ -132,7 +132,7 @@ export default async function ProfilePage({
                     href={CLAUDE_CONNECTOR_HELP_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline"
+                    className="inline-link"
                   >
                     {chunks}
                   </a>

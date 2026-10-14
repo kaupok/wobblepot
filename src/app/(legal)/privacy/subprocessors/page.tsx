@@ -125,14 +125,14 @@ export default function SubprocessorsPage() {
                       visible text in the accessible name (WCAG 2.5.3). */}
                   <span className="block font-normal">
                     <a
-                      className="underline"
+                      className="inline-link"
                       href={p.privacyUrl}
                       aria-label={`${p.name} privacy policy`}
                     >
                       Privacy
                     </a>
                     {' · '}
-                    <a className="underline" href={p.dpaUrl} aria-label={`${p.name} DPA`}>
+                    <a className="inline-link" href={p.dpaUrl} aria-label={`${p.name} DPA`}>
                       DPA
                     </a>
                   </span>
@@ -156,7 +156,7 @@ export default function SubprocessorsPage() {
           bumped with it.
         </Body>
         <Body>
-          <Link className="underline" href="/privacy">
+          <Link className="inline-link" href="/privacy">
             Back to the privacy policy
           </Link>
         </Body>

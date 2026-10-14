@@ -93,7 +93,7 @@ export default function GlobalError({
                 {t.rich('boundary.supportPrompt', {
                   email: SUPPORT_EMAIL,
                   link: (chunks) => (
-                    <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                    <a className="inline-link" href={SUPPORT_EMAIL_HREF}>
                       {chunks}
                     </a>
                   ),

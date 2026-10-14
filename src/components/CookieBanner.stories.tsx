@@ -56,6 +56,13 @@ export const Undecided: Story = {
     // Informed consent: the banner links the policy it asks consent for (HON-457)
     const policyLink = await body.findByRole('link', { name: /privacy policy/i })
     expect(policyLink).toHaveAttribute('href', '/privacy#cookies')
+    // A body link's rest style is `inline-link` (HON-1227): a 1px underline 2px
+    // below the text. The 2px hover thickness needs a real pointer; it is
+    // driven on review:local instead.
+    const linkStyle = getComputedStyle(policyLink)
+    expect(linkStyle.textDecorationLine).toBe('underline')
+    expect(linkStyle.textDecorationThickness).toBe('1px')
+    expect(linkStyle.textUnderlineOffset).toBe('2px')
   },
 }
 

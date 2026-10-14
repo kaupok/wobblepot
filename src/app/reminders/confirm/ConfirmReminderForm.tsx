@@ -12,7 +12,7 @@ import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 const householdLink = (chunks: ReactNode) => (
-  <Link href="/household" className="text-foreground underline underline-offset-2">
+  <Link href="/household" className="text-foreground inline-link">
     {chunks}
   </Link>
 )
