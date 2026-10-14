@@ -12,12 +12,14 @@ vi.mock('@/lib/errors', () => ({
 vi.mock('@/lib/api-keys', () => ({
   listApiKeys: vi.fn(),
   createApiKey: vi.fn(),
+  getApiKeyViewer: vi.fn(),
   MAX_API_KEY_NAME_LENGTH: 60,
+  MAX_API_KEY_EXPIRY_DAYS: 365,
 }))
 
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { createApiKey, listApiKeys } from '@/lib/api-keys'
+import { createApiKey, getApiKeyViewer, listApiKeys } from '@/lib/api-keys'
 import { GET, POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -32,6 +34,9 @@ const SUMMARY = {
   start: 'wp_abcdef',
   createdAt: '2026-10-14T10:00:00.000Z',
   lastUsedAt: null,
+  expiresAt: null,
+  expired: false,
+  memberName: null,
 }
 
 function post(body: unknown) {
@@ -53,15 +58,19 @@ describe('GET /api/auth/user/api-keys (HON-1220)', () => {
     expect(listApiKeys).not.toHaveBeenCalled()
   })
 
-  it("lists the signed-in user's own keys", async () => {
+  it("lists the keys the signed-in user's viewer scope allows", async () => {
     signInAs('user-1')
-    vi.mocked(listApiKeys).mockResolvedValue([SUMMARY])
+    const viewer = { userId: 'user-1', householdId: 'household-1' }
+    vi.mocked(getApiKeyViewer).mockResolvedValue(viewer)
+    const memberKey = { ...SUMMARY, id: 'key-2', memberName: 'Jane' }
+    vi.mocked(listApiKeys).mockResolvedValue([memberKey])
 
     const response = await GET()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual([SUMMARY])
-    expect(listApiKeys).toHaveBeenCalledWith('user-1')
+    expect(await response.json()).toEqual([memberKey])
+    expect(getApiKeyViewer).toHaveBeenCalledWith('user-1')
+    expect(listApiKeys).toHaveBeenCalledWith(viewer)
   })
 
   it('reports a failed read and answers 500', async () => {
@@ -99,7 +108,36 @@ describe('POST /api/auth/user/api-keys (HON-1220)', () => {
       key: 'wp_abcdefghijklmnopqrstuvwxyz012345',
       apiKey: SUMMARY,
     })
-    expect(createApiKey).toHaveBeenCalledWith('user-1', 'Kitchen screen')
+    expect(createApiKey).toHaveBeenCalledWith('user-1', 'Kitchen screen', null)
+  })
+
+  // HON-1221: "Expires in (optional)".
+  it.each([
+    [1, 1],
+    [365, 365],
+    [null, null],
+  ])('passes expiresInDays %s through', async (expiresInDays, expected) => {
+    signInAs('user-1')
+    vi.mocked(createApiKey).mockResolvedValue({ status: 'created', key: 'k', apiKey: SUMMARY })
+
+    expect((await post({ name: 'Kitchen screen', expiresInDays })).status).toBe(201)
+    expect(createApiKey).toHaveBeenCalledWith('user-1', 'Kitchen screen', expected)
+  })
+
+  it.each([
+    ['0', 0],
+    ['366', 366],
+    ['a fraction', 1.5],
+    ['a string', '7'],
+    ['a negative number', -1],
+  ])('answers 400 invalid_expiry for %s', async (_label, expiresInDays) => {
+    signInAs('user-1')
+
+    const response = await post({ name: 'Kitchen screen', expiresInDays })
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).code).toBe('invalid_expiry')
+    expect(createApiKey).not.toHaveBeenCalled()
   })
 
   it.each([

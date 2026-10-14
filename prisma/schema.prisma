@@ -423,6 +423,8 @@ model ApiKey {
   hash       String    @unique
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
+  /// Null for a key that does not expire. A key past it answers 401 (HON-1221).
+  expiresAt  DateTime?
 
   @@index([userId])
   @@map("api_key")

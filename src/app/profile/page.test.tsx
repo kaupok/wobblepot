@@ -103,11 +103,20 @@ vi.mock('./ConnectedAssistantsList', () => ({
 }))
 
 vi.mock('./ApiKeysSection', () => ({
-  ApiKeysSection: ({ initialKeys, timeZone }: { initialKeys: unknown[]; timeZone: string }) => (
+  ApiKeysSection: ({
+    initialKeys,
+    timeZone,
+    householdView,
+  }: {
+    initialKeys: unknown[]
+    timeZone: string
+    householdView: boolean
+  }) => (
     <div
       data-testid="api-keys-section"
       data-count={String(initialKeys.length)}
       data-time-zone={timeZone}
+      data-household-view={String(householdView)}
     />
   ),
 }))
@@ -387,6 +396,9 @@ describe('ProfilePage', () => {
         start: 'wp_abcdef',
         createdAt: '2026-10-14T10:00:00.000Z',
         lastUsedAt: null,
+        expiresAt: null,
+        expired: false,
+        memberName: 'Jane',
       },
     ])
 
@@ -395,7 +407,9 @@ describe('ProfilePage', () => {
     const section = screen.getByTestId('api-keys-section')
     expect(section).toHaveAttribute('data-count', '1')
     expect(section).toHaveAttribute('data-time-zone', 'Europe/Tallinn')
-    expect(listApiKeys).toHaveBeenCalledWith('user-123')
+    // HON-1221: the owner gets the household's keys.
+    expect(section).toHaveAttribute('data-household-view', 'true')
+    expect(listApiKeys).toHaveBeenCalledWith({ userId: 'user-123', householdId: 'household-123' })
     const following = Node.DOCUMENT_POSITION_FOLLOWING
     expect(
       screen.getByTestId('connected-assistants').compareDocumentPosition(section) & following,
@@ -404,6 +418,22 @@ describe('ProfilePage', () => {
       section.compareDocumentPosition(screen.getByRole('heading', { name: 'Your data' })) &
         following,
     ).toBeTruthy()
+  })
+
+  it('passes a member only their own API keys (HON-1221)', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    const { listApiKeys } = await import('@/lib/api-keys')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue({
+      ...membershipWithMemberCount(2),
+      role: 'member',
+    } as never)
+
+    render(await ProfilePage(props()))
+
+    expect(screen.getByTestId('api-keys-section')).toHaveAttribute('data-household-view', 'false')
+    expect(listApiKeys).toHaveBeenCalledWith({ userId: 'user-123', householdId: null })
   })
 
   it('shows the MCP server URL for this environment, the Claude steps and the connected assistants', async () => {

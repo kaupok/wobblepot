@@ -11,8 +11,10 @@ Make a key on the profile page, under "Screens and scripts": give it a name that
 - A key is `wp_` followed by 32 letters and digits.
 - A key can only read. It works on the two endpoints below and nowhere else.
 - A key belongs to its member and reads the household the member belongs to at the time of each request. After the member leaves a household, the key no longer reads it; deleting the account stops the key.
+- A key can expire. "Expires in (optional)" takes 1 to 365 days; left empty, the key does not expire. After that time the key answers `401`, and the profile page lists it as "Expired" until it is revoked.
 - Revoke deletes the key. Its next request answers `401`.
-- A member can have 10 keys at most.
+- The household's owner sees every member's keys on the profile page, with the member's name, and can revoke any of them. Any other member sees and revokes their own keys only (HON-1221).
+- A member can have 10 keys at most. An expired key counts until it is revoked.
 
 Send the key in the `Authorization` header, never in the URL:
 
@@ -89,7 +91,7 @@ Every error is `{ "error": "<a sentence for the developer>", "code": "<code>" }`
 | Status | `code`           | When                                                                                                        |
 | ------ | ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | `400`  | `bad_request`    | A date that is not `YYYY-MM-DD`, `to` before `from`, more than 31 days, or `days` not 7 or 14               |
-| `401`  | `invalid_key`    | No key, a malformed key, a revoked key, or the key of an account waiting for deletion                       |
+| `401`  | `invalid_key`    | No key, a malformed key, a revoked or expired key, or the key of an account waiting for deletion            |
 | `403`  | `no_household`   | The account has no household: finish onboarding in Wobblepot first                                          |
 | `429`  | `rate_limited`   | The household, or your network address, made too many requests. `Retry-After` says how many seconds to wait |
 | `500`  | `internal_error` | Wobblepot could not answer. Try again later                                                                 |
