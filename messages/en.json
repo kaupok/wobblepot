@@ -1451,7 +1451,26 @@
       "revoking": "Revoking…",
       "revoked": "Revoked: {name}",
       "revokeFailed": "The key was not revoked. Try again.",
-      "loadFailed": "Your keys could not be loaded. Reload the page."
+      "loadFailed": "Your keys could not be loaded. Reload the page.",
+      "guide": {
+        "heading": "Use the key",
+        "mealPlan": "Meal plan",
+        "shoppingList": "Shopping list",
+        "mealPlanUrl": "Meal plan URL",
+        "shoppingListUrl": "Shopping list URL",
+        "homeAssistantItem": "Home Assistant example",
+        "copyItem": "Copy: {item}",
+        "copiedItem": "Copied: {item}",
+        "urlCopied": "URL copied",
+        "exampleCopied": "Example copied",
+        "copyFailed": "Not copied. Select the text and copy it by hand.",
+        "stepCall": "Call one of the URLs above. Send the key in a header: <code>Authorization: Bearer wp_…</code>",
+        "stepPoll": "Ask at most once a minute. Every 5 minutes is enough for a meal plan.",
+        "stepJson": "The answer is JSON. The full guide lists every field.",
+        "help": "The full guide has every field, the error codes and a curl example: <link>Wobblepot read-only API</link>.",
+        "homeAssistant": "Home Assistant",
+        "homeAssistantIntro": "Put the key in <code>secrets.yaml</code> as <code>wobblepot_api_key: \"Bearer wp_…\"</code>, then add this to <code>configuration.yaml</code>."
+      }
     },
     "emailLabel": "Email",
     "verifyEmail": {

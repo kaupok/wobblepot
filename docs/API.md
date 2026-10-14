@@ -8,6 +8,8 @@ An AI assistant uses the MCP server, not this API. The security model is in [SEC
 
 Make a key on the profile page, under "Screens and scripts": give it a name that says what will use it, choose Create key, and copy the key. Wobblepot shows it once and keeps only its hash, so a lost key cannot be shown again: revoke it and make a new one.
 
+Below the form, "Use the key" shows the two endpoint URLs for the current host with Copy, three steps, and the Home Assistant example below with that host filled in (HON-1228).
+
 - A key is `wp_` followed by 32 letters and digits.
 - A key can only read. It works on the two endpoints below and nowhere else.
 - A key belongs to its member and reads the household the member belongs to at the time of each request. After the member leaves a household, the key no longer reads it; deleting the account stops the key.
@@ -104,7 +106,7 @@ Poll at most once a minute; every 5 minutes is enough for a meal plan. Home Assi
 
 ## Home Assistant example
 
-Today's dinner, refreshed every 5 minutes. Put the key in `secrets.yaml` as `wobblepot_api_key: "Bearer wp_…"`.
+Today's dinner, refreshed every 5 minutes. The profile page shows the same block, from `homeAssistantExample()` in `src/lib/api-keys-guide.ts`: change both together. Put the key in `secrets.yaml` as `wobblepot_api_key: "Bearer wp_…"`.
 
 ```yaml
 # configuration.yaml

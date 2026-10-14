@@ -157,6 +157,7 @@ export default async function ProfilePage({
           initialKeys={apiKeys}
           timeZone={membership.household.timezone}
           householdView={isOwner}
+          baseUrl={getServerBaseURL()}
         />
 
         <Separator />

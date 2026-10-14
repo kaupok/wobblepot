@@ -230,6 +230,12 @@ export type EventPayload = {
    */
   'mcp:server_url_copied': { source: Source }
   /**
+   * The member copied an endpoint URL or the Home Assistant example from
+   * "Use the key" on the profile page (HON-1228). The top of the API key use
+   * funnel, as `mcp:server_url_copied` is for assistants.
+   */
+  'api_key:guide_copied': { item: 'meal-plan' | 'shopping-list' | 'home-assistant' }
+  /**
    * The cook sent a question about one step in the cook view (HON-969). Fires
    * on send, not on the answer. `source` says whether it was a chip or typed.
    * `has_previous` says whether it went with the step's earlier question and
