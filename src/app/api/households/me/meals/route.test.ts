@@ -2,699 +2,304 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
 
+// The list and create queries live in `@/lib/household-meals`, tested against
+// a database in `household-meals.db.test.ts`. This file mocks that module at
+// the seam and asserts what the route owns: the session, the household, query
+// and body validation, and the status and body each answer maps to (HON-1210).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    meal: {
-      findMany: vi.fn(),
-      create: vi.fn(),
-    },
-    ingredient: {
-      findMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/protein', () => ({
-  deriveProteinType: vi.fn(() => 'poultry'),
+vi.mock('@/lib/household-meals', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-meals')>()),
+  listHouseholdMeals: vi.fn(),
+  createHouseholdMeal: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { createHouseholdMeal, HouseholdMealError, listHouseholdMeals } from '@/lib/household-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockMealFindMany = vi.mocked(prisma.meal.findMany)
-const mockMealCreate = vi.mocked(prisma.meal.create)
-const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockList = vi.mocked(listHouseholdMeals)
+const mockCreate = vi.mocked(createHouseholdMeal)
 
-const mockHousehold = {
-  id: 'household-123',
-  name: 'Test Household',
-  timezone: 'Europe/Tallinn',
-  preferences: null,
-}
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
 
 const mockMembership = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
   role: 'owner',
-  household: mockHousehold,
+  household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'et' },
+} as never
+
+const URL = 'http://localhost/api/households/me/meals'
+
+function get(query = '') {
+  return GET(new NextRequest(`${URL}${query}`))
 }
 
-const mockSession = {
-  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-  session: { id: 'session-123' },
+function post(body: unknown) {
+  return POST(
+    new Request(URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
 }
 
-const mockMealData = {
-  id: 'meal-1',
-  name: 'Chicken Rice Bowl',
-  description: 'A simple chicken and rice dish',
-  timeMinutes: 30,
-  kidFriendly: true,
-  primaryProteinType: 'poultry',
+const validBody = {
+  name: 'New meal',
   suitableFor: ['dinner'],
   servings: 2,
-  deletedAt: null,
-  createdAt: new Date('2026-01-15'),
-  updatedAt: new Date('2026-01-15'),
   components: [
-    {
-      ingredientId: 'ing-1',
-      quantityPerServing: 150,
-      isVague: false,
-      originalPhrase: null,
-      ingredient: {
-        id: 'ing-1',
-        name: 'Chicken breast',
-        category: 'protein',
-        defaultUnit: 'g',
-        gramsPerPiece: null,
-        calories: 165,
-        protein: 31,
-        carbs: 0,
-        fat: 3.6,
-        allergens: [],
-        proteinType: 'poultry',
-      },
-    },
+    { ingredientId: 'ing-1', totalQuantity: 300 },
+    { ingredientId: 'ing-2', totalQuantity: 0, isVague: true, originalPhrase: 'a pinch' },
   ],
-  favoritedBy: [],
 }
 
-describe('GET /api/households/me/meals', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
 
+describe('GET /api/households/me/meals', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
+    const response = await get()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockList).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
+  it('returns 404 when the user has no household', async () => {
     mockGetMembership.mockResolvedValue(null)
 
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
+    const response = await get()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
   })
 
-  it('returns meals list with nutrition', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([mockMealData] as never)
+  it("returns the lib's page as it is", async () => {
+    const page = { meals: [{ id: 'meal-1', name: 'Chicken rice bowl' }], nextCursor: 'meal-1' }
+    mockList.mockResolvedValue(page as never)
 
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
+    const response = await get()
 
     expect(response.status).toBe(200)
-    expect(data.meals).toHaveLength(1)
-    expect(data.meals[0].name).toBe('Chicken Rice Bowl')
-    expect(data.meals[0].nutrition).toBeDefined()
-    expect(data.meals[0].nutrition.calories).toBeGreaterThan(0)
-    expect(data.meals[0].isCustom).toBe(true)
-    expect(data.meals[0].allergens).toEqual([])
-    expect(data.nextCursor).toBeNull()
+    expect(await response.json()).toEqual(page)
   })
 
-  it('converts piece-unit quantities to grams for nutrition', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([
-      {
-        ...mockMealData,
-        components: [
-          {
-            ingredientId: 'ing-eggs',
-            quantityPerServing: 2,
-            isVague: false,
-            originalPhrase: null,
-            ingredient: {
-              id: 'ing-eggs',
-              name: 'Eggs',
-              category: 'protein',
-              defaultUnit: 'piece',
-              gramsPerPiece: 55,
-              calories: 155,
-              protein: 13,
-              carbs: 1.1,
-              fat: 11,
-              allergens: ['eggs'],
-            },
-          },
-        ],
-      },
-    ] as never)
+  it('asks for the first page of 30 live meals in the household locale by default', async () => {
+    mockList.mockResolvedValue({ meals: [], nextCursor: null })
 
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
+    await get()
 
-    // 2 eggs x 55 g = 110 g per serving; 155 kcal/100g -> 170.5 -> 171 (HON-713)
-    expect(data.meals[0].nutrition).toEqual({ calories: 171, protein: 14, carbs: 1, fat: 12 })
-  })
-
-  it('carries the image fields the card tint reads (HON-746)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([
-      {
-        ...mockMealData,
-        imageUrl: 'https://blob/meal-1.png',
-        imageStatus: 'ready',
-        imageHue: 30,
-        imagePromptVersion: 'v4',
-      },
-    ] as never)
-
-    const data = await (
-      await GET(new NextRequest('http://localhost/api/households/me/meals'))
-    ).json()
-
-    expect(data.meals[0]).toMatchObject({
-      imageUrl: 'https://blob/meal-1.png',
-      imageStatus: 'ready',
-      imageHue: 30,
-    })
-    expect(mockMealFindMany.mock.calls[0]?.[0]?.select).toMatchObject({
-      imageUrl: true,
-      imageStatus: true,
-      imageHue: true,
+    expect(mockList).toHaveBeenCalledWith({
+      householdId: 'household-123',
+      locale: 'et',
+      search: null,
+      cursor: null,
+      limit: 30,
+      includeDeleted: false,
     })
   })
 
-  it('returns empty meals array when none exist', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([])
+  it('passes the trimmed search, the cursor, the limit and includeDeleted', async () => {
+    mockList.mockResolvedValue({ meals: [], nextCursor: null })
 
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
+    await get('?search=%20curry%20&cursor=meal-9&limit=10&includeDeleted=true')
 
-    expect(response.status).toBe(200)
-    expect(data.meals).toEqual([])
-    expect(data.nextCursor).toBeNull()
+    expect(mockList).toHaveBeenCalledWith({
+      householdId: 'household-123',
+      locale: 'et',
+      search: 'curry',
+      cursor: 'meal-9',
+      limit: 10,
+      includeDeleted: true,
+    })
   })
 
-  it('passes search parameter to query', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([])
-
-    const request = new NextRequest('http://localhost/api/households/me/meals?search=chicken')
-    await GET(request)
-
-    expect(mockMealFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          name: { contains: 'chicken', mode: 'insensitive' },
-        }),
-      }),
-    )
-  })
-
-  it('orders meals by updatedAt desc, id desc', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([])
-
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    await GET(request)
-
-    expect(mockMealFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        take: 31,
-      }),
-    )
-  })
-
-  it('returns nextCursor when results exceed limit (mid-list)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    // Default limit is 30; mock returns 31 items (limit + 1) to signal hasNext
-    const manyMeals = Array.from({ length: 31 }, (_, i) => ({
-      ...mockMealData,
-      id: `meal-${i}`,
-      name: `Meal ${i}`,
-    }))
-    mockMealFindMany.mockResolvedValue(manyMeals as never)
-
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.meals).toHaveLength(30)
-    expect(data.nextCursor).toBe('meal-29')
-    // The 31st meal was used only to detect hasNext and should be trimmed
-    expect(data.meals.map((m: { id: string }) => m.id)).not.toContain('meal-30')
-  })
-
-  it('returns null nextCursor when results exactly match limit (last page)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    const exactPage = Array.from({ length: 30 }, (_, i) => ({
-      ...mockMealData,
-      id: `meal-${i}`,
-      name: `Meal ${i}`,
-    }))
-    mockMealFindMany.mockResolvedValue(exactPage as never)
-
-    const request = new NextRequest('http://localhost/api/households/me/meals')
-    const response = await GET(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.meals).toHaveLength(30)
-    expect(data.nextCursor).toBeNull()
-  })
-
-  it('passes cursor to query with skip: 1', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([])
-
-    const request = new NextRequest('http://localhost/api/households/me/meals?cursor=meal-42')
-    await GET(request)
-
-    expect(mockMealFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cursor: { id: 'meal-42' },
-        skip: 1,
-      }),
-    )
-  })
-
-  it('respects custom limit parameter', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockMealFindMany.mockResolvedValue([])
-
-    const request = new NextRequest('http://localhost/api/households/me/meals?limit=10')
-    await GET(request)
-
-    expect(mockMealFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 11 }))
-  })
-
-  it('returns 400 for non-numeric limit', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const request = new NextRequest('http://localhost/api/households/me/meals?limit=abc')
-    const response = await GET(request)
-    const data = await response.json()
+  it.each(['abc', '101', '0'])('returns 400 for limit=%s', async (limit) => {
+    const response = await get(`?limit=${limit}`)
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid limit parameter')
+    expect(await response.json()).toEqual({ error: 'Invalid limit parameter' })
+    expect(mockList).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for limit exceeding max', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
+  it('returns 500 and reports the error when the lib throws', async () => {
+    const error = new Error('connection lost')
+    mockList.mockRejectedValue(error)
 
-    const request = new NextRequest('http://localhost/api/households/me/meals?limit=999')
-    const response = await GET(request)
-    const data = await response.json()
+    const response = await get()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid limit parameter')
-  })
-
-  it('falls back to first page when cursor points to a deleted meal (P2025)', async () => {
-    const { Prisma } = await import('@/generated/prisma/client')
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', {
-      code: 'P2025',
-      clientVersion: 'test',
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to fetch meals' })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/households/me/meals',
+      userId: 'user-123',
     })
-    // First call (with stale cursor) throws P2025; fallback call (no cursor) returns empty.
-    mockMealFindMany.mockRejectedValueOnce(p2025).mockResolvedValueOnce([])
-
-    const request = new NextRequest('http://localhost/api/households/me/meals?cursor=stale-id')
-    const response = await GET(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.meals).toEqual([])
-    expect(data.nextCursor).toBeNull()
-    expect(mockMealFindMany).toHaveBeenCalledTimes(2)
-    // Second (fallback) call should not include cursor/skip
-    const fallbackArgs = mockMealFindMany.mock.calls[1]![0]!
-    expect(fallbackArgs).not.toHaveProperty('cursor')
-    expect(fallbackArgs).not.toHaveProperty('skip')
   })
 })
 
 describe('POST /api/households/me/meals', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post(validBody)
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: 'not valid json',
-    })
-    const response = await POST(request)
-    const data = await response.json()
+    const response = await post('not json')
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' })
   })
 
-  it('rejects javascript: protocol URLs in sourceUrl', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'XSS Meal',
-        sourceUrl: 'javascript:alert(document.cookie)',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
+  it('rejects a javascript: sourceUrl', async () => {
+    const response = await post({ ...validBody, sourceUrl: 'javascript:alert(1)' })
 
     expect(response.status).toBe(400)
+    const data = await response.json()
     expect(data.error).toBe('Validation failed')
+    expect(data.details.sourceUrl).toEqual(['Only http/https URLs are allowed'])
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 
-  it('accepts https URLs in sourceUrl', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([
-      { id: 'ing-1', proteinType: 'poultry', protein: 31 },
-    ] as never)
-
-    const createdMeal = {
-      id: 'meal-new',
-      name: 'URL Meal',
-      description: null,
-      preparationNotes: null,
-      sourceUrl: 'https://example.com/recipe',
-      timeMinutes: null,
-      kidFriendly: false,
-      primaryProteinType: 'poultry',
-      suitableFor: ['dinner'],
-      servings: 2,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      components: [
-        {
-          ingredientId: 'ing-1',
-          quantityPerServing: 150,
-          isVague: false,
-          originalPhrase: null,
-          ingredient: {
-            id: 'ing-1',
-            name: 'Chicken breast',
-            category: 'protein',
-            defaultUnit: 'g',
-            gramsPerPiece: null,
-            calories: 165,
-            protein: 31,
-            carbs: 0,
-            fat: 3.6,
-            allergens: [],
-          },
-        },
-      ],
-    }
-    mockMealCreate.mockResolvedValue(createdMeal as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'URL Meal',
-        sourceUrl: 'https://example.com/recipe',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.sourceUrl).toBe('https://example.com/recipe')
-  })
-
-  it('returns 400 for validation errors', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({ name: '' }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
+  it('returns 400 with the field errors for an invalid body', async () => {
+    const response = await post({ name: '' })
 
     expect(response.status).toBe(400)
+    const data = await response.json()
     expect(data.error).toBe('Validation failed')
-    expect(data.details).toBeDefined()
+    expect(Object.keys(data.details).sort()).toEqual([
+      'components',
+      'name',
+      'servings',
+      'suitableFor',
+    ])
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(null)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 400 when some ingredients not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([])
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'missing-ing', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Some ingredients not found')
-    expect(data.missingIds).toContain('missing-ing')
-  })
-
-  // HON-889: another household's ingredient must read exactly like an unknown
-  // one, so the lookup is scoped and a foreign id falls out of it into the 400.
-  it("treats another household's ingredient as not found", async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([])
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'ing-other-household', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(mockIngredientFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: { in: ['ing-other-household'] },
-          OR: [{ householdId: null }, { householdId: 'household-123' }],
-        },
-      }),
-    )
-    expect(response.status).toBe(400)
-    expect(data).toEqual({
-      error: 'Some ingredients not found',
-      missingIds: ['ing-other-household'],
-    })
-  })
-
-  // HON-714: a repeated id used to reach the write and trip
-  // `@@unique([mealId, ingredientId])`, answering 500.
   it('names the repeated ingredient when a component id appears twice', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [
-          { ingredientId: 'ing-1', totalQuantity: 300 },
-          { ingredientId: 'ing-1', totalQuantity: 100 },
-        ],
-      }),
+    const response = await post({
+      ...validBody,
+      components: [
+        { ingredientId: 'ing-1', totalQuantity: 100 },
+        { ingredientId: 'ing-1', totalQuantity: 200 },
+      ],
     })
-    const response = await POST(request)
-    const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data).toEqual({
+    expect(await response.json()).toEqual({
       error: 'Duplicate ingredients in components',
       duplicateIds: ['ing-1'],
     })
-    expect(mockIngredientFindMany).not.toHaveBeenCalled()
-    expect(mockMealCreate).not.toHaveBeenCalled()
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 
   it('rejects more than 50 components', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: Array.from({ length: 51 }, (_, i) => ({
-          ingredientId: `ing-${i}`,
-          totalQuantity: 10,
-        })),
-      }),
+    const response = await post({
+      ...validBody,
+      components: Array.from({ length: 51 }, (_, i) => ({
+        ingredientId: `ing-${i}`,
+        totalQuantity: 10,
+      })),
     })
-    const response = await POST(request)
-    const data = await response.json()
 
     expect(response.status).toBe(400)
+    const data = await response.json()
     expect(data.error).toBe('Validation failed')
-    expect(data.details.components).toBeDefined()
-    expect(mockMealCreate).not.toHaveBeenCalled()
+    expect(data.details.components).toHaveLength(1)
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 
-  it('creates meal successfully and returns 201', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([
-      { id: 'ing-1', proteinType: 'poultry', protein: 31 },
-    ] as never)
+  it('returns 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    const createdMeal = {
-      id: 'meal-new',
-      name: 'New Meal',
-      description: null,
-      timeMinutes: null,
-      kidFriendly: false,
-      primaryProteinType: 'poultry',
-      suitableFor: ['dinner'],
-      servings: 2,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      components: [
-        {
-          ingredientId: 'ing-1',
-          quantityPerServing: 150,
-          isVague: false,
-          originalPhrase: null,
-          ingredient: {
-            id: 'ing-1',
-            name: 'Chicken breast',
-            category: 'protein',
-            defaultUnit: 'g',
-            gramsPerPiece: null,
-            calories: 165,
-            protein: 31,
-            carbs: 0,
-            fat: 3.6,
-            allergens: [],
-          },
-        },
-      ],
-    }
-    mockMealCreate.mockResolvedValue(createdMeal as never)
+    const response = await post(validBody)
 
-    const request = new Request('http://localhost/api/households/me/meals', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'New Meal',
-        suitableFor: ['dinner'],
-        servings: 2,
-        components: [{ ingredientId: 'ing-1', totalQuantity: 300 }],
-      }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('creates the meal from the validated body and returns 201 with it', async () => {
+    const created = { id: 'meal-new', name: 'New meal', isCustom: true }
+    mockCreate.mockResolvedValue(created as never)
+
+    const response = await post({ ...validBody, sourceUrl: 'https://example.com/recipe' })
 
     expect(response.status).toBe(201)
-    expect(data.id).toBe('meal-new')
-    expect(data.name).toBe('New Meal')
-    expect(data.isCustom).toBe(true)
-    expect(data.isFavorite).toBe(false)
-    expect(data.nutrition).toBeDefined()
-    expect(data.allergens).toEqual([])
+    expect(await response.json()).toEqual(created)
+    expect(mockCreate).toHaveBeenCalledWith('household-123', {
+      name: 'New meal',
+      sourceUrl: 'https://example.com/recipe',
+      kidFriendly: false,
+      suitableFor: ['dinner'],
+      servings: 2,
+      components: [
+        { ingredientId: 'ing-1', totalQuantity: 300, isVague: false },
+        { ingredientId: 'ing-2', totalQuantity: 0, isVague: true, originalPhrase: 'a pinch' },
+      ],
+    })
+  })
+
+  it('returns 400 with the missing ids when an ingredient is not found', async () => {
+    mockCreate.mockRejectedValue(
+      new HouseholdMealError('ingredientsNotFound', ['ing-2', 'ing-other-household']),
+    )
+
+    const response = await post(validBody)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'Some ingredients not found',
+      missingIds: ['ing-2', 'ing-other-household'],
+    })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 and reports the error when the lib throws', async () => {
+    const error = new Error('connection lost')
+    mockCreate.mockRejectedValue(error)
+
+    const response = await post(validBody)
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to create recipe' })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/households/me/meals',
+      userId: 'user-123',
+    })
   })
 })
