@@ -164,7 +164,7 @@ export function LandingFeatures() {
         </Heading>
       </div>
       {/* WebKit drops list semantics from a `list-style: none` list, so the
-          role restores them, as on the steps. */}
+          role restores them. */}
       <ul role="list" className="grid list-none gap-5 md:grid-cols-2">
         {POINTS.map((point) => (
           <li

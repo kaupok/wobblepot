@@ -711,26 +711,6 @@
         "description": "Ahjus küpsetatud lõhe röstitud spargli ja sidruniga"
       }
     },
-    "how": {
-      "title": "Kolm sammu planeeritud nädalani",
-      "step": "{number}. samm",
-      "table": {
-        "title": "Ütle, kes on laua ääres",
-        "body": "Täiskasvanud, lapsed, allergiad ja see, mida keegi ei söö. Kaks minutit, üks kord."
-      },
-      "week": {
-        "title": "Saa nädala söögid",
-        "body": "Õhtusöök igaks päevaks koos valmistusajaga. Lisa hommikusöök ja lõuna, kui soovid. Vaheta iga toit, mis ei meeldi."
-      },
-      "shop": {
-        "title": "Käi korra poes, siis kokka",
-        "body": "Üks nimekiri sellest, mis on puudu, rühmitatud riiulite kaupa. Pliidi juures on sammud telefonis ja iga sammu kohta saab küsida.",
-        "vignette": {
-          "mozzarella": "Mozzarella",
-          "beef": "Hautiseliha"
-        }
-      }
-    },
     "note": {
       "title": "Teinud isa <br></br>oma neljaliikmelisele perele"
     },
