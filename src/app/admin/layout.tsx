@@ -5,8 +5,8 @@ import { isAdmin } from '@/lib/auth-helpers'
 // Gate the whole `/admin` segment here, outside any child `loading.tsx`.
 // A segment's `loading.tsx` wraps only its own `page.tsx` in Suspense, not a
 // parent layout, so this check resolves before a child skeleton can stream:
-// non-admins get the neutral root skeleton and then the 404, never an
-// admin-shaped fallback that hints at what lives here.
+// non-admins get the 404, never an admin-shaped fallback that hints at what
+// lives here.
 //
 // Child pages keep their own `isAdmin` check. Layouts don't re-render on
 // sibling navigation, so this is the UX guard, not the sole gate. `getSession`

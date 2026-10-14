@@ -61,7 +61,7 @@ function RememberPasswordLine() {
   return (
     <Body variant="muted" className="text-center">
       {t('rememberPassword')}{' '}
-      <Link href="/sign-in" className="text-primary hover:underline">
+      <Link href="/sign-in" className="text-primary inline-link">
         {t('signInLink')}
       </Link>
     </Body>

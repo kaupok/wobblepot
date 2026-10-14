@@ -123,6 +123,16 @@ function isInOverlay(element: Element, root: HTMLElement): boolean {
   return overlay !== null && overlay !== root && root.contains(overlay)
 }
 
+/**
+ * An element exempt from `no-content-shadow` by its own marker: an illustration
+ * whose subject is elevation, such as the landing deck's front card (HON-1225).
+ * Only the marked element is exempt, not its descendants, so a shadow on a
+ * control inside the illustrated card still fails.
+ */
+function isIllustrationElevation(element: Element): boolean {
+  return element.getAttribute('data-elevation') === 'illustration'
+}
+
 /** Splits a computed `box-shadow` into layers, ignoring commas inside `rgb(…)`. */
 function shadowLayers(boxShadow: string): string[] {
   const layers: string[] = []
@@ -163,7 +173,7 @@ function isTransparent(color: string): boolean {
  * composes into every element's `box-shadow` as `0 0 #0000` placeholders, and
  * spread-only ones (`0 0 0 3px`), which is how `ring-*` draws a focus ring.
  */
-function castsShadow(boxShadow: string): boolean {
+export function castsShadow(boxShadow: string): boolean {
   if (!boxShadow || boxShadow === 'none') return false
   return shadowLayers(boxShadow).some((layer) => {
     const color = COLOR.exec(layer)?.[0] ?? ''
@@ -268,7 +278,7 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
 
   'no-content-shadow': (root) => {
     for (const element of root.querySelectorAll('*')) {
-      if (isInOverlay(element, root)) continue
+      if (isInOverlay(element, root) || isIllustrationElevation(element)) continue
       const { boxShadow } = getComputedStyle(element)
       if (castsShadow(boxShadow)) {
         throw violation(

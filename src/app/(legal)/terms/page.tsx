@@ -39,7 +39,7 @@ export default function TermsPage() {
         <Body variant="lead">
           These terms govern your use of Wobblepot. By creating an account you agree to them and to
           the{' '}
-          <Link className="underline" href="/privacy">
+          <Link className="inline-link" href="/privacy">
             privacy policy
           </Link>
           .
@@ -122,7 +122,7 @@ export default function TermsPage() {
           You can delete your account at any time from the app; your data is then purged after a
           30-day grace period (the purge runs nightly, so deletion happens within a day of that
           period ending), as described in the{' '}
-          <Link className="underline" href="/privacy">
+          <Link className="inline-link" href="/privacy">
             privacy policy
           </Link>
           . We may suspend or terminate accounts that violate these terms, after warning you where
@@ -159,7 +159,7 @@ export default function TermsPage() {
       <Section title="Contact">
         <Body>
           Questions about these terms:{' '}
-          <a className="underline" href={SUPPORT_EMAIL_HREF}>
+          <a className="inline-link" href={SUPPORT_EMAIL_HREF}>
             {SUPPORT_EMAIL}
           </a>
         </Body>

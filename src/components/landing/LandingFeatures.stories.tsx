@@ -58,6 +58,14 @@ const play: Story['play'] = async ({ canvasElement }) => {
 
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
 
+  // The vignette cards draw no border on the tile's colour; the Imagine
+  // tile's field is a control and keeps its own (HON-1224).
+  const cards = drawings.flatMap((el) => Array.from(el.querySelectorAll('[data-slot="card"]')))
+  await expect(cards).toHaveLength(4)
+  for (const card of cards) await expect(getComputedStyle(card).borderTopWidth).toBe('0px')
+  const field = canvas.getByTestId('landing-vignette-imagine').querySelector('textarea')!
+  await expect(getComputedStyle(field).borderTopWidth).not.toBe('0px')
+
   // The section heading and point titles are in the display face; the
   // vignettes, drawn with the app's components, keep Geist (HON-1043).
   const family = (el: Element) => getComputedStyle(el).fontFamily

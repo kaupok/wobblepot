@@ -92,12 +92,12 @@ export default async function StatusPage() {
           {t.rich('support', {
             email: SUPPORT_EMAIL,
             mailLink: (chunks) => (
-              <a className="underline" href={SUPPORT_EMAIL_HREF}>
+              <a className="inline-link" href={SUPPORT_EMAIL_HREF}>
                 {chunks}
               </a>
             ),
             homeLink: (chunks) => (
-              <Link className="underline" href="/">
+              <Link className="inline-link" href="/">
                 {chunks}
               </Link>
             ),
