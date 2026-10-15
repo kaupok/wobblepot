@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
+import { isGoogleAuthConfigured } from '@/lib/env'
 import { hasHouseholdMembership } from '@/lib/household'
 import { getServerFlag } from '@/lib/feature-flags'
 import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
@@ -72,6 +73,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
           inviteCodeLabel={t('inviteCodeLabel')}
           inviteCodeHint={t('inviteCodeHint')}
           householdInvite={householdInvite}
+          googleEnabled={isGoogleAuthConfigured()}
         />
       </Suspense>
     </div>

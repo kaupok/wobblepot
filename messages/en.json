@@ -834,6 +834,7 @@
       "submitting": "Signing in…",
       "dontHaveAccount": "Don't have an account?",
       "signUpLink": "Sign up",
+      "googleNoAccountSignUp": "Sign up",
       "connectorSignUpNote": "Sign up first and set up your household. Then start connecting again from the app.",
       "resetSuccess": "Your password has been reset successfully. You can now sign in with your new password.",
       "slowRequest": "This is taking longer than expected. Please wait…",
@@ -861,6 +862,11 @@
       "householdInviteLabel": "Household invite",
       "slowRequest": "This is taking longer than expected. Please wait…",
       "navigationFailed": "Account created successfully, but navigation failed. Please refresh the page."
+    },
+    "google": {
+      "continue": "Continue with Google",
+      "redirecting": "Opening Google…",
+      "divider": "or"
     },
     "requestInvite": {
       "metaTitle": "Ask for an invite",
@@ -1160,7 +1166,10 @@
       "resetUserNotFound": "If an account exists with this email, you will receive a reset link.",
       "userNotFound": "No account found with this email address.",
       "invalidEmail": "Please enter a valid email address.",
-      "emailNotVerified": "Verify your email address first. Open the link in the email we sent you.",
+      "emailNotVerified": "This email already has a Wobblepot account. Sign in with your password and verify your email on My account. Then Continue with Google works too.",
+      "googleNoAccount": "No Wobblepot account uses this Google account yet.",
+      "googleEmailNotVerified": "Google has not verified this email address. Use another Google account, or sign up with your email.",
+      "googleFailed": "Signing in with Google did not work. Please try again.",
       "breachedPassword": "That password appears in known data breaches. Please pick a different one.",
       "passwordTooShort": "Password must be at least 12 characters long.",
       "passwordTooLong": "Use a password of 128 characters or fewer.",

@@ -1,8 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { getOAuthState } from 'better-auth/api'
 import {
   afterEmailSignUp,
+  afterOAuthCallback,
+  afterOAuthSignUp,
+  assertOAuthUserCreation,
   auth,
   assertTermsAccepted,
+  beforeSocialSignIn,
+  GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE,
+  ID_TOKEN_SIGN_IN_MESSAGE,
+  beforeOAuthUserCreate,
   assertValidAccountNameUpdate,
   INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
@@ -12,7 +20,8 @@ import {
 } from './auth'
 import { CURRENT_TERMS_VERSION } from './consent'
 import { isPasswordBreached } from './breached-password'
-import { linkUsedBy, releaseClaim } from '@/lib/signup-codes'
+import { claimInviteCode, linkUsedBy, releaseClaim, validateInviteCode } from '@/lib/signup-codes'
+import { getPosthogServer } from '@/lib/posthog-server'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
 import { joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { resend, isEmailConfigured } from '@/lib/resend'
@@ -23,17 +32,37 @@ vi.mock('./breached-password', () => ({
   isPasswordBreached: vi.fn(),
 }))
 
-vi.mock('@/lib/signup-codes', () => ({
-  linkUsedBy: vi.fn(),
-  releaseClaim: vi.fn(),
-  validateAndClaimInviteCode: vi.fn(),
+vi.mock('@/lib/signup-codes', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/signup-codes')>()
+  return {
+    HOUSEHOLD_INVITE_INVALID_MESSAGE: original.HOUSEHOLD_INVITE_INVALID_MESSAGE,
+    INVITE_CODE_INVALID_MESSAGE: original.INVITE_CODE_INVALID_MESSAGE,
+    getInviteCodeFromBody: original.getInviteCodeFromBody,
+    claimInviteCode: vi.fn(),
+    linkUsedBy: vi.fn(),
+    releaseClaim: vi.fn(),
+    validateAndClaimInviteCode: vi.fn(),
+    validateInviteCode: vi.fn(),
+  }
+})
+
+vi.mock('better-auth/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('better-auth/api')>()),
+  getOAuthState: vi.fn(),
+}))
+
+const posthogCapture = vi.fn()
+vi.mock('@/lib/posthog-server', () => ({
+  getPosthogServer: vi.fn(() => ({ capture: posthogCapture })),
 }))
 
 vi.mock('@/lib/waitlist', () => ({
   clearWaitlistForNewUser: vi.fn(),
 }))
 
-vi.mock('@/lib/household-invite', () => ({
+vi.mock('@/lib/household-invite', async (importOriginal) => ({
+  getHouseholdInviteCodeFromBody: (await importOriginal<typeof import('@/lib/household-invite')>())
+    .getHouseholdInviteCodeFromBody,
   joinHouseholdFromSignUp: vi.fn(),
 }))
 
@@ -123,10 +152,30 @@ describe('stampTermsConsent', () => {
 
   it.each([
     ['another auth path', '/sign-in/email'],
-    ['a future OAuth callback', '/callback/google'],
+    ['the OAuth callback without a state', '/callback/:id'],
     ['internal creation with no request context', undefined],
   ])('does not stamp for %s — consent is only validated on email sign-up', (_label, path) => {
     expect(stampTermsConsent(path)).toBeNull()
+  })
+
+  it('stamps the OAuth callback when its state carries sign-up consent (HON-1157)', () => {
+    const now = new Date('2026-10-15T12:00:00Z')
+    expect(
+      stampTermsConsent('/callback/:id', now, { requestSignUp: true, acceptedTerms: true }),
+    ).toEqual({ acceptedTermsAt: now, acceptedTermsVersion: CURRENT_TERMS_VERSION })
+  })
+
+  it.each([
+    ['no consent flag', { requestSignUp: true }],
+    ['a truthy non-boolean consent', { requestSignUp: true, acceptedTerms: 'true' }],
+    ['a sign-in flow', { acceptedTerms: true }],
+  ])('does not stamp the OAuth callback with %s', (_label, state) => {
+    expect(stampTermsConsent('/callback/:id', new Date(), state)).toBeNull()
+  })
+
+  it('ignores an OAuth state on any other path', () => {
+    const state = { requestSignUp: true, acceptedTerms: true }
+    expect(stampTermsConsent('/sign-in/social', new Date(), state)).toBeNull()
   })
 })
 
@@ -179,6 +228,279 @@ describe('afterEmailSignUp', () => {
   })
 })
 
+describe('beforeSocialSignIn (HON-1157)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('passes a plain sign-in with no checks', async () => {
+    await expect(
+      beforeSocialSignIn({ provider: 'google', callbackURL: '/' }),
+    ).resolves.toBeUndefined()
+    expect(validateInviteCode).not.toHaveBeenCalled()
+  })
+
+  it('rejects a sign-up without consent before validating the code', async () => {
+    await expect(
+      beforeSocialSignIn({
+        provider: 'google',
+        requestSignUp: true,
+        additionalData: { inviteCode: 'good' },
+      }),
+    ).rejects.toMatchObject({ message: TERMS_NOT_ACCEPTED_MESSAGE })
+    expect(validateInviteCode).not.toHaveBeenCalled()
+  })
+
+  it('rejects a sign-up whose code fails validation', async () => {
+    vi.mocked(validateInviteCode).mockRejectedValueOnce(new Error('invite code is invalid'))
+    const additionalData = { acceptedTerms: true, inviteCode: 'used' }
+
+    await expect(
+      beforeSocialSignIn({ provider: 'google', requestSignUp: true, additionalData }),
+    ).rejects.toThrow('invite code is invalid')
+    expect(validateInviteCode).toHaveBeenCalledWith(additionalData)
+  })
+
+  it('validates, but does not claim, the code of a consented sign-up', async () => {
+    const additionalData = { acceptedTerms: true, inviteCode: 'good' }
+
+    await beforeSocialSignIn({ provider: 'google', requestSignUp: true, additionalData })
+
+    expect(validateInviteCode).toHaveBeenCalledWith(additionalData)
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+
+  it('refuses an ID-token sign-in, which would create the user past the callback', async () => {
+    await expect(
+      beforeSocialSignIn({ provider: 'google', idToken: { token: 'eyJ' } }),
+    ).rejects.toMatchObject({ message: ID_TOKEN_SIGN_IN_MESSAGE })
+  })
+})
+
+describe('assertOAuthUserCreation (HON-1157)', () => {
+  const consented = { requestSignUp: true, acceptedTerms: true }
+
+  it('returns the consent stamp for a verified Google user with consent', () => {
+    const now = new Date('2026-10-15T12:00:00Z')
+    expect(assertOAuthUserCreation({ emailVerified: true }, consented, now)).toEqual({
+      acceptedTermsAt: now,
+      acceptedTermsVersion: CURRENT_TERMS_VERSION,
+    })
+  })
+
+  it('refuses a user row without consent in the state', () => {
+    expect(() => assertOAuthUserCreation({ emailVerified: true }, { requestSignUp: true })).toThrow(
+      TERMS_NOT_ACCEPTED_MESSAGE,
+    )
+  })
+
+  it('refuses an address Google has not verified, with the callback error code', () => {
+    let caught: unknown
+    try {
+      assertOAuthUserCreation({ emailVerified: false }, consented)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toMatchObject({
+      message: GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE,
+      body: { code: 'email_not_verified' },
+    })
+  })
+})
+
+describe('databaseHooks.user.create.before', () => {
+  const before = auth.options.databaseHooks!.user!.create!.before!
+  const user = { name: 'Anna', email: 'anna@example.com', emailVerified: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('stamps consent on a Google sign-up callback from its OAuth state', async () => {
+    vi.mocked(getOAuthState).mockResolvedValue({
+      requestSignUp: true,
+      acceptedTerms: true,
+    } as never)
+
+    const result = await before(user as never, { path: '/callback/:id' } as never)
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        email: 'anna@example.com',
+        acceptedTermsAt: expect.any(Date),
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
+      }),
+    })
+  })
+
+  it('refuses a callback creation whose state has no consent', async () => {
+    vi.mocked(getOAuthState).mockResolvedValue({ requestSignUp: true } as never)
+
+    await expect(before(user as never, { path: '/callback/:id' } as never)).rejects.toThrow(
+      TERMS_NOT_ACCEPTED_MESSAGE,
+    )
+  })
+
+  it('leaves internal creation unstamped and does not read OAuth state', async () => {
+    await expect(before(user as never, undefined as never)).resolves.toBeUndefined()
+    expect(getOAuthState).not.toHaveBeenCalled()
+  })
+})
+
+describe('beforeOAuthUserCreate (HON-1157)', () => {
+  const verified = { emailVerified: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('claims the code before the insert and returns the consent stamp', async () => {
+    vi.mocked(claimInviteCode).mockResolvedValue(true)
+    const now = new Date('2026-10-15T12:00:00Z')
+    const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'good' }
+
+    await expect(beforeOAuthUserCreate(verified, state, now)).resolves.toEqual({
+      acceptedTermsAt: now,
+      acceptedTermsVersion: CURRENT_TERMS_VERSION,
+    })
+    expect(claimInviteCode).toHaveBeenCalledWith(state)
+  })
+
+  // Several Google flows started on one code: the first back claims it, the
+  // rest write no row (review on PR #1291).
+  it('refuses the user row when another sign-up claimed the code first', async () => {
+    vi.mocked(claimInviteCode).mockResolvedValue(false)
+    const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'shared' }
+
+    let caught: unknown
+    try {
+      await beforeOAuthUserCreate(verified, state)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toMatchObject({ body: { code: 'INVITE_CODE_INVALID' } })
+
+    // The after-hook then has nothing to finish.
+    await afterOAuthCallback(state, 'user_1')
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(releaseClaim).not.toHaveBeenCalled()
+  })
+
+  it('checks a household invite again and claims no code', async () => {
+    const state = { requestSignUp: true, acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    await beforeOAuthUserCreate(verified, state)
+
+    expect(validateInviteCode).toHaveBeenCalledWith(state)
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+
+  // A link used or revoked while the visitor was at Google (review on PR #1291).
+  it('refuses the user row when the household invite no longer admits a sign-up', async () => {
+    vi.mocked(validateInviteCode).mockRejectedValueOnce(new Error('household invite invalid'))
+    const state = { requestSignUp: true, acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    let caught: unknown
+    try {
+      await beforeOAuthUserCreate(verified, state)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toMatchObject({ body: { code: 'HOUSEHOLD_INVITE_INVALID' } })
+
+    await afterOAuthCallback(state, 'user_1')
+    expect(joinHouseholdFromSignUp).not.toHaveBeenCalled()
+  })
+
+  it('checks nothing more for a sign-up with no code and no invite (gate off)', async () => {
+    await beforeOAuthUserCreate(verified, { requestSignUp: true, acceptedTerms: true })
+
+    expect(validateInviteCode).not.toHaveBeenCalled()
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+
+  it('checks consent before it claims', async () => {
+    await expect(
+      beforeOAuthUserCreate(verified, { requestSignUp: true, inviteCode: 'good' }),
+    ).rejects.toThrow(TERMS_NOT_ACCEPTED_MESSAGE)
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+})
+
+describe('afterOAuthCallback (HON-1157)', () => {
+  const consented = { requestSignUp: true, acceptedTerms: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(claimInviteCode).mockResolvedValue(true)
+  })
+
+  it('finishes the sign-up once for the user this callback created', async () => {
+    const state = { ...consented, inviteCode: 'good' }
+    await beforeOAuthUserCreate({ emailVerified: true }, state)
+
+    await afterOAuthCallback(state, 'user_1')
+    await afterOAuthCallback(state, 'user_1')
+
+    expect(linkUsedBy).toHaveBeenCalledTimes(1)
+    expect(linkUsedBy).toHaveBeenCalledWith(state, 'user_1')
+    expect(clearWaitlistForNewUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing for a returning user, whose callback created no row', async () => {
+    await afterOAuthCallback({ ...consented, inviteCode: 'good' }, 'user_1')
+
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
+    expect(posthogCapture).not.toHaveBeenCalled()
+  })
+
+  it('releases the claimed code when the sign-up failed after the claim', async () => {
+    const state = { ...consented, inviteCode: 'good' }
+    await beforeOAuthUserCreate({ emailVerified: true }, state)
+
+    await afterOAuthCallback(state, undefined)
+
+    expect(releaseClaim).toHaveBeenCalledWith(state)
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('afterOAuthSignUp (HON-1157)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('links the code, clears the waitlist, joins the household and captures the sign-up', async () => {
+    const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'good' }
+
+    await afterOAuthSignUp(state, 'user_1')
+
+    expect(linkUsedBy).toHaveBeenCalledWith(state, 'user_1')
+    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
+    expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(state, 'user_1')
+    expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
+      vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
+    )
+    expect(posthogCapture).toHaveBeenCalledTimes(1)
+    expect(posthogCapture).toHaveBeenCalledWith({
+      distinctId: 'user_1',
+      event: 'auth:sign_up',
+      properties: { method: 'google' },
+    })
+  })
+
+  it('keeps the sign-up when PostHog throws', async () => {
+    vi.mocked(getPosthogServer).mockReturnValueOnce({
+      capture: () => {
+        throw new Error('posthog down')
+      },
+    } as never)
+
+    await expect(afterOAuthSignUp({}, 'user_1')).resolves.toBeUndefined()
+  })
+})
+
 describe('auth options wiring', () => {
   it('declares the consent columns as non-input additionalFields', () => {
     // `input: false` is the spoofing guard: without it, Better Auth would
@@ -208,6 +530,10 @@ describe('auth options wiring', () => {
     expect(auth.options.emailVerification?.sendVerificationEmail).toBeTypeOf('function')
     expect(auth.options.emailAndPassword).not.toHaveProperty('requireEmailVerification')
     expect(auth.options.emailVerification).not.toHaveProperty('autoSignInAfterVerification')
+  })
+
+  it('registers no social provider without the Google env vars (HON-1157)', () => {
+    expect(auth.options.socialProviders).not.toHaveProperty('google')
   })
 
   it('sets minPasswordLength to 12', () => {
@@ -281,5 +607,36 @@ describe('sendAccountVerificationEmail', () => {
 
     await expect(sendAccountVerificationEmail({ user, url })).resolves.toBeUndefined()
     expect(error).toHaveBeenCalled()
+  })
+})
+
+describe('Google provider wiring (HON-1157)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('registers Google behind the sign-up and verification gates when configured', async () => {
+    vi.resetModules()
+    vi.stubEnv('GOOGLE_CLIENT_ID', 'client-id.apps.googleusercontent.com')
+    vi.stubEnv('GOOGLE_CLIENT_SECRET', 'client-secret')
+
+    const { auth: configured } = await import('./auth')
+    const google = configured.options.socialProviders?.google as Record<string, unknown>
+
+    expect(google).toMatchObject({
+      clientId: 'client-id.apps.googleusercontent.com',
+      clientSecret: 'client-secret',
+      prompt: 'select_account',
+      disableImplicitSignUp: true,
+      requireEmailVerification: true,
+    })
+    const map = google.mapProfileToUser as (p: unknown) => unknown
+    expect(map({ name: 'Anna', picture: 'https://lh3.googleusercontent.com/a' })).toEqual({
+      name: 'Anna',
+      image: undefined,
+    })
+    // Better Auth's linking defaults: no trusted provider skips local verification.
+    expect(configured.options).not.toHaveProperty('account')
   })
 })

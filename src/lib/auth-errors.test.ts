@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAuthErrorKey } from './auth-errors'
+import { getAuthErrorKey, getOAuthErrorKey } from './auth-errors'
 
 describe('getAuthErrorKey', () => {
   describe('authentication errors', () => {
@@ -218,5 +218,20 @@ describe('getAuthErrorKey', () => {
     it('handles login with wrong password', () => {
       expect(getAuthErrorKey('The password provided is incorrect')).toBe('incorrectPassword')
     })
+  })
+})
+
+describe('getOAuthErrorKey (HON-1157)', () => {
+  it.each([
+    ['signup_disabled', 'googleNoAccount'],
+    ['account_not_linked', 'emailNotVerified'],
+    ['email_not_verified', 'googleEmailNotVerified'],
+    ['INVITE_CODE_INVALID', 'inviteCodeInvalid'],
+    ['HOUSEHOLD_INVITE_INVALID', 'householdInviteInvalid'],
+    ['state_mismatch', 'googleFailed'],
+    ['access_denied', 'googleFailed'],
+    ['', 'googleFailed'],
+  ])('maps %s to %s', (code, key) => {
+    expect(getOAuthErrorKey(code)).toBe(key)
   })
 })

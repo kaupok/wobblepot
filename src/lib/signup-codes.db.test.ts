@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import {
+  claimInviteCode,
   createSignupCode,
   deleteUnusedSignupCode,
   listSignupCodes,
@@ -8,6 +9,7 @@ import {
   revokeSignupCode,
   SignupCodeError,
   type SignupCodeRefusal,
+  validateInviteCode,
 } from '@/lib/signup-codes'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
@@ -155,5 +157,40 @@ describe('E2E seed codes', () => {
 
     expect(await deleteUnusedSignupCode('e2e-used')).toBe(0)
     expect(await prisma.signupCode.count()).toBe(1)
+  })
+})
+
+describe('validateInviteCode and claimInviteCode (HON-1157)', () => {
+  const flagOn = async () => true
+
+  it('validates a fresh code without marking it used, then one claim wins', async () => {
+    await prisma.signupCode.create({ data: { code: 'google-code' } })
+
+    await validateInviteCode({ inviteCode: 'google-code' }, { getFlag: flagOn })
+    const afterValidate = await prisma.signupCode.findUniqueOrThrow({
+      where: { code: 'google-code' },
+    })
+    expect(afterValidate.usedAt).toBeNull()
+
+    const claims = await Promise.all([
+      claimInviteCode({ inviteCode: 'google-code' }),
+      claimInviteCode({ inviteCode: 'google-code' }),
+    ])
+    expect(claims.filter(Boolean)).toHaveLength(1)
+
+    await expect(
+      validateInviteCode({ inviteCode: 'google-code' }, { getFlag: flagOn }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('refuses an expired code', async () => {
+    await prisma.signupCode.create({
+      data: { code: 'expired-code', expiresAt: new Date(Date.now() - 1000) },
+    })
+
+    await expect(
+      validateInviteCode({ inviteCode: 'expired-code' }, { getFlag: flagOn }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(claimInviteCode({ inviteCode: 'expired-code' })).resolves.toBe(false)
   })
 })

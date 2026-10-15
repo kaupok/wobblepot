@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
+import { getOAuthErrorKey } from '@/lib/auth-errors'
 import { getValidReturnUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import {
+  AuthMethodDivider,
+  GoogleSignInButton,
+  googleErrorCallbackURL,
+} from '@/components/auth/GoogleSignInButton'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 /**
@@ -33,13 +39,19 @@ interface SignInFormProps {
    * new user to set up first and connect again (HON-1162).
    */
   isOAuthRequest?: boolean
+  /**
+   * Google sign-in is configured (`isGoogleAuthConfigured()`, HON-1157): show
+   * Continue with Google under the form.
+   */
+  googleEnabled?: boolean
 }
 
-export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
+export function SignInForm({ isOAuthRequest = false, googleEnabled = false }: SignInFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
   const t = useTranslations('auth.signIn')
+  const tErrors = useTranslations('errors.auth')
   const friendlyError = useAuthErrorMessage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -47,7 +59,14 @@ export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
   const [successMessage, setSuccessMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
+  const [isGooglePending, setIsGooglePending] = useState(false)
+  // `signup_disabled`: the error names a missing account, so it links to sign-up.
+  const [showSignUpLink, setShowSignUpLink] = useState(false)
   const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
+  const { ref: googleRef, requestRefocus: requestGoogleRefocus } =
+    useRefocusAfterPending(isGooglePending)
+  const signUpHref =
+    returnUrl !== '/' ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}` : '/sign-up'
 
   useEffect(() => {
     // Check for password reset success
@@ -62,9 +81,53 @@ export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
     }
   }, [searchParams, router, t])
 
+  useEffect(() => {
+    // A failed Google attempt comes back here with `?error=<code>` (HON-1157).
+    // Show its copy, then drop the code so a reload does not show it again.
+    const code = searchParams.get('error')
+    if (code === null) return
+    const key = getOAuthErrorKey(code)
+    setError(tErrors(key))
+    setShowSignUpLink(key === 'googleNoAccount')
+    router.replace(googleErrorCallbackURL('/sign-in', searchParams))
+  }, [searchParams, router, tErrors])
+
+  const handleGoogle = async () => {
+    setError('')
+    setShowSignUpLink(false)
+    setIsGooglePending(true)
+    let isRedirecting = false
+    try {
+      // No `requestSignUp`: with `disableImplicitSignUp` this can only reach
+      // an existing account, so the sign-in page never creates one. The OAuth
+      // provider client plugin adds the signed `oauth_query` of an MCP
+      // client connecting (HON-1150) to this POST, and the server resumes the
+      // authorization after Google's callback.
+      const { error: signInError } = await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: returnUrl,
+        errorCallbackURL: googleErrorCallbackURL('/sign-in', searchParams),
+      })
+      if (signInError) {
+        setError(friendlyError(signInError.message || ''))
+      } else {
+        // The auth client is already sending the browser to Google.
+        isRedirecting = true
+      }
+    } catch (err) {
+      setError(friendlyError(err instanceof Error ? err.message : 'network'))
+    } finally {
+      if (!isRedirecting) {
+        requestGoogleRefocus()
+        setIsGooglePending(false)
+      }
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setShowSignUpLink(false)
     setIsLoading(true)
     setIsSlowRequest(false)
 
@@ -189,25 +252,46 @@ export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
                 aria-describedby={error ? 'form-error' : undefined}
               />
             </div>
-            {error && <FieldError id="form-error">{error}</FieldError>}
+            {error && (
+              <FieldError id="form-error">
+                {error}
+                {showSignUpLink && (
+                  <>
+                    {' '}
+                    <Link href={signUpHref} className="inline-link">
+                      {t('googleNoAccountSignUp')}
+                    </Link>
+                  </>
+                )}
+              </FieldError>
+            )}
             {isSlowRequest && !error && <Body variant="muted">{t('slowRequest')}</Body>}
           </div>
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              ref={submitRef}
+              type="submit"
+              className="w-full"
+              disabled={isLoading || isGooglePending}
+            >
               {isLoading ? t('submitting') : t('submit')}
             </Button>
+            {googleEnabled && (
+              <>
+                <AuthMethodDivider />
+                <GoogleSignInButton
+                  ref={googleRef}
+                  onClick={handleGoogle}
+                  pending={isGooglePending}
+                  disabled={isLoading}
+                />
+              </>
+            )}
             <Body variant="muted" className="text-center">
               {t('dontHaveAccount')}{' '}
-              <Link
-                href={
-                  returnUrl !== '/'
-                    ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}`
-                    : '/sign-up'
-                }
-                className="text-primary inline-link"
-              >
+              <Link href={signUpHref} className="text-primary inline-link">
                 {t('signUpLink')}
               </Link>
             </Body>

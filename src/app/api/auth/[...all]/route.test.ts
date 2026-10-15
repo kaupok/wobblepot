@@ -96,6 +96,8 @@ describe('Better Auth catch-all route (/api/auth/[...all])', () => {
     { path: '/api/auth/request-password-reset', feature: 'forgot-password' },
     // Resend on /account (HON-1155).
     { path: '/api/auth/send-verification-email', feature: 'verify-email' },
+    // Continue with Google on /sign-in and /sign-up (HON-1157).
+    { path: '/api/auth/sign-in/social', feature: 'sign-in' },
   ] as const)('rate-limits $path against feature $feature', async ({ path, feature }) => {
     mockCheckRateLimit.mockResolvedValue(allow())
     const route = await import('./route')
@@ -114,6 +116,7 @@ describe('Better Auth catch-all route (/api/auth/[...all])', () => {
     '/api/auth/sign-in/email',
     '/api/auth/request-password-reset',
     '/api/auth/send-verification-email',
+    '/api/auth/sign-in/social',
   ])('returns 429 with Retry-After for %s when the limiter denies', async (path) => {
     mockCheckRateLimit.mockResolvedValue(deny())
     mockRetryAfterSeconds.mockReturnValue(120)

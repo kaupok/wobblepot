@@ -20,6 +20,10 @@
  * or lib function, not in the browser. They are listed here so this file stays
  * the one place to read the taxonomy.
  *
+ * - `auth:sign_up` with `method: 'google'` (`src/lib/auth.ts` →
+ *   `afterOAuthSignUp`, called from the `/callback/:id` after-hook, HON-1157):
+ *   a Google sign-up created a user. The client event of the same name carries
+ *   `method: 'email'`. Distinct id is the user id. Properties: `method`.
  * - `imagine:allergen_violation_dropped` (`src/app/api/meals/imagine/route.ts`,
  *   HON-895): one event per suggestion the forbidden-food guard dropped and
  *   per constraint it broke. Distinct id is the household id. Properties:
@@ -181,7 +185,12 @@ export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
  * the household for the rest of the session.
  */
 export type EventPayload = {
-  'auth:sign_up': Record<string, never>
+  /**
+   * `email` from `SignUpForm`'s success callback; `google` is captured on the
+   * server by the OAuth callback (`afterOAuthSignUp` in `src/lib/auth.ts`,
+   * HON-1157), because the browser comes back from Google on a redirect.
+   */
+  'auth:sign_up': { method: 'email' | 'google' }
   'onboarding:household_created': { household_id: string }
   'meal_plan:plan_generated': { plan_id: string }
   'meal_plan:meal_completed': { plan_id: string; meal_id: string; source: Source }

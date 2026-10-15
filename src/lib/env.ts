@@ -77,6 +77,20 @@ const serverOnlyEnvSchema = z.object({
       'OpenAI API key for generated meal illustrations (HON-735). Unset = POST /api/meals/[id]/image answers 503 and no image is generated; the rest of the app is unaffected. Production only once HON-736 (vendor compliance) is Done.',
     ),
 
+  GOOGLE_CLIENT_ID: z
+    .string()
+    .optional()
+    .describe(
+      'Google OAuth client ID for "Continue with Google" on /sign-in and /sign-up (HON-1157). Unset or empty, with or without GOOGLE_CLIENT_SECRET = the provider is off and both pages render the email form only. The client lives under Honkadori OÜ in Google Cloud (HON-1156); see docs/ENVIRONMENT_SETUP.md § "Google sign-in".',
+    ),
+
+  GOOGLE_CLIENT_SECRET: z
+    .string()
+    .optional()
+    .describe(
+      'Google OAuth client secret, the pair of GOOGLE_CLIENT_ID (HON-1157). Both must be set for the provider to be on.',
+    ),
+
   RESEND_API_KEY: z
     .string()
     .min(1, 'RESEND_API_KEY is required for email sending')
@@ -262,6 +276,8 @@ export const serverEnv = new Proxy(
     DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
@@ -363,4 +379,14 @@ export function getServerBaseURL(): string {
   }
 
   return 'http://localhost:3000'
+}
+
+/**
+ * True when both Google OAuth variables are set (HON-1157). `src/lib/auth.ts`
+ * registers the Google provider only then, and the sign-in and sign-up pages
+ * show "Continue with Google" only then, so dev, CI and preview deployments
+ * without the pair run email/password only.
+ */
+export function isGoogleAuthConfigured(): boolean {
+  return Boolean(serverEnv.GOOGLE_CLIENT_ID && serverEnv.GOOGLE_CLIENT_SECRET)
 }

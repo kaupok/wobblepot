@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { hashPassword } from 'better-auth/crypto'
 import { jwt } from 'better-auth/plugins'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
@@ -7,7 +7,7 @@ import { mcp } from '@better-auth/mcp'
 import { cimd } from '@better-auth/cimd'
 import { fetchClientMetadataResource } from '@better-auth/cimd/node'
 import { prisma } from '@/lib/prisma'
-import { serverEnv, getServerBaseURL } from '@/lib/env'
+import { serverEnv, getServerBaseURL, isGoogleAuthConfigured } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { generateVerifyEmailEmail } from '@/lib/emails/verify-email'
@@ -17,9 +17,19 @@ import { matchAcceptLanguage } from '@/lib/i18n/accept-language'
 import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
-import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
+import {
+  HOUSEHOLD_INVITE_INVALID_MESSAGE,
+  INVITE_CODE_INVALID_MESSAGE,
+  claimInviteCode,
+  getInviteCodeFromBody,
+  linkUsedBy,
+  releaseClaim,
+  validateAndClaimInviteCode,
+  validateInviteCode,
+} from '@/lib/signup-codes'
+import { getPosthogServer } from '@/lib/posthog-server'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
-import { joinHouseholdFromSignUp } from '@/lib/household-invite'
+import { getHouseholdInviteCodeFromBody, joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
@@ -78,6 +88,24 @@ export function assertValidAccountNameUpdate(body: unknown): void {
   }
 }
 
+/** Better Auth's route for every social provider's redirect back to us. */
+export const OAUTH_CALLBACK_PATH = '/callback/:id'
+
+/**
+ * True when the OAuth state of a callback comes from the sign-up page's Google
+ * button (HON-1157): it asked for sign-up and carried the consent flag. The
+ * state is signed by Better Auth, and `beforeSocialSignIn` checked both values
+ * before the redirect, so a client cannot add them afterwards.
+ */
+export function isOAuthSignUpState(state: unknown): boolean {
+  if (typeof state !== 'object' || state === null) return false
+  const { requestSignUp, acceptedTerms } = state as {
+    requestSignUp?: unknown
+    acceptedTerms?: unknown
+  }
+  return requestSignUp === true && acceptedTerms === true
+}
+
 /**
  * Consent stamp merged into the user row at creation (HON-457). Values are
  * produced server-side — `acceptedTermsVersion` mirrors CURRENT_TERMS_VERSION
@@ -85,17 +113,192 @@ export function assertValidAccountNameUpdate(body: unknown): void {
  * `additionalFields`, so clients can never supply them.
  *
  * `path` guard: `databaseHooks.user.create.before` fires for *every* user
- * creation. Consent validation lives only on the email sign-up path
- * (`hooks.before` above), so we stamp only when the creating request is
- * `/sign-up/email`. A future OAuth flow (or admin/internal creation, where
- * `path` is undefined) must capture consent on its own surface — do NOT
+ * creation. Consent is validated on two surfaces only, so only they stamp:
+ * `/sign-up/email` (`hooks.before` checks the checkbox), and the Google
+ * callback when its OAuth `state` carries the sign-up page's consent
+ * (`beforeSocialSignIn` checked it before the redirect, HON-1157). Any other
+ * creation (admin/internal, where `path` is undefined) gets no stamp — do NOT
  * widen this guard without adding that surface's consent checkbox first.
  */
-export function stampTermsConsent(path: string | undefined, now: Date = new Date()) {
-  if (path !== '/sign-up/email') return null
+export function stampTermsConsent(
+  path: string | undefined,
+  now: Date = new Date(),
+  state?: unknown,
+) {
+  const consented =
+    path === '/sign-up/email' || (path === OAUTH_CALLBACK_PATH && isOAuthSignUpState(state))
+  if (!consented) return null
   return {
     acceptedTermsAt: now,
     acceptedTermsVersion: CURRENT_TERMS_VERSION,
+  }
+}
+
+export const GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE = 'Google has not verified this email address.'
+
+/**
+ * Gate for a user row that an OAuth callback is about to create (HON-1157).
+ * Returns the consent stamp, or throws so no row is written:
+ *
+ * - no sign-up consent in the state: with `disableImplicitSignUp` Better Auth
+ *   only creates a user for a `requestSignUp` flow, which the sign-up page
+ *   starts with consent, so this is a bypass or a regression;
+ * - Google did not verify the address: the provider's
+ *   `requireEmailVerification` refuses the session only after the insert, which
+ *   would leave a row nobody can sign in to.
+ *
+ * The callback turns the thrown code into `?error=<code>` on the error URL.
+ */
+export function assertOAuthUserCreation(
+  user: { emailVerified?: unknown },
+  state: unknown,
+  now: Date = new Date(),
+) {
+  const consent = stampTermsConsent(OAUTH_CALLBACK_PATH, now, state)
+  if (!consent) {
+    throw new APIError('BAD_REQUEST', {
+      message: TERMS_NOT_ACCEPTED_MESSAGE,
+      code: 'TERMS_NOT_ACCEPTED',
+    })
+  }
+  if (user.emailVerified !== true) {
+    throw new APIError('FORBIDDEN', {
+      message: GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE,
+      code: 'email_not_verified',
+    })
+  }
+  return consent
+}
+
+export const ID_TOKEN_SIGN_IN_MESSAGE = 'Sign-in with an ID token is not supported.'
+
+/** `additionalData` off a `/sign-in/social` body: client-supplied, not trusted. */
+function getAdditionalData(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null) return undefined
+  return (body as { additionalData?: unknown }).additionalData
+}
+
+/**
+ * The `/sign-in/social` before-hook (HON-1157), exported for unit testing.
+ *
+ * - `idToken` is refused. The app never sends one, and that branch creates the
+ *   user inside this request, past the callback where the invite code is
+ *   claimed and the waitlist cleared.
+ * - A plain sign-in (no `requestSignUp`) passes: `disableImplicitSignUp` means
+ *   it can only reach an existing account.
+ * - A sign-up must carry consent and a valid code (or household invite) in
+ *   `additionalData`, checked here so a refusal comes before the redirect to
+ *   Google. The code is validated, not claimed: the user can abandon the flow
+ *   at Google. {@link beforeOAuthUserCreate} claims it once Google returns.
+ *
+ * `getOAuthState()` is still empty here: Better Auth builds the state inside
+ * the endpoint, from this same `additionalData`.
+ */
+export async function beforeSocialSignIn(body: unknown): Promise<void> {
+  if (typeof body !== 'object' || body === null) return
+  const { idToken, requestSignUp } = body as { idToken?: unknown; requestSignUp?: unknown }
+  if (idToken !== undefined) {
+    throw new APIError('BAD_REQUEST', {
+      message: ID_TOKEN_SIGN_IN_MESSAGE,
+      code: 'ID_TOKEN_NOT_SUPPORTED',
+    })
+  }
+  if (requestSignUp !== true) return
+  const data = getAdditionalData(body)
+  assertTermsAccepted(data)
+  await validateInviteCode(data)
+}
+
+/**
+ * OAuth states whose callback is creating a user. Better Auth keeps one state
+ * object per request (`getOAuthState()` returns the same reference in the
+ * create hook and in `hooks.after`), so membership says exactly "this callback
+ * created the user", which Better Auth's own `isRegister` does not expose.
+ */
+const statesCreatingUser = new WeakSet<object>()
+
+/**
+ * The OAuth callback's create hook (HON-1157), exported for unit testing.
+ * Runs only when Better Auth is about to insert a user, so only for a real
+ * sign-up:
+ *
+ * - {@link assertOAuthUserCreation}: consent in the state, a verified address;
+ * - check the household invite again, if the state carries one;
+ * - claim the invite code, atomically, before the insert. `/sign-in/social`
+ *   only validated it, and the state lives 10 minutes, so several flows can
+ *   start on one code; the first to come back claims it, and the rest are
+ *   refused (`?error=INVITE_CODE_INVALID`) with no row written. The email path
+ *   has the same one-account-per-code rule;
+ * - mark the state, so the after-hook does the rest of the sign-up.
+ *
+ * Returns the consent stamp to merge into the row.
+ */
+export async function beforeOAuthUserCreate(
+  user: { emailVerified?: unknown },
+  state: unknown,
+  now: Date = new Date(),
+) {
+  const consent = assertOAuthUserCreation(user, state, now)
+  // A household invite stands in for the code (HON-1131). Nothing claims it
+  // before the after-hook joins it, so check again that it still admits a
+  // sign-up: a link used or revoked while the visitor was at Google writes no
+  // row. Two callbacks within milliseconds can both pass, as on the email path.
+  if (getHouseholdInviteCodeFromBody(state)) {
+    try {
+      await validateInviteCode(state)
+    } catch {
+      throw new APIError('FORBIDDEN', {
+        message: HOUSEHOLD_INVITE_INVALID_MESSAGE,
+        code: 'HOUSEHOLD_INVITE_INVALID',
+      })
+    }
+  }
+  if (getInviteCodeFromBody(state) && !(await claimInviteCode(state))) {
+    throw new APIError('FORBIDDEN', {
+      message: INVITE_CODE_INVALID_MESSAGE,
+      code: 'INVITE_CODE_INVALID',
+    })
+  }
+  if (typeof state === 'object' && state !== null) statesCreatingUser.add(state)
+  return consent
+}
+
+/**
+ * The `/callback/:id` after-hook (HON-1157), exported for unit testing.
+ * Nothing to do unless this callback's create hook ran. Then, with a session,
+ * finish the sign-up ({@link afterOAuthSignUp}); without one the sign-up
+ * failed after the claim, so release the code, as the email path does.
+ */
+export async function afterOAuthCallback(state: unknown, userId: string | undefined) {
+  if (typeof state !== 'object' || state === null || !statesCreatingUser.has(state)) return
+  statesCreatingUser.delete(state)
+  if (userId) {
+    await afterOAuthSignUp(state, userId)
+    return
+  }
+  await releaseClaim(state)
+}
+
+/**
+ * A new Google user's sign-up, after the row exists (HON-1157). The same steps
+ * as {@link afterEmailSignUp}, with the OAuth state as the body: link the code
+ * the create hook claimed, clear the waitlist request, join the household
+ * invite. Then capture `auth:sign_up` with `method: 'google'`: the browser
+ * left for Google and came back on a redirect, so it has no success callback
+ * to `track()` from. No step throws: the user and their session exist.
+ */
+export async function afterOAuthSignUp(state: unknown, userId: string): Promise<void> {
+  await linkUsedBy(state, userId)
+  await clearWaitlistForNewUser(userId)
+  await joinHouseholdFromSignUp(state, userId)
+  try {
+    getPosthogServer()?.capture({
+      distinctId: userId,
+      event: 'auth:sign_up',
+      properties: { method: 'google' },
+    })
+  } catch {
+    // Analytics only.
   }
 }
 
@@ -189,6 +392,7 @@ export async function sendAccountVerificationEmail(
  *
  * This is the main server-side authentication instance. It handles:
  * - Email/password authentication
+ * - Google sign-in and sign-up, when `isGoogleAuthConfigured()` (HON-1157)
  * - Session management
  * - CSRF protection via trustedOrigins
  *
@@ -297,6 +501,38 @@ export const auth = betterAuth({
   },
 
   /**
+   * Google sign-in (HON-1157), registered only when both env vars are set, so
+   * dev, CI and previews without them run email/password only.
+   *
+   * - `disableImplicitSignUp`: a Google account with no Wobblepot account is
+   *   refused (`?error=signup_disabled`) unless the request asks for sign-up.
+   *   Only the sign-up page's button does, after consent and the invite code,
+   *   which `beforeSocialSignIn` checks again on the server.
+   * - `requireEmailVerification`: Google must report the address verified.
+   *   Account linking and sign-up both rely on the address being real.
+   * - `image: undefined`: nothing renders `user.image`, and the CSP `img-src` does
+   *   not allow Google's hosts, so the URL is not stored.
+   *
+   * `account.accountLinking` keeps Better Auth's defaults: Google links to a
+   * password account on the same address only when that address is verified
+   * locally (`requireLocalEmailVerified`). Do not add Google to
+   * `trustedProviders` to skip that: a password account a stranger created on
+   * your address must not become reachable through your Google sign-in.
+   */
+  socialProviders: isGoogleAuthConfigured()
+    ? {
+        google: {
+          clientId: serverEnv.GOOGLE_CLIENT_ID!,
+          clientSecret: serverEnv.GOOGLE_CLIENT_SECRET!,
+          prompt: 'select_account',
+          disableImplicitSignUp: true,
+          requireEmailVerification: true,
+          mapProfileToUser: (profile) => ({ name: profile.name, image: undefined }),
+        },
+      }
+    : {},
+
+  /**
    * Account email verification, in the soft form (HON-1155): sign-up sends a
    * link, and sign-in stays open before it is clicked, so
    * `emailAndPassword.requireEmailVerification` stays unset. The link lands on
@@ -338,10 +574,16 @@ export const auth = betterAuth({
       create: {
         /**
          * Stamps `acceptedTermsAt` + `acceptedTermsVersion` on the new user
-         * row (HON-457). See {@link stampTermsConsent} for the path guard —
-         * only email sign-up carries validated consent today.
+         * row (HON-457). See {@link stampTermsConsent} for the path guard.
+         * An OAuth callback must carry the sign-up page's consent and win the
+         * invite code, or no row is written ({@link beforeOAuthUserCreate},
+         * HON-1157).
          */
         before: async (user, ctx) => {
+          if (ctx?.path === OAUTH_CALLBACK_PATH) {
+            const consent = await beforeOAuthUserCreate(user, await getOAuthState())
+            return { data: { ...user, ...consent } }
+          }
           const consent = stampTermsConsent(ctx?.path)
           if (!consent) return
           return { data: { ...user, ...consent } }
@@ -362,14 +604,20 @@ export const auth = betterAuth({
    * (gated by the `invite_code_required` PostHog kill-switch) and atomically
    * claims it via a row-level UPDATE; the `after` hook backfills the
    * `usedById` link once the new user row exists and deletes the user's
-   * waitlist request (see {@link afterEmailSignUp}). Both delegate to
-   * `src/lib/signup-codes.ts` so the validation/claim logic stays
-   * unit-testable in isolation. See HON-488.
+   * waitlist request (see {@link afterEmailSignUp}). Google sign-up runs the
+   * same gate in two halves: validate on `/sign-in/social`
+   * ({@link beforeSocialSignIn}), claim on the callback, before the insert
+   * ({@link beforeOAuthUserCreate}). All delegate to `src/lib/signup-codes.ts` so
+   * the validation/claim logic stays unit-testable in isolation. See HON-488.
    */
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/update-user') {
         assertValidAccountNameUpdate(ctx.body)
+        return
+      }
+      if (ctx.path === '/sign-in/social') {
+        await beforeSocialSignIn(ctx.body)
         return
       }
       if (ctx.path !== '/sign-up/email') return
@@ -385,6 +633,10 @@ export const auth = betterAuth({
           userId: ctx.context.session?.user.id,
           returned: ctx.context.returned,
         })
+        return
+      }
+      if (ctx.path === OAUTH_CALLBACK_PATH) {
+        await afterOAuthCallback(await getOAuthState(), ctx.context.newSession?.user?.id)
         return
       }
       if (ctx.path !== '/sign-up/email') return

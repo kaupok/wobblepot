@@ -67,4 +67,29 @@ describe('authClient OAuth query forwarding', () => {
 
     expect(lastRequestBody(fetchMock)).not.toHaveProperty('oauth_query')
   })
+
+  // HON-1157: Continue with Google on a connector's sign-in. The provider's
+  // before-hook stores the query in the OAuth state on `/sign-in/social`, and
+  // its after-hook resumes the authorization when Google's callback signs in.
+  it('sends the signed query as oauth_query on a Google sign-in', async () => {
+    window.history.replaceState(null, '', `/sign-in${SIGNED_SEARCH}`)
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ redirect: false, url: 'https://accounts.google.com/o' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    )
+    const { authClient } = await import('@/lib/auth-client')
+
+    await authClient.signIn.social({ provider: 'google', callbackURL: '/' })
+
+    const [url] = fetchMock.mock.calls.at(-1)! as [RequestInfo | URL]
+    expect(String(url)).toMatch(/\/sign-in\/social$/)
+    const body = lastRequestBody(fetchMock)
+    expect(body.provider).toBe('google')
+    const oauthQuery = new URLSearchParams(String(body.oauth_query))
+    expect(oauthQuery.get('client_id')).toBe('client-123')
+    expect(oauthQuery.get('sig')).toBe('signature-abc')
+  })
 })

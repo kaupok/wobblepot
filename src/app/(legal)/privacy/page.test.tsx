@@ -81,6 +81,14 @@ describe('PrivacyPage', () => {
     expect(text).toContain('as long as your account is active')
   })
 
+  it('discloses what Google sign-in sends us (HON-1157)', () => {
+    const text = renderedText()
+    expect(text).toContain(
+      'Google sign-in, if you choose it: your name, email address and Google account identifier',
+    )
+    expect(text).toContain('we do not keep your Google profile picture')
+  })
+
   it('discloses AI processing of personal data by Anthropic', () => {
     const text = renderedText()
     expect(text).toContain(

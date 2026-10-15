@@ -12,6 +12,7 @@ Complete guide for setting up and managing environment variables in the Wobblepo
   - [Adding a Public Variable](#adding-a-public-variable-next_public_)
   - [Adding a Server-Only Variable](#adding-a-server-only-variable)
 - [Email Service (Resend)](#email-service-resend)
+- [Google sign-in](#google-sign-in)
 - [Upstash Redis (rate limiting)](#upstash-redis-rate-limiting)
 - [PostHog (analytics, errors, source maps)](#posthog-analytics-errors-source-maps)
 - [Vercel Blob (meal images)](#vercel-blob-meal-images)
@@ -58,6 +59,8 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 | `DATABASE_URL_UNPOOLED`                                             | Yes                  | Direct Neon connection. Read by the Prisma CLI (`db:push`, `db:migrate`, `db:seed`) through `prisma.config.ts`, and by the migration workflows.                                                              |
 | `ANTHROPIC_API_KEY`                                                 | Yes, for AI features | Every Claude call: meal generation, imagined meals, recipe import, prep tips. Pages that do not call the AI boot without it.                                                                                 |
 | `OPENAI_API_KEY`                                                    | No                   | Generated meal illustrations (`POST /api/meals/[id]/image`). Unset answers 503 there and nothing else changes. Production only once HON-736 is Done.                                                         |
+| `GOOGLE_CLIENT_ID`                                                  | No                   | Google OAuth client for Continue with Google. The provider is on only when both Google variables are set. See [Google sign-in](#google-sign-in).                                                             |
+| `GOOGLE_CLIENT_SECRET`                                              | No                   | The client secret of `GOOGLE_CLIENT_ID`.                                                                                                                                                                     |
 | `RESEND_API_KEY`                                                    | No                   | Transactional email. Unset skips the send; under `next dev` the password-reset URL is logged to the console instead. See [Email Service](#email-service-resend).                                             |
 | `UPSTASH_REDIS_REST_URL`                                            | Yes                  | Rate limiting. See [Upstash Redis](#upstash-redis-rate-limiting).                                                                                                                                            |
 | `UPSTASH_REDIS_REST_TOKEN`                                          | Yes                  | Rate limiting.                                                                                                                                                                                               |
@@ -206,6 +209,15 @@ Details and the backend-selection logic: `tests/e2e/README.md` §
 
 Code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) → `EMAIL_SENDERS`.
 Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
+
+## Google sign-in
+
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on Continue with Google on `/sign-in` and `/sign-up` (HON-1157). `isGoogleAuthConfigured()` in `src/lib/env.ts` is true only when both are set; `src/lib/auth.ts` registers the provider and both pages show the button only then. Dev, CI and previews without them run email/password only, and the E2E specs need neither.
+
+- The OAuth client belongs to Honkadori OÜ in Google Cloud. Creating it and setting the values on staging and production is HON-1156.
+- Authorised redirect URI: `<app URL>/api/auth/callback/google`, one per environment (`https://wobblepot.dev/...`, `https://wobblepot.com/...`). A preview deployment has its own URL, which the client does not list, so leave the pair unset on Preview.
+- Local: add `http://localhost:3000/api/auth/callback/google` to the client, then set both in `.env.local`.
+- No CSP change: the flow is a full-page redirect to Google and back, and the callback is a GET.
 
 ## Vercel Blob (meal images)
 
