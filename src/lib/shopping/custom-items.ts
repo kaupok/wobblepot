@@ -196,9 +196,9 @@ export async function updateCustomShoppingItem(
           quantity: null,
           isStaple: false,
         },
-        update: {
-          // Touch updatedAt
-        },
+        // Renews the unpurchase window, as in `purchaseIngredients`. Prisma
+        // leaves `@updatedAt` alone on an empty update, so set it (HON-1233).
+        update: { updatedAt: new Date() },
       })
       // Buying it means "have some", the only state the shopping list reads
       // as purchased, so a 0 or an entered quantity is replaced, as in

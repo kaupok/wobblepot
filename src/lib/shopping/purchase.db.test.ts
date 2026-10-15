@@ -353,6 +353,23 @@ describe('purchase then unpurchase', () => {
     expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
     expect(await pantryRow(alder.id, 'ing-rice')).toBeNull()
   })
+
+  // HON-1233: an empty upsert update left `updatedAt` alone, so the undo
+  // answered too_old.
+  it('renews the 7-day window of an old "have some" row, so the undo still works', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', updatedAt: daysAgo(10) },
+    })
+    const before = Date.now()
+
+    const outcome = await purchaseIngredients(alder, ['ing-rice'])
+
+    expect(outcome.status).toBe('purchased')
+    if (outcome.status !== 'purchased') return
+    expect(Date.parse(outcome.results[0]!.pantryItem.updatedAt)).toBeGreaterThanOrEqual(before)
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
+  })
 })
 
 describe('purchasePlanIngredients', () => {

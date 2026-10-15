@@ -127,9 +127,9 @@ export async function purchaseIngredients(
           quantity: null,
           isStaple: false,
         },
-        update: {
-          // Touch updatedAt to mark as recently acquired
-        },
+        // Mark it recently acquired, which renews the unpurchase window. Prisma
+        // leaves `@updatedAt` alone on an empty update, so set it (HON-1233).
+        update: { updatedAt: new Date() },
         select,
       })
       // A purchase means "have some, amount unknown", and `loadShoppingList`
