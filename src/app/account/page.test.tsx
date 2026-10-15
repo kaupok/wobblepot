@@ -10,6 +10,12 @@ vi.mock('next-intl/server', async () => ({
 
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
+  getSignInAccounts: vi.fn(),
+}))
+
+vi.mock('@/lib/env', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/env')>()),
+  isGoogleAuthConfigured: vi.fn(() => false),
 }))
 
 vi.mock('@/lib/household', () => ({
@@ -39,6 +45,34 @@ vi.mock('./ChangePasswordForm', () => ({
   ChangePasswordForm: () => <div data-testid="change-password-form" />,
 }))
 
+vi.mock('./SetPassword', () => ({
+  SetPassword: ({ email }: { email: string }) => (
+    <div data-testid="set-password" data-email={email} />
+  ),
+}))
+
+vi.mock('./SignInMethods', () => ({
+  SignInMethods: ({
+    initialAccounts,
+    email,
+    googleEnabled,
+    landing,
+  }: {
+    initialAccounts: unknown
+    email: string
+    googleEnabled: boolean
+    landing: unknown
+  }) => (
+    <div
+      data-testid="sign-in-methods"
+      data-accounts={JSON.stringify(initialAccounts)}
+      data-email={email}
+      data-google-enabled={String(googleEnabled)}
+      data-landing={JSON.stringify(landing)}
+    />
+  ),
+}))
+
 vi.mock('@/components/VerifyEmailNotice', () => ({
   VerifyEmailNotice: ({
     email,
@@ -62,16 +96,22 @@ function props(searchParams: Record<string, string> = {}) {
   return { searchParams: Promise.resolve(searchParams) }
 }
 
-async function signedInWithHousehold() {
-  const { getSession } = await import('@/lib/session')
+const PASSWORD_ACCOUNT = { id: 'account-password', providerId: 'credential' }
+const GOOGLE_ACCOUNT = { id: 'account-google', providerId: 'google' }
+
+async function signedInWithHousehold(accounts = [PASSWORD_ACCOUNT]) {
+  const { getSession, getSignInAccounts } = await import('@/lib/session')
   const { getHouseholdMembership } = await import('@/lib/household')
   vi.mocked(getSession).mockResolvedValue(session as never)
+  vi.mocked(getSignInAccounts).mockResolvedValue(accounts)
   vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
 }
 
 describe('AccountProfilePage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    const { isGoogleAuthConfigured } = await import('@/lib/env')
+    vi.mocked(isGoogleAuthConfigured).mockReturnValue(false)
   })
 
   it('names its tab in the document title', async () => {
@@ -119,10 +159,11 @@ describe('AccountProfilePage', () => {
   })
 
   it('starts the translations lookup without waiting for the membership query', async () => {
-    const { getSession } = await import('@/lib/session')
+    const { getSession, getSignInAccounts } = await import('@/lib/session')
     const { getHouseholdMembership } = await import('@/lib/household')
     const { getTranslations } = await import('next-intl/server')
     vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getSignInAccounts).mockResolvedValue([PASSWORD_ACCOUNT])
 
     let resolveMembership: (value: unknown) => void = () => {}
     vi.mocked(getHouseholdMembership).mockReturnValue(
@@ -229,5 +270,86 @@ describe('AccountProfilePage', () => {
     expect(notice).toHaveAttribute('data-email', 'test@example.com')
     expect(notice).toHaveAttribute('data-email-verified', 'false')
     expect(notice).toHaveAttribute('data-landing', landing)
+  })
+
+  // HON-1158: the sign-in methods, and the password section that fits them.
+  describe('sign-in methods', () => {
+    it('hands the section the accounts, the email and the provider switch', async () => {
+      const { isGoogleAuthConfigured } = await import('@/lib/env')
+      vi.mocked(isGoogleAuthConfigured).mockReturnValue(true)
+      await signedInWithHousehold([PASSWORD_ACCOUNT, GOOGLE_ACCOUNT])
+
+      render(await AccountProfilePage(props()))
+
+      const section = screen.getByTestId('sign-in-methods')
+      expect(section).toHaveAttribute(
+        'data-accounts',
+        JSON.stringify([PASSWORD_ACCOUNT, GOOGLE_ACCOUNT]),
+      )
+      expect(section).toHaveAttribute('data-email', 'test@example.com')
+      expect(section).toHaveAttribute('data-google-enabled', 'true')
+      expect(section).toHaveAttribute('data-landing', 'null')
+    })
+
+    it('passes the provider switch through when Google is off', async () => {
+      await signedInWithHousehold()
+
+      render(await AccountProfilePage(props()))
+
+      expect(screen.getByTestId('sign-in-methods')).toHaveAttribute('data-google-enabled', 'false')
+    })
+
+    it('shows the change form to an account with a password', async () => {
+      await signedInWithHousehold([PASSWORD_ACCOUNT, GOOGLE_ACCOUNT])
+
+      render(await AccountProfilePage(props()))
+
+      expect(screen.getByRole('heading', { name: 'Change password' })).toBeInTheDocument()
+      expect(screen.getByTestId('change-password-form')).toBeInTheDocument()
+      expect(screen.queryByTestId('set-password')).not.toBeInTheDocument()
+    })
+
+    it('shows Set a password to a Google-only account, not the change form', async () => {
+      await signedInWithHousehold([GOOGLE_ACCOUNT])
+
+      render(await AccountProfilePage(props()))
+
+      expect(screen.getByRole('heading', { name: 'Password', level: 2 })).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'This account signs in with Google. To add a password, we email you a link to set one.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByTestId('set-password')).toHaveAttribute('data-email', 'test@example.com')
+      expect(screen.queryByTestId('change-password-form')).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Change password' })).not.toBeInTheDocument()
+    })
+
+    it.each([
+      [{ linked: 'google' }, { kind: 'linked' }],
+      [
+        { linked: 'google', error: 'email_does_not_match' },
+        { kind: 'failed', errorKey: 'googleLinkEmailMismatch' },
+      ],
+    ])('hands the section the Connect result for %o', async (params, landing) => {
+      await signedInWithHousehold()
+
+      render(await AccountProfilePage(props(params)))
+
+      expect(screen.getByTestId('sign-in-methods')).toHaveAttribute(
+        'data-landing',
+        JSON.stringify(landing),
+      )
+    })
+
+    // Both callbacks use `error`: a failed Connect must not read as a broken
+    // verification link.
+    it('keeps a failed Connect away from the verification notice', async () => {
+      await signedInWithHousehold()
+
+      render(await AccountProfilePage(props({ linked: 'google', error: 'access_denied' })))
+
+      expect(screen.getByTestId('verify-email-notice')).toHaveAttribute('data-landing', 'null')
+    })
   })
 })

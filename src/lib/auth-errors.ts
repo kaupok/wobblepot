@@ -28,6 +28,9 @@ export type AuthErrorKey =
   | 'googleNoAccount'
   | 'googleEmailNotVerified'
   | 'googleFailed'
+  | 'googleLinkEmailMismatch'
+  | 'googleLinkedElsewhere'
+  | 'googleLinkFailed'
   | 'breachedPassword'
   | 'passwordTooShort'
   | 'passwordTooLong'
@@ -220,5 +223,28 @@ export function getOAuthErrorKey(code: string): AuthErrorKey {
       return 'householdInviteInvalid'
     default:
       return 'googleFailed'
+  }
+}
+
+/**
+ * Map the `error` code Better Auth appends to the error URL of Connect on My
+ * account (`linkSocial`, HON-1158) to a catalog key. Like
+ * {@link getOAuthErrorKey}, these are callback codes, not messages.
+ *
+ * - `email_does_not_match`: the Google address is not the account email.
+ *   `allowDifferentEmails` stays off, so linking refuses it.
+ * - `account_already_linked_to_different_user`: another Wobblepot account
+ *   already signs in with this Google account.
+ * - Any other code (a cancelled consent screen, Google not verifying the
+ *   address as `unable_to_link_account`) gets the generic Connect copy.
+ */
+export function getGoogleLinkErrorKey(code: string): AuthErrorKey {
+  switch (code) {
+    case 'email_does_not_match':
+      return 'googleLinkEmailMismatch'
+    case 'account_already_linked_to_different_user':
+      return 'googleLinkedElsewhere'
+    default:
+      return 'googleLinkFailed'
   }
 }

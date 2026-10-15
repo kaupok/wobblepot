@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAuthErrorKey, getOAuthErrorKey } from './auth-errors'
+import { getAuthErrorKey, getGoogleLinkErrorKey, getOAuthErrorKey } from './auth-errors'
 
 describe('getAuthErrorKey', () => {
   describe('authentication errors', () => {
@@ -233,5 +233,17 @@ describe('getOAuthErrorKey (HON-1157)', () => {
     ['', 'googleFailed'],
   ])('maps %s to %s', (code, key) => {
     expect(getOAuthErrorKey(code)).toBe(key)
+  })
+})
+
+describe('getGoogleLinkErrorKey (HON-1158)', () => {
+  it.each([
+    ['email_does_not_match', 'googleLinkEmailMismatch'],
+    ['account_already_linked_to_different_user', 'googleLinkedElsewhere'],
+    ['unable_to_link_account', 'googleLinkFailed'],
+    ['access_denied', 'googleLinkFailed'],
+    ['', 'googleLinkFailed'],
+  ])('maps %s to %s', (code, key) => {
+    expect(getGoogleLinkErrorKey(code)).toBe(key)
   })
 })

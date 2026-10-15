@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, ProfileNameForm, ChangePasswordForm, SignInForm, Header (User menu)
+// ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, ProfileNameForm, SignInMethods, ChangePasswordForm, SignInForm, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import {
   grantEssentialCookieConsent,
@@ -76,6 +76,19 @@ test.describe('Profile', () => {
 
     await page.reload()
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Renamed User')
+  })
+
+  // HON-1158: an email sign-up has a password, so it keeps the change form.
+  // CI runs with Google off; the assertions hold either way.
+  test('lists the password as a sign-in method and keeps the change form', async ({ page }) => {
+    await signUpWithHousehold(page)
+
+    await page.goto('/account')
+    const methods = page.getByRole('region', { name: 'Sign-in methods' })
+    await expect(methods.getByRole('listitem').first()).toHaveText(/Password\s*Set/)
+    await expect(methods.getByRole('button', { name: 'Disconnect' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Set a password' })).toHaveCount(0)
   })
 
   test('changes the password, signs out other sessions, and the new password signs in', async ({

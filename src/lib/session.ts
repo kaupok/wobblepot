@@ -2,8 +2,18 @@ import { cache } from 'react'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { toSignInAccounts, type SignInAccount } from '@/lib/sign-in-methods'
 
 export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }))
+
+/**
+ * The signed-in user's sign-in methods (HON-1158): one row per Better Auth
+ * account, a password (`credential`) or Google. Call it after `getSession()`
+ * has found a session; without one Better Auth refuses the read.
+ */
+export async function getSignInAccounts(): Promise<SignInAccount[]> {
+  return toSignInAccounts(await auth.api.listUserAccounts({ headers: await headers() }))
+}
 
 /**
  * Single request-cached read of the caller's `household_member` row.

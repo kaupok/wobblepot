@@ -1170,6 +1170,9 @@
       "googleNoAccount": "Selle Google'i kontoga pole veel Wobblepoti kontot.",
       "googleEmailNotVerified": "Google pole seda e-posti aadressi kinnitanud. Kasuta teist Google'i kontot või loo konto e-posti aadressiga.",
       "googleFailed": "Google'iga sisselogimine ei õnnestunud. Palun proovi uuesti.",
+      "googleLinkEmailMismatch": "Kasuta Google'i kontot, millel on sama e-posti aadress kui sinu Wobblepoti kontol.",
+      "googleLinkedElsewhere": "See Google'i konto on juba ühendatud teise Wobblepoti kontoga.",
+      "googleLinkFailed": "Google'i ühendamine ei õnnestunud. Palun proovi uuesti.",
       "breachedPassword": "See parool esineb teadaolevates andmeleketes. Palun vali mõni muu.",
       "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk.",
       "passwordTooLong": "Kasuta parooli, mis on kuni 128 märki pikk.",
@@ -1381,6 +1384,25 @@
       "tooLong": "Kasuta kuni 100 märki.",
       "saveFailed": "Nime ei salvestatud. Proovi uuesti."
     },
+    "signInMethods": {
+      "heading": "Sisselogimise viisid",
+      "description": "Nii saad Wobblepoti sisse logida.",
+      "password": "Parool",
+      "passwordSet": "Määratud",
+      "passwordNotSet": "Määramata",
+      "google": "Google",
+      "googleNotConnected": "Ühendamata",
+      "connect": "Ühenda",
+      "connecting": "Google avaneb…",
+      "disconnect": "Katkesta ühendus",
+      "disconnecting": "Ühenduse katkestamine…",
+      "connected": "Google on ühendatud.",
+      "disconnected": "Google'i ühendus on katkestatud.",
+      "connectFailed": "Google ei avanenud. Proovi uuesti.",
+      "disconnectFailed": "Google'i ühendust ei katkestatud. Proovi uuesti.",
+      "signInAgain": "Google'i ühenduse katkestamiseks logi esmalt välja ja uuesti sisse.",
+      "loadFailed": "Sisselogimise viise ei õnnestunud laadida. Laadi leht uuesti."
+    },
     "password": {
       "heading": "Vaheta parool",
       "description": "Selles seadmes jääd sisse logituks. Teistest seadmetest logitakse sind välja.",
@@ -1390,7 +1412,15 @@
       "confirmLabel": "Kinnita uus parool",
       "submit": "Vaheta parool",
       "submitting": "Parooli vahetamine…",
-      "success": "Parool on vahetatud. Teistest seadmetest on sind välja logitud."
+      "success": "Parool on vahetatud. Teistest seadmetest on sind välja logitud.",
+      "googleOnly": {
+        "heading": "Parool",
+        "description": "See konto logib sisse Google'iga. Parooli lisamiseks saadame sulle e-postiga lingi, millega parooli määrata.",
+        "submit": "Määra parool",
+        "sending": "Saatmine…",
+        "sent": "Kiri on saadetud. Ava selles olev link ja määra parool.",
+        "sendFailed": "Kirja ei saadetud. Proovi uuesti."
+      }
     },
     "assistants": {
       "heading": "Ühenda AI-assistendiga",

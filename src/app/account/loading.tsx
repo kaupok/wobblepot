@@ -21,6 +21,23 @@ export default function AccountProfileLoading() {
       {/* Separator */}
       <Skeleton className="h-px w-full" />
 
+      {/* Sign-in methods: heading, description, the password and Google rows */}
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-7 w-36" />
+        <Skeleton className="h-5 w-full max-w-xs" />
+        <div className="flex flex-col divide-y">
+          {[0, 1].map((row) => (
+            <div key={row} className="flex flex-col gap-1 py-3">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-5 w-32" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Separator */}
+      <Skeleton className="h-px w-full" />
+
       {/* Change password: heading, description, three fields */}
       <div className="flex flex-col gap-3">
         <Skeleton className="h-7 w-40" />
