@@ -1,6 +1,5 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import {
   ingredientTranslationsInclude,
@@ -167,21 +166,12 @@ export async function listHouseholdMeals({
     take: limit + 1,
   }
 
-  let meals
-  try {
-    meals = await prisma.meal.findMany({
-      ...baseQuery,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    })
-  } catch (error) {
-    // Stale or unknown cursor → Prisma throws P2025. Fall back to first page
-    // so bookmarks/refreshes with a since-deleted meal id don't 500.
-    if (cursor && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      meals = await prisma.meal.findMany(baseQuery)
-    } else {
-      throw error
-    }
-  }
+  // Prisma 7 answers an unknown cursor with no rows, so the page is empty and
+  // `nextCursor` is `null`; the client ends the list (HON-1232).
+  const meals = await prisma.meal.findMany({
+    ...baseQuery,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  })
 
   const hasNext = meals.length > limit
   const pageMeals = hasNext ? meals.slice(0, limit) : meals
