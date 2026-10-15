@@ -127,29 +127,7 @@ The Claude reviewer only posts substantive issues (no nitpicks by design). Map t
 
 ### Step 5: Triage Issues
 
-After parsing all comments, triage each one using **effort-first** thinking:
-
-**Effort** (primary factor):
-
-- Quick fix (few lines, < 5 min) → **address now**, regardless of severity
-- Moderate fix (15-30 min, in scope) → **address now**
-- Significant work (new feature, major refactor) → defer only if truly out of scope
-
-**Severity** (secondary factor):
-
-- 🔴 Critical → always address now, regardless of effort
-- 🟡 Suggestion → address if quick or moderate effort
-- 🟢 Nitpick → address if quick fix, otherwise skip
-
-**Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
-
-**Ignore reviewer's triage.** Reviewers often suggest deferring things or mark items as "out of scope." Apply your own effort-based assessment. If it's a quick fix and directly related to this PR's changes, it's in scope - do it now.
-
-Place each item in one of three buckets:
-
-- **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
-- **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why.
-- **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
+Triage each comment into **Address Now**, **Defer** or **Skip** by `docs/TRIAGE_RUBRIC.md`.
 
 ### Step 6: Format Output
 
