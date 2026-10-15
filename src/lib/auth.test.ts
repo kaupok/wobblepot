@@ -35,6 +35,7 @@ vi.mock('./breached-password', () => ({
 vi.mock('@/lib/signup-codes', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/lib/signup-codes')>()
   return {
+    HOUSEHOLD_INVITE_INVALID_MESSAGE: original.HOUSEHOLD_INVITE_INVALID_MESSAGE,
     INVITE_CODE_INVALID_MESSAGE: original.INVITE_CODE_INVALID_MESSAGE,
     getInviteCodeFromBody: original.getInviteCodeFromBody,
     claimInviteCode: vi.fn(),
@@ -59,7 +60,9 @@ vi.mock('@/lib/waitlist', () => ({
   clearWaitlistForNewUser: vi.fn(),
 }))
 
-vi.mock('@/lib/household-invite', () => ({
+vi.mock('@/lib/household-invite', async (importOriginal) => ({
+  getHouseholdInviteCodeFromBody: (await importOriginal<typeof import('@/lib/household-invite')>())
+    .getHouseholdInviteCodeFromBody,
   joinHouseholdFromSignUp: vi.fn(),
 }))
 
@@ -334,11 +337,36 @@ describe('beforeOAuthUserCreate (HON-1157)', () => {
     expect(releaseClaim).not.toHaveBeenCalled()
   })
 
-  it('claims nothing for a sign-up without a code (gate off, or a household invite)', async () => {
+  it('checks a household invite again and claims no code', async () => {
     const state = { requestSignUp: true, acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' }
 
     await beforeOAuthUserCreate(verified, state)
 
+    expect(validateInviteCode).toHaveBeenCalledWith(state)
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+
+  // A link used or revoked while the visitor was at Google (review on PR #1291).
+  it('refuses the user row when the household invite no longer admits a sign-up', async () => {
+    vi.mocked(validateInviteCode).mockRejectedValueOnce(new Error('household invite invalid'))
+    const state = { requestSignUp: true, acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    let caught: unknown
+    try {
+      await beforeOAuthUserCreate(verified, state)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toMatchObject({ body: { code: 'HOUSEHOLD_INVITE_INVALID' } })
+
+    await afterOAuthCallback(state, 'user_1')
+    expect(joinHouseholdFromSignUp).not.toHaveBeenCalled()
+  })
+
+  it('checks nothing more for a sign-up with no code and no invite (gate off)', async () => {
+    await beforeOAuthUserCreate(verified, { requestSignUp: true, acceptedTerms: true })
+
+    expect(validateInviteCode).not.toHaveBeenCalled()
     expect(claimInviteCode).not.toHaveBeenCalled()
   })
 

@@ -199,6 +199,7 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
  * - `email_not_verified`: Google does not report the address as verified.
  * - `INVITE_CODE_INVALID`: the code was valid before the redirect, but another
  *   sign-up claimed it before this one came back (`beforeOAuthUserCreate`).
+ * - `HOUSEHOLD_INVITE_INVALID`: the same for a household invite link.
  * - `TERMS_NOT_ACCEPTED` and the invite-code refusals are thrown before the
  *   redirect, so they come back on `signIn.social` and go through
  *   {@link getAuthErrorKey} instead.
@@ -214,6 +215,9 @@ export function getOAuthErrorKey(code: string): AuthErrorKey {
     // Another sign-up claimed the code while this one was at Google.
     case 'INVITE_CODE_INVALID':
       return 'inviteCodeInvalid'
+    // The household invite link was used or revoked while this one was at Google.
+    case 'HOUSEHOLD_INVITE_INVALID':
+      return 'householdInviteInvalid'
     default:
       return 'googleFailed'
   }

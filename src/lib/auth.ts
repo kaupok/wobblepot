@@ -18,6 +18,7 @@ import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import {
+  HOUSEHOLD_INVITE_INVALID_MESSAGE,
   INVITE_CODE_INVALID_MESSAGE,
   claimInviteCode,
   getInviteCodeFromBody,
@@ -28,7 +29,7 @@ import {
 } from '@/lib/signup-codes'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
-import { joinHouseholdFromSignUp } from '@/lib/household-invite'
+import { getHouseholdInviteCodeFromBody, joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
@@ -222,6 +223,7 @@ const statesCreatingUser = new WeakSet<object>()
  * sign-up:
  *
  * - {@link assertOAuthUserCreation}: consent in the state, a verified address;
+ * - check the household invite again, if the state carries one;
  * - claim the invite code, atomically, before the insert. `/sign-in/social`
  *   only validated it, and the state lives 10 minutes, so several flows can
  *   start on one code; the first to come back claims it, and the rest are
@@ -237,6 +239,20 @@ export async function beforeOAuthUserCreate(
   now: Date = new Date(),
 ) {
   const consent = assertOAuthUserCreation(user, state, now)
+  // A household invite stands in for the code (HON-1131). Nothing claims it
+  // before the after-hook joins it, so check again that it still admits a
+  // sign-up: a link used or revoked while the visitor was at Google writes no
+  // row. Two callbacks within milliseconds can both pass, as on the email path.
+  if (getHouseholdInviteCodeFromBody(state)) {
+    try {
+      await validateInviteCode(state)
+    } catch {
+      throw new APIError('FORBIDDEN', {
+        message: HOUSEHOLD_INVITE_INVALID_MESSAGE,
+        code: 'HOUSEHOLD_INVITE_INVALID',
+      })
+    }
+  }
   if (getInviteCodeFromBody(state) && !(await claimInviteCode(state))) {
     throw new APIError('FORBIDDEN', {
       message: INVITE_CODE_INVALID_MESSAGE,
