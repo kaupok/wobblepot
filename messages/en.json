@@ -1170,6 +1170,9 @@
       "googleNoAccount": "No Wobblepot account uses this Google account yet.",
       "googleEmailNotVerified": "Google has not verified this email address. Use another Google account, or sign up with your email.",
       "googleFailed": "Signing in with Google did not work. Please try again.",
+      "googleLinkEmailMismatch": "Use the Google account with the same email address as your Wobblepot account.",
+      "googleLinkedElsewhere": "This Google account is already connected to another Wobblepot account.",
+      "googleLinkFailed": "Connecting Google did not work. Please try again.",
       "breachedPassword": "That password appears in known data breaches. Please pick a different one.",
       "passwordTooShort": "Password must be at least 12 characters long.",
       "passwordTooLong": "Use a password of 128 characters or fewer.",
@@ -1381,6 +1384,25 @@
       "tooLong": "Use 100 characters or fewer.",
       "saveFailed": "Your name was not saved. Try again."
     },
+    "signInMethods": {
+      "heading": "Sign-in methods",
+      "description": "The ways you can sign in to Wobblepot.",
+      "password": "Password",
+      "passwordSet": "Set",
+      "passwordNotSet": "Not set",
+      "google": "Google",
+      "googleNotConnected": "Not connected",
+      "connect": "Connect",
+      "connecting": "Opening Google…",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "connected": "Google connected.",
+      "disconnected": "Google disconnected.",
+      "connectFailed": "Google did not open. Try again.",
+      "disconnectFailed": "Google was not disconnected. Try again.",
+      "signInAgain": "To disconnect Google, sign out and sign in again first.",
+      "loadFailed": "The sign-in methods did not load. Reload the page."
+    },
     "password": {
       "heading": "Change password",
       "description": "You stay signed in on this device. Other devices are signed out.",
@@ -1390,7 +1412,15 @@
       "confirmLabel": "Confirm new password",
       "submit": "Change password",
       "submitting": "Changing password…",
-      "success": "Password changed. Other devices are signed out."
+      "success": "Password changed. Other devices are signed out.",
+      "googleOnly": {
+        "heading": "Password",
+        "description": "This account signs in with Google. To add a password, we email you a link to set one.",
+        "submit": "Set a password",
+        "sending": "Sending…",
+        "sent": "Email sent. Open the link in it to set your password.",
+        "sendFailed": "The email was not sent. Try again."
+      }
     },
     "assistants": {
       "heading": "Connect to an AI assistant",
