@@ -1,7 +1,9 @@
 import 'server-only'
+import { unstable_cache } from 'next/cache'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { parsePreparationSteps } from '@/lib/preparation-steps'
 import { presentMealImage } from '@/lib/meal-images/present'
@@ -141,9 +143,10 @@ export function freshStepsRow<Row extends { locale: string; servings: number; in
  * which the deploy workflows run), so the page never calls the AI. Steps in the
  * visitor's locale, else the English ones; a row whose `inputHash` no longer
  * matches the meal is stale and leaves the meal out. Null when a slot cannot
- * be filled, and the page shows its static example instead.
+ * be filled, and the page shows its static example instead. Uncached, and
+ * throws on a database error: the page reads `loadDemoDay`.
  */
-export async function loadDemoDay({
+async function readDemoDay({
   locale,
   date,
 }: {
@@ -233,5 +236,28 @@ export async function loadDemoDay({
         },
       ]
     }),
+  }
+}
+
+/**
+ * `readDemoDay`, cached for an hour per locale and date: `unstable_cache` adds
+ * the arguments to the key, so the trio still rolls at midnight in
+ * `DEMO_TIMEZONE`, and the hour bounds how long new steps from a deploy's
+ * `pnpm steps:library` wait. The value is plain JSON, as the cache needs.
+ */
+const cachedDemoDay = unstable_cache(readDemoDay, ['landing-demo-day'], { revalidate: 3600 })
+
+/**
+ * The demo day for the signed-out home page, or null when it cannot be shown.
+ * A database error is reported and read as null, so the visitor sees the
+ * static example rather than the error page (HON-1166). The catch sits outside
+ * the cache, so a failure is never stored and the next request retries.
+ */
+export async function loadDemoDay(args: { locale: Locale; date: string }): Promise<DemoDay | null> {
+  try {
+    return await cachedDemoDay(args)
+  } catch (error) {
+    captureApiError(error, { route: '/', operation: 'landing-demo-day' })
+    return null
   }
 }
