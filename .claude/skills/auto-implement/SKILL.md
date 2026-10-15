@@ -411,7 +411,7 @@ Empty output is a failed fetch (none prints `[]`): stop. On a re-reviewed PR, ch
 - **No summary** → the review did not complete. Stop; it is not clean.
 - **Clean** = "No issues found" **and** no inline comment **and** no `**Spec:**` entry → 6.8, then Phase 7. A **"less usable"** `**Usability:**` verdict is a finding too.
 - Every inline comment, and every finding in the summary (out-of-diff ones and those past the 5-comment cap live only there), is **Address Now**.
-- **Each `**Spec:**` entry is Address Now.** A **Missing** or **Implemented but wrong** entry is a correctness defect at every round: never defer or drop it; if unfixable here, 6.7. An **Unproven** entry is fixed by a test that asserts the result or a `Driven:` line. `**Spec:** no issue linked` / `issue not readable` are not findings.
+- **Each `**Spec:**` entry is Address Now.** A **Missing** or **Implemented but wrong** entry is a correctness defect at every round: never defer or drop it; if unfixable here, 6.7. An **Unproven** entry is fixed by a test that asserts the result, or by naming in the PR body the existing test or `Driven:` line that shows it. `**Spec:** no issue linked` / `issue not readable` are not findings.
 - Otherwise use the rubric. **ROUND ≥ 3 → read `review-cap.md` → Materiality bar first.**
 
 Append each round's Defer items and `kind: follow-up` blocks to `/tmp/auto-implement-deferrals-<ID>.md`: an earlier summary is unreadable once a later one posts.

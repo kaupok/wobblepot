@@ -119,9 +119,9 @@ This is also why `scripts/pr-comments.sh` does not pass `--jq` to its paginated 
 
 The poll used to classify a PR as docs-only from its file list and, for such a PR, settle without the `Lint, Type Check & Test` row and on an empty check list. That existed only because `ci.yml` skipped docs-only PRs (`paths-ignore`, HON-529), and the file-list fetch grew two guards of its own (HON-587: the 100-file cap, then a partial pagination walk). HON-584 removed the path filter and made the job a required check, so the exemption turned harmful: a docs-only PR whose run had not registered by the second poll settled on an empty list, and GitHub refused the `gh pr merge` on the pending required check. HON-1184 removed the classification and its file-list fetch, so every PR waits for the same row.
 
-## Spec findings (6.4; HON-1200)
+## Spec findings (6.4; HON-1200, HON-1236)
 
-The reviewer reports acceptance-criteria gaps under a `**Spec:**` heading: Missing, Not asked for, Implemented but wrong. Missing and Implemented but wrong are correctness defects at every round, never deferred and never dropped by the round-3 bar, because the issue's own criteria are the scope. `scripts/pr-review.sh` tells the reviewer not to write "No issues found" beside a Spec entry or a "less usable" Usability verdict, but the merge decision is made in 6.4, so 6.4 does not depend on that.
+The reviewer reports acceptance-criteria gaps under a `**Spec:**` heading: Missing, Not asked for, Implemented but wrong, Unproven. Missing and Implemented but wrong are correctness defects at every round, never deferred and never dropped by the round-3 bar, because the issue's own criteria are the scope. Unproven (HON-1236) means the criterion is implemented but nothing in the PR shows the result. It is coverage-only, so the round-3 bar may drop it with a `not actioned:` note. `scripts/pr-review.sh` tells the reviewer not to write "No issues found" beside a Spec entry or a "less usable" Usability verdict, but the merge decision is made in 6.4, so 6.4 does not depend on that.
 
 ## Merge gate (7.2, 7.3)
 
