@@ -523,7 +523,8 @@ PR_BODY_PROMPT
 # issue, so a PR that follows every rule and implements half the issue gets "No
 # issues found" and merges (HON-1200). The Spec axis is reported in its own list so
 # a clean Standards review cannot mask a Spec gap, after Matt Pocock's code-review
-# skill.
+# skill. A criterion that only looks implemented is reported as Unproven: the
+# reviewer names the test, `Driven:` line or eval report that observes it (HON-1236).
 #
 # The issue ID comes from the branch first (`gitBranchName` always carries it), then
 # from a closing keyword in the body: every PR template writes `Closes HON-XX`, and a
@@ -546,13 +547,15 @@ This PR implements Linear issue __ISSUE_ID__. Everything above checks the diff a
    - **Missing**: a criterion the diff does not implement, or implements only in part. Quote the criterion, and say "partly" when part of it is there.
    - **Not asked for**: behaviour in the diff that neither the issue nor the plan asked for. A change the plan's Design Decisions choose, with a reason, is asked for; so is a test, story or doc edit that supports a criterion.
    - **Implemented but wrong**: a criterion the diff appears to implement, but whose result does not match what the criterion says.
+   - **Unproven**: the diff implements it, but nothing in the PR shows the result. For each criterion the diff appears to implement, name what observes the result: a test that asserts the literal value (in the diff, or an existing test the PR body names), a `Driven:` line or a `measured:` Proof line in the PR body that reports it, an eval report, or, for a criterion of the form "lint / type-check / tests pass", the CI check itself. Code that looks right is not proof. Report a criterion with none of these.
 
-   Label each line with one of those three kinds, exactly as written, then the file and one sentence. A criterion that only a human can check after merge (a production metric, a staging walk-through) is not a finding.
+   Label each line with one of those four kinds, exactly as written, then the file and one sentence. A criterion that only a human can check after merge (a production metric, a staging walk-through) is not a finding.
 3. Put the result in the Step 5 summary comment, under its own heading directly below the `**Issues found:**` list and above `**Confidence:**`:
 
    **Spec:** checked against __ISSUE_ID__ — N findings
    1. **Missing** (file) — "[quoted criterion]" — [one sentence]
-   2. ...
+   2. **Unproven** (file) — "[quoted criterion]" — [what the diff does, and the test or `Driven:` line that would show it]
+   3. ...
 
    `0 findings` is a valid answer: emit the heading line on its own. Do NOT copy a Spec finding into the `**Issues found:**` list, and do not rank one list against the other. Spec findings go in the summary only, not as inline comments.
 

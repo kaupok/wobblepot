@@ -64,6 +64,12 @@ Read from `SKILL.md` at the step named in each heading. `<ID>` is this issue's i
 
 [2-3 sentence plain-language summary of what was done and why. Describe the user-facing or architectural impact, not just "changed files". This should read like a mini changelog entry.]
 
+### Proof
+- [criterion, quoted or shortened] — measured: `pnpm test src/lib/x.test.ts` went red on the literal 3/4 before the change and green after (test name)
+- [criterion] — measured: Driven: /shopping-list — ticked "Milk"; counter read 3/4. Screenshot on this issue.
+- [criterion] — inferred: no test asserts it; the route returns the field and the client reads it (file:line)
+- [criterion] — not proven: needs a staging walk-through (why)
+
 ### Changes
 - X files changed
 - [file list with +/- stats from gh pr view --json files]
@@ -78,6 +84,7 @@ Read from `SKILL.md` at the step named in each heading. `<ID>` is this issue's i
 - [One issue ID per line. Or "None".]
 ```
 
+- `### Proof` has one line per acceptance criterion of the issue, in the issue's order, and each line carries exactly one label. `measured`: a command, test or browser action, with its output quoted. `inferred`: reasoning from code, with the file and line. `not proven`: the reason. A criterion with no line is a gap the reader can see, so do not leave one out. Take the lines from the cycle's own test runs (3.2, 4.5, 6.6) and `Driven:` lines; run nothing new for the summary. Write "went red before the change" only when the cycle ran the test before the change; otherwise quote the green run.
 - `### Follow-ups` holds issue IDs only, from 2.8, 3.2 and 6.8. A post-merge step with no issue is never written there as text: it was filed at 6.8, or 6.8 failed and the 7.6 report says so.
 - Keep it concise: list files and stats, not full diffs.
 - Print the summary to the terminal as well. If the Linear call fails, the terminal copy still stands; do not block the merge flow.

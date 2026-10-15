@@ -1,9 +1,10 @@
 /**
  * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
  * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), the
- * driven-screen item (HON-1188), and the Spec axis's issue-ID gate (HON-1200).
+ * driven-screen item (HON-1188), the Spec axis's issue-ID gate (HON-1200), and the
+ * proof the Spec axis and the /auto-implement Linear summary ask for (HON-1236).
  *
- * All five rules are prose with no mechanical check, so the reviewer prompt is
+ * All six rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
  * PR's file list. A regex that stopped matching `src/app/**` or `globals.css` would
  * silently switch the check off; one that matched everything would make every PR pay
@@ -431,17 +432,26 @@ describe('Spec axis', () => {
   })
 
   // The triage skills route by these labels: Missing and Implemented but wrong are
-  // correctness defects, Not asked for is not. A label the skills do not name has no
-  // severity, and the round-3 materiality bar could drop it.
-  it('uses the three kind labels the triage skills route on', () => {
+  // correctness defects, Not asked for and Unproven are not. A label the skills do not
+  // name has no severity, and the round-3 materiality bar could drop it.
+  it('uses the four kind labels the triage skills route on', () => {
     const spec = heredoc('SPEC_PROMPT')
     const triage = read(path.join(repoRoot, '.claude/skills/triage-pr-comments/SKILL.md'))
     const autoImplement = read(path.join(repoRoot, '.claude/skills/auto-implement/SKILL.md'))
-    for (const kind of ['Missing', 'Not asked for', 'Implemented but wrong']) {
+    for (const kind of ['Missing', 'Not asked for', 'Implemented but wrong', 'Unproven']) {
       expect(spec).toContain(`- **${kind}**:`)
       expect(triage).toContain(kind)
     }
     expect(autoImplement).toContain('A **Missing** or **Implemented but wrong** entry')
+  })
+
+  // HON-1236: a criterion that looks implemented is not proven. The reviewer names what
+  // observes the result, and the format example shows the kind so the reviewer uses it.
+  it('reports a criterion with no observed result as Unproven', () => {
+    const spec = heredoc('SPEC_PROMPT')
+    expect(spec).toContain('the diff implements it, but nothing in the PR shows the result')
+    expect(spec).toContain('a `Driven:` line')
+    expect(spec).toMatch(/^ {3}\d\. \*\*Unproven\*\* \(file\)/m)
   })
 
   it('records the skip when no issue is linked', () => {
@@ -458,5 +468,28 @@ describe('Spec axis', () => {
       .slice(0, gate)
       .reduce((depth, l) => (/^if /.test(l) ? depth + 1 : /^fi$/.test(l) ? depth - 1 : depth), 0)
     expect(opened).toBe(0)
+  })
+})
+
+// HON-1236: the Linear summary is the cycle's last word on "done". Without a proof line
+// per criterion it is self-report, so the template and the step that fills it must agree.
+describe('Linear summary proof', () => {
+  const skillDir = path.join(repoRoot, '.claude/skills/auto-implement')
+
+  it('gives the 7.4 template a Proof section with the three labels', () => {
+    const templates = read(path.join(skillDir, 'templates.md'))
+    const summary = templates.slice(templates.indexOf('## Linear summary comment (7.4)'))
+    expect(summary).toContain('### Proof')
+    for (const label of ['measured:', 'inferred:', 'not proven:']) {
+      expect(summary).toContain(`— ${label}`)
+    }
+  })
+
+  it('tells 7.4 to fill Proof from the implement phase, one line per criterion', () => {
+    const skill = read(path.join(skillDir, 'SKILL.md'))
+    const step = skill.slice(skill.indexOf('### 7.4'), skill.indexOf('### 7.5'))
+    expect(step).toContain('`### Proof`')
+    expect(step).toContain('one line per acceptance criterion')
+    expect(step).toContain('`Driven:` lines')
   })
 })
