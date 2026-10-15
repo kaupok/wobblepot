@@ -1132,10 +1132,13 @@ cmd_auto() {
   # 2 minutes, and this headless worker exits when its turn ends, so the turn
   # can end before the result arrives and the result is lost (HON-1119).
   # An empty AUTO_EFFORT passes no --effort flag (HON-1193).
+  # The worker uses two MCP servers; the rest only add tools to every request
+  # (HON-1238). `--` ends --mcp-config's values so the prompt stays a prompt.
   claude_model_args "$AUTO_MODEL" "$AUTO_EFFORT"
+  claude_mcp_args linear-server playwright || exit 1
   exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT \
     CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude --dangerously-skip-permissions \
-    "${CLAUDE_MODEL_ARGS[@]}" "$(auto_prompt "$prompt")"
+    "${CLAUDE_MODEL_ARGS[@]}" "${CLAUDE_MCP_ARGS[@]}" -- "$(auto_prompt "$prompt")"
 }
 
 # Resume existing worktree

@@ -41,3 +41,18 @@ claude_model_args() {
     CLAUDE_MODEL_ARGS+=(--effort "$2")
   fi
 }
+
+# The MCP flags for one `claude` call: `--strict-mcp-config --mcp-config <json>`,
+# where the JSON holds only the named servers, copied from .mcp.json so they
+# cannot drift from it. No names gives the empty config. Sets the array
+# CLAUDE_MCP_ARGS. Every server that starts adds its tools to the base prefix,
+# which a run pays on every request (HON-1238). The caller puts `--` before the
+# prompt, because --mcp-config takes several values and would read it as a file.
+claude_mcp_args() {
+  local mcp_json="${MCP_JSON_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.mcp.json}"
+  local config='{"mcpServers":{}}'
+  if [ "$#" -gt 0 ]; then
+    config=$(jq -c '{mcpServers: (.mcpServers | with_entries(select(.key as $k | $ARGS.positional | index($k))))}' "$mcp_json" --args "$@") || return 1
+  fi
+  CLAUDE_MCP_ARGS=(--strict-mcp-config --mcp-config "$config")
+}
