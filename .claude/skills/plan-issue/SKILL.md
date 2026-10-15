@@ -9,6 +9,8 @@ context: inherit
 
 Create a comprehensive implementation plan for a Linear issue.
 
+Sibling files, read when they apply: `ai-eval.md` (step 7, AI changes), `history.md` (the incident behind each rule; read before changing or disputing one, never needed to plan).
+
 ## Prerequisites
 
 Requires an issue ID as argument (e.g., `/plan-issue HON-51`).
@@ -52,9 +54,7 @@ Extract and note:
 
 ### 3. Check relatedTo + epic siblings for recently-merged overlap
 
-**Why:** When an issue is part of an epic (has `parentId`) or has `relatedTo` links, a sibling issue may have already landed and introduced files, conventions, schema, or constants that your plan needs to build on rather than duplicate. `blockedBy` is checked above; `relatedTo` and epic-siblings are not — a Done sibling in the same epic is a strong "check for overlap" signal.
-
-Before doing anything else, sync with origin so the overlap check sees the current main:
+A Done sibling may have landed files, schema or conventions the plan must extend, not duplicate (`history.md` → Sibling overlap check). Before doing anything else, sync with origin so the overlap check sees the current main:
 
 ```bash
 git fetch origin main
@@ -69,7 +69,7 @@ mcp__linear-server__get_issue({ id: "HON-YY", includeRelations: true })
 For any sibling where `status` ∈ { `Done`, `In Review`, `In Progress` }:
 
 - Note its title, `gitBranchName`, and completion/start time.
-- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched. Look it up by the sibling's `gitBranchName`, because PR titles are Conventional Commits and carry no issue ID, so a title search finds nothing:
+- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched. Look it up by the sibling's `gitBranchName`, not its title:
   ```bash
   gh pr list --head "<gitBranchName>" --state merged --json number,title,files,mergedAt --limit 1
   ```
@@ -112,23 +112,17 @@ Review any prior discussion, decisions, or context from team members.
 
 Read the files the plan depends on and the existing patterns it should follow, not the whole codebase.
 
-**If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
+**If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you see which lines the sibling added (`history.md` → Read the sibling's diff).
 
 ### 7. Scan for downstream impact
 
 Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled. Both are cheap greps, and both are cheaper here than in review.
 
-**Model changes:** a plan that changes a constant in `src/lib/ai/models.ts` must include running `pnpm ai-eval` (current model as `--baseline`, new one as `--candidate`) and attaching the report to the PR — see `docs/AI_MODELS.md`. When only one side is in question — whether the configuration already in `models.ts` passes, or whether one model clears the gates at all — `pnpm ai-eval --check [--model <id>]` is the cheaper option: one model, absolute gates, exit 1 on a failure. It does not replace the comparison for a model change, which is what shows the new model is better rather than only passing.
-
-**Prompt, budget and case changes:** a plan that changes a request builder the eval imports (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-steps.ts` in `src/lib/ai/`), or text they send (the output schemas in `recipe-schema.ts` and `types.ts`, the phrase list in `src/lib/vague-quantities.ts`), includes `pnpm ai-eval --baseline golden --candidate <current-id> --judge` and `/bench-judge`; one that changes `budgets.ts` or a committed case includes `pnpm ai-eval --check`. The report is committed and cited in the PR body: `scripts/pr-review.sh` treats a missing one as a finding. See `docs/AI_MODELS.md` → Which run a change needs.
-
-**AI output bugs:** when the issue is about something an AI call produced (a forbidden food in an imagined meal, a plan that breaks a slot rule, a quantity a review should have caught), the plan includes the benchmark case that reproduces it, if a scorer can express the failure. Name the file (`scripts/model-bench/cases/<task>/<slug>.json`), its input, its expectation and `"source": "HON-XX"`, and add it in the same PR as the fix, or before it. If no scorer can see the failure (tone, voice, usefulness), say so in the plan rather than adding a case that passes either way. See `docs/AI_MODELS.md` → Where cases come from, and `scripts/model-bench/cases/README.md` for how to write each task's expectation.
+**AI changes: read `ai-eval.md` first.** It applies when the plan changes a constant in `src/lib/ai/models.ts`, a request builder the eval imports or the text it sends, `budgets.ts` or a committed bench case, or when the issue is about something an AI call produced. Each needs a named `pnpm ai-eval` run or a new bench case in the plan.
 
 #### 7a. E2E impact
 
-**Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.
-
-This scan runs **after** codebase exploration (step 6) so the file set is real — not a mental sketch. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip 7a and go to 7b.
+A route, copy or dialog change almost always breaks an E2E spec, and the plan is the cheapest place to list it (`history.md` → E2E impact). Use step 6's real file set. If step 6 turned up no touched `src/app/**/page.tsx`, navigation callsite, visible-copy string, or modal restructure, skip 7a and go to 7b.
 
 **Run 7a if step 6 surfaced changes to any of:**
 
@@ -146,13 +140,13 @@ This scan runs **after** codebase exploration (step 6) so the file set is real �
    ```
 3. For each matching spec, read the relevant assertions and decide whether the plan's change breaks the selector or copy the spec asserts.
 
-Record findings under a new "E2E updates required" section of the plan (step 8). If the scan ran and found no matching specs (e.g. a brand-new route with no existing coverage, or a modal whose assertions live elsewhere), still note "E2E updates required: none — no existing spec asserts on the changed routes/components" so the reviewer sees the scan happened.
+Record findings under a new "E2E updates required" section of the plan (step 8). If the scan ran and found no matching specs (e.g. a brand-new route with no existing coverage, or a modal whose assertions live elsewhere), still note "E2E updates required: none — no existing spec asserts on the changed routes/components" so the reviewer sees the scan happened. Omit the section entirely only when 7a was skipped.
 
 #### 7b. Shared-primitive coupling
 
-**Why:** Changing a shared primitive's geometry breaks everything that hardcoded a copy of it, and those copies are invisible from the primitive's own file. HON-612 (PR #704) raised `Button` / `Input` / `Select` to 44px on mobile and silently desynced 12 route `loading.tsx` skeletons that had been sized to mirror the old 36px controls. The issue's own step list named 9 composites to sweep and none of the skeletons, so review caught it instead.
+Changing a shared primitive's geometry breaks everything that hardcoded a copy of it, and those copies are invisible from the primitive's own file (`history.md` → Shared-primitive coupling).
 
-**These greps are a net, not a proof.** They narrow "everything in `src`" to a list short enough to read by hand; the judgment is in the bucketing below, not in the pattern. Do not extend them chasing exhaustiveness — a missed callsite costs a review comment, an unreadable scan costs the whole step.
+**These greps are a net, not a proof.** They narrow "everything in `src`" to a list short enough to read by hand; the judgment is in the bucketing below, not in the pattern. Do not extend them chasing exhaustiveness.
 
 **Run 7b if step 6 surfaced changes to any of:**
 
@@ -193,9 +187,9 @@ Classify every surviving hit into one of three buckets, because they need differ
 | **Override** — a `className` or `size` prop pinning another value | Re-check it: against a responsive variant a `className` may now apply on mobile only (`docs/DESIGN.md` → "Spacing, radius, elevation") |
 | **Deliberate** — a different size chosen on purpose             | Leave it, and say why in the plan so review does not re-raise it                                                                       |
 
-**The bucket is not readable off the class name.** The same `h-9` in a skeleton can mirror a control, a `Heading` line height (`admin/signup-codes/loading.tsx:3-6` documents exactly that), or a list row, and only the first must move with the primitive. Open the component the skeleton stands in for and compare. HON-612 changed 12 of the 15 skeleton files that then existed by doing that — and of the three it left alone, one (`meal-plan/loading.tsx`) was not a list row at all but dead weight on a bare-redirect route, deleted since in HON-629.
+**The bucket is not readable off the class name.** The same `h-9` in a skeleton can mirror a control, a `Heading` line height (`admin/signup-codes/loading.tsx:3-6` documents exactly that), or a list row, and only the first must move with the primitive. Open the component the skeleton stands in for and compare.
 
-Record the result under a new "Coupled callsites" section of the plan (step 8), grouped by bucket, with a `file:line` and a one-line reason each. If the scan ran and found nothing, write `none — no callsite hardcodes the changed <property>`, naming the property you actually scanned, so the reviewer sees both that the scan ran and what it covered. Omit the section entirely only when 7b was skipped.
+Record the result under a new "Coupled callsites" section of the plan (step 8), grouped by bucket, with a `file:line` and a one-line reason each. If the scan ran and found nothing, write `none — no callsite hardcodes the changed <property>`, naming the property you actually scanned (`height`, not "geometry"), so the reviewer sees both that the scan ran and what it covered (`history.md` → Shared-primitive coupling). Omit the section entirely only when 7b was skipped.
 
 ### 8. Write plan and present to user
 
@@ -241,11 +235,11 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 ## E2E updates required
 
-[From step 7a. Either list the affected specs with a one-line reason each, or — if the scan ran and found no matching specs — write `none — no existing spec asserts on the changed routes/components` so the reviewer sees the scan happened. Omit this section entirely only if 7a was skipped (step 6 surfaced no route / navigation / visible-copy / modal changes).]
+[From step 7a: each affected spec with a one-line reason, or its `none — …` line. Omit only if 7a was skipped.]
 
 ## Coupled callsites
 
-[From step 7b. Group by Mirror / Override / Deliberate with a `file:line` each and a one-line reason. If the scan ran and found nothing, name the property you scanned — `none — no callsite hardcodes the changed height` — rather than the unqualified "geometry", so a change that moved height and padding but was only scanned for height cannot read as a clean full scan. Omit this section entirely only if 7b was skipped — that is, step 6 surfaced none of 7b's three triggers: a primitive geometry default, a `@theme` token, or a shared layout wrapper default.]
+[From step 7b: grouped by Mirror / Override / Deliberate with a `file:line` and a one-line reason each, or its `none — …` line naming the property scanned. Omit only if 7b was skipped.]
 
 ## Storybook stories
 
@@ -257,7 +251,7 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [Edge cases, and the test that covers each]
 ```
 
-`## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per "A follow-up is an issue" below. "Filed as a follow-up" with no ID is the HON-1053 defect: nothing files it later. Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
+`## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per "A follow-up is an issue" below. "Filed as a follow-up" with no ID never gets filed (`history.md` → Follow-ups hold issue IDs). Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
 
 `## Verification` is a plain list, not checkboxes, of what the implementing agent will run. It becomes the PR's "Verified" list (`/create-pr` step 6), so a step only a human could perform does not belong here; if a criterion cannot be checked by the agent, say so, and it goes under "Not verified".
 
@@ -303,7 +297,7 @@ mcp__linear-server__save_issue({
 
 Other skills reuse this call. Each one names itself in the first line (`filed by /implement-issue.`, `filed by /create-pr.`, `filed by /merge.`). The `Follow-up` label and that line mark the origin, because an issue with no prefix reads as human-written in a list view (`/refine-backlog` → "Title prefixes").
 
-`blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned. Do not copy the run-state labels `Gated`, `Stranded` and `Needs attention`: they describe the parent's run, and the orchestrator skips a Queued issue that carries `Gated` or `Stranded`, so the follow-up would never run.
+`blockedBy` goes in this same call, because the orchestrator picks up a Queued issue within a minute. No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned. Do not copy the run-state labels `Gated`, `Stranded` and `Needs attention`: the orchestrator skips a Queued issue that carries `Gated` or `Stranded`. Both reasons: `history.md` → Filing a follow-up.
 
 Replace each `to file:` with the new ID. If a filing fails twice, do not post the plan; report the error and stop, because a posted plan with a `to file:` line is the note this step exists to prevent.
 
@@ -316,7 +310,7 @@ mcp__linear-server__save_comment({
 })
 ```
 
-Comment bodies are not affected — the plan posted here is not itself at risk. Keep every table in the plan at top level anyway, as the step 8 template does: plan content gets copied by hand into issue descriptions, where Linear silently strips the enclosing list item's content indent off every table body cell (CLAUDE.md → Writing for Agents).
+Keep every table in the plan at top level, as the step 8 template does: plan text gets copied into issue descriptions, where a table inside a list loses data (`history.md` → Tables at top level).
 
 ### 11. Move issue to In Progress and claim it
 
