@@ -246,9 +246,10 @@ describe('listHouseholdMeals', () => {
     expect(second.nextCursor).toBeNull()
   })
 
-  // Pins today's behaviour: Prisma answers an unknown cursor with no rows
-  // rather than P2025, so the first-page fallback in `listHouseholdMeals`
-  // never runs and a stale bookmark shows an empty list.
+  // Specification (HON-1232): an unknown cursor ends the list. An id with no
+  // row gives an empty page and no `nextCursor`, not a repeat of page one
+  // under the pages already shown. Remove only sets `deletedAt`, so a removed
+  // meal's id is still a valid cursor.
   it('answers an unknown cursor with an empty page', async () => {
     const { alder } = await world()
 
