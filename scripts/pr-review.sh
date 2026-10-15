@@ -589,10 +589,13 @@ cd "$REPO_ROOT"
 EXIT_CODE=0
 # An empty REVIEW_EFFORT passes no --effort flag (HON-1193).
 claude_model_args "$MODEL" "$REVIEW_EFFORT"
+# The reviewer reads the Linear issue and plan; no other MCP server (HON-1238).
+claude_mcp_args linear-server
 env -u ANTHROPIC_API_KEY claude -p \
   --dangerously-skip-permissions \
   "${CLAUDE_MODEL_ARGS[@]}" \
-  "$REVIEW_PROMPT" || EXIT_CODE=$?
+  "${CLAUDE_MCP_ARGS[@]}" \
+  -- "$REVIEW_PROMPT" || EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then
   echo -e "\n${GREEN}Review complete for PR #${PR_NUMBER}${NC}"

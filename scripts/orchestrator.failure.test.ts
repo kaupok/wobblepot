@@ -20,6 +20,14 @@ import {
   runHarnessEnv,
 } from './orchestrator-test-harness'
 
+// The worker's MCP flags: .mcp.json's linear-server and playwright entries only (HON-1238).
+const mcpServers = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../.mcp.json'), 'utf8'),
+).mcpServers
+const WORKER_MCP_ARGS = `--strict-mcp-config --mcp-config ${JSON.stringify({
+  mcpServers: { playwright: mcpServers.playwright, 'linear-server': mcpServers['linear-server'] },
+})}`
+
 describe('orchestrator.sh', () => {
   // ─── HON-572 finding 1: sanitize_log ──────────────────────────────────────
   // sanitize_log's output is posted verbatim into a Linear comment by
@@ -411,6 +419,14 @@ describe('orchestrator.sh', () => {
         expect(body).toContain('"$(auto_prompt "$prompt")"')
       })
 
+      // HON-1238: every MCP server that starts adds its tools to the base
+      // prefix of every request. The worker needs Linear and Playwright only.
+      it('launches the worker with a strict MCP config and -- before the prompt', () => {
+        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
+        expect(body).toContain('claude_mcp_args linear-server playwright')
+        expect(launchLine(body)).toContain('"${CLAUDE_MCP_ARGS[@]}" -- "$(auto_prompt "$prompt")"')
+      })
+
       // HON-1119: Claude Code moves an MCP call past 2 minutes to the
       // background, and this headless worker exits when its turn ends, so the
       // result would never arrive. 0 keeps every MCP call in the foreground.
@@ -598,7 +614,9 @@ describe('orchestrator.sh', () => {
       const out = wtAuto(['HON-991'])
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 /auto-implement HON-991\n',
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+          WORKER_MCP_ARGS +
+          ' -- /auto-implement HON-991\n',
       )
       expect(out).toContain('Model: claude-opus-5-5 | Effort: default')
       expect(out).toContain('EXIT:0')
@@ -606,7 +624,9 @@ describe('orchestrator.sh', () => {
 
     it('passes --effort to the worker when CLAUDE_AUTO_EFFORT is set', () => {
       expect(wtAuto(['HON-991'], { CLAUDE_AUTO_EFFORT: 'xhigh' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh /auto-implement HON-991\n',
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh ' +
+          WORKER_MCP_ARGS +
+          ' -- /auto-implement HON-991\n',
       )
     })
 
@@ -617,13 +637,17 @@ describe('orchestrator.sh', () => {
       })
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model small-x --effort low /auto-implement HON-991\n',
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model small-x --effort low ' +
+          WORKER_MCP_ARGS +
+          ' -- /auto-implement HON-991\n',
       )
     })
 
     it("reads wt auto --effort '' as no --effort flag", () => {
       expect(wtAuto(['--effort', '', 'HON-991'], { CLAUDE_AUTO_EFFORT: 'max' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 /auto-implement HON-991\n',
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+          WORKER_MCP_ARGS +
+          ' -- /auto-implement HON-991\n',
       )
     })
 
