@@ -34,13 +34,16 @@ interface SteeringFile {
   advice: string
 }
 
-/** The project skills: every `.claude/skills/<name>/SKILL.md` but the vendor copies. */
+/**
+ * The project skills: every `.claude/skills/<name>/SKILL.md` but the vendor copies.
+ * A skill can be a symlink (the vendor copies are), so this checks for the
+ * SKILL.md, which follows the link, rather than for a directory entry.
+ */
 function projectSkills(): string[] {
   return fs
-    .readdirSync(skillsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !VENDOR_SKILLS.includes(entry.name))
-    .filter((entry) => fs.existsSync(path.join(skillsDir, entry.name, 'SKILL.md')))
-    .map((entry) => entry.name)
+    .readdirSync(skillsDir)
+    .filter((name) => !VENDOR_SKILLS.includes(name))
+    .filter((name) => fs.existsSync(path.join(skillsDir, name, 'SKILL.md')))
     .sort()
 }
 
