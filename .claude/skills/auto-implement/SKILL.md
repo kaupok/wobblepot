@@ -509,7 +509,7 @@ gh pr view <PR_NUMBER> --json number,title,url,commits,files
 ./scripts/pr-comments.sh <PR_NUMBER> reviews
 ```
 
-Fill `templates.md` → Linear summary comment. Its `### Proof` section takes one line per acceptance criterion, in the issue's order, from the implement phase's output: the 3.2 and 4.5 test runs and the `Driven:` lines. Run nothing new for it. Then:
+Fill `templates.md` → Linear summary comment. Its `### Proof` section takes one line per acceptance criterion, in the issue's order, from output the cycle already produced: the 3.2, 4.5 and 6.6 test runs, the `Driven:` lines, and the tests or lines an Unproven fix in 6.5 added. Run nothing new for it. Then:
 
 ```
 mcp__linear-server__save_comment({ issueId: "<ID>", body: "[summary comment]" })
