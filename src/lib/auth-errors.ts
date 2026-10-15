@@ -197,6 +197,8 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
  * - `account_not_linked`: a password account on the same address whose email
  *   is not verified, so Better Auth will not link Google to it.
  * - `email_not_verified`: Google does not report the address as verified.
+ * - `INVITE_CODE_INVALID`: the code was valid before the redirect, but another
+ *   sign-up claimed it before this one came back (`beforeOAuthUserCreate`).
  * - `TERMS_NOT_ACCEPTED` and the invite-code refusals are thrown before the
  *   redirect, so they come back on `signIn.social` and go through
  *   {@link getAuthErrorKey} instead.
@@ -209,6 +211,9 @@ export function getOAuthErrorKey(code: string): AuthErrorKey {
       return 'emailNotVerified'
     case 'email_not_verified':
       return 'googleEmailNotVerified'
+    // Another sign-up claimed the code while this one was at Google.
+    case 'INVITE_CODE_INVALID':
+      return 'inviteCodeInvalid'
     default:
       return 'googleFailed'
   }

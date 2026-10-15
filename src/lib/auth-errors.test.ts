@@ -226,6 +226,7 @@ describe('getOAuthErrorKey (HON-1157)', () => {
     ['signup_disabled', 'googleNoAccount'],
     ['account_not_linked', 'emailNotVerified'],
     ['email_not_verified', 'googleEmailNotVerified'],
+    ['INVITE_CODE_INVALID', 'inviteCodeInvalid'],
     ['state_mismatch', 'googleFailed'],
     ['access_denied', 'googleFailed'],
     ['', 'googleFailed'],

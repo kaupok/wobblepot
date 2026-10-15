@@ -18,6 +18,7 @@ import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import {
+  INVITE_CODE_INVALID_MESSAGE,
   claimInviteCode,
   getInviteCodeFromBody,
   linkUsedBy,
@@ -187,7 +188,7 @@ function getAdditionalData(body: unknown): unknown {
  * - A sign-up must carry consent and a valid code (or household invite) in
  *   `additionalData`, checked here so a refusal comes before the redirect to
  *   Google. The code is validated, not claimed: the user can abandon the flow
- *   at Google. {@link afterOAuthSignUp} claims it once the user exists.
+ *   at Google. {@link beforeOAuthUserCreate} claims it once Google returns.
  *
  * `getOAuthState()` is still empty here: Better Auth builds the state inside
  * the endpoint, from this same `additionalData`.
@@ -207,55 +208,71 @@ export async function beforeSocialSignIn(body: unknown): Promise<void> {
   await validateInviteCode(data)
 }
 
-/** How long after its insert a user still counts as created by this callback. */
-const NEW_OAUTH_USER_WINDOW_MS = 60_000
+/**
+ * OAuth states whose callback is creating a user. Better Auth keeps one state
+ * object per request (`getOAuthState()` returns the same reference in the
+ * create hook and in `hooks.after`), so membership says exactly "this callback
+ * created the user", which Better Auth's own `isRegister` does not expose.
+ */
+const statesCreatingUser = new WeakSet<object>()
 
 /**
- * True when the callback that just signed this user in also created them.
- * Better Auth does not expose its `isRegister`; a sign-up flow whose user row
- * is under a minute old is that case. The only false positive is a user who
- * signs out and back in through the sign-up page's button within a minute of
- * creating their account. The waitlist clear and the household join are safe
- * to repeat; a code they typed again would be claimed.
+ * The OAuth callback's create hook (HON-1157), exported for unit testing.
+ * Runs only when Better Auth is about to insert a user, so only for a real
+ * sign-up:
+ *
+ * - {@link assertOAuthUserCreation}: consent in the state, a verified address;
+ * - claim the invite code, atomically, before the insert. `/sign-in/social`
+ *   only validated it, and the state lives 10 minutes, so several flows can
+ *   start on one code; the first to come back claims it, and the rest are
+ *   refused (`?error=INVITE_CODE_INVALID`) with no row written. The email path
+ *   has the same one-account-per-code rule;
+ * - mark the state, so the after-hook does the rest of the sign-up.
+ *
+ * Returns the consent stamp to merge into the row.
  */
-export function isNewOAuthUser(
+export async function beforeOAuthUserCreate(
+  user: { emailVerified?: unknown },
   state: unknown,
-  user: { createdAt?: Date | string } | undefined,
   now: Date = new Date(),
-): boolean {
-  if (!isOAuthSignUpState(state) || !user?.createdAt) return false
-  const createdAt = new Date(user.createdAt).getTime()
-  return now.getTime() - createdAt < NEW_OAUTH_USER_WINDOW_MS
+) {
+  const consent = assertOAuthUserCreation(user, state, now)
+  if (getInviteCodeFromBody(state) && !(await claimInviteCode(state))) {
+    throw new APIError('FORBIDDEN', {
+      message: INVITE_CODE_INVALID_MESSAGE,
+      code: 'INVITE_CODE_INVALID',
+    })
+  }
+  if (typeof state === 'object' && state !== null) statesCreatingUser.add(state)
+  return consent
 }
 
 /**
- * The OAuth callback's work for a user it created (HON-1157), exported for
- * unit testing. The same steps as {@link afterEmailSignUp}, with the OAuth
- * state as the body, plus the claim the email path makes in its before-hook:
- *
- * - claim the code. Losing the claim means another sign-up used the code
- *   between validation and now; this sign-up still succeeds, the loss is
- *   logged, and the code stays linked to the winner;
- * - clear the waitlist row and join the household invite, as for email;
- * - capture `auth:sign_up` with `method: 'google'`. The browser left for
- *   Google and came back on a redirect, so it has no success callback to
- *   `track()` from.
- *
- * No step throws: the user and their session already exist.
+ * The `/callback/:id` after-hook (HON-1157), exported for unit testing.
+ * Nothing to do unless this callback's create hook ran. Then, with a session,
+ * finish the sign-up ({@link afterOAuthSignUp}); without one the sign-up
+ * failed after the claim, so release the code, as the email path does.
+ */
+export async function afterOAuthCallback(state: unknown, userId: string | undefined) {
+  if (typeof state !== 'object' || state === null || !statesCreatingUser.has(state)) return
+  statesCreatingUser.delete(state)
+  if (userId) {
+    await afterOAuthSignUp(state, userId)
+    return
+  }
+  await releaseClaim(state)
+}
+
+/**
+ * A new Google user's sign-up, after the row exists (HON-1157). The same steps
+ * as {@link afterEmailSignUp}, with the OAuth state as the body: link the code
+ * the create hook claimed, clear the waitlist request, join the household
+ * invite. Then capture `auth:sign_up` with `method: 'google'`: the browser
+ * left for Google and came back on a redirect, so it has no success callback
+ * to `track()` from. No step throws: the user and their session exist.
  */
 export async function afterOAuthSignUp(state: unknown, userId: string): Promise<void> {
-  try {
-    if (await claimInviteCode(state)) {
-      await linkUsedBy(state, userId)
-    } else if (getInviteCodeFromBody(state)) {
-      console.warn('[signup-code] Google sign-up lost the claim on its code', {
-        code: getInviteCodeFromBody(state),
-        userId,
-      })
-    }
-  } catch (err) {
-    console.warn('[signup-code] Google sign-up failed to claim its code', { userId, err })
-  }
+  await linkUsedBy(state, userId)
   await clearWaitlistForNewUser(userId)
   await joinHouseholdFromSignUp(state, userId)
   try {
@@ -542,12 +559,13 @@ export const auth = betterAuth({
         /**
          * Stamps `acceptedTermsAt` + `acceptedTermsVersion` on the new user
          * row (HON-457). See {@link stampTermsConsent} for the path guard.
-         * An OAuth callback must carry the sign-up page's consent, or no row
-         * is written ({@link assertOAuthUserCreation}, HON-1157).
+         * An OAuth callback must carry the sign-up page's consent and win the
+         * invite code, or no row is written ({@link beforeOAuthUserCreate},
+         * HON-1157).
          */
         before: async (user, ctx) => {
           if (ctx?.path === OAUTH_CALLBACK_PATH) {
-            const consent = assertOAuthUserCreation(user, await getOAuthState())
+            const consent = await beforeOAuthUserCreate(user, await getOAuthState())
             return { data: { ...user, ...consent } }
           }
           const consent = stampTermsConsent(ctx?.path)
@@ -572,8 +590,8 @@ export const auth = betterAuth({
    * `usedById` link once the new user row exists and deletes the user's
    * waitlist request (see {@link afterEmailSignUp}). Google sign-up runs the
    * same gate in two halves: validate on `/sign-in/social`
-   * ({@link beforeSocialSignIn}), claim on the callback
-   * ({@link afterOAuthSignUp}). All delegate to `src/lib/signup-codes.ts` so
+   * ({@link beforeSocialSignIn}), claim on the callback, before the insert
+   * ({@link beforeOAuthUserCreate}). All delegate to `src/lib/signup-codes.ts` so
    * the validation/claim logic stays unit-testable in isolation. See HON-488.
    */
   hooks: {
@@ -602,9 +620,7 @@ export const auth = betterAuth({
         return
       }
       if (ctx.path === OAUTH_CALLBACK_PATH) {
-        const state = await getOAuthState()
-        const user = ctx.context.newSession?.user
-        if (user && isNewOAuthUser(state, user)) await afterOAuthSignUp(state, user.id)
+        await afterOAuthCallback(await getOAuthState(), ctx.context.newSession?.user?.id)
         return
       }
       if (ctx.path !== '/sign-up/email') return

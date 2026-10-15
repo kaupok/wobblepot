@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { getOAuthState } from 'better-auth/api'
 import {
   afterEmailSignUp,
+  afterOAuthCallback,
   afterOAuthSignUp,
   assertOAuthUserCreation,
   auth,
@@ -9,7 +10,7 @@ import {
   beforeSocialSignIn,
   GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE,
   ID_TOKEN_SIGN_IN_MESSAGE,
-  isNewOAuthUser,
+  beforeOAuthUserCreate,
   assertValidAccountNameUpdate,
   INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
@@ -31,15 +32,18 @@ vi.mock('./breached-password', () => ({
   isPasswordBreached: vi.fn(),
 }))
 
-vi.mock('@/lib/signup-codes', async (importOriginal) => ({
-  getInviteCodeFromBody: (await importOriginal<typeof import('@/lib/signup-codes')>())
-    .getInviteCodeFromBody,
-  claimInviteCode: vi.fn(),
-  linkUsedBy: vi.fn(),
-  releaseClaim: vi.fn(),
-  validateAndClaimInviteCode: vi.fn(),
-  validateInviteCode: vi.fn(),
-}))
+vi.mock('@/lib/signup-codes', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/signup-codes')>()
+  return {
+    INVITE_CODE_INVALID_MESSAGE: original.INVITE_CODE_INVALID_MESSAGE,
+    getInviteCodeFromBody: original.getInviteCodeFromBody,
+    claimInviteCode: vi.fn(),
+    linkUsedBy: vi.fn(),
+    releaseClaim: vi.fn(),
+    validateAndClaimInviteCode: vi.fn(),
+    validateInviteCode: vi.fn(),
+  }
+})
 
 vi.mock('better-auth/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('better-auth/api')>()),
@@ -291,24 +295,97 @@ describe('databaseHooks.user.create.before', () => {
   })
 })
 
-describe('isNewOAuthUser (HON-1157)', () => {
-  const now = new Date('2026-10-15T12:00:00Z')
-  const signUp = { requestSignUp: true, acceptedTerms: true }
+describe('beforeOAuthUserCreate (HON-1157)', () => {
+  const verified = { emailVerified: true }
 
-  it('is true for a sign-up whose user row is seconds old', () => {
-    expect(isNewOAuthUser(signUp, { createdAt: new Date('2026-10-15T11:59:58Z') }, now)).toBe(true)
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('is false for a returning user through the sign-up button', () => {
-    expect(isNewOAuthUser(signUp, { createdAt: new Date('2026-10-01T09:00:00Z') }, now)).toBe(false)
+  it('claims the code before the insert and returns the consent stamp', async () => {
+    vi.mocked(claimInviteCode).mockResolvedValue(true)
+    const now = new Date('2026-10-15T12:00:00Z')
+    const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'good' }
+
+    await expect(beforeOAuthUserCreate(verified, state, now)).resolves.toEqual({
+      acceptedTermsAt: now,
+      acceptedTermsVersion: CURRENT_TERMS_VERSION,
+    })
+    expect(claimInviteCode).toHaveBeenCalledWith(state)
   })
 
-  it('is false for a sign-in flow, however new the user', () => {
-    expect(isNewOAuthUser({}, { createdAt: new Date('2026-10-15T11:59:58Z') }, now)).toBe(false)
+  // Several Google flows started on one code: the first back claims it, the
+  // rest write no row (review on PR #1291).
+  it('refuses the user row when another sign-up claimed the code first', async () => {
+    vi.mocked(claimInviteCode).mockResolvedValue(false)
+    const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'shared' }
+
+    let caught: unknown
+    try {
+      await beforeOAuthUserCreate(verified, state)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toMatchObject({ body: { code: 'INVITE_CODE_INVALID' } })
+
+    // The after-hook then has nothing to finish.
+    await afterOAuthCallback(state, 'user_1')
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(releaseClaim).not.toHaveBeenCalled()
   })
 
-  it('is false when the callback signed nobody in', () => {
-    expect(isNewOAuthUser(signUp, undefined, now)).toBe(false)
+  it('claims nothing for a sign-up without a code (gate off, or a household invite)', async () => {
+    const state = { requestSignUp: true, acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    await beforeOAuthUserCreate(verified, state)
+
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+
+  it('checks consent before it claims', async () => {
+    await expect(
+      beforeOAuthUserCreate(verified, { requestSignUp: true, inviteCode: 'good' }),
+    ).rejects.toThrow(TERMS_NOT_ACCEPTED_MESSAGE)
+    expect(claimInviteCode).not.toHaveBeenCalled()
+  })
+})
+
+describe('afterOAuthCallback (HON-1157)', () => {
+  const consented = { requestSignUp: true, acceptedTerms: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(claimInviteCode).mockResolvedValue(true)
+  })
+
+  it('finishes the sign-up once for the user this callback created', async () => {
+    const state = { ...consented, inviteCode: 'good' }
+    await beforeOAuthUserCreate({ emailVerified: true }, state)
+
+    await afterOAuthCallback(state, 'user_1')
+    await afterOAuthCallback(state, 'user_1')
+
+    expect(linkUsedBy).toHaveBeenCalledTimes(1)
+    expect(linkUsedBy).toHaveBeenCalledWith(state, 'user_1')
+    expect(clearWaitlistForNewUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing for a returning user, whose callback created no row', async () => {
+    await afterOAuthCallback({ ...consented, inviteCode: 'good' }, 'user_1')
+
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
+    expect(posthogCapture).not.toHaveBeenCalled()
+  })
+
+  it('releases the claimed code when the sign-up failed after the claim', async () => {
+    const state = { ...consented, inviteCode: 'good' }
+    await beforeOAuthUserCreate({ emailVerified: true }, state)
+
+    await afterOAuthCallback(state, undefined)
+
+    expect(releaseClaim).toHaveBeenCalledWith(state)
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
   })
 })
 
@@ -317,19 +394,17 @@ describe('afterOAuthSignUp (HON-1157)', () => {
     vi.clearAllMocks()
   })
 
-  it('claims and links the code, clears the waitlist and captures the sign-up once', async () => {
-    vi.mocked(claimInviteCode).mockResolvedValue(true)
+  it('links the code, clears the waitlist, joins the household and captures the sign-up', async () => {
     const state = { requestSignUp: true, acceptedTerms: true, inviteCode: 'good' }
 
     await afterOAuthSignUp(state, 'user_1')
 
-    expect(claimInviteCode).toHaveBeenCalledTimes(1)
-    expect(claimInviteCode).toHaveBeenCalledWith(state)
-    expect(linkUsedBy).toHaveBeenCalledTimes(1)
     expect(linkUsedBy).toHaveBeenCalledWith(state, 'user_1')
-    expect(clearWaitlistForNewUser).toHaveBeenCalledTimes(1)
     expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
     expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(state, 'user_1')
+    expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
+      vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
+    )
     expect(posthogCapture).toHaveBeenCalledTimes(1)
     expect(posthogCapture).toHaveBeenCalledWith({
       distinctId: 'user_1',
@@ -338,43 +413,7 @@ describe('afterOAuthSignUp (HON-1157)', () => {
     })
   })
 
-  it('keeps the sign-up when another sign-up claimed the code first', async () => {
-    vi.mocked(claimInviteCode).mockResolvedValue(false)
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    await expect(afterOAuthSignUp({ inviteCode: 'raced' }, 'user_1')).resolves.toBeUndefined()
-
-    expect(linkUsedBy).not.toHaveBeenCalled()
-    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
-    expect(warn).toHaveBeenCalledWith('[signup-code] Google sign-up lost the claim on its code', {
-      code: 'raced',
-      userId: 'user_1',
-    })
-    warn.mockRestore()
-  })
-
-  it('keeps the sign-up when the claim throws', async () => {
-    vi.mocked(claimInviteCode).mockRejectedValue(new Error('db down'))
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    await expect(afterOAuthSignUp({ inviteCode: 'good' }, 'user_1')).resolves.toBeUndefined()
-
-    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
-    warn.mockRestore()
-  })
-
-  it('joins the household from an invite-link sign-up and claims no code', async () => {
-    vi.mocked(claimInviteCode).mockResolvedValue(false)
-    const state = { householdInviteCode: 'Ab3_x-9Kq2Lm' }
-
-    await afterOAuthSignUp(state, 'user_1')
-
-    expect(linkUsedBy).not.toHaveBeenCalled()
-    expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(state, 'user_1')
-  })
-
   it('keeps the sign-up when PostHog throws', async () => {
-    vi.mocked(claimInviteCode).mockResolvedValue(false)
     vi.mocked(getPosthogServer).mockReturnValueOnce({
       capture: () => {
         throw new Error('posthog down')
@@ -382,55 +421,6 @@ describe('afterOAuthSignUp (HON-1157)', () => {
     } as never)
 
     await expect(afterOAuthSignUp({}, 'user_1')).resolves.toBeUndefined()
-  })
-})
-
-describe('afterEmailSignUp', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it("deletes the new user's waitlist request when the sign-up has no invite code (HON-1102)", async () => {
-    await afterEmailSignUp({ email: 'anna@example.com' }, 'user_1')
-
-    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
-    expect(releaseClaim).not.toHaveBeenCalled()
-  })
-
-  it('links the used invite code, then deletes the waitlist request', async () => {
-    const body = { inviteCode: 'good' }
-
-    await afterEmailSignUp(body, 'user_1')
-
-    expect(linkUsedBy).toHaveBeenCalledWith(body, 'user_1')
-    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
-    expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
-      vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
-    )
-  })
-
-  it('joins the household from an invite-link sign-up (HON-1131)', async () => {
-    const body = { householdInviteCode: 'Ab3_x-9Kq2Lm' }
-
-    await afterEmailSignUp(body, 'user_1')
-
-    expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(body, 'user_1')
-  })
-
-  it('does not try to join a household when sign-up failed', async () => {
-    await afterEmailSignUp({ householdInviteCode: 'Ab3_x-9Kq2Lm' }, undefined)
-
-    expect(joinHouseholdFromSignUp).not.toHaveBeenCalled()
-  })
-
-  it('releases the claimed code and touches no waitlist request when sign-up failed', async () => {
-    const body = { inviteCode: 'good' }
-
-    await afterEmailSignUp(body, undefined)
-
-    expect(releaseClaim).toHaveBeenCalledWith(body)
-    expect(linkUsedBy).not.toHaveBeenCalled()
-    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
   })
 })
 
