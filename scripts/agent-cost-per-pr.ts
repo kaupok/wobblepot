@@ -58,7 +58,7 @@ import { pathToFileURL } from 'node:url'
  * with no row throws: pricing it at zero would quietly shrink the baseline.
  */
 export const PRICING_SOURCE = 'https://platform.claude.com/docs/en/about-claude/pricing'
-export const PRICING_READ_ON = '2026-10-01'
+export const PRICING_READ_ON = '2026-10-15'
 
 export type Price = {
   input: number
@@ -80,7 +80,17 @@ export const PRICING: Record<string, Price> = {
   'claude-opus-5-5': { input: 4, cacheWrite5m: 5, cacheWrite1h: 8, cacheRead: 0.2, output: 20 },
   'claude-opus-5': { input: 5, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5, output: 25 },
   'claude-opus-4-8': { input: 5, cacheWrite5m: 6.25, cacheWrite1h: 10, cacheRead: 0.5, output: 25 },
+  'claude-sonnet-5-5': { input: 2, cacheWrite5m: 2.5, cacheWrite1h: 4, cacheRead: 0.1, output: 10 },
   'claude-sonnet-5': { input: 2, cacheWrite5m: 2.5, cacheWrite1h: 4, cacheRead: 0.2, output: 10 },
+  // Haiku 5.5 charges more for a prompt over 100K tokens. These are the base rates,
+  // because worker prompts stay under that.
+  'claude-haiku-5-5': {
+    input: 0.1,
+    cacheWrite5m: 0.125,
+    cacheWrite1h: 0.2,
+    cacheRead: 0.01,
+    output: 0.5,
+  },
   'claude-haiku-4-5-20251001': {
     input: 1,
     cacheWrite5m: 1.25,

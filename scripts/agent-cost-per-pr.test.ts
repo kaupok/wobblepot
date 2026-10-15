@@ -341,6 +341,37 @@ describe('priceUsage', () => {
     )
   })
 
+  it('has a positive value in all five fields of every row', () => {
+    for (const [model, price] of Object.entries(PRICING)) {
+      for (const type of [
+        'input',
+        'cacheWrite5m',
+        'cacheWrite1h',
+        'cacheRead',
+        'output',
+      ] as const) {
+        expect(price[type], `${model}.${type}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('prices the 5.5 Sonnet and Haiku models from the pricing page', () => {
+    expect(PRICING['claude-sonnet-5-5']).toEqual({
+      input: 2,
+      cacheWrite5m: 2.5,
+      cacheWrite1h: 4,
+      cacheRead: 0.1,
+      output: 10,
+    })
+    expect(PRICING['claude-haiku-5-5']).toEqual({
+      input: 0.1,
+      cacheWrite5m: 0.125,
+      cacheWrite1h: 0.2,
+      cacheRead: 0.01,
+      output: 0.5,
+    })
+  })
+
   it('records the date the prices were read', () => {
     expect(PRICING_READ_ON).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
