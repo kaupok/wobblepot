@@ -364,6 +364,26 @@ describe('updateCustomShoppingItem', () => {
     expect((await pantryRow('hh-alder', 'ing-alder'))?.quantity).toBeNull()
   })
 
+  // HON-1233: an empty upsert update left `updatedAt` alone, so the 7-day
+  // unpurchase window was not renewed.
+  it('checking renews the updatedAt of an old "have some" pantry row', async () => {
+    await alderItem()
+    await prisma.pantryItem.create({
+      data: {
+        householdId: 'hh-alder',
+        ingredientId: 'ing-alder',
+        updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      },
+    })
+    const before = Date.now()
+
+    await updateCustomShoppingItem('hh-alder', 'item-1', { checked: true })
+
+    const pantry = await pantryRow('hh-alder', 'ing-alder')
+    expect(pantry?.quantity).toBeNull()
+    expect(pantry?.updatedAt.getTime()).toBeGreaterThanOrEqual(before)
+  })
+
   it('checking an item that is checked already does not touch the pantry', async () => {
     await alderItem({ checked: true })
     const before = await prisma.pantryItem.create({
