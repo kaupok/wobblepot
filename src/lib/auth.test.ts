@@ -179,6 +179,55 @@ describe('stampTermsConsent', () => {
   })
 })
 
+describe('afterEmailSignUp', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("deletes the new user's waitlist request when the sign-up has no invite code (HON-1102)", async () => {
+    await afterEmailSignUp({ email: 'anna@example.com' }, 'user_1')
+
+    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
+    expect(releaseClaim).not.toHaveBeenCalled()
+  })
+
+  it('links the used invite code, then deletes the waitlist request', async () => {
+    const body = { inviteCode: 'good' }
+
+    await afterEmailSignUp(body, 'user_1')
+
+    expect(linkUsedBy).toHaveBeenCalledWith(body, 'user_1')
+    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
+    expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
+      vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('joins the household from an invite-link sign-up (HON-1131)', async () => {
+    const body = { householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    await afterEmailSignUp(body, 'user_1')
+
+    expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(body, 'user_1')
+  })
+
+  it('does not try to join a household when sign-up failed', async () => {
+    await afterEmailSignUp({ householdInviteCode: 'Ab3_x-9Kq2Lm' }, undefined)
+
+    expect(joinHouseholdFromSignUp).not.toHaveBeenCalled()
+  })
+
+  it('releases the claimed code and touches no waitlist request when sign-up failed', async () => {
+    const body = { inviteCode: 'good' }
+
+    await afterEmailSignUp(body, undefined)
+
+    expect(releaseClaim).toHaveBeenCalledWith(body)
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
+  })
+})
+
 describe('beforeSocialSignIn (HON-1157)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
