@@ -3,11 +3,39 @@ import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import { loadDemoDay, pickDemoMeals } from './load-demo-day'
 import { stepsInputHash } from './steps-input-hash'
 
+// A stand-in for `unstable_cache`, which needs a Next request to run: it
+// memoises by key parts plus arguments, as Next does, and keeps a failure out
+// of the store. Cleared before each test.
+const cache = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  created: [] as { keyParts: string[]; options: unknown }[],
+}))
+
+vi.mock('next/cache', () => ({
+  unstable_cache: (
+    fn: (...args: unknown[]) => Promise<unknown>,
+    keyParts: string[],
+    options: unknown,
+  ) => {
+    cache.created.push({ keyParts, options })
+    return async (...args: unknown[]) => {
+      const key = JSON.stringify([...keyParts, ...args])
+      if (cache.store.has(key)) return cache.store.get(key)
+      const value = await fn(...args)
+      cache.store.set(key, value)
+      return value
+    }
+  },
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: { meal: { findMany: vi.fn() } },
 }))
 
+vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 
 const findMany = vi.mocked(prisma.meal.findMany)
 
@@ -175,6 +203,49 @@ describe('pickDemoMeals', () => {
 describe('loadDemoDay', () => {
   beforeEach(() => {
     findMany.mockReset()
+    vi.mocked(captureApiError).mockReset()
+    cache.store.clear()
+  })
+
+  it('caches the day for an hour per locale and date', async () => {
+    findMany.mockResolvedValue(pool as never)
+
+    const first = await loadDemoDay({ locale: 'en', date: '2026-10-02' })
+    const again = await loadDemoDay({ locale: 'en', date: '2026-10-02' })
+
+    expect(findMany).toHaveBeenCalledTimes(1)
+    expect(again).toEqual(first)
+    expect(cache.created).toEqual([
+      { keyParts: ['landing-demo-day'], options: { revalidate: 3600 } },
+    ])
+
+    await loadDemoDay({ locale: 'en', date: '2026-10-03' })
+    await loadDemoDay({ locale: 'et', date: '2026-10-03' })
+    expect(findMany).toHaveBeenCalledTimes(3)
+  })
+
+  it('is null and reports the error when the database fails', async () => {
+    const error = new Error('Authentication timed out')
+    findMany.mockRejectedValue(error)
+
+    await expect(loadDemoDay({ locale: 'en', date: '2026-10-02' })).resolves.toBeNull()
+
+    expect(captureApiError).toHaveBeenCalledTimes(1)
+    expect(captureApiError).toHaveBeenCalledWith(error, {
+      route: '/',
+      operation: 'landing-demo-day',
+    })
+  })
+
+  it('does not cache a failure, so the next request queries again', async () => {
+    findMany.mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
+    findMany.mockResolvedValueOnce(pool as never)
+
+    expect(await loadDemoDay({ locale: 'en', date: '2026-10-02' })).toBeNull()
+    const day = await loadDemoDay({ locale: 'en', date: '2026-10-02' })
+
+    expect(findMany).toHaveBeenCalledTimes(2)
+    expect(day!.meals.map((m) => m.mealType)).toEqual(['breakfast', 'lunch', 'dinner'])
   })
 
   it('maps the picked meals to the cook view shape with their steps', async () => {
