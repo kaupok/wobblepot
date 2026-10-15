@@ -246,9 +246,10 @@ describe('listHouseholdMeals', () => {
     expect(second.nextCursor).toBeNull()
   })
 
-  // Specification (HON-1232): an unknown cursor ends the list. A meal deleted
-  // in another tab mid-scroll gives an empty page and no `nextCursor`, not a
-  // repeat of page one under the pages already shown.
+  // Specification (HON-1232): an unknown cursor ends the list. An id with no
+  // row gives an empty page and no `nextCursor`, not a repeat of page one
+  // under the pages already shown. Remove only sets `deletedAt`, so a removed
+  // meal's id is still a valid cursor.
   it('answers an unknown cursor with an empty page', async () => {
     const { alder } = await world()
 
