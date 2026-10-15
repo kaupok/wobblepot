@@ -15,26 +15,55 @@ import { describe, expect, it } from 'vitest'
  * `.claude/skills/auto-implement/history.md`, cut it under 3,000, and capped
  * it here at the same limit.
  *
+ * Every other skill grows the same way, so HON-1235 capped each project
+ * SKILL.md at that limit too and cut /plan-issue, then 3,690 words, under it.
+ *
  * Raise a limit only on purpose, in a PR that says why.
  */
-const STEERING_FILES = [
-  {
-    file: 'CLAUDE.md',
-    maxWords: 3300,
-    advice: 'Move a section that applies to one task into the skill or doc that task reads',
-  },
-  {
-    file: '.claude/skills/auto-implement/SKILL.md',
-    maxWords: 3300,
-    advice:
-      'Move the incident or reason behind a rule into .claude/skills/auto-implement/history.md, ' +
-      'or a rarely-taken branch into a sibling file',
-  },
-] as const
+const MAX_WORDS = 3300
 
-type SteeringFile = (typeof STEERING_FILES)[number]
+/** Upstream copies, updated by re-copying them, so a local cut would be lost. */
+const VENDOR_SKILLS = ['better-auth-best-practices', 'create-auth-skill', 'next-upgrade']
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const skillsDir = path.join(repoRoot, '.claude/skills')
+
+interface SteeringFile {
+  file: string
+  maxWords: number
+  advice: string
+}
+
+/**
+ * The project skills: every `.claude/skills/<name>/SKILL.md` but the vendor copies.
+ * A skill can be a symlink (the vendor copies are), so this checks for the
+ * SKILL.md, which follows the link, rather than for a directory entry.
+ */
+function projectSkills(): string[] {
+  return fs
+    .readdirSync(skillsDir)
+    .filter((name) => !VENDOR_SKILLS.includes(name))
+    .filter((name) => fs.existsSync(path.join(skillsDir, name, 'SKILL.md')))
+    .sort()
+}
+
+function skillSteeringFile(skill: string): SteeringFile {
+  return {
+    file: `.claude/skills/${skill}/SKILL.md`,
+    maxWords: MAX_WORDS,
+    advice:
+      `Move the incident or reason behind a rule into .claude/skills/${skill}/history.md, ` +
+      'or a rarely-taken branch into a sibling file',
+  }
+}
+
+const claudeMd: SteeringFile = {
+  file: 'CLAUDE.md',
+  maxWords: MAX_WORDS,
+  advice: 'Move a section that applies to one task into the skill or doc that task reads',
+}
+
+const STEERING_FILES: SteeringFile[] = [claudeMd, ...projectSkills().map(skillSteeringFile)]
 
 /** Words as `wc -w` counts them: runs of non-whitespace. */
 function countWords(text: string): number {
@@ -52,8 +81,6 @@ function sizeViolation(text: string, { file, maxWords, advice }: SteeringFile): 
   )
 }
 
-const [claudeMd, autoImplementSkill] = STEERING_FILES
-
 describe('countWords', () => {
   it('counts runs of non-whitespace, as wc -w does', () => {
     expect(countWords('  one two\n\tthree  `four|five` |\n')).toBe(5)
@@ -61,6 +88,29 @@ describe('countWords', () => {
 
   it('counts an empty text as zero', () => {
     expect(countWords('\n \n')).toBe(0)
+  })
+})
+
+describe('STEERING_FILES', () => {
+  const files = STEERING_FILES.map((steering) => steering.file)
+
+  it('caps CLAUDE.md and the project skills, all at 3,300 words', () => {
+    expect(files).toContain('CLAUDE.md')
+    expect(files).toContain('.claude/skills/auto-implement/SKILL.md')
+    expect(files).toContain('.claude/skills/plan-issue/SKILL.md')
+    expect(new Set(STEERING_FILES.map((steering) => steering.maxWords))).toEqual(new Set([3300]))
+  })
+
+  it('leaves out the vendor skills', () => {
+    expect(files).not.toContain('.claude/skills/better-auth-best-practices/SKILL.md')
+    expect(files).not.toContain('.claude/skills/create-auth-skill/SKILL.md')
+    expect(files).not.toContain('.claude/skills/next-upgrade/SKILL.md')
+  })
+
+  // A vendor skill that was renamed or deleted would leave a dead exclusion,
+  // and a project skill reusing the name would go uncapped.
+  it.each(VENDOR_SKILLS)('excludes %s, which still exists', (skill) => {
+    expect(fs.existsSync(path.join(skillsDir, skill, 'SKILL.md'))).toBe(true)
   })
 })
 
@@ -72,18 +122,19 @@ describe('sizeViolation', () => {
     expect(message).toContain('Do not shorten sentences')
   })
 
-  it('fails a 3,301-word auto-implement SKILL.md and points at history.md', () => {
-    const message = sizeViolation('word '.repeat(3301), autoImplementSkill)
+  it("fails a 3,301-word skill and points at that skill's history.md", () => {
+    const message = sizeViolation('word '.repeat(3301), skillSteeringFile('plan-issue'))
     expect(message).toContain(
-      '.claude/skills/auto-implement/SKILL.md is 3301 words; the limit is 3300.',
+      '.claude/skills/plan-issue/SKILL.md is 3301 words; the limit is 3300.',
     )
-    expect(message).toContain('.claude/skills/auto-implement/history.md')
+    expect(message).toContain('.claude/skills/plan-issue/history.md')
+    expect(message).toContain('a rarely-taken branch into a sibling file')
     expect(message).toContain('Do not shorten sentences')
   })
 
   it('passes a text exactly at the limit', () => {
     expect(sizeViolation('word '.repeat(3300), claudeMd)).toBeNull()
-    expect(sizeViolation('word '.repeat(3300), autoImplementSkill)).toBeNull()
+    expect(sizeViolation('word '.repeat(3300), skillSteeringFile('plan-issue'))).toBeNull()
   })
 })
 
