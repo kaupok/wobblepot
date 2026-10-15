@@ -363,12 +363,11 @@ describe('purchase then unpurchase', () => {
     })
     const before = Date.now()
 
-    await purchaseIngredients(alder, ['ing-rice'])
+    const outcome = await purchaseIngredients(alder, ['ing-rice'])
 
-    const row = await prisma.pantryItem.findUniqueOrThrow({
-      where: { householdId_ingredientId: { householdId: alder.id, ingredientId: 'ing-rice' } },
-    })
-    expect(row.updatedAt.getTime()).toBeGreaterThanOrEqual(before)
+    expect(outcome.status).toBe('purchased')
+    if (outcome.status !== 'purchased') return
+    expect(Date.parse(outcome.results[0]!.pantryItem.updatedAt)).toBeGreaterThanOrEqual(before)
     expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
   })
 })
