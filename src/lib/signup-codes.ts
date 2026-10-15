@@ -33,6 +33,30 @@ export function getInviteCodeFromBody(body: unknown): string {
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
+/** An unused code whose expiry, if any, is still ahead. */
+function claimableCodeWhere(code: string) {
+  return {
+    code,
+    usedAt: null,
+    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+  }
+}
+
+/**
+ * Checks the household invite on the body (HON-1131). Returns `true` when the
+ * body carries one and it is claimable now, throws when it carries one that is
+ * not, and returns `false` when it carries none.
+ */
+async function checkHouseholdInvite(body: unknown, db: PrismaClientType): Promise<boolean> {
+  const householdCode = getHouseholdInviteCodeFromBody(body)
+  if (!householdCode) return false
+  const invite = await findHouseholdInvite(householdCode, db)
+  if (!invite || getInviteValidity(invite) !== 'valid') {
+    throw new APIError('FORBIDDEN', { message: HOUSEHOLD_INVITE_INVALID_MESSAGE })
+  }
+  return true
+}
+
 /**
  * Validates the invite code on the sign-up request and atomically claims it.
  *
@@ -62,33 +86,67 @@ export async function validateAndClaimInviteCode(
   const getFlag = options.getFlag ?? getServerFlag
 
   if (!(await getFlag(INVITE_FLAG, 'anonymous'))) return
-
-  const householdCode = getHouseholdInviteCodeFromBody(body)
-  if (householdCode) {
-    const invite = await findHouseholdInvite(householdCode, db)
-    if (!invite || getInviteValidity(invite) !== 'valid') {
-      throw new APIError('FORBIDDEN', { message: HOUSEHOLD_INVITE_INVALID_MESSAGE })
-    }
-    return
-  }
+  if (await checkHouseholdInvite(body, db)) return
 
   const code = getInviteCodeFromBody(body)
   if (!code) {
     throw new APIError('FORBIDDEN', { message: INVITE_CODE_REQUIRED_MESSAGE })
   }
 
-  const claimed = await db.signupCode.updateMany({
-    where: {
-      code,
-      usedAt: null,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-    data: { usedAt: new Date() },
-  })
-
-  if (claimed.count === 0) {
+  if (!(await claimInviteCode(body, { db }))) {
     throw new APIError('FORBIDDEN', { message: INVITE_CODE_INVALID_MESSAGE })
   }
+}
+
+/**
+ * The same gate as {@link validateAndClaimInviteCode}, with no write: the code
+ * must be claimable now, and nothing marks it used. Google sign-up (HON-1157)
+ * runs this before the redirect to Google, because the user can abandon the
+ * flow there and a claimed code would be burnt. {@link claimInviteCode} claims
+ * it once the user row exists.
+ */
+export async function validateInviteCode(
+  body: unknown,
+  options: SignupCodeOptions = {},
+): Promise<void> {
+  const db = options.db ?? prisma
+  const getFlag = options.getFlag ?? getServerFlag
+
+  if (!(await getFlag(INVITE_FLAG, 'anonymous'))) return
+  if (await checkHouseholdInvite(body, db)) return
+
+  const code = getInviteCodeFromBody(body)
+  if (!code) {
+    throw new APIError('FORBIDDEN', { message: INVITE_CODE_REQUIRED_MESSAGE })
+  }
+
+  const claimable = await db.signupCode.findFirst({
+    where: claimableCodeWhere(code),
+    select: { id: true },
+  })
+  if (!claimable) {
+    throw new APIError('FORBIDDEN', { message: INVITE_CODE_INVALID_MESSAGE })
+  }
+}
+
+/**
+ * Atomically marks the body's code used, and says whether this call won.
+ * `false` when the body has no code, or the code is used, expired or gone: a
+ * concurrent sign-up with the same code claimed it first.
+ */
+export async function claimInviteCode(
+  body: unknown,
+  options: Pick<SignupCodeOptions, 'db'> = {},
+): Promise<boolean> {
+  const db = options.db ?? prisma
+  const code = getInviteCodeFromBody(body)
+  if (!code) return false
+
+  const claimed = await db.signupCode.updateMany({
+    where: claimableCodeWhere(code),
+    data: { usedAt: new Date() },
+  })
+  return claimed.count > 0
 }
 
 /**

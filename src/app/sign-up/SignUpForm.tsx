@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
+import { getOAuthErrorKey } from '@/lib/auth-errors'
 import { getValidReturnUrl } from '@/lib/utils'
 import { EMAIL_VERIFICATION_CALLBACK_URL } from '@/lib/email-verification'
 import { apiFetch } from '@/lib/api'
@@ -19,6 +20,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import {
+  AuthMethodDivider,
+  GoogleSignInButton,
+  googleErrorCallbackURL,
+} from '@/components/auth/GoogleSignInButton'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 /** A valid household invite the visitor came from (HON-1131). */
@@ -37,6 +43,12 @@ interface SignUpFormProps {
    * the household (`afterEmailSignUp` in `src/lib/auth.ts`).
    */
   householdInvite?: SignUpHouseholdInvite | null
+  /**
+   * Google sign-up is configured (`isGoogleAuthConfigured()`, HON-1157): show
+   * Continue with Google under the email submit. It needs the same consent and
+   * invite code as the email path, and none of the name, email and password.
+   */
+  googleEnabled?: boolean
 }
 
 /**
@@ -60,6 +72,7 @@ export function SignUpForm({
   inviteCodeLabel,
   inviteCodeHint,
   householdInvite = null,
+  googleEnabled = false,
 }: SignUpFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -77,7 +90,10 @@ export function SignUpForm({
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
+  const [isGooglePending, setIsGooglePending] = useState(false)
   const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
+  const { ref: googleRef, requestRefocus: requestGoogleRefocus } =
+    useRefocusAfterPending(isGooglePending)
   // An invitee who has an account after all signs in and comes back to the
   // invite, wherever they entered sign-up from.
   const signInReturnUrl = householdInvite ? householdInvitePath(householdInvite.code) : returnUrl
@@ -85,6 +101,66 @@ export function SignUpForm({
     signInReturnUrl !== '/'
       ? `/sign-in?returnUrl=${encodeURIComponent(signInReturnUrl)}`
       : '/sign-in'
+
+  useEffect(() => {
+    // A failed Google sign-up comes back here with `?error=<code>`
+    // (HON-1157). Show its copy, then drop the code so a reload does not show
+    // it again; `invite` and `returnUrl` stay.
+    const code = searchParams.get('error')
+    if (code === null) return
+    setError(tErrors(getOAuthErrorKey(code)))
+    router.replace(googleErrorCallbackURL('/sign-up', searchParams))
+  }, [searchParams, router, tErrors])
+
+  const handleGoogle = async () => {
+    // The same client check as the email path; `beforeSocialSignIn` checks
+    // consent and the code again on the server, before the redirect.
+    if (!acceptedTerms) {
+      setConsentError(true)
+      consentRef.current?.focus()
+      return
+    }
+    setError('')
+    setIsGooglePending(true)
+    let isRedirecting = false
+    // Travels through Google in Better Auth's signed OAuth state, and comes
+    // back to the callback, which stamps consent, claims the code, clears the
+    // waitlist request and joins the household (`afterOAuthSignUp`).
+    const additionalData: Record<string, unknown> = { acceptedTerms: true }
+    if (householdInvite) {
+      additionalData.householdInviteCode = householdInvite.code
+    } else if (inviteRequired) {
+      additionalData.inviteCode = inviteCode
+    }
+    try {
+      const { error: signUpError } = await authClient.signIn.social({
+        provider: 'google',
+        requestSignUp: true,
+        additionalData,
+        // A Google account that already has a Wobblepot account signs in and
+        // goes where Sign in would have sent it.
+        callbackURL: signInReturnUrl,
+        // `/` sends a new user to `/onboarding`, and an invitee who joined to
+        // the household's plan. The invite page is no place to land: a join
+        // deletes the invite.
+        newUserCallbackURL: '/',
+        errorCallbackURL: googleErrorCallbackURL('/sign-up', searchParams),
+      })
+      if (signUpError) {
+        setError(friendlyError(signUpError.message || ''))
+      } else {
+        // The auth client is already sending the browser to Google.
+        isRedirecting = true
+      }
+    } catch (err) {
+      setError(friendlyError(err instanceof Error ? err.message : 'network'))
+    } finally {
+      if (!isRedirecting) {
+        requestGoogleRefocus()
+        setIsGooglePending(false)
+      }
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -139,7 +215,7 @@ export function SignUpForm({
           // Fire-and-forget analytics; HON-476 wires `auth:sign_up` into the
           // funnel taxonomy. Awaiting would make a slow PostHog request gate
           // the redirect, so we intentionally drop the promise.
-          void track('auth:sign_up', {})
+          void track('auth:sign_up', { method: 'email' })
           const destination = householdInvite
             ? await householdInviteDestination(householdInvite.code)
             : returnUrl
@@ -330,9 +406,25 @@ export function SignUpForm({
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              ref={submitRef}
+              type="submit"
+              className="w-full"
+              disabled={isLoading || isGooglePending}
+            >
               {isLoading ? t('submitting') : t('submit')}
             </Button>
+            {googleEnabled && (
+              <>
+                <AuthMethodDivider />
+                <GoogleSignInButton
+                  ref={googleRef}
+                  onClick={handleGoogle}
+                  pending={isGooglePending}
+                  disabled={isLoading}
+                />
+              </>
+            )}
             <Body variant="muted" className="text-center">
               {t('alreadyHaveAccount')}{' '}
               <Link href={signInHref} className="text-primary inline-link">

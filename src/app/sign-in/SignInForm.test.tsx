@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { SignInForm } from './SignInForm'
@@ -30,6 +30,7 @@ vi.mock('@/lib/auth-client', () => ({
   authClient: {
     signIn: {
       email: vi.fn(),
+      social: vi.fn(),
     },
   },
 }))
@@ -732,6 +733,95 @@ describe('SignInForm', () => {
       expect(mockPush).toHaveBeenCalledWith('/')
       expect(screen.getByRole('button', { name: /signing in/i })).not.toHaveFocus()
       expect(document.body).toHaveFocus()
+    })
+  })
+
+  describe('Continue with Google (HON-1157)', () => {
+    const params = (values: Record<string, string>) => {
+      mockGet.mockImplementation((key: string) => values[key] ?? null)
+      mockSearchParamsToString.mockReturnValue(new URLSearchParams(values).toString())
+    }
+
+    it('is hidden when Google sign-in is not configured', () => {
+      render(<SignInForm />)
+
+      expect(screen.queryByRole('button', { name: /continue with google/i })).toBeNull()
+      expect(screen.queryByText('or')).toBeNull()
+    })
+
+    it('starts a Google sign-in that cannot create an account', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.social).mockResolvedValue({ data: {}, error: null } as any)
+      params({ returnUrl: '/pantry' })
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm googleEnabled />)
+
+      await user.click(screen.getByRole('button', { name: /continue with google/i }))
+
+      expect(authClient.signIn.social).toHaveBeenCalledWith({
+        provider: 'google',
+        callbackURL: '/pantry',
+        errorCallbackURL: '/sign-in?returnUrl=%2Fpantry',
+      })
+      expect(vi.mocked(authClient.signIn.social).mock.calls[0]![0]).not.toHaveProperty(
+        'requestSignUp',
+      )
+      // The page is leaving for Google: the button stays busy.
+      expect(screen.getByRole('button', { name: /opening google/i })).toBeDisabled()
+    })
+
+    it('shows the refusal and returns focus to the button when the request fails', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.social).mockResolvedValue({
+        data: null,
+        error: { message: 'Too many requests' },
+      } as any)
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm googleEnabled />)
+
+      await user.click(screen.getByRole('button', { name: /continue with google/i }))
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Too many requests')
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /continue with google/i })).toHaveFocus()
+      })
+    })
+
+    it('shows the no-account copy with a sign-up link, and clears the code from the URL', () => {
+      params({ returnUrl: '/pantry', error: 'signup_disabled' })
+
+      render(<SignInForm googleEnabled />)
+
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('No Wobblepot account uses this Google account yet.')
+      expect(within(alert).getByRole('link', { name: 'Sign up' })).toHaveAttribute(
+        'href',
+        '/sign-up?returnUrl=%2Fpantry',
+      )
+      expect(mockReplace).toHaveBeenCalledWith('/sign-in?returnUrl=%2Fpantry')
+    })
+
+    it('tells an unverified password user to verify first', () => {
+      params({ error: 'account_not_linked' })
+
+      render(<SignInForm googleEnabled />)
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /Sign in with your password and verify your email on My account/,
+      )
+      expect(within(screen.getByRole('alert')).queryByRole('link')).toBeNull()
+      expect(mockReplace).toHaveBeenCalledWith('/sign-in')
+    })
+
+    it('keeps the signed MCP query when it clears the code', () => {
+      params({ client_id: 'client-123', sig: 'signature-abc', error: 'access_denied' })
+
+      render(<SignInForm googleEnabled isOAuthRequest />)
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Signing in with Google did not work. Please try again.',
+      )
+      expect(mockReplace).toHaveBeenCalledWith('/sign-in?client_id=client-123&sig=signature-abc')
     })
   })
 })

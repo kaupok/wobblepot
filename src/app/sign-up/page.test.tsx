@@ -15,15 +15,19 @@ import { dropFocusToBody } from '@/test/focus'
 // Mock Next.js navigation
 const mockPush = vi.fn()
 const mockRefresh = vi.fn()
+const mockReplace = vi.fn()
 const mockGet = vi.fn()
+const mockSearchParamsToString = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
     refresh: mockRefresh,
+    replace: mockReplace,
   }),
   useSearchParams: () => ({
     get: mockGet,
+    toString: mockSearchParamsToString,
   }),
 }))
 
@@ -33,7 +37,15 @@ vi.mock('@/lib/auth-client', () => ({
     signUp: {
       email: vi.fn(),
     },
+    signIn: {
+      social: vi.fn(),
+    },
   },
+}))
+
+const mockTrack = vi.fn()
+vi.mock('@/lib/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
 }))
 
 // The invite-link sign-up asks for the membership before it navigates (HON-1131).
@@ -77,6 +89,7 @@ describe('SignUpForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGet.mockReturnValue(null)
+    mockSearchParamsToString.mockReturnValue('')
   })
 
   describe('rendering (open sign-up — flag off)', () => {
@@ -659,6 +672,127 @@ describe('SignUpForm', () => {
       expect(mockPush).toHaveBeenCalledWith('/')
       expect(screen.getByRole('button', { name: /creating account/i })).not.toHaveFocus()
       expect(document.body).toHaveFocus()
+    })
+  })
+
+  it("records the email sign-up with method 'email' (HON-1157)", async () => {
+    const { authClient } = await import('@/lib/auth-client')
+    vi.mocked(authClient.signUp.email).mockImplementation(async (_creds, options) => {
+      await options?.onSuccess?.({} as any)
+    })
+    const user = userEvent.setup({ delay: null })
+    renderForm()
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: /^sign up$/i }))
+
+    expect(mockTrack).toHaveBeenCalledWith('auth:sign_up', { method: 'email' })
+  })
+
+  describe('Continue with Google (HON-1157)', () => {
+    const googleButton = () => screen.getByRole('button', { name: /continue with google/i })
+
+    async function socialSucceeds() {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.social).mockResolvedValue({ data: {}, error: null } as any)
+      return authClient
+    }
+
+    it('is hidden when Google sign-in is not configured', () => {
+      renderForm()
+
+      expect(screen.queryByRole('button', { name: /continue with google/i })).toBeNull()
+    })
+
+    it('without consent shows the consent error, focuses the checkbox and never calls the API', async () => {
+      const authClient = await socialSucceeds()
+      const user = userEvent.setup({ delay: null })
+      renderForm({ googleEnabled: true })
+
+      await user.click(googleButton())
+
+      expect(authClient.signIn.social).not.toHaveBeenCalled()
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'To create an account, accept the terms of service and privacy policy.',
+      )
+      expect(consentCheckbox()).toHaveFocus()
+    })
+
+    it('asks for sign-up with consent and the invite code, and none of the email fields', async () => {
+      const authClient = await socialSucceeds()
+      mockGet.mockImplementation((key: string) => (key === 'returnUrl' ? '/pantry' : null))
+      mockSearchParamsToString.mockReturnValue('returnUrl=%2Fpantry')
+      const user = userEvent.setup({ delay: null })
+      renderForm({ googleEnabled: true, inviteRequired: true })
+
+      await user.type(screen.getByLabelText('Invite code'), 'abc123')
+      await user.click(consentCheckbox())
+      await user.click(googleButton())
+
+      expect(authClient.signIn.social).toHaveBeenCalledWith({
+        provider: 'google',
+        requestSignUp: true,
+        additionalData: { acceptedTerms: true, inviteCode: 'abc123' },
+        callbackURL: '/pantry',
+        newUserCallbackURL: '/',
+        errorCallbackURL: '/sign-up?returnUrl=%2Fpantry',
+      })
+      expect(authClient.signUp.email).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: /opening google/i })).toBeDisabled()
+    })
+
+    it('sends the household invite instead of a code, and lands an existing account on the invite', async () => {
+      const authClient = await socialSucceeds()
+      const user = userEvent.setup({ delay: null })
+      renderForm({
+        googleEnabled: true,
+        inviteRequired: true,
+        householdInvite: { code: 'Ab3_x-9Kq2Lm', householdName: 'Smith Family' },
+      })
+
+      await user.click(consentCheckbox())
+      await user.click(googleButton())
+
+      expect(authClient.signIn.social).toHaveBeenCalledWith(
+        expect.objectContaining({
+          additionalData: { acceptedTerms: true, householdInviteCode: 'Ab3_x-9Kq2Lm' },
+          callbackURL: '/invite/Ab3_x-9Kq2Lm',
+          newUserCallbackURL: '/',
+        }),
+      )
+    })
+
+    it('shows a refused code and returns focus to the Google button', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.social).mockResolvedValue({
+        data: null,
+        error: { message: 'This invite code is invalid, expired, or already used.' },
+      } as any)
+      const user = userEvent.setup({ delay: null })
+      renderForm({ googleEnabled: true, inviteRequired: true })
+
+      await user.type(screen.getByLabelText('Invite code'), 'used')
+      await user.click(consentCheckbox())
+      await user.click(googleButton())
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'This invite code is invalid, expired, or already used.',
+      )
+      await vi.waitFor(() => expect(googleButton()).toHaveFocus())
+    })
+
+    it('shows the copy for an address Google has not verified, and clears the code', () => {
+      mockGet.mockImplementation((key: string) =>
+        key === 'error' ? 'email_not_verified' : key === 'invite' ? 'Ab3_x-9Kq2Lm' : null,
+      )
+      mockSearchParamsToString.mockReturnValue('invite=Ab3_x-9Kq2Lm&error=email_not_verified')
+
+      renderForm({ googleEnabled: true })
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Google has not verified this email address.',
+      )
+      expect(mockReplace).toHaveBeenCalledWith('/sign-up?invite=Ab3_x-9Kq2Lm')
     })
   })
 })

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { clientEnv, clientEnvSchema, serverEnv, serverEnvSchema } from './env'
 
 describe('Environment Validation', () => {
@@ -203,6 +203,34 @@ describe('Environment Validation', () => {
         const name = serverEnv.NEXT_PUBLIC_APP_NAME
         expect(name).toBeDefined()
       }).not.toThrow()
+    })
+  })
+
+  describe('isGoogleAuthConfigured', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    })
+
+    async function configured(id: string | undefined, secret: string | undefined) {
+      vi.resetModules()
+      vi.stubEnv('GOOGLE_CLIENT_ID', id)
+      vi.stubEnv('GOOGLE_CLIENT_SECRET', secret)
+      const mod = await import('./env')
+      return mod.isGoogleAuthConfigured()
+    }
+
+    it('is on when both variables are set', async () => {
+      expect(await configured('client-id.apps.googleusercontent.com', 'secret')).toBe(true)
+    })
+
+    it.each([
+      ['neither', undefined, undefined],
+      ['only the id', 'client-id', undefined],
+      ['only the secret', undefined, 'secret'],
+      ['an empty id', '', 'secret'],
+    ])('is off with %s', async (_label, id, secret) => {
+      expect(await configured(id, secret)).toBe(false)
     })
   })
 })

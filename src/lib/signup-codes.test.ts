@@ -4,10 +4,12 @@ import {
   HOUSEHOLD_INVITE_INVALID_MESSAGE,
   INVITE_CODE_INVALID_MESSAGE,
   INVITE_CODE_REQUIRED_MESSAGE,
+  claimInviteCode,
   getInviteCodeFromBody,
   linkUsedBy,
   releaseClaim,
   validateAndClaimInviteCode,
+  validateInviteCode,
 } from './signup-codes'
 
 interface MockDb {
@@ -371,5 +373,98 @@ describe('validateAndClaimInviteCode with a household invite (HON-1131)', () => 
     })
 
     expect(db.householdInvite.findUnique).not.toHaveBeenCalled()
+  })
+})
+
+describe('validateInviteCode (HON-1157)', () => {
+  const makeValidateDb = (found: unknown) => ({
+    ...makeDb(),
+    signupCode: { updateMany: vi.fn(), findFirst: vi.fn().mockResolvedValue(found) },
+    householdInvite: { findUnique: vi.fn().mockResolvedValue(null) },
+  })
+  const flagOn = () => vi.fn().mockResolvedValue(true)
+
+  it('accepts a claimable code and marks nothing used', async () => {
+    const db = makeValidateDb({ id: 'code-1' })
+
+    await expect(
+      validateInviteCode({ inviteCode: ' good ' }, { db: db as never, getFlag: flagOn() }),
+    ).resolves.toBeUndefined()
+
+    expect(db.signupCode.findFirst).toHaveBeenCalledWith({
+      where: {
+        code: 'good',
+        usedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }],
+      },
+      select: { id: true },
+    })
+    expect(db.signupCode.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects a used, expired or unknown code with the invalid-code message', async () => {
+    const db = makeValidateDb(null)
+
+    await expect(
+      validateInviteCode({ inviteCode: 'used' }, { db: db as never, getFlag: flagOn() }),
+    ).rejects.toMatchObject({ message: INVITE_CODE_INVALID_MESSAGE, statusCode: 403 })
+  })
+
+  it('rejects a missing code', async () => {
+    const db = makeValidateDb(null)
+
+    await expect(
+      validateInviteCode({ inviteCode: '  ' }, { db: db as never, getFlag: flagOn() }),
+    ).rejects.toMatchObject({ message: INVITE_CODE_REQUIRED_MESSAGE })
+    expect(db.signupCode.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid household invite with its own message', async () => {
+    const db = makeValidateDb({ id: 'code-1' })
+
+    await expect(
+      validateInviteCode(
+        { householdInviteCode: 'Ab3_x-9Kq2Lm', inviteCode: 'good' },
+        { db: db as never, getFlag: flagOn() },
+      ),
+    ).rejects.toMatchObject({ message: HOUSEHOLD_INVITE_INVALID_MESSAGE })
+    expect(db.signupCode.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('does no lookup when the flag is off', async () => {
+    const db = makeValidateDb(null)
+
+    await validateInviteCode({}, { db: db as never, getFlag: vi.fn().mockResolvedValue(false) })
+
+    expect(db.signupCode.findFirst).not.toHaveBeenCalled()
+  })
+})
+
+describe('claimInviteCode (HON-1157)', () => {
+  it('returns true when this call claimed the code', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
+
+    await expect(
+      claimInviteCode({ inviteCode: 'good' }, { db: makeDb(updateMany) as never }),
+    ).resolves.toBe(true)
+    expect(updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ code: 'good', usedAt: null }),
+      data: { usedAt: expect.any(Date) },
+    })
+  })
+
+  it('returns false when another sign-up claimed it first', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 })
+
+    await expect(
+      claimInviteCode({ inviteCode: 'good' }, { db: makeDb(updateMany) as never }),
+    ).resolves.toBe(false)
+  })
+
+  it('returns false and writes nothing without a code', async () => {
+    const updateMany = vi.fn()
+
+    await expect(claimInviteCode({}, { db: makeDb(updateMany) as never })).resolves.toBe(false)
+    expect(updateMany).not.toHaveBeenCalled()
   })
 })

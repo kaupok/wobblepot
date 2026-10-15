@@ -104,6 +104,14 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
+              Google sign-in, if you choose it: your name, email address and Google account
+              identifier, which Google sends us when you continue with Google. We store them with
+              your account. We do not receive your Google password, and we do not keep your Google
+              profile picture.
+            </Body>
+          </Li>
+          <Li>
+            <Body>
               Household: household members and their preferences, allergens, and dietary
               restrictions. Member profiles may describe people other than the account holder,
               including children.

@@ -52,11 +52,11 @@ afterEach(() => {
 })
 
 describe('track()', () => {
-  it('fires posthog.capture with the event name and an empty props object', async () => {
-    await track('auth:sign_up', {})
+  it('fires posthog.capture with the event name and its props', async () => {
+    await track('auth:sign_up', { method: 'email' })
 
     expect(posthogMock.capture).toHaveBeenCalledTimes(1)
-    expect(posthogMock.capture).toHaveBeenCalledWith('auth:sign_up', {})
+    expect(posthogMock.capture).toHaveBeenCalledWith('auth:sign_up', { method: 'email' })
   })
 
   it('auto-attaches household_id from $stored_person_properties', async () => {
@@ -264,8 +264,8 @@ describe('track()', () => {
     track('recipe:imported', { source: 'invalid_source' })
     // @ts-expect-error — missing required `source`
     track('recipe:created', {})
-    // @ts-expect-error — extraneous prop on a Record<string, never> event
-    track('auth:sign_up', { unexpected: 'prop' })
+    // @ts-expect-error — out-of-set `method` literal (HON-1157)
+    track('auth:sign_up', { method: 'apple' })
 
     expect(true).toBe(true)
   })

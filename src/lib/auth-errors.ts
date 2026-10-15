@@ -25,6 +25,9 @@ export type AuthErrorKey =
   | 'userNotFound'
   | 'invalidEmail'
   | 'emailNotVerified'
+  | 'googleNoAccount'
+  | 'googleEmailNotVerified'
+  | 'googleFailed'
   | 'breachedPassword'
   | 'passwordTooShort'
   | 'passwordTooLong'
@@ -118,8 +121,9 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
     return 'userNotFound'
   }
 
-  // Better Auth's `EMAIL_NOT_VERIFIED` ("Email not verified"). Nothing raises it
-  // yet: sign-in stays open before verification (HON-1155). Google sign-in will.
+  // Better Auth's `EMAIL_NOT_VERIFIED` ("Email not verified"). Email sign-in
+  // stays open before verification (HON-1155), so only the Google callback's
+  // `account_not_linked` reaches this copy, through `getOAuthErrorKey`.
   if (lowerMessage.includes('email not verified')) {
     return 'emailNotVerified'
   }
@@ -179,4 +183,33 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
   }
 
   return null
+}
+
+/**
+ * Map the `error` code Better Auth appends to the error URL of a Google
+ * sign-in or sign-up (HON-1157) to a catalog key. These are callback codes,
+ * not messages, so they do not go through {@link getAuthErrorKey}. Any code
+ * not listed (a cancelled consent screen, `state_mismatch`, `invalid_code`)
+ * gets the generic Google copy: none of them needs a different next step.
+ *
+ * - `signup_disabled`: no Wobblepot account uses this Google account, and the
+ *   sign-in page never asks for sign-up (`disableImplicitSignUp`).
+ * - `account_not_linked`: a password account on the same address whose email
+ *   is not verified, so Better Auth will not link Google to it.
+ * - `email_not_verified`: Google does not report the address as verified.
+ * - `TERMS_NOT_ACCEPTED` and the invite-code refusals are thrown before the
+ *   redirect, so they come back on `signIn.social` and go through
+ *   {@link getAuthErrorKey} instead.
+ */
+export function getOAuthErrorKey(code: string): AuthErrorKey {
+  switch (code) {
+    case 'signup_disabled':
+      return 'googleNoAccount'
+    case 'account_not_linked':
+      return 'emailNotVerified'
+    case 'email_not_verified':
+      return 'googleEmailNotVerified'
+    default:
+      return 'googleFailed'
+  }
 }

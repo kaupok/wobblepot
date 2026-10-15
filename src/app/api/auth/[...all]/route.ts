@@ -16,6 +16,9 @@ export { GET }
 const RATE_LIMITED_PATHS: ReadonlyArray<{ suffix: string; feature: RateLimitFeature }> = [
   { suffix: '/sign-up/email', feature: 'sign-up' },
   { suffix: '/sign-in/email', feature: 'sign-in' },
+  // Continue with Google (HON-1157), from both auth pages. The callback is
+  // Google's redirect back and is not limited.
+  { suffix: '/sign-in/social', feature: 'sign-in' },
   { suffix: '/request-password-reset', feature: 'forgot-password' },
   // Resend on `/account` (HON-1155): forgot-password's limits on a separate
   // counter, so Resend clicks cannot block a password reset.

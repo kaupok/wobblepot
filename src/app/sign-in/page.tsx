@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
+import { isGoogleAuthConfigured } from '@/lib/env'
 import { hasHouseholdMembership } from '@/lib/household'
 import { isSignedOAuthRequest, toSearchParams } from '@/lib/mcp/consent-request'
 import { SignInForm } from './SignInForm'
@@ -41,7 +42,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   return (
     <div className="min-h-screen-below-header grid place-items-center p-4">
       <Suspense fallback={<LoadingFallback message={t('loading')} />}>
-        <SignInForm isOAuthRequest={isOAuthRequest} />
+        <SignInForm isOAuthRequest={isOAuthRequest} googleEnabled={isGoogleAuthConfigured()} />
       </Suspense>
     </div>
   )

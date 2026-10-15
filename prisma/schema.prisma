@@ -177,8 +177,10 @@ model Account {
   id                    String    @id
   // Better Auth 1.7.0–1.7.2 made `issuer` the identity key for an account.
   // 1.7.3 went back to `(providerId, accountId)` and no longer writes this
-  // column, so the default fills it on every insert. This app has no social
-  // providers, so `local:credential` is the only value it ever held. Dropping
+  // column, so the default fills it on every insert, Google accounts
+  // (HON-1157) included: the value says nothing about the provider, which is
+  // `providerId`. With one constant issuer the unique key is `accountId` alone;
+  // a Google subject (21 digits) never equals a user id. Dropping
   // the column is optional cleanup (Better Auth 1.7 upgrade guide → "Account
   // identity keeps the provider key"); it is kept so a migration never has to
   // race a deploy still running 1.7.2 (HON-1150).

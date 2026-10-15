@@ -834,6 +834,7 @@
       "submitting": "Sisse logimine…",
       "dontHaveAccount": "Pole veel kontot?",
       "signUpLink": "Loo konto",
+      "googleNoAccountSignUp": "Loo konto",
       "connectorSignUpNote": "Loo esmalt konto ja seadista leibkond. Seejärel alusta ühendamist uuesti rakendusest.",
       "resetSuccess": "Parool on edukalt vahetatud. Saad nüüd uue parooliga sisse logida.",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
@@ -861,6 +862,11 @@
       "householdInviteLabel": "Leibkonna kutse",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
       "navigationFailed": "Konto loomine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
+    },
+    "google": {
+      "continue": "Jätka Google'iga",
+      "redirecting": "Google avaneb…",
+      "divider": "või"
     },
     "requestInvite": {
       "metaTitle": "Küsi kutset",
@@ -1160,7 +1166,10 @@
       "resetUserNotFound": "Kui sellele aadressile on konto registreeritud, saadame parooli vahetamise lingi.",
       "userNotFound": "Selle e-posti aadressiga kontot ei leitud.",
       "invalidEmail": "Palun sisesta kehtiv e-posti aadress.",
-      "emailNotVerified": "Kinnita kõigepealt oma e-posti aadress. Ava link kirjas, mille sulle saatsime.",
+      "emailNotVerified": "Selle e-posti aadressiga on juba Wobblepoti konto. Logi sisse parooliga ja kinnita e-posti aadress lehel Minu konto. Seejärel saad jätkata ka Google'iga.",
+      "googleNoAccount": "Selle Google'i kontoga pole veel Wobblepoti kontot.",
+      "googleEmailNotVerified": "Google pole seda e-posti aadressi kinnitanud. Kasuta teist Google'i kontot või loo konto e-posti aadressiga.",
+      "googleFailed": "Google'iga sisselogimine ei õnnestunud. Palun proovi uuesti.",
       "breachedPassword": "See parool esineb teadaolevates andmeleketes. Palun vali mõni muu.",
       "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk.",
       "passwordTooLong": "Kasuta parooli, mis on kuni 128 märki pikk.",
