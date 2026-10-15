@@ -75,6 +75,7 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 - **HON-573 — headless workers and background work.** In the orchestrator's headless spawn (`wt auto` → `claude "$prompt"`, no TTY) the process exits when the turn ends. Workers that backgrounded their CI wait left PRs #650 and #651 open and unmerged while the orchestrator logged SUCCESS.
 - **HON-529 — a "just in case" wake-up.** A `ScheduleWakeup` set as a fallback re-fired `/auto-implement 529` about 9 minutes after the PR had already merged, and the skill ran again on stale state.
+- **HON-1200, HON-1198, HON-1236 — "done" by self-report.** HON-1200: a PR implemented half its issue, the review said "No issues found", and it merged. HON-1198: a test that could not go red passed CI and the review. Each fix added a reviewer check, but the worker's own reports still said "done" with no output behind it. HON-1236 put the proof into the two reply contracts: the `/auto-implement` Linear summary has a `### Proof` line per acceptance criterion, labelled measured, inferred or not proven, and the reviewer's Spec axis reports a criterion with no test, `Driven:` line or eval report behind it as **Unproven**. CLAUDE.md → Working style got the rule "Never hand the user a check you could run".
 
 ## Steering file size
 

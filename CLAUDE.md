@@ -210,6 +210,8 @@ Do not nest a markdown table inside a list item in a Linear description: Linear 
 4. Fetch a referenced issue with `includeRelations: true`. "Done" with an attached PR means it shipped; it is not an active dependency.
 5. If it is still absent, lead with what you checked ("I checked X, Y, grepped for Q — no match") so the user can verify the coverage. One file checked and the feature declared missing is how a shipped issue becomes a blocker.
 
+**Never hand the user a check you could run: run it and quote the output.**
+
 **Waiting inside a skill with a defined endpoint.** `/auto-implement`, `/implement-issue`, `/merge` and `/branch-review` end on their own, so do not schedule a `ScheduleWakeup` fallback: it fires after the work ends and re-runs the skill on stale state. To wait on CI, a build or a deploy, poll with foreground wait-chunks: a `Bash` call under the 600 s cap that prints a terminal or "still waiting" marker, re-issued until terminal. Do not rely on a completion notification from a backgrounded Bash call, a subagent (pass `run_in_background: false`) or Monitor: a headless worker exits when its turn ends, and the backgrounded work dies with it. Backgrounding a command that outruns the cap is fine if the same turn waits on its marker. Interactive `/merge` has a TTY, so its CI poll may run in the background. `ScheduleWakeup` is for real polling: `/loop`, or an external state change.
 
 <!-- BEGIN:nextjs-agent-rules -->
