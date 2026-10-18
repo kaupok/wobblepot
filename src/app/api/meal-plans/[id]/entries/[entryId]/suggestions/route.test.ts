@@ -178,7 +178,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
 
     expect(await answer(post())).toEqual({
       status: 404,
-      body: { error: 'No meals available matching your preferences' },
+      body: { error: 'No meals available matching your preferences', code: 'no_suggestions' },
     })
   })
 

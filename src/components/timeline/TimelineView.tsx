@@ -180,7 +180,8 @@ export function TimelineView({
   // started on, and `router.refresh()` always delivers a new array. The first
   // plan arrives with this view's mount, so it has nothing to wait for. The
   // card focuses only from the body, so a fill that keeps the bar on the page
-  // leaves focus on Generate.
+  // leaves focus on Generate. "Pick for me" fills one slot the same way: the
+  // control it was chosen from leaves with the refresh (HON-1248).
   const [headingToFocus, setHeadingToFocus] = useState<{
     date: string
     staleEntries: PlanEntry[] | null
@@ -224,6 +225,7 @@ export function TimelineView({
         onSlotFocused={handleSlotFocused}
         focusHeading={headingDateToFocus === day.date}
         onHeadingFocused={handleHeadingFocused}
+        onSlotPicked={handleFilled}
       />
     )
   }

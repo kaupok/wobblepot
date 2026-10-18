@@ -13,7 +13,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The routes to a meal for an open slot, on the empty slot\'s button and the cleared card\'s "Add meal" (HON-1247). The caller passes the trigger and opens the selector in the chosen view.',
+          'The routes to a meal for an open slot, on the empty slot\'s button and the cleared card\'s "Add meal" (HON-1247). The caller passes the trigger and opens the selector in the chosen view, or, for "Pick for me", fills the slot itself (HON-1248).',
       },
     },
   },
@@ -48,6 +48,7 @@ export const Open: Story = {
     const items = menu.getAllByRole('menuitem')
     await expect(items.map((item) => item.textContent)).toEqual([
       'Choose a recipe',
+      'Pick for me',
       'Imagine a meal',
     ])
     await expect(args.onChoose).not.toHaveBeenCalled()
@@ -61,6 +62,17 @@ export const ChoosesImagine: Story = {
       await within(document.body).findByRole('menuitem', { name: 'Imagine a meal' }),
     )
     await expect(args.onChoose).toHaveBeenCalledWith('imagine')
+  },
+}
+
+/** "Pick for me" fills the slot with no dialog (HON-1248). */
+export const ChoosesPick: Story = {
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(trigger(canvasElement))
+    await userEvent.click(
+      await within(document.body).findByRole('menuitem', { name: 'Pick for me' }),
+    )
+    await expect(args.onChoose).toHaveBeenCalledWith('pick')
   },
 }
 
@@ -93,6 +105,7 @@ export const Estonian: Story = {
     const menu = within(await within(document.body).findByRole('menu'))
     await expect(menu.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Vali retsept',
+      'Vali minu eest',
       'Mõtle välja toit',
     ])
   },

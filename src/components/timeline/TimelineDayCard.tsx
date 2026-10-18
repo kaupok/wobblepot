@@ -29,6 +29,11 @@ interface TimelineDayCardProps {
   focusHeading?: boolean
   /** Called once the card has acted on `focusHeading`, so the page can drop it. */
   onHeadingFocused?: () => void
+  /**
+   * "Pick for me" filled one of this day's slots. The control it was chosen
+   * from leaves with the refresh, so the page focuses the heading (HON-1248).
+   */
+  onSlotPicked?: (date: string) => void
 }
 
 export function TimelineDayCard({
@@ -43,6 +48,7 @@ export function TimelineDayCard({
   onSlotFocused,
   focusHeading = false,
   onHeadingFocused,
+  onSlotPicked,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   const headingRef = useRef<HTMLElement>(null)
@@ -106,6 +112,7 @@ export function TimelineDayCard({
                 pantryIngredients={pantryIngredients}
                 autoFocus={mealType === focusSlot}
                 onAutoFocused={onSlotFocused}
+                onPicked={() => onSlotPicked?.(day.date)}
               />
             ))}
           </div>
@@ -136,6 +143,7 @@ export function TimelineDayCard({
               preparationTips={entry.preparationTips}
               conflicts={entry.conflicts}
               onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
+              onPicked={() => onSlotPicked?.(day.date)}
             />
           ))}
         </div>

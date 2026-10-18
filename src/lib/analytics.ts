@@ -199,6 +199,11 @@ export type EventPayload = {
    * the selector can do that, told apart by `via` rather than by a new
    * `Source` value (HON-890).
    */
+  /**
+   * "Pick for me" placed the slot's top suggestion with no dialog (HON-1248).
+   * `via` leaves room for the other routes that fill a slot.
+   */
+  'meal_plan:slot_filled': { plan_id: string; meal_id: string; via: 'pick_for_me' }
   'meal_plan:meal_swapped': {
     plan_id: string
     from_meal_id: string

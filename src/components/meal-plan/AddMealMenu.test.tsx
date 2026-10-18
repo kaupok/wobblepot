@@ -15,14 +15,18 @@ function renderMenu(props: { disabled?: boolean } = {}) {
 }
 
 describe('AddMealMenu', () => {
-  it('lists "Choose a recipe" then "Imagine a meal"', async () => {
+  it('lists "Choose a recipe", "Pick for me", then "Imagine a meal"', async () => {
     const user = userEvent.setup()
     const { trigger } = renderMenu()
 
     await user.click(trigger)
 
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((item) => item.textContent)).toEqual(['Choose a recipe', 'Imagine a meal'])
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+    ])
   })
 
   it('opens from Enter on the trigger', async () => {
@@ -38,8 +42,9 @@ describe('AddMealMenu', () => {
 
   it.each([
     ['Choose a recipe', 'library'],
+    ['Pick for me', 'pick'],
     ['Imagine a meal', 'imagine'],
-  ])('passes the view for "%s"', async (name, view) => {
+  ])('passes the route for "%s"', async (name, view) => {
     const user = userEvent.setup()
     const { onChoose, trigger } = renderMenu()
 

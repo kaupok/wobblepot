@@ -69,7 +69,11 @@ describe('MealCard cleared card add menu', () => {
     await user.click(screen.getByRole('button', { name: 'Add meal' }))
 
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((item) => item.textContent)).toEqual(['Choose a recipe', 'Imagine a meal'])
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+    ])
   })
 
   it('opens the library view from "Choose a recipe" with no create request', async () => {

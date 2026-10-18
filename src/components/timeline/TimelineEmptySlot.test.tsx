@@ -151,7 +151,11 @@ describe('TimelineEmptySlot', () => {
     await user.click(pickButton())
 
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((item) => item.textContent)).toEqual(['Choose a recipe', 'Imagine a meal'])
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+    ])
     expect(pickButton()).toHaveAttribute('aria-haspopup', 'menu')
     expect(pickButton()).toHaveAttribute('aria-expanded', 'true')
     expect(createRequests()).toEqual([])

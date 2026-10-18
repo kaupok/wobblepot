@@ -81,10 +81,11 @@ async function handlePOST(
 
     const alternatives = await suggestForSlot(household, entry, 'add', locale)
 
-    // No suggestions available
+    // No suggestions available. `code` tells this apart from a missing entry,
+    // for the cleared card's "Pick for me" (HON-1248).
     if (alternatives.length === 0) {
       return NextResponse.json(
-        { error: 'No meals available matching your preferences' },
+        { error: 'No meals available matching your preferences', code: 'no_suggestions' },
         { status: 404 },
       )
     }
