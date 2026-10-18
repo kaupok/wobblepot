@@ -50,7 +50,8 @@ describe('LandingFeatures', () => {
     ]) {
       expect(within(section).getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
     }
-    expect(within(section).getAllByRole('figure')).toHaveLength(4)
+    // Four points, then the connect tile's two vignettes.
+    expect(within(section).getAllByRole('figure')).toHaveLength(6)
   })
 
   it('sets each point title above the headings this component draws in its vignettes', () => {
@@ -135,6 +136,19 @@ describe('LandingFeatures', () => {
       'sky',
       'mint',
     ])
+  })
+
+  it('closes the list with the connect tile, grey and across both columns', () => {
+    renderFeatures()
+    const list = screen
+      .getByRole('region', { name: 'Made for family kitchens' })
+      .querySelector('ul')
+    const last = list?.lastElementChild
+    expect(within(last as HTMLElement).getByRole('heading', { level: 3 })).toHaveTextContent(
+      'Ask your AI assistant',
+    )
+    expect(last).toHaveAttribute('data-landing-tile', 'mist')
+    expect(last).toHaveClass('md:col-span-2')
   })
 
   it('shows the pantry: three ingredients ticked, the lemon to buy', () => {

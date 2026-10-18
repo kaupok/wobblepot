@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading, then the four points as tiles, two columns from `md`, each with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading, then the four points as tiles, two columns from `md`, each with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer), and a fifth, grey tile across both columns (`LandingConnect`). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption.",
       },
     },
   },
@@ -35,7 +35,8 @@ type Story = StoryObj<typeof meta>
  */
 const play: Story['play'] = async ({ canvasElement }) => {
   const canvas = within(canvasElement)
-  await expect(canvas.getAllByRole('figure')).toHaveLength(4)
+  // Four points, then the connect tile's assistant and kitchen screen.
+  await expect(canvas.getAllByRole('figure')).toHaveLength(6)
   // Pantry, imagine and cook are tinted; portions sits on the neutral card.
   await expect(canvasElement.querySelectorAll('[data-meal-surface]')).toHaveLength(3)
   await expect(
@@ -43,7 +44,7 @@ const play: Story['play'] = async ({ canvasElement }) => {
   ).toBeNull()
 
   const drawings = Array.from(canvasElement.querySelectorAll('[inert]'))
-  await expect(drawings).toHaveLength(4)
+  await expect(drawings).toHaveLength(6)
   const focusable = drawings.flatMap((el) =>
     Array.from(el.querySelectorAll('button, input, [tabindex]')),
   )
@@ -61,7 +62,7 @@ const play: Story['play'] = async ({ canvasElement }) => {
   // The vignette cards draw no border on the tile's colour; the Imagine
   // tile's field is a control and keeps its own (HON-1224).
   const cards = drawings.flatMap((el) => Array.from(el.querySelectorAll('[data-slot="card"]')))
-  await expect(cards).toHaveLength(4)
+  await expect(cards).toHaveLength(6)
   for (const card of cards) await expect(getComputedStyle(card).borderTopWidth).toBe('0px')
   const field = canvas.getByTestId('landing-vignette-imagine').querySelector('textarea')!
   await expect(getComputedStyle(field).borderTopWidth).not.toBe('0px')

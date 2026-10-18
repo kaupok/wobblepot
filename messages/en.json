@@ -759,6 +759,25 @@
           "question": "How do I know the salmon is done?",
           "answer": "Press the thickest part with a fork. It’s done when it flakes easily and is no longer glossy in the middle."
         }
+      },
+      "connect": {
+        "title": "Ask your AI assistant",
+        "body": "Connect Claude or another assistant, then ask what's for dinner or tell it what you bought. You choose if it can change anything. A read-only key puts the week on a kitchen screen or in Home Assistant.",
+        "assistant": {
+          "caption": "A chat with an AI assistant. Asked what's for dinner on Friday, it reads the Wobblepot meal plan: homemade pizza, with mozzarella and basil still on the shopping list. Told the mozzarella is bought, it marks it bought, so only basil is left.",
+          "question": "What's for dinner on Friday?",
+          "readPlan": "Wobblepot · Read the meal plan",
+          "answer": "Homemade pizza, about 50 minutes. Mozzarella and basil are still on the shopping list.",
+          "bought": "We bought the mozzarella.",
+          "markBought": "Wobblepot · Mark as bought",
+          "done": "Done. Only the basil is left to buy."
+        },
+        "screen": {
+          "caption": "A kitchen screen that shows the next three dinners, homemade pizza, beef stew and roast chicken, and basil as the one thing left to buy.",
+          "dinners": "Dinners",
+          "toBuy": "To buy",
+          "basil": "Basil"
+        }
       }
     }
   },

@@ -759,6 +759,25 @@
           "question": "Kuidas ma tean, et lõhe on valmis?",
           "answer": "Vajuta kahvliga kõige paksemasse kohta. Lõhe on valmis, kui see laguneb kergesti kihtideks ega ole keskelt enam läikiv."
         }
+      },
+      "connect": {
+        "title": "Küsi oma AI-assistendilt",
+        "body": "Ühenda Claude või mõni teine assistent ning küsi, mis õhtuks on, või ütle, mida ostsid. Sina otsustad, kas ta tohib midagi muuta. Ainult lugemiseks mõeldud võti toob nädala köögiekraanile või Home Assistanti.",
+        "assistant": {
+          "caption": "Vestlus AI-assistendiga. Kui küsid, mis reedel õhtuks on, loeb ta Wobblepoti söögiplaani: kodune pitsa, mozzarella ja basiilik on veel ostunimekirjas. Kui ütled, et mozzarella on ostetud, märgib ta selle ostetuks ja alles jääb ainult basiilik.",
+          "question": "Mis reedel õhtuks on?",
+          "readPlan": "Wobblepot · Loe söögiplaani",
+          "answer": "Kodune pitsa, umbes 50 minutit. Mozzarella ja basiilik on veel ostunimekirjas.",
+          "bought": "Mozzarella on ostetud.",
+          "markBought": "Wobblepot · Märgi ostetuks",
+          "done": "Tehtud. Osta on jäänud ainult basiilik."
+        },
+        "screen": {
+          "caption": "Köögiekraan, kus on järgmise kolme päeva õhtusöögid, kodune pitsa, veisehautis ja ahjukana, ning basiilik kui ainus asi, mis on veel vaja osta.",
+          "dinners": "Õhtusöögid",
+          "toBuy": "Osta",
+          "basil": "Basiilik"
+        }
       }
     }
   },

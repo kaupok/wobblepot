@@ -571,6 +571,12 @@
     --tile-hue: 160;
     --tile-c: 0.04;
   }
+  /* The fifth, full-width tile (`LandingConnect`): a plain light grey, so it
+     closes the list rather than adding a fifth colour. */
+  [data-landing-tile='mist'] {
+    --tile-hue: 0;
+    --tile-c: 0;
+  }
 
   [data-meal-surface],
   [data-surface='note'],
