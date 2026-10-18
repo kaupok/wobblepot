@@ -236,6 +236,20 @@ describe('addEntryChange', () => {
     expect(await prisma.mealPlanEntryComponent.count()).toBe(1)
   })
 
+  // A stale change goes live again when the recipe gets its original back,
+  // so its ingredient must not be added a second time meanwhile.
+  it('refuses the ingredient a stale change brings in, while it is stale', async () => {
+    const { alder } = await world()
+    await addEntryChange(alder.id, 'plan-alder', 'entry-mon', replace)
+    await prisma.mealComponent.deleteMany({
+      where: { mealId: 'meal-pasta', ingredientId: 'cream' },
+    })
+
+    expect(await refusal(addEntryChange(alder.id, 'plan-alder', 'entry-mon', add('yoghurt')))).toBe(
+      'alreadyInMeal',
+    )
+  })
+
   it('refuses to add back a left-out ingredient: Undo brings it back', async () => {
     const { alder } = await world()
     await addEntryChange(alder.id, 'plan-alder', 'entry-mon', leaveOut)

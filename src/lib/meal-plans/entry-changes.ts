@@ -144,12 +144,15 @@ export async function addEntryChange(
 
     const replacement = input.replacementIngredientId
     if (replacement !== null) {
-      // Against the recipe and the merged list both: an ingredient already
+      // Against the recipe and every stored change: an ingredient already
       // cooked in the meal, added, or brought in by another replacement would
       // otherwise be listed twice. A left-out one counts too, because Undo is
-      // how it comes back.
-      const merged = applyEntryChanges(components, changes)
-      if (inMeal.has(replacement) || merged.some((c) => c.ingredientId === replacement)) {
+      // how it comes back. Stale changes count as well: a recipe edit can make
+      // one live again, and its ingredient would then be listed twice.
+      if (
+        inMeal.has(replacement) ||
+        changes.some((c) => c.replacementIngredientId === replacement)
+      ) {
         throw new EntryChangeError('alreadyInMeal')
       }
     }
