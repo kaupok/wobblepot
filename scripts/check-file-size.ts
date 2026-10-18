@@ -20,9 +20,11 @@
  * /branch-review looks for it.
  *
  * Usage:
- *   pnpm file-size:check [--staged] [--update] [repo-root] [allowlist]
+ *   pnpm file-size:check [--staged | --update | --base <commit>] [repo-root] [allowlist]
  *   --staged  Judge only the staged files, by their index content (pre-commit).
  *   --update  Lower caps and drop entries back under the limit, then check.
+ *   --base    Only compare the allowlist with <commit>: fail on a raised cap or
+ *             a new entry that is not a rename (CI, pull requests).
  *   Both paths default to this repo, resolved from this file's own location.
  */
 
@@ -183,6 +185,8 @@ function git(root: string, args: string[], input?: string): string {
     encoding: 'utf8',
     input,
     maxBuffer: 64 * 1024 * 1024,
+    // Capture stderr: it goes into the thrown error, not onto the console.
+    stdio: ['pipe', 'pipe', 'pipe'],
   })
 }
 
@@ -226,12 +230,14 @@ export function measureStaged(root: string): Map<string, number> {
 }
 
 /**
- * Staged renames, new path → old path. A renamed listed file is unlisted under
- * its new path, so the error points at the allowlist line to move.
+ * Renames in a diff, new path → old path. `range` is `['--cached']` for the
+ * staged changes or `[base, 'HEAD']` for a branch. A renamed listed file is
+ * unlisted under its new path, so the error points at the allowlist line to
+ * move, and `--base` accepts the moved line.
  */
-export function stagedRenames(root: string): Map<string, string> {
+export function renamesIn(root: string, range: string[]): Map<string, string> {
   // `--name-status -z` prints `R<score>\0<old>\0<new>\0` per rename.
-  const fields = git(root, ['diff', '--cached', '--name-status', '-M', '--diff-filter=R', '-z'])
+  const fields = git(root, ['diff', ...range, '--name-status', '-M', '--diff-filter=R', '-z'])
     .split('\0')
     .filter((field) => field !== '')
   const renames = new Map<string, string>()
@@ -241,6 +247,69 @@ export function stagedRenames(root: string): Map<string, string> {
     if (from !== undefined && to !== undefined) renames.set(to, from)
   }
   return renames
+}
+
+// ============================================
+// BASE COMPARISON
+// ============================================
+
+/**
+ * The check reads caps from the branch's own allowlist, so on its own it
+ * cannot see a branch that raises a cap or lists a new file. This compares the
+ * allowlist with the base: every entry must exist there at the same or a
+ * higher cap, or be a rename of an entry that does, at no higher a cap.
+ * Returns one line per violation.
+ */
+export function allowlistGrowth(
+  baseCaps: Map<string, number>,
+  headCaps: Map<string, number>,
+  renames: Map<string, string>,
+): string[] {
+  const violations: string[] = []
+  for (const [file, cap] of headCaps) {
+    const baseCap = baseCaps.get(file)
+    if (baseCap !== undefined) {
+      if (cap > baseCap) violations.push(`${file}: cap raised from ${baseCap} to ${cap}`)
+      continue
+    }
+    const from = renames.get(file)
+    const fromCap = from === undefined ? undefined : baseCaps.get(from)
+    if (from === undefined || fromCap === undefined) {
+      violations.push(`${file}: new entry at cap ${cap}`)
+    } else if (cap > fromCap) {
+      violations.push(`${file}: renamed from ${from}, cap raised from ${fromCap} to ${cap}`)
+    }
+  }
+  return violations
+}
+
+function checkAgainstBase(root: string, allowlistPath: string, base: string): void {
+  const relative = path.relative(root, allowlistPath).split(path.sep).join('/')
+  let baseText: string
+  try {
+    baseText = git(root, ['show', `${base}:${relative}`])
+  } catch {
+    // The PR that introduces the allowlist has nothing to compare with.
+    console.log(`✓ ${relative} does not exist at ${base}; nothing to compare.`)
+    return
+  }
+  const violations = allowlistGrowth(
+    parseAllowlist(baseText),
+    parseAllowlist(readFileSync(allowlistPath, 'utf8')),
+    renamesIn(root, [base, 'HEAD']),
+  )
+  if (violations.length === 0) {
+    console.log(`✓ ${relative} only shrank against ${base}.`)
+    return
+  }
+  console.error(`\n✗ ${relative} grew against ${base}:\n`)
+  for (const violation of violations) console.error(`  ✗ ${violation}`)
+  console.error(
+    '\nThe allowlist only shrinks. Restore the base cap and split the file instead\n' +
+      '(run `pnpm file-size:check` for split advice). A renamed listed file may move\n' +
+      'its line to the new path, at no higher a cap.\n',
+  )
+  process.exitCode = 1
 }
 
 // ============================================
@@ -295,11 +364,22 @@ function main(): void {
   const args = process.argv.slice(2)
   const staged = args.includes('--staged')
   const update = args.includes('--update')
-  const positional = args.filter((arg) => !arg.startsWith('--'))
+  const baseIndex = args.indexOf('--base')
+  const base = baseIndex === -1 ? undefined : args[baseIndex + 1]
+  if (baseIndex !== -1 && (base === undefined || base.startsWith('--'))) {
+    throw new Error('--base needs a commit, for example --base "$BASE_SHA".')
+  }
+  const positional = args.filter(
+    (arg, i) => !arg.startsWith('--') && (baseIndex === -1 || i !== baseIndex + 1),
+  )
   const root = path.resolve(positional[0] ?? repoRoot)
   const allowlistPath = path.resolve(
     positional[1] ?? path.join(root, 'scripts', 'file-size-allowlist.txt'),
   )
+  if (base !== undefined) {
+    checkAgainstBase(root, allowlistPath, base)
+    return
+  }
   const allowlistText = readFileSync(allowlistPath, 'utf8')
   let caps = parseAllowlist(allowlistText)
 
@@ -319,7 +399,8 @@ function main(): void {
   }
 
   const { failures, shrunk, stale } = evaluate(sizes, caps, staged)
-  const renames = staged && failures.length > 0 ? stagedRenames(root) : new Map<string, string>()
+  const renames =
+    staged && failures.length > 0 ? renamesIn(root, ['--cached']) : new Map<string, string>()
 
   if (shrunk.length > 0 || stale.length > 0) {
     console.warn(

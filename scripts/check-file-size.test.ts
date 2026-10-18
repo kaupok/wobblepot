@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   allowedTokens,
+  allowlistGrowth,
   evaluate,
   isScanned,
   lowerCaps,
@@ -146,6 +147,36 @@ describe('lowerCaps', () => {
   })
 })
 
+describe('allowlistGrowth', () => {
+  const base = new Map([
+    ['src/a.ts', 8000],
+    ['src/b.ts', 6000],
+  ])
+
+  it('passes a lowered cap and a dropped entry', () => {
+    expect(allowlistGrowth(base, new Map([['src/a.ts', 7000]]), new Map())).toEqual([])
+  })
+
+  it('fails a raised cap and a new entry', () => {
+    const head = new Map([
+      ['src/a.ts', 8001],
+      ['src/new.ts', 5500],
+    ])
+    expect(allowlistGrowth(base, head, new Map())).toEqual([
+      'src/a.ts: cap raised from 8000 to 8001',
+      'src/new.ts: new entry at cap 5500',
+    ])
+  })
+
+  it('passes a rename at the same cap and fails one at a higher cap', () => {
+    const renames = new Map([['src/moved.ts', 'src/b.ts']])
+    expect(allowlistGrowth(base, new Map([['src/moved.ts', 6000]]), renames)).toEqual([])
+    expect(allowlistGrowth(base, new Map([['src/moved.ts', 6001]]), renames)).toEqual([
+      'src/moved.ts: renamed from src/b.ts, cap raised from 6000 to 6001',
+    ])
+  })
+})
+
 describe('splitAdvice', () => {
   it.each([
     ['src/components/Foo.test.tsx', 'one file per top-level `describe`'],
@@ -257,6 +288,36 @@ describe('the check on a fixture repo', () => {
 
     fs.writeFileSync(allowlistPath, '# header\n\n8000 src/renamed.ts\n')
     expect(run('--staged', root, allowlistPath).status).toBe(0)
+  })
+
+  it('--base fails a raised cap and passes a moved line for a committed rename', () => {
+    const commit = (): void =>
+      git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--no-verify', '-m', 'c')
+    commit()
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
+
+    fs.writeFileSync(allowlistPath, '# header\n\n9000 src/listed.ts\n')
+    git('add', 'allowlist.txt')
+    commit()
+    const raised = run('--base', base, root, allowlistPath)
+    expect(raised.status).toBe(1)
+    expect(raised.output).toContain('src/listed.ts: cap raised from 8000 to 9000')
+
+    git('mv', 'src/listed.ts', 'src/renamed.ts')
+    fs.writeFileSync(allowlistPath, '# header\n\n8000 src/renamed.ts\n')
+    git('add', 'allowlist.txt')
+    commit()
+    const moved = run('--base', base, root, allowlistPath)
+    expect(moved.status, moved.output).toBe(0)
+  })
+
+  it('--base passes when the base has no allowlist yet', () => {
+    write('src/other.ts', 10)
+    git('rm', '-q', '--cached', 'allowlist.txt')
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--no-verify', '-m', 'c')
+    const { status, output } = run('--base', 'HEAD', root, allowlistPath)
+    expect(status, output).toBe(0)
+    expect(output).toContain('does not exist at HEAD')
   })
 
   it('refuses to pass a tree with too few files', () => {
