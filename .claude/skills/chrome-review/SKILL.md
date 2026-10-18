@@ -16,7 +16,7 @@ This is a **dialog**, not an automated scanner. The user drives focus and decisi
 
 ### Step 1: Pick a browser
 
-Pick the browser by `docs/CHROME_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension (`mcp__claude-in-chrome__*`), then the Playwright MCP (`mcp__playwright__browser_*`). Use the tool names of the set you picked for the rest of the session; `docs/CHROME_TESTING.md` → Tool mapping pairs them.
+Pick the browser by `docs/CHROME_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension (`mcp__claude-in-chrome__*`), then the Playwright MCP (`mcp__playwright__browser_*`). Use the tool names of the set you picked for the rest of the session. `docs/CHROME_TESTING.md` → Tool mapping pairs the T3 Code and Playwright names; the Chrome extension's tools are listed in the session.
 
 In the T3 Code sidebar the user sees the tab you drive, so describe what matters and do not paste every screenshot.
 

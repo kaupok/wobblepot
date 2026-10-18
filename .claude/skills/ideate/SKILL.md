@@ -194,7 +194,7 @@ Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/a
 
 ### How to browse during ideation
 
-- **Start with what's already open**: `preview_status` in the T3 Code sidebar browser. `docs/CHROME_TESTING.md` → Tool mapping gives the other tool names
+- **Start with what's already open**: `preview_status` in the T3 Code sidebar browser, `tabs_context_mcp` in the Chrome extension, `browser_tabs` in the Playwright MCP
 - **Navigate** to relevant pages and describe what you see. In the T3 Code sidebar the user sees the same tab, so say what matters and do not paste every screenshot
 - **Keep it lightweight** — browse to ground the discussion, not to do a full review
 - **Reference what you see** — "Looking at the shopping page, I can see X... so for this idea we'd want Y"

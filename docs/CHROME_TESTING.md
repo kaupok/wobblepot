@@ -38,10 +38,11 @@ The user sees the tab, so describe what matters and do not paste every screensho
 
 ## Tool mapping
 
-The same step in the two tool sets that `/implement-issue` uses:
+The same step in the two tool sets that `/implement-issue` uses. The Chrome extension is not in the table: its tools are listed in a `--chrome` session, and `tabs_context_mcp` shows what is open.
 
 | Action             | T3 Code sidebar                      | Playwright MCP            |
 | ------------------ | ------------------------------------ | ------------------------- |
+| See what is open   | `preview_status`                     | `browser_tabs`            |
 | Open a URL         | `preview_open` / `preview_navigate`  | `browser_navigate`        |
 | Read the page      | `preview_snapshot`                   | `browser_snapshot`        |
 | Click              | `preview_click`                      | `browser_click`           |

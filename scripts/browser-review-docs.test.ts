@@ -66,6 +66,7 @@ describe('docs/CHROME_TESTING.md', () => {
     expect(rows[0]).toMatch(/\| Action +\| T3 Code sidebar +\| Playwright MCP +\|/)
     expect(rows).toContainEqual(expect.stringMatching(/`preview_click` +\| `browser_click`/))
     expect(rows).toContainEqual(expect.stringMatching(/`t3_preview_close` +\| `browser_close`/))
+    expect(rows).toContainEqual(expect.stringMatching(/`preview_status` +\| `browser_tabs`/))
   })
 
   it('files the Chrome setup under the Chrome extension heading', () => {
@@ -114,9 +115,10 @@ describe('the skills point to the rule', () => {
     }
   })
 
-  it('/ideate no longer starts from the Chrome-only tabs_context_mcp', () => {
+  it('/ideate starts from the sidebar tabs, not the Chrome-only tabs_context_mcp', () => {
     const skill = read('.claude/skills/ideate/SKILL.md')
-    expect(skill).not.toContain('tabs_context_mcp')
-    expect(skill).toContain('`preview_status`')
+    const sidebar = skill.indexOf('`preview_status`')
+    expect(sidebar).toBeGreaterThan(-1)
+    expect(sidebar).toBeLessThan(skill.indexOf('`tabs_context_mcp`'))
   })
 })
