@@ -197,7 +197,6 @@
       "noHousehold": "You need a household before you can plan meals."
     },
     "card": {
-      "noMealPlanned": "No meal planned",
       "addMeal": "Add meal",
       "adding": "Adding…",
       "chooseRecipe": "Choose a recipe",

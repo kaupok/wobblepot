@@ -1773,10 +1773,20 @@ export const ReadonlyWithNoteDark: Story = {
   globals: { theme: 'dark' },
 }
 
+/**
+ * A note-only slot whose note was just removed. The planner shows a slot with
+ * no meal and no note as its "+ Lunch" button, so the card is gone after the
+ * next refresh (HON-1251); it has no "No meal planned" caption.
+ */
 export const EmptyPlanned: Story = {
   args: {
     meal: null,
     status: 'planned',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByText('No meal planned')).toBeNull()
+    await expect(canvas.getByRole('button', { name: 'Add meal' })).toBeVisible()
   },
 }
 
@@ -1812,14 +1822,6 @@ export const EmptyReadonlyWithNote: Story = {
     const slip = note!.closest('[data-surface="sticky"]')
     await expect(slip).toHaveAttribute('data-variant', 'static')
     await expect(canvas.queryByRole('button', { name: 'Maybe leftovers tonight.' })).toBeNull()
-  },
-}
-
-export const EmptyReadonly: Story = {
-  args: {
-    meal: null,
-    status: 'planned',
-    isReadOnly: true,
   },
 }
 

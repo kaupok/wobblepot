@@ -47,7 +47,7 @@ function json(body: unknown, status = 200) {
   })
 }
 
-let requests: { method: string; url: string }[]
+let requests: { method: string; url: string; keepalive?: boolean }[]
 let createResponse: Deferred | null
 let deleteResponse: Deferred
 
@@ -60,7 +60,7 @@ beforeEach(() => {
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
-      requests.push({ method, url })
+      requests.push({ method, url, keepalive: init?.keepalive })
       if (method === 'POST' && url === `/api/meal-plans/${PLAN_ID}/entries`) {
         return createResponse ? createResponse.promise : Promise.resolve(json({ id: ENTRY_ID }))
       }
@@ -351,6 +351,38 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
     expect(requests.some((r) => r.method === 'PATCH' && r.url === ENTRY_URL)).toBe(true)
+    expect(deleteRequests()).toEqual([])
+  })
+
+  // A tab that closes with the selector open never runs the close (HON-1251).
+  it('discards the placeholder with a keepalive request when the page hides', async () => {
+    renderSlot()
+    await openSelector()
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(deleteRequests()).toEqual([{ method: 'DELETE', url: ENTRY_URL, keepalive: true }])
+  })
+
+  it('sends no keepalive discard once the selector has closed', async () => {
+    renderSlot()
+    await openSelector()
+    closeSelector()
+    await waitFor(() => expect(deleteRequests()).toHaveLength(1))
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(deleteRequests()).toHaveLength(1)
+  })
+
+  it('sends no keepalive discard once a meal was picked', async () => {
+    renderSlot()
+    await openSelector()
+    fireEvent.click(screen.getByRole('button', { name: 'pick meal' }))
+    await waitFor(() => expect(requests.some((r) => r.method === 'PATCH')).toBe(true))
+
+    window.dispatchEvent(new Event('pagehide'))
+
     expect(deleteRequests()).toEqual([])
   })
 

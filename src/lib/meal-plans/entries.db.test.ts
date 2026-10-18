@@ -316,6 +316,32 @@ describe('createEntry', () => {
     expect((await readEntry()).mealId).toBe('meal-stew')
   })
 
+  // A picker placeholder whose discard never ran (HON-1251).
+  it('replaces an entry with no meal and no note', async () => {
+    const { alder } = await world()
+    await entry('entry-leaked', { date, mealId: null })
+
+    const created = await createEntry(alder.id, 'plan-alder', {
+      date,
+      mealType: 'dinner',
+      mealId: 'meal-salad',
+    })
+
+    expect(created.id).not.toBe('entry-leaked')
+    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-leaked' } })).toBeNull()
+    expect((await readEntry(created.id)).mealId).toBe('meal-salad')
+  })
+
+  it('refuses a slot whose only entry is a note as slotTaken and keeps the note', async () => {
+    const { alder } = await world()
+    await entry('entry-note', { date, mealId: null, note: 'Eating out' })
+
+    expect(
+      await createRefusal(createEntry(alder.id, 'plan-alder', { date, mealType: 'dinner' })),
+    ).toBe('slotTaken')
+    expect((await readEntry('entry-note')).note).toBe('Eating out')
+  })
+
   it("refuses another household's plan as planNotFound and writes nothing", async () => {
     const { alder } = await world()
 

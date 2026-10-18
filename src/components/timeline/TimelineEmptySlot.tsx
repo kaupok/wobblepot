@@ -123,6 +123,21 @@ export function TimelineEmptySlot({
     onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
   const isDiscarding = discardEntryMutation.isPending
+
+  // A tab that closes or reloads with the selector open never runs the
+  // discard, and the placeholder stays in the slot (HON-1251). A keepalive
+  // request outlives the page. Not once a meal is picked: the entry is the
+  // household's meal then.
+  useEffect(() => {
+    if (!isSelectorOpen || !entryId) return
+    const url = `/api/meal-plans/${planId}/entries/${entryId}`
+    function discardOnPageHide() {
+      if (hasSelectedRef.current) return
+      void fetch(url, { method: 'DELETE', keepalive: true })
+    }
+    window.addEventListener('pagehide', discardOnPageHide)
+    return () => window.removeEventListener('pagehide', discardOnPageHide)
+  }, [isSelectorOpen, entryId, planId])
   const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
   // The slot is filling while a placeholder or a pick is in flight.
   const isAdding = isCreating || isPicking

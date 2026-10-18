@@ -7,7 +7,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
 import { TimelineView } from './TimelineView'
-import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
+import type { PlanEntry, ExpectedMealTypes, TimelineDay } from '@/components/meal-plan/types'
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({
@@ -26,8 +26,12 @@ function renderInLocale(node: ReactNode) {
 
 // Mock child components to isolate unit logic
 vi.mock('./TimelineDayCard', () => ({
-  TimelineDayCard: vi.fn(({ day }) => (
-    <div data-testid={`day-card-${day.date}`}>
+  TimelineDayCard: vi.fn(({ day }: { day: TimelineDay }) => (
+    <div
+      data-testid={`day-card-${day.date}`}
+      data-entry-types={day.entries.map((e) => e.mealType).join(' ')}
+      data-empty-slots={day.emptySlots.join(' ')}
+    >
       {day.label} - {day.entries.length} entries, {day.emptySlots.length} empty
     </div>
   )),
@@ -136,6 +140,55 @@ describe('TimelineView', () => {
 
     // Today expects dinner (Sunday = weekend), should have 1 empty slot
     expect(screen.getByTestId('day-card-2026-03-29')).toHaveTextContent('0 entries, 1 empty')
+  })
+
+  // A picker placeholder whose discard never ran: no meal, no note (HON-1251).
+  describe('an entry with no meal', () => {
+    const lunch = (note: string | null): PlanEntry => ({
+      id: 'e-lunch',
+      date: '2026-03-29',
+      mealType: 'lunch',
+      status: 'planned',
+      rating: null,
+      meal: null,
+      preparationTips: null,
+      note,
+      servingOverride: null,
+    })
+    const lunchAndDinner = {
+      ...defaultProps.expectedMealTypes,
+      weekendMealTypes: ['lunch', 'dinner'],
+    } as ExpectedMealTypes
+
+    it('leaves the slot empty when it has no note either', () => {
+      renderInLocale(
+        <TimelineView
+          {...defaultProps}
+          expectedMealTypes={lunchAndDinner}
+          entries={[lunch(null)]}
+        />,
+      )
+
+      const today = screen.getByTestId('day-card-2026-03-29')
+      expect(today).toHaveAttribute('data-entry-types', '')
+      expect(today).toHaveAttribute('data-empty-slots', 'lunch dinner')
+      // The day counts as unplanned, so the fill bar starts on it.
+      expect(screen.getByTestId('fill-days')).toHaveTextContent('Fill from 2026-03-29')
+    })
+
+    it('keeps the card when it has a note', () => {
+      renderInLocale(
+        <TimelineView
+          {...defaultProps}
+          expectedMealTypes={lunchAndDinner}
+          entries={[lunch('Eating out')]}
+        />,
+      )
+
+      const today = screen.getByTestId('day-card-2026-03-29')
+      expect(today).toHaveAttribute('data-entry-types', 'lunch')
+      expect(today).toHaveAttribute('data-empty-slots', 'dinner')
+    })
   })
 
   it('shows fill days action when there are empty future slots', () => {
