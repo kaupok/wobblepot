@@ -195,15 +195,15 @@ export type EventPayload = {
   'meal_plan:plan_generated': { plan_id: string }
   'meal_plan:meal_completed': { plan_id: string; meal_id: string; source: Source }
   /**
-   * The household replaced the meal on a planned entry. Fires from both ways
-   * the selector can do that, told apart by `via` rather than by a new
-   * `Source` value (HON-890).
-   */
-  /**
    * "Pick for me" placed the slot's top suggestion with no dialog (HON-1248).
    * `via` leaves room for the other routes that fill a slot.
    */
   'meal_plan:slot_filled': { plan_id: string; meal_id: string; via: 'pick_for_me' }
+  /**
+   * The household replaced the meal on a planned entry. Fires from both ways
+   * the selector can do that, told apart by `via` rather than by a new
+   * `Source` value (HON-890).
+   */
   'meal_plan:meal_swapped': {
     plan_id: string
     from_meal_id: string
