@@ -127,6 +127,11 @@ function expectIdle(button: HTMLElement) {
   expect(button).not.toHaveAttribute('aria-disabled')
 }
 
+// jsdom has no `PageTransitionEvent`, so `persisted` is set on a plain event.
+function pageHide({ persisted = false } = {}) {
+  return Object.assign(new Event('pagehide'), { persisted })
+}
+
 const pickButton = () => screen.getByRole('button', { name: PICK_NAME })
 const createRequests = () =>
   requests.filter((r) => r.method === 'POST' && r.url === `/api/meal-plans/${PLAN_ID}/entries`)
@@ -359,9 +364,20 @@ describe('TimelineEmptySlot', () => {
     renderSlot()
     await openSelector()
 
-    window.dispatchEvent(new Event('pagehide'))
+    window.dispatchEvent(pageHide())
 
     expect(deleteRequests()).toEqual([{ method: 'DELETE', url: ENTRY_URL, keepalive: true }])
+  })
+
+  // Back restores a page from the back/forward cache with the selector still
+  // open on this entry, so it must still exist.
+  it('keeps the placeholder when the page goes into the back/forward cache', async () => {
+    renderSlot()
+    await openSelector()
+
+    window.dispatchEvent(pageHide({ persisted: true }))
+
+    expect(deleteRequests()).toEqual([])
   })
 
   it('sends no keepalive discard once the selector has closed', async () => {
@@ -370,7 +386,7 @@ describe('TimelineEmptySlot', () => {
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
 
-    window.dispatchEvent(new Event('pagehide'))
+    window.dispatchEvent(pageHide())
 
     expect(deleteRequests()).toHaveLength(1)
   })
@@ -381,7 +397,7 @@ describe('TimelineEmptySlot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pick meal' }))
     await waitFor(() => expect(requests.some((r) => r.method === 'PATCH')).toBe(true))
 
-    window.dispatchEvent(new Event('pagehide'))
+    window.dispatchEvent(pageHide())
 
     expect(deleteRequests()).toEqual([])
   })

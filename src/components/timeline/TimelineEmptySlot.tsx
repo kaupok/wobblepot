@@ -127,12 +127,13 @@ export function TimelineEmptySlot({
   // A tab that closes or reloads with the selector open never runs the
   // discard, and the placeholder stays in the slot (HON-1251). A keepalive
   // request outlives the page. Not once a meal is picked: the entry is the
-  // household's meal then.
+  // household's meal then. Not into the back/forward cache either: Back
+  // restores the page with the selector still open on this entry.
   useEffect(() => {
     if (!isSelectorOpen || !entryId) return
     const url = `/api/meal-plans/${planId}/entries/${entryId}`
-    function discardOnPageHide() {
-      if (hasSelectedRef.current) return
+    function discardOnPageHide(event: PageTransitionEvent) {
+      if (event.persisted || hasSelectedRef.current) return
       void fetch(url, { method: 'DELETE', keepalive: true })
     }
     window.addEventListener('pagehide', discardOnPageHide)
