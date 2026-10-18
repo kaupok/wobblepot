@@ -47,7 +47,8 @@ interface ShoppingListItem {
   ingredientId: string
   name: string
   purchased: boolean
-  neededQuantity: number
+  /** What to buy: the meals' need less the pantry's stock. */
+  quantity: number
 }
 
 interface PantryRow {
@@ -69,8 +70,9 @@ async function shoppingItems(request: APIRequestContext): Promise<ShoppingListIt
   return groups.flatMap((g) => g.items)
 }
 
-const neededOf = (items: ShoppingListItem[], ingredientId: string) =>
-  items.find((item) => item.ingredientId === ingredientId)?.neededQuantity ?? 0
+/** What the list says to buy of one ingredient; 0 when it is not listed. */
+const toBuy = (items: ShoppingListItem[], ingredientId: string) =>
+  items.find((item) => item.ingredientId === ingredientId)?.quantity ?? 0
 
 async function pantryRows(request: APIRequestContext): Promise<PantryRow[]> {
   const response = await request.get('/api/pantry')
@@ -79,23 +81,31 @@ async function pantryRows(request: APIRequestContext): Promise<PantryRow[]> {
 }
 
 /**
- * A global ingredient the meal does not use, to replace one of its own with.
- * Searched by a few common names, so the spec does not depend on one seed row.
+ * A global ingredient the meal does not use and the pantry does not hold, to
+ * replace one of the meal's with: a pantry row would cover it, so it would
+ * never reach the list. Searched by a few common names, so the spec does not
+ * depend on one seed row.
  */
 async function findReplacement(
   request: APIRequestContext,
   mealIngredientIds: Set<string>,
 ): Promise<{ id: string; name: string }> {
+  const taken = new Set([
+    ...mealIngredientIds,
+    ...(await pantryRows(request)).map((row) => row.ingredient.id),
+  ])
   for (const term of ['yoghurt', 'yogurt', 'tofu', 'lentil', 'chickpea', 'rice']) {
     const response = await request.get(`/api/ingredients?search=${term}`)
     expect(response.ok()).toBe(true)
     const { ingredients } = (await response.json()) as {
       ingredients: Array<{ id: string; name: string }>
     }
-    const found = ingredients.find((i) => !mealIngredientIds.has(i.id))
+    const found = ingredients.find((i) => !taken.has(i.id))
     if (found) return found
   }
-  throw new Error('No seeded ingredient outside the meal matched the replacement search terms.')
+  throw new Error(
+    'No seeded ingredient outside the meal and the pantry matched the replacement search terms.',
+  )
 }
 
 function targetDate(): string {
@@ -197,17 +207,24 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // Replace one of the meal's ingredients on this entry only (HON-1243).
       // The list is read before and after, so other entries of the shared
       // household cannot skew the comparison.
-      const original = meal!.components.find((c) => !c.isVague && c.quantityPerServing > 0)!
+      const before = await shoppingItems(page.request)
+      // A concrete component this entry puts on the list, so its drop shows.
+      const original = meal!.components.find(
+        (c) => !c.isVague && c.quantityPerServing > 0 && toBuy(before, c.ingredientId) > 0,
+      )
+      expect(
+        original,
+        'None of the meal’s concrete ingredients is on the shopping list',
+      ).toBeTruthy()
       const replacement = await findReplacement(
         page.request,
         new Set(meal!.components.map((c) => c.ingredientId)),
       )
-      const before = await shoppingItems(page.request)
       const changeResponse = await page.request.post(
         `/api/meal-plans/${planId}/entries/${entryId}/components`,
         {
           data: {
-            originalIngredientId: original.ingredientId,
+            originalIngredientId: original!.ingredientId,
             replacementIngredientId: replacement.id,
             quantityPerServing: REPLACEMENT_PER_SERVING,
           },
@@ -221,11 +238,14 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       const after = await shoppingItems(page.request)
       // The replacement, at its amount times the entry's servings; the
       // original, by its own amount less.
-      expect(neededOf(after, replacement.id)).toBe(
-        neededOf(before, replacement.id) + REPLACEMENT_PER_SERVING * ENTRY_SERVINGS,
+      expect(toBuy(after, replacement.id)).toBe(
+        toBuy(before, replacement.id) + REPLACEMENT_PER_SERVING * ENTRY_SERVINGS,
       )
-      expect(neededOf(after, original.ingredientId)).toBeCloseTo(
-        neededOf(before, original.ingredientId) - original.quantityPerServing * ENTRY_SERVINGS,
+      expect(toBuy(after, original!.ingredientId)).toBeCloseTo(
+        Math.max(
+          0,
+          toBuy(before, original!.ingredientId) - original!.quantityPerServing * ENTRY_SERVINGS,
+        ),
       )
       // Purchase the replacement: the item the change put on the list.
       const target = after.find((item) => item.ingredientId === replacement.id && !item.purchased)
@@ -345,9 +365,9 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       }
       await stock(replacement.id)
       const originalRow = (await pantryRows(page.request)).find(
-        (row) => row.ingredient.id === original.ingredientId,
+        (row) => row.ingredient.id === original!.ingredientId,
       )
-      if (!originalRow) await stock(original.ingredientId)
+      if (!originalRow) await stock(original!.ingredientId)
       const originalBefore = originalRow ? originalRow.quantity : STOCKED
 
       const completeResponse = await page.request.patch(
@@ -360,7 +380,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       const quantityOf = (id: string) =>
         pantryAfterCooking.find((row) => row.ingredient.id === id)?.quantity
       expect(quantityOf(replacement.id)).toBe(STOCKED - REPLACEMENT_PER_SERVING * ENTRY_SERVINGS)
-      expect(quantityOf(original.ingredientId)).toBe(originalBefore)
+      expect(quantityOf(original!.ingredientId)).toBe(originalBefore)
     } finally {
       // Leave the shared household exactly as found, whatever failed above.
       for (const ingredientId of new Set([
