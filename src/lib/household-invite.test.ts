@@ -87,9 +87,14 @@ describe('joinHouseholdFromSignUp (HON-1131)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // joinHouseholdFromSignUp checks expiry against the real clock, and
+    // VALID_INVITE expires on 2026-10-16. Pin the clock so the fixture stays valid.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 

@@ -264,6 +264,24 @@ jobs:
       - name: Check Prisma import boundary
         run: pnpm prisma-boundary:check
 
+      # File size ratchet (HON-1241): a code file over 5,000 tokens (bytes / 4)
+      # fails unless it is in the shrink-only scripts/file-size-allowlist.txt,
+      # and a listed file fails more than 5% over its cap. Husky runs it on
+      # staged files, but `--no-verify` and headless workers skip Husky, so CI
+      # scans the whole tree. A local scan, so it sits in the cheap static job.
+      - name: Check file size
+        run: pnpm file-size:check
+
+      # The step above reads the caps from the PR's own allowlist, so it cannot
+      # see a PR that raises a cap or lists a new file. This compares the
+      # allowlist with the base, and accepts a new entry only as a git rename of
+      # a listed file at no higher a cap. PR-only, like the migration check.
+      - name: Check the file size allowlist only shrank
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm file-size:check --base "$BASE_SHA"
+
       # Coverage ratchet (HON-1192): the unit job fails a run under the
       # thresholds in vitest.config.ts, but it reads the PR's own thresholds,
       # so it cannot see a PR that lowers one. This compares them with the

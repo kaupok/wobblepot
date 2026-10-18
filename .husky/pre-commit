@@ -11,3 +11,7 @@ fi
 # Run checks (tests run in CI for faster commits)
 pnpm type-check
 pnpm exec lint-staged
+
+# File size ratchet (HON-1241): after lint-staged, so it measures the
+# Prettier-formatted index content of each staged file.
+pnpm file-size:check --staged
