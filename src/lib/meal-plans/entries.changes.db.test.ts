@@ -175,6 +175,25 @@ describe('updateEntry: swap with ingredient changes', () => {
     expect(await changeCount()).toBe(0)
   })
 
+  it('drops the "Adjust recipe" instruction with them, and keeps it on a re-select (HON-1244)', async () => {
+    const alder = await world()
+    await change(alder.id, 'apple', 'rice', 30)
+    const note = () =>
+      prisma.mealPlanEntry
+        .findUniqueOrThrow({ where: { id: 'entry-mon' } })
+        .then((e) => e.adjustmentNote)
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-mon' },
+      data: { adjustmentNote: 'Less salt' },
+    })
+
+    await updateEntry(alder.id, 'plan-alder', 'entry-mon', { mealId: 'meal-stew' })
+    expect(await note()).toBe('Less salt')
+
+    await updateEntry(alder.id, 'plan-alder', 'entry-mon', { mealId: 'meal-salad' })
+    expect(await note()).toBeNull()
+  })
+
   it('keeps the changes when the patch re-sends the meal already on the entry', async () => {
     const alder = await world()
     await change(alder.id, 'apple', 'rice', 30)

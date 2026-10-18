@@ -251,6 +251,7 @@ describe('swap_meal', () => {
           preparationTips: null,
           servingOverride: null,
           rating: null,
+          adjustmentNote: null,
         },
       })
       // The route's visibility rule: global meals and the household's own.
@@ -328,6 +329,7 @@ describe('swap_meal', () => {
           preparationTips: null,
           servingOverride: null,
           rating: null,
+          adjustmentNote: null,
           status: 'planned',
         },
       })
