@@ -155,6 +155,7 @@ export function IngredientList({
     }
     return map
   }, [changes])
+  const hasCheckboxes = !!onToggleAvailability && !hideAvailability
   const leftOut = changes.filter((c) => !c.stale && !c.replacement && c.original)
   const stale = changes.filter((c) => c.stale)
 
@@ -299,10 +300,20 @@ export function IngredientList({
           )
         })}
         {leftOut.map((change) => (
-          <LeftOutRow key={change.id} change={change} controls={changeControls} />
+          <LeftOutRow
+            key={change.id}
+            change={change}
+            controls={changeControls}
+            checkboxColumn={hasCheckboxes}
+          />
         ))}
         {stale.map((change) => (
-          <StaleChangeRow key={change.id} change={change} controls={changeControls} />
+          <StaleChangeRow
+            key={change.id}
+            change={change}
+            controls={changeControls}
+            checkboxColumn={hasCheckboxes}
+          />
         ))}
         {changeControls && (
           <AddIngredientRow controls={changeControls} buttonRef={changeControls.addButtonRef} />

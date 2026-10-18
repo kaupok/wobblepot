@@ -108,19 +108,31 @@ export function EntryChangeRowActions({
   )
 }
 
+/**
+ * Keeps a row without a checkbox in line with the rows that have one: the
+ * width of the `lg` checkbox, so the quantity and name columns line up.
+ */
+function CheckboxColumn({ show }: { show: boolean }) {
+  return show ? <span aria-hidden="true" className="size-6 shrink-0" /> : null
+}
+
 /** A left-out ingredient: still listed, struck through, so the cook sees what is missing. */
 export function LeftOutRow({
   change,
   controls,
+  checkboxColumn,
 }: {
   change: EntryChange
   controls: IngredientChangeControls | undefined
+  /** The other rows have checkboxes, so this one keeps their column. */
+  checkboxColumn: boolean
 }) {
   const t = useTranslations('meal-plan.changes')
   const name = change.original?.name ?? ''
   return (
     <Li className="flex items-center gap-2">
       <div className="min-h-touch flex min-w-0 flex-1 items-center gap-3 py-1 text-base">
+        <CheckboxColumn show={checkboxColumn} />
         <span className="text-muted-foreground w-24 shrink-0">{t('leftOut')}</span>
         <span className="text-muted-foreground line-through">{name}</span>
       </div>
@@ -136,17 +148,23 @@ export function LeftOutRow({
 export function StaleChangeRow({
   change,
   controls,
+  checkboxColumn,
 }: {
   change: EntryChange
   controls: IngredientChangeControls | undefined
+  checkboxColumn: boolean
 }) {
   const t = useTranslations('meal-plan.changes')
   const name = change.replacement?.name ?? change.original?.name ?? ''
   return (
     <Li className="flex items-center gap-2">
-      <div className="min-h-touch flex min-w-0 flex-1 flex-col justify-center py-1 text-base">
-        <span className="text-muted-foreground">{name}</span>
-        <span className="text-muted-foreground text-base">{t('stale')}</span>
+      <div className="min-h-touch flex min-w-0 flex-1 items-center gap-3 py-1 text-base">
+        <CheckboxColumn show={checkboxColumn} />
+        <span className="w-24 shrink-0" aria-hidden="true" />
+        <span className="text-muted-foreground flex flex-col">
+          <span>{name}</span>
+          <span>{t('stale')}</span>
+        </span>
       </div>
       {controls && <UndoButton change={change} name={name} controls={controls} />}
     </Li>
