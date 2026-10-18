@@ -22,6 +22,10 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/meal-plans/discard-placeholder', () => ({
+  discardPlaceholder: vi.fn(),
+}))
+
 vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/meal-plans/entries')>()),
   updateEntry: vi.fn(),
@@ -31,6 +35,7 @@ vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
 import {
   deleteEntry,
   EntryUpdateError,
@@ -43,6 +48,7 @@ const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockUpdateEntry = vi.mocked(updateEntry)
 const mockDeleteEntry = vi.mocked(deleteEntry)
+const mockDiscardPlaceholder = vi.mocked(discardPlaceholder)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -69,7 +75,7 @@ const patch = (body: unknown) =>
     { params: params() },
   )
 
-const del = () => DELETE(new Request(URL, { method: 'DELETE' }), { params: params() })
+const del = (url = URL) => DELETE(new Request(url, { method: 'DELETE' }), { params: params() })
 
 async function answer(response: Promise<Response>) {
   const res = await response
@@ -232,6 +238,32 @@ describe('DELETE /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(await answer(del())).toEqual({
       status: 404,
       body: { error: 'Entry not found or access denied' },
+    })
+  })
+
+  // The picker's discard, which may land after the pick it raced (HON-1251).
+  describe('with ?placeholder', () => {
+    it("discards the household's placeholder, and deletes nothing else", async () => {
+      mockDiscardPlaceholder.mockImplementation(
+        async (householdId, planId, entryId) =>
+          householdId === 'household-123' && planId === 'plan-123' && entryId === 'entry-123',
+      )
+
+      expect(await answer(del(`${URL}?placeholder`))).toEqual({
+        status: 200,
+        body: { success: true },
+      })
+      expect(mockDeleteEntry).not.toHaveBeenCalled()
+    })
+
+    it('answers 404 when the entry is no longer a placeholder', async () => {
+      mockDiscardPlaceholder.mockResolvedValue(false)
+
+      expect(await answer(del(`${URL}?placeholder`))).toEqual({
+        status: 404,
+        body: { error: 'No placeholder entry to discard' },
+      })
+      expect(mockDeleteEntry).not.toHaveBeenCalled()
     })
   })
 

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
 import {
   deleteEntry,
   EntryUpdateError,
@@ -53,7 +54,7 @@ const REFUSALS: Record<EntryUpdateRefusal, { status: number; error: string }> = 
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; entryId: string }> },
 ) {
   // Auth check
@@ -76,6 +77,16 @@ export async function DELETE(
   const { id: planId, entryId } = await params
 
   try {
+    // The picker discards its placeholder with `?placeholder`, which deletes
+    // the entry only while it has no meal and no note: the discard sent as
+    // the page unloads can land after the pick it raced (HON-1251).
+    if (new URL(request.url).searchParams.has('placeholder')) {
+      if (!(await discardPlaceholder(membership.household.id, planId, entryId))) {
+        return NextResponse.json({ error: 'No placeholder entry to discard' }, { status: 404 })
+      }
+      return NextResponse.json({ success: true })
+    }
+
     // Scoped to the plan and to the user's household, so another household's
     // entry reads as missing.
     if (!(await deleteEntry(membership.household.id, planId, entryId))) {

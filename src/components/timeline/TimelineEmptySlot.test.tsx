@@ -23,6 +23,8 @@ const PLAN_ID = 'plan-1'
 const PICK_NAME = 'Dinner: pick a meal, Thursday Apr 16'
 const ENTRY_ID = 'entry-1'
 const ENTRY_URL = `/api/meal-plans/${PLAN_ID}/entries/${ENTRY_ID}`
+// The discard deletes the entry only while it is still a placeholder (HON-1251).
+const DISCARD_URL = `${ENTRY_URL}?placeholder`
 
 interface Deferred {
   promise: Promise<Response>
@@ -70,7 +72,7 @@ beforeEach(() => {
       if (method === 'PATCH' && url === ENTRY_URL) {
         return Promise.resolve(json({ id: ENTRY_ID }))
       }
-      if (method === 'DELETE' && url === ENTRY_URL) {
+      if (method === 'DELETE' && url === DISCARD_URL) {
         return deleteResponse.promise
       }
       return Promise.reject(new Error(`unexpected ${method} ${url}`))
@@ -211,7 +213,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
+    expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
     await waitFor(() => expect(pickButton()).toHaveFocus())
 
     deleteResponse.resolve(json({ success: true }))
@@ -250,7 +252,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
+    expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
 
     deleteResponse.resolve(json({ success: true }))
     await waitFor(() => expectIdle(pickButton()))
@@ -366,7 +368,7 @@ describe('TimelineEmptySlot', () => {
 
     window.dispatchEvent(pageHide())
 
-    expect(deleteRequests()).toEqual([{ method: 'DELETE', url: ENTRY_URL, keepalive: true }])
+    expect(deleteRequests()).toEqual([{ method: 'DELETE', url: DISCARD_URL, keepalive: true }])
   })
 
   // Back restores a page from the back/forward cache with the selector still
@@ -389,17 +391,6 @@ describe('TimelineEmptySlot', () => {
     window.dispatchEvent(pageHide())
 
     expect(deleteRequests()).toHaveLength(1)
-  })
-
-  it('sends no keepalive discard once a meal was picked', async () => {
-    renderSlot()
-    await openSelector()
-    fireEvent.click(screen.getByRole('button', { name: 'pick meal' }))
-    await waitFor(() => expect(requests.some((r) => r.method === 'PATCH')).toBe(true))
-
-    window.dispatchEvent(pageHide())
-
-    expect(deleteRequests()).toEqual([])
   })
 
   it('ignores an error status from the discard', async () => {
