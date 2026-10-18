@@ -1,5 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { http, HttpResponse } from 'msw'
+import { Toaster, toast } from 'sonner'
 import { MealType } from '@/generated/prisma/enums'
 import { lemonGarlicChickenPantry } from '@/stories/fixtures'
 import {
@@ -89,7 +91,7 @@ export const MenuOpen: Story = {
     docs: {
       description: {
         story:
-          'The slot\'s button opens the routes to a meal: "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view. Each creates the placeholder entry first (HON-1247).',
+          'The slot\'s button opens the routes to a meal: "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view, and each creates the placeholder entry first (HON-1247). "Pick for me" places the top suggestion in one request (HON-1248).',
       },
     },
   },
@@ -102,6 +104,7 @@ export const MenuOpen: Story = {
     const items = within(menu).getAllByRole('menuitem')
     await expect(items.map((item) => item.textContent)).toEqual([
       'Choose a recipe',
+      'Pick for me',
       'Imagine a meal',
     ])
     await expect(button).toHaveAttribute('aria-expanded', 'true')
@@ -170,5 +173,94 @@ export const AutoFocus: Story = {
     })
     await waitFor(() => expect(args.onAutoFocused).toHaveBeenCalledTimes(1))
     await expect(document.activeElement).toBe(button)
+  },
+}
+
+// "Pick for me" with Undo (HON-1248). The page's `<Toaster />` lives in the
+// root layout, so these stories mount their own, as Clear's do.
+const withToaster: Decorator = (Story) => (
+  <>
+    <Toaster />
+    <Story />
+  </>
+)
+
+let pickRequests: { method: string; body: unknown }[] = []
+
+function pickHandlers(pickAnswer: () => Response) {
+  return [
+    http.post('/api/meal-plans/:planId/entries', async ({ request }) => {
+      pickRequests.push({ method: 'POST', body: await request.json() })
+      return pickAnswer()
+    }),
+    http.delete('/api/meal-plans/:planId/entries/:entryId', () => {
+      pickRequests.push({ method: 'DELETE', body: null })
+      return HttpResponse.json({ success: true })
+    }),
+  ]
+}
+
+async function pickForMe(canvasElement: HTMLElement) {
+  pickRequests = []
+  // Sonner's toasts are module state, so the previous story's toast is still
+  // there.
+  toast.dismiss()
+  await userEvent.click(within(canvasElement).getByRole('button', { name: /^Dinner: pick a meal/ }))
+  await userEvent.click(await within(document.body).findByRole('menuitem', { name: 'Pick for me' }))
+}
+
+/**
+ * One tap places the top suggestion; a toast names it and offers Undo for six
+ * seconds, and Undo deletes the entry.
+ */
+export const PickForMeWithUndo: Story = {
+  decorators: [withToaster],
+  parameters: {
+    msw: {
+      handlers: pickHandlers(() =>
+        HttpResponse.json({
+          id: 'entry-9',
+          date: '2026-04-16',
+          mealType: 'dinner',
+          status: 'planned',
+          mealId: 'meal-7',
+          note: null,
+          mealName: 'Fish pie',
+        }),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await pickForMe(canvasElement)
+    const body = within(document.body)
+    await expect(await body.findByText('Picked for you: Fish pie')).toBeInTheDocument()
+    await expect(pickRequests).toEqual([
+      { method: 'POST', body: { date: '2026-04-16', mealType: 'dinner', pick: 'suggested' } },
+    ])
+    await userEvent.click(body.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(pickRequests.at(-1)).toEqual({ method: 'DELETE', body: null }))
+  },
+}
+
+/** No meal passes the household's filters: nothing is written, and the toast sends the user to the picker. */
+export const PickForMeNoMatch: Story = {
+  decorators: [withToaster],
+  parameters: {
+    msw: {
+      handlers: pickHandlers(() =>
+        HttpResponse.json(
+          { error: 'No meals available matching your preferences', code: 'no_suggestions' },
+          { status: 404 },
+        ),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await pickForMe(canvasElement)
+    await expect(
+      await within(document.body).findByText(
+        'No meal fits this slot yet. Choose a recipe instead.',
+      ),
+    ).toBeInTheDocument()
   },
 }

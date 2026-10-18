@@ -69,7 +69,11 @@ describe('TimelineEmptySlot in Estonian', () => {
     await userEvent.click(slotButton())
 
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((item) => item.textContent)).toEqual(['Vali retsept', 'Mõtle välja toit'])
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Vali retsept',
+      'Vali minu eest',
+      'Mõtle välja toit',
+    ])
   })
 
   it('toasts the duplicate-slot copy for a 409, not the route error', async () => {

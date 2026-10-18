@@ -19,6 +19,7 @@ import { Body, Heading } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { MealSelectorModal } from './MealSelectorModal'
 import { AddMealMenu, type AddMealView } from './AddMealMenu'
+import { usePickForMe } from './use-pick-for-me'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import {
@@ -106,6 +107,8 @@ interface MealCardProps {
    * this card, so the page can move focus to the slot that replaces it.
    */
   onCleared?: () => void
+  /** "Pick for me" filled the cleared card; "Add meal" leaves with the refresh (HON-1248). */
+  onPicked?: () => void
 }
 
 export function MealCard({
@@ -128,6 +131,7 @@ export function MealCard({
   preparationTips = null,
   conflicts = [],
   onCleared,
+  onPicked,
 }: MealCardProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
@@ -325,6 +329,7 @@ export function MealCard({
     hintId: noteHintId,
   })
   const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
+  const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
 
   function handleClear() {
     // Clear is offered only on a card with a meal that is not completed.
@@ -475,15 +480,28 @@ export function MealCard({
           </CardContent>
           {canEdit && (
             <CardFooter className="px-4 pt-0">
-              {/* The entry exists, so a route opens the selector at once. */}
+              {/* The entry exists, so a route opens the selector at once, and
+                  "Pick for me" fills it, keeping the note for Undo. */}
               <AddMealMenu
-                onChoose={(view) => {
-                  setAddView(view)
-                  setIsSelectorOpen(true)
+                disabled={isPicking}
+                onChoose={(choice) => {
+                  if (choice !== 'pick') {
+                    setAddView(choice)
+                    setIsSelectorOpen(true)
+                    return
+                  }
+                  const place = noteDrag.savedPosition
+                  pick({ entryId, note, noteX: place?.x ?? null, noteY: place?.y ?? null })
                 }}
               >
-                <Button ref={addMealButtonRef} variant="outline" size="sm" className="w-full">
-                  {tCard('addMeal')}
+                <Button
+                  ref={addMealButtonRef}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  aria-disabled={isPicking || undefined}
+                >
+                  {isPicking ? tCard('adding') : tCard('addMeal')}
                 </Button>
               </AddMealMenu>
             </CardFooter>

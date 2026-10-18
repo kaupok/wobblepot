@@ -5,6 +5,10 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import {
   createEntry,
   deleteEntriesInRange,
@@ -18,7 +22,8 @@ const notePositionAxis = z.number().min(0).max(1).nullable().optional()
 // The fields past `note` are for Undo after Clear, which posts the cleared
 // entry back (HON-1123). A completed entry offers no Clear, and a restore
 // must not create a completed row the pantry was never charged for, so
-// `status` stops at `skipped`.
+// `status` stops at `skipped`. `pick` is "Pick for me": the server places the
+// slot's top suggestion itself, so it names no meal (HON-1248).
 const createEntrySchema = z
   .object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
@@ -31,6 +36,7 @@ const createEntrySchema = z
     servingOverride: z.number().int().min(1).max(20).nullable().optional(),
     rating: z.enum(['up', 'down']).nullable().optional(),
     pantryDeducted: z.boolean().optional(),
+    pick: z.literal('suggested').optional(),
   })
   // The note's place is one point, set together, and only beside a note
   // (HON-975).
@@ -44,6 +50,13 @@ const createEntrySchema = z
     }
     if (!data.note && data.noteX != null) {
       ctx.addIssue({ code: 'custom', path: ['noteX'], message: 'A position needs a note' })
+    }
+    if (data.pick && data.mealId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['pick'],
+        message: 'pick and mealId exclude each other',
+      })
     }
   })
 
@@ -141,14 +154,57 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const { date, ...fields } = parsed.data
+  const { date, pick, ...fields } = parsed.data
+
+  // A pick ranks the slot as the suggestions route does, so it shares that
+  // route's limit and cap check, in the same order. A plain create (the
+  // selector's placeholder, Undo after Clear) is not throttled.
+  if (pick) {
+    const rateLimitResult = await checkRateLimit(household.id, 'meal-suggestions')
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Maximum ${rateLimitResult.limit} suggestion requests per hour`,
+          resetAt: rateLimitResult.resetAt.toISOString(),
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+        },
+      )
+    }
+
+    try {
+      await assertUnderCap(household.id)
+    } catch (error) {
+      if (error instanceof AiCostCapExceededError) {
+        return respondCapExceeded(error)
+      }
+      throw error
+    }
+  }
 
   try {
     // The plan, slot and meal checks live in `createEntry`.
     return NextResponse.json(
-      await createEntry(household.id, planId, { ...fields, date: parseLocalDate(date) }),
+      pick
+        ? await pickMealForSlot(
+            household,
+            planId,
+            { date, mealType: fields.mealType },
+            resolveHouseholdLocale(household),
+          )
+        : await createEntry(household.id, planId, { ...fields, date: parseLocalDate(date) }),
     )
   } catch (error) {
+    // The client tells this apart by `code`, and offers the picker instead.
+    if (error instanceof NoSuggestionsError) {
+      return NextResponse.json(
+        { error: 'No meals available matching your preferences', code: 'no_suggestions' },
+        { status: 404 },
+      )
+    }
     // A refusal is a deliberate answer rather than a route failure, so it
     // takes its status and is not reported as an error.
     if (error instanceof EntryCreateError) {

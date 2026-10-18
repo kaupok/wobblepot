@@ -29,6 +29,21 @@ vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
   deleteEntriesInRange: vi.fn(),
 }))
 
+vi.mock('@/lib/meal-plans/pick-for-slot', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/pick-for-slot')>()),
+  pickMealForSlot: vi.fn(),
+}))
+
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 120),
+}))
+
+vi.mock('@/lib/ai/usage', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ai/usage')>()),
+  assertUnderCap: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
@@ -38,12 +53,18 @@ import {
   EntryCreateError,
   type EntryCreateRefusal,
 } from '@/lib/meal-plans/entries'
+import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockCreateEntry = vi.mocked(createEntry)
 const mockDeleteEntriesInRange = vi.mocked(deleteEntriesInRange)
+const mockPickMealForSlot = vi.mocked(pickMealForSlot)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -278,6 +299,108 @@ describe('POST /api/meal-plans/[id]/entries', () => {
 
       expect(status).toBe(400)
       expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Pick for me (HON-1248)', () => {
+    const pickBody = { date: '2099-01-28', mealType: 'dinner', pick: 'suggested' }
+    const resetAt = new Date('2099-01-28T18:40:00.000Z')
+
+    beforeEach(() => {
+      mockCheckRateLimit.mockResolvedValue({ allowed: true, remaining: 59, limit: 60, resetAt })
+      mockAssertUnderCap.mockResolvedValue(undefined)
+      mockPickMealForSlot.mockResolvedValue({ ...created, mealName: 'Fish pie' })
+    })
+
+    it("places the slot's top suggestion in the household's locale and returns it named", async () => {
+      mockGetMembership.mockResolvedValue({
+        ...(mockMembership as object),
+        household: {
+          id: 'household-123',
+          name: 'Test',
+          timezone: 'Europe/Tallinn',
+          locale: 'et',
+        },
+      } as never)
+
+      expect(await answer(post(pickBody))).toEqual({
+        status: 200,
+        body: { ...created, mealName: 'Fish pie' },
+      })
+      expect(mockPickMealForSlot).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'household-123' }),
+        'plan-123',
+        { date: '2099-01-28', mealType: 'dinner' },
+        'et',
+      )
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it('answers 404 with code no_suggestions when no meal fits, unreported', async () => {
+      mockPickMealForSlot.mockRejectedValue(new NoSuggestionsError())
+
+      expect(await answer(post(pickBody))).toEqual({
+        status: 404,
+        body: { error: 'No meals available matching your preferences', code: 'no_suggestions' },
+      })
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    })
+
+    it('answers a taken slot with 409', async () => {
+      mockPickMealForSlot.mockRejectedValue(new EntryCreateError('slotTaken'))
+
+      expect(await answer(post(pickBody))).toEqual({
+        status: 409,
+        body: { error: 'Entry already exists for this date and meal type' },
+      })
+    })
+
+    it('refuses pick together with mealId', async () => {
+      const { status, body } = await answer(post({ ...pickBody, mealId: 'meal-1' }))
+
+      expect(status).toBe(400)
+      expect(body.details).toEqual({ pick: ['pick and mealId exclude each other'] })
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+      expect(mockPickMealForSlot).not.toHaveBeenCalled()
+    })
+
+    it('applies the meal-suggestions rate limit before the cap check', async () => {
+      mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0, limit: 60, resetAt })
+
+      const res = await post(pickBody)
+
+      expect(res.status).toBe(429)
+      expect(res.headers.get('Retry-After')).toBe('120')
+      expect(await res.json()).toEqual({
+        error: 'Rate limit exceeded',
+        message: 'Maximum 60 suggestion requests per hour',
+        resetAt: '2099-01-28T18:40:00.000Z',
+      })
+      expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-suggestions')
+      expect(mockAssertUnderCap).not.toHaveBeenCalled()
+      expect(mockPickMealForSlot).not.toHaveBeenCalled()
+    })
+
+    it('answers the AI cap with its code and writes nothing', async () => {
+      mockAssertUnderCap.mockRejectedValue(
+        new AiCostCapExceededError(new Date('2099-02-01T00:00:00.000Z'), 'Europe/Tallinn'),
+      )
+
+      const { status, body } = await answer(post(pickBody))
+
+      expect(status).toBe(429)
+      expect(body.code).toBe('ai_cap_exceeded')
+      expect(mockAssertUnderCap).toHaveBeenCalledWith('household-123')
+      expect(mockPickMealForSlot).not.toHaveBeenCalled()
+    })
+
+    it('does not throttle a plain create', async () => {
+      mockCreateEntry.mockResolvedValue(created)
+
+      await post({ date: '2099-01-28', mealType: 'dinner' })
+
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+      expect(mockAssertUnderCap).not.toHaveBeenCalled()
     })
   })
 })

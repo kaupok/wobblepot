@@ -7,8 +7,13 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { AddMealMenu, type AddMealView } from '@/components/meal-plan/AddMealMenu'
+import {
+  AddMealMenu,
+  type AddMealChoice,
+  type AddMealView,
+} from '@/components/meal-plan/AddMealMenu'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
@@ -32,6 +37,11 @@ interface TimelineEmptySlotProps {
   autoFocus?: boolean
   /** Called once the mount has acted on `autoFocus`, so the page can drop it. */
   onAutoFocused?: () => void
+  /**
+   * "Pick for me" placed a meal. This slot unmounts when the refresh lands,
+   * taking focus with it, so the page moves focus to the day (HON-1248).
+   */
+  onPicked?: () => void
 }
 
 export function TimelineEmptySlot({
@@ -44,6 +54,7 @@ export function TimelineEmptySlot({
   pantryIngredients = [],
   autoFocus = false,
   onAutoFocused,
+  onPicked,
 }: TimelineEmptySlotProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
@@ -112,13 +123,21 @@ export function TimelineEmptySlot({
     onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
   const isDiscarding = discardEntryMutation.isPending
+  const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
+  // The slot is filling while a placeholder or a pick is in flight.
+  const isAdding = isCreating || isPicking
   // No second placeholder while the last one is still being created or deleted.
-  const isPending = isCreating || isDiscarding
+  const isPending = isAdding || isDiscarding
 
-  function handleChoose(chosen: AddMealView) {
+  function handleChoose(chosen: AddMealChoice) {
     // The menu stays closed while pending; this guards an item chosen in the
     // same tick as the first.
     if (isPending) return
+    // "Pick for me" places the meal in one request, with no placeholder.
+    if (chosen === 'pick') {
+      pick()
+      return
+    }
     hasSelectedRef.current = false
     setView(chosen)
     createEntryMutation.mutate()
@@ -157,15 +176,15 @@ export function TimelineEmptySlot({
   // declension of it (HON-807). Every empty day has a "Dinner" button, so the
   // name adds the action and the day after the visible text, which a voice
   // user can still say (WCAG 2.5.3).
-  const buttonText = isCreating ? tCard('adding') : mealTypeLabel
-  const accessibleName = isCreating
+  const buttonText = isAdding ? tCard('adding') : mealTypeLabel
+  const accessibleName = isAdding
     ? tCard('slotActionLabel', { action: buttonText, day: dayLabel, mealType: mealTypeLabel })
     : tCard('emptySlotLabel', { mealType: mealTypeLabel, day: dayLabel })
 
   return (
     <>
-      {/* The button opens the routes to a meal; each creates the placeholder,
-          then opens the selector in its view (HON-1247). */}
+      {/* The button opens the routes to a meal; a selector route creates the
+          placeholder, then opens the selector in its view (HON-1247). */}
       <AddMealMenu onChoose={handleChoose} disabled={isPending}>
         <Button
           ref={pickButtonRef}
