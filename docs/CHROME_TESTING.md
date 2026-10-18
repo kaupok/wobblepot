@@ -21,6 +21,8 @@ Check the tools listed in the session, in this order:
 3. Else if the Playwright MCP (`mcp__playwright__browser_*`) is loaded, use it.
 4. Else say so and continue without browsing. `/chrome-review` stops, because it has no other purpose. `/implement-issue` writes a "Not verified" line.
 
+`/implement-issue` → Drive changed screens skips the Chrome extension (step 2), because it uploads a screenshot file and the Chrome extension cannot save one.
+
 Why this order: the sidebar browser shows the user the same page the agent sees, so the agent does not need to narrate screenshots. The Chrome extension needs a Chrome window and the `--chrome` harness. The Playwright MCP is headless, so the user sees nothing, but it is the only browser a headless worker has (`docs/PARALLEL_WORKFLOW.md` → Untracked Files).
 
 ## T3 Code sidebar browser

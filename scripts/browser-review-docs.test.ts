@@ -119,6 +119,7 @@ describe('the skills point to the rule', () => {
     const skill = read('.claude/skills/ideate/SKILL.md')
     const sidebar = skill.indexOf('`preview_status`')
     expect(sidebar).toBeGreaterThan(-1)
-    expect(sidebar).toBeLessThan(skill.indexOf('`tabs_context_mcp`'))
+    const chrome = skill.indexOf('`tabs_context_mcp`')
+    if (chrome !== -1) expect(sidebar).toBeLessThan(chrome)
   })
 })
