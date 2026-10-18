@@ -17,6 +17,7 @@ export const REFUSALS: Record<EntryChangeRefusal, { status: number; error: strin
   originalNotInMeal: { status: 400, error: 'The ingredient is not in this meal' },
   alreadyChanged: { status: 409, error: 'This ingredient is already changed' },
   alreadyInMeal: { status: 409, error: 'This ingredient is already in the meal' },
+  changesMoved: { status: 409, error: "The meal's changes moved since the set was built" },
 }
 
 export function refusalResponse(reason: EntryChangeRefusal) {

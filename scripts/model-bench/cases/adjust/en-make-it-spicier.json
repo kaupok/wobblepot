@@ -1,0 +1,74 @@
+{
+  "mealName": "Chicken fajitas",
+  "servings": 3,
+  "components": [
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "tortilla wrap",
+      "quantityPerServing": 2,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soured cream",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "lime",
+      "isStaple": false
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Make it spicier",
+  "locale": "en",
+  "expected": {
+    "changes": [
+      {
+        "op": "add",
+        "replacementAny": [
+          "chilli",
+          "chili",
+          "jalapeño",
+          "jalapeno",
+          "cayenne",
+          "chipotle",
+          "hot sauce",
+          "harissa",
+          "sriracha",
+          "hot paprika",
+          "smoked paprika",
+          "gochujang"
+        ]
+      }
+    ]
+  }
+}

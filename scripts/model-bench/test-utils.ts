@@ -30,6 +30,8 @@ export const STARTER_CASE_IDS: readonly string[] = [
   'tips/et-supplementary-ahjulohe',
   'cook-question/en-substitute-pantry-match',
   'cook-question/et-hakklihakaste-substitute',
+  'adjust/en-no-cream-use-yoghurt',
+  'adjust/et-ilma-koorta-jogurt',
 ]
 
 /** Throws if a starter case is missing, so a renamed file cannot shrink a test's input. */

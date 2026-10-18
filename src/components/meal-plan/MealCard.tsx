@@ -106,6 +106,8 @@ interface MealCardProps {
   conflicts?: PreferenceConflict[]
   /** The entry's own ingredient changes — see `PlanEntry.changes`. */
   changes?: EntryChange[]
+  /** See `PlanEntry.adjustmentNote`. */
+  adjustmentNote?: string | null
   /**
    * Called once Clear has deleted the entry, before the refresh that unmounts
    * this card, so the page can move focus to the slot that replaces it.
@@ -135,6 +137,7 @@ export function MealCard({
   preparationTips = null,
   conflicts = [],
   changes = [],
+  adjustmentNote = null,
   onCleared,
   onPicked,
 }: MealCardProps) {
@@ -835,6 +838,7 @@ export function MealCard({
         initialSteps={preparationTips}
         conflicts={status === 'planned' ? conflicts : undefined}
         changes={changes}
+        adjustmentNote={adjustmentNote}
         // Steps generate on open only for a meal somebody is about to cook.
         generateOnOpen={status === 'planned' && !isReadOnly}
         // A read-only card cannot be marked cooked.

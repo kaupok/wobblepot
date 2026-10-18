@@ -43,6 +43,7 @@ export interface SwapEntryData {
   preparationTips?: null
   servingOverride?: null
   rating?: null
+  adjustmentNote?: null
 }
 
 /**
@@ -88,6 +89,11 @@ export function swapEntryData(currentMealId: string | null, nextMealId: string):
     // tips regenerate and an override can be re-entered, but only the
     // household can say again what they thought of the meal.
     rating: null,
+    // The "Adjust recipe" instruction was about the previous meal, and the
+    // swap deletes the changes it explains (`clearChangesOnSwap`). Kept, it
+    // would steer the new meal's steps with nothing on screen to show or
+    // clear it (HON-1244).
+    adjustmentNote: null,
   }
 }
 

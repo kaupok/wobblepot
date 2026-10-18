@@ -451,7 +451,50 @@
         "notPlanned": "Muuta saab ainult planeeritud toitu.",
         "alreadyChanged": "Seda koostisosa on juba muudetud. Võta see muudatus enne tagasi.",
         "alreadyInMeal": "See koostisosa on toidus juba olemas.",
-        "ingredientNotFound": "See koostisosa pole saadaval. Vali teine."
+        "ingredientNotFound": "See koostisosa pole saadaval. Vali teine.",
+        "changesMoved": "Keegi muutis vahepeal seda toitu. Vaata muudatused üle ja proovi uuesti."
+      }
+    },
+    "adjust": {
+      "label": "Kohanda retsepti",
+      "hint": "Kirjuta, mida muuta, ja AI pakub koostisosade muudatused. Muutub ainult see toidukord.",
+      "placeholder": "Ilma koorta, mul on jogurtit",
+      "submit": "Paku muudatused",
+      "suggesting": "Pakun muudatusi…",
+      "noChanges": "Selleks pole koostisosi vaja muuta.",
+      "stepsOnly": "Koostisosi pole vaja muuta. Sammud saavad selle asemel sinu soovi arvestada.",
+      "useInSteps": "Arvesta sammudes",
+      "noteLabel": "Sammud arvestavad sinu sooviga: {note}",
+      "clearNote": "Eemalda soov",
+      "review": {
+        "title": "Pakutud muudatused",
+        "description": "Märgi muudatused, mida teha. Muutub ainult see toidukord. Retsept jääb samaks.",
+        "instruction": "Sinu soov: {instruction}",
+        "replace": "Asenda: {original} → {replacement}, {quantity} portsjoni kohta",
+        "remove": "Jäta välja: {name}",
+        "add": "Lisa: {name}, {quantity} portsjoni kohta",
+        "unmatched": "„{name}“ pole koostisosade nimekirjas. Vali koostisosa või eemalda sellelt muudatuselt märge.",
+        "pickAnother": "Vali teine",
+        "pickedAria": "Vali teine koostisosa: {name}",
+        "apply": "Rakenda",
+        "nothingTicked": "Märgi vähemalt üks muudatus."
+      },
+      "errors": {
+        "unauthorized": "Palun logi sisse, et retsepti kohandada.",
+        "noHousehold": "Retsepti kohandamiseks pead kuuluma leibkonda.",
+        "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
+        "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
+        "notPlanned": "Muuta saab ainult planeeritud toitu.",
+        "rateLimited": "Oled jõudnud selle tunni retseptide kohandamise piiranguni. Palun proovi hiljem uuesti.",
+        "rateLimitedUntil": "Oled jõudnud selle tunni retseptide kohandamise piiranguni. Proovi uuesti pärast kella {time}.",
+        "generationDisabled": "Retseptide kohandamine on praegu välja lülitatud. Palun proovi hiljem uuesti.",
+        "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+        "providerBusy": "Soovituste teenus on hõivatud. Palun proovi mõne hetke pärast uuesti.",
+        "providerUnavailable": "Soovituste teenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti.",
+        "invalidInstruction": "Kirjuta, mida muuta, kuni 500 tähemärgiga.",
+        "adjustTimeout": "Soovitamine võttis liiga kaua aega. Palun proovi uuesti.",
+        "adjustFailed": "Muudatusi ei õnnestunud pakkuda. Palun proovi uuesti.",
+        "applyFailed": "Muudatusi ei õnnestunud rakendada. Palun proovi uuesti."
       }
     },
     "deduction": {

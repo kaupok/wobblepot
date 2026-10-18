@@ -53,16 +53,18 @@ export interface CookQuestionRequestInput {
   locale: string
 }
 
-function formatPantry(pantry: CookQuestionPantryItem[]): string {
+/** Shared with the adjust prompt (HON-1244). */
+export function formatPantry(pantry: CookQuestionPantryItem[]): string {
   if (pantry.length === 0) return 'The household has recorded nothing in its pantry.'
   return pantry.map((item) => `- ${item.name}${item.isStaple ? ' (staple)' : ''}`).join('\n')
 }
 
 /**
  * A section of its own, called restrictions and never preferences: "preferences"
- * let the model treat a mild-spice limit as optional (HON-896).
+ * let the model treat a mild-spice limit as optional (HON-896). Shared with the
+ * adjust prompt (HON-1244).
  */
-function formatRestrictions(restrictions: CookQuestionRestrictions): string {
+export function formatRestrictions(restrictions: CookQuestionRestrictions): string {
   const lines: string[] = []
   if (restrictions.allergens.length > 0) {
     lines.push(

@@ -673,7 +673,7 @@ describe('buildCheckReport', () => {
 
   it('fails a partial run even when every measured gate holds', () => {
     const r = check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips'], true)
-    expect(r.gates.every((g) => g.status === 'pass')).toBe(true)
+    expect(r.gates.every((g) => g.status !== 'fail')).toBe(true)
     expect(r.passed).toBe(false)
     expect(renderCheckMarkdown(r)).toContain('**Partial run.**')
   })
@@ -683,7 +683,7 @@ describe('buildCheckReport', () => {
       check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips']),
     )
     expect(summary).toContain('# AI eval check: production configuration')
-    expect(summary).toContain('**Pass.** All 3 gates hold.')
+    expect(summary).toContain('**Pass.** All 4 gates hold.')
     expect(summary).toContain('## Gates')
     expect(summary).not.toContain('## tips')
   })

@@ -43,6 +43,25 @@ describe('buildFullStepsPrompt', () => {
     expect(result).toContain('- Chicken breast: 600g')
   })
 
+  it("follows the household's adjustment instruction, fenced as data (HON-1244)", () => {
+    const result = buildFullStepsPrompt(
+      fullInput({ adjustmentNote: '  Less salt, for a toddler ' }),
+    )
+
+    expect(result).toContain(
+      'The household asked for this change to the meal, between the markers. Follow it in every field',
+    )
+    expect(result).toContain('<<<\nLess salt, for a toddler\n>>>')
+  })
+
+  it('is unchanged by a missing or blank instruction', () => {
+    const plain = buildFullStepsPrompt(fullInput())
+
+    expect(buildFullStepsPrompt(fullInput({ adjustmentNote: null }))).toBe(plain)
+    expect(buildFullStepsPrompt(fullInput({ adjustmentNote: '  ' }))).toBe(plain)
+    expect(plain).not.toContain('The household asked')
+  })
+
   it('omits the time-budget line when timeMinutes is null', () => {
     const result = buildFullStepsPrompt(fullInput({ timeMinutes: null }))
 
@@ -100,6 +119,13 @@ describe('buildSupplementaryStepsPrompt', () => {
     expect(result).toContain('- Chicken breast: 600g')
     expect(result).toContain("User's preparation notes:")
     expect(result).toContain('Sear chicken first, then add vegetables.')
+  })
+
+  it("follows the household's adjustment instruction after its notes (HON-1244)", () => {
+    const result = buildSupplementaryStepsPrompt(supplementaryInput({ adjustmentNote: 'No cream' }))
+
+    expect(result).toContain('Sear chicken first, then add vegetables.\n\nThe household asked')
+    expect(result).toContain('<<<\nNo cream\n>>>')
   })
 
   it('omits the locale instruction block for the default (English) locale', () => {

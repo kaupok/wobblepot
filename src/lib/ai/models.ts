@@ -24,6 +24,12 @@ export const REVIEW_MODEL = 'claude-sonnet-5-5'
 export const COOK_QUESTION_MODEL = 'claude-sonnet-5-5'
 
 /**
+ * Model for "Adjust recipe" (HON-1244): turns a household's instruction into
+ * ingredient changes for one planned meal.
+ */
+export const ADJUST_MODEL = 'claude-sonnet-5-5'
+
+/**
  * Model for generated meal illustrations (HON-726). OpenAI, not Claude: see
  * `src/lib/meal-images/generate.ts`. The judge that checks each image is
  * `REVIEW_MODEL`.

@@ -1,0 +1,66 @@
+{
+  "mealName": "Creamy mushroom pasta",
+  "servings": 4,
+  "components": [
+    {
+      "name": "pasta",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "double cream",
+      "quantityPerServing": 50,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "chestnut mushroom",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "garlic",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "parmesan",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "Greek yoghurt",
+      "isStaple": false
+    },
+    {
+      "name": "milk",
+      "isStaple": false
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "No cream, use yoghurt",
+  "locale": "en",
+  "expected": {
+    "changes": [
+      {
+        "op": "replace",
+        "original": ["double cream"],
+        "replacementAny": ["yoghurt", "yogurt"]
+      }
+    ]
+  }
+}

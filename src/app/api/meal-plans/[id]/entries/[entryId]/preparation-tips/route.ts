@@ -152,7 +152,8 @@ async function handlePOST(
     const preparationNotes = shownMeal.preparationNotes
 
     // The entry's own changes merged over the recipe (HON-1243), so the steps
-    // name the yoghurt that replaced the cream.
+    // name the yoghurt that replaced the cream. Both prompts also follow the
+    // household's "Adjust recipe" instruction, when it gave one (HON-1244).
     const components = entry.components.map((comp) => ({
       name: translateIngredient(comp.ingredient, locale).name,
       quantityPerServing: comp.quantityPerServing,
@@ -175,6 +176,7 @@ async function handlePOST(
         components,
         preparationNotes,
         locale,
+        adjustmentNote: entry.adjustmentNote,
       })
 
       const startedAt = Date.now()
@@ -221,6 +223,7 @@ async function handlePOST(
         timeMinutes,
         components,
         locale,
+        adjustmentNote: entry.adjustmentNote,
       })
 
       const startedAt = Date.now()
@@ -315,6 +318,7 @@ async function handlePOST(
         mealUpdatedAt: entry.meal.updatedAt,
         householdLocale: household.locale,
         changes: entry.changes,
+        adjustmentNote: entry.adjustmentNote,
       },
       tips,
       effectiveServings,

@@ -53,6 +53,7 @@ function respond({ promptText }: MockCall): MockResponse {
   if (promptText.includes('A home cook is in the middle of cooking')) {
     return { text: 'Use the Greek yogurt you have, stirred in off the heat.' }
   }
+  if (promptText.includes('wants to change its ingredients')) return { object: { changes: [] } }
   if (promptText.includes('cooking quantity reviewer')) return { object: { ingredients: [] } }
   if (promptText.includes('creative home cooking assistant')) return { object: { meals: [] } }
   if (promptText.includes('recipe parsing assistant')) {
@@ -124,11 +125,11 @@ describe('main', () => {
     const code = await main([...BASE_ARGS, '--runs', '1'], { ...deps, modelFactory: factory })
 
     expect(code).toBe(0)
-    // 12 starter cases × 1 run × 2 models.
-    expect(calls).toHaveLength(24)
+    // 14 starter cases × 1 run × 2 models.
+    expect(calls).toHaveLength(28)
 
     const md = readFileSync(join(outDir, `${STEM}.md`), 'utf8')
-    for (const task of ['plan', 'recipe', 'imagine', 'review', 'tips']) {
+    for (const task of ['plan', 'recipe', 'imagine', 'review', 'tips', 'adjust']) {
       expect(md).toContain(`## ${task}`)
     }
     expect(md).not.toContain('Partial run')
@@ -142,7 +143,7 @@ describe('main', () => {
     expect(echoed).not.toContain('## plan')
 
     const json = JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8'))
-    expect(json.calls).toHaveLength(24)
+    expect(json.calls).toHaveLength(28)
     expect(json.calls[0]).toMatchObject({ caseId: 'plan/en-week-no-diet', output: { entries: [] } })
     expect(json.partial).toBe(false)
   })
@@ -174,7 +175,7 @@ describe('main', () => {
     expect(err.join('\n')).toMatch(/Stopped early.*--max-usd 3/)
     const md = readFileSync(join(outDir, `${STEM}.md`), 'utf8')
     expect(md).toContain('**Partial run.**')
-    expect(md).toContain('after 2 of 24 planned calls')
+    expect(md).toContain('after 2 of 28 planned calls')
     expect(JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8')).partial).toBe(true)
   })
 
@@ -188,8 +189,8 @@ describe('main', () => {
 
     expect(code).toBe(0)
     const text = out.join('\n')
-    expect(text).toContain('Cases: 12')
-    expect(text).toContain('Total calls: 72')
+    expect(text).toContain('Cases: 14')
+    expect(text).toContain('Total calls: 84')
     expect(text).toMatch(/Estimated cost: ~\$\d+\.\d\d/)
     expect(existsSync(join(outDir, `${STEM}.md`))).toBe(false)
   })
@@ -199,8 +200,8 @@ describe('main', () => {
 
     expect(code).toBe(0)
     const text = out.join('\n')
-    // 72 benchmark calls, plus 6 judged starter cases × 3 runs × 2 orders.
-    expect(text).toContain('Total calls: 108')
+    // 84 benchmark calls, plus 6 judged starter cases × 3 runs × 2 orders.
+    expect(text).toContain('Total calls: 120')
     expect(text).toMatch(/claude-opus-5-5 \(judge\): 36 calls, .*~\$\d+\.\d\d/)
     // The rubric is cached: one write per locale, every later call reads it.
     expect(text).toMatch(/claude-opus-5-5 \(judge\): .*\+ ~\d+ cache write, ~\d+ cache read/)
@@ -211,7 +212,7 @@ describe('main', () => {
 
     expect(code).toBe(0)
     const text = out.join('\n')
-    expect(text).toContain('Total calls: 72')
+    expect(text).toContain('Total calls: 84')
     expect(text).toContain('judge: 18 pairs, 36 prompts, exported for Claude Code')
     expect(text).not.toContain('claude-opus-5-5')
   })
@@ -388,7 +389,7 @@ describe('main', () => {
       expect(md).toContain('# AI eval check: production configuration')
       expect(md).toContain(`Models: tips \`${STEPS_MODEL}\``)
       expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 90.0% | pass |')
-      expect(out.join('\n')).toContain('**Pass.** All 3 gates hold.')
+      expect(out.join('\n')).toContain('**Pass.** All 4 gates hold.')
       const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
       expect(json).toMatchObject({ mode: 'check', model: null, passed: true, plannedCalls: 4 })
       expect(json.calls).toHaveLength(4)
@@ -469,8 +470,8 @@ describe('main', () => {
       const text = out.join('\n')
       expect(text).toContain('Checking production configuration:')
       expect(text).toContain(`  tips: ${STEPS_MODEL}`)
-      // 12 starter cases × 3 runs, one model.
-      expect(text).toContain('Total calls: 36')
+      // 14 starter cases × 3 runs, one model.
+      expect(text).toContain('Total calls: 42')
       expect(text).toMatch(/Estimated cost: ~\$\d+\.\d\d/)
       expect(existsSync(join(outDir, `${CHECK_STEM}.md`))).toBe(false)
     })

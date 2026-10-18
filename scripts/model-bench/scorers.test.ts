@@ -532,6 +532,13 @@ describe('scoreTips', () => {
     expect(scores).toEqual({ answered: 1, countsInRange: 1 })
   })
 
+  it('scores whether the adjustment instruction reached the answer (HON-1244)', () => {
+    const adjusted = { ...full, adjustmentNote: 'Less salt', followsAny: ['salt'] }
+    const answer = { equipment: items(4), steps: items(5), pitfalls: items(2) }
+    expect(scoreTips(adjusted, answer).followsNote).toBe(0)
+    expect(scoreTips(adjusted, { ...answer, tip: 'Skip the extra Salt.' }).followsNote).toBe(1)
+  })
+
   it('detects full tips with 9 steps', () => {
     const scores = scoreTips(full, { equipment: items(4), steps: items(9), pitfalls: items(2) })
     expect(scores.countsInRange).toBe(0)

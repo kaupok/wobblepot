@@ -97,6 +97,18 @@ export type CookQuestionErrorCode =
   | 'question_failed'
 
 /**
+ * Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/adjust`
+ * (HON-1244): the preparation-tips guards, plus its own refusal, validation,
+ * timeout and failure codes.
+ */
+export type AdjustRecipeErrorCode =
+  | Exclude<PreparationStepsErrorCode, 'tips_timeout' | 'tips_failed'>
+  | 'not_planned'
+  | 'invalid_instruction'
+  | 'adjust_timeout'
+  | 'adjust_failed'
+
+/**
  * The subset of `RecipeImportErrorCode` a `RecipeParseError` can carry. The
  * route maps these to a status: `robots_disallowed` is a 403,
  * `provider_unavailable` a 503, the rest are 400s.
@@ -254,6 +266,34 @@ export const COOK_QUESTION_ERROR_KEYS = {
  */
 export function cookQuestionFallbackKey(status: number): string {
   return status === 504 ? 'questionTimeout' : 'questionFailed'
+}
+
+/**
+ * `AdjustRecipeErrorCode` → message key under `meal-plan.adjust.errors`, read
+ * by `useAdjustRecipe` (HON-1244).
+ */
+export const ADJUST_RECIPE_ERROR_KEYS = {
+  unauthorized: 'unauthorized',
+  no_household: 'noHousehold',
+  entry_not_found: 'entryNotFound',
+  no_meal: 'noMeal',
+  not_planned: 'notPlanned',
+  rate_limited: 'rateLimited',
+  generation_disabled: 'generationDisabled',
+  ai_cap_exceeded: 'aiCapExceeded',
+  provider_busy: 'providerBusy',
+  provider_unavailable: 'providerUnavailable',
+  invalid_instruction: 'invalidInstruction',
+  adjust_timeout: 'adjustTimeout',
+  adjust_failed: 'adjustFailed',
+} as const satisfies Record<AdjustRecipeErrorCode, string>
+
+/**
+ * Fallback key for an adjust response with no usable `code`: a platform 504
+ * still gets the timeout copy, as in `preparationStepsFallbackKey`.
+ */
+export function adjustRecipeFallbackKey(status: number): string {
+  return status === 504 ? 'adjustTimeout' : 'adjustFailed'
 }
 
 /**

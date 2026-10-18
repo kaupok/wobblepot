@@ -1,10 +1,169 @@
 {
   "task": "tips",
   "model": "claude-sonnet-5-5",
-  "recordedAt": "2026-10-07",
-  "commit": "27cf478d",
+  "recordedAt": "2026-10-19",
+  "commit": "6d06896e",
   "runs": 3,
   "cases": {
+    "tips/en-full-adjusted-less-salt-toddler": {
+      "promptHash": "ce754a673d188ed7a27ff8b736839b3a53828ca71327cc61ab7785904a31c684",
+      "requestHash": "91faa8132ce162bf8ef58429add8eb8a7115dcbbe61e8dad0c6be9b6fcbc83be",
+      "calls": [
+        {
+          "caseId": "tips/en-full-adjusted-less-salt-toddler",
+          "task": "tips",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 5292.509167,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2437,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 511,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.009984,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Large wok or frying pan",
+              "Large saucepan",
+              "Chef's knife and cutting board",
+              "Wooden spoon or spatula",
+              "Colander"
+            ],
+            "steps": [
+              "Boil a kettle and bring a large saucepan of unsalted water to the boil for the noodles.",
+              "While the water heats, slice the chicken into thin strips about 1cm wide, and cut the red pepper into short, thin strips.",
+              "Cut the carrots into thin matchsticks or grate them coarsely so they soften quickly and are safe for a toddler.",
+              "Cook the noodles for 4–5 minutes until soft, then drain and snip into short lengths with kitchen scissors.",
+              "Heat the oil in the wok over medium-high heat and fry the chicken for 5–6 minutes until white throughout with no pink. Remove it.",
+              "Stir-fry the carrot for 3 minutes and the pepper for 2 minutes until soft. Return the chicken and noodles, add the soy sauce with a splash of water, and toss for 1 minute."
+            ],
+            "pitfalls": [
+              "Adding the full amount of soy sauce makes the dish too salty for a toddler, so dilute it with water and taste.",
+              "Leaving carrot in thick chunks keeps it hard and a choking risk, so cut it thin or grate it.",
+              "Overcrowding the wok steams the chicken and leaves it pale and rubbery, so cook it in two batches if needed."
+            ],
+            "tip": "Cut the noodles and chicken into small, bite-sized pieces and let the plate cool for a few minutes before serving to your toddler."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/en-full-adjusted-less-salt-toddler",
+          "task": "tips",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4534.15449999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2437,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 486,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.009734,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Large wok or frying pan",
+              "Large saucepan",
+              "Chef's knife and chopping board",
+              "Wooden spoon or spatula",
+              "Colander"
+            ],
+            "steps": [
+              "Boil a kettle and start the noodles in a large saucepan; cook for 4 minutes, then drain.",
+              "While the water heats, slice the chicken into thin strips about 1cm wide, so it cooks quickly and is easy to chew.",
+              "Cut the red pepper into thin short strips and grate the carrots, or slice them very thinly, so they soften fast for a toddler.",
+              "Heat the oil in the wok over a high heat, then stir-fry the chicken for 5–6 minutes until white throughout with no pink.",
+              "Add the carrot for 2 minutes, then the red pepper for 2 minutes, until soft enough to squash between your fingers.",
+              "Toss in the noodles with the soy sauce diluted with a splash of water, heat through for 1 minute, and cool before serving."
+            ],
+            "pitfalls": [
+              "Adding the full amount of soy sauce makes the dish too salty for a toddler, so dilute it with water and taste before serving.",
+              "Thick chicken pieces cook unevenly and turn tough or stay undercooked, so slice thinly and check the centre is white.",
+              "Crunchy or long strips of carrot and pepper are a choking risk, so cut them small and cook until soft."
+            ],
+            "tip": "Cut the noodles into short lengths with kitchen scissors after draining so they are easier for small hands to manage."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/en-full-adjusted-less-salt-toddler",
+          "task": "tips",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4652.373749999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2437,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 501,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.009884,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Large wok or frying pan",
+              "Large saucepan",
+              "Chef's knife and chopping board",
+              "Wooden spoon or spatula",
+              "Colander"
+            ],
+            "steps": [
+              "Boil a kettle and bring a large saucepan of unsalted water to the boil for the noodles.",
+              "While the water heats, slice the chicken into thin strips about 1cm wide, then cut the red peppers into short, thin strips.",
+              "Peel the carrots and cut them into thin matchsticks or grate them, so they soften quickly and are easy for a toddler to chew.",
+              "Cook the noodles for 4 minutes or as the packet says, then drain and snip them into short lengths.",
+              "Heat the oil in the wok over medium-high heat and stir-fry the chicken for 5–6 minutes until white throughout with no pink.",
+              "Add the carrots and peppers and cook for 4–5 minutes until soft, then toss in the noodles with a small splash of soy sauce diluted with 2 tablespoons of water."
+            ],
+            "pitfalls": [
+              "Adding the full amount of soy sauce makes the dish far too salty for a toddler, so dilute it and add only a little.",
+              "Cutting the chicken too thick leaves the centres undercooked, so slice thinly and check every piece is white inside.",
+              "Leaving noodles and vegetables in long strands or firm pieces is a choking risk, so cut everything small and cook until soft."
+            ],
+            "tip": "Let the stir-fry cool for a few minutes and test a piece yourself before serving, as the noodles and peppers hold heat."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
+            "countsInRange": 1
+          }
+        }
+      ]
+    },
     "tips/en-full-bolognese": {
       "promptHash": "1fa967ea99f0628c97c4a1498aa7869fbe5879c8c2ef706d2fefbd531374190f",
       "requestHash": "b5b1f759560ccbfaaae988e58f0b0cbd16a1d4854f2cdc94fc43463b012b8eda",
@@ -16,7 +175,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4524.295624999999,
+          "latencyMs": 3733.046542,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -24,35 +183,35 @@
             "inputTokens": 2336,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 448,
+            "outputTokens": 428,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009152,
+          "costUsd": 0.008952,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "equipment": [
-              "Large heavy-based saucepan",
-              "Large pasta pot",
-              "Wooden spoon",
+              "Large deep frying pan",
+              "Large saucepan",
               "Colander",
+              "Wooden spoon",
               "Chef's knife and chopping board"
             ],
             "steps": [
-              "Fill the pasta pot with water and bring it to the boil on the hob.",
-              "While the water heats, finely chop the onion and garlic.",
-              "Heat the olive oil in the saucepan over medium-high heat. Brown the beef mince in two batches, breaking it up, for 6–8 minutes.",
-              "Lower to medium heat, add the onion and cook for 5 minutes until soft. Stir in the garlic for 1 minute.",
-              "Add the tomatoes, season well and simmer gently for 20–25 minutes, stirring occasionally.",
-              "Salt the boiling water and cook the spaghetti for 9–10 minutes until al dente. Reserve 120ml of pasta water, drain, then toss with the sauce."
+              "Start the sauce first: finely chop the onion and garlic.",
+              "Heat the oil in the frying pan over medium heat, then fry the onion for 5 minutes until soft.",
+              "Add the garlic for 30 seconds, then the beef mince over high heat.",
+              "Brown the mince for 8–10 minutes, breaking up lumps, until no pink remains and it sizzles.",
+              "Stir in the tomatoes, season well, then simmer on low heat for 20–25 minutes, stirring occasionally.",
+              "Boil the spaghetti in well-salted water 10 minutes before the sauce is done, drain, and toss with the sauce."
             ],
             "pitfalls": [
-              "Crowding the pan steams the mince grey instead of browning it, so cook it in two batches.",
-              "Burnt garlic turns bitter, so add it only after the onion has softened and cook it for 1 minute.",
-              "Rinsing the spaghetti washes off the starch, so the sauce slides off instead of clinging."
+              "Crowding the pan with cold mince steams it grey and watery instead of browning, so use high heat and let it sit between stirs.",
+              "Cutting the simmer short leaves the sauce thin and acidic, so cook it until it thickens and coats a spoon.",
+              "Rinsing the cooked spaghetti washes off the starch, so the sauce slides off instead of clinging."
             ],
-            "tip": "Stir a splash of the starchy pasta water into the sauce at the end to make it glossy and help it coat the spaghetti."
+            "tip": "Save a mugful of pasta water and loosen the sauce with a splash if it thickens too much when tossed."
           },
           "scores": {
             "answered": 1,
@@ -66,7 +225,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5165.1027080000495,
+          "latencyMs": 3801.408374999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -74,35 +233,35 @@
             "inputTokens": 2336,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 456,
+            "outputTokens": 436,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009232,
+          "costUsd": 0.009032,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "equipment": [
-              "Large heavy-based saucepan",
-              "Large pasta pot",
-              "Wooden spoon",
+              "Large deep frying pan",
+              "Large saucepan",
               "Colander",
+              "Wooden spoon",
               "Chef's knife and chopping board"
             ],
             "steps": [
-              "Fill the large pot with water and put it on the hob to boil with a generous pinch of salt.",
-              "While the water heats, finely chop the onion and garlic.",
-              "Heat the olive oil in the saucepan over medium heat and soften the onion for 5 minutes.",
-              "Add the beef mince over high heat, breaking it up, and brown for 8–10 minutes until no pink remains. Stir in the garlic for 1 minute.",
-              "Add the tomatoes with a pinch of salt and pepper, then simmer on low for 20–25 minutes, stirring occasionally.",
-              "Cook the spaghetti for 10 minutes, or as the packet says, until al dente. Reserve a mugful of pasta water, drain, and toss with the sauce."
+              "Fill a large saucepan with water and bring to the boil while you prep.",
+              "Finely chop the onion and garlic.",
+              "Heat the oil in the frying pan over medium-high heat, then brown the beef mince in two batches for 5–6 minutes each.",
+              "Stir in the onion for 5 minutes until soft, then add the garlic for 1 minute.",
+              "Add the tomatoes with a splash of water, season well, then simmer on low heat for 25 minutes, stirring occasionally.",
+              "Cook the spaghetti in well-salted water for 10–11 minutes until al dente, reserve a mug of pasta water, drain, then toss with the sauce."
             ],
             "pitfalls": [
-              "Crowding the pan with mince steams it grey instead of browning it, so use high heat and let it colour.",
-              "Simmering the sauce for less than 20 minutes leaves it thin and acidic, so let it reduce until thick.",
+              "Crowding the pan makes the beef mince steam and turn grey instead of browning, so cook it in batches.",
+              "Burnt garlic turns bitter and spoils the sauce, so add it for only 1 minute before the tomatoes.",
               "Rinsing the cooked spaghetti washes off the starch, so the sauce slides off instead of clinging."
             ],
-            "tip": "Toss the drained spaghetti in the sauce with a splash of the pasta water so it coats every strand."
+            "tip": "Toss the drained spaghetti in the sauce with a splash of pasta water over low heat for 1 minute so it coats every strand."
           },
           "scores": {
             "answered": 1,
@@ -116,7 +275,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4500.709792000009,
+          "latencyMs": 3958.128792000003,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -124,35 +283,35 @@
             "inputTokens": 2336,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 435,
+            "outputTokens": 446,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009022,
+          "costUsd": 0.009132,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "equipment": [
-              "Large heavy-based frying pan",
-              "Large saucepan with lid",
+              "Large deep frying pan",
+              "Large saucepan",
               "Colander",
               "Wooden spoon",
               "Chef's knife and chopping board"
             ],
             "steps": [
-              "Boil a large pan of salted water on the hob, ready for the spaghetti.",
-              "While the water heats, finely chop the onion and garlic.",
+              "Fill a large saucepan with salted water and bring it to the boil on a high heat.",
+              "Finely chop the onion and garlic while the water heats.",
               "Heat the olive oil in the frying pan over medium heat and soften the onion for 5 minutes.",
-              "Add the garlic for 30 seconds, then the beef mince; brown over high heat for 8–10 minutes, breaking up lumps.",
-              "Stir in the tomatoes, season well and simmer on low heat for 20–25 minutes, stirring occasionally.",
-              "Cook the spaghetti for 10–11 minutes until al dente, reserve a mugful of pasta water, drain, then toss with the sauce."
+              "Add the garlic for 30 seconds, then the beef mince, breaking it up and browning it over high heat for 8–10 minutes.",
+              "Stir in the tomatoes, season well, then simmer on low heat for 20–25 minutes, stirring occasionally.",
+              "Cook the spaghetti for 9–10 minutes in the last stretch of simmering, then reserve a mugful of pasta water and drain."
             ],
             "pitfalls": [
-              "Crowding the pan with mince makes it steam and turn grey instead of browning, so use high heat and a wide pan.",
-              "Rushing the simmer leaves a thin, acidic sauce, so give it at least 20 minutes.",
-              "Rinsing the cooked spaghetti washes off the starch and stops the sauce clinging."
+              "Crowding the pan with mince steams it grey instead of browning it, so use a wide pan and let it sizzle undisturbed.",
+              "Burnt garlic turns the sauce bitter, so add it only after the onion has softened and cook it for no more than 30 seconds.",
+              "Draining the spaghetti and leaving it to sit makes it stick together, so combine it with the sauce straight away."
             ],
-            "tip": "Finish the pasta in the sauce with a splash of the reserved pasta water so it turns glossy and coats every strand."
+            "tip": "Toss the drained spaghetti in the sauce with a splash of the starchy pasta water so it clings to every strand."
           },
           "scores": {
             "answered": 1,
@@ -172,7 +331,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4909.272832999995,
+          "latencyMs": 4101.539916,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -180,11 +339,11 @@
             "inputTokens": 2349,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 490,
+            "outputTokens": 446,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009598,
+          "costUsd": 0.009158,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -196,19 +355,19 @@
               "Small bowl for cracking eggs"
             ],
             "steps": [
-              "Dice the onion and red pepper into 1cm pieces before heating the pan.",
-              "Heat the olive oil in the frying pan over medium heat. Fry the onion and pepper for 6–8 minutes, until soft.",
-              "Stir in the cumin for 30 seconds, then add the tomatoes with a good pinch of salt and pepper.",
-              "Simmer the sauce uncovered for 8–10 minutes, until thick enough to leave a trail when you drag a spoon through it.",
-              "Make four wells in the sauce and crack in the eggs. Cover and cook on low heat for 5–7 minutes, until the whites are set and the yolks still wobble.",
-              "While the eggs cook, slice the bread and warm it in a toaster or under the grill for 2–3 minutes."
+              "Dice the onion and red pepper into 1cm pieces, then heat the oil in the pan over medium heat.",
+              "Fry the onion and pepper for 8–10 minutes, until soft and lightly golden.",
+              "While they soften, slice the bread and crack the eggs into a small bowl.",
+              "Stir in the cumin for 30 seconds, then add the tomatoes and season with salt and pepper.",
+              "Simmer for 8–10 minutes, until thick and jammy, then make four wells and slide in the eggs.",
+              "Cover and cook on low heat for 5–7 minutes, until the whites are set and the yolks still wobble. Serve with the bread."
             ],
             "pitfalls": [
-              "Adding the eggs to a thin, watery sauce makes them sink and spread, so reduce the tomatoes first.",
-              "Cooking the eggs on high heat or for too long gives rubbery whites and hard yolks, so keep the heat low and check early.",
-              "Skipping the seasoning before simmering leaves the tomato sauce flat and slightly sharp, so season at the tomato stage."
+              "Adding eggs to thin, watery sauce makes them sink and break up, so reduce the sauce until it coats a spoon.",
+              "Cooking the eggs on high heat leaves rubbery whites and hard yolks, so keep the heat low and the lid on.",
+              "Skipping the seasoning before the eggs go in leaves the sauce bland, because the eggs can't be seasoned through."
             ],
-            "tip": "Crack each egg into a small bowl first so you can slide it into the sauce gently and avoid broken yolks."
+            "tip": "Warm the bread in a low oven for the last few minutes so it stays crusty and ready for mopping."
           },
           "scores": {
             "answered": 1,
@@ -222,7 +381,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4788.845250000013,
+          "latencyMs": 3871.0993750000052,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -230,11 +389,11 @@
             "inputTokens": 2349,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 458,
+            "outputTokens": 438,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009278,
+          "costUsd": 0.009078,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -243,20 +402,20 @@
               "Chef's knife and chopping board",
               "Wooden spoon",
               "Bread knife",
-              "Small bowl for cracking eggs"
+              "Small bowl for eggs"
             ],
             "steps": [
-              "Dice the onion and red pepper into 1cm pieces before heating the pan.",
-              "Heat the oil in the frying pan over medium heat, then fry the onion and pepper for 6–8 minutes until soft.",
-              "Stir in the cumin for 30 seconds, then add the tomatoes and a pinch of salt.",
-              "Simmer the sauce for 8–10 minutes until thick enough to leave a trail when you drag a spoon through it.",
-              "Make four wells in the sauce, crack in the eggs, cover and cook on low heat for 5–7 minutes until the whites are set.",
-              "While the eggs cook, slice the bread and warm it in a toaster or under the grill; serve straight from the pan."
+              "Dice the onion and red pepper into 1cm pieces.",
+              "Heat the oil in the pan over medium heat, then fry the onion and pepper for 7–8 minutes until soft.",
+              "Stir in the cumin for 30 seconds, then add the tomatoes with a pinch of salt and pepper.",
+              "Simmer the sauce for 8–10 minutes, until thick enough to leave a trail when you drag a spoon through it.",
+              "Make four wells, crack in the eggs, cover and cook on low heat for 5–6 minutes until the whites are set.",
+              "While the eggs cook, slice or warm the bread; serve straight from the pan."
             ],
             "pitfalls": [
-              "Adding the eggs to thin, watery sauce makes them sink and the whites spread, so reduce the sauce first.",
-              "Cooking the eggs on high heat leaves rubbery whites and hard yolks, so keep the heat low and the lid on.",
-              "Skipping the seasoning leaves the tomato sauce flat and acidic, so taste and season before adding the eggs."
+              "Adding the eggs to thin, watery sauce makes them spread and the whites stay runny, so reduce the sauce first.",
+              "Cooking the eggs on high heat leaves the yolks hard and the bases catching, so keep the heat low and covered.",
+              "Under-cooking the pepper and onion leaves the sauce raw and sharp, so soften them for at least 7 minutes."
             ],
             "tip": "Crack each egg into a small bowl first so you can slide it into the sauce without breaking the yolk."
           },
@@ -272,7 +431,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4828.34075000009,
+          "latencyMs": 4262.063208000007,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -280,11 +439,11 @@
             "inputTokens": 2349,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 453,
+            "outputTokens": 466,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009228,
+          "costUsd": 0.009358,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -293,22 +452,22 @@
               "Chef's knife and chopping board",
               "Wooden spoon",
               "Bread knife",
-              "Serving spoon"
+              "Small bowl for eggs"
             ],
             "steps": [
-              "Dice the onion and red pepper into 1cm pieces before heating the pan.",
-              "Heat the oil in the frying pan over medium heat, then fry the onion and pepper for 6–8 minutes, until soft.",
-              "Stir in the cumin for 30 seconds, then add the tomatoes and season with salt and pepper.",
-              "Simmer the sauce for 8–10 minutes, until thick enough to leave a trail when you drag a spoon through it.",
-              "Make four wells in the sauce and crack in the eggs. Cover and cook on low heat for 5–7 minutes, until the whites are set.",
-              "While the eggs cook, slice the bread and warm it in a toaster or under the grill. Serve straight from the pan."
+              "Dice the onion and red pepper into 1cm pieces.",
+              "Fry them in olive oil over medium heat for 8–10 minutes, until soft and lightly golden.",
+              "Stir in the cumin for 30 seconds, then add the tomatoes with a good pinch of salt and pepper.",
+              "Simmer the sauce for 8–10 minutes, until thick and jammy.",
+              "Make four wells in the sauce and crack in the eggs. Cover and cook on low heat for 5–6 minutes, until the whites are set and the yolks wobble.",
+              "While the eggs cook, slice the bread and warm or toast it. Serve straight from the pan."
             ],
             "pitfalls": [
-              "Adding the eggs to thin, watery sauce makes them sink and the whites spread, so reduce the sauce first.",
-              "Cooking the eggs on a high heat or for too long leaves the yolks hard, so keep the heat low and check from 5 minutes.",
-              "Skipping the lid leaves the egg tops raw while the bases overcook, so cover the pan."
+              "Adding eggs to thin, watery sauce makes them sink and the whites spread, so reduce the sauce until it coats a spoon.",
+              "Cooking the eggs on high heat with the lid on turns the yolks hard and chalky, so keep the heat low and check at 5 minutes.",
+              "Under-seasoning the sauce leaves the dish flat, as the eggs and bread dilute the flavour, so taste before adding the eggs."
             ],
-            "tip": "Crack each egg into a small cup first so you can slide it into the sauce without breaking the yolk."
+            "tip": "Crack each egg into a small bowl first so you can slide it gently into the sauce and avoid broken yolks or stray shell."
           },
           "scores": {
             "answered": 1,
@@ -328,7 +487,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5172.180499999988,
+          "latencyMs": 5421.008917000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -336,35 +495,35 @@
             "inputTokens": 2451,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 591,
+            "outputTokens": 601,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.010812,
+          "costUsd": 0.010912,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "equipment": [
               "Large roasting tin",
-              "Deep roasting tray for potatoes",
+              "Heavy roasting tray",
               "12-hole Yorkshire pudding tin",
-              "Large saucepan with colander",
+              "Large saucepans",
               "Meat thermometer"
             ],
             "steps": [
-              "Heat the oven to 220°C. Rub the beef with oil, crushed garlic, rosemary, thyme and pepper, then roast for 20 minutes.",
-              "Lower the oven to 180°C and roast the beef for a further 60–70 minutes for medium. Rest it under foil for 30 minutes.",
-              "While the beef starts, peel and cut the potatoes, parboil for 8–10 minutes, drain and shake roughly. Heat oil in the deep tray.",
-              "Roast the potatoes and peeled, halved parsnips and carrots in hot oil for 60–70 minutes, turning once halfway.",
-              "Whisk the flour, eggs, milk and a pinch of salt into a batter and rest it for 30 minutes. Heat oil in the tin at 220°C for 10 minutes, then pour in the batter and bake for 20–25 minutes.",
-              "While the beef rests, deglaze its tin with the wine, add stock and simmer for 10 minutes. Steam the broccoli for 4–5 minutes and serve with horseradish."
+              "Take the beef out of the fridge 1 hour ahead, rub with oil, garlic, rosemary, thyme and pepper, and heat the oven to 220°C.",
+              "Sear and roast the beef at 220°C for 20 minutes, then drop to 180°C and roast 1 hour for medium, to 55°C inside.",
+              "While the beef roasts, peel and cut the potatoes and parsnips, parboil the potatoes for 8 minutes, then drain and shake roughly.",
+              "Heat oil in the heavy tray until smoking, add the potatoes, parsnips and carrots, and roast for 1 hour 15 minutes, turning once.",
+              "Whisk the flour, eggs and milk with salt into a batter and rest it. When the beef comes out, rest it under foil for 30 minutes.",
+              "Raise the oven to 220°C and heat oil in the tin until smoking, then pour in the batter and bake 20–25 minutes. Meanwhile, simmer the stock and wine with the tin juices for the gravy, steam the broccoli for 4 minutes and serve with the horseradish."
             ],
             "pitfalls": [
-              "Opening the oven during the first 15 minutes of baking makes the Yorkshire puddings collapse, so keep the door shut.",
-              "Carving the beef without a 30-minute rest releases the juices and leaves the meat dry.",
-              "Adding batter to lukewarm fat gives flat, greasy puddings, so wait until the oil is smoking hot."
+              "Opening the oven door during the first 15 minutes of baking makes the Yorkshire puddings collapse, so keep it shut.",
+              "Carving the beef straight from the oven lets the juices run out and leaves the meat dry, so rest it for 30 minutes.",
+              "Putting the batter into lukewarm fat gives flat, greasy puddings, so heat the oil until it smokes first."
             ],
-            "tip": "Take the beef out of the fridge 1 hour before roasting so it cooks evenly, and pull it at 52°C in the centre for medium-rare."
+            "tip": "Dry the parboiled potatoes in the colander for 5 minutes and rough up their edges so they roast extra crisp."
           },
           "scores": {
             "answered": 1,
@@ -378,7 +537,57 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 6411.82024999999,
+          "latencyMs": 5609.758791999993,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2451,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 625,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.011152,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Large roasting tin",
+              "Large roasting tray",
+              "12-hole Yorkshire pudding tin",
+              "Meat thermometer",
+              "Medium saucepan"
+            ],
+            "steps": [
+              "Heat the oven to 220°C. Take the beef out of the fridge, rub with oil, salt, pepper, crushed garlic, rosemary and thyme.",
+              "Peel and chop the potatoes, parboil for 8–10 minutes, then drain and shake to roughen the edges. Peel and chop the carrots and parsnips.",
+              "Roast the beef at 220°C for 20 minutes, then lower to 180°C for about 1 hour for medium. Rest it for 30 minutes under foil.",
+              "While the beef roasts, whisk the batter and rest it. Heat oil in the large tray for 10 minutes, add the potatoes and roast for 60 minutes, turning once. Add the carrots and parsnips with the butter after 20 minutes.",
+              "Raise the oven to 220°C when the beef comes out. Pour batter into the smoking-hot oiled Yorkshire tin and bake for 20–25 minutes without opening the door.",
+              "While the puddings bake, simmer the wine and stock with the beef juices for 10 minutes to make gravy. Steam the broccoli for 4–5 minutes, then carve the beef and serve with horseradish."
+            ],
+            "pitfalls": [
+              "Opening the oven during the first 15 minutes makes the Yorkshire puddings collapse, so keep the door shut.",
+              "Pouring batter into lukewarm fat gives flat, greasy puddings, so heat the oil until it smokes lightly.",
+              "Carving the beef straight from the oven lets the juices run out and leaves the meat dry, so rest it for 30 minutes."
+            ],
+            "tip": "Use the beef's resting time to your advantage: the oven is free for the Yorkshire puddings, and the foil-covered meat stays warm."
+          },
+          "scores": {
+            "answered": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/en-full-sunday-roast-hard",
+          "task": "tips",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 7244.577583999984,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -396,75 +605,25 @@
           "output": {
             "equipment": [
               "Large roasting tin",
-              "Large roasting tray for potatoes",
-              "12-hole Yorkshire pudding tin",
-              "Meat thermometer",
-              "Large saucepan with colander"
-            ],
-            "steps": [
-              "Take the beef out of the fridge 1 hour before cooking, then rub with oil, salt, pepper, crushed garlic, rosemary and thyme.",
-              "Heat the oven to 220°C and roast the beef for 20 minutes. Reduce to 180°C and cook for 1 hour 10 minutes for medium (60°C core).",
-              "While the beef cooks, peel and cut the potatoes, parboil for 8–10 minutes, drain and shake roughly. Whisk the flour, eggs and milk into a smooth batter and rest it.",
-              "Heat oil in the roasting tray, add the potatoes and roast at 200°C for 60 minutes, turning once. Add the parsnips and carrots with butter for the final 40 minutes.",
-              "Rest the beef under foil for 30 minutes. Raise the oven to 230°C, heat oil in the Yorkshire tin until smoking, pour in the batter and bake for 20–25 minutes.",
-              "Deglaze the roasting tin on the hob with the wine, then simmer with the stock for 10 minutes. Steam the broccoli for 4–5 minutes and serve with horseradish."
-            ],
-            "pitfalls": [
-              "Opening the oven door while the Yorkshire puddings rise makes them collapse and turn flat and soggy.",
-              "Carving the beef straight from the oven lets the juices run out and leaves the meat dry, so rest it for 30 minutes.",
-              "Putting potatoes into lukewarm fat gives pale, greasy roasties, so make sure the oil is sizzling hot first."
-            ],
-            "tip": "Roast the beef on a rack of halved onions so the base does not stew and the pan juices turn into richer gravy."
-          },
-          "scores": {
-            "answered": 1,
-            "countsInRange": 1
-          }
-        },
-        {
-          "caseId": "tips/en-full-sunday-roast-hard",
-          "task": "tips",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 6038.279041999951,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 2451,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 627,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.011172,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "equipment": [
-              "Large roasting tin",
               "Large roasting tray",
               "12-hole Yorkshire pudding tin",
               "Meat thermometer",
-              "Large saucepan"
+              "Medium saucepan"
             ],
             "steps": [
-              "Heat the oven to 220°C and take the beef out of the fridge. Rub it with oil, salt, pepper, rosemary and thyme, then sear in the roasting tin on the hob for 5 minutes.",
-              "Roast the beef at 220°C for 20 minutes, then lower to 180°C. Cook for about 1 hour 10 minutes to 55°C in the centre for medium-rare.",
-              "While the beef starts, parboil the potatoes for 8–10 minutes, drain and shake roughly. Mix the batter and rest it for at least 30 minutes.",
-              "Roast the potatoes and parsnips in hot oil on the tray at 200°C for 50–60 minutes, turning once. Add the carrots and garlic after 20 minutes.",
-              "Rest the beef under foil for 30 minutes. Raise the oven to 220°C, heat oil in the pudding tin for 10 minutes, then pour in the batter and bake for 20–25 minutes.",
-              "While the puddings bake, deglaze the roasting tin with wine and stock, then simmer for 10 minutes. Steam the broccoli for 4–5 minutes, then carve the beef and serve with horseradish."
+              "Heat the oven to 220°C, then take the beef out of the fridge. Rub it with oil, salt, pepper, rosemary and thyme.",
+              "Whisk the flour, eggs, milk and a pinch of salt into a smooth batter. Rest it for at least 30 minutes.",
+              "Parboil the peeled potatoes for 8–10 minutes, drain and shake roughly. Roast them in hot oil on a tray at the top of the oven for 60–70 minutes, turning once.",
+              "Sear the beef in the roasting tin for 15 minutes at 220°C, then lower to 180°C. Roast for about 1 hour for medium, to 55–60°C in the centre.",
+              "While the beef roasts, toss the carrots and parsnips with butter and garlic. Add them to the oven for the last 40 minutes.",
+              "Rest the beef under foil for 30 minutes. Heat the Yorkshire tin with oil at 220°C for 10 minutes, pour in the batter and bake 20–25 minutes. Meanwhile make gravy from the beef tin juices, wine and stock, and steam the broccoli for 4–5 minutes."
             ],
             "pitfalls": [
-              "Opening the oven while the Yorkshire puddings rise makes them collapse, so keep the door shut for 20 minutes.",
-              "Putting the batter into lukewarm fat gives flat, greasy puddings, so heat the oil until it is smoking hot first.",
+              "Opening the oven door while the Yorkshire puddings rise makes them collapse, so keep it shut for the first 20 minutes.",
+              "Pouring batter into lukewarm fat gives flat, greasy puddings, so wait until the oil is smoking hot.",
               "Carving the beef straight from the oven lets the juices run out and leaves the meat dry, so rest it for 30 minutes."
             ],
-            "tip": "Roughen the parboiled potatoes in the colander and put them into preheated oil so the edges turn extra crisp."
+            "tip": "Use the beef resting time to free up the oven for the Yorkshire puddings, which need the highest heat of the whole meal."
           },
           "scores": {
             "answered": 1,
@@ -484,42 +643,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3499.689458000008,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 2285,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 225,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.00682,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "pitfalls": [
-              "Browning chicken straight from the yoghurt marinade with lots of clinging liquid makes it steam rather than colour, so scrape off the excess and brown in two batches.",
-              "Adding the tomatoes and simmering without tasting means the sauce can turn sharp and acidic, so season with salt and a pinch of sugar near the end.",
-              "Cooking the rice without rinsing it first leaves it gluey and clumpy, so rinse 300g until the water runs almost clear."
-            ],
-            "tip": "Finish the curry with a spoonful of yoghurt or a splash of double cream and a pinch of garam masala off the heat for a rounder, more fragrant sauce."
-          },
-          "scores": {
-            "answered": 1,
-            "countsInRange": 1
-          }
-        },
-        {
-          "caseId": "tips/en-supplementary-chicken-curry",
-          "task": "tips",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 3734.068082999962,
+          "latencyMs": 3282.1662079999987,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -536,11 +660,46 @@
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Adding the tomatoes straight after browning leaves charred marinade stuck to the pan, which turns bitter; deglaze with a splash of water and scrape it up first.",
-              "Simmering at a hard boil splits the yoghurt into grainy curds and toughens the chicken, so keep the heat low enough for gentle bubbles only.",
-              "Cooking the rice without rinsing it, or stirring it while it cooks, gives sticky, clumped grains instead of fluffy ones; rinse until the water runs clear and leave the lid on."
+              "Adding the chicken straight from the marinade into a crowded pan steams it rather than browning it, so brown it in two batches and scrape off excess yoghurt first.",
+              "Pouring cold tomatoes onto a boiling base and then boiling hard can make the yoghurt residue split and turn the sauce grainy, so keep it at a gentle simmer.",
+              "Leaving the rice unrinsed and unrested gives sticky, clumped grains, so rinse 300g until the water runs clear and rest it, covered, for 5 minutes after cooking."
             ],
-            "tip": "Start the rice when the chicken goes into the sauce, then finish the curry with a squeeze of lemon juice and a handful of chopped coriander to lift the flavour."
+            "tip": "Finish with a small spoonful of yoghurt or a splash of double cream and a pinch of salt off the heat to round out the acidity of the tomatoes."
+          },
+          "scores": {
+            "answered": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/en-supplementary-chicken-curry",
+          "task": "tips",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3156.227958000003,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2285,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 254,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00711,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "pitfalls": [
+              "Adding the tomatoes straight from the can without cooking them down means the sauce tastes sharp and thin, so let it bubble uncovered for the last 5–10 minutes until it thickens.",
+              "Frying the onion over too high a heat leaves bitter, scorched edges rather than sweetness, so keep it at medium and add a splash of water if it catches.",
+              "Cooking the rice at the same time as the curry without a plan leaves it sticky or cold, so rinse it until the water runs clear and start it about 15 minutes before the curry finishes."
+            ],
+            "tip": "Stir a spoonful of yoghurt or a splash of double cream into the curry off the heat at the end to mellow the spice and give a glossy finish, and scatter over chopped coriander."
           },
           "scores": {
             "answered": 1,
@@ -554,7 +713,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3686.5553330000257,
+          "latencyMs": 2767.038542000024,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -562,20 +721,20 @@
             "inputTokens": 2285,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 229,
+            "outputTokens": 253,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00686,
+          "costUsd": 0.0071,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Adding the chicken with its wet marinade straight to the pan makes it stew rather than brown, so scrape off the excess yoghurt first and brown in two batches.",
-              "Pouring cold yoghurt-coated chicken into a boiling sauce can make the yoghurt split and look grainy, so keep the simmer gentle at a low bubble.",
-              "Cooking rice without rinsing it and without a measured water ratio gives sticky or uneven grains, so rinse 300g until the water runs clear and use about 450ml water."
+              "Adding the chicken straight from the marinade to a pan that is not hot enough steams it grey instead of browning it, so wipe off excess yoghurt and let the pan heat up first.",
+              "Pouring in the tomatoes while the pan is still very hot, or boiling the sauce hard, can make the yoghurt on the chicken split and turn grainy; keep it at a gentle simmer.",
+              "Cooking the rice with no seasoning or rinsing leaves it sticky and bland, so rinse 300g until the water runs clear and cook it in about 600ml of salted water while the curry simmers."
             ],
-            "tip": "Finish with a squeeze of lemon juice and a handful of chopped coriander off the heat to lift the flavour of the sauce."
+            "tip": "Finish with a small squeeze of lemon juice and a handful of chopped coriander off the heat to lift the flavour of the sauce."
           },
           "scores": {
             "answered": 1,
@@ -595,7 +754,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3723.352416000009,
+          "latencyMs": 3057.4700840000005,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -603,20 +762,20 @@
             "inputTokens": 2243,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 247,
+            "outputTokens": 256,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006956,
+          "costUsd": 0.007046,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Soaking the rice noodles in boiling water for too long, or adding them to the wok still dripping, makes them mushy and clumpy; soak until just pliable, drain well and toss with a little oil.",
-              "Adding the soy sauce straight onto the noodles in one spot makes them salty in patches and dark in colour; pour it around the edge of the wok and toss quickly.",
-              "Cutting the broccoli into large, uneven florets leaves some raw and others overcooked; cut them to about 3cm and blanch for 1 minute, or add a splash of water and cover briefly."
+              "Cooking the rice noodles in the wok without soaking or boiling them first leaves them hard in the middle or gummy, so soak them in hot water until just tender, then drain well.",
+              "Adding soy sauce to a crowded, cool wok makes the vegetables stew and the tofu coating turn soggy, so keep the heat high and sauce the dish only at the end.",
+              "Crowding the frying pan with tofu cubes drops the oil temperature and the cornstarch coating sticks and tears, so fry in 2 batches with 1cm of oil heated to about 180°C."
             ],
-            "tip": "Add a small splash of rice vinegar or lime juice off the heat to lift the soy and keep the cornstarch coating tasting bright."
+            "tip": "Cut the broccoli into small, even florets and add 2 tablespoons of water to the wok for the last minute, covered, so it turns tender-crisp and bright green."
           },
           "scores": {
             "answered": 1,
@@ -630,7 +789,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3811.0742079999764,
+          "latencyMs": 3239.4269579999964,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -638,20 +797,20 @@
             "inputTokens": 2243,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 253,
+            "outputTokens": 274,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.007016,
+          "costUsd": 0.007226,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Soaking the rice noodles in boiling water for too long, or cooking them fully before the wok, leaves them mushy and clumpy; soak until just pliable, drain well and toss with a little oil.",
-              "Adding all the soy sauce straight onto the noodles makes them stick and turn unevenly salty; mix it with 2–3 tbsp of water first and pour it around the edge of the wok.",
-              "Cutting the broccoli into large, uneven florets leaves some pieces raw while others overcook; cut them to about 3cm and keep the red pepper in similar-sized strips."
+              "Cooking the rice noodles straight in the wok without soaking or boiling them first leaves them hard in places and gummy in others, so soak or boil them to just tender and drain well beforehand.",
+              "Adding the soy sauce while the tofu is still in the pan, or leaving the crisp tofu to sit in the sauce, turns the coating soggy, so keep the tofu separate until the final 30 seconds of tossing.",
+              "Overcrowding the frying pan with all the tofu at once drops the temperature and makes the cornstarch coating patchy and stuck, so fry in two batches with a thin layer of hot oil."
             ],
-            "tip": "Add a splash of water to the wok and cover for 1 minute after the broccoli goes in, so it steams to tender-crisp without needing extra oil."
+            "tip": "Cut the broccoli into small florets of about 3cm and add a splash of water to the wok for the last minute, covered, so the stalks turn tender-crisp without extra pans."
           },
           "scores": {
             "answered": 1,
@@ -665,7 +824,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3720.729667000007,
+          "latencyMs": 3381.461958,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -673,23 +832,182 @@
             "inputTokens": 2243,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 244,
+            "outputTokens": 257,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006926,
+          "costUsd": 0.007056,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Soaking the rice noodles in boiling water for too long, or cooking them fully before the wok, leaves them soft and prone to breaking up; soak until just pliable, then drain well.",
-              "Pouring all the soy sauce straight onto the hot wok makes it burn and turn bitter, and the noodles clump; mix it with 2–3 tbsp of water first and add it off the heat's peak.",
-              "Crowding the pan when frying the tofu steams it instead of crisping it; fry in two batches so the cubes don't touch."
+              "Cooking the rice noodles in the wok without soaking or boiling them first leaves them hard in places and gummy in others, so soak or boil them until just tender and drain well before they go in.",
+              "Adding the soy sauce straight onto the crisp tofu, or leaving the tofu in the pan too long at the end, softens the coating, so toss it through for under 30 seconds.",
+              "Putting large broccoli florets in raw means the outsides burn before the stalks soften, so cut them into pieces of about 2–3cm and add a splash of water to steam briefly."
             ],
-            "tip": "Cut the broccoli into small, even florets and add 2 tbsp of water with a lid on for 1 minute, so the stalks turn tender without overcooking the red pepper."
+            "tip": "Dry the pressed tofu with kitchen paper and shake off excess cornstarch before frying in a thin layer of hot oil, as this gives a thin, even crust that stays crisp."
           },
           "scores": {
             "answered": 1,
+            "countsInRange": 1
+          }
+        }
+      ]
+    },
+    "tips/et-full-adjusted-vahem-soola": {
+      "promptHash": "89591a761549f7f89be3001528d0ba5d9e7536f94fdf88756cb8d25edf9a1f53",
+      "requestHash": "86e156cf671632f9d7be0b3c79485e86ae7fc3d391656ede2bc91488bd8d65dc",
+      "calls": [
+        {
+          "caseId": "tips/et-full-adjusted-vahem-soola",
+          "task": "tips",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 8411.572708,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2082,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 619,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.010354,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Suur sügav pann kaanega",
+              "Keskmine kaanega pott riisi jaoks",
+              "Terav nuga ja lõikelaud",
+              "Jäme riiv porgandi jaoks",
+              "Puidust lusikas"
+            ],
+            "steps": [
+              "Pane riisi keema esimesena: loputa riis, lisa potti vesi ja keeda kaane all 12–15 minutit, ära lisa vette soola.",
+              "Haki sibul peenelt ja riivi porgand jämedalt, lõika kanafilee 2 cm kuubikuteks.",
+              "Kuumuta pann keskmisel kuumusel, hauta sibul ja porgand 5 minutit pehmeks.",
+              "Lisa kana ja prae 5–6 minutit, kuni see on igalt poolt valkjas.",
+              "Murra puljongikuubik 200 ml kuuma vette, lisa pannile ja hauta kaane all 8–10 minutit. Maitse enne soolamist, kuubik annab juba piisavalt soola.",
+              "Sega hapukoor kuumutatud kastmesse, soojenda 1–2 minutit ilma keetmata ja serveeri riisiga."
+            ],
+            "pitfalls": [
+              "Ära lisa kanale ega riisile lisasoola enne maitsmist: puljongikuubik on soolane ja väikesele lapsele läheb roog liiga soolaseks.",
+              "Ära keeda kastet pärast hapukoore lisamist: hapukoor lõheneb ja kaste muutub tükiliseks.",
+              "Ära prae kanatükke liiga kaua: filee muutub kuivaks ja kõvaks."
+            ],
+            "tip": "Kui laps sööb kaasa, kasuta pool puljongikuubikut ja lisa maitseks natuke pipart või tilli, siis jääb roog hoopis vähem soolane."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/et-full-adjusted-vahem-soola",
+          "task": "tips",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 8117.669209,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2082,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 600,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.010164,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Suur sügav pann kaanega",
+              "Keskmise suurusega kaanega pott riisi jaoks",
+              "Terav nuga ja lõikelaud",
+              "Jäme riiv",
+              "Puulusikas"
+            ],
+            "steps": [
+              "Pane riis potti, vala peale külma vett ja keeda kaane all 12–15 minutit pehmeks. Soola vette vaid näpuotsatäis või jäta üldse soolamata.",
+              "Haki sibul peeneks ja riivi porgandid jämedalt, kuni vesi keeb.",
+              "Lõika kanafilee 2 cm tükkideks ja prae kuumal pannil õlis 5–6 minutit kuldseks.",
+              "Lisa sibul ja porgand ning hauta 5 minutit pehmeks.",
+              "Lahusta puljongikuubik 200 ml kuumas vees, vala pannile ja hauta kaane all 8 minutit. Sega sisse hapukoor ja soojenda 2 minutit, ära lase keema.",
+              "Maitse kaste enne lõppu ja lisa soola vaid vajadusel, puljongikuubik annab juba soolast maitset. Serveeri riisiga."
+            ],
+            "pitfalls": [
+              "Ära pane puljongikuubikut ja lisaks veel soola kohe algul: kaste muutub liiga soolaseks ja väikesele lapsele ei sobi.",
+              "Ära keeda kastet pärast hapukoore lisamist: hapukoor hakkab kalgenema.",
+              "Ära prae kanatükke liiga kaua: liha kuivab ja muutub kõvaks."
+            ],
+            "tip": "Soola kaste alles lõpus, vajadusel lisa laua peal täiskasvanutele, et väike laps saaks sama toitu vähese soolaga."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
+            "countsInRange": 1
+          }
+        },
+        {
+          "caseId": "tips/et-full-adjusted-vahem-soola",
+          "task": "tips",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 8608.549499999994,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2082,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 605,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.010214,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "equipment": [
+              "Kaanega keskmine pott riisi jaoks",
+              "Suur sügav pann või kastrul kaanega",
+              "Terav nuga ja lõikelaud",
+              "Jäme riiv porgandi jaoks",
+              "Puidust lusikas või spaatel"
+            ],
+            "steps": [
+              "Pane riis koos veega kaanega potti keema ja lisa puljongikuubik vaid poole kuubiku ulatuses, et soola jääks vähem.",
+              "Haki sibul peenelt ja riivi porgand jämedalt, samal ajal kui riisivesi kuumeneb.",
+              "Lõika kanafilee 2 cm kuubikuteks ja kuumuta pannil õli.",
+              "Prae kana keskmisel kuumusel 5–6 minutit, kuni pind on valge ja kergelt pruunistunud.",
+              "Lisa sibul ja porgand ning hauta kaane all 8–10 minutit, kuni köögivili on pehme.",
+              "Sega hapukoor juurde, kuumuta 2–3 minutit ilma keetmata, maitse ja lisa soola ainult vajadusel. Serveeri valmis riisiga."
+            ],
+            "pitfalls": [
+              "Ära lisa puljongikuupi tervelt ja soola peale: kuup on juba soolane ning roog läheb väikesele lapsele liiga soolaseks.",
+              "Ära keeda hapukoort kõrgel kuumusel: see hakkab kokku kerkima ja kaste muutub tükiliseks.",
+              "Ära prae kanatükke liiga kaua: filee kuivab ja muutub kummiseks."
+            ],
+            "tip": "Maitsesta roog alles lõpus ja lisa laua peal täiskasvanutele soola eraldi, siis saab väike laps sama toitu ilma lisasoolata."
+          },
+          "scores": {
+            "answered": 1,
+            "followsNote": 1,
             "countsInRange": 1
           }
         }
@@ -706,7 +1024,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8690.286499999987,
+          "latencyMs": 9011.193082999998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -714,11 +1032,11 @@
             "inputTokens": 1961,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 615,
+            "outputTokens": 671,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.010072,
+          "costUsd": 0.010632,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -727,22 +1045,22 @@
               "Terav nuga ja lõikelaud",
               "Puulusikas",
               "Kartulikoorija",
-              "Väike pott odrakruubi keetmiseks"
+              "Väike pott odrakruubi eelkeetmiseks"
             ],
             "steps": [
-              "Leota odrakruupe külmas vees, kuni alustad ülejäänud tööd, ja nõruta enne keetmist.",
+              "Leota odrakruupe külmas vees ja pane hapukapsas kurnis nõrguma; vajadusel loputa kapsast, kui see on väga hapu.",
               "Lõika sealiha 3 cm kuubikuteks ja haki sibul peeneks.",
-              "Prae liha potis kuumas rasvas pruuniks, lisa sibul ja prae veel 3–4 minutit.",
-              "Lisa nõrutatud hapukapsas, odrakruubid, loorberilehed ja nii palju vett, et kate on peaaegu kaetud, ning hauta kaane all madalal kuumusel 1 tund.",
-              "Koori ja tükelda kartulid ning lisa potti, kui kruubid ja kapsas on pooleldi pehmed, siis hauta veel 30–40 minutit.",
-              "Sega aeg-ajalt, lisa vajadusel vett ja maitsesta sooläga, kuni kruubid on pehmed ja roog paks."
+              "Prae liha poti põhjas kuumas rasvas igast küljest pruuniks, siis lisa sibul ja prae 2–3 minutit pehmeks.",
+              "Lisa hapukapsas, loorberilehed ja kurnatud odrakruubid, kalla peale vett nii, et see katab poole sisust, ja hauta kaane all vaiksel tulel 1 tund.",
+              "Kuni pott podiseb, kooritud kartulid lõika 3 cm tükkideks ja lisa potti, kui kapsas on veerand tunni pärast pooleldi pehme.",
+              "Hauta veel 45–60 minutit, kuni liha, kruubid ja kartul on pehmed, sega aeg-ajalt ja lisa vajadusel vett; maitsesta lõpus soolaga."
             ],
             "pitfalls": [
-              "Ära soola enne hapukapsa maitsmist: hapukapsas on juba soolane ja roog läheb liiga soolaseks.",
-              "Ära jäta potti järelevalveta ilma vedelikku kontrollimata: kruubid imavad vee endasse ja roog kõrbeb põhja.",
-              "Ära lisa kartuleid liiga vara: need keevad pudruks ja roog kaotab tekstuuri."
+              "Ära soola enne hauduma panekut: hapukapsas ja liha annavad soolsust juurde ning roog võib minna liiga soolaseks.",
+              "Ära jäta potti järelevalveta ilma vedelikuta: kruubid ja kapsas kleepuvad põhja ja kõrbevad.",
+              "Ära lõika kartuleid liiga väikeseks ega lisa liiga vara: need keevad pudruks ja roog kaotab konsistentsi."
             ],
-            "tip": "Mulgikapsad maitsevad järgmisel päeval veel paremini, kui lasta neil üle öö hästi läbi tõmmata ja siis uuesti soojendada."
+            "tip": "Mulgikapsad maitsevad järgmisel päeval veel paremini, sest maitsed jõuavad üksteisega kokku sulada."
           },
           "scores": {
             "answered": 1,
@@ -756,7 +1074,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 9266.111083000025,
+          "latencyMs": 8758.018208000009,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -764,35 +1082,35 @@
             "inputTokens": 1961,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 633,
+            "outputTokens": 660,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.010252,
+          "costUsd": 0.010522,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "equipment": [
               "Suur paks põhjaga kaanega pott",
               "Terav nuga ja lõikelaud",
+              "Kartulikoorija",
               "Puulusikas",
-              "Kaanega väike pott odrakruupide jaoks",
-              "Kartulikoorija"
+              "Kartulipuder või kartulituhker"
             ],
             "steps": [
-              "Leota odrakruupe külmas vees vähemalt 1 tund, parem üleöö, ja nõruta enne kasutamist.",
-              "Haki sibul ja lõika sealiha 3 cm kuubikuteks.",
-              "Prae liha potis kuumal rasval igast küljest pruuniks, lisa sibul ja prae 2–3 minutit pehmeks.",
-              "Lisa nõrutatud hapukapsas, odrakruubid, loorberilehed ja nii palju vett, et see katab poole potist. Kuumuta keemiseni, keera kuumus madalaks ja hauta kaane all 1,5 tundi.",
-              "Kooli ja tükelda kartulid 3 cm tükkideks ning lisa potti, kui hautamisest on jäänud umbes 40 minutit.",
-              "Hauta, kuni kruubid ja kartul on pehmed ning liha laguneb kahvliga. Sega aeg-ajalt ja lisa vajadusel kuuma vett."
+              "Leota odrakruupe külmas vees, kui neil on selleks aega, ja loputa need enne keetmist läbi.",
+              "Lõika sealiha 3 cm kuubikuteks ja haki sibul peeneks.",
+              "Prae liha potis kuumal rasval kuldpruuniks, vajadusel kahes jaos, ja lisa sibul viimase 2 minuti jooksul.",
+              "Lisa hapukapsas, odrakruup, loorberilehed ja nii palju vett, et see katab need peaaegu täielikult. Lase keema tõusta, kata kaanega ja hauta madalal tulel 1 tund.",
+              "Kooru ja tükelda kartulid, lisa potti ning hauta veel 40–50 minutit, kuni kruubid ja kartul on pehmed.",
+              "Sega aeg-ajalt ja lisa vajadusel kuuma vett. Lõpuks muserda osa kartuleid lusika või tuhkriga, et roog muutuks paksuks, ja maitsesta soolaga."
             ],
             "pitfalls": [
-              "Ära jäta odrakruupe leotamata: need jäävad kõvaks ja hautamine venib tunde pikemaks.",
-              "Ära lisa kartuleid liiga vara: need keevad pudruks ja kapsahautis kaotab ilme.",
-              "Ära jäta potti järelevalveta ilma vedelikku kontrollimata: kruubid imavad vett ja hautis kõrbeb põhja."
+              "Ära jäta potti järelvalveta ilma vedelikku kontrollimata: põhi kõrbeb kergesti ära ja roog hakkab kibedalt maitsema.",
+              "Ära lisa kartuleid liiga vara: need keevad pudruks ja roog kaotab oma struktuuri.",
+              "Ära jäta hapukapsast loputamata, kui see on väga hapu: roog võib tulla liiga terav ja soolane."
             ],
-            "tip": "Hauta mulgikapsaid ahjus 160 °C juures kaanega potis, siis ei kõrbe põhi ja maitsed segunevad ühtlaselt."
+            "tip": "Lase valmis mulgikapsastel enne serveerimist 10–15 minutit kaane all seista, siis tõmbuvad maitsed kokku ja konsistents muutub paremaks."
           },
           "scores": {
             "answered": 1,
@@ -806,7 +1124,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8394.520082999952,
+          "latencyMs": 7789.899124999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -814,11 +1132,11 @@
             "inputTokens": 1961,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 607,
+            "outputTokens": 577,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.009992,
+          "costUsd": 0.009692,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -826,23 +1144,23 @@
               "Suur paks põhjaga kaanega pott",
               "Terav nuga ja lõikelaud",
               "Puulusikas",
-              "Kartulikoorija",
-              "Kurn odrakruupide loputamiseks"
+              "Väike pott odrakruupide keetmiseks",
+              "Kartulikoorija"
             ],
             "steps": [
-              "Leota odrakruupe külmas vees ja loputa need enne keetmist kurnis läbi.",
-              "Haki sealiha 3 cm tükkideks ja sibul peeneks.",
-              "Prae sealiha potis kuumas rasvas kõigilt külgedelt pruuniks, lisa sibul ja prae 3–4 minutit pehmeks.",
-              "Lisa hapukapsas, odrakruubid, loorberilehed ja nii palju vett, et see katab poole sisust, ning hauta kaane all madalal kuumusel 1,5 tundi.",
-              "Koori kartulid, lõika need 3 cm tükkideks ja lisa potti, kui hautamist on jäänud umbes 30–40 minutit.",
-              "Sega aeg-ajalt läbi, lisa vajadusel vett ja maitsesta soolaga. Eemalda loorberilehed enne serveerimist."
+              "Leota odrakruupe külmas vees, kuni alustad ülejäänud toiduvalmistamist, ja loputa need enne keetmist.",
+              "Lõika sealiha 3 cm kuubikuteks ja haki sibul peeneks.",
+              "Prae liha potis kuumas rasvas kuldpruuniks ja lisa sibul, prae 2–3 minutit pehmeks.",
+              "Lisa hapukapsas, loorberilehed ja nii palju vett, et see katab liha poolenisti, kata kaanega ja hauta madalal kuumusel 40 minutit.",
+              "Lisa loputatud odrakruubid ja hauta veel 30 minutit, sega aeg-ajalt ja lisa vajadusel vett.",
+              "Prae või keeda kartulid eraldi pehmeks, 20–25 minutit, ja serveeri need kapsaste kõrvale."
             ],
             "pitfalls": [
-              "Ära lisa kartuleid liiga vara: need keevad pudruks ja roog kaotab oma tekstuuri.",
-              "Ära jäta potti ilma järelevalveta ega kuumuta liiga kõrgel: kruubid kleepuvad põhja külge kinni ja kõrbevad.",
-              "Ära soola enne hautamise lõppu: hapukapsas ja liha annavad ise soolasust ning roog võib minna liiga soolaseks."
+              "Ära jäta odrakruupe loputamata: tärklis teeb roa liiga limaseks ja kleepuvaks.",
+              "Ära hauta liiga kõrgel kuumusel ega ilma vedelikuta: kapsas kõrbeb põhja ja muutub kibedaks.",
+              "Ära jäta liha pruunistamata: roog jääb lamedama maitsega."
             ],
-            "tip": "Lase valmis mulgikapsastel enne serveerimist 10 minutit kaane all seista, siis imavad kruubid maitsed paremini sisse."
+            "tip": "Lase valmis mulgikapsastel enne serveerimist 10 minutit kaane all seista, siis tõmbavad maitsed paremini kokku."
           },
           "scores": {
             "answered": 1,
@@ -862,7 +1180,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 6054.55012499998,
+          "latencyMs": 4216.898832999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -870,20 +1188,20 @@
             "inputTokens": 1896,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 316,
+            "outputTokens": 242,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006952,
+          "costUsd": 0.006212,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära jäta kartuliviile paksemaks kui 5 mm: paksemad viilud jäävad 20 minutiga seest toorteks, õhemad aga kuivavad ja kõrbevad ära.",
-              "Ära pane kartuleid ahju kuivalt: ilma oliiviõlita ja soolata kleepuvad viilud plaadi külge ning jäävad maitsetuks ja kahvatuks.",
-              "Ära pane lõhet kartulitele külmkapikülmalt ja nahk üleval märjalt: külm kala küpseb ebaühtlaselt ning märg pind aurutab, selle asemel et kergelt pruunistuda."
+              "Ära jäta kartuliviile paksuks (üle 5 mm): 20 minutiga ei küpse need läbi ja lõhe on valmis enne kartuleid.",
+              "Ära pane kartuleid ahju ilma õli ja soolata: viilud kuivavad, kleepuvad plaadile kinni ega saa maitset.",
+              "Ära lisa lõhet külmkapi külmana otse kuumadele kartulitele: väljast kuivab ja seest jääb toorem."
             ],
-            "tip": "Kontrolli lõhe küpsust 15. minutil: kala on valmis, kui paksem koht on 56–58 °C ja liha laguneb kahvliga kihiti, siis ei jää see kuiv."
+            "tip": "Pane lõhe nahaga pool allapoole ja tilguta peale veidi oliiviõli, siis jääb kala mahlane ja nahk ei kleepu külge."
           },
           "scores": {
             "answered": 1,
@@ -897,7 +1215,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5591.397624999983,
+          "latencyMs": 4397.03237500001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -905,20 +1223,20 @@
             "inputTokens": 1896,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 299,
+            "outputTokens": 274,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006782,
+          "costUsd": 0.006532,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära jäta kartuliviile ilma õlita: ilma oliiviõli või muu õlita kleepuvad need plaadi külge ja jäävad kuivaks.",
-              "Ära lõika kartuliviile liiga paksuks (üle 5 mm): 20 minutiga ei küpse need läbi ja lõhe on enne valmis kui kartul.",
-              "Ära pane lõhet ahju külmkapikülmalt ja nahk allpool märjana: lõhe küpseb ebaühtlaselt ja nahk jääb limaseks, kuivata filee enne paberiga."
+              "Ära lõika kartuliviile liiga paksuks (üle 5 mm): need jäävad 20 minuti pärast keskelt toored, kui lõhe peale läheb.",
+              "Ära jäta kartuleid ilma õlita ahjuplaadile: viilud kleepuvad külge ja kuivavad servadest, mitte ei pruunistu.",
+              "Ära pane lõhet külmkapi külmana otse kuumadele kartulitele: filee küpseb ebaühtlaselt ja keskosa jääb toorem kui servad."
             ],
-            "tip": "Lõika lõhe 3 portsjoniks ja kontrolli küpsust, kui filee paksuim koht on 60 °C juures või muutub kahvliga hõlpsasti kihiliseks, siis jääb kala mahlane."
+            "tip": "Kuivata lõhefilee enne maitsestamist paberrätikuga ja võta see 15 minutit varem külmkapist välja, siis küpseb liha ühtlaselt ja jääb mahlane."
           },
           "scores": {
             "answered": 1,
@@ -932,7 +1250,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5401.030416000052,
+          "latencyMs": 4490.565791000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -940,20 +1258,20 @@
             "inputTokens": 1896,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 276,
+            "outputTokens": 269,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006552,
+          "costUsd": 0.006482,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära jäta kartuliviile paksemaks kui 5 mm: paksemad viilud ei küpse 20 minutiga läbi ja jäävad keskelt toored.",
-              "Ära pane kartuleid ahju kuiva ja maitsestamata kujul: ilma õli ja soolata jäävad viilud kuivaks ning maitsetuks.",
-              "Ära pane külmkapikülmat lõhet otse kuumadele kartulitele: väliskiht kuivab ära enne, kui sisu küpseb, nii et kuiva kala saab sul lihtsalt."
+              "Ära jäta kartuliviile paksemaks kui 5 mm: 20 minutiga ei küpse need läbi ja lõhe on valmis enne kartuleid.",
+              "Ära pane kartuleid ilma õli ja soolata ahju: need kuivavad, jäävad kahvatuks ja kleepuvad plaadi külge.",
+              "Ära lisa sidrunimahla kartulitele enne lõhe peale panemist ega jäta kala sidrunimahlaga seisma: hape muudab kala pinna kuivaks ja kõvaks."
             ],
-            "tip": "Kuivata lõhefilee paberrätikuga ja lase toasooja 10 minutit seista, siis küpseb see ühtlasemalt ning jääb mahlaseks."
+            "tip": "Kuivata lõhefilee paberrätikuga ja pane see nahk allpool kartulite peale, siis jääb kala mahlane ja nahk ei kleepu kinni."
           },
           "scores": {
             "answered": 1,
@@ -973,7 +1291,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5266.152834000008,
+          "latencyMs": 4484.863541999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -981,20 +1299,20 @@
             "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 321,
+            "outputTokens": 266,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.007056,
+          "costUsd": 0.006506,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära vala sulatatud võid kuumalt taigna sisse: muna hakkab osaliselt hanguma ja taina sisse jäävad tükikesed.",
-              "Ära pane taigna sisse korraga kogu jahu ilma vispeldamata: tekivad ttükid, mida hiljem raske lahti saada.",
-              "Ära keera pann liiga kuumaks ega küpseta esimest pannkooki enne, kui pann on korralikult soojenenud: taigen kas kõrbeb pealt või jääb kleepuma ja rebeneb ümberpööramisel."
+              "Ära vala sulavõid taignasse liiga kuumana: muna hakkab kokku kerkima ja taigen jääb tombuliseks.",
+              "Ära pane taignat pannile enne, kui pann on korralikult kuum: pannkook jääb kahvatuks, imab rasva ja rebeneb keerates.",
+              "Ära tee pannkooke liiga paksuks ega vala pannile liiga palju taignat korraga: need küpsevad keskelt toorelt ja ei veni õhukeseks."
             ],
-            "tip": "Määri pann õhukeselt võiga ainult esimese pannkoogi jaoks, sest taignas on juba või ja järgmised ei kleepu, ning vala 60–70 ml taent korraga ja keera pann kiiresti ringi, siis jäävad koogid ühtlaselt õhukesed."
+            "tip": "Määri pann esimese pannkoogi jaoks kergelt võiga ja kalla taigen kulbiga (umbes 60–70 ml) pannile, keera pann kohe ringi, et taigen laiali valguks."
           },
           "scores": {
             "answered": 1,
@@ -1008,7 +1326,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3983.974291999999,
+          "latencyMs": 4356.612292000005,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1016,20 +1334,20 @@
             "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 254,
+            "outputTokens": 245,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006386,
+          "costUsd": 0.006296,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära vala sulatatud võid taignasse kuumana: see võib muna osaliselt kinni keeta ja tainas jääb tükiline.",
-              "Ära küpseta liiga kuumal pannil: pannkoogi servad pruunistuvad enne, kui keskosa kuivab, ja koogid rebenevad keeramisel.",
-              "Ära vala pannile liiga palju taignat korraga: koogid jäävad paksuks ja kummised, mitte õhukesed ja pitsilised."
+              "Ära vala sulavõid taignasse kuumana: see võib muna kohupiimataoliseks muuta ja taigen jääb tombuline.",
+              "Ära vala taignat pannile liiga palju korraga: pannkook jääb paks ja kummine ning ei keeras ilusti ümber.",
+              "Ära hoia panni liiga kuumana: pannkook pruunistub väljastpoolt kiiresti, aga sisu jääb toores ja serv kõrbeb."
             ],
-            "tip": "Esimene pannkook on proovikook: kui see jääb liiga paks, lisa taignale 30–50 ml piima, ja kui rebeneb, lase taignal veel 5 minutit seista."
+            "tip": "Määri esimese pannkoogi jaoks pann õhukeselt võiga ja tee see proovikook: kui see on liiga paks, vesinda taigent 2–3 spl piimaga."
           },
           "scores": {
             "answered": 1,
@@ -1043,7 +1361,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4692.4692909999285,
+          "latencyMs": 4505.651083000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1051,20 +1369,20 @@
             "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 286,
+            "outputTokens": 278,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.006706,
+          "costUsd": 0.006626,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "pitfalls": [
-              "Ära vala sulatatud võid kuumalt taignasse: muna hakkab kokku tõmbuma ja taignasse jäävad tombud.",
-              "Ära küpseta pannkooke liiga kuumal pannil: pealt jääb tainas totoreks, alt kõrbeb ära ja keskelt jääb toores.",
-              "Ära keera pannkooki ümber enne, kui serv on kuiv ja pind kaotab läikiva märja välimuse: koogid rebenevad ja kleepuvad pannile."
+              "Ära vala sulatatud võid taignasse kuumana: see võib munad osaliselt kinni keeta ja tainas jääb tükiline.",
+              "Ära lisa jahu korraga kogu piimaga: jahutükid jäävad taigna sisse ja neid on hiljem raske lahti vispeldada.",
+              "Ära keera pann liiga kuumaks ega jäta seda liiga leigeks: liiga kuumal pannil põleb pind enne, kui tainas hangub, leigel aga jäävad pannkoogid kahvatuks ja kummised."
             ],
-            "tip": "Määri pann esimese pannkoogi jaoks õhukeselt võiga ja vala pannile umbes 60 ml taignat, siis keeruta pann kiiresti ringi, et tainas jaotuks õhukeseks ja ühtlaseks kihiks."
+            "tip": "Määri pann esimese pannkoogi jaoks õhukeselt võiga ja vala tainast umbes 60 ml korraga, siis saad ühtlaselt õhukesed pannkoogid."
           },
           "scores": {
             "answered": 1,

@@ -1,0 +1,42 @@
+{
+  "kind": "full",
+  "mealName": "Chicken stir-fry",
+  "servings": 3,
+  "timeMinutes": 25,
+  "components": [
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "carrot",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soy sauce",
+      "quantityPerServing": 15,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "egg noodles",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "vegetable oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    }
+  ],
+  "adjustmentNote": "Make it for a toddler, less salt",
+  "followsAny": ["salt", "sodium"],
+  "locale": "en",
+  "source": "HON-1244"
+}

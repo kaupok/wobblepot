@@ -1,0 +1,57 @@
+{
+  "mealName": "Kanarisoto seentega",
+  "servings": 3,
+  "components": [
+    {
+      "name": "risotoriis",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "kanafilee",
+      "quantityPerServing": 120,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "šampinjon",
+      "quantityPerServing": 70,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "sibul",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "köögiviljapuljong",
+      "quantityPerServing": 250,
+      "defaultUnit": "ml"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "või",
+      "isStaple": true
+    },
+    {
+      "name": "sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Jäta seened välja",
+  "locale": "et",
+  "expected": {
+    "changes": [
+      {
+        "op": "remove",
+        "original": ["šampinjon"]
+      }
+    ]
+  }
+}

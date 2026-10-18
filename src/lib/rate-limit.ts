@@ -66,6 +66,7 @@ export type RateLimitFeature =
   | 'recipe-parse'
   | 'meal-prep-tips'
   | 'cook-question'
+  | 'adjust-recipe'
   | 'meal-suggestions'
   | 'meal-image'
   | 'mcp'
@@ -106,6 +107,9 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   // One question per send in the cook view (HON-969). Twice the tips bucket:
   // a cook may ask about several steps of one meal.
   'cook-question': { limit: 60, window: '1 h', dimension: 'household' },
+  // One per "Adjust recipe" send in the cook view (HON-1244). The tips bucket:
+  // each applied adjustment regenerates the steps once.
+  'adjust-recipe': { limit: 30, window: '1 h', dimension: 'household' },
   'meal-suggestions': { limit: 60, window: '1 h', dimension: 'household' },
   // Only generations count: a ready image, a poll on a fresh claim and a
   // global meal all return before the limiter (HON-735).

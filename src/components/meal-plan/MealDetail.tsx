@@ -13,6 +13,7 @@ import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
+import { AdjustRecipe } from './AdjustRecipe'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import {
@@ -97,6 +98,8 @@ interface MealDetailProps {
     planId: string
     entryId: string
     changes: EntryChange[]
+    /** The "Adjust recipe" instruction the steps follow (HON-1244). */
+    adjustmentNote?: string | null
     editable: boolean
     /** A change landed and the server dropped the entry's cached steps. */
     onChanged: () => void
@@ -288,6 +291,18 @@ export function MealDetail({
               />
             ) : (
               <IngredientList {...ingredientListProps} />
+            )}
+            {/* Free-text changes to this entry's ingredients (HON-1244), under
+                the per-row controls they write the same changes as. */}
+            {ingredientChanges?.editable && (
+              <AdjustRecipe
+                planId={ingredientChanges.planId}
+                entryId={ingredientChanges.entryId}
+                changes={ingredientChanges.changes}
+                adjustmentNote={ingredientChanges.adjustmentNote ?? null}
+                components={meal.components}
+                onChanged={ingredientChanges.onChanged}
+              />
             )}
           </section>
         </div>

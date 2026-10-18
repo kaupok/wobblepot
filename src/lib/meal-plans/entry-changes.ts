@@ -2,12 +2,12 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import type { Prisma } from '@/generated/prisma/client'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
-import type { EntryChangeInput } from '@/lib/meal-planning/components-schema'
+import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
+import type { EntryChangeInput, EntryChangeSetInput } from '@/lib/meal-planning/components-schema'
 
 /**
  * Persistence for a planned entry's own ingredient changes (HON-1243), behind
- * `POST .../entries/[entryId]/components` and
+ * `POST` and `PUT .../entries/[entryId]/components` and
  * `DELETE .../entries/[entryId]/components/[componentId]`. The routes own the
  * session and the body; these functions own every query and every invariant,
  * and are tested against a database in `entry-changes.db.test.ts`.
@@ -27,6 +27,8 @@ import type { EntryChangeInput } from '@/lib/meal-planning/components-schema'
  * - `alreadyChanged`: the original already has a change; undo that first (409).
  * - `alreadyInMeal`: the replacement or added ingredient is in the meal
  *   already, so the list would name it twice (409).
+ * - `changesMoved`: a whole-set replace was built from changes that moved
+ *   since, so it would delete one nobody reviewed (409).
  */
 export type EntryChangeRefusal =
   | 'entryNotFound'
@@ -36,6 +38,7 @@ export type EntryChangeRefusal =
   | 'originalNotInMeal'
   | 'alreadyChanged'
   | 'alreadyInMeal'
+  | 'changesMoved'
 
 /** A refusal from a change write. Thrown so the transaction rolls back. */
 export class EntryChangeError extends Error {
@@ -104,6 +107,24 @@ async function findOwnEntry(householdId: string, planId: string, entryId: string
   if (!entry) throw new EntryChangeError('entryNotFound')
 }
 
+/** Every ingredient the changes name is global or the household's own, or `ingredientNotFound`. */
+async function assertVisibleIngredients(householdId: string, changes: readonly EntryChangeInput[]) {
+  const ids = [
+    ...new Set(
+      changes.flatMap((c) =>
+        [c.originalIngredientId, c.replacementIngredientId].filter(
+          (id): id is string => id !== null,
+        ),
+      ),
+    ),
+  ]
+  if (ids.length === 0) return
+  const visible = await prisma.ingredient.count({
+    where: { id: { in: ids }, OR: [{ householdId: null }, { householdId }] },
+  })
+  if (visible !== ids.length) throw new EntryChangeError('ingredientNotFound')
+}
+
 /**
  * Records one change on a planned entry and returns the row with the entry's
  * merged components. The input has passed `entryChangeSchema`, so it names at
@@ -117,14 +138,7 @@ export async function addEntryChange(
   input: EntryChangeInput,
 ) {
   await findOwnEntry(householdId, planId, entryId)
-
-  const ids = [input.originalIngredientId, input.replacementIngredientId].filter(
-    (id): id is string => id !== null,
-  )
-  const visible = await prisma.ingredient.count({
-    where: { id: { in: ids }, OR: [{ householdId: null }, { householdId }] },
-  })
-  if (visible !== ids.length) throw new EntryChangeError('ingredientNotFound')
+  await assertVisibleIngredients(householdId, [input])
 
   return prisma.$transaction(async (tx) => {
     await claimPlannedEntry(tx, entryId)
@@ -187,6 +201,120 @@ export async function removeEntryChange(
       where: { id: changeId, entryId },
     })
     if (count === 0) throw new EntryChangeError('changeNotFound')
+    // The instruction explained the changes; with none left it explains
+    // nothing, and the steps must not follow it (HON-1244).
+    const left = await tx.mealPlanEntryComponent.count({ where: { entryId } })
+    if (left === 0) {
+      await tx.mealPlanEntry.update({ where: { id: entryId }, data: { adjustmentNote: null } })
+    }
     return { components: await mergedComponents(tx, entryId) }
   })
+}
+
+/**
+ * Replaces a planned entry's whole change set with `input.changes`, and stores
+ * the instruction they came from (HON-1244, "Adjust recipe"), in one
+ * transaction: the old rows go, stale ones included, and the new ones are
+ * written in order. A set may be empty and still carry an instruction: "less
+ * salt" on a meal with no salt changes no ingredient, and only the steps
+ * follow it. Nulls the cached tips as `addEntryChange` does, and returns the
+ * merged components.
+ *
+ * Each change has passed `entryChangeSchema`. The rules across the set are the
+ * ones `addEntryChange` holds one row at a time: every original is in the
+ * recipe, no original has two changes, and no ingredient is brought in twice
+ * or brought in while the recipe already has it.
+ */
+export async function replaceEntryChanges(
+  householdId: string,
+  planId: string,
+  entryId: string,
+  input: EntryChangeSetInput,
+) {
+  await findOwnEntry(householdId, planId, entryId)
+  await assertVisibleIngredients(householdId, input.changes)
+
+  return prisma.$transaction(async (tx) => {
+    await claimPlannedEntry(tx, entryId)
+    const { meal, changes: stored } = await readEntryIngredients(tx, entryId)
+    // Read under the row lock, so no write can move the set before this commits.
+    if (changeSetKey(stored) !== changeSetKey(input.basedOn.map((id) => ({ id })))) {
+      throw new EntryChangeError('changesMoved')
+    }
+    const inMeal = new Set((meal?.components ?? []).map((c) => c.ingredientId))
+
+    const originals = new Set<string>()
+    const brought = new Set<string>()
+    for (const change of input.changes) {
+      const original = change.originalIngredientId
+      if (original !== null) {
+        if (!inMeal.has(original)) throw new EntryChangeError('originalNotInMeal')
+        if (originals.has(original)) throw new EntryChangeError('alreadyChanged')
+        originals.add(original)
+      }
+      const replacement = change.replacementIngredientId
+      if (replacement !== null) {
+        if (inMeal.has(replacement) || brought.has(replacement)) {
+          throw new EntryChangeError('alreadyInMeal')
+        }
+        brought.add(replacement)
+      }
+    }
+
+    await tx.mealPlanEntryComponent.deleteMany({ where: { entryId } })
+    // `now()` is the transaction's start, so every row would carry the same
+    // `createdAt`, and the merge appends added rows in `createdAt` order.
+    const base = Date.now()
+    await tx.mealPlanEntryComponent.createMany({
+      data: input.changes.map((change, i) => ({
+        entryId,
+        originalIngredientId: change.originalIngredientId,
+        replacementIngredientId: change.replacementIngredientId,
+        quantityPerServing: change.quantityPerServing,
+        createdAt: new Date(base + i),
+      })),
+    })
+    // A kept change still answers the instruction it came from, so that one
+    // stays: "less salt" from an earlier adjust keeps reaching the steps. So
+    // does an instruction with no change behind it, which only the steps
+    // follow, until the household clears it (`noteMode: 'replace'`).
+    const keepsEarlier =
+      stored.length === 0 ||
+      stored.some((s) =>
+        input.changes.some(
+          (c) =>
+            c.originalIngredientId === s.originalIngredientId &&
+            c.replacementIngredientId === s.replacementIngredientId,
+        ),
+      )
+    const { adjustmentNote: before } = await tx.mealPlanEntry.findUniqueOrThrow({
+      where: { id: entryId },
+      select: { adjustmentNote: true },
+    })
+    await tx.mealPlanEntry.update({
+      where: { id: entryId },
+      data: {
+        adjustmentNote:
+          input.noteMode === 'replace'
+            ? input.adjustmentNote
+            : joinNotes(keepsEarlier ? before : null, input.adjustmentNote),
+      },
+    })
+    return { components: await mergedComponents(tx, entryId) }
+  })
+}
+
+/** Upper bound on the stored instructions together, so the steps prompt stays bounded. */
+export const MAX_ADJUSTMENT_NOTE_LENGTH = 1500
+
+/**
+ * The earlier instructions, then the new one, one per line, without a repeat.
+ * Past `MAX_ADJUSTMENT_NOTE_LENGTH` the oldest lines go first.
+ */
+function joinNotes(before: string | null, next: string | null): string | null {
+  const lines = [...(before?.split('\n') ?? []), ...(next ? [next] : [])]
+    .map((line) => line.trim())
+    .filter((line, i, all) => line && all.indexOf(line) === i)
+  while (lines.length > 1 && lines.join('\n').length > MAX_ADJUSTMENT_NOTE_LENGTH) lines.shift()
+  return lines.length > 0 ? lines.join('\n') : null
 }

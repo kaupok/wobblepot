@@ -1,0 +1,57 @@
+{
+  "mealName": "Beef stroganoff",
+  "servings": 4,
+  "components": [
+    {
+      "name": "beef sirloin",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "mushroom",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soured cream",
+      "quantityPerServing": 50,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "butter",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Leave out the mushrooms, the kids won't eat them",
+  "locale": "en",
+  "expected": {
+    "changes": [
+      {
+        "op": "remove",
+        "original": ["mushroom"]
+      }
+    ]
+  }
+}

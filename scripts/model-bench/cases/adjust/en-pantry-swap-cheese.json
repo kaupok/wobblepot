@@ -1,0 +1,70 @@
+{
+  "mealName": "Spinach and feta pie",
+  "servings": 4,
+  "components": [
+    {
+      "name": "spinach",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "feta",
+      "quantityPerServing": 50,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "filo pastry",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "egg",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "mature cheddar",
+      "isStaple": false
+    },
+    {
+      "name": "eggs",
+      "isStaple": false
+    },
+    {
+      "name": "milk",
+      "isStaple": false
+    },
+    {
+      "name": "butter",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "I've run out of feta, use something I already have",
+  "locale": "en",
+  "expected": {
+    "changes": [
+      {
+        "op": "replace",
+        "original": ["feta"],
+        "replacementAny": ["cheddar"]
+      }
+    ]
+  }
+}

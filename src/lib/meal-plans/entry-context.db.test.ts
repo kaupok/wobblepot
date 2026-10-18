@@ -242,6 +242,7 @@ describe('cachePreparationTips', () => {
       mealUpdatedAt: meal.updatedAt,
       householdLocale: 'et',
       changes: [],
+      adjustmentNote: null,
     }
   }
 
@@ -283,6 +284,17 @@ describe('cachePreparationTips', () => {
   it("writes nothing when the household's locale moved", async () => {
     const inputs = await pricedFrom()
     await prisma.household.updateMany({ where: { name: 'Alder' }, data: { locale: 'en' } })
+
+    expect(await cachePreparationTips(inputs, TIPS, 6)).toBe(0)
+    expect(await storedTips()).toBeNull()
+  })
+
+  it("writes nothing when the entry's adjustment instruction moved", async () => {
+    const inputs = await pricedFrom()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-dinner' },
+      data: { adjustmentNote: 'Less salt' },
+    })
 
     expect(await cachePreparationTips(inputs, TIPS, 6)).toBe(0)
     expect(await storedTips()).toBeNull()
