@@ -113,6 +113,7 @@ export function AdjustRecipe({
           ref={submitRef}
           type="submit"
           variant="outline"
+          size="lg"
           className="w-full md:w-auto md:self-start"
           disabled={!text || isProposing}
         >
@@ -140,7 +141,11 @@ export function AdjustRecipe({
         existingIngredientIds={existingIngredientIds}
         isApplying={isApplying}
         onApply={async (set) => {
-          const applied = await apply(set, review.instruction)
+          const applied = await apply(
+            set,
+            changes.map((c) => c.id),
+            review.instruction,
+          )
           if (applied) setInstruction('')
           return applied
         }}

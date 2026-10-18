@@ -21,6 +21,7 @@ export const ENTRY_CHANGE_ERROR_KEYS = {
   notPlanned: 'notPlanned',
   alreadyChanged: 'alreadyChanged',
   alreadyInMeal: 'alreadyInMeal',
+  changesMoved: 'changesMoved',
   ingredientNotFound: 'ingredientNotFound',
 } as const
 

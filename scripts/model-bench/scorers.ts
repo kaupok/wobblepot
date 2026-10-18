@@ -386,11 +386,19 @@ export function scoreTips(
   input: TipsCase,
   output: z.infer<typeof fullStepsSchema> | z.infer<typeof supplementaryStepsSchema>,
 ): Scores {
+  // The household's instruction reached the answer (HON-1244).
+  const parts = output as { steps?: string[]; pitfalls: string[]; tip?: string }
+  const text = [...(parts.steps ?? []), ...parts.pitfalls, parts.tip ?? ''].join(' ').toLowerCase()
+  const followsNote = input.followsAny
+    ? pass(input.followsAny.some((phrase) => text.includes(phrase.toLowerCase())))
+    : null
+
   if (input.kind === 'full') {
     const full = output as z.infer<typeof fullStepsSchema>
     const r = TIPS_RANGES.full
     return {
       answered: 1,
+      ...(followsNote !== null && { followsNote }),
       countsInRange: pass(
         inRange(full.equipment.length, r.equipment) &&
           inRange(full.steps.length, r.steps) &&
@@ -402,6 +410,7 @@ export function scoreTips(
   const supplementary = output as z.infer<typeof supplementaryStepsSchema>
   return {
     answered: 1,
+    ...(followsNote !== null && { followsNote }),
     countsInRange: pass(
       inRange(supplementary.pitfalls.length, TIPS_RANGES.supplementary.pitfalls) &&
         supplementary.tip.trim().length > 0,

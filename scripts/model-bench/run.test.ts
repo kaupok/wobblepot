@@ -389,7 +389,7 @@ describe('main', () => {
       expect(md).toContain('# AI eval check: production configuration')
       expect(md).toContain(`Models: tips \`${STEPS_MODEL}\``)
       expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 90.0% | pass |')
-      expect(out.join('\n')).toContain('**Pass.** All 3 gates hold.')
+      expect(out.join('\n')).toContain('**Pass.** All 4 gates hold.')
       const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
       expect(json).toMatchObject({ mode: 'check', model: null, passed: true, plannedCalls: 4 })
       expect(json.calls).toHaveLength(4)

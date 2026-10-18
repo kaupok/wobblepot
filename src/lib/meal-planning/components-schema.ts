@@ -120,9 +120,14 @@ export const ADJUST_INSTRUCTION_MAX_LENGTH = 500
  * the instruction it came from. Each change is shaped as the POST's; the rules
  * across the set (one change per original, no ingredient twice) need the meal,
  * so `replaceEntryChanges` checks them.
+ *
+ * `basedOn` holds the ids of the stored changes the set was built from, stale
+ * ones included. The set replaces them all, so a change someone else made
+ * meanwhile would vanish unseen; `replaceEntryChanges` refuses when they moved.
  */
 export const entryChangeSetSchema = z.object({
   changes: z.array(entryChangeSchema).max(MAX_MEAL_COMPONENTS),
+  basedOn: z.array(z.string().min(1).max(100)).max(MAX_MEAL_COMPONENTS * 2),
   adjustmentNote: z
     .string()
     .trim()

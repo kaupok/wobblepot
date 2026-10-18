@@ -452,7 +452,8 @@
         "notPlanned": "Only a planned meal can be changed.",
         "alreadyChanged": "This ingredient is already changed. Undo that change first.",
         "alreadyInMeal": "This ingredient is already in the meal.",
-        "ingredientNotFound": "This ingredient is not available. Pick another."
+        "ingredientNotFound": "This ingredient is not available. Pick another.",
+        "changesMoved": "Someone changed this meal meanwhile. Check the changes and try again."
       }
     },
     "adjust": {

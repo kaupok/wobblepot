@@ -103,6 +103,7 @@ export const ReviewAndApply: Story = {
             quantityPerServing: 140,
           },
         ],
+        basedOn: [],
         adjustmentNote: 'Fish instead of chicken',
       },
     ])

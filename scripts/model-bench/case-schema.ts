@@ -220,6 +220,14 @@ const tipsBase = {
   servings: z.number().int().positive(),
   timeMinutes: z.number().int().positive().nullable(),
   components: z.array(tipsComponent).min(1),
+  /** The entry's "Adjust recipe" instruction, which the steps follow (HON-1244). */
+  adjustmentNote: z.string().min(1).max(ADJUST_INSTRUCTION_MAX_LENGTH).optional(),
+  /**
+   * With `adjustmentNote`: the answer (steps, pitfalls and tip together)
+   * contains at least one of these, case-insensitive, so the instruction
+   * reached it. List every phrasing a correct answer may use.
+   */
+  followsAny: z.array(z.string().min(1)).min(1).optional(),
   locale,
   source,
 }

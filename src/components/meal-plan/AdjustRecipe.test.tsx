@@ -116,6 +116,7 @@ describe('AdjustRecipe', () => {
           quantityPerServing: 50,
         },
       ],
+      basedOn: [],
       adjustmentNote: 'No cream, I have yoghurt',
     })
     expect(onChanged).toHaveBeenCalled()

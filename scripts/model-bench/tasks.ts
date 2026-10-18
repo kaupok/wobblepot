@@ -391,7 +391,16 @@ const tips: TaskSpec<'tips'> = {
       // (HON-929). Over 8 cases × 3 runs this allows 2 misses in 24.
       gate: { min: 0.9 },
     },
+    {
+      key: 'followsNote',
+      label: 'Follows the adjustment instruction',
+      format: 'percent',
+      onError: null,
+      // Two cases carry one (HON-1244), so 6 calls: one miss in 6 passes.
+      gate: { min: 0.8 },
+    },
   ],
+  inapplicableMetrics: (input) => (input.followsAny ? [] : ['followsNote']),
   prepare({ input }) {
     const base = {
       mealName: input.mealName,
@@ -399,6 +408,7 @@ const tips: TaskSpec<'tips'> = {
       timeMinutes: input.timeMinutes,
       components: input.components,
       locale: input.locale,
+      adjustmentNote: input.adjustmentNote,
     }
     const score = (object: unknown) => scoreTips(input, object as Parameters<typeof scoreTips>[1])
 

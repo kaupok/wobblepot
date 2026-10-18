@@ -452,7 +452,8 @@
         "notPlanned": "Muuta saab ainult planeeritud toitu.",
         "alreadyChanged": "Seda koostisosa on juba muudetud. Võta see muudatus enne tagasi.",
         "alreadyInMeal": "See koostisosa on toidus juba olemas.",
-        "ingredientNotFound": "See koostisosa pole saadaval. Vali teine."
+        "ingredientNotFound": "See koostisosa pole saadaval. Vali teine.",
+        "changesMoved": "Keegi muutis vahepeal seda toitu. Vaata muudatused üle ja proovi uuesti."
       }
     },
     "adjust": {

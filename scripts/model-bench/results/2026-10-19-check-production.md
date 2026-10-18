@@ -1,12 +1,12 @@
 # AI eval check: production configuration
 
-2026-10-19 · 3 run(s) · tasks: adjust · 27 calls
+2026-10-19 · 3 run(s) · tasks: tips, adjust · 57 calls
 
-Models: adjust `claude-sonnet-5-5`
+Models: tips `claude-sonnet-5-5` · adjust `claude-sonnet-5-5`
 
 ## Result
 
-**Pass.** All 7 gates hold.
+**Pass.** All 11 gates hold.
 
 ## Gates
 
@@ -14,13 +14,37 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 
 | Task   | Gate                                       | Observed | Threshold                              | Result |
 | ------ | ------------------------------------------ | -------- | -------------------------------------- | ------ |
+| tips   | Answered without error                     | 100.0%   | ≥ 100.0%                               | pass   |
+| tips   | Item counts in range                       | 100.0%   | ≥ 90.0%                                | pass   |
+| tips   | Follows the adjustment instruction         | 100.0%   | ≥ 80.0%                                | pass   |
+| tips   | Max latency                                | 9.8s     | ≤ 36.0s (80% of `STEPS_AI_BUDGET_MS`)  | pass   |
 | adjust | Answered without error                     | 100.0%   | ≥ 100.0%                               | pass   |
 | adjust | Every original is a listed ingredient      | 100.0%   | ≥ 100.0%                               | pass   |
 | adjust | Every replacement has an amount and a unit | 100.0%   | ≥ 100.0%                               | pass   |
 | adjust | Proposes the expected changes              | 100.0%   | ≥ 90.0%                                | pass   |
 | adjust | No change when none is needed              | 100.0%   | ≥ 100.0%                               | pass   |
 | adjust | No forbidden replacement                   | 100.0%   | ≥ 100.0%                               | pass   |
-| adjust | Max latency                                | 3.4s     | ≤ 24.0s (80% of `ADJUST_AI_BUDGET_MS`) | pass   |
+| adjust | Max latency                                | 2.5s     | ≤ 24.0s (80% of `ADJUST_AI_BUDGET_MS`) | pass   |
+
+## tips
+
+| Metric                             | claude-sonnet-5-5 | Gate     |
+| ---------------------------------- | ----------------- | -------- |
+| Answered without error             | 100.0%            | ≥ 100.0% |
+| Item counts in range               | 100.0%            | ≥ 90.0%  |
+| Follows the adjustment instruction | 100.0%            | ≥ 80.0%  |
+
+| Operational                                                           | claude-sonnet-5-5      |
+| --------------------------------------------------------------------- | ---------------------- |
+| Calls                                                                 | 30                     |
+| Latency p50                                                           | 4.6s                   |
+| Latency max (budget 45.0s, `STEPS_AI_BUDGET_MS`)                      | 9.8s                   |
+| Calls over budget                                                     | 0                      |
+| Calls retried (latency includes retries)                              | 0                      |
+| Errors                                                                | none                   |
+| Truncated (`finishReason: length`)                                    | 0                      |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 2196 · 435 · 0 · 0 · 0 |
+| Cost / call                                                           | $0.0087                |
 
 ## adjust
 
@@ -36,13 +60,13 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 | Operational                                                           | claude-sonnet-5-5       |
 | --------------------------------------------------------------------- | ----------------------- |
 | Calls                                                                 | 27                      |
-| Latency p50                                                           | 1.8s                    |
-| Latency max (budget 30.0s, `ADJUST_AI_BUDGET_MS`)                     | 3.4s                    |
+| Latency p50                                                           | 1.9s                    |
+| Latency max (budget 30.0s, `ADJUST_AI_BUDGET_MS`)                     | 2.5s                    |
 | Calls over budget                                                     | 0                       |
 | Calls retried (latency includes retries)                              | 0                       |
 | Errors                                                                | none                    |
 | Truncated (`finishReason: length`)                                    | 0                       |
-| Tokens / call (input · output · reasoning · cache read · cache write) | 1874 · 109 · 14 · 0 · 0 |
-| Cost / call                                                           | $0.0048                 |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 1874 · 110 · 15 · 0 · 0 |
+| Cost / call                                                           | $0.0049                 |
 
-**Total cost:** $0.13 over 27 calls.
+**Total cost:** $0.39 over 57 calls.

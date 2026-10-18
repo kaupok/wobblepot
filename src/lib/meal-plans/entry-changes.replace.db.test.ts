@@ -83,6 +83,15 @@ async function refusal(promise: Promise<unknown>): Promise<EntryChangeRefusal> {
   return (error as EntryChangeError).reason
 }
 
+/** The stored change ids, as the client last read them. */
+const storedIds = async () =>
+  (
+    await prisma.mealPlanEntryComponent.findMany({
+      where: { entryId: 'entry-mon' },
+      select: { id: true },
+    })
+  ).map((c) => c.id)
+
 const entryRow = () => prisma.mealPlanEntry.findUniqueOrThrow({ where: { id: 'entry-mon' } })
 const rows = () =>
   prisma.mealPlanEntryComponent.findMany({
@@ -97,6 +106,7 @@ describe('replaceEntryChanges', () => {
     await addEntryChange(alder.id, 'plan-alder', 'entry-mon', change('pasta', null))
 
     const { components } = await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt'), change('mushroom', null), change(null, 'chili', 2)],
       adjustmentNote: 'No cream, I have yoghurt',
     })
@@ -120,6 +130,7 @@ describe('replaceEntryChanges', () => {
     const { alder } = await world()
 
     const { components } = await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
       changes: [change(null, 'chili', 2), change(null, 'basil', 3), change(null, 'yoghurt', 5)],
       adjustmentNote: 'More flavour',
     })
@@ -130,11 +141,13 @@ describe('replaceEntryChanges', () => {
   it('clears the instruction with an empty set', async () => {
     const { alder } = await world()
     await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt')],
       adjustmentNote: 'No cream',
     })
 
     await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
       changes: [],
       adjustmentNote: 'No cream',
     })
@@ -164,6 +177,7 @@ describe('replaceEntryChanges', () => {
     expect(
       await refusal(
         replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+          basedOn: await storedIds(),
           changes: [...changes],
           adjustmentNote: 'x',
         }),
@@ -175,12 +189,55 @@ describe('replaceEntryChanges', () => {
     expect((await entryRow()).adjustmentNote).toBeNull()
   })
 
+  it('refuses a set built before someone else changed the meal, and keeps their change', async () => {
+    const { alder } = await world()
+    const seen = await storedIds()
+    await addEntryChange(alder.id, 'plan-alder', 'entry-mon', change('mushroom', null))
+
+    expect(
+      await refusal(
+        replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+          basedOn: seen,
+          changes: [change('cream', 'yoghurt')],
+          adjustmentNote: 'No cream',
+        }),
+      ),
+    ).toBe('changesMoved')
+    expect(await rows()).toEqual([
+      { originalIngredientId: 'mushroom', replacementIngredientId: null },
+    ])
+  })
+
+  it('keeps the earlier instruction while its change stays, and drops it with the change', async () => {
+    const { alder } = await world()
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: [],
+      changes: [change('mushroom', null)],
+      adjustmentNote: 'Less salt, no mushrooms',
+    })
+
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
+      changes: [change('mushroom', null), change('cream', 'yoghurt')],
+      adjustmentNote: 'No cream',
+    })
+    expect((await entryRow()).adjustmentNote).toBe('Less salt, no mushrooms\nNo cream')
+
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
+      changes: [change(null, 'basil', 2)],
+      adjustmentNote: 'Add basil',
+    })
+    expect((await entryRow()).adjustmentNote).toBe('Add basil')
+  })
+
   it('refuses a cooked entry with notPlanned', async () => {
     const { alder } = await world('completed')
 
     expect(
       await refusal(
         replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+          basedOn: await storedIds(),
           changes: [change('cream', 'yoghurt')],
           adjustmentNote: 'x',
         }),
@@ -194,6 +251,7 @@ describe('replaceEntryChanges', () => {
     expect(
       await refusal(
         replaceEntryChanges(birch.id, 'plan-alder', 'entry-mon', {
+          basedOn: await storedIds(),
           changes: [],
           adjustmentNote: null,
         }),
@@ -206,6 +264,7 @@ describe('removeEntryChange and the instruction', () => {
   it('keeps the instruction while a change is left, and clears it with the last one', async () => {
     const { alder } = await world()
     await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt'), change('mushroom', null)],
       adjustmentNote: 'No cream, no mushrooms',
     })

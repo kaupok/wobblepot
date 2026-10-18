@@ -2,7 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import type { Prisma } from '@/generated/prisma/client'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
+import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
 import type { EntryChangeInput, EntryChangeSetInput } from '@/lib/meal-planning/components-schema'
 
 /**
@@ -27,6 +27,8 @@ import type { EntryChangeInput, EntryChangeSetInput } from '@/lib/meal-planning/
  * - `alreadyChanged`: the original already has a change; undo that first (409).
  * - `alreadyInMeal`: the replacement or added ingredient is in the meal
  *   already, so the list would name it twice (409).
+ * - `changesMoved`: a whole-set replace was built from changes that moved
+ *   since, so it would delete one nobody reviewed (409).
  */
 export type EntryChangeRefusal =
   | 'entryNotFound'
@@ -36,6 +38,7 @@ export type EntryChangeRefusal =
   | 'originalNotInMeal'
   | 'alreadyChanged'
   | 'alreadyInMeal'
+  | 'changesMoved'
 
 /** A refusal from a change write. Thrown so the transaction rolls back. */
 export class EntryChangeError extends Error {
@@ -231,7 +234,11 @@ export async function replaceEntryChanges(
 
   return prisma.$transaction(async (tx) => {
     await claimPlannedEntry(tx, entryId)
-    const { meal } = await readEntryIngredients(tx, entryId)
+    const { meal, changes: stored } = await readEntryIngredients(tx, entryId)
+    // Read under the row lock, so no write can move the set before this commits.
+    if (changeSetKey(stored) !== changeSetKey(input.basedOn.map((id) => ({ id })))) {
+      throw new EntryChangeError('changesMoved')
+    }
     const inMeal = new Set((meal?.components ?? []).map((c) => c.ingredientId))
 
     const originals = new Set<string>()
@@ -265,10 +272,43 @@ export async function replaceEntryChanges(
         createdAt: new Date(base + i),
       })),
     })
+    // A kept change still answers the instruction it came from, so that one
+    // stays: "less salt" from an earlier adjust keeps reaching the steps.
+    const keepsEarlier = stored.some((s) =>
+      input.changes.some(
+        (c) =>
+          c.originalIngredientId === s.originalIngredientId &&
+          c.replacementIngredientId === s.replacementIngredientId,
+      ),
+    )
+    const { adjustmentNote: before } = await tx.mealPlanEntry.findUniqueOrThrow({
+      where: { id: entryId },
+      select: { adjustmentNote: true },
+    })
     await tx.mealPlanEntry.update({
       where: { id: entryId },
-      data: { adjustmentNote: input.changes.length > 0 ? input.adjustmentNote : null },
+      data: {
+        adjustmentNote:
+          input.changes.length === 0
+            ? null
+            : joinNotes(keepsEarlier ? before : null, input.adjustmentNote),
+      },
     })
     return { components: await mergedComponents(tx, entryId) }
   })
+}
+
+/** Upper bound on the stored instructions together, so the steps prompt stays bounded. */
+export const MAX_ADJUSTMENT_NOTE_LENGTH = 1500
+
+/**
+ * The earlier instructions, then the new one, one per line, without a repeat.
+ * Past `MAX_ADJUSTMENT_NOTE_LENGTH` the oldest lines go first.
+ */
+function joinNotes(before: string | null, next: string | null): string | null {
+  const lines = [...(before?.split('\n') ?? []), ...(next ? [next] : [])]
+    .map((line) => line.trim())
+    .filter((line, i, all) => line && all.indexOf(line) === i)
+  while (lines.length > 1 && lines.join('\n').length > MAX_ADJUSTMENT_NOTE_LENGTH) lines.shift()
+  return lines.length > 0 ? lines.join('\n') : null
 }

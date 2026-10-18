@@ -52,7 +52,7 @@ export function useAdjustRecipe({ planId, entryId, onChanged }: UseAdjustRecipeO
   })
 
   const apply = useMutation({
-    mutationFn: (body: { changes: NewEntryChange[]; adjustmentNote: string }) =>
+    mutationFn: (body: { changes: NewEntryChange[]; basedOn: string[]; adjustmentNote: string }) =>
       apiFetch(`${base}/components`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -70,6 +70,8 @@ export function useAdjustRecipe({ planId, entryId, onChanged }: UseAdjustRecipeO
         status: error instanceof ApiError ? error.status : undefined,
         code,
       })
+      // Someone else changed the meal: load their change, so Apply builds on it.
+      if (code === 'changesMoved') router.refresh()
       toast.error(
         code && Object.hasOwn(ENTRY_CHANGE_ERROR_KEYS, code)
           ? tChange(ENTRY_CHANGE_ERROR_KEYS[code as keyof typeof ENTRY_CHANGE_ERROR_KEYS])
@@ -105,8 +107,8 @@ export function useAdjustRecipe({ planId, entryId, onChanged }: UseAdjustRecipeO
     proposeError,
     resetProposal: propose.reset,
     /** Resolves true once the set is stored, false on a refusal (already toasted). */
-    apply: (changes: NewEntryChange[], adjustmentNote: string) =>
-      apply.mutateAsync({ changes, adjustmentNote }).then(
+    apply: (changes: NewEntryChange[], basedOn: string[], adjustmentNote: string) =>
+      apply.mutateAsync({ changes, basedOn, adjustmentNote }).then(
         () => true,
         () => false,
       ),

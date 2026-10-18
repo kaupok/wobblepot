@@ -62,12 +62,17 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
   it('replaces the set with the trimmed instruction and returns the merge', async () => {
     mockReplace.mockResolvedValue({ components: [] } as never)
 
-    const response = await put({ changes: [yoghurt], adjustmentNote: '  No cream  ' })
+    const response = await put({
+      changes: [yoghurt],
+      basedOn: ['c1'],
+      adjustmentNote: '  No cream  ',
+    })
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ components: [] })
     expect(mockReplace).toHaveBeenCalledWith('household-1', 'plan-1', 'entry-1', {
       changes: [yoghurt],
+      basedOn: ['c1'],
       adjustmentNote: 'No cream',
     })
   })
@@ -75,10 +80,11 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
   it('reads a blank instruction as none', async () => {
     mockReplace.mockResolvedValue({ components: [] } as never)
 
-    await put({ changes: [], adjustmentNote: '   ' })
+    await put({ changes: [], basedOn: [], adjustmentNote: '   ' })
 
     expect(mockReplace).toHaveBeenCalledWith('household-1', 'plan-1', 'entry-1', {
       changes: [],
+      basedOn: [],
       adjustmentNote: null,
     })
   })
@@ -86,7 +92,8 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
   it.each([
     ['a change the POST would refuse', { changes: [{ ...yoghurt, quantityPerServing: null }] }],
     ['an instruction over 500 characters', { changes: [], adjustmentNote: 'x'.repeat(501) }],
-    ['no change list', { adjustmentNote: 'No cream' }],
+    ['no change list', { basedOn: [], adjustmentNote: 'No cream' }],
+    ['no list of the changes it was built from', { changes: [], adjustmentNote: 'No cream' }],
   ])('answers 400 for %s', async (_label, body) => {
     const response = await put(body)
 
@@ -104,10 +111,11 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
     ['alreadyInMeal', 409],
     ['originalNotInMeal', 400],
     ['entryNotFound', 404],
+    ['changesMoved', 409],
   ] as const)('maps %s to %i with its code', async (reason, status) => {
     mockReplace.mockRejectedValue(new EntryChangeError(reason))
 
-    const response = await put({ changes: [yoghurt], adjustmentNote: 'No cream' })
+    const response = await put({ changes: [yoghurt], basedOn: [], adjustmentNote: 'No cream' })
 
     expect(response.status).toBe(status)
     expect((await response.json()).code).toBe(reason)

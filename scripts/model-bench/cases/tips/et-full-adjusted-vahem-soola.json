@@ -1,0 +1,42 @@
+{
+  "kind": "full",
+  "mealName": "Kanakaste riisiga",
+  "servings": 4,
+  "timeMinutes": 35,
+  "components": [
+    {
+      "name": "kanafilee",
+      "quantityPerServing": 130,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "sibul",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "porgand",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "hapukoor",
+      "quantityPerServing": 40,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "riis",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "puljongikuubik",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    }
+  ],
+  "adjustmentNote": "Vähem soola, väike laps sööb kaasa",
+  "followsAny": ["sool", "soola"],
+  "locale": "et",
+  "source": "HON-1244"
+}
