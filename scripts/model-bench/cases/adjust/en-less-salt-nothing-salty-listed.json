@@ -1,0 +1,54 @@
+{
+  "mealName": "Roast vegetable traybake with couscous",
+  "servings": 4,
+  "components": [
+    {
+      "name": "courgette",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "red onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "couscous",
+      "quantityPerServing": 70,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "lemon",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Less salt, a toddler is eating with us",
+  "locale": "en",
+  "expected": {
+    "noChange": true,
+    "followInSteps": true
+  },
+  "source": "HON-1244"
+}

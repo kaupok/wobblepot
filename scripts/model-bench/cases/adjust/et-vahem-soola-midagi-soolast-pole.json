@@ -1,0 +1,54 @@
+{
+  "mealName": "Ahjuköögiviljad kuskussiga",
+  "servings": 4,
+  "components": [
+    {
+      "name": "suvikõrvits",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "punane paprika",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "punane sibul",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "kuskuss",
+      "quantityPerServing": 70,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "oliiviõli",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "sidrun",
+      "isStaple": false
+    },
+    {
+      "name": "sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Vähem soola, väike laps sööb kaasa",
+  "locale": "et",
+  "expected": {
+    "noChange": true,
+    "followInSteps": true
+  },
+  "source": "HON-1244"
+}

@@ -43,7 +43,7 @@ const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
   )
 
-function renderBox(adjustAnswer: () => Promise<Response>) {
+function renderBox(adjustAnswer: () => Promise<Response>, adjustmentNote: string | null = null) {
   fetchMock = vi.fn((url: string) => (url === ADJUST ? adjustAnswer() : json({ components: [] })))
   vi.stubGlobal('fetch', fetchMock)
   const onChanged = vi.fn()
@@ -53,6 +53,7 @@ function renderBox(adjustAnswer: () => Promise<Response>) {
       entryId="entry-1"
       changes={[]}
       components={components}
+      adjustmentNote={adjustmentNote}
       onChanged={onChanged}
     />,
     createQueryWrapper(),
@@ -70,7 +71,7 @@ describe('AdjustRecipe', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('says no change is needed, and writes nothing, for an empty answer', async () => {
-    renderBox(() => json({ changes: [], unmatched: [] }))
+    renderBox(() => json({ changes: [], followInSteps: false, unmatched: [] }))
 
     await ask('Make it vegetarian')
 
@@ -81,6 +82,46 @@ describe('AdjustRecipe', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([ADJUST])
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
       instruction: 'Make it vegetarian',
+    })
+  })
+
+  it('offers an instruction only the steps can follow for the steps, and stores it alone', async () => {
+    renderBox(() => json({ changes: [], followInSteps: true, unmatched: [] }))
+
+    await ask('Less salt')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'No ingredient change is needed. The steps can follow it instead.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Use in the steps' }))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+    const put = fetchMock.mock.calls.find(([url]) => url === COMPONENTS)!
+    expect(JSON.parse(put[1].body)).toEqual({
+      changes: [],
+      basedOn: [],
+      adjustmentNote: 'Less salt',
+      noteMode: 'append',
+    })
+  })
+
+  it('shows the stored request, and Clear removes it alone', async () => {
+    renderBox(
+      () => json({ changes: [], followInSteps: false, unmatched: [] }),
+      'Less salt\nNo cream',
+    )
+
+    expect(
+      screen.getByText('The steps follow your request: Less salt · No cream'),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear request' }))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+    const put = fetchMock.mock.calls.find(([url]) => url === COMPONENTS)!
+    expect(JSON.parse(put[1].body)).toEqual({
+      changes: [],
+      basedOn: [],
+      adjustmentNote: null,
+      noteMode: 'replace',
     })
   })
 
@@ -100,7 +141,9 @@ describe('AdjustRecipe', () => {
   })
 
   it('reviews the proposals, then stores them with the instruction and refreshes', async () => {
-    const { onChanged } = renderBox(() => json({ changes: [yoghurt], unmatched: [] }))
+    const { onChanged } = renderBox(() =>
+      json({ changes: [yoghurt], followInSteps: false, unmatched: [] }),
+    )
 
     await ask('No cream, I have yoghurt')
     await userEvent.click(await screen.findByRole('button', { name: 'Apply' }))
@@ -118,6 +161,7 @@ describe('AdjustRecipe', () => {
       ],
       basedOn: [],
       adjustmentNote: 'No cream, I have yoghurt',
+      noteMode: 'append',
     })
     expect(onChanged).toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

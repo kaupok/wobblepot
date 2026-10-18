@@ -76,6 +76,8 @@ interface MealDetailModalProps {
   conflicts?: readonly PreferenceConflict[]
   /** The entry's own ingredient changes (HON-1243); editable while `planned`. */
   changes?: EntryChange[]
+  /** The "Adjust recipe" instruction the steps follow (HON-1244). */
+  adjustmentNote?: string | null
   /**
    * Generate the steps when the view opens, rather than behind "How to
    * prepare" — for a planned entry somebody is about to cook (HON-933).
@@ -134,6 +136,7 @@ export function MealDetailModal({
   initialSteps = null,
   conflicts = [],
   changes,
+  adjustmentNote = null,
   generateOnOpen = false,
   onDoneCooking,
   readOnly = false,
@@ -630,6 +633,7 @@ export function MealDetailModal({
                   planId,
                   entryId,
                   changes,
+                  adjustmentNote,
                   // The planned, editable entry that gets "Done cooking".
                   editable: status === 'planned' && !!onDoneCooking,
                   // The write nulled the cached steps, so drop the ones shown;

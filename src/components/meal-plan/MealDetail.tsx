@@ -98,6 +98,8 @@ interface MealDetailProps {
     planId: string
     entryId: string
     changes: EntryChange[]
+    /** The "Adjust recipe" instruction the steps follow (HON-1244). */
+    adjustmentNote?: string | null
     editable: boolean
     /** A change landed and the server dropped the entry's cached steps. */
     onChanged: () => void
@@ -297,6 +299,7 @@ export function MealDetail({
                 planId={ingredientChanges.planId}
                 entryId={ingredientChanges.entryId}
                 changes={ingredientChanges.changes}
+                adjustmentNote={ingredientChanges.adjustmentNote ?? null}
                 components={meal.components}
                 onChanged={ingredientChanges.onChanged}
               />

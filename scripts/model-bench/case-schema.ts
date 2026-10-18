@@ -359,6 +359,8 @@ export const AdjustCaseSchema = z.strictObject({
       .optional(),
     /** The meal already does what the instruction asks: the list must be empty. */
     noChange: z.literal(true).optional(),
+    /** The answer's `followInSteps`: true when only the steps can follow the instruction. */
+    followInSteps: z.boolean().optional(),
     /**
      * No replacement name may contain one of these: a food the household's
      * restrictions rule out. Scored under the `avoidsForbidden` safety check.

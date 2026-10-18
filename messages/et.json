@@ -463,6 +463,10 @@
       "submit": "Paku muudatused",
       "suggesting": "Pakun muudatusi…",
       "noChanges": "Selleks pole koostisosi vaja muuta.",
+      "stepsOnly": "Koostisosi pole vaja muuta. Sammud saavad selle asemel sinu soovi arvestada.",
+      "useInSteps": "Arvesta sammudes",
+      "noteLabel": "Sammud arvestavad sinu sooviga: {note}",
+      "clearNote": "Eemalda soov",
       "review": {
         "title": "Pakutud muudatused",
         "description": "Märgi muudatused, mida teha. Muutub ainult see toidukord. Retsept jääb samaks.",

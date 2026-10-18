@@ -93,6 +93,11 @@ export interface PlanEntry {
    * and what Undo reverts. Sent by `/api/entries` only.
    */
   changes?: EntryChange[]
+  /**
+   * The "Adjust recipe" instruction the steps follow (HON-1244), one request
+   * per line; null without one. Sent by `/api/entries` only.
+   */
+  adjustmentNote?: string | null
 }
 
 /**

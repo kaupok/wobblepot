@@ -63,6 +63,10 @@ export function scoreAdjust(input: AdjustCase, output: AdjustRecipeOutput): Scor
       ? pass(expected.changes.every((e) => changes.some((c) => meets(c, e))))
       : null,
     noChangeEmpty: expected.noChange ? pass(changes.length === 0) : null,
+    stepsFlagged:
+      expected.followInSteps === undefined
+        ? null
+        : pass(output.followInSteps === expected.followInSteps),
     avoidsForbidden: expected.forbiddenKeywords
       ? pass(replacements.every((name) => !forbidden.some((word) => name.includes(word))))
       : null,
@@ -114,6 +118,15 @@ export const adjust: TaskSpec<'adjust'> = {
       gate: { min: 1 },
     },
     {
+      key: 'stepsFlagged',
+      label: 'Flags an instruction only the steps can follow',
+      format: 'percent',
+      onError: null,
+      // A judgement on wording ("less salt" with no salt listed), so one odd
+      // call in a case's three runs must not fail the record.
+      gate: { min: 0.8 },
+    },
+    {
       key: 'avoidsForbidden',
       label: 'No forbidden replacement',
       format: 'percent',
@@ -127,6 +140,7 @@ export const adjust: TaskSpec<'adjust'> = {
     return [
       ...(input.expected.changes ? [] : ['expectedChanges']),
       ...(input.expected.noChange ? [] : ['noChangeEmpty']),
+      ...(input.expected.followInSteps === undefined ? ['stepsFlagged'] : []),
       ...(input.expected.forbiddenKeywords ? [] : ['avoidsForbidden']),
     ]
   },

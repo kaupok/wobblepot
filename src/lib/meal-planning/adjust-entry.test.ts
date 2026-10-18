@@ -98,9 +98,9 @@ const matched = (id: string, convertedQuantity: number, lowConfidence = false) =
   lowConfidence,
 })
 
-function answer(changes: unknown[]) {
+function answer(changes: unknown[], followInSteps = false) {
   mockGenerate.mockResolvedValue({
-    object: { changes },
+    object: { changes, followInSteps },
     usage: { inputTokens: 900, outputTokens: 120, totalTokens: 1020 },
   } as never)
 }
@@ -172,6 +172,7 @@ describe('proposeAdjustment', () => {
           reason: 'Yoghurt keeps it creamy.',
         },
       ],
+      followInSteps: false,
       unmatched: [],
     })
     // Matched alone, at one serving: the amount is already per serving.
@@ -266,10 +267,10 @@ describe('proposeAdjustment', () => {
     ).toEqual([['add', 'basil']])
   })
 
-  it('returns an empty list as the model sent it', async () => {
-    answer([])
+  it('returns an empty list as the model sent it, with its steps flag', async () => {
+    answer([], true)
 
-    expect(await propose()).toEqual({ changes: [], unmatched: [] })
+    expect(await propose()).toEqual({ changes: [], followInSteps: true, unmatched: [] })
     expect(mockMatch).not.toHaveBeenCalled()
   })
 })

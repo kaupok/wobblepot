@@ -463,6 +463,10 @@
       "submit": "Suggest changes",
       "suggesting": "Suggesting changes…",
       "noChanges": "No ingredient change is needed for that.",
+      "stepsOnly": "No ingredient change is needed. The steps can follow it instead.",
+      "useInSteps": "Use in the steps",
+      "noteLabel": "The steps follow your request: {note}",
+      "clearNote": "Clear request",
       "review": {
         "title": "Suggested changes",
         "description": "Tick the changes to make. Only this meal changes. The recipe stays as it is.",

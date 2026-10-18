@@ -62,6 +62,11 @@ export const adjustRecipeSchema = z.object({
       }),
     )
     .describe('The changes, in the order to show them. Empty when the meal needs no change.'),
+  followInSteps: z
+    .boolean()
+    .describe(
+      'True when the instruction asks for something the cooking steps should follow beyond these ingredient changes (less salt, milder, softer for a toddler). False when the changes cover it or the meal already does what it asks.',
+    ),
 })
 
 export type AdjustRecipeOutput = z.infer<typeof adjustRecipeSchema>
@@ -121,6 +126,7 @@ Rules:
 - Change only what the instruction asks for, and what it cannot work without.
 - Never bring in a food the household restrictions exclude.
 - When the meal already does what the instruction asks, or the instruction is not about this meal's ingredients, return an empty list.
+- followInSteps: true when the instruction asks for something the cooking steps should follow beyond the ingredient changes ("less salt" on a meal with no salt listed, "softer for a toddler"). False when the meal already does what it asks.
 - reason: one short sentence under 20 words, written to the household as "you": what the change does for the meal. Do not repeat the instruction.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoice(locale)}`
 }
 

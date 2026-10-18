@@ -74,6 +74,7 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
       changes: [yoghurt],
       basedOn: ['c1'],
       adjustmentNote: 'No cream',
+      noteMode: 'append',
     })
   })
 
@@ -86,6 +87,7 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
       changes: [],
       basedOn: [],
       adjustmentNote: null,
+      noteMode: 'append',
     })
   })
 
@@ -94,6 +96,7 @@ describe('PUT /api/meal-plans/[id]/entries/[entryId]/components', () => {
     ['an instruction over 500 characters', { changes: [], adjustmentNote: 'x'.repeat(501) }],
     ['no change list', { basedOn: [], adjustmentNote: 'No cream' }],
     ['no list of the changes it was built from', { changes: [], adjustmentNote: 'No cream' }],
+    ['an unknown note mode', { changes: [], basedOn: [], noteMode: 'merge' }],
   ])('answers 400 for %s', async (_label, body) => {
     const response = await put(body)
 

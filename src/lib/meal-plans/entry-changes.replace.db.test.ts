@@ -109,6 +109,7 @@ describe('replaceEntryChanges', () => {
       basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt'), change('mushroom', null), change(null, 'chili', 2)],
       adjustmentNote: 'No cream, I have yoghurt',
+      noteMode: 'append',
     })
 
     expect(components.map((c) => [c.ingredientId, c.quantityPerServing])).toEqual([
@@ -133,26 +134,52 @@ describe('replaceEntryChanges', () => {
       basedOn: await storedIds(),
       changes: [change(null, 'chili', 2), change(null, 'basil', 3), change(null, 'yoghurt', 5)],
       adjustmentNote: 'More flavour',
+      noteMode: 'append',
     })
 
     expect(components.slice(3).map((c) => c.ingredientId)).toEqual(['chili', 'basil', 'yoghurt'])
   })
 
-  it('clears the instruction with an empty set', async () => {
+  it('stores an instruction with no change, and keeps it through a later adjustment', async () => {
     const { alder } = await world()
+
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: [],
+      changes: [],
+      adjustmentNote: 'Less salt',
+      noteMode: 'append',
+    })
+    expect((await entryRow()).adjustmentNote).toBe('Less salt')
+    expect((await entryRow()).preparationTips).toBeNull()
+
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: [],
+      changes: [change('cream', 'yoghurt')],
+      adjustmentNote: 'No cream',
+      noteMode: 'append',
+    })
+    expect((await entryRow()).adjustmentNote).toBe('Less salt\nNo cream')
+  })
+
+  it('clears the instruction on replace, and keeps the changes', async () => {
+    const { alder } = await world()
+    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
+      basedOn: [],
+      changes: [change('cream', 'yoghurt')],
+      adjustmentNote: 'No cream, less salt',
+      noteMode: 'append',
+    })
+
     await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
       basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt')],
-      adjustmentNote: 'No cream',
+      adjustmentNote: null,
+      noteMode: 'replace',
     })
 
-    await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
-      basedOn: await storedIds(),
-      changes: [],
-      adjustmentNote: 'No cream',
-    })
-
-    expect(await rows()).toEqual([])
+    expect(await rows()).toEqual([
+      { originalIngredientId: 'cream', replacementIngredientId: 'yoghurt' },
+    ])
     expect((await entryRow()).adjustmentNote).toBeNull()
   })
 
@@ -180,6 +207,7 @@ describe('replaceEntryChanges', () => {
           basedOn: await storedIds(),
           changes: [...changes],
           adjustmentNote: 'x',
+          noteMode: 'append',
         }),
       ),
     ).toBe(reason)
@@ -200,6 +228,7 @@ describe('replaceEntryChanges', () => {
           basedOn: seen,
           changes: [change('cream', 'yoghurt')],
           adjustmentNote: 'No cream',
+          noteMode: 'append',
         }),
       ),
     ).toBe('changesMoved')
@@ -214,12 +243,14 @@ describe('replaceEntryChanges', () => {
       basedOn: [],
       changes: [change('mushroom', null)],
       adjustmentNote: 'Less salt, no mushrooms',
+      noteMode: 'append',
     })
 
     await replaceEntryChanges(alder.id, 'plan-alder', 'entry-mon', {
       basedOn: await storedIds(),
       changes: [change('mushroom', null), change('cream', 'yoghurt')],
       adjustmentNote: 'No cream',
+      noteMode: 'append',
     })
     expect((await entryRow()).adjustmentNote).toBe('Less salt, no mushrooms\nNo cream')
 
@@ -227,6 +258,7 @@ describe('replaceEntryChanges', () => {
       basedOn: await storedIds(),
       changes: [change(null, 'basil', 2)],
       adjustmentNote: 'Add basil',
+      noteMode: 'append',
     })
     expect((await entryRow()).adjustmentNote).toBe('Add basil')
   })
@@ -240,6 +272,7 @@ describe('replaceEntryChanges', () => {
           basedOn: await storedIds(),
           changes: [change('cream', 'yoghurt')],
           adjustmentNote: 'x',
+          noteMode: 'append',
         }),
       ),
     ).toBe('notPlanned')
@@ -254,6 +287,7 @@ describe('replaceEntryChanges', () => {
           basedOn: await storedIds(),
           changes: [],
           adjustmentNote: null,
+          noteMode: 'append',
         }),
       ),
     ).toBe('entryNotFound')
@@ -267,6 +301,7 @@ describe('removeEntryChange and the instruction', () => {
       basedOn: await storedIds(),
       changes: [change('cream', 'yoghurt'), change('mushroom', null)],
       adjustmentNote: 'No cream, no mushrooms',
+      noteMode: 'append',
     })
     const [first, second] = await prisma.mealPlanEntryComponent.findMany({
       where: { entryId: 'entry-mon' },

@@ -124,6 +124,10 @@ export const ADJUST_INSTRUCTION_MAX_LENGTH = 500
  * `basedOn` holds the ids of the stored changes the set was built from, stale
  * ones included. The set replaces them all, so a change someone else made
  * meanwhile would vanish unseen; `replaceEntryChanges` refuses when they moved.
+ *
+ * `noteMode` says what happens to the stored instruction: `append` (an
+ * adjustment) adds the new one to it while it still explains a kept change,
+ * and `replace` (clearing the request) stores `adjustmentNote` as it is.
  */
 export const entryChangeSetSchema = z.object({
   changes: z.array(entryChangeSchema).max(MAX_MEAL_COMPONENTS),
@@ -134,6 +138,7 @@ export const entryChangeSetSchema = z.object({
     .max(ADJUST_INSTRUCTION_MAX_LENGTH)
     .nullish()
     .transform((note) => note || null),
+  noteMode: z.enum(['append', 'replace']).default('append'),
 })
 
 export type EntryChangeSetInput = z.output<typeof entryChangeSetSchema>

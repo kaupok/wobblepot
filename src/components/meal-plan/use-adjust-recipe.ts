@@ -18,6 +18,8 @@ import { ENTRY_CHANGE_ERROR_KEYS, type NewEntryChange } from './use-entry-change
 /** The answer of `POST .../entries/[entryId]/adjust`. */
 export interface AdjustResponse {
   changes: AdjustProposal[]
+  /** The steps should follow the instruction even with no change to apply. */
+  followInSteps: boolean
   unmatched: string[]
 }
 
@@ -52,7 +54,12 @@ export function useAdjustRecipe({ planId, entryId, onChanged }: UseAdjustRecipeO
   })
 
   const apply = useMutation({
-    mutationFn: (body: { changes: NewEntryChange[]; basedOn: string[]; adjustmentNote: string }) =>
+    mutationFn: (body: {
+      changes: NewEntryChange[]
+      basedOn: string[]
+      adjustmentNote: string | null
+      noteMode: 'append' | 'replace'
+    }) =>
       apiFetch(`${base}/components`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -107,8 +114,13 @@ export function useAdjustRecipe({ planId, entryId, onChanged }: UseAdjustRecipeO
     proposeError,
     resetProposal: propose.reset,
     /** Resolves true once the set is stored, false on a refusal (already toasted). */
-    apply: (changes: NewEntryChange[], basedOn: string[], adjustmentNote: string) =>
-      apply.mutateAsync({ changes, basedOn, adjustmentNote }).then(
+    apply: (
+      changes: NewEntryChange[],
+      basedOn: string[],
+      adjustmentNote: string | null,
+      noteMode: 'append' | 'replace' = 'append',
+    ) =>
+      apply.mutateAsync({ changes, basedOn, adjustmentNote, noteMode }).then(
         () => true,
         () => false,
       ),

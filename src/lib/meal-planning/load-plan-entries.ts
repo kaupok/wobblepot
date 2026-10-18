@@ -133,6 +133,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       servingOverride: entry.servingOverride,
       pantryDeducted: entry.pantryDeductedAt !== null,
       conflicts,
+      adjustmentNote: entry.adjustmentNote,
       changes: entry.changes.map((change) => ({
         id: change.id,
         original: change.originalIngredient && {

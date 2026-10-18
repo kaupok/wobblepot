@@ -215,8 +215,10 @@ export async function removeEntryChange(
  * Replaces a planned entry's whole change set with `input.changes`, and stores
  * the instruction they came from (HON-1244, "Adjust recipe"), in one
  * transaction: the old rows go, stale ones included, and the new ones are
- * written in order. An empty set clears the note too. Nulls the cached tips
- * as `addEntryChange` does, and returns the merged components.
+ * written in order. A set may be empty and still carry an instruction: "less
+ * salt" on a meal with no salt changes no ingredient, and only the steps
+ * follow it. Nulls the cached tips as `addEntryChange` does, and returns the
+ * merged components.
  *
  * Each change has passed `entryChangeSchema`. The rules across the set are the
  * ones `addEntryChange` holds one row at a time: every original is in the
@@ -273,14 +275,18 @@ export async function replaceEntryChanges(
       })),
     })
     // A kept change still answers the instruction it came from, so that one
-    // stays: "less salt" from an earlier adjust keeps reaching the steps.
-    const keepsEarlier = stored.some((s) =>
-      input.changes.some(
-        (c) =>
-          c.originalIngredientId === s.originalIngredientId &&
-          c.replacementIngredientId === s.replacementIngredientId,
-      ),
-    )
+    // stays: "less salt" from an earlier adjust keeps reaching the steps. So
+    // does an instruction with no change behind it, which only the steps
+    // follow, until the household clears it (`noteMode: 'replace'`).
+    const keepsEarlier =
+      stored.length === 0 ||
+      stored.some((s) =>
+        input.changes.some(
+          (c) =>
+            c.originalIngredientId === s.originalIngredientId &&
+            c.replacementIngredientId === s.replacementIngredientId,
+        ),
+      )
     const { adjustmentNote: before } = await tx.mealPlanEntry.findUniqueOrThrow({
       where: { id: entryId },
       select: { adjustmentNote: true },
@@ -289,8 +295,8 @@ export async function replaceEntryChanges(
       where: { id: entryId },
       data: {
         adjustmentNote:
-          input.changes.length === 0
-            ? null
+          input.noteMode === 'replace'
+            ? input.adjustmentNote
             : joinNotes(keepsEarlier ? before : null, input.adjustmentNote),
       },
     })

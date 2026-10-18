@@ -52,6 +52,7 @@
   "instruction": "Make it vegetarian",
   "locale": "en",
   "expected": {
-    "noChange": true
+    "noChange": true,
+    "followInSteps": false
   }
 }

@@ -86,6 +86,8 @@ export type AdjustContext = Awaited<ReturnType<typeof loadAdjustContext>>
 
 export interface AdjustResult {
   changes: AdjustProposal[]
+  /** The steps should follow the instruction beyond the changes (see `adjustRecipeSchema`). */
+  followInSteps: boolean
   /** The replacement names the catalogue did not match, in proposal order. */
   unmatched: string[]
 }
@@ -180,6 +182,7 @@ export async function proposeAdjustment(input: {
 
   return {
     changes,
+    followInSteps: result.object.followInSteps,
     unmatched: changes.flatMap((c) =>
       c.replacement && !c.replacement.matched ? [c.replacement.name] : [],
     ),
