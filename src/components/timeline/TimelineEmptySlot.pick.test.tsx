@@ -66,7 +66,7 @@ afterEach(() => {
 })
 
 function renderSlot(onPicked = vi.fn()) {
-  const { wrapper: Wrapper } = createQueryWrapper()
+  const { wrapper: Wrapper, queryClient } = createQueryWrapper()
   render(
     <Wrapper>
       <TimelineEmptySlot
@@ -79,7 +79,7 @@ function renderSlot(onPicked = vi.fn()) {
       />
     </Wrapper>,
   )
-  return { onPicked }
+  return { onPicked, queryClient }
 }
 
 async function pickForMe() {
@@ -150,15 +150,22 @@ describe('TimelineEmptySlot: Pick for me', () => {
     })
   })
 
-  it('deletes the entry and refreshes on Undo', async () => {
-    renderSlot()
+  it('deletes the entry, drops the suggestion cache and refreshes on Undo', async () => {
+    const { queryClient } = renderSlot()
+    // Another card's cached list, as `MealSelectorModal` keys it.
+    const otherCard = ['meal-suggestions', 'plan-1', 'entry-3', 'swap']
 
     await pickForMe()
     const [, options] = await pickedToast()
+    // The test client collects unobserved queries at once; this one must stay
+    // until Undo drops it.
+    queryClient.setQueryDefaults(otherCard, { gcTime: Infinity })
+    queryClient.setQueryData(otherCard, [{ id: 'meal-7' }])
     refresh.mockClear()
     clickUndo(options)
 
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(queryClient.getQueryData(otherCard)).toBeUndefined()
     expect(requests.at(-1)).toEqual({
       method: 'DELETE',
       url: `${ENTRIES_URL}/entry-9`,
