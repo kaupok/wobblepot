@@ -167,7 +167,7 @@ function buildMembership(preferences: Record<string, unknown> | null = null) {
 }
 
 function sampleEntry(overrides: Record<string, unknown> = {}) {
-  return {
+  const entry = {
     id: 'entry-1',
     planId: 'plan-1',
     mealId: 'meal-1',
@@ -187,6 +187,10 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   }
+  // `loadEntryForAi` returns the meal's components with the entry's changes
+  // merged as `components` (HON-1243); without changes they are the meal's.
+  const meal = entry.meal as { components?: unknown[] } | null
+  return { changes: [], components: meal?.components ?? [], ...entry }
 }
 
 const STEPS = ['Slice the chicken.', 'Fry the chicken.', 'Add the sauce.']

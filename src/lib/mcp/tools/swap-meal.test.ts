@@ -3,13 +3,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
 }))
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
+vi.mock('@/lib/prisma', () => {
+  const prisma = {
     mealPlanEntry: { findFirst: vi.fn(), findMany: vi.fn(), updateManyAndReturn: vi.fn() },
+    // A swap drops the entry's ingredient changes in its own transaction (HON-1243).
+    mealPlanEntryComponent: { deleteMany: vi.fn() },
+    $transaction: vi.fn((run: (tx: unknown) => unknown) => run(prisma)),
+    $queryRaw: vi.fn(),
     favoriteMeal: { findMany: vi.fn() },
     meal: { findFirst: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn() },
-  },
-}))
+  }
+  return { prisma }
+})
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
   NO_REPEAT_DAYS: 14,

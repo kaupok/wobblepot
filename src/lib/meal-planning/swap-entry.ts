@@ -108,9 +108,45 @@ export async function writeSwappedEntry(
   entryId: string,
   data: Prisma.MealPlanEntryUncheckedUpdateManyInput & { mealId: string },
 ) {
-  const [swapped] = await prisma.mealPlanEntry.updateManyAndReturn({
-    where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
-    data,
+  return prisma
+    .$transaction(async (tx) => {
+      await clearChangesOnSwap(tx, entryId, data.mealId)
+      const [swapped] = await tx.mealPlanEntry.updateManyAndReturn({
+        where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
+        data,
+      })
+      // Throwing rolls the cleared changes back with the refused swap.
+      if (!swapped) throw new SwapRefused()
+      return swapped
+    })
+    .catch((error: unknown) => {
+      if (error instanceof SwapRefused) return null
+      throw error
+    })
+}
+
+class SwapRefused extends Error {}
+
+/**
+ * Deletes the entry's ingredient changes when a swap repoints it at another
+ * meal (HON-1243). A change describes the meal it was made on — "yoghurt
+ * instead of cream" — so on another meal it is either stale or, for an added
+ * ingredient, silently wrong. A re-select of the same meal keeps them, as it
+ * keeps the tips (`swapEntryData`). Call it in the swap's own transaction,
+ * before the write that moves `mealId`: the filter reads the meal the entry
+ * still points at.
+ *
+ * It locks the entry first, as every change write does (`claimPlannedEntry`).
+ * Without the lock the delete could run before a change write that already
+ * holds it commits, miss that row, and leave it on the new meal.
+ */
+export async function clearChangesOnSwap(
+  tx: Prisma.TransactionClient,
+  entryId: string,
+  nextMealId: string,
+) {
+  await tx.$queryRaw`SELECT 1 FROM "meal_plan_entry" WHERE "id" = ${entryId} FOR UPDATE`
+  return tx.mealPlanEntryComponent.deleteMany({
+    where: { entryId, entry: { mealId: { not: nextMealId } } },
   })
-  return swapped ?? null
 }

@@ -3,7 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
-import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-planning/swap-entry'
+import {
+  clearChangesOnSwap,
+  findSwapMeal,
+  swapEntryData,
+  writeSwappedEntry,
+} from '@/lib/meal-planning/swap-entry'
+import {
+  applyEntryChanges,
+  changeSetKey,
+  ENTRY_CHANGES_FOR_DEDUCTION,
+} from '@/lib/meal-planning/entry-components'
 import { toDateString } from '@/lib/meal-planning/dates'
 
 /**
@@ -268,10 +278,12 @@ export async function updateEntry(
             select: {
               ingredientId: true,
               quantityPerServing: true,
+              ingredient: { select: { id: true } },
             },
           },
         },
       },
+      changes: ENTRY_CHANGES_FOR_DEDUCTION,
     },
   })
 
@@ -431,7 +443,12 @@ export async function updateEntry(
   // entry ends up pointing at the incoming meal, so charging the household
   // for `entry.meal` would take ingredients it never cooked and leave the
   // ones it did cook in the pantry (HON-622).
-  const componentsToDeduct = swapMealComponents ?? entry.meal?.components ?? []
+  // Otherwise the entry's own meal, with its ingredient changes merged
+  // (HON-1243): yoghurt for the cream it replaced, nothing for a left-out one.
+  const keepsMeal = !patch.mealId || patch.mealId === entry.mealId
+  const componentsToDeduct = keepsMeal
+    ? applyEntryChanges(entry.meal?.components ?? [], entry.changes)
+    : (swapMealComponents ?? [])
 
   // Handle pantry deduction when marking as completed. Deduction is a
   // relative decrement and is not idempotent, so an entry is charged at most
@@ -517,6 +534,8 @@ export async function updateEntry(
       // `claimed === undefined` meaning exactly one thing — nobody to claim
       // from — so the branch under it stays the lost-completion branch it was
       // written as.
+      // A swap to another meal drops the changes made on the old one.
+      if (!keepsMeal) await clearChangesOnSwap(tx, entryId, patch.mealId!)
       const [claimed] = await tx.mealPlanEntry.updateManyAndReturn({
         where: {
           id: entryId,
@@ -607,6 +626,19 @@ export async function updateEntry(
       // (a swap resets it to null) prices what it persists and is exempt.
       if (!('servingOverride' in updateData) && claimed.servingOverride !== entry.servingOverride) {
         throw new EntryUpdateError('staleMeal')
+      }
+
+      // And for the ingredient changes. A change write takes this row's lock
+      // first (`claimPlannedEntry`), so the set cannot move under the claim,
+      // and one committed since the read at the top is visible here.
+      if (keepsMeal) {
+        const changesNow = await tx.mealPlanEntryComponent.findMany({
+          where: { entryId },
+          select: { id: true },
+        })
+        if (changeSetKey(changesNow) !== changeSetKey(entry.changes)) {
+          throw new EntryUpdateError('staleMeal')
+        }
       }
 
       // Charge the pantry one row at a time, in the sorted order above, and

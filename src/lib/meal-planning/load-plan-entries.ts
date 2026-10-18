@@ -4,6 +4,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -70,6 +71,15 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       ...(query.status ? { status: query.status } : {}),
     },
     include: {
+      // The entry's own ingredient changes (HON-1243), oldest first, merged
+      // over the meal's components below.
+      changes: {
+        orderBy: { createdAt: 'asc' },
+        include: {
+          originalIngredient: { include: ingredientTranslationsInclude(locale) },
+          replacementIngredient: { include: ingredientTranslationsInclude(locale) },
+        },
+      },
       meal: {
         include: {
           components: {
@@ -90,11 +100,17 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
     // Coalesce the locale's MealTranslation over the canonical English fields
     // (per-field fallback). For en this returns the meal unchanged.
     const translatedMeal = entry.meal ? translateMeal(entry.meal, locale) : null
+    // What this entry cooks: the meal's components with the entry's changes
+    // merged. Nutrition, the conflicts, the availability the client computes
+    // and every quantity shown read this list, never the bare meal.
+    const mealComponents = entry.meal?.components ?? []
+    const components = applyEntryChanges(mealComponents, entry.changes)
+    const stale = staleChangeIds(mealComponents, entry.changes)
     // Planned meals only: a cooked or skipped meal is history. Canonical names,
     // not the translated ones: the keyword lists match both languages.
     const conflicts: PreferenceConflict[] =
       entry.meal && entry.status === 'planned' && household.preferences
-        ? findPreferenceConflicts(entry.meal, household.preferences)
+        ? findPreferenceConflicts({ ...entry.meal, components }, household.preferences)
         : []
 
     return {
@@ -117,6 +133,19 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       servingOverride: entry.servingOverride,
       pantryDeducted: entry.pantryDeductedAt !== null,
       conflicts,
+      changes: entry.changes.map((change) => ({
+        id: change.id,
+        original: change.originalIngredient && {
+          id: change.originalIngredient.id,
+          name: translateIngredient(change.originalIngredient, locale).name,
+        },
+        replacement: change.replacementIngredient && {
+          id: change.replacementIngredient.id,
+          name: translateIngredient(change.replacementIngredient, locale).name,
+        },
+        quantityPerServing: change.quantityPerServing,
+        stale: stale.has(change.id),
+      })),
       meal:
         entry.meal && translatedMeal
           ? {
@@ -133,8 +162,8 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
               // Card and hero tint (HON-744); null when the image has no colour.
               // A stale prompt version reads as no image, so it is redrawn (HON-753).
               ...presentMealImage(entry.meal),
-              nutrition: computeMealNutrition(entry.meal.components),
-              components: entry.meal.components.map((comp) => ({
+              nutrition: computeMealNutrition(components),
+              components: components.map((comp) => ({
                 ingredientId: comp.ingredientId,
                 quantityPerServing: comp.quantityPerServing,
                 isVague: comp.isVague,

@@ -99,7 +99,7 @@ async function plan(
   const taken = await prisma.mealPlanEntry.count({
     where: { planId, date: daysFromToday(entry.days ?? 0) },
   })
-  await prisma.mealPlanEntry.create({
+  return prisma.mealPlanEntry.create({
     data: {
       planId,
       mealId: meal.id,
@@ -207,6 +207,33 @@ describe('loadPantry', () => {
       ],
       windowDays: 7,
     })
+  })
+
+  // The pane beside the shopping list counts what the list buys (HON-614),
+  // so an entry's own ingredient changes count here too (HON-1243).
+  it("counts the entry's replacement, not the original it replaced", async () => {
+    const alder = await household()
+    await ingredient('ing-chicken', { name: 'Chicken breast' })
+    await ingredient('ing-tofu', { name: 'Tofu' })
+    await stock(alder.id, 'ing-chicken')
+    await stock(alder.id, 'ing-tofu')
+    const entry = await plan(alder.id, [{ ingredientId: 'ing-chicken', quantityPerServing: 150 }])
+    await prisma.mealPlanEntryComponent.create({
+      data: {
+        entryId: entry.id,
+        originalIngredientId: 'ing-chicken',
+        replacementIngredientId: 'ing-tofu',
+        quantityPerServing: 120,
+      },
+    })
+
+    const result = await loadPantry(alder, { days: 7 })
+
+    // Household of 2: 2 × 120 g tofu, and no chicken.
+    const needed = Object.fromEntries(
+      result.items.map((item) => [item.ingredientId, item.neededQuantity ?? null]),
+    )
+    expect(needed).toEqual({ 'ing-chicken': null, 'ing-tofu': 240 })
   })
 
   it("counts only this household's planned entries inside the window", async () => {

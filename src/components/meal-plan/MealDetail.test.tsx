@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { createMeal } from '@/stories/fixtures'
+import { createMeal, createMealComponent } from '@/stories/fixtures'
 import { MealDetail } from './MealDetail'
 import type { PantryIngredient } from './types'
 
@@ -49,6 +49,33 @@ describe('MealDetail availability', () => {
     expect(missingRows().map((row) => row.textContent)).toEqual([
       expect.stringContaining('Potato'),
       expect.stringContaining('Lemon'),
+    ])
+  })
+
+  // The server sends the entry's own changes merged into `meal.components`
+  // (HON-1243), so "to buy" counts the replacement and skips what was left
+  // out: chicken became salmon, the lemon is left out.
+  it("counts the entry's merged ingredients: the replacement, never a left-out one", () => {
+    const changed = {
+      ...meal,
+      components: [
+        createMealComponent({ ingredientId: 'salmon-fillet', quantityPerServing: 140 }),
+        ...meal.components.filter((c) => !['chicken-thigh', 'lemon'].includes(c.ingredientId)),
+      ],
+    }
+    render(
+      <MealDetail
+        meal={changed}
+        householdServings={4}
+        onToggleAvailability={vi.fn()}
+        pantryIngredients={[...staplesOnly, { ingredientId: 'chicken-thigh', isStaple: false }]}
+      />,
+    )
+
+    expect(screen.getByText('2 to buy')).toBeInTheDocument()
+    expect(missingRows().map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Salmon fillet'),
+      expect.stringContaining('Potato'),
     ])
   })
 

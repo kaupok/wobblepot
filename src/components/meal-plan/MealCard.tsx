@@ -37,7 +37,9 @@ import { useNoteDrag } from './use-note-drag'
 import { MyRecipeIcon } from './MyRecipeIcon'
 import { ProteinBadge } from './ProteinBadge'
 import { ConflictBadges } from './ConflictBadge'
+import { ChangedBadge } from './ChangedBadge'
 import type {
+  EntryChange,
   EntryRating,
   MealData,
   MealStatus,
@@ -102,6 +104,8 @@ interface MealCardProps {
   preparationTips?: PreparationSteps | null
   /** The food preferences the meal breaks — see `PlanEntry.conflicts`. */
   conflicts?: PreferenceConflict[]
+  /** The entry's own ingredient changes — see `PlanEntry.changes`. */
+  changes?: EntryChange[]
   /**
    * Called once Clear has deleted the entry, before the refresh that unmounts
    * this card, so the page can move focus to the slot that replaces it.
@@ -130,6 +134,7 @@ export function MealCard({
   pantryDeducted = false,
   preparationTips = null,
   conflicts = [],
+  changes = [],
   onCleared,
   onPicked,
 }: MealCardProps) {
@@ -560,6 +565,7 @@ export function MealCard({
                 {/* A cooked or skipped meal is history (HON-1126). The status
                     is the card's own, so marking it cooked hides them at once. */}
                 {status === 'planned' && <ConflictBadges conflicts={conflicts} />}
+                {changes.length > 0 && <ChangedBadge />}
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">
@@ -829,6 +835,7 @@ export function MealCard({
         onServingOverrideChange={setServingOverride}
         initialSteps={preparationTips}
         conflicts={status === 'planned' ? conflicts : undefined}
+        changes={changes}
         // Steps generate on open only for a meal somebody is about to cook.
         generateOnOpen={status === 'planned' && !isReadOnly}
         // A read-only card cannot be marked cooked.

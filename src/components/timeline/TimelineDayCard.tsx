@@ -142,6 +142,7 @@ export function TimelineDayCard({
               pantryDeducted={entry.pantryDeducted}
               preparationTips={entry.preparationTips}
               conflicts={entry.conflicts}
+              changes={entry.changes}
               onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
               onPicked={() => onSlotPicked?.(day.date)}
             />

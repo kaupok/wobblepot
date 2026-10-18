@@ -214,6 +214,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -259,6 +260,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         servingOverride: null,
         meal: {
@@ -290,6 +292,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -341,6 +344,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -392,6 +396,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -445,6 +450,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -500,6 +506,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -552,6 +559,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -581,6 +589,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-2',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-2',
@@ -627,6 +636,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date('2026-01-20'), // Today
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -690,6 +700,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -732,6 +743,7 @@ describe('computeShoppingList', () => {
         mealId: null,
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: null, // No meal assigned
       },
@@ -741,6 +753,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: new Date(),
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -785,6 +798,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: mealDate,
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -830,6 +844,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-1',
         date: laterDate, // Later meal
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-1',
@@ -859,6 +874,7 @@ describe('computeShoppingList', () => {
         mealId: 'meal-2',
         date: earlierDate, // Earlier meal
         mealType: 'dinner',
+        changes: [],
         status: 'planned',
         meal: {
           id: 'meal-2',
@@ -935,6 +951,7 @@ describe('computeRollingWindowShoppingList', () => {
       id: `e-${overrides.mealId ?? 'x'}`,
       date: overrides.date ?? new Date('2026-01-20'),
       servingOverride: overrides.servingOverride ?? null,
+      changes: [],
       plan: { createdAt: overrides.planCreatedAt ?? PLAN_CREATED },
       meal:
         overrides.mealId === null

@@ -179,6 +179,43 @@ export const WithConflicts: Story = {
   },
 }
 
+/**
+ * The entry has its own ingredient changes (HON-1243): the card says so, and
+ * the cook view lists them above the steps. `meal.components` arrives merged,
+ * so the garlic is gone from it.
+ */
+export const WithIngredientChanges: Story = {
+  args: {
+    ...PlannedWithImage.args,
+    meal: {
+      ...mealFixture,
+      components: mealFixture.components.filter((c) => c.ingredientId !== 'garlic'),
+    },
+    changes: [
+      {
+        id: 'change-1',
+        original: { id: 'garlic', name: 'Garlic' },
+        replacement: null,
+        quantityPerServing: null,
+        stale: false,
+      },
+    ],
+  },
+  parameters: ClickAnywhereOpensCookView.parameters,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Changed')).toBeVisible()
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
+    const dialog = within(
+      await within(document.body).findByRole('dialog', { name: mealFixture.name }),
+    )
+    await waitFor(() => expect(dialog.getByText('Left out: Garlic')).toBeVisible())
+    await expect(dialog.getByRole('button', { name: 'Undo change: Garlic' })).toBeVisible()
+    await pressEscape()
+    await awaitDialogClosed()
+  },
+}
+
 export const WithConflictsDark: Story = {
   ...WithConflicts,
   name: 'With conflicts (dark)',

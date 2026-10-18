@@ -9,6 +9,10 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
+import {
+  applyEntryChanges,
+  ENTRY_CHANGES_FOR_DEDUCTION,
+} from '@/lib/meal-planning/entry-components'
 
 export interface PantryHousehold {
   id: string
@@ -85,6 +89,9 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       // `sourceUrl`, …) across the wire for every entry in the window.
       select: {
         servingOverride: true,
+        // The entry's own ingredient changes (HON-1243), merged below as the
+        // shopping list merges them, so the two panes agree.
+        changes: ENTRY_CHANGES_FOR_DEDUCTION,
         meal: {
           select: {
             components: {
@@ -93,6 +100,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
                 quantityPerServing: true,
                 isVague: true,
                 originalPhrase: true,
+                ingredient: { select: { id: true } },
               },
             },
           },
@@ -111,7 +119,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       // Same rule the shopping list and pantry deduction use, so the two
       // numbers /shopping renders side by side agree (HON-614).
       const effectiveServings = getEffectiveServings(entry, householdServings)
-      for (const component of entry.meal.components) {
+      for (const component of applyEntryChanges(entry.meal.components, entry.changes)) {
         const qty = component.quantityPerServing * effectiveServings
         const existing = neededQuantities.get(component.ingredientId)
 

@@ -121,6 +121,7 @@ describe('locale rollback', () => {
         note: null,
         servingOverride: null,
         pantryDeductedAt: null,
+        changes: [],
         meal: {
           id: 'meal-1',
           name: 'Onion soup',

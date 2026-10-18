@@ -133,7 +133,7 @@ const mockMembership = buildMembership()
 const MEAL_UPDATED_AT = new Date('2026-02-01T10:00:00.000Z')
 
 function sampleEntry(overrides: Record<string, unknown> = {}) {
-  return {
+  const entry = {
     id: 'entry-1',
     planId: 'plan-1',
     mealId: 'meal-1',
@@ -160,6 +160,10 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   }
+  // `loadEntryForAi` returns the meal's components with the entry's changes
+  // merged as `components` (HON-1243); without changes they are the meal's.
+  const meal = entry.meal as { components?: unknown[] } | null
+  return { changes: [], components: meal?.components ?? [], ...entry }
 }
 
 function callPost(planId = 'plan-1', entryId = 'entry-1') {
@@ -434,6 +438,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         servingOverride: null,
         mealUpdatedAt: MEAL_UPDATED_AT,
         householdLocale: 'en',
+        changes: [],
       },
       fresh,
       // The servings the prompt was priced at ride along (HON-1040).
@@ -463,6 +468,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         servingOverride: 6,
         mealUpdatedAt: MEAL_UPDATED_AT,
         householdLocale: 'et',
+        changes: [],
       },
       fresh,
       6,
@@ -683,6 +689,23 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
       expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
         ...buildFullStepsRequest(builderInput),
+        model: { modelId: STEPS_MODEL },
+        abortSignal: expect.any(AbortSignal),
+      })
+    })
+
+    // An entry's own ingredient changes reach the prompt, the shared recipe
+    // does not: `loadEntryForAi` merges them into `components` (HON-1243).
+    it("builds the prompt from the entry's merged components, not the meal's", async () => {
+      mockLoadEntry.mockResolvedValue(sampleEntry({ components: components.slice(1) }) as never)
+      mockGenerateObject.mockResolvedValue({
+        object: { equipment: [], steps: [], pitfalls: [] },
+      } as never)
+
+      await callPost()
+
+      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+        ...buildFullStepsRequest({ ...builderInput, components: builderInput.components.slice(1) }),
         model: { modelId: STEPS_MODEL },
         abortSignal: expect.any(AbortSignal),
       })

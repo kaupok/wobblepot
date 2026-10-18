@@ -1,4 +1,5 @@
 // ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingListHeader, ShoppingItem, PantrySection, PantryItem
+// API: /api/meal-plans/[id]/entries/[entryId]/components (HON-1243)
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -46,6 +47,65 @@ interface ShoppingListItem {
   ingredientId: string
   name: string
   purchased: boolean
+  /** What to buy: the meals' need less the pantry's stock. */
+  quantity: number
+}
+
+interface PantryRow {
+  ingredient: { id: string }
+  quantity: number | null
+}
+
+/** The entry's servings, pinned so the quantities below are exact. */
+const ENTRY_SERVINGS = 2
+/** The replacement's amount per serving, in its default unit. */
+const REPLACEMENT_PER_SERVING = 50
+/** What the deduction check stocks the replacement with. */
+const STOCKED = 1000
+
+async function shoppingItems(request: APIRequestContext): Promise<ShoppingListItem[]> {
+  const response = await request.get('/api/shopping-list?days=7')
+  expect(response.ok()).toBe(true)
+  const { groups } = (await response.json()) as { groups: Array<{ items: ShoppingListItem[] }> }
+  return groups.flatMap((g) => g.items)
+}
+
+/** What the list says to buy of one ingredient; 0 when it is not listed. */
+const toBuy = (items: ShoppingListItem[], ingredientId: string) =>
+  items.find((item) => item.ingredientId === ingredientId)?.quantity ?? 0
+
+async function pantryRows(request: APIRequestContext): Promise<PantryRow[]> {
+  const response = await request.get('/api/pantry')
+  expect(response.ok()).toBe(true)
+  return ((await response.json()) as { items: PantryRow[] }).items
+}
+
+/**
+ * A global ingredient the meal does not use and the pantry does not hold, to
+ * replace one of the meal's with: a pantry row would cover it, so it would
+ * never reach the list. Searched by a few common names, so the spec does not
+ * depend on one seed row.
+ */
+async function findReplacement(
+  request: APIRequestContext,
+  mealIngredientIds: Set<string>,
+): Promise<{ id: string; name: string }> {
+  const taken = new Set([
+    ...mealIngredientIds,
+    ...(await pantryRows(request)).map((row) => row.ingredient.id),
+  ])
+  for (const term of ['yoghurt', 'yogurt', 'tofu', 'lentil', 'chickpea', 'rice']) {
+    const response = await request.get(`/api/ingredients?search=${term}`)
+    expect(response.ok()).toBe(true)
+    const { ingredients } = (await response.json()) as {
+      ingredients: Array<{ id: string; name: string }>
+    }
+    const found = ingredients.find((i) => !taken.has(i.id))
+    if (found) return found
+  }
+  throw new Error(
+    'No seeded ingredient outside the meal and the pantry matched the replacement search terms.',
+  )
 }
 
 function targetDate(): string {
@@ -125,10 +185,17 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
 
     let entryId: string | null = null
     let purchasedIngredientId: string | null = null
+    // Pantry rows this run created, deleted on teardown.
+    const createdPantryIds: string[] = []
 
     try {
       const createResponse = await page.request.post(`/api/meal-plans/${planId}/entries`, {
-        data: { date, mealType: ENTRY_MEAL_TYPE, mealId: meal!.id },
+        data: {
+          date,
+          mealType: ENTRY_MEAL_TYPE,
+          mealId: meal!.id,
+          servingOverride: ENTRY_SERVINGS,
+        },
       })
       expect(
         createResponse.ok(),
@@ -137,18 +204,54 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       entryId = ((await createResponse.json()) as { id: string }).id
       expect(entryId, 'Could not determine the id of the created entry').toBeTruthy()
 
+      // Replace one of the meal's ingredients on this entry only (HON-1243).
+      // The list is read before and after, so other entries of the shared
+      // household cannot skew the comparison.
+      const before = await shoppingItems(page.request)
+      // A concrete component this entry puts on the list, so its drop shows.
+      const original = meal!.components.find(
+        (c) => !c.isVague && c.quantityPerServing > 0 && toBuy(before, c.ingredientId) > 0,
+      )
+      expect(
+        original,
+        'None of the meal’s concrete ingredients is on the shopping list',
+      ).toBeTruthy()
+      const replacement = await findReplacement(
+        page.request,
+        new Set(meal!.components.map((c) => c.ingredientId)),
+      )
+      const changeResponse = await page.request.post(
+        `/api/meal-plans/${planId}/entries/${entryId}/components`,
+        {
+          data: {
+            originalIngredientId: original!.ingredientId,
+            replacementIngredientId: replacement.id,
+            quantityPerServing: REPLACEMENT_PER_SERVING,
+          },
+        },
+      )
+      expect(changeResponse.status(), 'Replacing the ingredient failed').toBe(201)
+
       // Read the list from the API first: it already applies translation and
       // pantry-offset logic, so whatever it returns is exactly what the page
       // renders — no guessing which ingredient name to look for.
-      const listResponse = await page.request.get('/api/shopping-list?days=7')
-      expect(listResponse.ok()).toBe(true)
-      const { groups } = (await listResponse.json()) as {
-        groups: Array<{ items: ShoppingListItem[] }>
-      }
-      const target = groups.flatMap((g) => g.items).find((item) => !item.purchased)
+      const after = await shoppingItems(page.request)
+      // The replacement, at its amount times the entry's servings; the
+      // original, by its own amount less.
+      expect(toBuy(after, replacement.id)).toBe(
+        toBuy(before, replacement.id) + REPLACEMENT_PER_SERVING * ENTRY_SERVINGS,
+      )
+      expect(toBuy(after, original!.ingredientId)).toBeCloseTo(
+        Math.max(
+          0,
+          toBuy(before, original!.ingredientId) - original!.quantityPerServing * ENTRY_SERVINGS,
+        ),
+      )
+      // Purchase the replacement: the item the change put on the list.
+      const target = after.find((item) => item.ingredientId === replacement.id && !item.purchased)
       expect(
         target,
-        'The shopping list is empty after adding a planned meal — the rolling-window computation ' +
+        'The replacement is not on the shopping list — the rolling-window computation ' +
           'or the entry date is out of the 7-day window.',
       ).toBeTruthy()
 
@@ -182,11 +285,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
 
       // Data half: purchased items land with `quantity: null` — the "have some,
       // amount unknown" state (see /api/shopping-list/purchase).
-      const pantryResponse = await page.request.get('/api/pantry')
-      expect(pantryResponse.ok()).toBe(true)
-      const { items } = (await pantryResponse.json()) as {
-        items: Array<{ ingredient: { id: string }; quantity: number | null }>
-      }
+      const items = await pantryRows(page.request)
       const pantryItem = items.find((i) => i.ingredient.id === purchasedIngredientId)
       expect(pantryItem, `${itemName} did not reach the pantry`).toBeDefined()
       expect(pantryItem!.quantity).toBeNull()
@@ -206,10 +305,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
         page.getByRole('checkbox', { name: `Mark ${itemName} as purchased` }),
       ).not.toBeChecked()
 
-      const pantryAfter = await page.request.get('/api/pantry')
-      const { items: itemsAfter } = (await pantryAfter.json()) as {
-        items: Array<{ ingredient: { id: string } }>
-      }
+      const itemsAfter = await pantryRows(page.request)
       expect(itemsAfter.some((i) => i.ingredient.id === purchasedIngredientId)).toBe(false)
       purchasedIngredientId = null
 
@@ -256,12 +352,42 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // Re-assert the URL after the effect has had a render to fire in: a
       // reconcile would have replaced it back to `?days=7` by now.
       await expect(page).toHaveURL(/[?&]days=14\b/)
+
+      // Completing the entry charges the replacement, never the original
+      // (HON-1243). Stock both: the replacement afresh, the original only when
+      // the household has no row for it, so an existing row is only read.
+      const stock = async (ingredientId: string) => {
+        const response = await page.request.post('/api/pantry', {
+          data: { ingredientId, quantity: STOCKED },
+        })
+        expect(response.status(), `Stocking ${ingredientId} failed`).toBe(201)
+        createdPantryIds.push(ingredientId)
+      }
+      await stock(replacement.id)
+      const originalRow = (await pantryRows(page.request)).find(
+        (row) => row.ingredient.id === original!.ingredientId,
+      )
+      if (!originalRow) await stock(original!.ingredientId)
+      const originalBefore = originalRow ? originalRow.quantity : STOCKED
+
+      const completeResponse = await page.request.patch(
+        `/api/meal-plans/${planId}/entries/${entryId}`,
+        { data: { status: 'completed', deductPantry: true } },
+      )
+      expect(completeResponse.ok(), 'Completing the entry failed').toBe(true)
+
+      const pantryAfterCooking = await pantryRows(page.request)
+      const quantityOf = (id: string) =>
+        pantryAfterCooking.find((row) => row.ingredient.id === id)?.quantity
+      expect(quantityOf(replacement.id)).toBe(STOCKED - REPLACEMENT_PER_SERVING * ENTRY_SERVINGS)
+      expect(quantityOf(original!.ingredientId)).toBe(originalBefore)
     } finally {
       // Leave the shared household exactly as found, whatever failed above.
-      if (purchasedIngredientId) {
-        await page.request
-          .delete(`/api/pantry/by-ingredient/${purchasedIngredientId}`)
-          .catch(() => {})
+      for (const ingredientId of new Set([
+        ...(purchasedIngredientId ? [purchasedIngredientId] : []),
+        ...createdPantryIds,
+      ])) {
+        await page.request.delete(`/api/pantry/by-ingredient/${ingredientId}`).catch(() => {})
       }
       if (entryId) {
         await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})

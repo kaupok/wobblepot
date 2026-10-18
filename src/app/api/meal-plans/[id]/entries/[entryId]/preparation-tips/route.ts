@@ -151,7 +151,9 @@ async function handlePOST(
     const timeMinutes = entry.meal.timeMinutes
     const preparationNotes = shownMeal.preparationNotes
 
-    const components = entry.meal.components.map((comp) => ({
+    // The entry's own changes merged over the recipe (HON-1243), so the steps
+    // name the yoghurt that replaced the cream.
+    const components = entry.components.map((comp) => ({
       name: translateIngredient(comp.ingredient, locale).name,
       quantityPerServing: comp.quantityPerServing,
       defaultUnit: comp.ingredient.defaultUnit,
@@ -205,7 +207,7 @@ async function handlePOST(
           mealName,
           householdSize: effectiveServings,
           timeMinutes,
-          ingredientsCount: entry.meal.components.length,
+          ingredientsCount: entry.components.length,
           hasUserNotes: true,
         },
         output: result.object,
@@ -251,7 +253,7 @@ async function handlePOST(
           mealName,
           householdSize: effectiveServings,
           timeMinutes,
-          ingredientsCount: entry.meal.components.length,
+          ingredientsCount: entry.components.length,
           hasUserNotes: false,
         },
         output: result.object,
@@ -262,9 +264,10 @@ async function handlePOST(
 
     // Cache tips on the entry, but only while the inputs they were priced
     // from still hold: `cachePreparationTips` pins the meal, the
-    // `servingOverride`, the stored locale and the meal's `updatedAt`, and
-    // writes nothing when one moved (HON-681, HON-683). The caller still gets
-    // the tips it asked for — only the cache is guarded.
+    // `servingOverride`, the stored locale, the meal's `updatedAt` and the
+    // entry's ingredient changes (HON-1243), and writes nothing when one moved
+    // (HON-681, HON-683). The caller still gets the tips it asked for — only
+    // the cache is guarded.
     //
     // The household's servings are a further priced-from input, because
     // `getEffectiveServings` above falls back to them whenever the entry
@@ -311,6 +314,7 @@ async function handlePOST(
         servingOverride: entry.servingOverride,
         mealUpdatedAt: entry.meal.updatedAt,
         householdLocale: household.locale,
+        changes: entry.changes,
       },
       tips,
       effectiveServings,

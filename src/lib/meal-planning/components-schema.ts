@@ -56,3 +56,57 @@ export function duplicateComponentIds(error: z.ZodError): string[] | null {
   }
   return null
 }
+
+/**
+ * Upper bound on one ingredient's quantity per serving, in its `defaultUnit`
+ * (grams, or pieces): 5 kg of one thing per person is a typo, not a recipe.
+ */
+export const MAX_QUANTITY_PER_SERVING = 5000
+
+/**
+ * The body of `POST /api/meal-plans/[id]/entries/[entryId]/components`
+ * (HON-1243): replace an ingredient (both ids and a quantity), leave one out
+ * (the original only), or add one (the replacement and a quantity).
+ */
+export const entryChangeSchema = z
+  .object({
+    originalIngredientId: z.string().min(1).max(100).nullish(),
+    replacementIngredientId: z.string().min(1).max(100).nullish(),
+    quantityPerServing: z.number().positive().max(MAX_QUANTITY_PER_SERVING).nullish(),
+  })
+  .superRefine((change, ctx) => {
+    const original = change.originalIngredientId ?? null
+    const replacement = change.replacementIngredientId ?? null
+    const quantity = change.quantityPerServing ?? null
+    if (original === null && replacement === null) {
+      ctx.addIssue({ code: 'custom', message: 'Name the original, the replacement, or both' })
+    }
+    if (replacement !== null && quantity === null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['quantityPerServing'],
+        message: 'A replacement or an added ingredient needs a quantity',
+      })
+    }
+    if (replacement === null && quantity !== null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['quantityPerServing'],
+        message: 'A left-out ingredient has no quantity',
+      })
+    }
+    if (original !== null && original === replacement) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['replacementIngredientId'],
+        message: 'The replacement is the original',
+      })
+    }
+  })
+  .transform((change) => ({
+    originalIngredientId: change.originalIngredientId ?? null,
+    replacementIngredientId: change.replacementIngredientId ?? null,
+    quantityPerServing: change.quantityPerServing ?? null,
+  }))
+
+export type EntryChangeInput = z.output<typeof entryChangeSchema>

@@ -419,6 +419,31 @@ describe('exportUserData', () => {
       ])
     })
 
+    it("exports each entry's ingredient changes and resolves the globals they name", async () => {
+      await world()
+      await ingredient('g-yoghurt', 'Yoghurt')
+      const entry = await prisma.mealPlanEntry.findFirstOrThrow({ where: { planId: 'plan-alder' } })
+      await prisma.mealPlanEntryComponent.create({
+        data: {
+          entryId: entry.id,
+          originalIngredientId: 'g-chicken',
+          replacementIngredientId: 'g-yoghurt',
+          quantityPerServing: 60,
+        },
+      })
+
+      const [alder] = (await exportOf('ann')).households
+
+      expect(alder.mealPlans[0]!.entries[0]!.changes).toEqual([
+        expect.objectContaining({
+          originalIngredientId: 'g-chicken',
+          replacementIngredientId: 'g-yoghurt',
+          quantityPerServing: 60,
+        }),
+      ])
+      expect(ids(alder.referencedGlobalIngredients)).toContain('g-yoghurt')
+    })
+
     it("does not reveal a redacted member's exclusions through referencedGlobalIngredients", async () => {
       await world()
 

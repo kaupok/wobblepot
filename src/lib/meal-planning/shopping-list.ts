@@ -8,6 +8,7 @@ import {
 } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
+import { applyEntryChanges } from './entry-components'
 import { loadHouseholdServings } from '@/lib/household'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
@@ -191,6 +192,38 @@ export function aggregateComponents(
   return needed
 }
 
+/** An ingredient as the shopping list selects it, for a component and for a change's replacement. */
+function shoppingIngredientArgs(locale: Locale) {
+  return {
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      defaultUnit: true,
+      gramsPerPiece: true,
+      measuredByVolume: true,
+      ...ingredientTranslationsInclude(locale),
+    },
+  } as const
+}
+
+/**
+ * The entry's own ingredient changes (HON-1243), merged over the meal's
+ * components before aggregation, so a replaced cream buys yoghurt instead.
+ */
+function shoppingChangesArgs(locale: Locale) {
+  return {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      originalIngredientId: true,
+      replacementIngredientId: true,
+      quantityPerServing: true,
+      replacementIngredient: shoppingIngredientArgs(locale),
+    },
+  } as const
+}
+
 /**
  * Compute what ingredients to buy based on meal plan minus pantry stock.
  *
@@ -239,6 +272,7 @@ export async function computeShoppingList(
     select: {
       date: true,
       servingOverride: true,
+      changes: shoppingChangesArgs(locale),
       meal: {
         include: {
           components: {
@@ -247,17 +281,7 @@ export async function computeShoppingList(
               quantityPerServing: true,
               isVague: true,
               originalPhrase: true,
-              ingredient: {
-                select: {
-                  id: true,
-                  name: true,
-                  category: true,
-                  defaultUnit: true,
-                  gramsPerPiece: true,
-                  measuredByVolume: true,
-                  ...ingredientTranslationsInclude(locale),
-                },
-              },
+              ingredient: shoppingIngredientArgs(locale),
             },
           },
         },
@@ -277,7 +301,7 @@ export async function computeShoppingList(
             {
               date: entry.date,
               servings: getEffectiveServings(entry, householdServings),
-              components: entry.meal.components,
+              components: applyEntryChanges(entry.meal.components, entry.changes),
             },
           ]
         : [],
@@ -403,6 +427,7 @@ export async function computeRollingWindowShoppingList(
       select: {
         date: true,
         servingOverride: true,
+        changes: shoppingChangesArgs(locale),
         plan: {
           select: {
             createdAt: true,
@@ -416,17 +441,7 @@ export async function computeRollingWindowShoppingList(
                 quantityPerServing: true,
                 isVague: true,
                 originalPhrase: true,
-                ingredient: {
-                  select: {
-                    id: true,
-                    name: true,
-                    category: true,
-                    defaultUnit: true,
-                    gramsPerPiece: true,
-                    measuredByVolume: true,
-                    ...ingredientTranslationsInclude(locale),
-                  },
-                },
+                ingredient: shoppingIngredientArgs(locale),
               },
             },
           },
@@ -458,7 +473,7 @@ export async function computeRollingWindowShoppingList(
             {
               date: entry.date,
               servings: getEffectiveServings(entry, householdServings),
-              components: entry.meal.components,
+              components: applyEntryChanges(entry.meal.components, entry.changes),
             },
           ]
         : [],

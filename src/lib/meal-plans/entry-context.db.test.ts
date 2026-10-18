@@ -114,6 +114,31 @@ describe('loadEntryForAi', () => {
     })
   })
 
+  it("merges the entry's own ingredient changes into components, leaving the meal's", async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntryComponent.create({
+      data: {
+        entryId: 'entry-dinner',
+        originalIngredientId: 'ing-chicken',
+        replacementIngredientId: 'ing-yoghurt',
+        quantityPerServing: 120,
+      },
+    })
+
+    const entry = await loadEntryForAi(alder.id, 'plan-alder', 'entry-dinner', 'en')
+
+    expect(entry.components).toEqual([
+      {
+        ingredientId: 'ing-yoghurt',
+        quantityPerServing: 120,
+        isVague: false,
+        originalPhrase: null,
+        ingredient: { name: 'Yoghurt', defaultUnit: 'g', measuredByVolume: false },
+      },
+    ])
+    expect(entry.meal!.components.map((c) => c.ingredientId)).toEqual(['ing-chicken'])
+  })
+
   it('returns an empty slot with no meal', async () => {
     const { alder } = await world()
 
@@ -216,6 +241,7 @@ describe('cachePreparationTips', () => {
       servingOverride: 6,
       mealUpdatedAt: meal.updatedAt,
       householdLocale: 'et',
+      changes: [],
     }
   }
 
@@ -260,6 +286,26 @@ describe('cachePreparationTips', () => {
 
     expect(await cachePreparationTips(inputs, TIPS, 6)).toBe(0)
     expect(await storedTips()).toBeNull()
+  })
+
+  it("writes nothing when the entry's ingredient changes moved", async () => {
+    const inputs = await pricedFrom()
+    await prisma.mealPlanEntryComponent.create({
+      data: { entryId: 'entry-dinner', originalIngredientId: 'ing-chicken' },
+    })
+
+    expect(await cachePreparationTips(inputs, TIPS, 6)).toBe(0)
+    expect(await storedTips()).toBeNull()
+  })
+
+  it('caches the tips when the changes are the ones the prompt merged', async () => {
+    const inputs = await pricedFrom()
+    const change = await prisma.mealPlanEntryComponent.create({
+      data: { entryId: 'entry-dinner', originalIngredientId: 'ing-chicken' },
+    })
+
+    expect(await cachePreparationTips({ ...inputs, changes: [change] }, TIPS, 6)).toBe(1)
+    expect(JSON.parse((await storedTips())!)).toEqual({ ...TIPS, servings: 6 })
   })
 
   it('writes nothing when the meal was edited', async () => {

@@ -3,6 +3,12 @@
 import { useMemo } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  EntryChangeRowActions,
+  LeftOutRow,
+  StaleChangeRow,
+  AddIngredientRow,
+} from './IngredientChangeRows'
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
@@ -15,7 +21,28 @@ import {
 import type { Locale } from '@/lib/i18n/locales'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
-import type { MealAvailability, MealComponent, PantryIngredient } from './types'
+import type { EntryChange, MealAvailability, MealComponent, PantryIngredient } from './types'
+
+/**
+ * The change controls of a planned entry (HON-1243). Omitted for a cooked or
+ * skipped entry, whose changes stay visible but read-only.
+ */
+export interface IngredientChangeControls {
+  onReplace: (component: MealComponent) => void
+  onLeaveOut: (component: MealComponent) => void
+  onAdd: () => void
+  onUndo: (change: EntryChange) => void
+  /** The change an Undo is in flight for. */
+  undoingId?: string
+  /** A change is being stored: the controls wait. */
+  disabled?: boolean
+  /**
+   * "Add an ingredient": where focus goes after a change, because the row
+   * that held focus is replaced when the list comes back (docs/DESIGN.md →
+   * Focus management).
+   */
+  addButtonRef?: React.Ref<HTMLButtonElement>
+}
 
 interface IngredientListProps {
   components: MealComponent[]
@@ -39,6 +66,13 @@ interface IngredientListProps {
    * checkboxes stay: a pantry holding only staples says nothing yet (HON-824).
    */
   showMissingStyle?: boolean
+  /**
+   * The entry's own ingredient changes (HON-1243). `components` already has
+   * them merged; these mark the replaced and added rows and bring back the
+   * left-out and stale ones.
+   */
+  changes?: EntryChange[]
+  changeControls?: IngredientChangeControls
 }
 
 /**
@@ -94,9 +128,12 @@ export function IngredientList({
   availability,
   hideAvailability = false,
   showMissingStyle = true,
+  changes = [],
+  changeControls,
 }: IngredientListProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tAvailability = useTranslations('meal-plan.availability')
+  const tChanges = useTranslations('meal-plan.changes')
   const locale = useLocale() as Locale
   const vaguePhrase = useVaguePhrase()
   const pieceLabel = useEnumLabel('Unit', 'piece')
@@ -108,13 +145,28 @@ export function IngredientList({
     return getIngredientAvailabilitySets(pantryIngredients)
   }, [pantryIngredients])
 
-  // Separate regular ingredients from staples
+  // The change behind each merged row, by the ingredient now in the row: a
+  // replacement or an added ingredient. Left-out and stale changes have no row
+  // in `components`, so they render on their own below.
+  const changeByIngredient = useMemo(() => {
+    const map = new Map<string, EntryChange>()
+    for (const change of changes) {
+      if (!change.stale && change.replacement) map.set(change.replacement.id, change)
+    }
+    return map
+  }, [changes])
+  const hasCheckboxes = !!onToggleAvailability && !hideAvailability
+  const leftOut = changes.filter((c) => !c.stale && !c.replacement && c.original)
+  const stale = changes.filter((c) => c.stale)
+
+  // Separate regular ingredients from staples. A changed ingredient is always
+  // a row, so its change and its Undo stay visible.
   const { regularComponents, stapleComponents } = useMemo(() => {
     const regular: MealComponent[] = []
     const staples: MealComponent[] = []
 
     for (const comp of components) {
-      if (stapleIds.has(comp.ingredientId)) {
+      if (stapleIds.has(comp.ingredientId) && !changeByIngredient.has(comp.ingredientId)) {
         staples.push(comp)
       } else {
         regular.push(comp)
@@ -122,7 +174,7 @@ export function IngredientList({
     }
 
     return { regularComponents: regular, stapleComponents: staples }
-  }, [components, stapleIds])
+  }, [components, stapleIds, changeByIngredient])
 
   const handleCheckedChange = (ingredientId: string, checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate' || !onToggleAvailability) return
@@ -200,17 +252,29 @@ export function IngredientList({
             </span>
           )
 
+          const change = changeByIngredient.get(comp.ingredientId)
+          const name = (
+            <span className="flex min-w-0 flex-col">
+              <span>{comp.ingredient.name}</span>
+              {change?.original && (
+                <span className="text-muted-foreground text-base">
+                  {tChanges('insteadOf', { name: change.original.name })}
+                </span>
+              )}
+            </span>
+          )
+
           return (
             <Li
               key={comp.ingredient.name}
               tone={markMissing ? 'warning' : 'default'}
-              className={cn(isToggling && 'opacity-60')}
+              className={cn('flex items-center gap-2', isToggling && 'opacity-60')}
             >
               {showCheckbox ? (
                 // A `label` around the checkbox, so a tap anywhere on the row
                 // toggles it. The checkbox keeps its own `aria-label`, which
                 // carries the action as well as the name.
-                <label className="min-h-touch flex cursor-pointer items-center gap-3 py-1 text-base">
+                <label className="min-h-touch flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-1 text-base">
                   <Checkbox
                     size="lg"
                     checked={hasIt}
@@ -223,17 +287,37 @@ export function IngredientList({
                     })}
                   />
                   {quantity}
-                  <span>{comp.ingredient.name}</span>
+                  {name}
                 </label>
               ) : (
-                <div className="min-h-touch flex items-center gap-3 py-1 text-base">
+                <div className="min-h-touch flex min-w-0 flex-1 items-center gap-3 py-1 text-base">
                   {quantity}
-                  <span>{comp.ingredient.name}</span>
+                  {name}
                 </div>
               )}
+              <EntryChangeRowActions component={comp} change={change} controls={changeControls} />
             </Li>
           )
         })}
+        {leftOut.map((change) => (
+          <LeftOutRow
+            key={change.id}
+            change={change}
+            controls={changeControls}
+            checkboxColumn={hasCheckboxes}
+          />
+        ))}
+        {stale.map((change) => (
+          <StaleChangeRow
+            key={change.id}
+            change={change}
+            controls={changeControls}
+            checkboxColumn={hasCheckboxes}
+          />
+        ))}
+        {changeControls && (
+          <AddIngredientRow controls={changeControls} buttonRef={changeControls.addButtonRef} />
+        )}
       </Ul>
       {staplesLine && <Body variant="paragraph">{staplesLine}</Body>}
     </div>
