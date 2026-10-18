@@ -116,6 +116,7 @@ Native HTML forms with controlled inputs and `useState`, no form library. `onSub
 
 - Strict TypeScript; ESLint enforced by CI; Prettier (`pnpm format`)
 - Exact dependency versions, no `^` or `~`. When `pnpm lockfile:check` fails, see docs/DEPLOYMENT.md → Lockfile gates; never add `pnpm.overrides`
+- Code files stay under 5,000 tokens (bytes / 4); a file in `scripts/file-size-allowlist.txt` may grow 5% past its cap. When one gets too big, split it by responsibility, never by deleting comments (`pnpm file-size:check`)
 - Tailwind with shadcn/ui; `tailwind-merge` for dynamic classes; no inline styles
 - A new `--spacing-*` token in `globals.css` also goes into `CUSTOM_SPACING_VALUES` in `src/lib/utils.ts` (docs/DESIGN.md → Spacing)
 - **Sentence case** for all UI text: "Sign in", not "Sign In". Single words ("Profile") are the exception

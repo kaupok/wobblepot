@@ -191,6 +191,10 @@ Classify every surviving hit into one of three buckets, because they need differ
 
 Record the result under a new "Coupled callsites" section of the plan (step 8), grouped by bucket, with a `file:line` and a one-line reason each. If the scan ran and found nothing, write `none — no callsite hardcodes the changed <property>`, naming the property you actually scanned (`height`, not "geometry"), so the reviewer sees both that the scan ran and what it covered (`history.md` → Shared-primitive coupling). Omit the section entirely only when 7b was skipped.
 
+#### 7c. File size
+
+A file the plan grows may hit the size gate (`pnpm file-size:check`: 5,000 tokens, or a listed file's cap in `scripts/file-size-allowlist.txt` plus 5%). Under **Design Decisions**, name a touched file that is listed or near the limit. Plan a split only when the change clearly needs one; otherwise leave it to the implementer, because the gate blocks the commit if it is needed.
+
 ### 8. Write plan and present to user
 
 Write the plan directly in your response (not to a file). Use this structure:
