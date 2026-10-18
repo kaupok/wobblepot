@@ -31,9 +31,11 @@ function UndoButton({
 }) {
   const t = useTranslations('meal-plan.changes')
   return (
+    // 44px or more, as every button in the cook view (docs/DESIGN.md → "The
+    // cook view is built for the counter").
     <Button
       variant="ghost"
-      size="sm"
+      size="lg"
       onClick={() => controls.onUndo(change)}
       // `aria-disabled`, not `disabled`: a disabled button drops focus to the
       // body while the request runs (docs/DESIGN.md → Focus management).
@@ -82,7 +84,7 @@ export function EntryChangeRowActions({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-lg"
           className="shrink-0"
           aria-label={t('rowMenu', { name })}
           aria-disabled={controls.disabled}
@@ -185,6 +187,7 @@ export function AddIngredientRow({
       <Button
         ref={buttonRef}
         variant="ghost"
+        size="lg"
         onClick={controls.onAdd}
         aria-disabled={controls.disabled}
       >

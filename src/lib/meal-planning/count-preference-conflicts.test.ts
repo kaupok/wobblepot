@@ -17,10 +17,11 @@ const NUT_ALLERGY = {
   excludedIngredientIds: [],
 }
 
-const entry = (name: string, allergens: string[]) => ({
+const entry = (name: string, allergens: string[], changes: unknown[] = []) => ({
+  changes,
   meal: {
     name,
-    components: [{ ingredientId: name, ingredient: { name, allergens } }],
+    components: [{ ingredientId: name, quantityPerServing: 50, ingredient: { name, allergens } }],
   },
 })
 
@@ -56,5 +57,46 @@ describe('countConflictingPlannedEntries', () => {
       date: { gte: new Date(2026, 9, 10) },
       mealId: { not: null },
     })
+  })
+
+  // The cards judge the entry's merged ingredients (HON-1243), so the count
+  // does too: a dinner whose nuts were replaced no longer conflicts, and
+  // one with peanuts added does.
+  it("judges each entry's ingredients with its own changes merged", async () => {
+    mockFindMany.mockResolvedValue([
+      entry(
+        'Stir fry',
+        ['nuts'],
+        [
+          {
+            id: 'c1',
+            originalIngredientId: 'Stir fry',
+            replacementIngredientId: 'Tofu',
+            quantityPerServing: 40,
+            replacementIngredient: { name: 'Tofu', allergens: [] },
+          },
+        ],
+      ),
+      entry(
+        'Rice',
+        [],
+        [
+          {
+            id: 'c2',
+            originalIngredientId: null,
+            replacementIngredientId: 'Peanuts',
+            quantityPerServing: 20,
+            replacementIngredient: { name: 'Peanuts', allergens: ['nuts'] },
+          },
+        ],
+      ),
+    ] as never)
+
+    const count = await countConflictingPlannedEntries(
+      { id: 'household-1', timezone: 'Europe/Tallinn' },
+      NUT_ALLERGY,
+    )
+
+    expect(count).toBe(1)
   })
 })

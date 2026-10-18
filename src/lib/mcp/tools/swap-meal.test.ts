@@ -9,6 +9,7 @@ vi.mock('@/lib/prisma', () => {
     // A swap drops the entry's ingredient changes in its own transaction (HON-1243).
     mealPlanEntryComponent: { deleteMany: vi.fn() },
     $transaction: vi.fn((run: (tx: unknown) => unknown) => run(prisma)),
+    $queryRaw: vi.fn(),
     favoriteMeal: { findMany: vi.fn() },
     meal: { findFirst: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn() },
   }

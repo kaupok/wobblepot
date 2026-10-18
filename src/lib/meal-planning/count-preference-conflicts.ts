@@ -5,6 +5,7 @@ import {
   findPreferenceConflicts,
   type ConflictPreferences,
 } from '@/lib/meal-planning/preference-conflicts'
+import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 
 /**
  * How many of the household's planned meals, from its today onward, break
@@ -17,6 +18,7 @@ export async function countConflictingPlannedEntries(
   preferences: ConflictPreferences,
 ): Promise<number> {
   const today = parseLocalDate(getTodayInTimezone(household.timezone))
+  const ingredient = { name: true, allergens: true } as const
   const entries = await prisma.mealPlanEntry.findMany({
     where: {
       plan: { householdId: household.id },
@@ -25,13 +27,26 @@ export async function countConflictingPlannedEntries(
       mealId: { not: null },
     },
     select: {
+      // The entry's own ingredient changes (HON-1243): the cards judge the
+      // merged list (`loadPlanEntries`), so the count does too.
+      changes: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          originalIngredientId: true,
+          replacementIngredientId: true,
+          quantityPerServing: true,
+          replacementIngredient: { select: ingredient },
+        },
+      },
       meal: {
         select: {
           name: true,
           components: {
             select: {
               ingredientId: true,
-              ingredient: { select: { name: true, allergens: true } },
+              quantityPerServing: true,
+              ingredient: { select: ingredient },
             },
           },
         },
@@ -39,6 +54,11 @@ export async function countConflictingPlannedEntries(
     },
   })
   return entries.filter(
-    (entry) => entry.meal && findPreferenceConflicts(entry.meal, preferences).length > 0,
+    (entry) =>
+      entry.meal &&
+      findPreferenceConflicts(
+        { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
+        preferences,
+      ).length > 0,
   ).length
 }

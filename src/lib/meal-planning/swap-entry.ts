@@ -135,12 +135,17 @@ class SwapRefused extends Error {}
  * keeps the tips (`swapEntryData`). Call it in the swap's own transaction,
  * before the write that moves `mealId`: the filter reads the meal the entry
  * still points at.
+ *
+ * It locks the entry first, as every change write does (`claimPlannedEntry`).
+ * Without the lock the delete could run before a change write that already
+ * holds it commits, miss that row, and leave it on the new meal.
  */
-export function clearChangesOnSwap(
+export async function clearChangesOnSwap(
   tx: Prisma.TransactionClient,
   entryId: string,
   nextMealId: string,
 ) {
+  await tx.$queryRaw`SELECT 1 FROM "meal_plan_entry" WHERE "id" = ${entryId} FOR UPDATE`
   return tx.mealPlanEntryComponent.deleteMany({
     where: { entryId, entry: { mealId: { not: nextMealId } } },
   })
