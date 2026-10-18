@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Body, Heading } from '@/components/ui/typography'
 import { MemberRow } from '@/components/household/MemberRow'
+import { LandingConnect } from '@/components/landing/LandingConnect'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import {
@@ -142,8 +143,9 @@ const noop = () => {}
 /**
  * "Made for family kitchens" on the signed-out home page (HON-1038): the
  * heading, then the four points as a 2×2 grid of tiles from `md` (one column
- * below it, HON-1116). Each tile is the point's title and text, then a
- * vignette built from the app's own components in a fixed state, so the page
+ * below it, HON-1116), and a fifth across both columns (`LandingConnect`).
+ * Each tile is the point's title and text, then a vignette built from the
+ * app's own components in a fixed state, so the page
  * proves each claim with the product rather than a picture of it
  * (docs/DESIGN.md → Reject list). Nothing fetches and nothing saves.
  *
@@ -190,6 +192,8 @@ export function LandingFeatures() {
             </div>
           </li>
         ))}
+        {/* The fifth point, across both columns: assistants and screens. */}
+        <LandingConnect />
       </ul>
     </section>
   )
