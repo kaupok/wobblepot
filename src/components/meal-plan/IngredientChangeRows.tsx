@@ -144,8 +144,9 @@ export function LeftOutRow({
 }
 
 /**
- * A change whose original the recipe no longer has, so it does nothing: the
- * recipe was edited after the change. Only Undo is offered.
+ * A change the recipe was edited out from under, so it does nothing: the
+ * recipe dropped its original, or gained the ingredient it brings in. Only
+ * Undo is offered.
  */
 export function StaleChangeRow({
   change,

@@ -424,7 +424,7 @@
       "insteadOf": "Instead of {name}",
       "leftOut": "Left out",
       "added": "Added",
-      "stale": "No longer in the recipe",
+      "stale": "No longer fits the recipe",
       "summaryTitle": "Changes for this meal",
       "summaryReplaced": "Replaced: {original} → {replacement}",
       "summaryLeftOut": "Left out: {name}",

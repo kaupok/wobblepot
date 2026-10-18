@@ -108,7 +108,10 @@ export interface EntryChange {
   replacement: { id: string; name: string } | null
   /** Per serving, in the replacement's `defaultUnit`; null for a left-out ingredient. */
   quantityPerServing: number | null
-  /** The recipe no longer has the original, so the change does nothing. */
+  /**
+   * The recipe was edited after the change: it no longer has the original, or
+   * it now has the ingredient the change brings in. The change does nothing.
+   */
   stale: boolean
 }
 

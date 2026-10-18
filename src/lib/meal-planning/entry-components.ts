@@ -81,8 +81,7 @@ function replacementOf<I>(change: EntryChangeRow<I>): MergedComponent<I> | null 
  *   the original's place;
  * - an add row appends a component, in the order `changes` lists them.
  *
- * A change whose original is no longer in the meal (the recipe was edited
- * after the change) does nothing here; `staleChangeIds` names it.
+ * A stale change (`isStale`) does nothing here; `staleChangeIds` names it.
  */
 export function applyEntryChanges<I>(
   components: readonly MergeableComponent<I>[],
@@ -90,8 +89,10 @@ export function applyEntryChanges<I>(
 ): MergedComponent<I>[] {
   if (changes.length === 0) return components.map(base)
 
+  const inMeal = new Set(components.map((c) => c.ingredientId))
+  const live = changes.filter((change) => !isStale(inMeal, change))
   const byOriginal = new Map<string, EntryChangeRow<I>>()
-  for (const change of changes) {
+  for (const change of live) {
     if (change.originalIngredientId !== null) byOriginal.set(change.originalIngredientId, change)
   }
 
@@ -106,7 +107,7 @@ export function applyEntryChanges<I>(
     if (replacement) merged.push(replacement)
   }
 
-  for (const change of changes) {
+  for (const change of live) {
     if (change.originalIngredientId !== null) continue
     const added = replacementOf(change)
     if (added) merged.push(added)
@@ -115,23 +116,39 @@ export function applyEntryChanges<I>(
   return merged
 }
 
+type StaleCheckedChange = Pick<
+  EntryChangeRow<unknown>,
+  'id' | 'originalIngredientId' | 'replacementIngredientId'
+>
+
 /**
- * The ids of the changes `applyEntryChanges` ignores, because their original
- * is no longer one of `components`. The UI shows these as "No longer in the
- * recipe", with only Undo.
+ * A change the recipe was edited out from under, so it no longer fits:
+ *
+ * - its original is no longer in the meal, so there is nothing to replace or
+ *   leave out;
+ * - or the ingredient it brings in is now in the recipe itself, so applying
+ *   it would list that ingredient twice, and the shopping list and the
+ *   deduction would count it twice. `addEntryChange` refuses this at write
+ *   time; a later recipe edit is what makes it true.
+ */
+function isStale(inMeal: ReadonlySet<string>, change: StaleCheckedChange): boolean {
+  if (change.originalIngredientId !== null && !inMeal.has(change.originalIngredientId)) {
+    return true
+  }
+  return change.replacementIngredientId !== null && inMeal.has(change.replacementIngredientId)
+}
+
+/**
+ * The ids of the changes `applyEntryChanges` ignores, because the recipe was
+ * edited after them (`isStale`). The UI shows these as no longer fitting the
+ * recipe, with only Undo.
  */
 export function staleChangeIds(
   components: readonly { ingredientId: string }[],
-  changes: readonly Pick<EntryChangeRow<unknown>, 'id' | 'originalIngredientId'>[],
+  changes: readonly StaleCheckedChange[],
 ): Set<string> {
   const inMeal = new Set(components.map((c) => c.ingredientId))
-  const stale = new Set<string>()
-  for (const change of changes) {
-    if (change.originalIngredientId !== null && !inMeal.has(change.originalIngredientId)) {
-      stale.add(change.id)
-    }
-  }
-  return stale
+  return new Set(changes.filter((change) => isStale(inMeal, change)).map((change) => change.id))
 }
 
 /**

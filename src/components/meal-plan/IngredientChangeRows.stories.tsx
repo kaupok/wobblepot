@@ -119,7 +119,7 @@ export const Stale: Story = {
   args: { changes: [stale], changeControls: controls() },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('No longer in the recipe')).toBeVisible()
+    await expect(canvas.getByText('No longer fits the recipe')).toBeVisible()
     await expect(canvas.getByRole('button', { name: 'Undo change: White miso' })).toBeVisible()
   },
 }

@@ -83,6 +83,29 @@ describe('applyEntryChanges', () => {
   })
 })
 
+describe('a recipe edited after the change', () => {
+  // The recipe gained chili after an entry added it, and gained yoghurt after
+  // the entry replaced cream with it. Applying either would list it twice.
+  const edited = [...MEAL, comp('chili', 3), comp('yoghurt', 30)]
+  const changes = [change('c1', null, 'chili', 2), change('c2', 'cream', 'yoghurt', 60)]
+
+  it('ignores a change that brings in an ingredient the recipe now has', () => {
+    expect(
+      applyEntryChanges(edited, changes).map((c) => [c.ingredientId, c.quantityPerServing]),
+    ).toEqual([
+      ['pasta', 100],
+      ['cream', 50],
+      ['mushroom', 40],
+      ['chili', 3],
+      ['yoghurt', 30],
+    ])
+  })
+
+  it('names those changes stale', () => {
+    expect([...staleChangeIds(edited, changes)]).toEqual(['c1', 'c2'])
+  })
+})
+
 describe('staleChangeIds', () => {
   it('names only the changes whose original left the meal', () => {
     const stale = staleChangeIds(MEAL, [

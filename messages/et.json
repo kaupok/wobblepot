@@ -424,7 +424,7 @@
       "insteadOf": "Algne: {name}",
       "leftOut": "Välja jäetud",
       "added": "Lisatud",
-      "stale": "Pole enam retseptis",
+      "stale": "Ei sobi enam retseptiga",
       "summaryTitle": "Selle toidu muudatused",
       "summaryReplaced": "Asendatud: {original} → {replacement}",
       "summaryLeftOut": "Välja jäetud: {name}",
