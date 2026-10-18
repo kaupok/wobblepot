@@ -108,14 +108,15 @@ export function TimelineEmptySlot({
   })
   const isCreating = createEntryMutation.isPending
 
+  // `?placeholder` deletes the entry only while it has no meal and no note, so
+  // a discard that lands after a pick leaves the meal (HON-1251).
+  const discardUrl = (id: string) => `/api/meal-plans/${planId}/entries/${id}?placeholder`
+
   // Drops the placeholder entry `handleChoose` created when the selector
   // closes without a pick. Only a network failure refreshes the page — an
   // error status is ignored, as before.
   const discardEntryMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetch(`/api/meal-plans/${planId}/entries/${id}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: (id: string) => fetch(discardUrl(id), { method: 'DELETE' }),
     onError: () => router.refresh(),
     // Here rather than in `mutate()`'s options, which are skipped once the
     // component unmounts. Guarded so a slow discard cannot clear a newer
@@ -123,6 +124,22 @@ export function TimelineEmptySlot({
     onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
   const isDiscarding = discardEntryMutation.isPending
+
+  // A tab that closes or reloads with the selector open never runs the
+  // discard, and the placeholder stays in the slot (HON-1251). A keepalive
+  // request outlives the page. Not into the back/forward cache: Back restores
+  // the page with the selector still open on this entry.
+  const discardOnPageHideUrl = entryId ? discardUrl(entryId) : null
+  useEffect(() => {
+    if (!isSelectorOpen || !discardOnPageHideUrl) return
+    const url = discardOnPageHideUrl
+    function discardOnPageHide(event: PageTransitionEvent) {
+      if (event.persisted) return
+      void fetch(url, { method: 'DELETE', keepalive: true })
+    }
+    window.addEventListener('pagehide', discardOnPageHide)
+    return () => window.removeEventListener('pagehide', discardOnPageHide)
+  }, [isSelectorOpen, discardOnPageHideUrl])
   const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
   // The slot is filling while a placeholder or a pick is in flight.
   const isAdding = isCreating || isPicking

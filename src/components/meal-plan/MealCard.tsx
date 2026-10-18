@@ -466,7 +466,6 @@ export function MealCard({
             <MealTypeBadge mealType={mealType} />
             {/* The note is the slip, once: the editor's own slip when the slot
                 can be edited, a read-only one when it cannot. */}
-            {!note && <Body variant="caption">{tCard('noMealPlanned')}</Body>}
             {canEdit ? (
               <NoteEditor
                 planId={planId}

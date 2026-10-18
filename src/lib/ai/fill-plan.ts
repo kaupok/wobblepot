@@ -74,7 +74,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   const dates = getDatesBetween(startDate, endDate)
 
   // Find existing entry slots that actually have a meal assigned.
-  // Entries with mealId=null are treated as empty (they show "No meal planned" in the UI).
+  // Entries with mealId=null are treated as empty.
   const filledSlotKeys = new Set(
     existingPlan.entries
       .filter((e) => e.mealId !== null)

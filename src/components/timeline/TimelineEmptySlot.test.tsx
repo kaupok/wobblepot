@@ -23,6 +23,8 @@ const PLAN_ID = 'plan-1'
 const PICK_NAME = 'Dinner: pick a meal, Thursday Apr 16'
 const ENTRY_ID = 'entry-1'
 const ENTRY_URL = `/api/meal-plans/${PLAN_ID}/entries/${ENTRY_ID}`
+// The discard deletes the entry only while it is still a placeholder (HON-1251).
+const DISCARD_URL = `${ENTRY_URL}?placeholder`
 
 interface Deferred {
   promise: Promise<Response>
@@ -47,7 +49,7 @@ function json(body: unknown, status = 200) {
   })
 }
 
-let requests: { method: string; url: string }[]
+let requests: { method: string; url: string; keepalive?: boolean }[]
 let createResponse: Deferred | null
 let deleteResponse: Deferred
 
@@ -60,7 +62,7 @@ beforeEach(() => {
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
-      requests.push({ method, url })
+      requests.push({ method, url, keepalive: init?.keepalive })
       if (method === 'POST' && url === `/api/meal-plans/${PLAN_ID}/entries`) {
         return createResponse ? createResponse.promise : Promise.resolve(json({ id: ENTRY_ID }))
       }
@@ -70,7 +72,7 @@ beforeEach(() => {
       if (method === 'PATCH' && url === ENTRY_URL) {
         return Promise.resolve(json({ id: ENTRY_ID }))
       }
-      if (method === 'DELETE' && url === ENTRY_URL) {
+      if (method === 'DELETE' && url === DISCARD_URL) {
         return deleteResponse.promise
       }
       return Promise.reject(new Error(`unexpected ${method} ${url}`))
@@ -125,6 +127,11 @@ function expectPending(button: HTMLElement) {
 
 function expectIdle(button: HTMLElement) {
   expect(button).not.toHaveAttribute('aria-disabled')
+}
+
+// jsdom has no `PageTransitionEvent`, so `persisted` is set on a plain event.
+function pageHide({ persisted = false } = {}) {
+  return Object.assign(new Event('pagehide'), { persisted })
 }
 
 const pickButton = () => screen.getByRole('button', { name: PICK_NAME })
@@ -206,7 +213,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
+    expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
     await waitFor(() => expect(pickButton()).toHaveFocus())
 
     deleteResponse.resolve(json({ success: true }))
@@ -245,7 +252,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
+    expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
 
     deleteResponse.resolve(json({ success: true }))
     await waitFor(() => expectIdle(pickButton()))
@@ -352,6 +359,38 @@ describe('TimelineEmptySlot', () => {
 
     expect(requests.some((r) => r.method === 'PATCH' && r.url === ENTRY_URL)).toBe(true)
     expect(deleteRequests()).toEqual([])
+  })
+
+  // A tab that closes with the selector open never runs the close (HON-1251).
+  it('discards the placeholder with a keepalive request when the page hides', async () => {
+    renderSlot()
+    await openSelector()
+
+    window.dispatchEvent(pageHide())
+
+    expect(deleteRequests()).toEqual([{ method: 'DELETE', url: DISCARD_URL, keepalive: true }])
+  })
+
+  // Back restores a page from the back/forward cache with the selector still
+  // open on this entry, so it must still exist.
+  it('keeps the placeholder when the page goes into the back/forward cache', async () => {
+    renderSlot()
+    await openSelector()
+
+    window.dispatchEvent(pageHide({ persisted: true }))
+
+    expect(deleteRequests()).toEqual([])
+  })
+
+  it('sends no keepalive discard once the selector has closed', async () => {
+    renderSlot()
+    await openSelector()
+    closeSelector()
+    await waitFor(() => expect(deleteRequests()).toHaveLength(1))
+
+    window.dispatchEvent(pageHide())
+
+    expect(deleteRequests()).toHaveLength(1)
   })
 
   it('ignores an error status from the discard', async () => {

@@ -1,113 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import {
-  createEntry,
   deleteEntriesInRange,
   deleteEntry,
-  EntryCreateError,
   EntryUpdateError,
-  type EntryCreateRefusal,
   updateEntry,
   type EntryPatch,
   type EntryUpdateRefusal,
 } from '@/lib/meal-plans/entries'
+import { entry, readEntry, world, type IngredientId } from '@/lib/meal-plans/entries.fixtures'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through the lib functions, and read
 // back. The route test covers only how the route maps these answers.
 
-const INGREDIENTS = ['ing-apple', 'ing-beef', 'ing-salt', 'ing-rice'] as const
-type IngredientId = (typeof INGREDIENTS)[number]
-
-/**
- * Alder: two adults and a toddler at 0.5×, so 2.5 servings by default. Its plan
- * has a planned stew dinner. Stew is 100 g beef, 20 g apple and 2 g salt per
- * serving; salad is 50 g apple and 30 g rice. Birch is a second household with
- * its own plan, entry, custom meal and pantry.
- */
-async function world() {
-  for (const id of INGREDIENTS) {
-    await prisma.ingredient.create({
-      data: {
-        id,
-        name: id,
-        category: 'spice',
-        defaultUnit: 'g',
-        calories: 1,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-      },
-    })
-  }
-  const member = (name: string, portionMultiplier: number) => ({
-    name,
-    preferences: { create: { portionMultiplier } },
-  })
-  const alder = await prisma.household.create({
-    data: {
-      name: 'Alder',
-      members: { create: [member('A', 1), member('B', 1), member('Toddler', 0.5)] },
-      mealPlans: { create: { id: 'plan-alder' } },
-    },
-  })
-  const birch = await prisma.household.create({
-    data: {
-      name: 'Birch',
-      members: { create: [member('C', 1)] },
-      mealPlans: { create: { id: 'plan-birch' } },
-    },
-  })
-  const meal = (
-    id: string,
-    components: Partial<Record<IngredientId, number>>,
-    householdId: string | null = null,
-  ) =>
-    prisma.meal.create({
-      data: {
-        id,
-        name: id,
-        householdId,
-        components: {
-          create: Object.entries(components).map(([ingredientId, quantityPerServing]) => ({
-            ingredientId,
-            quantityPerServing,
-          })),
-        },
-      },
-    })
-  await meal('meal-stew', { 'ing-beef': 100, 'ing-apple': 20, 'ing-salt': 2 })
-  await meal('meal-salad', { 'ing-apple': 50, 'ing-rice': 30 })
-  await meal('meal-empty', {})
-  await meal('meal-birch', { 'ing-beef': 10 }, birch.id)
-  await prisma.meal.create({
-    data: { id: 'meal-deleted', name: 'gone', deletedAt: new Date() },
-  })
-  await entry('entry-alder', { planId: 'plan-alder', mealId: 'meal-stew' })
-  await entry('entry-birch', { planId: 'plan-birch', mealId: 'meal-birch' })
-  return { alder, birch }
-}
-
-async function entry(
-  id: string,
-  data: { planId?: string; mealId?: string | null } & Record<string, unknown> = {},
-) {
-  return prisma.mealPlanEntry.create({
-    data: {
-      id,
-      planId: 'plan-alder',
-      date: new Date('2026-10-14T00:00:00Z'),
-      mealType: 'dinner',
-      ...data,
-    },
-  })
-}
-
 /** Changes the stored Alder entry, as an earlier request would have. */
 const setEntry = (data: Record<string, unknown>) =>
   prisma.mealPlanEntry.update({ where: { id: 'entry-alder' }, data })
-
-const readEntry = (id = 'entry-alder') => prisma.mealPlanEntry.findUniqueOrThrow({ where: { id } })
 
 async function stock(
   householdId: string,
@@ -190,139 +99,6 @@ describe('deleteEntriesInRange', () => {
 
     expect(await deleteEntriesInRange(alder.id, 'plan-birch', day(1), day(31))).toBeNull()
     expect(await prisma.mealPlanEntry.count()).toBe(3)
-  })
-})
-
-describe('createEntry', () => {
-  const date = new Date('2026-10-15T00:00:00Z')
-
-  async function createRefusal(promise: Promise<unknown>): Promise<EntryCreateRefusal> {
-    const error = await promise.then(
-      () => null,
-      (caught: unknown) => caught,
-    )
-    if (!(error instanceof EntryCreateError)) throw new Error(`Expected a refusal, got ${error}`)
-    return error.reason
-  }
-
-  it('creates a planned entry in an empty slot and returns it', async () => {
-    const { alder } = await world()
-
-    const created = await createEntry(alder.id, 'plan-alder', {
-      date,
-      mealType: 'lunch',
-      mealId: 'meal-salad',
-    })
-
-    expect(created).toEqual({
-      id: expect.any(String),
-      date: '2026-10-15',
-      mealType: 'lunch',
-      status: 'planned',
-      mealId: 'meal-salad',
-      note: null,
-    })
-    expect(await readEntry(created.id)).toMatchObject({
-      planId: 'plan-alder',
-      date,
-      mealType: 'lunch',
-      mealId: 'meal-salad',
-      status: 'planned',
-      note: null,
-      noteX: null,
-      noteY: null,
-      servingOverride: null,
-      rating: null,
-      pantryDeductedAt: null,
-    })
-  })
-
-  it('creates an empty slot with no meal', async () => {
-    const { alder } = await world()
-
-    const created = await createEntry(alder.id, 'plan-alder', { date, mealType: 'dinner' })
-
-    expect((await readEntry(created.id)).mealId).toBeNull()
-  })
-
-  // Undo after Clear posts the cleared entry back (HON-1123).
-  it("writes a restored entry's fields back, pantry charge included", async () => {
-    const { alder } = await world()
-
-    const created = await createEntry(alder.id, 'plan-alder', {
-      date,
-      mealType: 'dinner',
-      mealId: 'meal-stew',
-      note: 'Leftovers for lunch',
-      noteX: 0.25,
-      noteY: 0.75,
-      status: 'skipped',
-      servingOverride: 6,
-      rating: 'down',
-      pantryDeducted: true,
-    })
-
-    expect(await readEntry(created.id)).toMatchObject({
-      mealId: 'meal-stew',
-      note: 'Leftovers for lunch',
-      noteX: 0.25,
-      noteY: 0.75,
-      status: 'skipped',
-      servingOverride: 6,
-      rating: 'down',
-      pantryDeductedAt: expect.any(Date),
-    })
-  })
-
-  it("accepts the household's own meal", async () => {
-    const { birch } = await world()
-
-    const created = await createEntry(birch.id, 'plan-birch', {
-      date,
-      mealType: 'dinner',
-      mealId: 'meal-birch',
-    })
-
-    expect(created.mealId).toBe('meal-birch')
-  })
-
-  it.each(['meal-birch', 'meal-deleted', 'meal-missing'])(
-    'refuses %s as mealNotFound and writes nothing',
-    async (mealId) => {
-      const { alder } = await world()
-
-      expect(
-        await createRefusal(
-          createEntry(alder.id, 'plan-alder', { date, mealType: 'dinner', mealId }),
-        ),
-      ).toBe('mealNotFound')
-      expect(await prisma.mealPlanEntry.count()).toBe(2)
-    },
-  )
-
-  // A restore after Clear leaves a slot that was refilled meanwhile alone.
-  it('refuses a taken slot as slotTaken and leaves the entry there', async () => {
-    const { alder } = await world()
-
-    expect(
-      await createRefusal(
-        createEntry(alder.id, 'plan-alder', {
-          date: new Date('2026-10-14T00:00:00Z'),
-          mealType: 'dinner',
-          mealId: 'meal-salad',
-        }),
-      ),
-    ).toBe('slotTaken')
-    expect((await readEntry()).mealId).toBe('meal-stew')
-  })
-
-  it("refuses another household's plan as planNotFound and writes nothing", async () => {
-    const { alder } = await world()
-
-    expect(
-      await createRefusal(createEntry(alder.id, 'plan-birch', { date, mealType: 'dinner' })),
-    ).toBe('planNotFound')
-    expect(await prisma.mealPlanEntry.count({ where: { planId: 'plan-birch' } })).toBe(1)
   })
 })
 
