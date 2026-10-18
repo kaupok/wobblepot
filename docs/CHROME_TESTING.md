@@ -1,18 +1,79 @@
-# Browser Testing with Chrome Extension
+# Browser review
 
-The reference for reviewing the app in a real browser, by hand or with the [Claude in Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn). It complements the Playwright E2E suite with interactive, exploratory testing, and `/chrome-review` reads it. It contains:
+The reference for reviewing the app in a real browser, by hand or with an agent. It complements the Playwright E2E suite with interactive, exploratory testing. `/chrome-review`, `/ideate` and `/implement-issue` → Drive changed screens read it. An agent has three browsers:
 
-- **Extension setup:** [Prerequisites](#prerequisites), [enabling it for a session](#enable-for-a-session), [use cases](#use-cases), and [how it differs from Playwright](#chrome-vs-playwright).
+- **T3 Code sidebar browser:** the `mcp__t3-code__preview_*` tools. The first choice, because the user sees the tab the agent drives.
+- **Claude in Chrome extension:** the `mcp__claude-in-chrome__*` tools, in your own Chrome window.
+- **Playwright MCP:** the `mcp__playwright__browser_*` tools, headless. A `wt auto` worker has only this one.
+
+It contains:
+
+- **Browsers:** [which browser to use](#which-browser), [the T3 Code sidebar browser](#t3-code-sidebar-browser), [the tool mapping](#tool-mapping), [how the three compare](#comparison), [the Chrome extension](#chrome-extension), and [use cases](#use-cases).
 - **[Page map](#page-map):** every page route, who can reach it, and the redirect stubs that are not bugs.
 - **[Reviewing sign-up and onboarding](#reviewing-sign-up-and-onboarding):** why that flow is walked on a local review server (`pnpm review:local`) rather than staging, how to walk it, and how to clean up.
 
-## Prerequisites
+## Which browser
+
+Check the tools listed in the session, in this order:
+
+1. If `mcp__t3-code__preview_*` tools are listed, use them. The tab is bound to the thread and the user sees it in the sidebar.
+2. Else if `mcp__claude-in-chrome__*` tools are listed, use them.
+3. Else if the Playwright MCP (`mcp__playwright__browser_*`) is loaded, use it.
+4. Else say so and continue without browsing. `/chrome-review` stops, because it has no other purpose. `/implement-issue` writes a "Not verified" line.
+
+Why this order: the sidebar browser shows the user the same page the agent sees, so the agent does not need to narrate screenshots. The Chrome extension needs a Chrome window and the `--chrome` harness. The Playwright MCP is headless, so the user sees nothing, but it is the only browser a headless worker has (`docs/PARALLEL_WORKFLOW.md` → Untracked Files).
+
+## T3 Code sidebar browser
+
+Every T3 Code session has a browser in its sidebar. The agent drives it with the `preview_*` tools, and the user watches the same tab live.
+
+- **Open a tab:** `preview_open` with the URL, for example `https://wobblepot.dev/`. It returns `tabId`, `url`, `visible` and the list of browser profiles.
+- **Go to the local server:** `preview_navigate` with `{kind: 'environment-port', port: 3200}` for `pnpm review:local`, or `port: 3000` for `pnpm dev`. Use the port that the `REVIEW-READY` line names, because `REVIEW_LOCAL_PORT` can move it. It also takes a plain `url`.
+- **See what is open:** `preview_status`.
+- **Inspect:** `preview_snapshot` returns an accessibility tree with `aria-ref` locators. `preview_click` and `preview_type` take those locators.
+- **Screenshot to disk:** `preview_snapshot` with `save: true` writes a PNG under `~/.t3/userdata/browser-artifacts/` and returns its `screenshotPath`.
+- **Close:** `t3_preview_close`.
+
+The user sees the tab, so describe what matters and do not paste every screenshot into the chat.
+
+## Tool mapping
+
+The same step in the two tool sets that `/implement-issue` uses:
+
+| Action             | T3 Code sidebar                      | Playwright MCP            |
+| ------------------ | ------------------------------------ | ------------------------- |
+| Open a URL         | `preview_open` / `preview_navigate`  | `browser_navigate`        |
+| Read the page      | `preview_snapshot`                   | `browser_snapshot`        |
+| Click              | `preview_click`                      | `browser_click`           |
+| Type               | `preview_type`                       | `browser_type`            |
+| Press a key        | `preview_press`                      | `browser_press_key`       |
+| Wait               | `preview_wait_for`                   | `browser_wait_for`        |
+| Screenshot to disk | `preview_snapshot` with `save: true` | `browser_take_screenshot` |
+| Close              | `t3_preview_close`                   | `browser_close`           |
+
+## Comparison
+
+| Aspect      | T3 Code sidebar                      | Chrome extension         | Playwright MCP                       |
+| ----------- | ------------------------------------ | ------------------------ | ------------------------------------ |
+| Purpose     | Review with the user watching        | Dev-time exploration     | Driving screens with nobody watching |
+| Runs in     | The T3 Code sidebar                  | Your Chrome window       | A headless browser                   |
+| Who sees it | The user and the agent, live         | The user and the agent   | The agent only                       |
+| Auth state  | The sidebar profile's cookies        | Your logged-in session   | A fresh session per run              |
+| Best for    | `/ideate`, `/chrome-review`, driving | Sessions outside T3 Code | `wt auto` workers, headless runs     |
+
+The Playwright E2E suite (`pnpm test:e2e`) is a separate thing: automated regression with isolated test accounts. See `tests/e2e/README.md`.
+
+## Chrome extension
+
+The fallback outside T3 Code: the [Claude in Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn). It needs a visible Chrome window and pauses on CAPTCHAs and login pages for you to handle.
+
+### Prerequisites
 
 - Google Chrome browser
 - Claude in Chrome extension (v1.0.36+)
 - Claude Code CLI (v2.0.73+)
 
-## Enable for a Session
+### Enable for a session
 
 ```bash
 claude --chrome
@@ -22,6 +83,8 @@ Or enable mid-session with `/chrome`.
 
 ## Use Cases
 
+These prompts work with any of the three browsers.
+
 | Use Case            | Example Prompt                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------- |
 | Test auth flows     | "Go to localhost:3000/sign-in, try signing in with wrong password, verify error message" |
@@ -29,18 +92,7 @@ Or enable mid-session with `/chrome`.
 | Visual verification | "Open the settings page and verify the layout matches expectations"                      |
 | Console debugging   | "Open the dashboard and check for any console errors"                                    |
 | User flow testing   | "Complete the full sign-up → onboarding → home flow and report any issues"               |
-| Record demos        | "Record a GIF showing the household invite flow"                                         |
-
-## Chrome vs Playwright
-
-| Aspect     | Chrome Extension            | Playwright             |
-| ---------- | --------------------------- | ---------------------- |
-| Purpose    | Dev-time exploration        | Automated regression   |
-| Runs in    | Visible browser             | Headless (CI)          |
-| Auth state | Uses your logged-in session | Isolated test accounts |
-| Best for   | Ad-hoc testing, debugging   | Repeatable test suites |
-
-**Note:** Chrome extension requires a visible browser window and pauses on CAPTCHAs/login pages for manual handling.
+| Record demos        | "Record a GIF showing the household invite flow" (Chrome extension only)                 |
 
 ## Page map
 

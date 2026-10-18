@@ -11,11 +11,11 @@ Take a rough idea and shape it into actionable Linear issues through interactive
 
 ## Pre-flight
 
-### Chrome availability
+### Browser availability
 
-If Chrome browser tools (`mcp__claude-in-chrome__*`) are available in this session, you can browse the live app during ideation for visual context. "When to browse" below says when it helps.
+If the session lists browser tools, you can browse the live app during ideation for visual context. Pick the browser by `docs/CHROME_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension, then the Playwright MCP. "When to browse" below says when it helps.
 
-If Chrome is not available, proceed without it. Optionally mention that `claude --chrome` or `/chrome` enables app browsing for future sessions.
+If no browser is listed, proceed without one.
 
 ## Asking in rounds
 
@@ -96,7 +96,7 @@ Then ask the first round (see "Asking in rounds"). These four areas seed it. Dro
 3. **User experience**: How should this feel to use? Key interactions?
 4. **Edge cases**: What tricky scenarios should we consider?
 
-If Chrome is available and the idea touches an existing part of the app, navigate to that area on staging (`https://wobblepot.dev/`) to see its current state. This grounds the conversation in reality rather than assumptions.
+If a browser is available and the idea touches an existing part of the app, navigate to that area on staging (`https://wobblepot.dev/`) to see its current state. This grounds the conversation in reality rather than assumptions.
 
 ## Phase 2: Shape Through Discussion
 
@@ -186,7 +186,7 @@ After creating all issues, summarize:
 
 ## Browsing the App
 
-When Chrome tools are available, use them to bring visual context into the conversation. The staging app is at `https://wobblepot.dev/`.
+When a browser is available, use it to bring visual context into the conversation. The staging app is at `https://wobblepot.dev/`.
 
 ### App page map
 
@@ -194,8 +194,8 @@ Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/a
 
 ### How to browse during ideation
 
-- **Start with `tabs_context_mcp`** to see what's already open
-- **Navigate** to relevant pages — screenshot and describe what you see
+- **Start with what's already open**: `preview_status` in the T3 Code sidebar browser. `docs/CHROME_TESTING.md` → Tool mapping gives the other tool names
+- **Navigate** to relevant pages and describe what you see. In the T3 Code sidebar the user sees the same tab, so say what matters and do not paste every screenshot
 - **Keep it lightweight** — browse to ground the discussion, not to do a full review
 - **Reference what you see** — "Looking at the shopping page, I can see X... so for this idea we'd want Y"
 - **Don't block on auth** — if you can't access a page, describe it from code knowledge instead
@@ -223,4 +223,4 @@ Skip browsing when:
 - **Sentence case**: Use sentence case for issue titles per project conventions.
 - **Write agent-ready issues**: Issues from ideation feed into the agentic workflow (`/auto-implement`, but also product and design agents). They must contain enough context and reasoning for an agent to act without the ideation conversation. Include the problem/motivation, not just the solution. After drafting the description and acceptance criteria, do a deeper codebase scan to add an **Implementation guidance** section with: key files to study (with line numbers and what to reuse), API/schema design, UI structure, and any non-obvious integration points. Self-check before creating: "Could an agent complete this from the issue alone?"
 - **Label appropriately**: Add labels if the idea clearly fits a category.
-- **Browse naturally**: When Chrome is available, weave app browsing into the conversation as a natural information-gathering step — like checking a reference, not running a test suite.
+- **Browse naturally**: Weave app browsing into the conversation as a natural information-gathering step — like checking a reference, not running a test suite.

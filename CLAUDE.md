@@ -43,7 +43,7 @@ CLAUDE.md says _how_ to code. The project spec says _what_ to build and _why_. T
 - `docs/DEPLOYMENT.md`: CI pipeline, coverage and lockfile gates, deploys
 - `docs/AGENT_HISTORY.md`: the incident behind each rule. Read before changing or disputing one
 - `docs/SECURITY.md`, `compliance/`: CSP, MCP OAuth, Better Auth schema; DPAs, DPIA
-- `docs/AI_MODELS.md`, `docs/FEATURE_FLAGS.md`, `docs/RUNBOOKS/`, and setup guides for environment, email, MCP and Chrome testing
+- `docs/AI_MODELS.md`, `docs/FEATURE_FLAGS.md`, `docs/RUNBOOKS/`, and setup guides for environment, email, MCP and browser review
 
 ## Agent memory
 
