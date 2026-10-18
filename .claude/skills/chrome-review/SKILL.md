@@ -1,10 +1,12 @@
 ---
 name: chrome-review
-description: Interactive staging review session using Chrome. Explore the app, discuss findings, and create Linear issues collaboratively.
+description: Interactive staging review session in a browser (the T3 Code sidebar first, then the Chrome extension or the Playwright MCP). Explore the app, discuss findings, and create Linear issues collaboratively.
 context: inherit
 ---
 
 # Chrome Review Skill
+
+The name is historical. The skill uses whichever browser the session has.
 
 You are conducting a collaborative staging review session with the user. Together you will explore the live app at `https://wobblepot.dev/`, observe behavior, discuss findings, and create Linear issues for anything worth tracking.
 
@@ -12,11 +14,15 @@ This is a **dialog**, not an automated scanner. The user drives focus and decisi
 
 ## Pre-flight
 
-### Step 1: Verify Chrome mode
+### Step 1: Pick a browser
 
-If no `mcp__claude-in-chrome__*` tools are listed in this session, stop and tell the user to run `claude --chrome` or `/chrome`:
+Pick the browser by `docs/CHROME_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension (`mcp__claude-in-chrome__*`), then the Playwright MCP (`mcp__playwright__browser_*`). Use the tool names of the set you picked for the rest of the session. `docs/CHROME_TESTING.md` → Tool mapping pairs the T3 Code and Playwright names; the Chrome extension's tools are listed in the session.
 
-> This skill requires Chrome mode. Start a new session with `claude --chrome` or run `/chrome` to enable it.
+In the T3 Code sidebar the user sees the tab you drive, so describe what matters and do not paste every screenshot.
+
+If none of the three is listed, stop and tell the user:
+
+> This skill needs a browser. Open the session in T3 Code to use its sidebar browser, start Claude Code with `claude --chrome` (or run `/chrome`) for the Chrome extension, or enable the Playwright MCP in `.claude/settings.local.json`.
 
 ### Step 2: Gather context
 
