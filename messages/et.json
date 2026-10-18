@@ -413,6 +413,41 @@
       "stateAvailable": "olemas",
       "stateUnavailable": "puudu"
     },
+    "changes": {
+      "badge": "Muudetud",
+      "rowMenu": "Muuda: {name}",
+      "replace": "Asenda",
+      "leaveOut": "Jäta välja",
+      "addIngredient": "Lisa koostisosa",
+      "undo": "Võta tagasi",
+      "undoAria": "Võta muudatus tagasi: {name}",
+      "insteadOf": "Algne: {name}",
+      "leftOut": "Välja jäetud",
+      "added": "Lisatud",
+      "stale": "Pole enam retseptis",
+      "summaryTitle": "Selle toidu muudatused",
+      "summaryReplaced": "Asendatud: {original} → {replacement}",
+      "summaryLeftOut": "Välja jäetud: {name}",
+      "summaryAdded": "Lisatud: {name}",
+      "dialog": {
+        "replaceTitle": "Asenda: {name}",
+        "addTitle": "Lisa koostisosa",
+        "description": "Muutub ainult see toidukord. Retsept jääb samaks.",
+        "quantityLabel": "Kogus, {count, plural, one {# portsjon} other {# portsjonit}}",
+        "unitsDiffer": "Ühikud erinevad, nii et sisesta kogus.",
+        "pickAnother": "Vali teine",
+        "submitReplace": "Asenda",
+        "submitAdd": "Lisa"
+      },
+      "errors": {
+        "failed": "Koostisosa muutmine ei õnnestunud. Proovi uuesti.",
+        "undoFailed": "Muudatuse tagasivõtmine ei õnnestunud. Proovi uuesti.",
+        "notPlanned": "Muuta saab ainult planeeritud toitu.",
+        "alreadyChanged": "Seda koostisosa on juba muudetud. Võta see muudatus enne tagasi.",
+        "alreadyInMeal": "See koostisosa on toidus juba olemas.",
+        "ingredientNotFound": "See koostisosa pole saadaval. Vali teine."
+      }
+    },
     "deduction": {
       "title": "Märgi tehtuks",
       "willDeduct": "„{mealName}\" tehtuks märkimisel arvatakse sahvrist maha:",

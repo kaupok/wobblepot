@@ -21,8 +21,8 @@ import { prisma } from '@/lib/prisma'
  *
  * Ingredients (HON-880), in every household: the household's own
  * ingredients in full, with translations, under `ingredients`. Global
- * ingredients referenced by an exported meal component, pantry item,
- * custom shopping item or preference exclusion list go under `referencedGlobalIngredients` with only
+ * ingredients referenced by an exported meal component, entry ingredient
+ * change, pantry item, custom shopping item or preference exclusion list go under `referencedGlobalIngredients` with only
  * `id`, `name` and `defaultUnit`, so the `ingredientId`s in the file
  * resolve. Their nutrition and allergen columns are Wobblepot's catalogue,
  * not the user's data, and stay out. A reference to another household's
@@ -161,7 +161,8 @@ export async function exportUserData(userId: string) {
               }),
               tx.mealPlan.findMany({
                 where: { householdId },
-                include: { entries: true },
+                // Each entry's own ingredient changes (HON-1243).
+                include: { entries: { include: { changes: true } } },
                 orderBy: { createdAt: 'asc' },
               }),
               tx.pantryItem.findMany({
@@ -191,6 +192,16 @@ export async function exportUserData(userId: string) {
             for (const component of meal.components) referencedIds.add(component.ingredientId)
           }
           for (const item of pantryItems) referencedIds.add(item.ingredientId)
+          for (const plan of mealPlans) {
+            for (const entry of plan.entries) {
+              for (const change of entry.changes) {
+                if (change.originalIngredientId) referencedIds.add(change.originalIngredientId)
+                if (change.replacementIngredientId) {
+                  referencedIds.add(change.replacementIngredientId)
+                }
+              }
+            }
+          }
           for (const item of customShoppingItems) {
             if (item.ingredientId) referencedIds.add(item.ingredientId)
           }

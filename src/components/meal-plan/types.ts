@@ -87,6 +87,29 @@ export interface PlanEntry {
    * entry. Sent by `/api/entries` only.
    */
   conflicts?: PreferenceConflict[]
+  /**
+   * This entry's own ingredient changes, oldest first (HON-1243). `meal.components`
+   * already has them merged; this list is what the cook view shows as changed,
+   * and what Undo reverts. Sent by `/api/entries` only.
+   */
+  changes?: EntryChange[]
+}
+
+/**
+ * One change to one planned entry's ingredients (HON-1243):
+ *
+ * - `original` and `replacement`: the original is replaced.
+ * - `original` only: the original is left out.
+ * - `replacement` only: an added ingredient.
+ */
+export interface EntryChange {
+  id: string
+  original: { id: string; name: string } | null
+  replacement: { id: string; name: string } | null
+  /** Per serving, in the replacement's `defaultUnit`; null for a left-out ingredient. */
+  quantityPerServing: number | null
+  /** The recipe no longer has the original, so the change does nothing. */
+  stale: boolean
 }
 
 export interface MealPlan {

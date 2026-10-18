@@ -43,6 +43,7 @@ export async function findPlanSlot(household: McpHousehold, date: string, mealTy
       mealId: true,
       status: true,
       rating: true,
+      servingOverride: true,
       meal: {
         select: {
           id: true,

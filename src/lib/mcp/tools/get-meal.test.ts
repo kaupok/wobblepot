@@ -3,7 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
 }))
-vi.mock('@/lib/prisma', () => ({ prisma: { meal: { findFirst: vi.fn() } } }))
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    meal: { findFirst: vi.fn() },
+    mealPlanEntry: { findFirst: vi.fn() },
+    mealPlanEntryComponent: { findMany: vi.fn() },
+  },
+}))
 
 import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
@@ -41,6 +47,7 @@ const MEAL = {
   favoritedBy: [{ id: 'fav-1' }],
   components: [
     {
+      ingredientId: 'ing-chicken',
       quantityPerServing: 150,
       isVague: false,
       originalPhrase: null,
@@ -52,12 +59,14 @@ const MEAL = {
       }),
     },
     {
+      ingredientId: 'ing-stock',
       quantityPerServing: 200,
       isVague: false,
       originalPhrase: null,
       ingredient: ingredient({ id: 'ing-stock', name: 'Stock', measuredByVolume: true }),
     },
     {
+      ingredientId: 'ing-salt',
       quantityPerServing: 1,
       isVague: true,
       originalPhrase: 'a pinch',
@@ -119,6 +128,84 @@ describe('get_meal', () => {
       quantity: 1200,
       unit: 'g',
       note: null,
+    })
+  })
+
+  describe('for a planned entry', () => {
+    const slot = { id: 'entry-1', mealId: 'meal-1', servingOverride: 3, meal: null }
+    const planned = (input: Record<string, unknown> = {}) =>
+      runTool(
+        getMeal,
+        ctx,
+        getMeal.inputSchema.parse({
+          mealId: 'meal-1',
+          date: '2026-10-20',
+          mealType: 'dinner',
+          ...input,
+        }),
+      )
+    const ingredientsOf = (result: { structuredContent?: unknown }) =>
+      (result.structuredContent as { meal: { servings: number; ingredients: unknown[] } }).meal
+
+    beforeEach(() => {
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(slot as never)
+      vi.mocked(prisma.mealPlanEntryComponent.findMany).mockResolvedValue([
+        // Tofu instead of chicken, no stock, and lime added.
+        {
+          id: 'c1',
+          originalIngredientId: 'ing-chicken',
+          replacementIngredientId: 'ing-tofu',
+          quantityPerServing: 120,
+          replacementIngredient: ingredient({ id: 'ing-tofu', name: 'Tofu' }),
+        },
+        {
+          id: 'c2',
+          originalIngredientId: 'ing-stock',
+          replacementIngredientId: null,
+          quantityPerServing: null,
+          replacementIngredient: null,
+        },
+        {
+          id: 'c3',
+          originalIngredientId: null,
+          replacementIngredientId: 'ing-lime',
+          quantityPerServing: 0.5,
+          replacementIngredient: ingredient({ id: 'ing-lime', name: 'Lime', defaultUnit: 'piece' }),
+        },
+      ] as never)
+    })
+
+    it("lists the entry's ingredients with its changes merged, at the entry's servings", async () => {
+      const meal = ingredientsOf(await planned())
+
+      expect(meal.servings).toBe(3)
+      expect(meal.ingredients).toEqual([
+        { name: 'Tofu', quantity: 360, unit: 'g', note: null },
+        { name: 'Salt', quantity: null, unit: 'g', note: 'a pinch' },
+        { name: 'Lime', quantity: 1.5, unit: 'piece', note: null },
+      ])
+      expect(vi.mocked(prisma.mealPlanEntryComponent.findMany).mock.calls[0]![0]!.where).toEqual({
+        entryId: 'entry-1',
+      })
+    })
+
+    it('answers isError when the slot holds another meal', async () => {
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue({
+        ...slot,
+        mealId: 'meal-2',
+      } as never)
+
+      const result = await planned()
+
+      expect(result.isError).toBe(true)
+      expect(prisma.mealPlanEntryComponent.findMany).not.toHaveBeenCalled()
+    })
+
+    it('answers isError for a date without a meal type', async () => {
+      const result = await planned({ mealType: undefined })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0]).toMatchObject({ text: expect.stringContaining('together') })
     })
   })
 

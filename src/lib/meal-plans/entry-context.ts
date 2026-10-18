@@ -2,6 +2,8 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { ingredientTranslationsInclude, mealTranslationsInclude } from '@/lib/i18n/content'
 import { serializePreparationSteps } from '@/lib/preparation-steps'
+import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
+import type { Prisma } from '@/generated/prisma/client'
 import type { PreparationSteps } from '@/components/meal-plan/types'
 
 /**
@@ -33,6 +35,14 @@ export async function loadEntryForAi(
   entryId: string,
   locale: string,
 ) {
+  const ingredient = {
+    select: {
+      name: true,
+      defaultUnit: true,
+      measuredByVolume: true,
+      ...ingredientTranslationsInclude(locale),
+    },
+  } as const
   const entry = await prisma.mealPlanEntry.findFirst({
     where: {
       id: entryId,
@@ -40,27 +50,32 @@ export async function loadEntryForAi(
       plan: { householdId },
     },
     include: {
+      changes: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          originalIngredientId: true,
+          replacementIngredientId: true,
+          quantityPerServing: true,
+          replacementIngredient: ingredient,
+        },
+      },
       meal: {
         include: {
           ...mealTranslationsInclude(locale),
-          components: {
-            include: {
-              ingredient: {
-                select: {
-                  name: true,
-                  defaultUnit: true,
-                  measuredByVolume: true,
-                  ...ingredientTranslationsInclude(locale),
-                },
-              },
-            },
-          },
+          components: { include: { ingredient } },
         },
       },
     },
   })
   if (!entry) throw new EntryContextError('not_found')
-  return entry
+  return {
+    ...entry,
+    // What the entry cooks, with its own changes merged (HON-1243): the prompt
+    // names the yoghurt, not the cream it replaced. `meal.components` stays
+    // the shared recipe.
+    components: applyEntryChanges(entry.meal?.components ?? [], entry.changes),
+  }
 }
 
 /**
@@ -91,6 +106,8 @@ export interface PricedFrom {
   mealUpdatedAt: Date
   /** The stored `household.locale`, which a locale PATCH moves. */
   householdLocale: string
+  /** The entry's ingredient changes the prompt merged, as `changeSetKey` reads them. */
+  changes: readonly { id: string }[]
 }
 
 /**
@@ -118,7 +135,40 @@ export async function cachePreparationTips(
   tips: PreparationSteps,
   servings: number,
 ): Promise<number> {
-  const { count } = await prisma.mealPlanEntry.updateMany({
+  return prisma
+    .$transaction(async (tx) => {
+      const count = await writeGuardedTips(tx, pricedFrom, tips, servings)
+      if (count === 0) return 0
+      // The entry's ingredient changes are a priced-from input too (HON-1243),
+      // and Prisma cannot filter on a relation's set. The write above holds the
+      // entry's row lock, which every change write takes first
+      // (`claimPlannedEntry`), so the set read here cannot move before this
+      // commits, and one committed since the prompt was built is visible.
+      const changesNow = await tx.mealPlanEntryComponent.findMany({
+        where: { entryId: pricedFrom.entryId },
+        select: { id: true },
+      })
+      if (changeSetKey(changesNow) !== changeSetKey(pricedFrom.changes)) {
+        throw new ChangesMoved()
+      }
+      return count
+    })
+    .catch((error: unknown) => {
+      if (error instanceof ChangesMoved) return 0
+      throw error
+    })
+}
+
+/** Rolls the tips write back: the change set moved while the prompt ran. */
+class ChangesMoved extends Error {}
+
+async function writeGuardedTips(
+  tx: Prisma.TransactionClient,
+  pricedFrom: PricedFrom,
+  tips: PreparationSteps,
+  servings: number,
+): Promise<number> {
+  const { count } = await tx.mealPlanEntry.updateMany({
     where: {
       id: pricedFrom.entryId,
       // A swap is the third writer that nulls this cache, and it resets

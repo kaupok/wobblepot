@@ -413,6 +413,41 @@
       "stateAvailable": "available",
       "stateUnavailable": "not available"
     },
+    "changes": {
+      "badge": "Changed",
+      "rowMenu": "Change {name}",
+      "replace": "Replace",
+      "leaveOut": "Leave out",
+      "addIngredient": "Add an ingredient",
+      "undo": "Undo",
+      "undoAria": "Undo change: {name}",
+      "insteadOf": "Instead of {name}",
+      "leftOut": "Left out",
+      "added": "Added",
+      "stale": "No longer in the recipe",
+      "summaryTitle": "Changes for this meal",
+      "summaryReplaced": "Replaced: {original} → {replacement}",
+      "summaryLeftOut": "Left out: {name}",
+      "summaryAdded": "Added: {name}",
+      "dialog": {
+        "replaceTitle": "Replace: {name}",
+        "addTitle": "Add an ingredient",
+        "description": "Only this meal changes. The recipe stays as it is.",
+        "quantityLabel": "Amount for {count, plural, one {# serving} other {# servings}}",
+        "unitsDiffer": "The units differ, so enter the amount.",
+        "pickAnother": "Pick another",
+        "submitReplace": "Replace",
+        "submitAdd": "Add"
+      },
+      "errors": {
+        "failed": "Could not change the ingredient. Try again.",
+        "undoFailed": "Could not undo the change. Try again.",
+        "notPlanned": "Only a planned meal can be changed.",
+        "alreadyChanged": "This ingredient is already changed. Undo that change first.",
+        "alreadyInMeal": "This ingredient is already in the meal.",
+        "ingredientNotFound": "This ingredient is not available. Pick another."
+      }
+    },
     "deduction": {
       "title": "Mark as completed",
       "willDeduct": "Marking \"{mealName}\" as completed will deduct the following from your pantry:",

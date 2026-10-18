@@ -640,11 +640,13 @@ model Ingredient {
   /// ingredients by the rule in prisma/measured-by-volume.ts (HON-1069).
   measuredByVolume Boolean            @default(false)
 
-  household           Household?              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household           Household?               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   components          MealComponent[]
   pantryItems         PantryItem[]
   customShoppingItems CustomShoppingItem[]
   translations        IngredientTranslation[]
+  replacedInEntries   MealPlanEntryComponent[] @relation("EntryChangeOriginal")
+  usedInEntryChanges  MealPlanEntryComponent[] @relation("EntryChangeReplacement")
 
   @@index([householdId])
   @@map("ingredient")
@@ -822,14 +824,52 @@ model MealPlanEntry {
   /// Set when completing this entry charged the pantry. Never cleared — not by
   /// a revert, not by a swap after one — so the entry is charged at most once.
   pantryDeductedAt DateTime?
+  /// The household's free-text instruction for changing this entry's
+  /// ingredients, kept for the AI "Adjust recipe" path (HON-1244). Nothing
+  /// writes it yet (HON-1243).
+  adjustmentNote   String?
 
-  plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  meal Meal?    @relation(fields: [mealId], references: [id])
+  plan    MealPlan                 @relation(fields: [planId], references: [id], onDelete: Cascade)
+  meal    Meal?                    @relation(fields: [mealId], references: [id])
+  /// This entry's own ingredient changes (HON-1243). The meal stays shared.
+  changes MealPlanEntryComponent[]
 
   @@unique([planId, date, mealType])
   @@index([mealId])
   @@index([date])
   @@map("meal_plan_entry")
+}
+
+/// One change to the ingredients of one planned entry (HON-1243): replace an
+/// ingredient, leave one out, or add one. The meal is never touched; every
+/// reader merges these rows over `meal.components` with `applyEntryChanges`
+/// (src/lib/meal-planning/entry-components.ts).
+///
+/// - `originalIngredientId` null: an added ingredient.
+/// - `replacementIngredientId` null: a left-out ingredient.
+///
+/// The invariants Postgres cannot hold (one row per original, one add per
+/// ingredient, never both ids null) live in `addEntryChange`
+/// (src/lib/meal-plans/entry-changes.ts), because Prisma has no partial
+/// unique index and nulls are distinct.
+model MealPlanEntryComponent {
+  id                      String   @id @default(cuid())
+  entryId                 String
+  originalIngredientId    String?
+  replacementIngredientId String?
+  /// Set with `replacementIngredientId`, null otherwise. Stored in the
+  /// replacement's `defaultUnit`, as `MealComponent.quantityPerServing` is.
+  quantityPerServing      Float?
+  createdAt               DateTime @default(now())
+
+  entry                 MealPlanEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  originalIngredient    Ingredient?   @relation("EntryChangeOriginal", fields: [originalIngredientId], references: [id], onDelete: Cascade)
+  replacementIngredient Ingredient?   @relation("EntryChangeReplacement", fields: [replacementIngredientId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@index([originalIngredientId])
+  @@index([replacementIngredientId])
+  @@map("meal_plan_entry_component")
 }
 
 model PantryItem {

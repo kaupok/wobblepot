@@ -11,6 +11,8 @@ import { Body, Heading } from '@/components/ui/typography'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
+import { EditableIngredientList } from './EditableIngredientList'
+import { EntryChangesList } from './EntryChangesList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import {
@@ -20,6 +22,7 @@ import {
 } from './PreparationSteps'
 import { ServingControl } from './ServingControl'
 import type {
+  EntryChange,
   MealData,
   MealStatus,
   PantryIngredient,
@@ -85,6 +88,19 @@ interface MealDetailProps {
    * passes it only for a planned entry it can edit.
    */
   onDoneCooking?: () => void
+  /**
+   * The plan entry's own ingredient changes (HON-1243), and whether they can
+   * still be edited: a planned entry only. Omit outside a plan (the landing
+   * demo). Listed above the steps as well, so the cook sees them.
+   */
+  ingredientChanges?: {
+    planId: string
+    entryId: string
+    changes: EntryChange[]
+    editable: boolean
+    /** A change landed and the server dropped the entry's cached steps. */
+    onChanged: () => void
+  }
 }
 
 /**
@@ -150,6 +166,7 @@ export function MealDetail({
   onToggleStep,
   cookQuestion,
   onDoneCooking,
+  ingredientChanges,
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
@@ -168,6 +185,19 @@ export function MealDetail({
     () => (pantryHasData ? computeMealAvailability(meal, effectivePantry) : null),
     [meal, effectivePantry, pantryHasData],
   )
+
+  const ingredientListProps = {
+    components: meal.components,
+    servings: effectiveServings,
+    householdServings,
+    pantryIngredients,
+    onToggleAvailability: hideAvailability ? undefined : onToggleAvailability,
+    togglingIds,
+    optimisticOverrides,
+    availability: hideAvailabilityBadge ? null : availability,
+    hideAvailability,
+    showMissingStyle: pantryHasData,
+  }
 
   const showPreparationSection = !!onHowToPrepare
   const showSteps = showPreparationSection && isStepsExpanded
@@ -247,18 +277,18 @@ export function MealDetail({
           {note}
 
           <section className="flex flex-col gap-4">
-            <IngredientList
-              components={meal.components}
-              servings={effectiveServings}
-              householdServings={householdServings}
-              pantryIngredients={pantryIngredients}
-              onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
-              togglingIds={togglingIds}
-              optimisticOverrides={optimisticOverrides}
-              availability={hideAvailabilityBadge ? null : availability}
-              hideAvailability={hideAvailability}
-              showMissingStyle={pantryHasData}
-            />
+            {ingredientChanges ? (
+              <EditableIngredientList
+                {...ingredientListProps}
+                planId={ingredientChanges.planId}
+                entryId={ingredientChanges.entryId}
+                changes={ingredientChanges.changes}
+                editable={ingredientChanges.editable}
+                onChanged={ingredientChanges.onChanged}
+              />
+            ) : (
+              <IngredientList {...ingredientListProps} />
+            )}
           </section>
         </div>
 
@@ -305,6 +335,7 @@ export function MealDetail({
                   cookQuestion={cookQuestion}
                 />
               )}
+              {ingredientChanges && <EntryChangesList changes={ingredientChanges.changes} />}
               <Heading variant="h4" as="h3">
                 {tSteps('steps')}
               </Heading>

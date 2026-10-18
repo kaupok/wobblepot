@@ -199,7 +199,8 @@ async function handlePOST(
       mealName,
       servings,
       timeMinutes: entry.meal.timeMinutes,
-      components: entry.meal.components.map((comp) => ({
+      // The entry's own changes merged over the recipe (HON-1243).
+      components: entry.components.map((comp) => ({
         name: translateIngredient(comp.ingredient, locale).name,
         quantityPerServing: comp.quantityPerServing,
         defaultUnit: comp.ingredient.defaultUnit,

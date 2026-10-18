@@ -31,7 +31,7 @@ import { MyRecipeIcon } from './MyRecipeIcon'
 import { ConflictBadges } from './ConflictBadge'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
-import type { MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
+import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 export interface MealDetailModalHandle {
@@ -74,6 +74,8 @@ interface MealDetailModalProps {
    * a planned entry only.
    */
   conflicts?: readonly PreferenceConflict[]
+  /** The entry's own ingredient changes (HON-1243); editable while `planned`. */
+  changes?: EntryChange[]
   /**
    * Generate the steps when the view opens, rather than behind "How to
    * prepare" — for a planned entry somebody is about to cook (HON-933).
@@ -131,6 +133,7 @@ export function MealDetailModal({
   onServingOverrideChange,
   initialSteps = null,
   conflicts = [],
+  changes,
   generateOnOpen = false,
   onDoneCooking,
   readOnly = false,
@@ -621,6 +624,20 @@ export function MealDetailModal({
               : undefined
           }
           onDoneCooking={onDoneCooking ? handleDoneCooking : undefined}
+          ingredientChanges={
+            changes && !readOnly
+              ? {
+                  planId,
+                  entryId,
+                  changes,
+                  // The planned, editable entry that gets "Done cooking".
+                  editable: status === 'planned' && !!onDoneCooking,
+                  // The write nulled the cached steps, so drop the ones shown;
+                  // a planned view regenerates them from the merged list.
+                  onChanged: cancelSteps,
+                }
+              : undefined
+          }
         />
       </DialogContent>
     </Dialog>
