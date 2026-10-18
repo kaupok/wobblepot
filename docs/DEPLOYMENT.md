@@ -30,6 +30,7 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `pnpm lockfile:check` - Pinned dependency resolutions (HON-595)
 - `pnpm coverage:ratchet` - No coverage threshold went down (PRs only; see the coverage gate below)
 - `pnpm stories:check` - Every component has a colocated story
+- `pnpm file-size:check` - No code file over 5,000 tokens, or over its cap in `scripts/file-size-allowlist.txt` (HON-1241)
 - `pnpm db:validate` - Seed data
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
 - `pnpm audit --audit-level critical` - Dependency advisories (last, because it is the only step that calls the npm registry)

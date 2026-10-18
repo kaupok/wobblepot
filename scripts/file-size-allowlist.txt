@@ -1,0 +1,107 @@
+# Code files allowed over 5,000 tokens (bytes / 4), each with a cap (HON-1241).
+# Read by `pnpm file-size:check` (scripts/check-file-size.ts), which fails on
+# any other in-scope file over the limit, and on a listed file more than 5%
+# over its cap.
+#
+# This list only shrinks. Never add a file and never raise a cap: split the
+# file instead. When a listed file gets smaller, run
+# `pnpm file-size:check --update`, which lowers its cap or drops the line.
+# When you rename a listed file, move its line to the new path with the same
+# cap: a rename is not a new file.
+#
+# Format: `<maxTokens> <repo-relative path>` per line; `#` comments and blank
+# lines ignored. Seeded on 2026-10-18 with every file then over the limit.
+
+5739 .claude/hooks/block-destructive.mts
+7309 scripts/agent-cost-per-pr.ts
+5524 scripts/audit-ingredients/audit-data-quality.ts
+5455 scripts/check-lockfile-pins.ts
+5682 scripts/check-migrations-immutable.test.ts
+5255 scripts/e2e-local.sh
+7329 scripts/generate-global-meal-images.test.ts
+9035 scripts/generate-global-meal-images.ts
+8062 scripts/model-bench/report.test.ts
+11442 scripts/model-bench/report.ts
+10033 scripts/model-bench/run.test.ts
+7407 scripts/model-bench/run.ts
+7125 scripts/model-bench/scorers.test.ts
+5874 scripts/neon-cleanup.sh
+24962 scripts/orchestrator-outcome-harness.sh
+7876 scripts/orchestrator.failure.test.ts
+15957 scripts/orchestrator.loop.test.ts
+11343 scripts/orchestrator.neon.test.ts
+13221 scripts/orchestrator.outcomes.test.ts
+7097 scripts/orchestrator.phase.test.ts
+44905 scripts/orchestrator.sh
+17499 scripts/orchestrator.watch.test.ts
+10017 scripts/pr-review.sh
+5623 scripts/refit-meal-images.ts
+5063 scripts/review-checklist-gate.test.ts
+5352 scripts/spike-meal-colour.ts
+12791 scripts/spike-meal-images.ts
+6328 scripts/test-ai-selection.ts
+47207 scripts/worktree-claude.sh
+7640 scripts/worktree-done.test.ts
+5392 src/app/(legal)/privacy/page.tsx
+5209 src/app/account/connections/ApiKeysSection.test.tsx
+5382 src/app/account/connections/ApiKeysSection.tsx
+6293 src/app/api/meal-plans/[id]/entries/[entryId]/cook-question/route.test.ts
+10883 src/app/api/meal-plans/[id]/entries/[entryId]/preparation-tips/route.test.ts
+6657 src/app/api/meals/[id]/image/route.test.ts
+6959 src/app/api/meals/imagine/route.test.ts
+5368 src/app/api/recipes/parse/route.test.ts
+7474 src/app/globals.css
+6000 src/app/household/household/HouseholdSettingsForm.stories.tsx
+11497 src/app/household/household/HouseholdSettingsForm.test.tsx
+8824 src/app/onboarding/OnboardingFlow.test.tsx
+7732 src/app/page.test.tsx
+7600 src/app/sign-in/SignInForm.test.tsx
+7220 src/app/sign-up/page.test.tsx
+6305 src/components/header-chrome.stories.tsx
+6081 src/components/household/MealForm.test.tsx
+6108 src/components/inventory/ShoppingSection.test.tsx
+6131 src/components/inventory/ShoppingSection.tsx
+20528 src/components/meal-plan/MealCard.stories.tsx
+9024 src/components/meal-plan/MealCard.test.tsx
+8929 src/components/meal-plan/MealCard.tsx
+6243 src/components/meal-plan/MealDetail.stories.tsx
+16870 src/components/meal-plan/MealDetailModal.stories.tsx
+6669 src/components/meal-plan/MealDetailModal.tsx
+5441 src/components/meal-plan/MealImageCard.stories.tsx
+5457 src/components/meal-plan/MealImageCard.test.tsx
+5414 src/components/meal-plan/MealImageCard.tsx
+6024 src/components/meal-plan/MealSelectorModal.stories.tsx
+6320 src/components/meal-plan/PreparationSteps.stories.tsx
+10187 src/components/meal-plan/PreparationSteps.test.tsx
+7699 src/components/meal-plan/PreparationSteps.tsx
+5482 src/components/PostHogProvider.test.tsx
+5516 src/components/recipes/ImagineReviewDialog.test.tsx
+6237 src/hooks/use-cook-question.test.ts
+5063 src/hooks/use-meal-image.test.ts
+5230 src/lib/ai/fill-plan.test.ts
+6828 src/lib/ai/forbidden-foods.test.ts
+5762 src/lib/ai/forbidden-foods.ts
+11454 src/lib/ai/generate-plan.test.ts
+13851 src/lib/ai/imagine-fixtures.ts
+5435 src/lib/ai/imagine-meal.test.ts
+8790 src/lib/ai/match-ingredients.test.ts
+7258 src/lib/ai/parse-recipe.test.ts
+6614 src/lib/ai/prompts.test.ts
+5365 src/lib/ai/prompts.ts
+7807 src/lib/ai/repair-plan.test.ts
+5621 src/lib/ai/usage.test.ts
+5944 src/lib/auth.test.ts
+7137 src/lib/auth.ts
+6281 src/lib/household-meals.db.test.ts
+7729 src/lib/household-meals.ts
+7010 src/lib/meal-images/generate.test.ts
+7928 src/lib/meal-planning/candidates.test.ts
+11019 src/lib/meal-planning/shopping-list.test.ts
+6370 src/lib/meal-plans/entries.db.test.ts
+7918 src/lib/meal-plans/entries.ts
+5352 src/lib/rate-limit.test.ts
+5067 src/lib/utils.test.ts
+5143 src/proxy.test.ts
+9688 src/stories/fixtures.ts
+6230 src/stories/msw-handlers.ts
+5669 tests/e2e/i18n-full-flow.spec.ts

@@ -264,6 +264,14 @@ jobs:
       - name: Check Prisma import boundary
         run: pnpm prisma-boundary:check
 
+      # File size ratchet (HON-1241): a code file over 5,000 tokens (bytes / 4)
+      # fails unless it is in the shrink-only scripts/file-size-allowlist.txt,
+      # and a listed file fails more than 5% over its cap. Husky runs it on
+      # staged files, but `--no-verify` and headless workers skip Husky, so CI
+      # scans the whole tree. A local scan, so it sits in the cheap static job.
+      - name: Check file size
+        run: pnpm file-size:check
+
       # Coverage ratchet (HON-1192): the unit job fails a run under the
       # thresholds in vitest.config.ts, but it reads the PR's own thresholds,
       # so it cannot see a PR that lowers one. This compares them with the
