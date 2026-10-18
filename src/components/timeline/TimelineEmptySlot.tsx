@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AddMealMenu, type AddMealView } from '@/components/meal-plan/AddMealMenu'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
@@ -50,6 +51,7 @@ export function TimelineEmptySlot({
   const mealTypeLabel = useEnumLabel('MealType', mealType)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
+  const [view, setView] = useState<AddMealView>('library')
   const hasSelectedRef = useRef(false)
   const pickButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -95,7 +97,7 @@ export function TimelineEmptySlot({
   })
   const isCreating = createEntryMutation.isPending
 
-  // Drops the placeholder entry `handlePickMeal` created when the selector
+  // Drops the placeholder entry `handleChoose` created when the selector
   // closes without a pick. Only a network failure refreshes the page — an
   // error status is ignored, as before.
   const discardEntryMutation = useMutation({
@@ -113,10 +115,12 @@ export function TimelineEmptySlot({
   // No second placeholder while the last one is still being created or deleted.
   const isPending = isCreating || isDiscarding
 
-  function handlePickMeal() {
-    // `aria-disabled` stops only the pointer; Enter and Space still land here.
+  function handleChoose(chosen: AddMealView) {
+    // The menu stays closed while pending; this guards an item chosen in the
+    // same tick as the first.
     if (isPending) return
     hasSelectedRef.current = false
+    setView(chosen)
     createEntryMutation.mutate()
   }
 
@@ -160,19 +164,22 @@ export function TimelineEmptySlot({
 
   return (
     <>
-      <Button
-        ref={pickButtonRef}
-        variant="ghost"
-        size="sm"
-        onClick={handlePickMeal}
-        // Not `disabled`: a disabled button drops focus and cannot take it
-        // back when the selector closes (HON-803).
-        aria-disabled={isPending || undefined}
-        aria-label={accessibleName}
-      >
-        <Plus aria-hidden="true" />
-        {buttonText}
-      </Button>
+      {/* The button opens the routes to a meal; each creates the placeholder,
+          then opens the selector in its view (HON-1247). */}
+      <AddMealMenu onChoose={handleChoose} disabled={isPending}>
+        <Button
+          ref={pickButtonRef}
+          variant="ghost"
+          size="sm"
+          // Not `disabled`: a disabled button drops focus and cannot take it
+          // back when the selector closes (HON-803).
+          aria-disabled={isPending || undefined}
+          aria-label={accessibleName}
+        >
+          <Plus aria-hidden="true" />
+          {buttonText}
+        </Button>
+      </AddMealMenu>
       {entryId && (
         <MealSelectorModal
           open={isSelectorOpen}
@@ -185,6 +192,7 @@ export function TimelineEmptySlot({
           householdServings={householdServings}
           onSwapComplete={handleSwapComplete}
           mode="add"
+          initialView={view}
           pantryIngredients={pantryIngredients}
           onCloseAutoFocus={handleCloseAutoFocus}
         />

@@ -85,6 +85,13 @@ interface MealSelectorModalProps {
    * `event.preventDefault()` and focus the element that opened the selector.
    */
   onCloseAutoFocus?: (event: Event) => void
+  /**
+   * The view chosen in the slot's add menu (`AddMealMenu`, HON-1247). Set, the
+   * control row has no Imagine button, because the menu is where the route is
+   * chosen, and a dialog opened in `imagine` has no "Back": there is no list
+   * behind it. Unset (swap mode), the Imagine button stays.
+   */
+  initialView?: 'library' | 'imagine'
 }
 
 export function MealSelectorModal({
@@ -102,6 +109,7 @@ export function MealSelectorModal({
   mode,
   pantryIngredients,
   onCloseAutoFocus,
+  initialView,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
   const locale = useLocale() as Locale
@@ -118,7 +126,14 @@ export function MealSelectorModal({
   const [error, setError] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
 
-  const [isImagineMode, setIsImagineMode] = useState(false)
+  const [isImagineMode, setIsImagineMode] = useState(initialView === 'imagine')
+  // The card's selector never unmounts, so every open takes the view chosen
+  // for it, set while rendering so the other view never paints first.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setIsImagineMode(initialView === 'imagine')
+  }
 
   // Debounce search input
   useEffect(() => {
@@ -243,11 +258,16 @@ export function MealSelectorModal({
   function slotTitleForms(isoDate: string) {
     // Mid-sentence in the long form, so lowercase; it opens the short form.
     const mealTypeLower = mealTypeLabel.toLocaleLowerCase(locale)
+    // The long form's verb says what the view does; the short form has none,
+    // so both views share it (HON-1247).
     if (relativeDay) {
       // No date beside today or tomorrow, as on the timeline's day heading.
       const day = tSelector(`relativeDay.${relativeDay}`)
       return {
-        long: tSelector('addSlotTitleRelative', { mealType: mealTypeLower, day }),
+        long: tSelector(isImagineMode ? 'imagineSlotTitleRelative' : 'addSlotTitleRelative', {
+          mealType: mealTypeLower,
+          day,
+        }),
         short: tSelector('addSlotTitleRelativeShort', { mealType: mealTypeLabel, day }),
       }
     }
@@ -259,7 +279,7 @@ export function MealSelectorModal({
       <span className="text-muted-foreground font-normal whitespace-nowrap">{chunks}</span>
     )
     return {
-      long: tSelector.rich('addSlotTitle', {
+      long: tSelector.rich(isImagineMode ? 'imagineSlotTitle' : 'addSlotTitle', {
         mealType: mealTypeLower,
         weekday: formatDayLong(parsed, locale),
         date: formattedDate,
@@ -369,7 +389,7 @@ export function MealSelectorModal({
         {isImagineMode ? (
           <ImaginePanel
             mealType={mealType}
-            onExit={() => setIsImagineMode(false)}
+            onExit={initialView === 'imagine' ? undefined : () => setIsImagineMode(false)}
             onMealSaved={handleImaginedMealSaved}
           />
         ) : (
@@ -378,7 +398,8 @@ export function MealSelectorModal({
                 group: one row from `md`, in that order (HON-945). Below `md` the
                 search keeps a line of its own and the filter and Imagine share
                 the next: beside the labelled button the field would be ~100px,
-                too narrow for its own placeholder. */}
+                too narrow for its own placeholder. A dialog opened from the add
+                menu has no Imagine button: the menu offered it (HON-1247). */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-4 md:flex-nowrap md:gap-x-4">
               <Input
                 type="search"
@@ -400,14 +421,16 @@ export function MealSelectorModal({
               </div>
               {/* Labelled, not icon-only: the dialog's second way to find a
                   meal should be seen (HON-945). The text is its name. */}
-              <Button
-                variant="outline"
-                onClick={() => setIsImagineMode(true)}
-                className="shrink-0 md:ml-auto"
-              >
-                <Sparkles aria-hidden="true" />
-                {tSelector('imagineButton')}
-              </Button>
+              {!initialView && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsImagineMode(true)}
+                  className="shrink-0 md:ml-auto"
+                >
+                  <Sparkles aria-hidden="true" />
+                  {tSelector('imagineButton')}
+                </Button>
+              )}
             </div>
 
             <AlternativesList

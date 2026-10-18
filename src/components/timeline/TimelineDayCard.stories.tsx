@@ -236,6 +236,10 @@ export const PickMealFromEmptySlot: Story = {
     const canvas = within(canvasElement)
     const pick = canvas.getByRole('button', { name: /^Dinner: pick a meal/ })
     await userEvent.click(pick)
+    // The slot's button opens the routes to a meal (HON-1247).
+    await userEvent.click(
+      await within(document.body).findByRole('menuitem', { name: 'Choose a recipe' }),
+    )
     // `aria-disabled`, not `disabled`, so it keeps focus while pending (HON-803).
     await expect(canvas.getByRole('button', { name: /adding…/i })).toHaveAttribute(
       'aria-disabled',

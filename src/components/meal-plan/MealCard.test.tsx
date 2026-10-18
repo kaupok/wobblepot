@@ -399,6 +399,7 @@ describe('MealCard selector focus', () => {
 
     const addMeal = screen.getByRole('button', { name: 'Add meal' })
     await user.click(addMeal)
+    await user.click(await screen.findByRole('menuitem', { name: 'Choose a recipe' }))
 
     await dismissSelector()
     await waitFor(() => expect(addMeal).toHaveFocus())

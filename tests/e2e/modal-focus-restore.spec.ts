@@ -1,4 +1,4 @@
-// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, MealCard, MealSelectorModal
+// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, AddMealMenu, MealCard, MealSelectorModal
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
 import { signIn, signUpWithHousehold } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -141,7 +141,12 @@ test.describe('Modal focus-restore', () => {
     let discarded = false
 
     try {
+      // The slot's button opens a menu of routes; "Choose a recipe" creates the
+      // placeholder, then opens the selector (HON-1247).
       await trigger.focus()
+      await page.keyboard.press('Enter')
+      const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' })
+      await expect(chooseRecipe).toBeFocused()
       const [createResponse] = await Promise.all([
         page.waitForResponse(
           (r) =>
@@ -236,6 +241,9 @@ test.describe('Modal focus-restore', () => {
         .filter({ hasText: note })
         .getByRole('button', { name: 'Add meal' })
       await addMeal.focus()
+      await page.keyboard.press('Enter')
+      const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' })
+      await expect(chooseRecipe).toBeFocused()
       await page.keyboard.press('Enter')
 
       const dialog = page.getByRole('dialog')

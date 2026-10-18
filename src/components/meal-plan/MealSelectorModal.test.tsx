@@ -67,12 +67,12 @@ vi.mock('./meal-selector/ImaginePanel', () => ({
     onMealSaved,
   }: {
     mealType: string
-    onExit: () => void
+    onExit?: () => void
     onMealSaved: (mealId: string) => void
   }) => (
     <div data-testid="imagine-panel" data-meal-type={mealType}>
       <button onClick={() => onMealSaved('meal-1')}>save imagined meal</button>
-      <button onClick={onExit}>back to library</button>
+      {onExit && <button onClick={onExit}>back to library</button>}
     </div>
   ),
 }))
@@ -83,7 +83,9 @@ const SERVER_PROSE = 'Entry not found or access denied'
 type ModalProps = React.ComponentProps<typeof MealSelectorModal>
 
 function renderModal(
-  props: Partial<Pick<ModalProps, 'mode' | 'date' | 'relativeDay' | 'mealType'>> = {},
+  props: Partial<
+    Pick<ModalProps, 'mode' | 'date' | 'relativeDay' | 'mealType' | 'initialView'>
+  > = {},
   { locale = 'et' }: { locale?: 'en' | 'et' } = {},
 ) {
   return render(
@@ -384,5 +386,122 @@ describe('MealSelectorModal empty search', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'imagine one' })).not.toBeInTheDocument()
+  })
+})
+
+// The route is chosen in the slot's menu, so the dialog opens in its view and
+// carries no Imagine button of its own (HON-1247).
+describe('MealSelectorModal initial view', () => {
+  const selector = enMessages['meal-plan'].selector
+
+  it('opens the library view with no Imagine button', () => {
+    renderModal({ initialView: 'library' }, { locale: 'en' })
+
+    expect(screen.getByLabelText(selector.searchAria)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'My recipes only' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Imagine a meal' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('imagine-panel')).not.toBeInTheDocument()
+  })
+
+  it('opens the imagine view with no way back to a list', () => {
+    renderModal({ initialView: 'imagine', mealType: 'lunch' }, { locale: 'en' })
+
+    expect(screen.getByTestId('imagine-panel')).toHaveAttribute('data-meal-type', 'lunch')
+    expect(screen.queryByRole('button', { name: 'back to library' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(selector.searchAria)).not.toBeInTheDocument()
+  })
+
+  it('titles the imagine view by what it does, long and short', () => {
+    renderModal(
+      { initialView: 'imagine', mealType: 'lunch', date: THURSDAY, relativeDay: 'today' },
+      { locale: 'en' },
+    )
+
+    expect(titleForms()).toMatchObject({
+      long: 'Imagine a lunch for today',
+      short: 'Lunch for today',
+    })
+  })
+
+  it('titles a dated imagine view with the weekday and date', () => {
+    renderModal({ initialView: 'imagine', mealType: 'lunch', date: THURSDAY }, { locale: 'en' })
+
+    expect(titleForms()).toMatchObject({
+      long: 'Imagine a lunch for Thursday Oct 8',
+      short: 'Lunch for Thu Oct 8',
+    })
+  })
+
+  it('titles the imagine view in Estonian with the separator form', () => {
+    renderModal({ initialView: 'imagine', date: THURSDAY })
+
+    expect(titleForms()).toMatchObject({
+      long: 'Mõtle välja õhtusöök: neljapäev 8. okt',
+      short: 'Õhtusöök: N 8. okt',
+    })
+  })
+
+  it('keeps the Imagine button in swap mode', () => {
+    renderModal({ mode: 'swap' }, { locale: 'en' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Imagine a meal' }))
+    expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'back to library' }))
+    expect(screen.getByRole('button', { name: 'Imagine a meal' })).toBeInTheDocument()
+  })
+
+  describe('from the empty-search link', () => {
+    beforeEach(() => {
+      hookState.isSearchMode = true
+    })
+
+    afterEach(() => {
+      hookState.isSearchMode = false
+    })
+
+    it('opens imagine with a way back to the list, the search intact', () => {
+      renderModal({ initialView: 'library', date: THURSDAY }, { locale: 'en' })
+      fireEvent.change(screen.getByLabelText(selector.searchAria), {
+        target: { value: 'qqqq' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'imagine one' }))
+      expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
+      expect(titleForms().long).toBe('Imagine a dinner for Thursday Oct 8')
+
+      fireEvent.click(screen.getByRole('button', { name: 'back to library' }))
+      expect(screen.getByLabelText(selector.searchAria)).toHaveValue('qqqq')
+      expect(titleForms().long).toBe('Pick a dinner for Thursday Oct 8')
+    })
+  })
+
+  // The cleared card's selector never unmounts, so each open must take the
+  // view chosen for it, not the one it closed in.
+  it('opens in the newly chosen view when reopened', () => {
+    const props = {
+      onOpenChange: vi.fn(),
+      planId: 'plan-1',
+      entryId: 'entry-1',
+      mealType: 'dinner',
+      householdServings: 4,
+      onSwapComplete: vi.fn(),
+      mode: 'add',
+    } as const
+    const view = (open: boolean, initialView: 'library' | 'imagine') => (
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <MealSelectorModal open={open} initialView={initialView} {...props} />
+      </NextIntlClientProvider>
+    )
+    const { rerender } = render(view(true, 'imagine'))
+    expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
+
+    rerender(view(false, 'imagine'))
+    rerender(view(true, 'library'))
+    expect(screen.queryByTestId('imagine-panel')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(selector.searchAria)).toBeInTheDocument()
+
+    rerender(view(false, 'library'))
+    rerender(view(true, 'imagine'))
+    expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
   })
 })

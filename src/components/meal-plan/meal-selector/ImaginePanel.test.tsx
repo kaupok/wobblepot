@@ -205,3 +205,22 @@ describe('ImaginePanel prompt placeholder', () => {
     expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', placeholder)
   })
 })
+
+describe('ImaginePanel Back button', () => {
+  // Opened straight in imagine there is no list to return to (HON-1247).
+  it('has no Back button without onExit', () => {
+    renderInLocale(<ImaginePanel mealType="dinner" onMealSaved={vi.fn()} />, 'en')
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Back to library' })).not.toBeInTheDocument()
+  })
+
+  it('calls onExit from the Back button', () => {
+    const onExit = vi.fn()
+    renderInLocale(<ImaginePanel mealType="dinner" onExit={onExit} onMealSaved={vi.fn()} />, 'en')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to library' }))
+
+    expect(onExit).toHaveBeenCalledTimes(1)
+  })
+})
