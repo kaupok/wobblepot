@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
@@ -98,8 +98,16 @@ function renderSlot(props: { autoFocus?: boolean; onAutoFocused?: () => void } =
   )
 }
 
-async function openSelector() {
-  fireEvent.click(pickButton())
+// The slot's button opens a menu of routes; each creates the placeholder, then
+// opens the selector in its view (HON-1247).
+async function chooseRoute(item: 'Choose a recipe' | 'Imagine a meal' = 'Choose a recipe') {
+  const user = userEvent.setup()
+  await user.click(pickButton())
+  await user.click(await screen.findByRole('menuitem', { name: item }))
+}
+
+async function openSelector(item?: 'Choose a recipe' | 'Imagine a meal') {
+  await chooseRoute(item)
   await screen.findByRole('dialog')
   await waitFor(() => expect(suggestionRequests()).toHaveLength(1))
 }
@@ -135,11 +143,77 @@ describe('TimelineEmptySlot', () => {
     expect(button).toHaveAccessibleName(PICK_NAME)
   })
 
+  // The routes to a meal, in order; opening the menu creates nothing yet.
+  it('opens a menu of routes from a click', async () => {
+    const user = userEvent.setup()
+    renderSlot()
+
+    await user.click(pickButton())
+
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Choose a recipe', 'Imagine a meal'])
+    expect(pickButton()).toHaveAttribute('aria-haspopup', 'menu')
+    expect(pickButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(createRequests()).toEqual([])
+  })
+
+  it('opens the menu from Enter', async () => {
+    const user = userEvent.setup()
+    renderSlot()
+
+    pickButton().focus()
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('menuitem', { name: 'Choose a recipe' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Imagine a meal' })).toBeInTheDocument()
+  })
+
+  it('opens the library view from "Choose a recipe", with no Imagine button', async () => {
+    renderSlot()
+    await openSelector('Choose a recipe')
+
+    expect(createRequests()).toHaveLength(1)
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('searchbox', { name: 'Search meal library' })).toBeVisible()
+    expect(within(dialog).getByRole('checkbox', { name: 'My recipes only' })).toBeVisible()
+    expect(within(dialog).queryByRole('button', { name: 'Imagine a meal' })).toBeNull()
+  })
+
+  it('opens the imagine view from "Imagine a meal", with no Back button', async () => {
+    renderSlot()
+    await chooseRoute('Imagine a meal')
+
+    const dialog = await screen.findByRole('dialog')
+    expect(createRequests()).toHaveLength(1)
+    expect(
+      within(dialog).getByRole('textbox', { name: "Describe the meal you're in the mood for" }),
+    ).toBeVisible()
+    expect(within(dialog).queryByRole('button', { name: 'Back to library' })).toBeNull()
+    expect(within(dialog).queryByRole('searchbox')).toBeNull()
+    const title = within(dialog).getByRole('heading')
+    expect(title).toHaveTextContent('Imagine a dinner for Thursday Apr 16')
+    expect(title).toHaveTextContent('Dinner for Thu Apr 16')
+  })
+
+  it('discards the placeholder and returns focus when the imagine view closes', async () => {
+    renderSlot()
+    await chooseRoute('Imagine a meal')
+    await screen.findByRole('dialog')
+
+    closeSelector()
+    await waitFor(() => expect(deleteRequests()).toHaveLength(1))
+    expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
+    await waitFor(() => expect(pickButton()).toHaveFocus())
+
+    deleteResponse.resolve(json({ success: true }))
+    await waitFor(() => expectIdle(pickButton()))
+  })
+
   it('keeps the day and meal in the name while the placeholder is being created', async () => {
     createResponse = deferred()
     renderSlot()
 
-    fireEvent.click(pickButton())
+    await chooseRoute()
     const adding = await screen.findByRole('button', {
       name: 'Adding…: Thursday Apr 16, Dinner',
     })
@@ -203,16 +277,17 @@ describe('TimelineEmptySlot', () => {
     createResponse = deferred()
     renderSlot()
 
-    fireEvent.click(pickButton())
+    await chooseRoute()
     const adding = await screen.findByRole('button', { name: /^Adding…/ })
     expectPending(adding)
 
     // `pointer-events-none` is CSS, which jsdom does not apply, so a click here
-    // reaches the handler the way Enter and Space do in a browser.
-    fireEvent.click(adding)
+    // reaches the trigger the way Enter and Space do in a browser.
+    await user.click(adding)
     adding.focus()
     await user.keyboard('{Enter}')
     await user.keyboard(' ')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(createRequests()).toHaveLength(1)
 
     createResponse.resolve(json({ id: ENTRY_ID }))
@@ -230,10 +305,11 @@ describe('TimelineEmptySlot', () => {
     const button = pickButton()
     expectPending(button)
 
-    fireEvent.click(button)
+    await user.click(button)
     button.focus()
     await user.keyboard('{Enter}')
     await user.keyboard(' ')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(createRequests()).toHaveLength(1)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 

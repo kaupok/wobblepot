@@ -27,8 +27,12 @@ import type { MealType } from '@/generated/prisma/enums'
 export interface ImaginePanelProps {
   /** The slot being filled. Picks a placeholder example that fits the meal (HON-944). */
   mealType: MealType
-  /** Leaves imagine mode and returns to the library list. */
-  onExit: () => void
+  /**
+   * Leaves imagine mode and returns to the library list. Without it there is
+   * no "Back" button: the dialog opened straight in this view, so there is no
+   * list to return to, and closing the dialog is the way out (HON-1247).
+   */
+  onExit?: () => void
   /**
    * Fired after `ImagineReviewDialog` persists the meal. The caller assigns it
    * to the plan entry and closes the modal.
@@ -40,7 +44,7 @@ export interface ImaginePanelProps {
  * AI "imagine a meal" flow: a prompt plus optional photos in, up to three
  * generated meals out, each openable in `ImagineReviewDialog` for saving.
  *
- * Self-contained — the parent only supplies the exit and save callbacks. An
+ * Self-contained — the parent only supplies the save and optional exit callbacks. An
  * in-flight request is aborted on unmount, which is what cancels generation
  * when the surrounding dialog closes.
  */
@@ -187,7 +191,7 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
     setImaginedMeals(null)
     setError(null)
     review.reset()
-    onExit()
+    onExit?.()
   }
 
   const handleSaved = async (mealId: string) => {
@@ -199,10 +203,12 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
   return (
     <>
       <div className="flex flex-col gap-4">
-        <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={handleExit}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          {t('back')}
-        </Button>
+        {onExit && (
+          <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={handleExit}>
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            {t('back')}
+          </Button>
+        )}
 
         <AttachImages
           images={images}

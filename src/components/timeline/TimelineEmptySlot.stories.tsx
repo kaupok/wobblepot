@@ -35,6 +35,14 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** Opens the slot's menu and picks "Choose a recipe" (HON-1247). */
+async function chooseRecipe(canvasElement: HTMLElement) {
+  await userEvent.click(within(canvasElement).getByRole('button', { name: /^Dinner: pick a meal/ }))
+  await userEvent.click(
+    await within(document.body).findByRole('menuitem', { name: 'Choose a recipe' }),
+  )
+}
+
 // The button's text is the meal type ("+ Dinner"). Every empty day has one, so
 // the name adds the action and the day after the visible text (HON-807,
 // HON-1111).
@@ -76,19 +84,43 @@ export const Estonian: Story = {
   },
 }
 
+export const MenuOpen: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The slot\'s button opens the routes to a meal: "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view. Each creates the placeholder entry first (HON-1247).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', {
+      name: 'Dinner: pick a meal, Thursday Apr 16',
+    })
+    await userEvent.click(button)
+    const menu = await within(document.body).findByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    await expect(items.map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Imagine a meal',
+    ])
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+  },
+}
+
 export const Adding: Story = {
   parameters: {
     msw: { handlers: slowCreateEntryHandlers },
     docs: {
       description: {
         story:
-          "The create-entry POST never resolves, so clicking '+ Dinner' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
+          "The create-entry POST never resolves, so choosing a route from '+ Dinner' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: /^Dinner: pick a meal/ }))
+    await chooseRecipe(canvasElement)
     const adding = await canvas.findByRole('button', {
       name: 'Adding…: Thursday Apr 16, Dinner',
     })
@@ -108,7 +140,7 @@ export const Discarding: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: /^Dinner: pick a meal/ }))
+    await chooseRecipe(canvasElement)
     const dialog = await within(document.body).findByRole('dialog')
     // The dialog covers the row that was tapped, so its title names the slot,
     // in the short form at this phone viewport (HON-807, HON-941).

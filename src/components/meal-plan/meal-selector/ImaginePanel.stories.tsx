@@ -107,7 +107,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'AI "imagine a meal" flow extracted out of `MealSelectorModal`. Owns the prompt, attached photos, generate/cancel and the generated-meal results; the parent only supplies `onExit` and `onMealSaved`. `/api/meals/imagine` is served by per-story MSW handlers.',
+          'AI "imagine a meal" flow extracted out of `MealSelectorModal`. Owns the prompt, attached photos, generate/cancel and the generated-meal results; the parent supplies `onMealSaved` and, when there is a list to return to, `onExit`. `/api/meals/imagine` is served by per-story MSW handlers.',
       },
     },
   },
@@ -267,6 +267,23 @@ export const ExitInvokesCallback: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /back/i }))
     await waitFor(() => expect(args.onExit).toHaveBeenCalled())
+  },
+}
+
+export const WithoutBack: Story = {
+  args: { onExit: undefined },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Opened straight in imagine from the empty-slot menu: no `onExit`, so no "Back" button. Closing the dialog is the way out (HON-1247).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('textbox')).toBeInTheDocument()
+    await expect(canvas.queryByRole('button', { name: /back/i })).not.toBeInTheDocument()
   },
 }
 

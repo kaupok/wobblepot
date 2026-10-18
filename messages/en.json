@@ -200,6 +200,8 @@
       "noMealPlanned": "No meal planned",
       "addMeal": "Add meal",
       "adding": "Adding…",
+      "chooseRecipe": "Choose a recipe",
+      "imagineMeal": "Imagine a meal",
       "emptySlotLabel": "{mealType}: pick a meal, {day}",
       "slotActionLabel": "{action}: {day}, {mealType}",
       "note": "Note",
@@ -267,6 +269,8 @@
       "addSlotTitleShort": "{mealType} for {weekday} <dim>{date}</dim>",
       "addSlotTitleRelative": "Pick a {mealType} for {day}",
       "addSlotTitleRelativeShort": "{mealType} for {day}",
+      "imagineSlotTitle": "Imagine a {mealType} for {weekday} <dim>{date}</dim>",
+      "imagineSlotTitleRelative": "Imagine a {mealType} for {day}",
       "relativeDay": {
         "today": "today",
         "tomorrow": "tomorrow"

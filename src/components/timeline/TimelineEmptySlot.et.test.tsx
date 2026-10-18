@@ -45,6 +45,13 @@ function renderSlot() {
   )
 }
 
+const slotButton = () => screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ })
+
+async function chooseRecipe() {
+  await userEvent.click(slotButton())
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Vali retsept' }))
+}
+
 describe('TimelineEmptySlot in Estonian', () => {
   beforeEach(() => {
     vi.mocked(toast.error).mockReset()
@@ -56,11 +63,20 @@ describe('TimelineEmptySlot in Estonian', () => {
     vi.restoreAllMocks()
   })
 
+  it('lists the routes in Estonian, in order', async () => {
+    renderSlot()
+
+    await userEvent.click(slotButton())
+
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Vali retsept', 'Mõtle välja toit'])
+  })
+
   it('toasts the duplicate-slot copy for a 409, not the route error', async () => {
     respondWith({ error: 'Entry already exists for this date and meal type' }, 409)
     renderSlot()
 
-    await userEvent.click(screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ }))
+    await chooseRecipe()
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(etMessages['meal-plan'].card.entryAlreadyExists)
@@ -71,7 +87,7 @@ describe('TimelineEmptySlot in Estonian', () => {
     respondWith({ error: 'Validation failed' }, 400)
     renderSlot()
 
-    await userEvent.click(screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ }))
+    await chooseRecipe()
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(etMessages['meal-plan'].card.createEntryFailed)

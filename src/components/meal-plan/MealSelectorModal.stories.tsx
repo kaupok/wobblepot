@@ -339,6 +339,32 @@ export const EmptySearch: Story = {
   },
 }
 
+/** Opened from the slot's "Choose a recipe": the menu offered Imagine, so the row has none (HON-1247). */
+export const LibraryView: Story = {
+  args: { mode: 'add', initialView: 'library', date: '2026-10-08' },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog'))
+    await expect(dialog.getByRole('searchbox')).toBeInTheDocument()
+    await expect(dialog.queryByRole('button', { name: 'Imagine a meal' })).toBeNull()
+  },
+}
+
+/** Opened from "Imagine a meal": no list behind it, so no Back. */
+export const ImagineView: Story = {
+  args: { mode: 'add', initialView: 'imagine', date: '2026-10-08', relativeDay: 'today' },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog'))
+    await expect(dialog.getByRole('textbox', { name: /describe the meal/i })).toBeInTheDocument()
+    await expect(dialog.queryByRole('button', { name: /back to library/i })).toBeNull()
+  },
+}
+
+/** The empty-search link from the library view keeps Back, since the list is behind it. */
+export const ImagineFromEmptySearch: Story = {
+  ...EmptySearch,
+  args: { ...EmptySearch.args, initialView: 'library' },
+}
+
 /** With "My recipes only" on, the empty search names that filter as the thing to change. */
 export const EmptySearchMyRecipes: Story = {
   args: { mode: 'add' },

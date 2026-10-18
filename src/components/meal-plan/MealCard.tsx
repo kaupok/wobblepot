@@ -18,6 +18,7 @@ import {
 import { Body, Heading } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { MealSelectorModal } from './MealSelectorModal'
+import { AddMealMenu, type AddMealView } from './AddMealMenu'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import {
@@ -300,6 +301,7 @@ export function MealCard({
   })
 
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+  const [addView, setAddView] = useState<AddMealView>('library')
 
   // Both selectors open from state, with no `DialogTrigger`, and a modal Radix
   // dialog hands focus back only to its trigger, so it would land on the page
@@ -473,15 +475,17 @@ export function MealCard({
           </CardContent>
           {canEdit && (
             <CardFooter className="px-4 pt-0">
-              <Button
-                ref={addMealButtonRef}
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setIsSelectorOpen(true)}
+              {/* The entry exists, so a route opens the selector at once. */}
+              <AddMealMenu
+                onChoose={(view) => {
+                  setAddView(view)
+                  setIsSelectorOpen(true)
+                }}
               >
-                {tCard('addMeal')}
-              </Button>
+                <Button ref={addMealButtonRef} variant="outline" size="sm" className="w-full">
+                  {tCard('addMeal')}
+                </Button>
+              </AddMealMenu>
             </CardFooter>
           )}
         </Card>
@@ -496,6 +500,7 @@ export function MealCard({
             onSwapComplete={handleSwapComplete}
             onCloseAutoFocus={focusAddMealOnClose}
             mode="add"
+            initialView={addView}
             pantryIngredients={pantryIngredients}
           />
         )}
