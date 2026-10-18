@@ -1,0 +1,66 @@
+{
+  "mealName": "Seenepasta koorekastmes",
+  "servings": 4,
+  "components": [
+    {
+      "name": "pasta",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "vahukoor",
+      "quantityPerServing": 50,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "šampinjon",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "küüslauk",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "parmesan",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "kreeka jogurt",
+      "isStaple": false
+    },
+    {
+      "name": "piim",
+      "isStaple": false
+    },
+    {
+      "name": "oliiviõli",
+      "isStaple": true
+    },
+    {
+      "name": "sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Ilma koorta, kasuta jogurtit",
+  "locale": "et",
+  "expected": {
+    "changes": [
+      {
+        "op": "replace",
+        "original": ["vahukoor"],
+        "replacementAny": ["jogurt"]
+      }
+    ]
+  }
+}

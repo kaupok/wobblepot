@@ -1,0 +1,57 @@
+{
+  "mealName": "Chickpea and spinach curry",
+  "servings": 4,
+  "components": [
+    {
+      "name": "chickpeas",
+      "quantityPerServing": 120,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "spinach",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "coconut milk",
+      "quantityPerServing": 100,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "curry paste",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "basmati rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "vegetable oil",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Make it vegetarian",
+  "locale": "en",
+  "expected": {
+    "noChange": true
+  }
+}

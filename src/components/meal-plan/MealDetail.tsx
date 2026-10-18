@@ -13,6 +13,7 @@ import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
+import { AdjustRecipe } from './AdjustRecipe'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import {
@@ -288,6 +289,17 @@ export function MealDetail({
               />
             ) : (
               <IngredientList {...ingredientListProps} />
+            )}
+            {/* Free-text changes to this entry's ingredients (HON-1244), under
+                the per-row controls they write the same changes as. */}
+            {ingredientChanges?.editable && (
+              <AdjustRecipe
+                planId={ingredientChanges.planId}
+                entryId={ingredientChanges.entryId}
+                changes={ingredientChanges.changes}
+                components={meal.components}
+                onChanged={ingredientChanges.onChanged}
+              />
             )}
           </section>
         </div>

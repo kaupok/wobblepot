@@ -13,8 +13,11 @@ export interface NewEntryChange {
   quantityPerServing: number | null
 }
 
-/** The refusals the change routes answer with a `code` the household can act on. */
-const ERROR_KEYS = {
+/**
+ * The refusals the change routes answer with a `code` the household can act
+ * on, as keys under `meal-plan.changes.errors`. Shared with "Adjust recipe".
+ */
+export const ENTRY_CHANGE_ERROR_KEYS = {
   notPlanned: 'notPlanned',
   alreadyChanged: 'alreadyChanged',
   alreadyInMeal: 'alreadyInMeal',
@@ -46,7 +49,10 @@ export function useEntryChanges({ planId, entryId, onChanged }: UseEntryChangesO
   // Localization). The `code` picks the catalog copy.
   const toastError = (error: unknown, fallback: 'failed' | 'undoFailed') => {
     const code = error instanceof ApiError ? error.code : undefined
-    const key = code && code in ERROR_KEYS ? ERROR_KEYS[code as keyof typeof ERROR_KEYS] : fallback
+    const key =
+      code && Object.hasOwn(ENTRY_CHANGE_ERROR_KEYS, code)
+        ? ENTRY_CHANGE_ERROR_KEYS[code as keyof typeof ENTRY_CHANGE_ERROR_KEYS]
+        : fallback
     console.error('[entry-changes] request failed', {
       status: error instanceof ApiError ? error.status : undefined,
       code,

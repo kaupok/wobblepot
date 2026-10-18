@@ -1,0 +1,72 @@
+{
+  "mealName": "Kanakarri",
+  "servings": 4,
+  "components": [
+    {
+      "name": "kanafilee",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "kookospiim",
+      "quantityPerServing": 100,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "sibul",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "karripasta",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "basmati riis",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "laim",
+      "isStaple": false
+    },
+    {
+      "name": "taimeõli",
+      "isStaple": true
+    },
+    {
+      "name": "sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Tee vürtsikamaks",
+  "locale": "et",
+  "expected": {
+    "changes": [
+      {
+        "op": "add",
+        "replacementAny": [
+          "tšilli",
+          "chili",
+          "tsilli",
+          "kajenn",
+          "cayenne",
+          "jalapeño",
+          "jalapeno",
+          "sriracha",
+          "harissa",
+          "ingver"
+        ]
+      }
+    ]
+  }
+}

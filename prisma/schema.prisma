@@ -101,6 +101,7 @@ enum AiFeature {
   entry_regenerate
   meal_image
   cook_question
+  adjust_recipe
 }
 
 // ============================================
@@ -824,9 +825,10 @@ model MealPlanEntry {
   /// Set when completing this entry charged the pantry. Never cleared — not by
   /// a revert, not by a swap after one — so the entry is charged at most once.
   pantryDeductedAt DateTime?
-  /// The household's free-text instruction for changing this entry's
-  /// ingredients, kept for the AI "Adjust recipe" path (HON-1244). Nothing
-  /// writes it yet (HON-1243).
+  /// The household's free-text instruction behind this entry's ingredient
+  /// changes, from "Adjust recipe" (HON-1244). The tips prompt reads it, so the
+  /// steps follow the instruction and not only the ingredient list. Written by
+  /// `replaceEntryChanges`, and cleared with the entry's last change.
   adjustmentNote   String?
 
   plan    MealPlan                 @relation(fields: [planId], references: [id], onDelete: Cascade)

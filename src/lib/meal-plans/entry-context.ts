@@ -108,6 +108,8 @@ export interface PricedFrom {
   householdLocale: string
   /** The entry's ingredient changes the prompt merged, as `changeSetKey` reads them. */
   changes: readonly { id: string }[]
+  /** The entry's "Adjust recipe" instruction the prompt followed (HON-1244). */
+  adjustmentNote: string | null
 }
 
 /**
@@ -187,6 +189,10 @@ async function writeGuardedTips(
       // (a `sourceUrl` fix) bumps it too and discards this write — the caller
       // still gets its tips, and the next open regenerates.
       meal: { is: { updatedAt: pricedFrom.mealUpdatedAt } },
+      // The prompt follows the instruction (HON-1244). Every write that moves
+      // it replaces the change set too, so the set check below would catch it;
+      // pinned here as well so the guard does not lean on that.
+      adjustmentNote: pricedFrom.adjustmentNote,
     },
     data: { preparationTips: serializePreparationSteps(tips, servings) },
   })

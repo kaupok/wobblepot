@@ -624,6 +624,25 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(call.prompt).not.toContain("User's preparation notes")
   })
 
+  it("follows the entry's adjustment instruction, and pins it in the cache write (HON-1244)", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ adjustmentNote: 'Less salt' }) as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: [], steps: ['S'], pitfalls: [] },
+    } as never)
+
+    await callPost()
+
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).toContain('<<<\nLess salt\n>>>')
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ adjustmentNote: 'Less salt' }),
+      expect.anything(),
+      expect.anything(),
+    )
+  })
+
   it('generates supplementary tips when meal has preparationNotes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

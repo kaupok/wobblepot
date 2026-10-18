@@ -110,3 +110,25 @@ export const entryChangeSchema = z
   }))
 
 export type EntryChangeInput = z.output<typeof entryChangeSchema>
+
+/** Upper bound on an "Adjust recipe" instruction, in characters (HON-1244). */
+export const ADJUST_INSTRUCTION_MAX_LENGTH = 500
+
+/**
+ * The body of `PUT /api/meal-plans/[id]/entries/[entryId]/components`
+ * (HON-1244): the entry's whole change set, which replaces the stored one, and
+ * the instruction it came from. Each change is shaped as the POST's; the rules
+ * across the set (one change per original, no ingredient twice) need the meal,
+ * so `replaceEntryChanges` checks them.
+ */
+export const entryChangeSetSchema = z.object({
+  changes: z.array(entryChangeSchema).max(MAX_MEAL_COMPONENTS),
+  adjustmentNote: z
+    .string()
+    .trim()
+    .max(ADJUST_INSTRUCTION_MAX_LENGTH)
+    .nullish()
+    .transform((note) => note || null),
+})
+
+export type EntryChangeSetInput = z.output<typeof entryChangeSetSchema>

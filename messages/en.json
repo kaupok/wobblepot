@@ -455,6 +455,44 @@
         "ingredientNotFound": "This ingredient is not available. Pick another."
       }
     },
+    "adjust": {
+      "label": "Adjust recipe",
+      "hint": "Say what to change, and the AI suggests changes to the ingredients. Only this meal changes.",
+      "placeholder": "No cream, I have yoghurt",
+      "submit": "Suggest changes",
+      "suggesting": "Suggesting changes…",
+      "noChanges": "No ingredient change is needed for that.",
+      "review": {
+        "title": "Suggested changes",
+        "description": "Tick the changes to make. Only this meal changes. The recipe stays as it is.",
+        "instruction": "You asked: {instruction}",
+        "replace": "Replace: {original} → {replacement}, {quantity} per serving",
+        "remove": "Leave out: {name}",
+        "add": "Add: {name}, {quantity} per serving",
+        "unmatched": "“{name}” is not in the ingredient list. Pick an ingredient, or untick this change.",
+        "pickAnother": "Pick another",
+        "pickedAria": "Pick another ingredient for: {name}",
+        "apply": "Apply",
+        "nothingTicked": "Tick at least one change to apply."
+      },
+      "errors": {
+        "unauthorized": "Please sign in to adjust a recipe.",
+        "noHousehold": "You need a household before you can adjust a recipe.",
+        "entryNotFound": "This meal is no longer in your plan. Refresh the page and try again.",
+        "noMeal": "No meal is picked for this slot yet. Pick a meal first.",
+        "notPlanned": "Only a planned meal can be changed.",
+        "rateLimited": "You've reached this hour's limit for recipe adjustments. Please try again later.",
+        "rateLimitedUntil": "You've reached this hour's limit for recipe adjustments. Try again after {time}.",
+        "generationDisabled": "Recipe adjustments are turned off right now. Please try again later.",
+        "aiCapExceeded": "This month's AI usage limit is used up. It resets at the start of next month.",
+        "providerBusy": "The suggestion service is busy. Please try again in a moment.",
+        "providerUnavailable": "The suggestion service is temporarily unavailable. Please try again in a moment.",
+        "invalidInstruction": "Write what to change in up to 500 characters.",
+        "adjustTimeout": "The suggestions took too long. Please try again.",
+        "adjustFailed": "Couldn't suggest changes. Please try again.",
+        "applyFailed": "Couldn't apply the changes. Please try again."
+      }
+    },
     "deduction": {
       "title": "Mark as completed",
       "willDeduct": "Marking \"{mealName}\" as completed will deduct the following from your pantry:",

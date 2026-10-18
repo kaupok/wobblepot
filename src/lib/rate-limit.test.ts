@@ -67,6 +67,7 @@ describe('rate-limit', () => {
   describe('CONFIG', () => {
     it('covers all AI + auth + export features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
+        'adjust-recipe',
         'api-key',
         'api-key-ip',
         'cook-question',
@@ -87,6 +88,14 @@ describe('rate-limit', () => {
         'verify-email',
         'waitlist',
       ])
+    })
+
+    it('configures adjust-recipe at 30 per hour per household (HON-1244)', () => {
+      expect(RATE_LIMIT_CONFIG['adjust-recipe']).toEqual({
+        limit: 30,
+        window: '1 h',
+        dimension: 'household',
+      })
     })
 
     it('configures mcp at 120 tool calls per hour per household (HON-1151)', () => {

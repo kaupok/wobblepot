@@ -22,12 +22,21 @@ import {
   ProteinType,
 } from '../../src/generated/prisma/enums'
 import { KNOWN_LOCALES } from '../../src/lib/i18n/locales'
+import { ADJUST_INSTRUCTION_MAX_LENGTH } from '../../src/lib/meal-planning/components-schema'
 import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '../../src/lib/ai/cook-question-limits'
 
-export const TASKS = ['plan', 'recipe', 'imagine', 'review', 'tips', 'cook-question'] as const
+export const TASKS = [
+  'plan',
+  'recipe',
+  'imagine',
+  'review',
+  'tips',
+  'cook-question',
+  'adjust',
+] as const
 export type Task = (typeof TASKS)[number]
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a YYYY-MM-DD date')
@@ -304,6 +313,53 @@ export const CookQuestionCaseSchema = z
     { path: ['subject', 'index'], message: 'The index is past the list its kind names' },
   )
 
+const nameList = z.array(z.string().min(1)).min(1)
+
+/**
+ * `AdjustRecipeRequestInput` from `src/lib/ai/adjust-recipe.ts`, as the route
+ * builds it from the entry, the pantry and the preferences (HON-1244).
+ */
+export const AdjustCaseSchema = z.strictObject({
+  mealName: z.string().min(1),
+  servings: z.number().int().positive(),
+  components: z.array(tipsComponent).min(1),
+  pantry: z.array(z.object({ name: z.string().min(1), isStaple: z.boolean() })),
+  restrictions: z.object({
+    allergens: z.array(z.string()),
+    dietaryType: z.string().nullable(),
+    excludedIngredients: z.array(z.string()),
+    restrictions: z.array(z.string()),
+  }),
+  instruction: z.string().min(1).max(ADJUST_INSTRUCTION_MAX_LENGTH),
+  locale,
+  expected: z.strictObject({
+    /**
+     * Changes the answer must hold, each met by one proposed change: the same
+     * `op`, an `original` that is one of `original` (case-insensitive), and a
+     * replacement name that contains one of `replacementAny`. List every
+     * phrasing a correct answer may use. Other changes may come with them.
+     */
+    changes: z
+      .array(
+        z.strictObject({
+          op: z.enum(['replace', 'remove', 'add']),
+          original: nameList.optional(),
+          replacementAny: nameList.optional(),
+        }),
+      )
+      .min(1)
+      .optional(),
+    /** The meal already does what the instruction asks: the list must be empty. */
+    noChange: z.literal(true).optional(),
+    /**
+     * No replacement name may contain one of these: a food the household's
+     * restrictions rule out. Scored under the `avoidsForbidden` safety check.
+     */
+    forbiddenKeywords: nameList.optional(),
+  }),
+  source,
+})
+
 export const CASE_SCHEMAS = {
   plan: PlanCaseSchema,
   recipe: RecipeCaseSchema,
@@ -311,6 +367,7 @@ export const CASE_SCHEMAS = {
   review: ReviewCaseSchema,
   tips: TipsCaseSchema,
   'cook-question': CookQuestionCaseSchema,
+  adjust: AdjustCaseSchema,
 } as const satisfies Record<Task, z.ZodType>
 
 export type PlanCase = z.infer<typeof PlanCaseSchema>
@@ -319,6 +376,7 @@ export type ImagineCase = z.infer<typeof ImagineCaseSchema>
 export type ReviewCase = z.infer<typeof ReviewCaseSchema>
 export type TipsCase = z.infer<typeof TipsCaseSchema>
 export type CookQuestionCase = z.infer<typeof CookQuestionCaseSchema>
+export type AdjustCase = z.infer<typeof AdjustCaseSchema>
 
 interface CaseInputs {
   plan: PlanCase
@@ -327,6 +385,7 @@ interface CaseInputs {
   review: ReviewCase
   tips: TipsCase
   'cook-question': CookQuestionCase
+  adjust: AdjustCase
 }
 
 /**

@@ -11,12 +11,10 @@
  */
 
 import {
-  asSchema,
   generateObject,
   generateText,
   NoObjectGeneratedError,
   type FinishReason,
-  type FlexibleSchema,
   type LanguageModel,
   type LanguageModelUsage,
 } from 'ai'
@@ -46,6 +44,8 @@ import {
   STEPS_MODEL,
 } from '../../src/lib/ai/models'
 import type { BenchCase, CaseOf, Task } from './case-schema'
+import { requestTexts, textOf } from './request-texts'
+import { adjust } from './adjust'
 import {
   derivePlanContext,
   scoreCookQuestion,
@@ -123,43 +123,6 @@ export interface TaskSpec<T extends Task> {
    */
   inapplicableMetrics?(input: CaseOf<T>['input']): string[]
   prepare(c: CaseOf<T>): PreparedCase
-}
-
-function textOf(request: { system?: string; prompt?: string; messages?: unknown[] }): string {
-  const parts: string[] = []
-  if (request.system) parts.push(request.system)
-  if (request.prompt) parts.push(request.prompt)
-  for (const message of request.messages ?? []) {
-    const content = (message as { content: unknown }).content
-    if (typeof content === 'string') parts.push(content)
-    else if (Array.isArray(content)) {
-      for (const part of content as { type: string; text?: string }[]) {
-        if (part.type === 'text' && part.text) parts.push(part.text)
-      }
-    }
-  }
-  return parts.join('\n')
-}
-
-/**
- * Not key-sorted: property order is part of what the model receives. Throws
- * rather than hash `{}` if the SDK ever builds the JSON Schema asynchronously.
- */
-function schemaTextOf(schema: FlexibleSchema<unknown>): string {
-  const json = asSchema(schema).jsonSchema
-  if ('then' in json && typeof json.then === 'function') {
-    throw new Error(
-      'The AI SDK built this JSON Schema asynchronously; schemaTextOf cannot hash it.',
-    )
-  }
-  return JSON.stringify(json)
-}
-
-/** The parts of a request that reach the model as instructions. */
-function requestTexts(
-  request: Parameters<typeof textOf>[0] & { schema: FlexibleSchema<unknown> },
-): Pick<PreparedCase, 'promptText' | 'schemaText'> {
-  return { promptText: textOf(request), schemaText: schemaTextOf(request.schema) }
 }
 
 const plan: TaskSpec<'plan'> = {
@@ -592,6 +555,7 @@ export const TASK_SPECS: { [T in Task]: TaskSpec<T> } = {
   review,
   tips,
   'cook-question': cookQuestion,
+  adjust,
 }
 
 export function prepareCase(c: BenchCase): PreparedCase {

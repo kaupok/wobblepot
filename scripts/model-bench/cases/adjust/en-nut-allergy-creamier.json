@@ -1,0 +1,74 @@
+{
+  "mealName": "Roasted tomato soup",
+  "servings": 4,
+  "components": [
+    {
+      "name": "tomato",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "vegetable stock",
+      "quantityPerServing": 150,
+      "defaultUnit": "ml"
+    }
+  ],
+  "pantry": [
+    {
+      "name": "oat cream",
+      "isStaple": false
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["tree nuts", "peanuts", "dairy"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "instruction": "Make it creamier",
+  "locale": "en",
+  "expected": {
+    "changes": [
+      {
+        "op": "add",
+        "replacementAny": ["oat cream", "oat"]
+      }
+    ],
+    "forbiddenKeywords": [
+      "cashew",
+      "almond",
+      "peanut",
+      "walnut",
+      "hazelnut",
+      "pecan",
+      "nut butter",
+      "double cream",
+      "single cream",
+      "crème fraîche",
+      "creme fraiche",
+      "yoghurt",
+      "yogurt",
+      "cheese",
+      "butter",
+      "milk"
+    ]
+  }
+}

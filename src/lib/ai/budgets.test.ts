@@ -9,6 +9,7 @@ describe('AI budgets', () => {
 
   it('exports every route budget', () => {
     expect(entries.map(([name]) => name).sort()).toEqual([
+      'ADJUST_AI_BUDGET_MS',
       'COOK_QUESTION_AI_BUDGET_MS',
       'IMAGINE_AI_BUDGET_MS',
       'PLAN_AI_BUDGET_MS',

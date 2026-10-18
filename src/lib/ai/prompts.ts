@@ -109,6 +109,11 @@ ESTONIAN EXAMPLES (source text → what to output):
 - ingredient "500 g kanafileed" → name "kanafilee", quantity 500, unit "g", originalText "500 g kanafileed"`
 }
 
+/** The shared Estonian voice rules alone, for a call with no voice block of its own (HON-1244). */
+export function estonianVoice(locale: string | null | undefined): string {
+  return isEstonian(locale) ? `\n\n${ESTONIAN_VOICE_RULES}` : ''
+}
+
 /**
  * Estonian voice block for preparation tips (full and supplementary):
  * equipment, steps, pitfalls, tip — all in sina-form imperative. Empty for

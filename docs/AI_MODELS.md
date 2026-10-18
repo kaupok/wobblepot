@@ -8,11 +8,11 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 
 The eval has three runs. Each writes a report to `scripts/model-bench/results/`, and the PR that makes the change commits it and cites it in its body. `scripts/pr-review.sh` asks for that report when the diff touches `models.ts`, `budgets.ts`, a request builder the eval imports or text it sends, or a committed case (HON-904).
 
-| The PR changes                                                                                                                                                                                                                                                     | Run                                                               | Section                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------- |
-| A model constant in `src/lib/ai/models.ts`                                                                                                                                                                                                                         | A comparison, current model as baseline, new as candidate, judged | Compare → Two models            |
-| A request builder (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-steps.ts`, `cook-question.ts` in `src/lib/ai`), or text they send: an output schema (`recipe-schema.ts`, `types.ts`) or `src/lib/vague-quantities.ts` | `--baseline golden`, judged                                       | Compare → A prompt change       |
-| A case under `scripts/model-bench/cases/`, or a budget in `budgets.ts`                                                                                                                                                                                             | `--check`                                                         | Check the current configuration |
+| The PR changes                                                                                                                                                                                                                                                                         | Run                                                               | Section                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------- |
+| A model constant in `src/lib/ai/models.ts`                                                                                                                                                                                                                                             | A comparison, current model as baseline, new as candidate, judged | Compare → Two models            |
+| A request builder (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-steps.ts`, `cook-question.ts`, `adjust-recipe.ts` in `src/lib/ai`), or text they send: an output schema (`recipe-schema.ts`, `types.ts`) or `src/lib/vague-quantities.ts` | `--baseline golden`, judged                                       | Compare → A prompt change       |
+| A case under `scripts/model-bench/cases/`, or a budget in `budgets.ts`                                                                                                                                                                                                                 | `--check`                                                         | Check the current configuration |
 
 After a model promotion or an accepted prompt change merges, re-record the golden (Record the golden).
 
@@ -28,7 +28,7 @@ pnpm ai-eval --check                                  # each task on its constan
 pnpm ai-eval --check --model claude-sonnet-5-5        # every task on one model
 ```
 
-Without `--model`, each task runs on its production constant: plan `PLANNING_MODEL`, recipe `RECIPE_MODEL`, imagine `IMAGINE_MODEL`, review `REVIEW_MODEL`, tips `STEPS_MODEL`, cook-question `COOK_QUESTION_MODEL`. `--task`, `--runs`, `--max-usd` and `--dry-run` work as in a comparison. `--check` cannot be combined with `--baseline`, `--candidate`, `--judge` or `--judge-api`, and `--model` only goes with `--check`. Every model it would call needs a `MODEL_PRICES` entry, as in a comparison. A check costs about half a comparison: one model, one call per case and run.
+Without `--model`, each task runs on its production constant: plan `PLANNING_MODEL`, recipe `RECIPE_MODEL`, imagine `IMAGINE_MODEL`, review `REVIEW_MODEL`, tips `STEPS_MODEL`, cook-question `COOK_QUESTION_MODEL`, adjust `ADJUST_MODEL`. `--task`, `--runs`, `--max-usd` and `--dry-run` work as in a comparison. `--check` cannot be combined with `--baseline`, `--candidate`, `--judge` or `--judge-api`, and `--model` only goes with `--check`. Every model it would call needs a `MODEL_PRICES` entry, as in a comparison. A check costs about half a comparison: one model, one call per case and run.
 
 A gate holds the metric's mean over all runs, with the run-to-run range shown beside it, to a threshold. The metric thresholds were set from the first live run (HON-859), with margin. The latency gate has no margin: it is the same 80% line the comparison uses.
 
@@ -46,6 +46,8 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 | tips          | Item counts in range                                                                                       | ≥ 90%                       |
 | cook-question | Answered without error, metric units only, off-topic declined, no forbidden suggestion                     | 100%                        |
 | cook-question | ≤ 100 words, ≤ 4 sentences, names the expected answer                                                      | ≥ 90%                       |
+| adjust        | Answered without error, originals listed, amounts given, no change when none is needed, no forbidden food  | 100%                        |
+| adjust        | Proposes the expected changes                                                                              | ≥ 90%                       |
 | every task    | Max latency                                                                                                | ≤ 80% of the route budget   |
 
 The tips count gate is below 100% because the counts ("2-3 pitfalls", "3-5 pieces of equipment") are a prompt instruction that production does not enforce: the tips schema has no length bound, so a fourth pitfall renders as a fourth item. Over the 24 tips calls (8 cases × 3 runs) it allows 2 answers out of range; a 100% gate failed the first record on one (HON-929). An errored call also scores as a miss on it, so tips errors are gated separately, at 100%, by _answered without error_. Open product question: should the schema reject a fourth pitfall (the route's fallback then applies) or show it? If it rejects, the gate goes back to 100%.
@@ -62,7 +64,7 @@ The report is `scripts/model-bench/results/<date>-check-<model, or "production">
 
 ### What it runs
 
-It covers six AI calls: plan generation, recipe parsing (pasted text), imagine a meal (text only), the imagine quantity review, preparation tips (full and supplementary), and the cook view's Ask (a question about a step or a piece of equipment, with an optional previous question and answer). Each request comes from the same pure builder production calls, so the only difference from the app is the model ID. The cook question streams in production; the eval calls `generateText` with the same request, so its latency is the time to the last word, which is what the route's budget bounds. Out of scope: `fillEmptySlots`, image inputs, and the meal-image model and its judge.
+It covers seven AI calls: plan generation, recipe parsing (pasted text), imagine a meal (text only), the imagine quantity review, preparation tips (full and supplementary), the cook view's Ask (a question about a step or a piece of equipment, with an optional previous question and answer), and "Adjust recipe" (an instruction that becomes ingredient changes to one planned meal, HON-1244). Each request comes from the same pure builder production calls, so the only difference from the app is the model ID. The cook question streams in production; the eval calls `generateText` with the same request, so its latency is the time to the last word, which is what the route's budget bounds. Out of scope: `fillEmptySlots`, image inputs, and the meal-image model and its judge.
 
 Cases live in `scripts/model-bench/cases/<task>/*.json`, validated against the Zod schemas in `scripts/model-bench/case-schema.ts`. Every committed case is synthetic: one started from a production sample has had the user's text rewritten (see Where cases come from).
 
@@ -78,6 +80,7 @@ Every check is deterministic. The optional judge, below, is the only place one m
 - **review:** every ingredient ID exactly once; each seeded error corrected into the case's range (the review prompt's own reference range where it gives one, otherwise ±25% of the expected value); each correct quantity left alone.
 - **tips:** item counts within the ranges the prompt asks for.
 - **cook-question:** answered without error (an answer cut off at `maxOutputTokens` is an error, as the route ends the stream in one); no imperial unit after a number; at most 100 words and 4 sentences, or at most 50 words and none of the case's `forbiddenKeywords` for a case marked `offTopic`; on any other case, none of its `forbiddenKeywords`, matched as imagine's are, with the case's own `allowedQualifiers`, which is the allergen safety check; none of its `forbiddenClaims`, a claim the app cannot back such as what tools the household owns, excused by its `allowedClaimQualifiers` and kept out of the safety check; at least one of the case's `mentionsAny` phrases. A check the case sets up nothing for is not scored. The answer is plain text, not judged.
+- **adjust:** answered without error; every replace and remove names a listed ingredient, resolved with `resolveChanges` (`src/lib/meal-planning/adjust-proposal.ts`), which the route uses, so a change the route would drop fails here; every replace and add carries an amount and a unit; each of the case's `expected.changes` met by one proposed change (the same `op`, an `original` from its list, a replacement name that contains one of `replacementAny`); an empty list for a case marked `noChange`; no replacement name containing one of the case's `forbiddenKeywords`, the safety check. The proposals are not judged: the household reviews each one before anything is written.
 
 Output that fails the schema is an error, not a score: `generateObject` throws on it. A cut-off or empty cook-question answer is recorded the same way. For each task and model the report also gives latency (p50 and max) against the route budget, calls over budget, calls the SDK retried, errors by name, truncations (`finishReason: length`), and mean tokens and cost per call. Latency is timed around `generateObject` (`generateText` for the cook question), so it includes the SDK's retries (`maxRetries` is 2). A latency finding says when any call retried. Run files from before the count say "not recorded".
 
@@ -124,16 +127,16 @@ Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) me
 
 ### Flags
 
-| Flag          | Default                                         | Meaning                                                                              |
-| ------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `--baseline`  | required                                        | The model in production today, or `golden` (see A prompt change)                     |
-| `--candidate` | required                                        | The model you want to switch to                                                      |
-| `--task`      | `plan,recipe,imagine,review,tips,cook-question` | Comma-separated subset of tasks                                                      |
-| `--runs`      | `3`                                             | Times each case runs per model                                                       |
-| `--max-usd`   | `10`                                            | Stop, and mark the report partial, once measured spend passes this                   |
-| `--dry-run`   | off                                             | Print the call count and an estimated cost. No API calls, no key needed              |
-| `--judge`     | off                                             | Also export imagine, tips and cook-question pairs for judging in Claude Code (below) |
-| `--judge-api` | off                                             | Judge those pairs with `claude-opus-5-5` through the API key instead                 |
+| Flag          | Default                                                | Meaning                                                                              |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `--baseline`  | required                                               | The model in production today, or `golden` (see A prompt change)                     |
+| `--candidate` | required                                               | The model you want to switch to                                                      |
+| `--task`      | `plan,recipe,imagine,review,tips,cook-question,adjust` | Comma-separated subset of tasks                                                      |
+| `--runs`      | `3`                                                    | Times each case runs per model                                                       |
+| `--max-usd`   | `10`                                                   | Stop, and mark the report partial, once measured spend passes this                   |
+| `--dry-run`   | off                                                    | Print the call count and an estimated cost. No API calls, no key needed              |
+| `--judge`     | off                                                    | Also export imagine, tips and cook-question pairs for judging in Claude Code (below) |
+| `--judge-api` | off                                                    | Judge those pairs with `claude-opus-5-5` through the API key instead                 |
 
 `pnpm ai-eval --import-verdicts <stem>.judge-verdicts.json` is the second half of `--judge`; see below.
 
@@ -169,7 +172,7 @@ pnpm ai-eval --record --task imagine   # re-record imagine.json only
 
 `--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case two sha256 hashes, `requestHash` (prompt text and output schema) and `promptHash` (prompt text alone), and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
 
-The committed golden is Sonnet 5.5 on every task. `plan.json` and `review.json` were recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905). `recipe.json`, `imagine.json` and `tips.json` were re-recorded 2026-10-07 at `27cf478d` after the British English block merged (HON-1098, HON-1105; `results/2026-10-07-check-production.md`). `cook-question.json` was re-recorded 2026-10-09 at `b235beab` after the equipment-ownership rules merged (HON-1135, HON-1136; `results/2026-10-09-check-production-2.md`). Each file's header says its own model, date and commit.
+The committed golden is Sonnet 5.5 on every task. `plan.json` and `review.json` were recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905). `recipe.json`, `imagine.json` and `tips.json` were re-recorded 2026-10-07 at `27cf478d` after the British English block merged (HON-1098, HON-1105; `results/2026-10-07-check-production.md`). `cook-question.json` was re-recorded 2026-10-09 at `b235beab` after the equipment-ownership rules merged (HON-1135, HON-1136; `results/2026-10-09-check-production-2.md`). `adjust.json` was first recorded 2026-10-19 on the HON-1244 branch, from `3bc6118a` plus the uncommitted adjust prompt (`results/2026-10-19-check-production.md`). Each file's header says its own model, date and commit.
 
 Record from a session that will not judge afterwards. A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
 
