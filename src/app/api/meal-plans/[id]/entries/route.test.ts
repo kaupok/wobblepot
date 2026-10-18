@@ -23,9 +23,13 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/meal-plans/create-entry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/create-entry')>()),
+  createEntry: vi.fn(),
+}))
+
 vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/meal-plans/entries')>()),
-  createEntry: vi.fn(),
   deleteEntriesInRange: vi.fn(),
 }))
 
@@ -49,10 +53,10 @@ import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import {
   createEntry,
-  deleteEntriesInRange,
   EntryCreateError,
   type EntryCreateRefusal,
-} from '@/lib/meal-plans/entries'
+} from '@/lib/meal-plans/create-entry'
+import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'

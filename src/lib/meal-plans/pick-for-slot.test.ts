@@ -7,13 +7,13 @@ vi.mock('@/lib/meal-planning/slot-suggestions', () => ({
   suggestForSlot: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/meal-plans/entries')>()),
+vi.mock('@/lib/meal-plans/create-entry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/create-entry')>()),
   createEntry: vi.fn(),
 }))
 
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
-import { createEntry, EntryCreateError } from '@/lib/meal-plans/entries'
+import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { NoSuggestionsError, pickMealForSlot } from './pick-for-slot'
 import type { AlternativeMeal } from '@/components/meal-plan/types'
 

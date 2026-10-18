@@ -11,10 +11,10 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import {
   createEntry,
-  deleteEntriesInRange,
   EntryCreateError,
   type EntryCreateRefusal,
-} from '@/lib/meal-plans/entries'
+} from '@/lib/meal-plans/create-entry'
+import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()

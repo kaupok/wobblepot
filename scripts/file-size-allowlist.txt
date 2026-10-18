@@ -97,8 +97,7 @@
 7010 src/lib/meal-images/generate.test.ts
 7928 src/lib/meal-planning/candidates.test.ts
 11019 src/lib/meal-planning/shopping-list.test.ts
-6370 src/lib/meal-plans/entries.db.test.ts
-7918 src/lib/meal-plans/entries.ts
+7411 src/lib/meal-plans/entries.ts
 5352 src/lib/rate-limit.test.ts
 5067 src/lib/utils.test.ts
 5143 src/proxy.test.ts
