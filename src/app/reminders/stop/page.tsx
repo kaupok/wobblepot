@@ -45,7 +45,7 @@ export default async function StopRemindersPage({ searchParams }: StopRemindersP
           <Body variant="muted">
             {t.rich('incompleteLink', {
               link: (chunks) => (
-                <Link href="/household" className="text-foreground inline-link">
+                <Link href="/account/reminders" className="text-foreground inline-link">
                   {chunks}
                 </Link>
               ),

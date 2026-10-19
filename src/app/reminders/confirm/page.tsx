@@ -17,8 +17,8 @@ interface ConfirmReminderPageProps {
   searchParams: Promise<{ token?: string | string[] }>
 }
 
-const householdLink = (chunks: ReactNode) => (
-  <Link href="/household" className="text-foreground inline-link">
+const remindersLink = (chunks: ReactNode) => (
+  <Link href="/account/reminders" className="text-foreground inline-link">
     {chunks}
   </Link>
 )
@@ -60,8 +60,8 @@ export default async function ConfirmReminderPage({ searchParams }: ConfirmRemin
           </Heading>
           <Body variant="muted">
             {confirmed
-              ? t.rich('confirmedBody', { link: householdLink })
-              : t.rich('expiredBody', { days: REMINDER_CONFIRM_TTL_DAYS, link: householdLink })}
+              ? t.rich('confirmedBody', { link: remindersLink })
+              : t.rich('expiredBody', { days: REMINDER_CONFIRM_TTL_DAYS, link: remindersLink })}
           </Body>
         </CardHeader>
       </Card>

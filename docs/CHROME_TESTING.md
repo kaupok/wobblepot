@@ -128,6 +128,7 @@ To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough
 | `/pantry`                | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
 | `/household`             | Auth          | Household settings, members, and invite links                                                      |
 | `/account`               | Auth          | My account → Profile: name, email and its verification, password                                   |
+| `/account/reminders`     | Auth          | My account → Reminders: the viewer's own weekly planning reminder email                            |
 | `/account/connections`   | Auth          | My account → Connections: AI assistants, read-only API keys                                        |
 | `/account/data`          | Auth          | My account → Your data: export, and account danger zone (delete)                                   |
 | `/admin/signup-codes`    | Admin         | Manage private-beta signup codes                                                                   |

@@ -62,9 +62,9 @@ describe('/reminders/confirm', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'The weekly reminder is on' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Household page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My account → Reminders' })).toHaveAttribute(
       'href',
-      '/household',
+      '/account/reminders',
     )
   })
 
@@ -79,9 +79,9 @@ describe('/reminders/confirm', () => {
     expect(
       screen.getByText(/The link works for 7 days, and only while the reminder is on\./),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Household page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My account → Reminders' })).toHaveAttribute(
       'href',
-      '/household',
+      '/account/reminders',
     )
   })
 

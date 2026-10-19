@@ -51,8 +51,7 @@
 6959 src/app/api/meals/imagine/route.test.ts
 5368 src/app/api/recipes/parse/route.test.ts
 7474 src/app/globals.css
-6000 src/app/household/household/HouseholdSettingsForm.stories.tsx
-11497 src/app/household/household/HouseholdSettingsForm.test.tsx
+9389 src/app/household/household/HouseholdSettingsForm.test.tsx
 8824 src/app/onboarding/OnboardingFlow.test.tsx
 7732 src/app/page.test.tsx
 7600 src/app/sign-in/SignInForm.test.tsx

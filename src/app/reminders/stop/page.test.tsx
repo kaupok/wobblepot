@@ -32,13 +32,13 @@ describe('/reminders/stop', () => {
     expect(screen.getByTestId('stop-form')).toHaveTextContent('token-1')
   })
 
-  it('points to the Household page when the link has no token', async () => {
+  it('points to My account → Reminders when the link has no token', async () => {
     await renderPage({})
 
     expect(screen.queryByTestId('stop-form')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Household page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My account → Reminders' })).toHaveAttribute(
       'href',
-      '/household',
+      '/account/reminders',
     )
   })
 

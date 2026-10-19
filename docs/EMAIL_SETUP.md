@@ -43,8 +43,8 @@ links lives in [`src/lib/support.ts`](../src/lib/support.ts) (`SUPPORT_EMAIL`)
 
 ## Weekly planning reminder
 
-The one product email (HON-1084). A member switches it on for themself on `/household` or on the
-first-plan onboarding step; the daily cron `/api/cron/weekly-reminders` (16:00 UTC, see
+The one product email (HON-1084). A member switches it on for themself on My account → Reminders
+(`/account/reminders`, HON-1256) or on the first-plan onboarding step; the daily cron `/api/cron/weekly-reminders` (16:00 UTC, see
 [DEPLOYMENT.md](DEPLOYMENT.md) → Scheduled jobs) sends it on their weekday when next week has no
 meals planned.
 

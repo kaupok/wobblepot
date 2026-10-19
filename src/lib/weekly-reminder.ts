@@ -12,9 +12,10 @@ import { isoWeekday, nextWeekRange, type ReminderWeekday } from '@/lib/weekly-re
 
 /**
  * The opt-in weekly planning reminder email (HON-1084). A member switches it
- * on for themself on `/household` or at the first plan. The daily cron
- * (`/api/cron/weekly-reminders`) sends one email on their weekday when next
- * week has no meals planned, and the stop link ends it without a sign-in.
+ * on for themself on My account → Reminders (`/account/reminders`) or at the
+ * first plan. The daily cron (`/api/cron/weekly-reminders`) sends one email
+ * on their weekday when next week has no meals planned, and the stop link
+ * ends it without a sign-in.
  *
  * Consent is the legal basis (the policy names it under Consent), so nothing
  * here switches a reminder on for anyone but the caller.

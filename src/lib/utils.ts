@@ -78,11 +78,14 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
  *   named by its prefix. It goes on a bare `<a>` or `<Link>` in body text,
  *   never through a component's `cn(base, className)`, so no override of it
  *   needs merging.
+ * - `scrollbar-none` (HON-1256): hides a scroll box's scrollbar, through
+ *   `scrollbar-width` and a WebKit pseudo-element. tailwind-merge has no
+ *   scrollbar family, so nothing can conflict with it.
  *
  * `utils.test.ts` fails on a name here that is not declared, or that is also
  * in `CUSTOM_UTILITY_CLASS_GROUPS`.
  */
-export const UNMERGED_UTILITIES = ['inline-link'] as const
+export const UNMERGED_UTILITIES = ['inline-link', 'scrollbar-none'] as const
 
 const twMerge = extendTailwindMerge({
   extend: {

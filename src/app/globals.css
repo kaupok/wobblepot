@@ -253,6 +253,21 @@
   }
 }
 
+/* A sideways scroll box with no scrollbar (HON-1256): the route tab row
+   (src/components/RouteTabs.tsx), which scrolls only on a narrow screen. A
+   classic scrollbar there adds a 15px band under the tabs; a cut-off last tab
+   already says the row scrolls, and Tab moves focus along it. The WebKit
+   pseudo-element covers Safari before `scrollbar-width`. Listed in
+   UNMERGED_UTILITIES (src/lib/utils.ts): tailwind-merge has no scrollbar
+   family for it to conflict with. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

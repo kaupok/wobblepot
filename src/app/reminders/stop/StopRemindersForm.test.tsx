@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-// `t.rich` (the Household page link) returns React elements, which the default
+// `t.rich` (the My account → Reminders link) returns React elements, which the default
 // next-intl test mock cannot handle; use the real provider.
 vi.unmock('next-intl')
 import { render, screen, waitFor } from '@testing-library/react'
@@ -50,7 +50,7 @@ describe('StopRemindersForm', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('posts the token and shows the done state with a link to the Household page', async () => {
+  it('posts the token and shows the done state with a link to My account → Reminders', async () => {
     const user = userEvent.setup()
     fetchMock.mockResolvedValue(jsonResponse(200, { stopped: true }))
     renderForm()
@@ -62,9 +62,9 @@ describe('StopRemindersForm', () => {
       '/api/reminders/stop',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: 'token-1' }) }),
     )
-    expect(screen.getByRole('link', { name: 'Household page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My account → Reminders' })).toHaveAttribute(
       'href',
-      '/household',
+      '/account/reminders',
     )
     // The button unmounted; focus moves to the heading that replaced it.
     await waitFor(() => expect(done).toHaveFocus())

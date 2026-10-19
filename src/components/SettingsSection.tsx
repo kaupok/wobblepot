@@ -10,7 +10,7 @@ import { Heading } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { ApiError, apiFetch } from '@/lib/api'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
-import { sameValues, type SettingsValue } from './settings-values'
+import { sameValues, type SettingsValue } from '@/lib/settings-values'
 
 export interface SectionFieldState {
   /** Disable every control: a member cannot edit, and nothing is edited mid-save. */
@@ -19,19 +19,20 @@ export interface SectionFieldState {
   errorId: string | undefined
 }
 
-interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
-  /** Prefixes the error's id, so the three sections' ids stay unique. */
+/**
+ * Who may save. A household section is the owner's: it takes `isOwner`, and a
+ * member sees it disabled. A section for the viewer's own setting (the weekly
+ * reminder, HON-1084) passes `ownerOnly: false`, so every account holder can
+ * save it, and has no owner to name.
+ */
+type SectionAccess = { ownerOnly?: true; isOwner: boolean } | { ownerOnly: false; isOwner?: never }
+
+type SettingsSectionProps<T extends Record<keyof T, SettingsValue>> = SectionAccess & {
+  /** Prefixes the error's id, so the sections' ids stay unique on a page. */
   id: string
   heading: string
   /** The PATCH route this section's values go to, as the JSON body. */
   url: string
-  isOwner: boolean
-  /**
-   * Whether only the owner may save. Default true: the household's settings
-   * are the owner's. A section for the viewer's own setting (the weekly
-   * reminder, HON-1084) passes false, so every member can save it.
-   */
-  ownerOnly?: boolean
   values: T
   saved: T
   /**
@@ -60,15 +61,16 @@ interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
 }
 
 /**
- * One household settings section: its own form, heading, error and Save button
- * (HON-961). The button renders only while the section differs from its saved
+ * One settings section: its own form, heading, error and Save button
+ * (HON-961). The household page's sections use it, and so does My account →
+ * Reminders (HON-1256). The button renders only while the section differs from its saved
  * values or its save is in flight, so it also says "this is unsaved".
  */
 export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   id,
   heading,
   url,
-  isOwner,
+  isOwner = false,
   ownerOnly = true,
   values,
   saved,
@@ -80,7 +82,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
 }: SettingsSectionProps<T>) {
   const t = useTranslations('household.settings')
   const router = useRouter()
-  const canEdit = isOwner || !ownerOnly
+  const canEdit = !ownerOnly || isOwner
   // The message and the values it was about: a failed save's body, or the
   // values that failed `validate`.
   const [error, setError] = useState<{ message: string; values: T } | null>(null)
@@ -126,7 +128,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
       // A 403 is the same case the client-side guard throws for; anything
       // else ("Validation failed", a 500) gets the generic save failure.
       console.error(
-        `[household-settings] ${id} save failed`,
+        `[settings] ${id} save failed`,
         err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
       )
       setError({

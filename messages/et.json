@@ -1350,7 +1350,6 @@
       "weekendsRow": "Nädalavahetus",
       "mealCellAria": "{day}: {meal}",
       "reminderHeading": "Iganädalane meeldetuletus",
-      "reminderOwnNotice": "See on sinu enda seade, nii et saad seda muuta.",
       "reminderToggle": "Tuleta mulle meelde järgmist nädalat planeerida",
       "reminderWeekdayLabel": "Päev",
       "reminderHelper": "Üks e-kiri sel päeval, ainult siis, kui järgmiseks nädalaks pole veel ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletused peatada.",
@@ -1474,6 +1473,7 @@
     "tabsLabel": "Konto osad",
     "tabs": {
       "profile": "Profiil",
+      "reminders": "Meeldetuletused",
       "connections": "Ühendused",
       "data": "Sinu andmed"
     },
@@ -1858,9 +1858,9 @@
       "button": "Peata meeldetuletused",
       "submitting": "Peatan…",
       "doneTitle": "Valmis",
-      "doneBody": "Meeldetuletuse saad uuesti sisse lülitada <link>leibkonna lehel</link>.",
+      "doneBody": "Meeldetuletuse saad uuesti sisse lülitada lehel <link>Minu konto → Meeldetuletused</link>.",
       "failed": "Meeldetuletusi ei õnnestunud peatada. Proovi uuesti.",
-      "incompleteLink": "See link pole täielik. Meeldetuletuse saad välja lülitada <link>leibkonna lehel</link>."
+      "incompleteLink": "See link pole täielik. Meeldetuletuse saad välja lülitada lehel <link>Minu konto → Meeldetuletused</link>."
     },
     "confirm": {
       "metaTitle": "Kinnita iganädalane meeldetuletus",
@@ -1870,9 +1870,9 @@
       "submitting": "Alustan…",
       "failed": "Meeldetuletust ei õnnestunud alustada. Proovi uuesti.",
       "confirmedTitle": "Iganädalane meeldetuletus on sees",
-      "confirmedBody": "Saadame sulle e-kirja valitud päeval, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud. Päeva saad muuta <link>leibkonna lehel</link>.",
+      "confirmedBody": "Saadame sulle e-kirja valitud päeval, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud. Päeva saad muuta lehel <link>Minu konto → Meeldetuletused</link>.",
       "expiredTitle": "See link on aegunud",
-      "expiredBody": "Link kehtib {days} päeva ja ainult siis, kui meeldetuletus on sees. Uue lingi saamiseks lülita meeldetuletus <link>leibkonna lehel</link> välja ja uuesti sisse."
+      "expiredBody": "Link kehtib {days} päeva ja ainult siis, kui meeldetuletus on sees. Uue lingi saamiseks lülita meeldetuletus lehel <link>Minu konto → Meeldetuletused</link> välja ja uuesti sisse."
     }
   },
   "mealPlans": {

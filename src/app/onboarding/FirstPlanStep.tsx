@@ -22,7 +22,7 @@ import { DEFAULT_REMINDER_WEEKDAY } from '@/lib/weekly-reminder-schedule'
  * shows a household with no plan the same choices (`FirstTimeSetup`).
  *
  * It also offers the weekly planning reminder (HON-1084), the only place
- * outside `/household` that asks for that consent, so the checkbox is never
+ * outside `/account/reminders` that asks for that consent, so the checkbox is never
  * ticked for the person.
  */
 export function FirstPlanStep() {
@@ -37,7 +37,7 @@ export function FirstPlanStep() {
   const [remind, setRemind] = useState(false)
 
   // Switches the reminder on for Sunday, or back off. A failure is logged and
-  // the plan goes ahead: the person can set it later on the Household page.
+  // the plan goes ahead: the person can set it later on My account → Reminders.
   const reminder = useMutation({
     mutationFn: (weekday: typeof DEFAULT_REMINDER_WEEKDAY | null) =>
       apiFetch('/api/households/me/members/me/reminder', {

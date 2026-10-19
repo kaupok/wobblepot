@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { ChoiceChips } from '@/components/ui/choice-chips'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { AllergenPicker } from '@/components/household/AllergenPicker'
-import { SettingsSection } from './SettingsSection'
+import { SettingsSection } from '@/components/SettingsSection'
 import type { Allergen, DietaryType, HouseholdPreferencesValues } from './settings-values'
 
 const DIETARY_TYPE_VALUES: readonly DietaryType[] = ['vegetarian', 'vegan', 'pescatarian']
