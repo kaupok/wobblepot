@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { saveReminder } from '@/lib/weekly-reminder'
+import { isWeekPlanned, saveReminder } from '@/lib/weekly-reminder'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
-// rows are written with Prisma, changed through `saveReminder`, and read back.
+// rows are written with Prisma, changed through `saveReminder`, and read back,
+// or read through `isWeekPlanned`.
 // `weekly-reminder.test.ts` covers the send logic; the route test covers the
 // confirm email and how the route maps these answers.
 
@@ -116,5 +117,58 @@ describe('saveReminder', () => {
 
     expect(await saveReminder('u-solo', 1)).toBeNull()
     expect((await schedule()).reminderWeekday).toBeNull()
+  })
+})
+
+describe('isWeekPlanned', () => {
+  const START = new Date('2026-10-19T00:00:00Z')
+  const END = new Date('2026-10-26T00:00:00Z')
+
+  /** Alder and Birch, each with a plan, and a stew Alder can plan. */
+  async function plans() {
+    await prisma.household.create({
+      data: { id: 'h-alder', name: 'Alder', mealPlans: { create: { id: 'plan-alder' } } },
+    })
+    await prisma.household.create({
+      data: { id: 'h-birch', name: 'Birch', mealPlans: { create: { id: 'plan-birch' } } },
+    })
+    await prisma.meal.create({ data: { id: 'meal-stew', name: 'Stew' } })
+  }
+
+  function entry(data: { planId?: string; mealId?: string; note?: string; date?: string }) {
+    const { date = '2026-10-21T00:00:00Z', planId = 'plan-alder', ...rest } = data
+    return prisma.mealPlanEntry.create({
+      data: { planId, date: new Date(date), mealType: 'dinner', ...rest },
+    })
+  }
+
+  it('is false when the only entry is a placeholder with no meal and no note, so the reminder goes out', async () => {
+    await plans()
+    await entry({})
+
+    expect(await isWeekPlanned('h-alder', START, END)).toBe(false)
+  })
+
+  it('is true for an entry with a meal', async () => {
+    await plans()
+    await entry({ mealId: 'meal-stew' })
+
+    expect(await isWeekPlanned('h-alder', START, END)).toBe(true)
+  })
+
+  it('is true for a note-only entry', async () => {
+    await plans()
+    await entry({ note: 'Leftovers' })
+
+    expect(await isWeekPlanned('h-alder', START, END)).toBe(true)
+  })
+
+  it('is false for a meal outside the week or in another household', async () => {
+    await plans()
+    await entry({ mealId: 'meal-stew', date: '2026-10-26T00:00:00Z' })
+    await entry({ mealId: 'meal-stew', date: '2026-10-18T00:00:00Z' })
+    await entry({ planId: 'plan-birch', mealId: 'meal-stew' })
+
+    expect(await isWeekPlanned('h-alder', START, END)).toBe(false)
   })
 })
