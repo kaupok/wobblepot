@@ -33,6 +33,8 @@ interface PromoteEntryDialogProps {
   isSubmitting: boolean
   /** Resolves true once saved; the dialog then closes. `name` is unused on an update. */
   onSubmit: (name: string) => Promise<boolean>
+  /** Where focus goes on close, when the control that opened it may be gone. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /**
@@ -47,6 +49,7 @@ export function PromoteEntryDialog({
   mealName,
   isSubmitting,
   onSubmit,
+  onCloseAutoFocus,
 }: PromoteEntryDialogProps) {
   const t = useTranslations('meal-plan.changes.promote')
   const tCommon = useTranslations('common')
@@ -76,7 +79,7 @@ export function PromoteEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{isCustom ? t('updateTitle') : t('forkTitle')}</DialogTitle>
           <DialogDescription>

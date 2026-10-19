@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { PromoteEntryDialog } from './PromoteEntryDialog'
@@ -35,12 +35,15 @@ export function PromoteEntry({
   const t = useTranslations('meal-plan.changes.promote')
   const [open, setOpen] = useState(false)
   const { promote, isPending } = usePromoteEntry({ planId, entryId, onChanged })
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const saved = useRef(false)
 
   if (!changes.some((change) => !change.stale)) return null
 
   return (
     <>
       <Button
+        ref={buttonRef}
         type="button"
         variant="outline"
         size="lg"
@@ -55,7 +58,22 @@ export function PromoteEntry({
         isCustom={isCustom}
         mealName={mealName}
         isSubmitting={isPending}
-        onSubmit={promote}
+        onSubmit={async (name) => {
+          saved.current = await promote(name)
+          return saved.current
+        }}
+        // A save clears the entry's changes, so the refresh unmounts this
+        // button, and focus returned to it would fall to <body>
+        // (docs/DESIGN.md → Focus management). The cook view's scroll region
+        // stays, so focus goes there.
+        onCloseAutoFocus={(event) => {
+          if (!saved.current) return
+          saved.current = false
+          const region = buttonRef.current?.closest<HTMLElement>('[data-slot="cook-view-scroll"]')
+          if (!region) return
+          event.preventDefault()
+          region.focus({ preventScroll: true })
+        }}
       />
     </>
   )

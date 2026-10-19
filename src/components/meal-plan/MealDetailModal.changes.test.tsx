@@ -152,6 +152,10 @@ describe('MealDetailModal with ingredient changes (HON-1243)', () => {
     await waitFor(() => expect(callsTo(TIPS_URL)).toHaveLength(1))
     expect(callsTo(PROMOTE_URL)).toHaveLength(1)
     expect(refresh).toHaveBeenCalledTimes(1)
+    // The refresh drops the button, so focus goes to the cook view, not to it.
+    await waitFor(() =>
+      expect(document.activeElement).toHaveAttribute('data-slot', 'cook-view-scroll'),
+    )
   })
 
   it('offers "Update the recipe" on the household\'s own recipe', () => {
