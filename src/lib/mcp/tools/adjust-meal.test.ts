@@ -302,6 +302,18 @@ describe('adjust_meal', () => {
     expect(output(result).unmatched).toEqual([{ name: 'kohupiim', original: 'cream' }])
   })
 
+  it.each([
+    ['missing', { notInMeal: ['bacon'] }],
+    ['ambiguous', { ambiguous: ['pepper'] }],
+  ])('stores no note when the model’s change was dropped as %s', async (_name, unresolved) => {
+    proposes([], true, unresolved)
+
+    const result = await call({ instruction: 'No pepper, and make it milder' })
+
+    expect(replaceEntryChanges).not.toHaveBeenCalled()
+    expect(output(result).outcome).toBe('unchanged')
+  })
+
   it('writes nothing and answers unchanged when nothing applies', async () => {
     proposes([quark])
 

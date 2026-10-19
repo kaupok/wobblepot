@@ -157,12 +157,15 @@ export const adjustMeal = defineTool({
     )
 
     // The note alone only when the model proposed no change at all, as the
-    // app stores it (`AdjustRecipe.storeNote`). With every proposal unmatched,
-    // a note would make the steps follow a change the ingredients do not.
+    // app stores it (`AdjustRecipe.storeNote`). A proposal left unapplied
+    // (unmatched) or dropped (an original missing or ambiguous) means the
+    // steps would follow a change the ingredients do not make.
+    const proposedNothing =
+      result.changes.length === 0 && result.notInMeal.length === 0 && result.ambiguous.length === 0
     const outcome: 'adjusted' | 'note_stored' | 'unchanged' =
       accepted.length > 0
         ? 'adjusted'
-        : result.changes.length === 0 && result.followInSteps
+        : proposedNothing && result.followInSteps
           ? 'note_stored'
           : 'unchanged'
     if (outcome !== 'unchanged') {
