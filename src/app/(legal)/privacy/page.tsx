@@ -191,8 +191,9 @@ export default function PrivacyPage() {
                 {PRIVACY_EMAIL}
               </a>
               . The weekly planning reminder email is also consent: we send it only after you switch
-              it on, on the Household page or when you plan your first meals, and then open the link
-              in the email we send to confirm your address. Every reminder has a link to stop it.
+              it on, in My account → Reminders or when you plan your first meals, and then open the
+              link in the email we send to confirm your address. Every reminder has a link to stop
+              it.
             </Body>
           </Li>
           <Li>
