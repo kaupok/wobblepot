@@ -1,16 +1,11 @@
 {
-  "mealName": "Beef stroganoff with rice",
+  "mealName": "Beef and mushroom stroganoff with rice",
   "servings": 4,
   "timeMinutes": 40,
   "components": [
     {
       "name": "beef sirloin",
       "quantityPerServing": 125,
-      "defaultUnit": "g"
-    },
-    {
-      "name": "chestnut mushrooms",
-      "quantityPerServing": 75,
       "defaultUnit": "g"
     },
     {
@@ -38,7 +33,7 @@
   "steps": [
     "Cook the rice in salted water for 12 minutes, then drain.",
     "Fry the sliced beef in butter over high heat for 2 minutes, then set it aside.",
-    "Soften the onion and mushrooms in the same pan for 6 minutes.",
+    "Soften the onion in the same pan for 5 minutes.",
     "Take the pan off the heat, stir in the sour cream and the beef, and warm through gently."
   ],
   "equipment": ["Large frying pan", "Saucepan", "Chopping board"],
@@ -76,9 +71,12 @@
     "excludedIngredients": [],
     "restrictions": []
   },
-  "question": "What can I substitute here?",
   "locale": "en",
   "expected": {
-    "mentionsAny": ["yogurt", "yoghurt"]
-  }
+    "mentionsAny": ["yogurt", "yoghurt"],
+    "omitsAll": ["mushroom"]
+  },
+  "question": "What can I substitute here?",
+  "hasChanges": true,
+  "source": "HON-1254"
 }

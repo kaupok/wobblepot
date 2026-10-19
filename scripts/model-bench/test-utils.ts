@@ -28,7 +28,7 @@ export const STARTER_CASE_IDS: readonly string[] = [
   'review/et-kartulisalat',
   'tips/en-full-bolognese',
   'tips/et-supplementary-ahjulohe',
-  'cook-question/en-substitute-pantry-match',
+  'cook-question/en-changed-no-mushrooms-substitute',
   'cook-question/et-hakklihakaste-substitute',
   'adjust/en-no-cream-use-yoghurt',
   'adjust/et-ilma-koorta-jogurt',

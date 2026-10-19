@@ -1,8 +1,4 @@
-import {
-  changedIngredientsSection,
-  formatIngredientsList,
-  type StepsComponent,
-} from './preparation-steps'
+import { formatIngredientsList, type StepsComponent } from './preparation-steps'
 import { localeInstruction, britishEnglish, estonianVoiceForPrepSteps, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
@@ -60,6 +56,20 @@ export interface CookQuestionRequestInput {
   previous?: CookQuestionPrevious
   /** Household locale; the answer comes back in the household's language. */
   locale: string
+}
+
+/**
+ * The changed ingredient list is the whole meal, so an answer never cooks
+ * what the household left out because the meal's name calls for it
+ * (HON-1254). Not the steps prompt's wording: its "use only the ingredients
+ * listed" would forbid the pantry substitute the rules below ask for. Empty
+ * without a change, so the prompt is byte-identical.
+ */
+function changedIngredientsRule(hasChanges: boolean | undefined): string {
+  if (!hasChanges) return ''
+  return `
+
+The household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. An ingredient the name or the usual recipe calls for that the list does not have is not in this meal: do not answer as if it were. A substitute may still come from the pantry.`
 }
 
 /** Shared with the adjust prompt (HON-1244). */
@@ -176,7 +186,7 @@ Servings: ${servings}
 ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 
 Ingredients:
-${formatIngredientsList(components, servings)}${changedIngredientsSection(hasChanges)}${notes}
+${formatIngredientsList(components, servings)}${changedIngredientsRule(hasChanges)}${notes}
 
 Steps:
 ${stepsList}${equipmentSection}${pitfallsSection}${tipSection}

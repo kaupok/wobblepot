@@ -228,7 +228,7 @@ describe('buildCookQuestionPrompt', () => {
   // for garlic the household left out is no answer (HON-1254).
   it('says the changed list is the whole meal, right after it, only with a change', () => {
     expect(buildCookQuestionPrompt(input({ hasChanges: true }))).toContain(
-      "- cream: 200ml\n\nThe household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. Use only the ingredients listed.",
+      "- cream: 200ml\n\nThe household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. An ingredient the name or the usual recipe calls for that the list does not have is not in this meal: do not answer as if it were. A substitute may still come from the pantry.",
     )
     const plain = buildCookQuestionPrompt(input())
     expect(buildCookQuestionPrompt(input({ hasChanges: false }))).toBe(plain)

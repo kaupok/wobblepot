@@ -521,6 +521,14 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       onError: null,
       gate: { min: 0.9 },
     },
+    {
+      key: 'omitsLeftOut',
+      label: "Leaves out what the changed list doesn't have",
+      format: 'percent',
+      onError: null,
+      // As the tips gate: one mention is the bug the check exists for (HON-1254).
+      gate: { min: 1 },
+    },
   ],
   prepare({ input }) {
     const request = buildCookQuestionRequest({
@@ -537,6 +545,7 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       pantry: input.pantry,
       restrictions: input.restrictions,
       question: input.question,
+      hasChanges: input.hasChanges,
       previous: input.previous,
       locale: input.locale,
     })

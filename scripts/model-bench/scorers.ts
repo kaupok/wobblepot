@@ -483,6 +483,7 @@ export function scoreCookQuestion(input: CookQuestionCase, output: string): Scor
     allowedQualifiers,
     forbiddenClaims,
     allowedClaimQualifiers,
+    omitsAll,
   } = input.expected
   const text = normalizeFoodName(output)
   const words = wordCount(output)
@@ -514,6 +515,10 @@ export function scoreCookQuestion(input: CookQuestionCase, output: string): Scor
       : null,
     mentionsExpected: mentionsAny
       ? pass(mentionsAny.some((phrase) => text.includes(normalizeFoodName(phrase))))
+      : null,
+    // The name's ingredient the household left out stays out (HON-1254).
+    omitsLeftOut: omitsAll
+      ? pass(omitsAll.every((name) => !text.includes(normalizeFoodName(name))))
       : null,
   }
 }

@@ -71,11 +71,11 @@ ${text}
 /**
  * The rule that the changed ingredient list is the whole meal. Without it the
  * model cooks from the meal's name: "Tuna Pasta with Garlic and Chilli" got
- * garlic in its steps after the household left garlic out (HON-1254). Shared
- * with the cook-question prompt. Empty without a change, so the prompt is
- * byte-identical.
+ * garlic in its steps after the household left garlic out (HON-1254). The
+ * cook-question prompt has its own wording, since this one forbids a
+ * substitute. Empty without a change, so the prompt is byte-identical.
  */
-export function changedIngredientsSection(hasChanges: boolean | undefined): string {
+function changedIngredientsSection(hasChanges: boolean | undefined): string {
   if (!hasChanges) return ''
   return `
 

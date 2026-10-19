@@ -276,6 +276,11 @@ export const CookQuestionCaseSchema = z
       restrictions: z.array(z.string()),
     }),
     question: z.string().min(1).max(COOK_QUESTION_MAX_LENGTH),
+    /**
+     * The entry has a live ingredient change, so the prompt says the list is
+     * the whole meal (HON-1254). Absent reads as no change, as in production.
+     */
+    hasChanges: z.boolean().optional(),
     previous: z
       .object({
         question: z.string().min(1).max(COOK_QUESTION_MAX_LENGTH),
@@ -323,6 +328,12 @@ export const CookQuestionCaseSchema = z
        * "if you" for "If you don't have a wok, use…", which claims nothing.
        */
       allowedClaimQualifiers: z.array(z.string().min(1)).optional(),
+      /**
+       * With `hasChanges`: the answer contains none of these, case-insensitive,
+       * the ingredients the meal's name calls for that the list does not have
+       * (HON-1254). List every spelling a wrong answer may use.
+       */
+      omitsAll: z.array(z.string().min(1)).min(1).optional(),
     }),
     source,
   })
