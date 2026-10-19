@@ -25,8 +25,9 @@ const boundaries = import.meta.glob('./**/error.tsx', { eager: true }) as unknow
 // A boundary replaces the page's content, so its title is the page's h1 (HON-826).
 // The exception is a boundary under a layout that keeps its own h1 on screen:
 // `/account`'s layout holds "My account" and the tabs, so its boundary renders
-// a section of that page, at h2 (HON-1229).
-const UNDER_LAYOUT_TITLE = new Set(['./account/error.tsx'])
+// a section of that page, at h2 (HON-1229). `/household`'s does the same for
+// "Household" and its tabs (HON-1257).
+const UNDER_LAYOUT_TITLE = new Set(['./account/error.tsx', './household/error.tsx'])
 
 describe('route error boundaries', () => {
   it('finds every boundary', () => {

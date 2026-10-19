@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The Leave household section at the end of `/household` (HON-1133): one line of consequence and a confirm. A member leaves and the household stays. An owner who is the only account holder leaves by deleting the household. An owner with other account holders gets the reason in place of the button.',
+          'The Leave household section at the end of `/household/settings` (HON-1133, HON-1257): one line of consequence and a confirm. A member leaves and the household stays. An owner who is the only account holder leaves by deleting the household. An owner with other account holders gets the reason in place of the button.',
       },
     },
   },

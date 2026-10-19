@@ -100,10 +100,10 @@ An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 
 1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent. Or Continue with Google, which needs only the invite code and the consent and passes the same gates; the address is verified already, and the new user lands on `/onboarding` (HON-1157). `/sign-in` has the same button, but it never creates an account. Email sign-up sends a verification email; the link works for 24 hours. The user can sign in before clicking it. My account → Profile (`/account`) shows the address as not verified, with Resend, until the link is opened (HON-1155). The same tab lists the sign-in methods: Connect adds Google to a password account on the same address, Disconnect removes it while a password remains, and a Google-only account gets Set a password, which sends the reset email, in place of the change form (HON-1158)
 2. `/onboarding` step 1 of 4: the welcome, and the household name
 3. `/onboarding` step 2 of 4: who eats at the table, as Adults (the user first) and Children, each added with its own button; names are optional
-4. `/onboarding` step 3 of 4: the allergens the household avoids, as the nine toggles and the AI notice of `/household` (`AllergenPicker`); nothing ticked means none. Leaving this step creates the household, with its allergens in the same request
+4. `/onboarding` step 3 of 4: the allergens the household avoids, as the nine toggles and the AI notice of Household → Meal preferences (`AllergenPicker`); nothing ticked means none. Leaving this step creates the household, with its allergens in the same request
 5. `/onboarding` step 4 of 4: the first plan, a start date and a number of days, then it generates and lands on `/`. The step says the first plan is dinners only and where to change that. A household that leaves before generating gets the same choices on `/` (`FirstTimeSetup`)
 
-Allergens are asked in onboarding. The other preferences (dietary type, restrictions, excluded ingredients, meal types) are set on `/household` after onboarding. See "Onboarding" under Key Decisions.
+Allergens are asked in onboarding. The other preferences (dietary type, restrictions, excluded ingredients, meal types) are set on Household → Meal preferences (`/household/meal-preferences`) after onboarding. See "Onboarding" under Key Decisions.
 
 ### Planning
 
@@ -256,7 +256,7 @@ enum ProteinType {
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
 - `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
 
-**A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on `/household`, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
+**A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on Household → Meal preferences, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
 
 **Enums over strings:** Use Prisma enums for constrained values to prevent inconsistent data.
 
@@ -275,7 +275,7 @@ enum ProteinType {
 **Implementation:**
 
 - Prompt to create household after sign-up
-- Preferences are changed afterwards on `/household`
+- Preferences are changed afterwards on Household → Meal preferences (`/household/meal-preferences`)
 - Invite links are per member: the owner adds a member by name, then shares that member's link, and whoever signs in and opens it claims that member (`src/app/api/households/me/invites/route.ts`, `src/app/api/invites/[code]/join/route.ts`)
 
 ### Meal Scheduling

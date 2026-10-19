@@ -192,7 +192,7 @@ describe('AccountProfilePage', () => {
    *
    * The section level is derived from the title's tag rather than restated, so
    * moving the title moves what the loop demands — the same shape as
-   * `MealForm.test.tsx` and `HouseholdSettingsForm.test.tsx`, deliberately, so
+   * `MealForm.test.tsx` and the `/household` tab page tests, deliberately, so
    * they do not diverge. The `level: 1` in the title query is the separate
    * assertion that the layout keeps its `<h1>`. The loop catches what axe's
    * `heading-order` cannot: that rule only flags increases greater than one, so

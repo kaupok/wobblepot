@@ -15,11 +15,11 @@ import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
  * `PUBLIC_ROUTES` below — `src/proxy.test.ts` fails on one that is in neither.
  *
  * Note that a path *under* a listed prefix cannot be excluded by this list —
- * the match is a prefix match. `/household/invites` is the live example: it is
- * another legacy unconditional redirect, but `/household` below matches it, so
- * anonymous hits take the 307 and the legacy redirect runs after sign-in. If a
- * public route ever needs to live under a protected prefix, it needs a real
- * exclusion check here — `PUBLIC_ROUTES` is not read at runtime.
+ * the match is a prefix match. `/household` below covers its tabs
+ * (`/household/meal-preferences`, `/household/settings`, HON-1257), so an
+ * anonymous hit on any of them takes the 307. If a public route ever needs to
+ * live under a protected prefix, it needs a real exclusion check here —
+ * `PUBLIC_ROUTES` is not read at runtime.
  *
  * There is no `/recipes/[id]/page.tsx` — recipe detail renders client-side
  * inside `/recipes` — so every `/recipes/**` route is gated. If a public recipe

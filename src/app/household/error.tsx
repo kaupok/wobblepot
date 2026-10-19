@@ -7,6 +7,9 @@ import { ErrorDetails } from '@/components/ErrorDetails'
 import { useEffect } from 'react'
 import { captureClientError } from '@/lib/errors-client'
 
+// Renders inside the household layout, under its "Household" `h1` and the
+// tabs, so the message is a section of the column, not a page of its own
+// (HON-1257, as `src/app/account/error.tsx`).
 export default function HouseholdError({
   error,
   reset,
@@ -21,22 +24,20 @@ export default function HouseholdError({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <div className="max-w-md text-center">
-        <div className="flex flex-col gap-3">
-          <Heading as="h1" variant="h2">
-            {t('household.title')}
-          </Heading>
-          <Body>{t('household.body')}</Body>
-          {error.digest && (
-            <Body variant="muted">
-              {t('errorIdLabel')} {error.digest}
-            </Body>
-          )}
-        </div>
-        <ErrorDetails error={error} className="mt-4 mb-4" />
-        <Button onClick={reset}>{t('tryAgain')}</Button>
+    <div>
+      <div className="flex flex-col gap-3">
+        <Heading as="h2" variant="section">
+          {t('household.title')}
+        </Heading>
+        <Body>{t('household.body')}</Body>
+        {error.digest && (
+          <Body variant="muted">
+            {t('errorIdLabel')} {error.digest}
+          </Body>
+        )}
       </div>
+      <ErrorDetails error={error} className="mt-4 mb-4" />
+      <Button onClick={reset}>{t('tryAgain')}</Button>
     </div>
   )
 }

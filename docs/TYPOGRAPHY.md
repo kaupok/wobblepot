@@ -24,8 +24,8 @@ timeline, form section labels. See [DESIGN.md](./DESIGN.md) → Type scale for w
 `caption` is the Caption level of the type scale rendered as a heading: `Body variant="caption"`'s
 classes (`text-xs font-medium text-muted-foreground`) plus `tracking-wide uppercase`, the way Today
 labels its meal types. Use it for a group heading that sits under a Section-level title and must
-keep a heading tag for the outline — the four groups of the `/household` settings form, under the
-column's Section `h2` (HON-781). It is the group heading itself, never an eyebrow line above another
+keep a heading tag for the outline — the four groups the `/household` settings form had under the
+column's Section `h2` (HON-781), before HON-960 made each group its own Section `h2`. It is the group heading itself, never an eyebrow line above another
 heading. Its natural tag is `h3`.
 
 ### The `as` prop — tag independent of size

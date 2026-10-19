@@ -109,43 +109,44 @@ Regenerated from `find src/app -name page.tsx` on 2026-09-29. Route groups such 
 
 To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/chrome-review`, `/ideate`) point here instead of carrying their own copy.
 
-| Route                    | Access        | Purpose                                                                                            |
-| ------------------------ | ------------- | -------------------------------------------------------------------------------------------------- |
-| `/`                      | Public / Auth | Marketing landing page when signed out; Today dashboard (meals, shopping, catch-up) when signed in |
-| `/sign-in`               | Public        | Sign in (redirects to `/` or `/onboarding` if already signed in)                                   |
-| `/sign-up`               | Public        | Sign up with a private-beta invite code (redirects to `/` or `/onboarding` if already signed in)   |
-| `/forgot-password`       | Public        | Request a password reset email                                                                     |
-| `/reset-password`        | Public        | Set a new password from the emailed reset link                                                     |
-| `/invite/[code]`         | Public        | Join a household via invite link (signed out → Create account or Sign in; unknown code → 404)      |
-| `/past-meals`            | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice         |
-| `/onboarding`            | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                  |
-| `/recipes`               | Auth          | My recipes — meal library browser                                                                  |
-| `/recipes/create`        | Auth          | Create a recipe manually                                                                           |
-| `/recipes/imagine`       | Auth          | Imagine a meal — AI recipe generation                                                              |
-| `/recipes/import`        | Auth          | Import a recipe from a URL (AI extraction)                                                         |
-| `/recipes/[id]/edit`     | Auth          | Edit an existing recipe                                                                            |
-| `/shopping`              | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right              |
-| `/pantry`                | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
-| `/household`             | Auth          | Household settings, members, and invite links                                                      |
-| `/account`               | Auth          | My account → Profile: name, email and its verification, password                                   |
-| `/account/reminders`     | Auth          | My account → Reminders: the viewer's own weekly planning reminder email                            |
-| `/account/connections`   | Auth          | My account → Connections: AI assistants, read-only API keys                                        |
-| `/account/data`          | Auth          | My account → Your data: export, and account danger zone (delete)                                   |
-| `/admin/signup-codes`    | Admin         | Manage private-beta signup codes                                                                   |
-| `/status`                | Public        | Service status page — probes database, auth, and AI pipeline                                       |
-| `/bot`                   | Public        | About Wobblepot-Bot — crawler user-agent disclosure for site owners                                |
-| `/privacy`               | Public        | Privacy policy                                                                                     |
-| `/privacy/subprocessors` | Public        | Subprocessor directory (vendor list for the privacy policy)                                        |
-| `/terms`                 | Public        | Terms of service                                                                                   |
+| Route                         | Access        | Purpose                                                                                            |
+| ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------- |
+| `/`                           | Public / Auth | Marketing landing page when signed out; Today dashboard (meals, shopping, catch-up) when signed in |
+| `/sign-in`                    | Public        | Sign in (redirects to `/` or `/onboarding` if already signed in)                                   |
+| `/sign-up`                    | Public        | Sign up with a private-beta invite code (redirects to `/` or `/onboarding` if already signed in)   |
+| `/forgot-password`            | Public        | Request a password reset email                                                                     |
+| `/reset-password`             | Public        | Set a new password from the emailed reset link                                                     |
+| `/invite/[code]`              | Public        | Join a household via invite link (signed out → Create account or Sign in; unknown code → 404)      |
+| `/past-meals`                 | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice         |
+| `/onboarding`                 | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                  |
+| `/recipes`                    | Auth          | My recipes — meal library browser                                                                  |
+| `/recipes/create`             | Auth          | Create a recipe manually                                                                           |
+| `/recipes/imagine`            | Auth          | Imagine a meal — AI recipe generation                                                              |
+| `/recipes/import`             | Auth          | Import a recipe from a URL (AI extraction)                                                         |
+| `/recipes/[id]/edit`          | Auth          | Edit an existing recipe                                                                            |
+| `/shopping`                   | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right              |
+| `/pantry`                     | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
+| `/household`                  | Auth          | Household → Members: the member list and per-member invite links                                   |
+| `/household/meal-preferences` | Auth          | Household → Meal preferences: food preferences, meals to plan                                      |
+| `/household/settings`         | Auth          | Household → Settings: name, timezone, language, then Leave household                               |
+| `/account`                    | Auth          | My account → Profile: name, email and its verification, password                                   |
+| `/account/reminders`          | Auth          | My account → Reminders: the viewer's own weekly planning reminder email                            |
+| `/account/connections`        | Auth          | My account → Connections: AI assistants, read-only API keys                                        |
+| `/account/data`               | Auth          | My account → Your data: export, and account danger zone (delete)                                   |
+| `/admin/signup-codes`         | Admin         | Manage private-beta signup codes                                                                   |
+| `/status`                     | Public        | Service status page — probes database, auth, and AI pipeline                                       |
+| `/bot`                        | Public        | About Wobblepot-Bot — crawler user-agent disclosure for site owners                                |
+| `/privacy`                    | Public        | Privacy policy                                                                                     |
+| `/privacy/subprocessors`      | Public        | Subprocessor directory (vendor list for the privacy policy)                                        |
+| `/terms`                      | Public        | Terms of service                                                                                   |
 
 ### Redirect stubs — don't file bugs for these
 
 These routes exist only to keep old links working. Their `page.tsx` bodies are a single `redirect()`; landing on the target is correct behaviour, not a navigation bug.
 
-| Route                | Redirects to | Note                                                       |
-| -------------------- | ------------ | ---------------------------------------------------------- |
-| `/meal-plan`         | `/`          | The weekly plan now lives on the Today dashboard           |
-| `/household/invites` | `/household` | Invites are managed in the Members section of `/household` |
+| Route        | Redirects to | Note                                             |
+| ------------ | ------------ | ------------------------------------------------ |
+| `/meal-plan` | `/`          | The weekly plan now lives on the Today dashboard |
 
 ## Reviewing sign-up and onboarding
 

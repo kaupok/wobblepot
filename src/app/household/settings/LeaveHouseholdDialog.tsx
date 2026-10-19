@@ -33,7 +33,7 @@ interface LeaveHouseholdDialogProps {
 }
 
 /**
- * The Leave household section on `/household`: one line of consequence and a
+ * The Leave household section on `/household/settings`: one line of consequence and a
  * confirm. An owner with other account holders gets the reason in place of
  * the button, as `DeleteAccountDialog` does for account deletion.
  */

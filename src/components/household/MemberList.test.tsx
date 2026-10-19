@@ -26,7 +26,7 @@ describe('MemberList', () => {
   })
 
   /**
-   * `/household` supplies the `<h1>` (`src/app/household/page.tsx`) and this
+   * `/household` supplies the `<h1>` (`src/app/household/layout.tsx`) and this
    * card's title is the `<h2>` directly under it — hence `variant="section" as="h2"`
    * at `MemberList.tsx:78`, where the variant sets the size and `as` sets the
    * outline level. See HON-607, HON-618 and HON-781.
