@@ -23,7 +23,7 @@ Sibling files, read when they apply and before acting:
 
 - `discovery.md`: no issue ID was passed (Phase 1)
 - `regular-repo.md`: 0.1 finds no worktree
-- `templates.md`: 2.7 (plan), 7.4 (Linear summary), 7.6 (filing report)
+- `templates.md`: 2.6 (Explore prompt), 2.7 (plan), 7.4 (Linear summary), 7.6 (filing report)
 - `recovery.md`: retry context, 2.1 stops, CI failures, a missing review
 - `batched.md`: batched plans, or a verification that outruns the 600 s cap
 - `review-cap.md`: `ROUND` ≥ 3, `not actioned:` notes, the 6.7 hand-off
@@ -125,7 +125,7 @@ Print `[auto-implement] Sibling check: <sibling> ([status], merged PR #<N>) touc
 
 ### 2.4 Read project context
 
-If Phase 1 was skipped, read `docs/PROJECT_SPEC.md`.
+If Phase 1 was skipped, the 2.6 Explore call reads `docs/PROJECT_SPEC.md`; discovery already read it.
 
 ### 2.5 Fetch issue comments
 
@@ -135,12 +135,13 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
 
 ### 2.6 Explore codebase
 
-- **Shared primitive geometry changes** (a `src/components/ui/*.tsx` size/padding/radius default, a `@theme` token, a shared layout wrapper): run `/plan-issue` step 7b's scan into the plan's `## Coupled callsites`.
-- **2.3 flagged a merged sibling**: read what it changed:
-  ```bash
-  git log --oneline --since="14 days ago" -- <overlapping-paths>
-  git diff origin/main~<N>..origin/main -- <overlapping-paths>
-  ```
+**From 2.4 until the plan posts, read no file outside `.claude/skills/`: a file read in the main context is paid on every later request.** One read-only subagent reads instead and returns a short brief. Fill its prompt from `templates.md` → Explore prompt, with the 2.3 siblings:
+
+```
+Agent({ subagent_type: "Explore", model: "sonnet", run_in_background: false, description: "Explore for <ID>", prompt: "<templates.md → Explore prompt, filled>" })
+```
+
+`run_in_background: false`, because a headless worker exits when its turn ends. Plan from the brief; read the files you edit in Phase 3.
 
 ### 2.7 Write plan
 

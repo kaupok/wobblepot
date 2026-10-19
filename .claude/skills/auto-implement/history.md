@@ -45,7 +45,13 @@ An explicit issue ID skips Phase 1, so 2.1 is the only filter on that path. The 
 
 The merged PR is looked up by the sibling's `gitBranchName` because PR titles are Conventional Commits and carry no issue ID, so a title search finds nothing. The body search is the fallback for a renamed branch.
 
-2.6 then reads the sibling's actual diff (`git log` / `git diff` on the overlapping paths) because an Explore agent sees only static file content and cannot tell which lines are new. Reading the diff prevents "I searched and it didn't exist" → "it existed and I duplicated it".
+2.6 then has the sibling's actual diff read (`git log` / `git diff` on the overlapping paths), because static file content cannot tell which lines are new. Reading the diff prevents "I searched and it didn't exist" → "it existed and I duplicated it". Since HON-1239 the Explore subagent runs those commands itself, because the prompt names the sibling, its PR and the paths; without them it would see only static content.
+
+## Exploration through a subagent (2.4, 2.6; HON-1239)
+
+Every tool result stays in the main context and is paid again on every later request. Across 18 worker transcripts, `Read`, `cat`, `sed` and `grep` results were the largest content, about 28,000 tokens per run, and no run delegated a read. Measured again on 2026-10-20 over 17 Opus runs after HON-1230 and HON-1238: a run started at about 40,800 tokens, the median request carried about 161,000, the median peak was about 244,000, and file reads came to a median of about 32,600 tokens per run. 1 of 17 runs used a subagent. The prefix was a quarter of the median request, so the prefix cuts had reached their limit and file reads were the next target.
+
+A read-only `Explore` subagent pays for its reads once, in its own context, and returns a brief; the main context keeps only the brief. So 2.4 and 2.6 make one Explore call, and the worker reads only the files it edits, in Phase 3. It is `model: "sonnet"` because exploring needs no Opus, and `run_in_background: false` because a headless worker exits when its turn ends and a background agent dies with it (CLAUDE.md → Working style). The prompt lives in `templates.md`, because SKILL.md is capped at 3,300 words (`scripts/check-steering-size.test.ts`). The skill's own siblings stay readable: they are the procedure, not the codebase. Phase 4 already reads `--stat` plus named files (Diff reading in 4.2), so it is unchanged. HON-1261 compares the figures above after about ten runs.
 
 ## Coupled callsites (2.6, 3.2, 4.3; HON-612)
 
