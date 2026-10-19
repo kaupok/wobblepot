@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AdjustRecipeChange } from '@/lib/ai/adjust-recipe'
-import { buildChangeSet, pickedQuantity, resolveChanges } from './adjust-proposal'
+import { buildChangeSet, missingOriginals, pickedQuantity, resolveChanges } from './adjust-proposal'
 
 // A cream pasta with mushrooms, after the household replaced the cream with
 // yoghurt (change c1) and added chilli (change c2).
@@ -106,6 +106,23 @@ describe('resolveChanges', () => {
         reason: 'Because.',
       },
     ])
+  })
+})
+
+describe('missingOriginals', () => {
+  it('names each original no component fits, once, and skips adds and found ones', () => {
+    expect(
+      missingOriginals(
+        [
+          change({ op: 'remove', original: 'Mushrooms' }),
+          change({ op: 'remove', original: 'bacon' }),
+          change({ op: 'replace', original: 'bacon', replacement: 'ham' }),
+          change({ op: 'add', original: 'parsley', replacement: 'parsley' }),
+          change({ op: 'replace', original: 'cheese' }),
+        ],
+        components,
+      ),
+    ).toEqual(['bacon', 'cheese'])
   })
 })
 

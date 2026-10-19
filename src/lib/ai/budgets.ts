@@ -136,7 +136,8 @@ export const STEPS_AI_BUDGET_MS = 45_000
 export const COOK_QUESTION_AI_BUDGET_MS = 30_000
 
 /**
- * `/api/meal-plans/[id]/entries/[entryId]/adjust` (HON-1244). One structured
+ * `/api/meal-plans/[id]/entries/[entryId]/adjust` (HON-1244), and the MCP
+ * `adjust_meal` tool on `/api/mcp` (HON-1246). One structured
  * answer of a few short changes, the cook question's size, so the cook
  * question's 30s. That leaves 30s under the 60s `maxDuration` for the entry,
  * pantry and preferences reads before the call, and the catalogue match of

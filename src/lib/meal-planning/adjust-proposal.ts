@@ -168,6 +168,27 @@ export function resolveChanges(
   return resolved
 }
 
+/**
+ * The originals the model named that `resolveChanges` could not find among
+ * the merged components (none fits, or several do), in order and without a
+ * repeat. The review dialog has nothing to show for them; the MCP tool reports
+ * them, so the assistant can tell the user the meal has no such ingredient
+ * (HON-1246).
+ */
+export function missingOriginals(
+  changes: readonly AdjustRecipeChange[],
+  components: readonly ResolvableComponent[],
+): string[] {
+  const missing: string[] = []
+  for (const change of changes) {
+    if (change.op === 'add') continue
+    const name = change.original?.trim()
+    if (!name || findComponent(components, name) || missing.includes(name)) continue
+    missing.push(name)
+  }
+  return missing
+}
+
 /** Smallest amount a change stores: the PUT refuses 0, and rounding can reach it. */
 const MIN_QUANTITY_PER_SERVING = 0.01
 
