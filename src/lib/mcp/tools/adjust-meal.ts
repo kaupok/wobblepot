@@ -33,7 +33,7 @@ export const adjustMeal = defineTool({
   name: 'adjust_meal',
   title: 'Change a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "leave out the chilli", "add spinach"). Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal, and a name that fits several of its ingredients in ambiguous; ask the user which one they meant. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "leave out the chilli", "add spinach"). Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal, and a name that fits several of its ingredients in ambiguous; ask the user which one they meant. When part of an instruction could not be applied, the steps do not follow it until a later call applies it in full. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -156,22 +156,28 @@ export const adjustMeal = defineTool({
         : [],
     )
 
-    // The note alone only when the model proposed no change at all, as the
-    // app stores it (`AdjustRecipe.storeNote`). A proposal left unapplied
-    // (unmatched) or dropped (an original missing or ambiguous) means the
-    // steps would follow a change the ingredients do not make.
-    const proposedNothing =
-      result.changes.length === 0 && result.notInMeal.length === 0 && result.ambiguous.length === 0
+    // The steps follow the stored instruction. When part of it was left
+    // unapplied (a replacement unmatched) or dropped (an original missing or
+    // ambiguous), they would follow a change the ingredients do not make, so
+    // the instruction is stored only when all of it applied. The applied
+    // changes still reach the steps through the changed ingredient list.
+    const appliedAll =
+      unmatched.length === 0 && result.notInMeal.length === 0 && result.ambiguous.length === 0
     const outcome: 'adjusted' | 'note_stored' | 'unchanged' =
       accepted.length > 0
         ? 'adjusted'
-        : proposedNothing && result.followInSteps
+        : appliedAll && result.followInSteps
           ? 'note_stored'
           : 'unchanged'
     if (outcome !== 'unchanged') {
       // With nothing accepted, the stored set is written back unchanged with
       // the note, so the steps still follow it (`AdjustRecipe.storeNote`).
-      await writeChanges(household.id, context, accepted.map(acceptedOf), instruction)
+      await writeChanges(
+        household.id,
+        context,
+        accepted.map(acceptedOf),
+        appliedAll ? instruction : null,
+      )
     }
 
     const entry =
@@ -243,7 +249,7 @@ async function writeChanges(
   householdId: string,
   context: AdjustContext,
   accepted: AcceptedProposal[],
-  instruction: string,
+  instruction: string | null,
 ) {
   const stale = staleChangeIds(context.meal.components, context.changes)
   const stored = context.changes.map((change) => ({

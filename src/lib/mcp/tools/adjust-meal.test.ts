@@ -263,6 +263,8 @@ describe('adjust_meal', () => {
     ])
     expect(output(result).unmatched).toEqual([{ name: 'kohupiim', original: 'cream' }])
     expect(output(result).applied).toHaveLength(1)
+    // The steps must not follow "use yoghurt" while the cream stays.
+    expect(written.adjustmentNote).toBeNull()
   })
 
   it('reports an ingredient the meal does not have, and a name that fits several', async () => {
@@ -273,6 +275,7 @@ describe('adjust_meal', () => {
     expect(output(result).notInMeal).toEqual(['bacon'])
     expect(output(result).ambiguous).toEqual(['pepper'])
     expect(output(result).outcome).toBe('adjusted')
+    expect(vi.mocked(replaceEntryChanges).mock.calls[0]![3].adjustmentNote).toBeNull()
   })
 
   it('stores only the note when no ingredient changes but the steps should follow it', async () => {
