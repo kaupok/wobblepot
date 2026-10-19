@@ -17,6 +17,7 @@ import type {
 } from '@/hooks/use-cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { COOK_QUESTION_EQUIPMENT_MAX_ITEMS } from '@/lib/ai/cook-question-limits'
+import { PreparationNotes } from './PreparationNotes'
 
 // The cook view's preparation guide (docs/DESIGN.md → "Cook view", HON-932),
 // split in two: the equipment reads as part of the shopping-and-setup column
@@ -98,7 +99,10 @@ interface PreparationStepsProps {
   isLoading: boolean
   error: string | null
   onRetry: () => void
-  /** The household's own notes on the meal: shown first, and always */
+  /**
+   * The household's own notes on the meal: last, closed under "Your notes",
+   * and also while the steps load or fail (HON-1259)
+   */
   preparationNotes?: string | null
   /** Indices of the steps the cook has marked done (HON-933) */
   doneSteps?: ReadonlySet<number>
@@ -147,20 +151,6 @@ function StepsSection({ title, children }: { title: string; children: React.Reac
       </Heading>
       {children}
     </section>
-  )
-}
-
-function UserNotes({ notes }: { notes: string }) {
-  const t = useTranslations('meal-plan.steps')
-  return (
-    <div className="flex flex-col gap-2">
-      <Heading variant="section" as="h4">
-        {t('userNotes')}
-      </Heading>
-      <Body variant="step" className="whitespace-pre-line">
-        {notes}
-      </Body>
-    </div>
   )
 }
 
@@ -745,10 +735,13 @@ function StepsSkeleton() {
 }
 
 /**
- * The steps area below its "Steps" heading: the household's notes, then the
- * generated steps, Watch out and Tip — or their skeleton while generating, or
- * the error with Retry. Renders nothing when there is nothing to show; the
- * caller keeps the "How to prepare" call to action beside it until tips load.
+ * The steps area below its "Steps" heading: the generated steps, Watch out and
+ * Tip — or their skeleton while generating, or the error with Retry — then the
+ * household's notes, closed. Every meal's steps are generated, the notes an
+ * input to them (HON-1259), so the notes come last and in every state: the
+ * household can still cook from their own text while the steps load or fail.
+ * Renders nothing when there is nothing to show; the caller keeps the "How to
+ * prepare" call to action beside it until tips load.
  */
 export function PreparationSteps({
   steps,
@@ -824,8 +817,8 @@ export function PreparationSteps({
 
   return (
     <div className="flex flex-col gap-6">
-      {notes && <UserNotes notes={notes} />}
       {generated}
+      {notes && <PreparationNotes notes={notes} />}
     </div>
   )
 }

@@ -35,7 +35,7 @@ import {
   type ForbiddenFoodRule,
 } from '../../src/lib/ai/forbidden-foods'
 import type { ReviewedIngredients } from '../../src/lib/ai/review-request'
-import type { fullStepsSchema, supplementaryStepsSchema } from '../../src/lib/ai/preparation-steps'
+import type { fullStepsSchema, notesStepsSchema } from '../../src/lib/ai/preparation-steps'
 import type {
   CookQuestionCase,
   ImagineCase,
@@ -371,58 +371,57 @@ export function scoreReview(input: ReviewCase, output: ReviewedIngredients): Sco
 
 /**
  * The item counts the tips prompts ask for. They exist only as `.describe()`
- * text on `fullStepsSchema` / `supplementaryStepsSchema` and in the prompt body
+ * text on `fullStepsSchema` / `notesStepsSchema` and in the prompt body
  * (`src/lib/ai/preparation-steps.ts`) — Anthropic's structured output cannot
  * enforce array lengths — so they are copied here. Update both together.
  */
 export const TIPS_RANGES = {
   full: { equipment: [3, 5], steps: [4, 6], pitfalls: [2, 3] },
-  supplementary: { pitfalls: [2, 3] },
+  // A method in the notes sets the step count, up to 12 (HON-1259).
+  notes: { equipment: [3, 5], steps: [4, 12], pitfalls: [2, 3] },
 } as const
 
 const inRange = (n: number, [min, max]: readonly [number, number]) => n >= min && n <= max
 
+const includesText = (text: string, phrase: string) => text.includes(phrase.toLowerCase())
+
 export function scoreTips(
   input: TipsCase,
-  output: z.infer<typeof fullStepsSchema> | z.infer<typeof supplementaryStepsSchema>,
+  output: z.infer<typeof fullStepsSchema> | z.infer<typeof notesStepsSchema>,
 ): Scores {
+  const steps = output.steps.join(' ').toLowerCase()
   // The household's instruction reached the answer (HON-1244).
-  const parts = output as { steps?: string[]; pitfalls: string[]; tip?: string }
-  const text = [...(parts.steps ?? []), ...parts.pitfalls, parts.tip ?? ''].join(' ').toLowerCase()
+  const text = [steps, ...output.pitfalls, output.tip ?? ''].join(' ').toLowerCase()
   const followsNote = input.followsAny
-    ? pass(input.followsAny.some((phrase) => text.includes(phrase.toLowerCase())))
+    ? pass(input.followsAny.some((phrase) => includesText(text, phrase)))
     : null
   // The name's ingredient the household left out stays out of every field,
   // equipment included: a "garlic press" cooks garlic too (HON-1254).
-  const equipment = (output as { equipment?: string[] }).equipment ?? []
-  const allText = [...equipment, text].join(' ').toLowerCase()
+  const allText = [...output.equipment, text].join(' ').toLowerCase()
   const omitsLeftOut = input.omitsAll
-    ? pass(input.omitsAll.every((name) => !allText.includes(name.toLowerCase())))
+    ? pass(input.omitsAll.every((name) => !includesText(allText, name)))
+    : null
+  // A method in the notes keeps its times and temperatures; a note that is
+  // not a method becomes no step (HON-1259).
+  const notes = input.kind === 'notes' ? input : null
+  const keepsMethod = notes?.keepsAll
+    ? pass(notes.keepsAll.every((phrase) => includesText(steps, phrase)))
+    : null
+  const noMadeUpStep = notes?.stepsOmitAll
+    ? pass(notes.stepsOmitAll.every((phrase) => !includesText(steps, phrase)))
     : null
 
-  if (input.kind === 'full') {
-    const full = output as z.infer<typeof fullStepsSchema>
-    const r = TIPS_RANGES.full
-    return {
-      answered: 1,
-      ...(followsNote !== null && { followsNote }),
-      ...(omitsLeftOut !== null && { omitsLeftOut }),
-      countsInRange: pass(
-        inRange(full.equipment.length, r.equipment) &&
-          inRange(full.steps.length, r.steps) &&
-          inRange(full.pitfalls.length, r.pitfalls),
-      ),
-    }
-  }
-
-  const supplementary = output as z.infer<typeof supplementaryStepsSchema>
+  const r = TIPS_RANGES[input.kind]
   return {
     answered: 1,
     ...(followsNote !== null && { followsNote }),
     ...(omitsLeftOut !== null && { omitsLeftOut }),
+    ...(keepsMethod !== null && { keepsMethod }),
+    ...(noMadeUpStep !== null && { noMadeUpStep }),
     countsInRange: pass(
-      inRange(supplementary.pitfalls.length, TIPS_RANGES.supplementary.pitfalls) &&
-        supplementary.tip.trim().length > 0,
+      inRange(output.equipment.length, r.equipment) &&
+        inRange(output.steps.length, r.steps) &&
+        inRange(output.pitfalls.length, r.pitfalls),
     ),
   }
 }

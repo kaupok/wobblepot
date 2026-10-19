@@ -24,7 +24,7 @@ import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
 import { buildReviewRequest } from '../../src/lib/ai/review-request'
 import {
   buildFullStepsRequest,
-  buildSupplementaryStepsRequest,
+  buildStepsFromNotesRequest,
 } from '../../src/lib/ai/preparation-steps'
 import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
 import {
@@ -368,8 +368,8 @@ const tips: TaskSpec<'tips'> = {
   productionModel: STEPS_MODEL,
   budgetMs: STEPS_AI_BUDGET_MS,
   budgetLabel: 'STEPS_AI_BUDGET_MS',
-  // Both ceilings in `preparation-steps.ts` (2000 full, 1200 supplementary)
-  // are upper bounds; this sits between them.
+  // Both ceilings in `preparation-steps.ts` (2000 full, 3000 from notes) are
+  // upper bounds; a typical call uses well under either.
   dryRunOutputTokens: 1_500,
   metrics: [
     {
@@ -408,10 +408,28 @@ const tips: TaskSpec<'tips'> = {
       // check exists for (HON-1254), so no miss passes.
       gate: { min: 1 },
     },
+    {
+      key: 'keepsMethod',
+      label: "Keeps the notes' times and temperatures",
+      format: 'percent',
+      onError: null,
+      // A lost oven temperature cooks the meal wrong, so no miss passes
+      // (HON-1259).
+      gate: { min: 1 },
+    },
+    {
+      key: 'noMadeUpStep',
+      label: 'No step made from a note that is not a method',
+      format: 'percent',
+      onError: null,
+      gate: { min: 1 },
+    },
   ],
   inapplicableMetrics: (input) => [
     ...(input.followsAny ? [] : ['followsNote']),
     ...(input.omitsAll ? [] : ['omitsLeftOut']),
+    ...(input.kind === 'notes' && input.keepsAll ? [] : ['keepsMethod']),
+    ...(input.kind === 'notes' && input.stepsOmitAll ? [] : ['noMadeUpStep']),
   ],
   prepare({ input }) {
     const base = {
@@ -433,7 +451,7 @@ const tips: TaskSpec<'tips'> = {
         score,
       }
     }
-    const request = buildSupplementaryStepsRequest({
+    const request = buildStepsFromNotesRequest({
       ...base,
       preparationNotes: input.preparationNotes,
     })

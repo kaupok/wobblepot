@@ -222,9 +222,9 @@ describe('goldenBaselineCalls', () => {
     // The stale 0 is gone: the output scores as today's scorer scores it.
     expect(calls[0]!.scores).toEqual(prepareCase(first!).score(TIPS_REPLY.object))
     expect(calls[0]!.scores.countsInRange).toBe(1)
-    // The supplementary case rejected the full-tips reply when it was recorded.
-    expect(calls[1]!.errorName).not.toBeNull()
-    expect(calls[1]!.scores).toEqual(errorScores(tipsCases[1]!))
+    // The notes case takes the full shape too (HON-1259).
+    expect(calls[1]!.errorName).toBeNull()
+    expect(calls[1]!.scores).toEqual(prepareCase(tipsCases[1]!).score(TIPS_REPLY.object))
     // An errored call scores as an error does today.
     expect(goldenBaselineCalls([errored], tipsCases)[0]!.scores).toEqual(errorScores(first!))
   })

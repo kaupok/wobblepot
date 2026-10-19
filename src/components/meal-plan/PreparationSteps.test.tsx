@@ -18,6 +18,9 @@ const sampleTips: PreparationStepsData = {
   tip: 'Let the meat rest for 5 minutes before serving.',
 }
 
+/** "Your notes", the disclosure button over the household's notes (HON-1259) */
+const notesTrigger = () => screen.getByRole('button', { name: 'Your notes' })
+
 /** A step as the subject of a cook question (HON-983) */
 function step(index: number): CookQuestionSubject {
   return { kind: 'step', index }
@@ -47,7 +50,8 @@ describe('PreparationSteps', () => {
       expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
     })
 
-    it('shows user notes above the skeleton when notes exist', () => {
+    // The household can still cook from their own text (HON-1259).
+    it('keeps the notes, closed, after the skeleton', () => {
       render(
         <PreparationSteps
           steps={null}
@@ -57,10 +61,10 @@ describe('PreparationSteps', () => {
           preparationNotes="Use extra garlic"
         />,
       )
-      const notesHeading = screen.getByRole('heading', { name: 'Your notes' })
-      expect(screen.getByText('Use extra garlic')).toBeInTheDocument()
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByText('Use extra garlic')).toBeNull()
       expect(
-        notesHeading.compareDocumentPosition(screen.getByTestId('preparation-steps-loading')) &
+        screen.getByTestId('preparation-steps-loading').compareDocumentPosition(notesTrigger()) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
     })
@@ -96,7 +100,7 @@ describe('PreparationSteps', () => {
       expect(onRetry).toHaveBeenCalledOnce()
     })
 
-    it('shows user notes alongside the error when notes exist', () => {
+    it('keeps the notes, closed, with the error', async () => {
       render(
         <PreparationSteps
           steps={null}
@@ -106,7 +110,8 @@ describe('PreparationSteps', () => {
           preparationNotes="My notes here"
         />,
       )
-      expect(screen.getByRole('heading', { name: 'Your notes' })).toBeInTheDocument()
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'false')
+      await userEvent.click(notesTrigger())
       expect(screen.getByText('My notes here')).toBeInTheDocument()
     })
   })
@@ -119,7 +124,7 @@ describe('PreparationSteps', () => {
       expect(container.firstChild).toBeNull()
     })
 
-    it('shows only user notes when tips are null but notes exist', () => {
+    it('shows only the closed notes when tips are null but notes exist', () => {
       render(
         <PreparationSteps
           steps={null}
@@ -129,8 +134,9 @@ describe('PreparationSteps', () => {
           preparationNotes="Cook slowly"
         />,
       )
-      expect(screen.getByRole('heading', { name: 'Your notes' })).toBeInTheDocument()
-      expect(screen.getByText('Cook slowly')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 3, name: 'Your notes' })).toBeInTheDocument()
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByText('Cook slowly')).toBeNull()
     })
 
     it('leaves the equipment to PreparationEquipment', () => {
@@ -173,22 +179,35 @@ describe('PreparationSteps', () => {
       ).toBeInTheDocument()
     })
 
-    it('puts the household notes ahead of the generated steps', () => {
+    // The generated steps are the method; the notes are the household's
+    // text, closed under the Tip until opened (HON-1259).
+    it('puts the notes after the generated steps, closed until opened', async () => {
       render(
         <PreparationSteps
           steps={sampleTips}
           isLoading={false}
           error={null}
           onRetry={vi.fn()}
-          preparationNotes="Double the garlic"
+          preparationNotes={'Double the garlic.\nServe with rice.'}
         />,
       )
+      const tip = screen.getByText('Let the meat rest for 5 minutes before serving.')
       expect(
-        screen
-          .getByText('Double the garlic')
-          .compareDocumentPosition(screen.getByText('Chop vegetables')) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
+        tip.compareDocumentPosition(notesTrigger()) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByText(/Double the garlic/)).toBeNull()
+
+      await userEvent.click(notesTrigger())
+
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'true')
+      const notes = screen.getByText(/Double the garlic/)
+      expect(notes.textContent).toBe('Double the garlic.\nServe with rice.')
+      expect(notes).toHaveClass('whitespace-pre-line')
+
+      await userEvent.click(notesTrigger())
+      expect(notesTrigger()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByText(/Double the garlic/)).toBeNull()
     })
 
     it('hides sections when they are empty', () => {

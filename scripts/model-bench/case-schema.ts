@@ -247,8 +247,19 @@ export const TipsCaseSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...tipsBase, kind: z.literal('full') }),
   z.strictObject({
     ...tipsBase,
-    kind: z.literal('supplementary'),
+    kind: z.literal('notes'),
+    /** The household's own notes on the meal, which the steps follow (HON-1259). */
     preparationNotes: z.string().min(1),
+    /**
+     * Each of these, case-insensitive, is in the steps: the times and
+     * temperatures of a method in the notes, which the steps keep.
+     */
+    keepsAll: z.array(z.string().min(1)).min(1).optional(),
+    /**
+     * No step contains any of these, case-insensitive: words of a note that is
+     * not a method, which no step is made from. The tip may still use them.
+     */
+    stepsOmitAll: z.array(z.string().min(1)).min(1).optional(),
   }),
 ])
 

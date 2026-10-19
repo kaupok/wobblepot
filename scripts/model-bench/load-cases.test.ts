@@ -26,7 +26,7 @@ describe('the committed cases', () => {
   it('tips has at least 3 cases of each kind', () => {
     const kinds = cases.flatMap((c) => (c.task === 'tips' ? [c.input.kind] : []))
     expect(kinds.filter((k) => k === 'full').length).toBeGreaterThanOrEqual(3)
-    expect(kinds.filter((k) => k === 'supplementary').length).toBeGreaterThanOrEqual(3)
+    expect(kinds.filter((k) => k === 'notes').length).toBeGreaterThanOrEqual(3)
   })
 
   it('every plan case offers 20 to 50 dinner candidates, with meal IDs unique in the case', () => {

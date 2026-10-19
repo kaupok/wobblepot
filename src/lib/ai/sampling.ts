@@ -42,7 +42,7 @@ export type AiSampleCallSite =
   | 'parse-recipe'
   | 'review-quantities'
   | 'preparation-tips-full'
-  | 'preparation-tips-supplementary'
+  | 'preparation-tips-from-notes'
   | 'cook-question'
 
 export interface AiSampleInput {

@@ -73,7 +73,7 @@ import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/
 import { logAiSample } from '@/lib/ai/sampling'
 import { getServerFlag } from '@/lib/feature-flags'
 import { STEPS_MODEL } from '@/lib/ai/models'
-import { buildFullStepsRequest, buildSupplementaryStepsRequest } from '@/lib/ai/preparation-steps'
+import { buildFullStepsRequest } from '@/lib/ai/preparation-steps'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -643,32 +643,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     )
   })
 
-  it('generates supplementary tips when meal has preparationNotes', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockLoadEntry.mockResolvedValue(
-      sampleEntry({
-        meal: {
-          ...sampleEntry().meal,
-          preparationNotes: 'My custom method: sear first then simmer',
-        },
-      }) as never,
-    )
-    const supplementary = {
-      pitfalls: ['Watch the heat'],
-      tip: 'Rest the meat',
-    }
-    mockGenerateObject.mockResolvedValue({ object: supplementary } as never)
-
-    const response = await callPost()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.tips).toEqual(supplementary)
-    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
-    expect(call.prompt).toContain("User's preparation notes")
-  })
-
   describe('request builders (HON-796)', () => {
     // Fractional and `piece` quantities, so the ingredient-list scaling,
     // rounding and `pcs` label are part of what is compared.
@@ -712,22 +686,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         abortSignal: expect.any(AbortSignal),
       })
     })
-
-    it('sends exactly the request buildSupplementaryStepsRequest builds, plus model and signal', async () => {
-      const preparationNotes = 'Sear the chicken first, then simmer.'
-      mockLoadEntry.mockResolvedValue(
-        sampleEntry({ meal: { ...sampleEntry().meal, components, preparationNotes } }) as never,
-      )
-      mockGenerateObject.mockResolvedValue({ object: { pitfalls: [], tip: 'Rest it' } } as never)
-
-      await callPost()
-
-      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-        ...buildSupplementaryStepsRequest({ ...builderInput, preparationNotes }),
-        model: { modelId: STEPS_MODEL },
-        abortSignal: expect.any(AbortSignal),
-      })
-    })
   })
 
   it('records the SDK usage via toAiUsageStats for full tips', async () => {
@@ -736,29 +694,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: [], steps: ['Step 1'], pitfalls: [], tip: 'Tip' },
-      usage: USAGE_FIXTURE,
-    } as never)
-
-    await callPost()
-
-    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
-    expect(mockRecordAiUsage).toHaveBeenCalledWith({
-      householdId: mockMembership.household.id,
-      feature: 'entry_preparation_tips',
-      ...expectedUsageStats(STEPS_MODEL),
-    })
-  })
-
-  it('records the SDK usage via toAiUsageStats for supplementary tips', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockLoadEntry.mockResolvedValue(
-      sampleEntry({
-        meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
-      }) as never,
-    )
-    mockGenerateObject.mockResolvedValue({
-      object: { pitfalls: [], tip: 'Rest the meat' },
       usage: USAGE_FIXTURE,
     } as never)
 
@@ -781,28 +716,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     const response = await callPost()
 
     // The error is rethrown as-is, so the route's generic mapping is unchanged.
-    expect(response.status).toBe(500)
-    expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
-    expect(mockRecordAiUsage).toHaveBeenCalledWith({
-      householdId: mockMembership.household.id,
-      feature: 'entry_preparation_tips',
-      ...expectedUsageStats(STEPS_MODEL),
-      success: false,
-    })
-  })
-
-  it('records the billed usage with success: false when supplementary tips throw NoObjectGeneratedError', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockLoadEntry.mockResolvedValue(
-      sampleEntry({
-        meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
-      }) as never,
-    )
-    mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
-
-    const response = await callPost()
-
     expect(response.status).toBe(500)
     expect(mockRecordAiUsage).toHaveBeenCalledTimes(1)
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
@@ -1112,32 +1025,5 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       hasUserNotes: false,
     })
     expect(args.output).toEqual(fullTips)
-  })
-
-  it('logs a preparation-tips-supplementary sample when locale is non-default and meal has user notes', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockLoadEntry.mockResolvedValue(
-      sampleEntry({
-        meal: {
-          ...sampleEntry().meal,
-          preparationNotes: 'Eestikeelsed märkused valmistamise kohta',
-        },
-      }) as never,
-    )
-    const supplementary = {
-      pitfalls: ['Hoia silma peal'],
-      tip: 'Lisa soola lõpus',
-    }
-    mockGenerateObject.mockResolvedValue({ object: supplementary } as never)
-
-    await callPost()
-
-    expect(mockLogAiSample).toHaveBeenCalledTimes(1)
-    const args = mockLogAiSample.mock.calls[0]![0]
-    expect(args.callSite).toBe('preparation-tips-supplementary')
-    expect(args.locale).toBe('et')
-    expect((args.input as { hasUserNotes: boolean }).hasUserNotes).toBe(true)
-    expect(args.output).toEqual(supplementary)
   })
 })

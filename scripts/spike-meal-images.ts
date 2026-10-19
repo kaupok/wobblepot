@@ -43,9 +43,9 @@ import { z } from 'zod'
 import { REVIEW_MODEL, STEPS_MODEL } from '../src/lib/ai/models'
 import {
   buildFullStepsPrompt,
-  buildSupplementaryStepsPrompt,
+  buildStepsFromNotesPrompt,
   fullStepsSchema,
-  supplementaryStepsSchema,
+  notesStepsSchema,
 } from '../src/lib/ai/preparation-steps'
 import { estimateCostUsd } from '../src/lib/ai/pricing'
 import {
@@ -414,8 +414,8 @@ export function ingredientsListFor(meal: SpikeMeal, servings: number): string {
 
 export interface PrepSample {
   mealSlug: string
-  /** `supplementary` when the meal has notes — the route then returns no steps. */
-  kind: 'full' | 'supplementary'
+  /** `notes` when the meal has notes, which the steps then follow (HON-1259). */
+  kind: 'full' | 'notes'
   equipment: string[]
   steps: string[]
   pitfalls: string[]
@@ -1006,21 +1006,18 @@ async function generatePrepSample(anthropic: Anthropic, meal: SpikeMeal): Promis
   const t0 = performance.now()
   try {
     if (notes) {
-      // Same token ceilings as the prep route (HON-693).
+      // Same token ceilings as the prep route (HON-693, HON-1259).
       const result = await generateObject({
         model: anthropic(STEPS_MODEL),
-        schema: supplementaryStepsSchema,
-        prompt: buildSupplementaryStepsPrompt({ ...input, preparationNotes: notes }),
-        maxOutputTokens: 1200,
+        schema: notesStepsSchema,
+        prompt: buildStepsFromNotesPrompt({ ...input, preparationNotes: notes }),
+        maxOutputTokens: 3000,
         maxRetries: 2,
       })
       return {
         mealSlug: meal.slug,
-        kind: 'supplementary',
-        equipment: [],
-        steps: [],
-        pitfalls: result.object.pitfalls,
-        tip: result.object.tip,
+        kind: 'notes',
+        ...result.object,
         latencyMs: performance.now() - t0,
         usd: claudeUsd(STEPS_MODEL, result.usage),
       }
@@ -1042,7 +1039,7 @@ async function generatePrepSample(anthropic: Anthropic, meal: SpikeMeal): Promis
   } catch (error) {
     return {
       mealSlug: meal.slug,
-      kind: notes ? 'supplementary' : 'full',
+      kind: notes ? 'notes' : 'full',
       equipment: [],
       steps: [],
       pitfalls: [],

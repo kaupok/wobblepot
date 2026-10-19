@@ -1,0 +1,47 @@
+{
+  "kind": "notes",
+  "mealName": "Meatballs with mashed potatoes",
+  "servings": 4,
+  "timeMinutes": null,
+  "components": [
+    {
+      "name": "ground beef",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "egg",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "breadcrumbs",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "potato",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "milk",
+      "quantityPerServing": 50,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "butter",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": "Grandma's recipe. The kids like ketchup on the side.",
+  "stepsOmitAll": ["grandma", "granny"],
+  "locale": "en",
+  "source": "HON-1259"
+}

@@ -50,7 +50,7 @@ export const CALL_SITE_TASKS: Record<SupportedCallSite, Task> = {
   'parse-recipe': 'recipe',
   'review-quantities': 'review',
   'preparation-tips-full': 'tips',
-  'preparation-tips-supplementary': 'tips',
+  'preparation-tips-from-notes': 'tips',
   'cook-question': 'cook-question',
 }
 
@@ -223,10 +223,10 @@ function buildInput(callSite: SupportedCallSite, input: unknown, locale: string)
     case 'review-quantities':
       return reviewInput(parseInput(ReviewSampleInput, input, callSite), locale)
     case 'preparation-tips-full':
-    case 'preparation-tips-supplementary':
+    case 'preparation-tips-from-notes':
       return tipsInput(
         parseInput(TipsSampleInput, input, callSite),
-        callSite === 'preparation-tips-full' ? 'full' : 'supplementary',
+        callSite === 'preparation-tips-full' ? 'full' : 'notes',
         locale,
       )
     case 'cook-question':
@@ -358,13 +358,13 @@ function reviewInput(input: z.infer<typeof ReviewSampleInput>, locale: string): 
 
 function tipsInput(
   input: z.infer<typeof TipsSampleInput>,
-  kind: 'full' | 'supplementary',
+  kind: 'full' | 'notes',
   locale: string,
 ): BuiltInput {
   const missingInput = [
     `components: the sample logs only that the meal had ${input.ingredientsCount} ingredients`,
   ]
-  if (kind === 'supplementary') {
+  if (kind === 'notes') {
     missingInput.push('preparationNotes: the sample logs only that the user wrote notes')
   }
   return {
@@ -375,7 +375,7 @@ function tipsInput(
       timeMinutes: input.timeMinutes,
       components: [],
       locale,
-      ...(kind === 'supplementary' ? { preparationNotes: '' } : {}),
+      ...(kind === 'notes' ? { preparationNotes: '' } : {}),
     },
     missingInput,
     expectations: [],

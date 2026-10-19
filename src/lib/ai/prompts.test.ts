@@ -9,7 +9,7 @@ import {
   britishEnglish,
 } from './prompts'
 import { buildImagineRequest } from './imagine-request'
-import { buildFullStepsPrompt, buildSupplementaryStepsPrompt } from './preparation-steps'
+import { buildFullStepsPrompt, buildStepsFromNotesPrompt } from './preparation-steps'
 import { buildCookQuestionPrompt } from './cook-question'
 import { buildRecipeExtractionPrompt } from './recipe-prompt'
 import { buildReviewRequest } from './review-request'
@@ -667,9 +667,9 @@ describe('British English on every English surface', () => {
       build: (locale) => buildFullStepsPrompt({ ...steps, locale }),
     },
     {
-      name: 'supplementary preparation tips',
+      name: 'preparation tips from notes',
       build: (locale) =>
-        buildSupplementaryStepsPrompt({ ...steps, preparationNotes: 'Fry it.', locale }),
+        buildStepsFromNotesPrompt({ ...steps, preparationNotes: 'Fry it.', locale }),
     },
     {
       name: 'cook question',

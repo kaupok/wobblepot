@@ -1,0 +1,37 @@
+{
+  "kind": "notes",
+  "mealName": "Seared and roasted chicken breast with green beans",
+  "servings": 2,
+  "timeMinutes": 40,
+  "components": [
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 180,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "green beans",
+      "quantityPerServing": 120,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "lemon",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "salt",
+      "quantityPerServing": 2,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": "Heat the oven to 180°C. Sear the chicken at 220°C for 3 minutes, then roast at 180°C for 20 minutes. Rest it while the beans boil.",
+  "keepsAll": ["220", "180", "3 min", "20 min"],
+  "locale": "en",
+  "source": "HON-1259"
+}

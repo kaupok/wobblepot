@@ -691,7 +691,7 @@ export async function updateHouseholdMeal(
     // (`MealPlanEntry.preparationTips`): `buildFullStepsPrompt` takes
     // `mealName`, `timeMinutes` and an ingredient list built from the
     // meal's components, and `preparationNotes` both feeds
-    // `buildSupplementaryStepsPrompt` and selects which of the two prompts
+    // `buildStepsFromNotesPrompt` and selects which of the two prompts
     // runs. Leaving tips cached after a component swap means "pat the
     // chicken dry" survives on a meal that is now tofu, and every read is a
     // cache hit, so nothing regenerates it. Invalidate here for the same

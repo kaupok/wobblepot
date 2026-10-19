@@ -36,7 +36,7 @@ describe('parsePreparationSteps', () => {
     })
   })
 
-  it('returns supplementary tips (pitfalls + tip only)', () => {
+  it('parses tips with no steps (pitfalls + tip only, cached before HON-1259)', () => {
     const stored = JSON.stringify({
       pitfalls: ["Don't overcook"],
       tip: 'Season well',
@@ -96,5 +96,22 @@ describe('parseCachedPreparationSteps', () => {
     expect(
       parseCachedPreparationSteps('Preheat the oven.', { servings: 2, legacyServings: 2 }),
     ).toBeNull()
+  })
+
+  // A meal with notes cached Watch out and Tip only, before HON-1259: the
+  // cook view must ask for steps, not show the old extras.
+  it('drops a cache with no steps, so the steps generate', () => {
+    const extrasOnly = serializePreparationSteps({ pitfalls: ['Crowding'], tip: 'Rest it' }, 2)
+    expect(parseCachedPreparationSteps(extrasOnly, { servings: 2, legacyServings: 2 })).toBeNull()
+  })
+
+  it('serves a cache whose steps are an empty list', () => {
+    const empty = { equipment: [], steps: [], pitfalls: ['Crowding'] }
+    expect(
+      parseCachedPreparationSteps(serializePreparationSteps(empty, 2), {
+        servings: 2,
+        legacyServings: 2,
+      }),
+    ).toEqual(empty)
   })
 })

@@ -1,5 +1,5 @@
 {
-  "kind": "supplementary",
+  "kind": "notes",
   "mealName": "Ahjulõhe kartulitega",
   "servings": 3,
   "timeMinutes": 40,
@@ -26,5 +26,6 @@
     }
   ],
   "preparationNotes": "1. Lõika kartulid viiludeks ja küpseta 200 °C ahjus 20 minutit.\n2. Pane lõhe kartulite peale, maitsesta soola ja sidrunimahlaga.\n3. Küpseta veel 15 minutit ja puista peale tilli.",
+  "keepsAll": ["200", "20 min", "15 min"],
   "locale": "et"
 }

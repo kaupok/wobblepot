@@ -99,7 +99,11 @@ Tips are scored on whether the item counts fall within the ranges the prompt ask
 What `kind` decides is the request:
 
 - **`full`**: the app writes the whole preparation guide (equipment, steps and pitfalls) from the meal and its components.
-- **`supplementary`**: the user has written their own `preparationNotes`, and the app adds pitfalls and one tip on top of them. A supplementary case must have notes, and the notes are what the case tests: write ones a good answer should not repeat.
+- **`notes`**: the meal has the household's own `preparationNotes`, and the app writes the whole guide with the notes as input (HON-1259). The steps follow a method in the notes; the ingredient list wins where the two differ. A notes case must have notes, and the notes are what the case tests. Two optional expectations go with them:
+  - **`keepsAll`**: each phrase must be in the steps: the times and temperatures of the notes' method (`"200"`, `"20 min"`, which also matches `"20 minutit"`).
+  - **`stepsOmitAll`**: no step may contain any of these: the words of a note that is not a method (`"grandma"`), which no step is made from. The tip may still use them.
+
+  A forked recipe whose notes name an ingredient the list no longer has takes `hasChanges: true` and `omitsAll`, as a full case does.
 
 ### cook-question
 

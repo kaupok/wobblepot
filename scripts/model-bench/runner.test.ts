@@ -77,17 +77,9 @@ describe('runBenchmark', () => {
   })
 
   it('sends the production request with no abort signal', async () => {
-    const { factory, calls } = mockModelFactory(({ promptText }) =>
-      promptText.includes('supplementary')
-        ? { object: { pitfalls: ['a', 'b'], tip: 't' } }
-        : {
-            object: {
-              equipment: ['a', 'b', 'c'],
-              steps: ['1', '2', '3', '4'],
-              pitfalls: ['a', 'b'],
-            },
-          },
-    )
+    const { factory, calls } = mockModelFactory(() => ({
+      object: { equipment: ['a', 'b', 'c'], steps: ['1', '2', '3', '4'], pitfalls: ['a', 'b'] },
+    }))
     await runBenchmark({
       cases: tipsCases,
       baseline: BASELINE,
@@ -99,7 +91,7 @@ describe('runBenchmark', () => {
 
     for (const call of calls) expect(call.options.abortSignal).toBeUndefined()
     // The token ceilings come from the builders (HON-796), not from the benchmark.
-    expect(calls.map((c) => c.options.maxOutputTokens).sort()).toEqual([1200, 1200, 2000, 2000])
+    expect(calls.map((c) => c.options.maxOutputTokens).sort()).toEqual([2000, 2000, 3000, 3000])
   })
 
   it('records latency, usage, reasoning tokens and cost for a successful call', async () => {

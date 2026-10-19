@@ -1,5 +1,5 @@
 {
-  "kind": "supplementary",
+  "kind": "notes",
   "mealName": "Chicken tikka curry",
   "servings": 4,
   "timeMinutes": 50,
@@ -25,16 +25,15 @@
       "defaultUnit": "g"
     },
     {
-      "name": "onion",
-      "quantityPerServing": 0.5,
-      "defaultUnit": "piece"
-    },
-    {
       "name": "white rice",
       "quantityPerServing": 75,
       "defaultUnit": "g"
     }
   ],
   "preparationNotes": "1. Marinate the chicken in the yogurt and half the paste for at least 20 minutes.\n2. Fry the onion until golden, add the rest of the paste and cook for a minute.\n3. Add the chicken and brown it, then pour in the tomatoes and simmer for 20 minutes.\n4. Serve with rice.",
-  "locale": "en"
+  "hasChanges": true,
+  "omitsAll": ["onion"],
+  "keepsAll": ["20 min"],
+  "locale": "en",
+  "source": "HON-1259"
 }

@@ -42,6 +42,10 @@ vi.mock('../../src/lib/ai/preparation-steps', async (importOriginal) => {
 const BASE_ARGS = ['--baseline', 'claude-sonnet-5', '--candidate', 'claude-sonnet-5-5']
 const STEM = '2026-10-01-claude-sonnet-5-vs-claude-sonnet-5-5'
 
+/** A phrase only the tips prompt for a meal with notes carries (HON-1259). */
+const NOTES_PROMPT = "The household's notes on this meal"
+const NOTES_STEPS = ['Heat the oven to 200°C.', 'Bake for 20 min.', 'Bake 15 min more.', 'Serve.']
+
 /**
  * A plausible reply for every task, chosen by a phrase only that task's
  * prompt carries. The pipeline test checks the plumbing, not model quality.
@@ -79,8 +83,10 @@ function respond({ promptText }: MockCall): MockResponse {
       },
     }
   }
-  if (promptText.includes('supplementary tips'))
-    return { object: { pitfalls: ['a', 'b'], tip: 't' } }
+  // The notes starter keeps its method's temperature and times (HON-1259).
+  if (promptText.includes(NOTES_PROMPT)) {
+    return { object: { equipment: ['a', 'b', 'c'], steps: NOTES_STEPS, pitfalls: ['a', 'b'] } }
+  }
   if (promptText.includes('- equipment:')) {
     return {
       object: { equipment: ['a', 'b', 'c'], steps: ['1', '2', '3', '4'], pitfalls: ['a', 'b'] },
@@ -389,7 +395,7 @@ describe('main', () => {
       expect(md).toContain('# AI eval check: production configuration')
       expect(md).toContain(`Models: tips \`${STEPS_MODEL}\``)
       expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 90.0% | pass |')
-      expect(out.join('\n')).toContain('**Pass.** All 5 gates hold.')
+      expect(out.join('\n')).toContain('**Pass.** All 7 gates hold.')
       const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
       expect(json).toMatchObject({ mode: 'check', model: null, passed: true, plannedCalls: 4 })
       expect(json.calls).toHaveLength(4)
@@ -546,7 +552,7 @@ describe('main', () => {
       })
       expect(Object.keys(golden.cases)).toEqual([
         'tips/en-full-bolognese',
-        'tips/et-supplementary-ahjulohe',
+        'tips/et-notes-method-ahjulohe',
       ])
       const bolognese = golden.cases['tips/en-full-bolognese']
       expect(bolognese.promptHash).toMatch(/^[0-9a-f]{64}$/)
@@ -576,11 +582,17 @@ describe('main', () => {
     })
 
     it('--record still passes when one tips call returns an item count out of range (HON-929)', async () => {
-      // A fourth pitfall on one supplementary call, as in the first HON-905 record.
-      let supplementaryCalls = 0
+      // A fourth pitfall on one notes call, as in the first HON-905 record.
+      let notesCalls = 0
       const { factory, calls } = mockModelFactory((call) => {
-        if (call.promptText.includes('supplementary tips') && ++supplementaryCalls === 3) {
-          return { object: { pitfalls: ['a', 'b', 'c', 'd'], tip: 't' } }
+        if (call.promptText.includes(NOTES_PROMPT) && ++notesCalls === 3) {
+          return {
+            object: {
+              equipment: ['a', 'b', 'c'],
+              steps: NOTES_STEPS,
+              pitfalls: ['a', 'b', 'c', 'd'],
+            },
+          }
         }
         return respond(call)
       })
@@ -600,9 +612,9 @@ describe('main', () => {
     })
 
     it('--record fails when one tips call errors, though the count gate tolerates a miss (HON-929)', async () => {
-      let supplementaryCalls = 0
+      let notesCalls = 0
       const { factory } = mockModelFactory((call) => {
-        if (call.promptText.includes('supplementary tips') && ++supplementaryCalls === 3) {
+        if (call.promptText.includes(NOTES_PROMPT) && ++notesCalls === 3) {
           throw new TypeError('socket hang up')
         }
         return respond(call)
@@ -742,7 +754,7 @@ describe('main', () => {
     it('lists a case missing from the golden under "Not in golden" and does not run it', async () => {
       await recordImagineAndTips()
       editGolden('tips', (g) => {
-        delete g.cases['tips/et-supplementary-ahjulohe']
+        delete g.cases['tips/et-notes-method-ahjulohe']
         // A golden case that no longer exists is ignored.
         g.cases['tips/retired-case'] = g.cases['tips/en-full-bolognese']!
       })
@@ -757,7 +769,7 @@ describe('main', () => {
       expect(calls).toHaveLength(1)
       const md = readFileSync(join(outDir, `${GOLDEN_STEM}.md`), 'utf8')
       expect(md).toContain('## Not in golden')
-      expect(md).toContain('- `tips/et-supplementary-ahjulohe` — re-record to include it')
+      expect(md).toContain('- `tips/et-notes-method-ahjulohe` — re-record to include it')
       expect(md).toContain('**Prompts since the golden:** tips: unchanged.')
       expect(md).not.toContain('retired-case')
       // Echoed with the summary.

@@ -400,7 +400,7 @@ describe('loadPlanEntries payload', () => {
   })
 
   it('parses stored preparationTips when present', async () => {
-    const tips = { pitfalls: ['Over-salt'], tip: 'Stir often' }
+    const tips = { steps: ['Simmer'], pitfalls: ['Over-salt'], tip: 'Stir often' }
     mockEntriesFindMany.mockResolvedValue([
       {
         id: 'entry-1',
@@ -422,6 +422,29 @@ describe('loadPlanEntries payload', () => {
     expect(data.entries[0]!.meal).toBeNull()
   })
 
+  // A meal with notes cached Watch out and Tip only before HON-1259. Served
+  // as the cook view's first steps, they would stop it asking for real ones.
+  it('drops stored preparationTips with no steps', async () => {
+    mockEntriesFindMany.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date('2026-02-03T00:00:00'),
+        mealType: 'dinner',
+        changes: [],
+        status: 'planned',
+        rating: null,
+        preparationTips: JSON.stringify({ pitfalls: ['Over-salt'], tip: 'Stir often' }),
+        note: null,
+        servingOverride: null,
+        meal: null,
+      },
+    ] as never)
+
+    const data = await load()
+
+    expect(data.entries[0]!.preparationTips).toBeNull()
+  })
+
   // The cook view shows these tips without asking the tips route, so tips
   // priced at other servings must not reach it either (HON-1040).
   it('drops stored preparationTips priced at other servings', async () => {
@@ -431,7 +454,7 @@ describe('loadPlanEntries payload', () => {
       _count: { members: 3 },
       members: [1, 1, 0.5].map((portionMultiplier) => ({ preferences: { portionMultiplier } })),
     }
-    const tips = { pitfalls: ['Over-salt'], tip: 'Stir often' }
+    const tips = { steps: ['Simmer'], pitfalls: ['Over-salt'], tip: 'Stir often' }
     const entry = (id: string, preparationTips: string) => ({
       id,
       date: new Date('2026-02-03T00:00:00'),
