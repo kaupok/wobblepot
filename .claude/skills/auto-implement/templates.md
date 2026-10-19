@@ -26,12 +26,12 @@ Acceptance criteria:
 1. **Files to change**: each with `path:line` anchors and what changes there
 2. **Pattern to copy**: one existing reference file that already does the same kind of thing, with `path:line`
 3. **Tests and stories**: the tests, stories and E2E specs that cover this area, and which ones the change makes stale
-4. **Sibling changes**: <sibling ID> (merged PR #<N>) touched <paths>. Run `git log --oneline --since="14 days ago" -- <paths>` and `git diff origin/main~<N>..origin/main -- <paths>`, and say what it added that the plan must extend, not duplicate
-5. **Coupled callsites**: this issue changes <the primitive, token or wrapper and its old value>. Run `.claude/skills/plan-issue/SKILL.md` step 7b's greps against the old value and return each hit as Mirror, Override or Deliberate with `path:line` and a one-line reason, or `none — no callsite hardcodes <property>`
+4. **Sibling changes**: <sibling ID> (merged PR #<PR>) touched <paths>. Run `git log --oneline --since="14 days ago" -- <paths>`, find the merge commit with `gh pr view <PR> --json mergeCommit --jq .mergeCommit.oid`, and run `git diff <sha>~1..<sha> -- <paths>`. Say what it added that the plan must extend, not duplicate
+5. **Coupled callsites**: if the files to change alter a size, padding or radius default on a `src/components/ui` primitive, a `@theme` token or a shared layout wrapper, run `.claude/skills/plan-issue/SKILL.md` step 7b's greps against the old value. Return each hit as Mirror, Override or Deliberate with `path:line` and a one-line reason, or `none — no callsite hardcodes <property>`. Otherwise write `not applicable`
 6. **Doc rules**: any CLAUDE.md or docs rule this change must follow, in one line each
 ```
 
-Items 4 and 5 go in only when 2.3 flagged a merged sibling or the issue changes shared primitive geometry. The brief's item 5 becomes the plan's `## Coupled callsites`.
+Item 4 goes in only when 2.3 flagged a merged sibling. Item 5 always goes in, because the subagent is the first to see the file set and so applies the 7b trigger. The brief's item 5 becomes the plan's `## Coupled callsites`; `not applicable` omits the section.
 
 ## Plan (2.7)
 

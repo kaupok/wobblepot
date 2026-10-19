@@ -135,7 +135,7 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
 
 ### 2.6 Explore codebase
 
-**Before the plan posts, read no file outside `.claude/skills/`: a file read in the main context is paid on every later request.** One read-only subagent reads instead and returns a short brief. Fill its prompt from `templates.md` → Explore prompt, with the 2.3 siblings and whether the issue changes shared primitive geometry:
+**Before the plan posts, read no file outside `.claude/skills/`: a file read in the main context is paid on every later request.** One read-only subagent reads instead and returns a short brief. Fill its prompt from `templates.md` → Explore prompt, with the 2.3 siblings:
 
 ```
 Agent({ subagent_type: "Explore", model: "sonnet", run_in_background: false, description: "Explore for <ID>", prompt: "<templates.md → Explore prompt, filled>" })

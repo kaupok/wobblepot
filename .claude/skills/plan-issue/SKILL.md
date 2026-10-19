@@ -112,7 +112,7 @@ Review any prior discussion, decisions, or context from team members.
 
 Read the files the plan depends on and the existing patterns it should follow, not the whole codebase.
 
-**If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you see which lines the sibling added (`history.md` → Read the sibling's diff).
+**If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff <sha>~1..<sha> -- <overlapping-paths>`, where `<sha>` is the sibling PR's merge commit (`gh pr view <PR> --json mergeCommit --jq .mergeCommit.oid`), so you see which lines the sibling added (`history.md` → Read the sibling's diff).
 
 ### 7. Scan for downstream impact
 

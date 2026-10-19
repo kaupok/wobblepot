@@ -75,8 +75,16 @@ describe('auto-implement Explore prompt (templates.md)', () => {
 
   it('keeps the sibling diff and the coupled-callsite scan the old 2.6 ran', () => {
     expect(prompt).toContain('git log --oneline --since="14 days ago" -- <paths>')
-    expect(prompt).toContain('git diff origin/main~<N>..origin/main -- <paths>')
+    // The diff is the sibling's merge commit, not origin/main~<PR number> (review of PR #1314).
+    expect(prompt).toContain('gh pr view <PR> --json mergeCommit --jq .mergeCommit.oid')
+    expect(prompt).toContain('git diff <sha>~1..<sha> -- <paths>')
+    expect(prompt).not.toContain('origin/main~<N>')
     expect(prompt).toContain('step 7b')
     expect(prompt).toContain('Mirror, Override or Deliberate')
+  })
+
+  it('lets the subagent apply the 7b trigger, because it is the first to see the file set', () => {
+    expect(prompt).toContain('Item 5 always goes in')
+    expect(prompt).toContain('Otherwise write `not applicable`')
   })
 })
