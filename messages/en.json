@@ -1236,8 +1236,8 @@
         "body": "We had trouble loading the recipe editor. Please try again."
       },
       "household": {
-        "title": "Couldn't load household settings",
-        "body": "We had trouble loading your household settings. Please try again."
+        "title": "Couldn't load your household",
+        "body": "We had trouble loading your household. Please try again."
       },
       "profile": {
         "title": "Couldn't load your profile",

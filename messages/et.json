@@ -1236,8 +1236,8 @@
         "body": "Retsepti muutja laadimisel tekkis viga. Palun proovi uuesti."
       },
       "household": {
-        "title": "Leibkonna sätteid ei õnnestunud laadida",
-        "body": "Leibkonna sätete laadimisel tekkis viga. Palun proovi uuesti."
+        "title": "Leibkonda ei õnnestunud laadida",
+        "body": "Leibkonna laadimisel tekkis viga. Palun proovi uuesti."
       },
       "profile": {
         "title": "Sinu profiili ei õnnestunud laadida",
