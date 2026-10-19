@@ -381,34 +381,82 @@ describe('Header component', () => {
     expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'rounded-full')
   })
 
-  it('folds the signed-out logo to its mark on scroll, from a data attribute on the banner', async () => {
-    const { getSession } = await import('@/lib/session')
-    vi.mocked(getSession).mockResolvedValue(null)
+  // HON-1255: signed in, signed out and onboarding fold the same way.
+  describe.each([
+    { state: 'signed out', session: false, membership: null },
+    { state: 'signed in', session: true, membership: MEMBERSHIP },
+    { state: 'onboarding', session: true, membership: null },
+  ])('the logo fold, $state', ({ session, membership }) => {
+    beforeEach(async () => {
+      const { getSession, getCachedMembership } = await import('@/lib/session')
+      const now = new Date()
+      vi.mocked(getSession).mockResolvedValue(
+        session
+          ? {
+              session: {
+                id: 'session-123',
+                userId: '123',
+                expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+                token: 'test-token',
+                ipAddress: '127.0.0.1',
+                userAgent: 'test',
+                createdAt: now,
+                updatedAt: now,
+              },
+              user: {
+                id: '123',
+                email: 'test@example.com',
+                name: 'Test User',
+                emailVerified: false,
+                image: null,
+                createdAt: now,
+                updatedAt: now,
+              },
+            }
+          : null,
+      )
+      vi.mocked(getCachedMembership).mockResolvedValue(membership as never)
+    })
 
-    const component = await Header()
-    render(component)
+    it('folds the logo to its mark on scroll, from a data attribute on the banner', async () => {
+      render(await Header())
 
-    // At rest: no attribute, so none of the `group-data-scrolled:` styles apply.
-    expect(screen.getByRole('banner')).toHaveClass('group')
-    expect(screen.getByRole('banner')).not.toHaveAttribute('data-scrolled')
+      // At rest: no attribute, so none of the `group-data-scrolled:` styles apply.
+      expect(screen.getByRole('banner')).toHaveClass('group')
+      expect(screen.getByRole('banner')).not.toHaveAttribute('data-scrolled')
 
-    // The link stays in reach: it never goes `invisible`. The wordmark folds
-    // inside it, and the `w` opens to the 44px disc.
-    const link = screen.getByRole('link', { name: 'Wobblepot' })
-    expect(link).not.toHaveClass('group-data-scrolled:invisible')
-    const [wordmark, mark] = Array.from(link.children)
-    expect(wordmark).toHaveClass(
-      'overflow-hidden',
-      'group-data-scrolled:max-w-0',
-      'group-data-scrolled:opacity-0',
-    )
-    expect(wordmark).not.toHaveClass('group-data-scrolled:invisible')
-    expect(mark).toHaveClass('max-w-0', 'opacity-0', 'group-data-scrolled:max-w-11')
-    expect(mark?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+      // The link stays in reach: it never goes `invisible`. The wordmark folds
+      // inside it, and the `w` opens to the 44px disc.
+      const link = screen.getByRole('link', { name: 'Wobblepot' })
+      expect(link).not.toHaveClass('group-data-scrolled:invisible')
+      expect(link.parentElement).not.toHaveClass('group-data-scrolled:invisible')
+      expect(link.parentElement).not.toHaveClass('group-data-scrolled:opacity-0')
+      const [wordmark, mark] = Array.from(link.children)
+      expect(wordmark).toHaveClass(
+        'overflow-hidden',
+        'group-data-scrolled:max-w-0',
+        'group-data-scrolled:opacity-0',
+      )
+      expect(wordmark).not.toHaveClass('group-data-scrolled:invisible')
+      expect(mark).toHaveClass('max-w-0', 'opacity-0', 'group-data-scrolled:max-w-11')
+      expect(mark?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
 
-    // Two pills from the start: no phone pill around both groups.
-    expect(link.closest('.shadow-float')?.parentElement).toHaveClass('contents')
-    expect(link.closest('.shadow-float')?.parentElement).not.toHaveClass('border')
+      // Two pills from the start: no phone pill around both groups.
+      const pill = link.closest('.shadow-float')
+      expect(pill).toHaveClass('group-data-scrolled:px-1.25')
+      expect(pill?.parentElement?.closest('.shadow-float')).toBeNull()
+      expect(pill?.parentElement?.querySelectorAll(':scope > .shadow-float')).toHaveLength(2)
+    })
+
+    it('snaps every transition under a reduced-motion preference', async () => {
+      render(await Header())
+
+      const moving = Array.from(screen.getByRole('banner').querySelectorAll('*')).filter((el) =>
+        Array.from(el.classList).some((c) => c.startsWith('transition-[')),
+      )
+      expect(moving.length).toBeGreaterThan(0)
+      for (const el of moving) expect(el).toHaveClass('motion-reduce:transition-none')
+    })
   })
 
   it('renders the skip link first, labelled from the nav catalog', async () => {

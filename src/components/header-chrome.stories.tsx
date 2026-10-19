@@ -71,7 +71,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone, signed in, one pill across the column with the logo and the account icon at its ends; signed out, the two pills at every width, the logo pill folding to a `w` disc on scroll. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
+          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone the logo pill and a 56px disc around the account icon (signed out, the menu). Scrolling folds the logo to the wordmark’s `w`: on a phone, and wherever the logo is alone in its pill, the pill closes to a 56px disc around it. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -109,31 +109,50 @@ export const LoggedOut: Story = {
 }
 
 /**
- * Scrolls, then measures the signed-out fold: the logo's group closes to a
- * 56px disc at the left edge, with the home link the 44px box centred in it.
- * `afterFold` runs while scrolled, for what each width adds.
+ * Scrolls, then measures the logo's fold: the home link closes to the 44px
+ * `w` box, 5px inside its pill's border, and stays a named, focusable way
+ * home. `afterFold` runs while scrolled, for what each story adds.
  */
-async function playLoggedOutScrolled(
+async function playLogoFold(
   canvasElement: HTMLElement,
-  afterFold: (banner: HTMLElement) => Promise<void>,
+  afterFold: (banner: HTMLElement) => Promise<unknown>,
 ) {
   const banner = within(canvasElement).getByRole('banner')
   const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
-  const disc = logo.parentElement!
+  const pill = logo.parentElement!
 
   window.scrollTo(0, 400)
   await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-  await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
-  await expectNear(box(disc).left, 16)
-  await expectNear(box(logo).width, 44)
-  await expectNear(box(logo).left - box(disc).left, box(disc).right - box(logo).right)
-  // Still the way home: folded, not hidden.
+  await waitFor(() => expectNear(box(logo).width, 44), { timeout: 1500 })
+  // The pill's padding closes too: 5px, plus the 1px border.
+  await waitFor(() => expectNear(box(logo).left - box(pill).left, 6), { timeout: 1500 })
+  await expectNear(box(pill).left, 16)
+  // Still the way home: folded, not hidden, and in the tab order.
   await expect(logo).toBeVisible()
   await expect(logo).toHaveAccessibleName('Wobblepot')
+  logo.focus()
+  await expect(logo).toHaveFocus()
+  logo.blur()
   await afterFold(banner)
 
   window.scrollTo(0, 0)
   await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+}
+
+/**
+ * On a phone, folded: the logo pill is a 56px disc at the left edge, and the
+ * menu trigger sits centred in its own 56px disc 16px in from the right.
+ */
+async function expectPhoneDiscs(banner: HTMLElement, menuName = 'User menu') {
+  const logoPill = within(banner).getByRole('link', { name: 'Wobblepot' }).parentElement!
+  const menu = within(banner).getByRole('button', { name: menuName })
+  const disc = menu.parentElement!
+  await waitFor(() => expect(Math.round(box(logoPill).width)).toBe(56), { timeout: 1500 })
+  await expect(Math.round(box(disc).width)).toBe(56)
+  // `clientWidth`, not `innerWidth`: the fixed header ends at the
+  // scrollbar, which takes 15px in CI's Chromium and none on macOS.
+  await expectNear(document.documentElement.clientWidth - box(disc).right, 16)
+  await expectNear(box(menu).left - box(disc).left, box(disc).right - box(menu).right)
 }
 
 export const LoggedOutScrolled: Story = {
@@ -145,16 +164,7 @@ export const LoggedOutScrolled: Story = {
       },
     },
   },
-  play: ({ canvasElement }) =>
-    playLoggedOutScrolled(canvasElement, async (banner) => {
-      const menu = within(banner).getByRole('button', { name: 'User menu' })
-      const disc = menu.parentElement!
-      await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
-      // `clientWidth`, not `innerWidth`: the fixed header ends at the
-      // scrollbar, which takes 15px in CI's Chromium and none on macOS.
-      await expectNear(document.documentElement.clientWidth - box(disc).right, 16)
-      await expectNear(box(menu).left - box(disc).left, box(disc).right - box(menu).right)
-    }),
+  play: ({ canvasElement }) => playLogoFold(canvasElement, expectPhoneDiscs),
 }
 
 export const DesktopLoggedOutScrolled: Story = {
@@ -170,9 +180,13 @@ export const DesktopLoggedOutScrolled: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await playLoggedOutScrolled(canvasElement, (banner) =>
-      expect(within(banner).getByRole('link', { name: 'Sign in' })).toBeVisible(),
-    )
+    await playLogoFold(canvasElement, async (banner) => {
+      const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+      await waitFor(() => expect(Math.round(box(logo.parentElement!).width)).toBe(56), {
+        timeout: 1500,
+      })
+      await expect(within(banner).getByRole('link', { name: 'Sign in' })).toBeVisible()
+    })
   },
 }
 
@@ -217,7 +231,7 @@ export const PastMealsToMark: Story = {
     docs: {
       description: {
         story:
-          'Past meals are still to mark (HON-1028): a red dot at the top-right of the account icon, and the trigger is named "User menu, past meals to mark". Scrolled, the phone pill draws in to the 56px disc around the icon, and the dot stays whole inside it. The play measures the dot inside the trigger and inside the pill, at rest and scrolled.',
+          'Past meals are still to mark (HON-1028): a red dot at the top-right of the account icon, and the trigger is named "User menu, past meals to mark". On a phone the icon sits in its own 56px disc, at rest and scrolled, and the dot stays whole inside it. The play measures the dot inside the trigger and inside the disc, at rest and scrolled.',
       },
     },
   },
@@ -226,20 +240,15 @@ export const PastMealsToMark: Story = {
     const { trigger, dot } = visibleDot(banner)
     await expect(dot).toBeVisible()
     await expect(dot).toHaveAttribute('aria-hidden', 'true')
-    // The phone pill: the one element with the unprefixed float shadow.
-    const pill = banner.querySelector('.shadow-float') as HTMLElement
+    const disc = trigger.parentElement!
     await expect(contains(box(trigger), box(dot))).toBe(true)
-    await expect(contains(box(pill), box(dot))).toBe(true)
+    await expect(contains(box(disc), box(dot))).toBe(true)
 
-    window.scrollTo(0, 400)
-    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-    // Wait for the pill to finish drawing in to the 56px disc.
-    await waitFor(() => expect(Math.round(box(pill).width)).toBe(56), { timeout: 1500 })
-    await expect(dot).toBeVisible()
-    await expect(contains(box(pill), box(dot))).toBe(true)
-
-    window.scrollTo(0, 0)
-    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+    await playLogoFold(canvasElement, async () => {
+      await expectPhoneDiscs(banner, 'User menu, past meals to mark')
+      await expect(dot).toBeVisible()
+      await expect(contains(box(disc), box(dot))).toBe(true)
+    })
   },
 }
 
@@ -249,23 +258,23 @@ export const Scrolled: Story = {
     docs: {
       description: {
         story:
-          'The fold. Scrolling past the top narrows the logo to nothing as it fades, so the daily views slide left and the pill closes around them; on a phone the whole pill draws in to a disc around the account icon. Back at the top it unfolds. The play scrolls the page both ways and asserts the `data-scrolled` attribute that drives the styles.',
+          'The fold, on a phone. At rest, two pills: the logo’s, and the 56px disc around the account icon. Scrolling folds the wordmark to its `w` and closes the logo pill to the same 56px disc; the account disc does not change. Back at the top it unfolds. The play measures both pills at rest and both discs scrolled.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const banner = within(canvasElement).getByRole('banner')
-    const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+    const logoPill = within(banner).getByRole('link', { name: 'Wobblepot' }).parentElement!
+    const disc = within(banner).getByRole('button', { name: 'User menu' }).parentElement!
     await expect(banner).not.toHaveAttribute('data-scrolled')
+    // Two pills at rest, apart: the account disc is not the end of a pill
+    // around both.
+    await expect(Math.round(box(disc).width)).toBe(56)
+    await expect(box(disc).left).toBeGreaterThan(box(logoPill).right)
+    await expectNear(box(logoPill).left, 16)
 
-    window.scrollTo(0, 400)
-    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-    // Out of the tab order once folded (`invisible` after the transition).
-    await waitFor(() => expect(logo).not.toBeVisible(), { timeout: 1500 })
-
-    window.scrollTo(0, 0)
-    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
-    await waitFor(() => expect(logo).toBeVisible(), { timeout: 1500 })
+    await playLogoFold(canvasElement, expectPhoneDiscs)
+    await waitFor(() => expect(box(logoPill).width).toBeGreaterThan(56), { timeout: 1500 })
   },
 }
 
@@ -275,10 +284,11 @@ export const LoggedInOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household yet. Nav groups stay hidden; user menu is present but My account is suppressed so the user focuses on household setup.',
+          'Authenticated but no household yet. Nav groups stay hidden; user menu is present but My account is suppressed so the user focuses on household setup. Scrolled, the logo-only pill folds to the `w` disc rather than to an empty ring; the play measures it.',
       },
     },
   },
+  play: ({ canvasElement }) => playLogoFold(canvasElement, expectPhoneDiscs),
 }
 
 export const Desktop: Story = {
@@ -290,7 +300,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop layout — the phone pill dissolves into two: logo and daily views left, settings views and account menu right. Exercises the `md:` breakpoint where layout branches. The space between links is the links’ own padding, not a gap, so neighbours share an edge; the play measures that the labels still sit 24px apart and 28px in from the pill’s edge (HON-922).',
+          'Desktop layout — the daily views join the logo in the left pill, the settings views the account menu in the right. Exercises the `md:` breakpoint where layout branches. The space between links is the links’ own padding, not a gap, so neighbours share an edge; the play measures that the labels still sit 24px apart and 28px in from the pill’s edge (HON-922).',
       },
     },
   },
@@ -359,68 +369,66 @@ export const DesktopScrolled: Story = {
     docs: {
       description: {
         story:
-          'The right pill folds to icons. Scrolled, My recipes and Household close to their icons and the pill narrows around them; hovering or keyboard-focusing a link opens that link’s label only. The folded label stays the link’s accessible name. Each folded link is the account button’s 40px box, and the three touch, so a pointer sweeping across them is always over one of them and the icons sit evenly (HON-922). The play scrolls, measures both label boxes closing, the three boxes meeting edge to edge and the even icon spacing, then keyboard-focuses My recipes and measures its label opening while Household’s stays closed.',
+          'Scrolled, the wordmark folds to its `w`, the daily views beside it, and the link home stays named and focusable. The right pill folds to icons: My recipes and Household close to their icons and the pill narrows around them; hovering or keyboard-focusing a link opens that link’s label only. The folded label stays the link’s accessible name. Each folded link is the account button’s 40px box, and the three touch, so a pointer sweeping across them is always over one of them and the icons sit evenly (HON-922). The play scrolls, measures the logo fold, both label boxes closing, the three boxes meeting edge to edge and the even icon spacing, then keyboard-focuses My recipes and measures its label opening while Household’s stays closed.',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    const banner = within(canvasElement).getByRole('banner')
-    const settingsNav = within(banner).getByRole('navigation', { name: 'Settings' })
-    const recipes = within(settingsNav).getByRole('link', { name: 'My recipes' })
-    const household = within(settingsNav).getByRole('link', { name: 'Household' })
-    // The label's clipping box: the link's last child (icon box, label box).
-    const labelBox = (link: HTMLElement) => link.lastElementChild!.getBoundingClientRect().width
+    // At rest, from `lg`, the labels are open.
+    const recipesAtRest = within(canvasElement).getByRole('link', { name: 'My recipes' })
+    await expect(box(recipesAtRest.lastElementChild!).width).toBeGreaterThan(0)
 
-    await expect(labelBox(recipes)).toBeGreaterThan(0)
+    await playLogoFold(canvasElement, async (banner) => {
+      const settingsNav = within(banner).getByRole('navigation', { name: 'Settings' })
+      const recipes = within(settingsNav).getByRole('link', { name: 'My recipes' })
+      const household = within(settingsNav).getByRole('link', { name: 'Household' })
+      // The label's clipping box: the link's last child (icon box, label box).
+      const labelBox = (link: HTMLElement) => link.lastElementChild!.getBoundingClientRect().width
 
-    window.scrollTo(0, 400)
-    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-    await waitFor(() => expect(labelBox(recipes)).toBe(0), { timeout: 1500 })
-    await waitFor(() => expect(labelBox(household)).toBe(0), { timeout: 1500 })
-    await expect(recipes).toHaveAccessibleName('My recipes')
+      await waitFor(() => expect(labelBox(recipes)).toBe(0), { timeout: 1500 })
+      await waitFor(() => expect(labelBox(household)).toBe(0), { timeout: 1500 })
+      await expect(recipes).toHaveAccessibleName('My recipes')
 
-    // No dead space: each control starts where the one before it ends.
-    const account = within(banner).getByRole('button', { name: 'User menu' })
-    await expectNear(box(household).left, box(recipes).right)
-    await expectNear(box(account).left, box(household).right)
-    // Even icons: Household sits as far from the account icon as from Recipes.
-    const glyph = (el: HTMLElement) => box(el.querySelector('svg')!)
-    await expectNear(
-      glyph(account).left - glyph(household).right,
-      glyph(household).left - glyph(recipes).right,
-    )
-    // Folded, the pill pads both ends alike: the first icon box sits as far
-    // in from the left edge as the account disc does from the right.
-    const settingsPill = settingsNav.parentElement!
-    await waitFor(
-      () =>
-        expectNear(
-          box(recipes).left - box(settingsPill).left,
-          box(settingsPill).right - box(account).right,
-        ),
-      { timeout: 1500 },
-    )
+      // No dead space: each control starts where the one before it ends.
+      const account = within(banner).getByRole('button', { name: 'User menu' })
+      await expectNear(box(household).left, box(recipes).right)
+      await expectNear(box(account).left, box(household).right)
+      // Even icons: Household sits as far from the account icon as from Recipes.
+      const glyph = (el: HTMLElement) => box(el.querySelector('svg')!)
+      await expectNear(
+        glyph(account).left - glyph(household).right,
+        glyph(household).left - glyph(recipes).right,
+      )
+      // Folded, the pill pads both ends alike: the first icon box sits as far
+      // in from the left edge as the account disc does from the right.
+      const settingsPill = settingsNav.parentElement!
+      await waitFor(
+        () =>
+          expectNear(
+            box(recipes).left - box(settingsPill).left,
+            box(settingsPill).right - box(account).right,
+          ),
+        { timeout: 1500 },
+      )
 
-    // The logo folded away cleanly: the daily views sit centred in their pill.
-    const primary = within(banner).getByRole('navigation', { name: 'Primary' })
-    const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
-    const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
-    await waitFor(
-      () => {
-        const pill = box(primary.parentElement!)
-        return expectNear(box(mealPlan).left - pill.left, pill.right - box(pantry).right)
-      },
-      { timeout: 1500 },
-    )
+      // The daily views stay beside the `w`: Meal plan's box starts where
+      // the logo's ends.
+      const primary = within(banner).getByRole('navigation', { name: 'Primary' })
+      const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
+      await expect(mealPlan).toBeVisible()
+      const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+      await expectNear(box(mealPlan).left, box(logo).right)
+      // Only the `w` end closes: the views keep their 28px text end.
+      const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
+      await expectNear(box(primary.parentElement!).right - textBox(pantry).right, 29)
 
-    // One at a time: only the focused link's label opens.
-    recipes.focus()
-    await waitFor(() => expect(labelBox(recipes)).toBeGreaterThan(0), { timeout: 1500 })
-    await expect(labelBox(household)).toBe(0)
+      // One at a time: only the focused link's label opens.
+      recipes.focus()
+      await waitFor(() => expect(labelBox(recipes)).toBeGreaterThan(0), { timeout: 1500 })
+      await expect(labelBox(household)).toBe(0)
 
-    recipes.blur()
-    window.scrollTo(0, 0)
-    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+      recipes.blur()
+    })
   },
 }
 
@@ -471,7 +479,8 @@ const atMd = (
     await expect(labelBox(recipes)).toBe(0)
     await expect(labelBox(household)).toBe(0)
     await expectNoOverlap()
-    const logo = within(banner).getByRole('link', { name: 'Wobblepot' }).parentElement!
+    // The wordmark's clipping box, the link's first child.
+    const logo = within(banner).getByRole('link', { name: 'Wobblepot' }).firstElementChild!
     const leftLabels = Array.from(primary.querySelectorAll('a'))
     for (const el of [logo, ...leftLabels]) {
       await expect(el.scrollWidth - el.clientWidth).toBeLessThanOrEqual(1)
@@ -551,7 +560,7 @@ export const DesktopOnboarding: Story = {
   play: async ({ canvasElement }) => {
     const banner = within(canvasElement).getByRole('banner')
     const account = within(banner).getByRole('button', { name: 'User menu' })
-    const pill = box(account.closest('.md\\:rounded-full')!)
+    const pill = box(account.closest('.shadow-float')!)
     // 8px padding inside a 1px border, the same at both ends.
     await expectNear(box(account).left - pill.left, 9)
     await expectNear(pill.right - box(account).right, 9)
