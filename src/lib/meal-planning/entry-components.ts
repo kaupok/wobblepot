@@ -152,6 +152,19 @@ export function staleChangeIds(
 }
 
 /**
+ * The entry has at least one change `applyEntryChanges` applies, so what it
+ * cooks differs from the recipe and the meal's name. The AI prompts then say
+ * the list is the whole meal (HON-1254). A stale change applies nothing.
+ */
+export function hasLiveChanges(
+  components: readonly { ingredientId: string }[],
+  changes: readonly StaleCheckedChange[],
+): boolean {
+  const inMeal = new Set(components.map((c) => c.ingredientId))
+  return changes.some((change) => !isStale(inMeal, change))
+}
+
+/**
  * A fingerprint of an entry's change set, for the guards that re-check it: the
  * completion that priced a deduction from it, and the tips cache that priced a
  * prompt from it. The ids, sorted, so an undo followed by a new change still

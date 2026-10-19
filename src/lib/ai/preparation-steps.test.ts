@@ -62,6 +62,21 @@ describe('buildFullStepsPrompt', () => {
     expect(plain).not.toContain('The household asked')
   })
 
+  it('says the changed list is the whole meal, right after it (HON-1254)', () => {
+    const result = buildFullStepsPrompt(fullInput({ hasChanges: true }))
+
+    expect(result).toContain(
+      "- Rice: 320g\n\nThe household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. Use only the ingredients listed. Where the name or the usual recipe calls for an ingredient the list does not have, leave it out and do not mention it in any field.\n\nProvide:",
+    )
+  })
+
+  it('is unchanged without an ingredient change', () => {
+    const plain = buildFullStepsPrompt(fullInput())
+
+    expect(buildFullStepsPrompt(fullInput({ hasChanges: false }))).toBe(plain)
+    expect(plain).not.toContain("The household changed this meal's ingredients")
+  })
+
   it('omits the time-budget line when timeMinutes is null', () => {
     const result = buildFullStepsPrompt(fullInput({ timeMinutes: null }))
 
@@ -126,6 +141,24 @@ describe('buildSupplementaryStepsPrompt', () => {
 
     expect(result).toContain('Sear chicken first, then add vegetables.\n\nThe household asked')
     expect(result).toContain('<<<\nNo cream\n>>>')
+  })
+
+  it('says the changed list is the whole meal, after its notes (HON-1254)', () => {
+    const result = buildSupplementaryStepsPrompt(supplementaryInput({ hasChanges: true }))
+
+    expect(result).toContain(
+      "Sear chicken first, then add vegetables.\n\nThe household changed this meal's ingredients, so the list above is what they cook",
+    )
+    expect(result).toContain(
+      'Use only the ingredients listed. Where the name or the usual recipe calls for an ingredient the list does not have, leave it out and do not mention it in any field.',
+    )
+  })
+
+  it('is unchanged without an ingredient change', () => {
+    const plain = buildSupplementaryStepsPrompt(supplementaryInput())
+
+    expect(buildSupplementaryStepsPrompt(supplementaryInput({ hasChanges: false }))).toBe(plain)
+    expect(plain).not.toContain("The household changed this meal's ingredients")
   })
 
   it('omits the locale instruction block for the default (English) locale', () => {

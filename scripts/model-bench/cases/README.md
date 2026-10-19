@@ -91,7 +91,12 @@ Give every ingredient an entry, so a correct quantity that the model "fixes" is 
 
 ### tips
 
-There is no expectation field. Tips are scored on whether the item counts fall within the ranges the prompt asks for, and by the judge. What `kind` decides is the request:
+Tips are scored on whether the item counts fall within the ranges the prompt asks for, and by the judge. Two optional expectations cover a planned entry the household changed:
+
+- **`adjustmentNote`** with **`followsAny`**: the entry's "Adjust recipe" instruction, and the phrases one of which the steps, pitfalls and tip must contain (HON-1244).
+- **`hasChanges: true`** with **`omitsAll`**: the entry's ingredients were changed, so the prompt says the list is the whole meal; no field may contain any of the names, which the meal's name calls for and the list does not have (HON-1254). List every spelling (`"chilli"`, `"chili"`).
+
+What `kind` decides is the request:
 
 - **`full`**: the app writes the whole preparation guide (equipment, steps and pitfalls) from the meal and its components.
 - **`supplementary`**: the user has written their own `preparationNotes`, and the app adds pitfalls and one tip on top of them. A supplementary case must have notes, and the notes are what the case tests: write ones a good answer should not repeat.

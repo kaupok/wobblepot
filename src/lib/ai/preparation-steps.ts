@@ -43,6 +43,8 @@ export interface PrepStepsPromptInput {
   locale: string
   /** The household's "Adjust recipe" instruction for this entry, when it has one (HON-1244). */
   adjustmentNote?: string | null
+  /** The entry has a live ingredient change, so `ingredientsList` differs from the recipe (HON-1254). */
+  hasChanges?: boolean
 }
 
 export interface SupplementaryPrepStepsPromptInput extends PrepStepsPromptInput {
@@ -66,8 +68,30 @@ ${text}
 >>>`
 }
 
+/**
+ * The rule that the changed ingredient list is the whole meal. Without it the
+ * model cooks from the meal's name: "Tuna Pasta with Garlic and Chilli" got
+ * garlic in its steps after the household left garlic out (HON-1254). Shared
+ * with the cook-question prompt. Empty without a change, so the prompt is
+ * byte-identical.
+ */
+export function changedIngredientsSection(hasChanges: boolean | undefined): string {
+  if (!hasChanges) return ''
+  return `
+
+The household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. Use only the ingredients listed. Where the name or the usual recipe calls for an ingredient the list does not have, leave it out and do not mention it in any field.`
+}
+
 export function buildFullStepsPrompt(input: PrepStepsPromptInput): string {
-  const { mealName, householdSize, timeMinutes, ingredientsList, locale, adjustmentNote } = input
+  const {
+    mealName,
+    householdSize,
+    timeMinutes,
+    ingredientsList,
+    locale,
+    adjustmentNote,
+    hasChanges,
+  } = input
 
   return `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
 
@@ -76,7 +100,7 @@ Servings: ${householdSize}
 ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 
 Ingredients:
-${ingredientsList}${adjustmentSection(adjustmentNote)}
+${ingredientsList}${changedIngredientsSection(hasChanges)}${adjustmentSection(adjustmentNote)}
 
 Provide:
 - equipment: 3-5 essential equipment items (be specific, e.g., "Large oven-safe frying pan" not just "pan")
@@ -98,6 +122,7 @@ export function buildSupplementaryStepsPrompt(input: SupplementaryPrepStepsPromp
     preparationNotes,
     locale,
     adjustmentNote,
+    hasChanges,
   } = input
 
   return `You are a helpful cooking assistant. The user has their own preparation notes for this meal. Generate supplementary tips that ENHANCE their method — do NOT repeat what they already wrote.
@@ -110,7 +135,7 @@ Ingredients:
 ${ingredientsList}
 
 User's preparation notes:
-${preparationNotes}${adjustmentSection(adjustmentNote)}
+${preparationNotes}${changedIngredientsSection(hasChanges)}${adjustmentSection(adjustmentNote)}
 
 Based on the user's method above, provide ONLY supplementary guidance:
 - pitfalls: 2-3 common mistakes specific to their approach that they didn't mention
@@ -141,6 +166,8 @@ export interface StepsRequestInput {
   locale: string
   /** The entry's "Adjust recipe" instruction (HON-1244); absent outside a plan entry. */
   adjustmentNote?: string | null
+  /** The entry has a live ingredient change (HON-1254); absent outside a plan entry. */
+  hasChanges?: boolean
 }
 
 export interface SupplementaryStepsRequestInput extends StepsRequestInput {
@@ -178,7 +205,7 @@ export function formatIngredientsList(components: StepsComponent[], servings: nu
  * request production sends, token ceiling included (HON-796).
  */
 export function buildFullStepsRequest(input: StepsRequestInput) {
-  const { mealName, servings, timeMinutes, components, locale, adjustmentNote } = input
+  const { mealName, servings, timeMinutes, components, locale, adjustmentNote, hasChanges } = input
 
   return {
     schema: fullStepsSchema,
@@ -189,6 +216,7 @@ export function buildFullStepsRequest(input: StepsRequestInput) {
       ingredientsList: formatIngredientsList(components, servings),
       locale,
       adjustmentNote,
+      hasChanges,
     }),
     // Same adaptive-thinking headroom as the supplementary call below
     // (HON-693). The full schema is larger, and on the same hard meal this
@@ -205,8 +233,16 @@ export function buildFullStepsRequest(input: StepsRequestInput) {
  * (the meal has the user's own notes) sends except `model` and `abortSignal`.
  */
 export function buildSupplementaryStepsRequest(input: SupplementaryStepsRequestInput) {
-  const { mealName, servings, timeMinutes, components, preparationNotes, locale, adjustmentNote } =
-    input
+  const {
+    mealName,
+    servings,
+    timeMinutes,
+    components,
+    preparationNotes,
+    locale,
+    adjustmentNote,
+    hasChanges,
+  } = input
 
   return {
     schema: supplementaryStepsSchema,
@@ -218,6 +254,7 @@ export function buildSupplementaryStepsRequest(input: SupplementaryStepsRequestI
       preparationNotes,
       locale,
       adjustmentNote,
+      hasChanges,
     }),
     // Sized for Sonnet 5's adaptive thinking (HON-693): reasoning tokens are
     // billed as output and count against this cap, so the old 400 was not a

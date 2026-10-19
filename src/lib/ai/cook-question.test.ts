@@ -224,6 +224,17 @@ describe('buildCookQuestionPrompt', () => {
     )
   })
 
+  // The steps follow the changed list, so the answers must too: a substitute
+  // for garlic the household left out is no answer (HON-1254).
+  it('says the changed list is the whole meal, right after it, only with a change', () => {
+    expect(buildCookQuestionPrompt(input({ hasChanges: true }))).toContain(
+      "- cream: 200ml\n\nThe household changed this meal's ingredients, so the list above is what they cook, and it differs from the meal's name and its usual recipe. Use only the ingredients listed.",
+    )
+    const plain = buildCookQuestionPrompt(input())
+    expect(buildCookQuestionPrompt(input({ hasChanges: false }))).toBe(plain)
+    expect(plain).not.toContain("The household changed this meal's ingredients")
+  })
+
   it('fences the question', () => {
     expect(buildCookQuestionPrompt(input())).toContain('<<<\nWhat can I substitute here?\n>>>')
   })

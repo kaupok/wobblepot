@@ -539,6 +539,17 @@ describe('scoreTips', () => {
     expect(scoreTips(adjusted, { ...answer, tip: 'Skip the extra Salt.' }).followsNote).toBe(1)
   })
 
+  it('fails an answer that names a left-out ingredient in any field (HON-1254)', () => {
+    const changed = { ...full, hasChanges: true, omitsAll: ['garlic', 'chilli'] }
+    const answer = { equipment: items(4), steps: items(5), pitfalls: items(2), tip: 'Salt well.' }
+    expect(scoreTips(changed, answer).omitsLeftOut).toBe(1)
+    expect(scoreTips(changed, { ...answer, equipment: ['Garlic press'] }).omitsLeftOut).toBe(0)
+    expect(scoreTips(changed, { ...answer, steps: ['Fry the chilli.'] }).omitsLeftOut).toBe(0)
+    expect(scoreTips(changed, { ...answer, pitfalls: ['Burnt garlic'] }).omitsLeftOut).toBe(0)
+    expect(scoreTips(changed, { ...answer, tip: 'Add CHILLI last.' }).omitsLeftOut).toBe(0)
+    expect(scoreTips(full, answer)).not.toHaveProperty('omitsLeftOut')
+  })
+
   it('detects full tips with 9 steps', () => {
     const scores = scoreTips(full, { equipment: items(4), steps: items(9), pitfalls: items(2) })
     expect(scores.countsInRange).toBe(0)

@@ -392,6 +392,13 @@ export function scoreTips(
   const followsNote = input.followsAny
     ? pass(input.followsAny.some((phrase) => text.includes(phrase.toLowerCase())))
     : null
+  // The name's ingredient the household left out stays out of every field,
+  // equipment included: a "garlic press" cooks garlic too (HON-1254).
+  const equipment = (output as { equipment?: string[] }).equipment ?? []
+  const allText = [...equipment, text].join(' ').toLowerCase()
+  const omitsLeftOut = input.omitsAll
+    ? pass(input.omitsAll.every((name) => !allText.includes(name.toLowerCase())))
+    : null
 
   if (input.kind === 'full') {
     const full = output as z.infer<typeof fullStepsSchema>
@@ -399,6 +406,7 @@ export function scoreTips(
     return {
       answered: 1,
       ...(followsNote !== null && { followsNote }),
+      ...(omitsLeftOut !== null && { omitsLeftOut }),
       countsInRange: pass(
         inRange(full.equipment.length, r.equipment) &&
           inRange(full.steps.length, r.steps) &&
@@ -411,6 +419,7 @@ export function scoreTips(
   return {
     answered: 1,
     ...(followsNote !== null && { followsNote }),
+    ...(omitsLeftOut !== null && { omitsLeftOut }),
     countsInRange: pass(
       inRange(supplementary.pitfalls.length, TIPS_RANGES.supplementary.pitfalls) &&
         supplementary.tip.trim().length > 0,

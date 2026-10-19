@@ -1,4 +1,8 @@
-import { formatIngredientsList, type StepsComponent } from './preparation-steps'
+import {
+  changedIngredientsSection,
+  formatIngredientsList,
+  type StepsComponent,
+} from './preparation-steps'
 import { localeInstruction, britishEnglish, estonianVoiceForPrepSteps, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
@@ -29,6 +33,11 @@ export interface CookQuestionRequestInput {
   servings: number
   timeMinutes: number | null
   components: StepsComponent[]
+  /**
+   * The entry has a live ingredient change, so `components` differ from the
+   * recipe and the meal's name (HON-1254). Absent reads as no change.
+   */
+  hasChanges?: boolean
   /** The household's own notes on the meal, when it has any */
   preparationNotes: string | null
   /** The steps the cook sees, in order */
@@ -91,6 +100,7 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
     servings,
     timeMinutes,
     components,
+    hasChanges,
     preparationNotes,
     steps,
     equipment,
@@ -166,7 +176,7 @@ Servings: ${servings}
 ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 
 Ingredients:
-${formatIngredientsList(components, servings)}${notes}
+${formatIngredientsList(components, servings)}${changedIngredientsSection(hasChanges)}${notes}
 
 Steps:
 ${stepsList}${equipmentSection}${pitfallsSection}${tipSection}

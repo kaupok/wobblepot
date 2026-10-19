@@ -25,6 +25,7 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import {
@@ -160,6 +161,9 @@ async function handlePOST(
       defaultUnit: comp.ingredient.defaultUnit,
       measuredByVolume: comp.ingredient.measuredByVolume,
     }))
+    // The list is then the whole meal, not the name's (HON-1254). A stale
+    // change merged nothing, so it does not count.
+    const hasChanges = hasLiveChanges(entry.meal.components, entry.changes)
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
     // One wall-clock budget for all AI time in this request, shared by the
@@ -177,6 +181,7 @@ async function handlePOST(
         preparationNotes,
         locale,
         adjustmentNote: entry.adjustmentNote,
+        hasChanges,
       })
 
       const startedAt = Date.now()
@@ -224,6 +229,7 @@ async function handlePOST(
         components,
         locale,
         adjustmentNote: entry.adjustmentNote,
+        hasChanges,
       })
 
       const startedAt = Date.now()
