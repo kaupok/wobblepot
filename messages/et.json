@@ -1325,6 +1325,13 @@
     },
     "dietaryNone": "Pole eelistust",
     "pageTitle": "Leibkond",
+    "tabsLabel": "Leibkonna osad",
+    "tabs": {
+      "members": "Liikmed",
+      "mealPreferences": "Toidueelistused",
+      "settings": "Seaded"
+    },
+    "tabTitle": "{tab} · Leibkond",
     "settings": {
       "saveButton": "Salvesta",
       "saving": "Salvestan…",

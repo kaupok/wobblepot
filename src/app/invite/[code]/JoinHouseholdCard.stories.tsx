@@ -107,7 +107,7 @@ export const CannotLeave: Story = {
     docs: {
       description: {
         story:
-          'An owner whose household has other account holders: a link to `/household`, and no join button.',
+          'An owner whose household has other account holders: a link to Household → Settings (`/household/settings`), where Leave household gives the same reason, and no join button.',
       },
     },
   },
@@ -116,7 +116,7 @@ export const CannotLeave: Story = {
     await expect(canvas.queryByRole('button')).not.toBeInTheDocument()
     await expect(canvas.getByRole('link', { name: 'Go to Household' })).toHaveAttribute(
       'href',
-      '/household',
+      '/household/settings',
     )
   },
 }

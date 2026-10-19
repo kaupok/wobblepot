@@ -92,7 +92,8 @@ type Membership = NonNullable<Awaited<ReturnType<typeof getHouseholdMembership>>
  * A signed-in visitor who already has a household (HON-1133). Each user is in
  * one household, so a valid invite is offered as a move: leave the current
  * household and join this one. An owner with other account holders cannot
- * leave, and is pointed at `/household` to remove them first.
+ * leave, and is pointed at `/household/settings`, where Leave household
+ * gives the same reason (HON-1257).
  */
 async function AlreadyMemberCard({
   membership,

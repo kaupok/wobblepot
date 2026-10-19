@@ -1,0 +1,38 @@
+import { Body } from '@/components/ui/typography'
+import { FoodPreferencesForm } from './FoodPreferencesForm'
+import { MealsToPlanForm } from './MealsToPlanForm'
+import { householdTabMetadata, requireHouseholdMember } from '../household-member'
+
+export function generateMetadata() {
+  return householdTabMetadata('mealPreferences')
+}
+
+/**
+ * Household → Meal preferences (HON-1257): what the plan may contain and which
+ * meals it fills. Each section is its own form with its own Save button
+ * (HON-961), an h2 at Section under the layout's h1 (HON-960).
+ */
+export default async function HouseholdMealPreferencesPage() {
+  const { membership, t, isOwner } = await requireHouseholdMember()
+  const stored = membership.household.preferences
+  const preferences = stored
+    ? {
+        dietaryType: stored.dietaryType,
+        allergensToAvoid: stored.allergensToAvoid,
+        restrictions: stored.restrictions,
+        excludedIngredients: stored.excludedIngredients,
+        weekdayMealTypes: stored.weekdayMealTypes,
+        weekendMealTypes: stored.weekendMealTypes,
+      }
+    : null
+
+  return (
+    <div className="flex flex-col gap-10">
+      {/* Both routes are owner-only (HON-677), so a member reads why the
+          forms are locked (HON-960). */}
+      {!isOwner && <Body variant="muted">{t('settings.ownerOnlyNotice')}</Body>}
+      <FoodPreferencesForm preferences={preferences} isOwner={isOwner} />
+      <MealsToPlanForm preferences={preferences} isOwner={isOwner} />
+    </div>
+  )
+}

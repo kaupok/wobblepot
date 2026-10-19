@@ -15,7 +15,6 @@ import {
 import { Body } from '@/components/ui/typography'
 import { PUBLIC_LOCALES, type Locale } from '@/lib/i18n/locales'
 import { SettingsSection } from '@/components/SettingsSection'
-import type { HouseholdDetails } from './settings-values'
 
 // Get all IANA timezones
 const TIMEZONES = Intl.supportedValuesOf('timeZone')
@@ -35,6 +34,13 @@ const TIMEZONE_ITEMS = TIMEZONES.map((tz) => (
 ))
 
 type DetailsValues = { name: string; timezone: string; locale: Locale }
+
+export interface HouseholdDetails {
+  id: string
+  name: string
+  timezone: string
+  locale: Locale
+}
 
 interface HouseholdDetailsFormProps {
   household: HouseholdDetails

@@ -210,7 +210,7 @@ export function JoinHouseholdCard({
         </CardContent>
         <CardFooter>
           <Button asChild variant="outline" className="w-full">
-            <Link href="/household">{t('leaveAndJoin.cannotLeaveAction')}</Link>
+            <Link href="/household/settings">{t('leaveAndJoin.cannotLeaveAction')}</Link>
           </Button>
         </CardFooter>
       </Card>

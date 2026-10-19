@@ -1325,6 +1325,13 @@
     },
     "dietaryNone": "No preference",
     "pageTitle": "Household",
+    "tabsLabel": "Household sections",
+    "tabs": {
+      "members": "Members",
+      "mealPreferences": "Meal preferences",
+      "settings": "Settings"
+    },
+    "tabTitle": "{tab} · Household",
     "settings": {
       "saveButton": "Save",
       "saving": "Saving…",

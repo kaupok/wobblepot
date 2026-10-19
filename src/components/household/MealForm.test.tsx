@@ -652,8 +652,8 @@ describe('MealForm - Duplicate Detection', () => {
  *
  * The section level is read off the title's tag rather than restated, so this
  * asserts the *relationship* rather than two independent constants — the same
- * shape as `HouseholdSettingsForm.test.tsx`, deliberately, so the two do not
- * diverge. It catches what axe's `heading-order` cannot: that rule only flags
+ * shape as the `/household` tab page tests (`src/app/household/settings/page.test.tsx`),
+ * deliberately, so the two do not diverge. It catches what axe's `heading-order` cannot: that rule only flags
  * increases greater than one, so a section that drifts back to `as="h5"` or
  * forgets `as` altogether would still read to axe as a legal outline.
  */

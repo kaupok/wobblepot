@@ -294,7 +294,7 @@ describe('JoinHouseholdCard for a member of another household', () => {
     expect(screen.getByText(/2 other members have an account there/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Go to Household' })).toHaveAttribute(
       'href',
-      '/household',
+      '/household/settings',
     )
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })

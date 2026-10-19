@@ -1,4 +1,4 @@
-// ROUTES: /household, /invite/[code], /sign-up, / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard, SignUpForm
+// ROUTES: /household, /household/settings, /invite/[code], /sign-up, / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard, SignUpForm, HouseholdTabs, HouseholdDetailsForm, LeaveHouseholdDialog
 import { test, expect, type Page } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -153,10 +153,11 @@ test.describe('Household member invite', () => {
       await expect(badge(page, 'Invite pending')).toHaveCount(0)
 
       // --- 5. Invitee's view: same household, both members -----------------
-      await inviteePage.goto('/household')
       // Read-only for a non-owner, but populated — the value is the assertion
       // that this is the owner's household, not a second one.
+      await inviteePage.goto('/household/settings')
       await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await inviteePage.goto('/household')
       await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
       await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
     } finally {
@@ -204,8 +205,9 @@ test.describe('Household member invite', () => {
       // --- 4. Invitee lands on the inviter's meal plan, not onboarding ------
       await expect(inviteePage).toHaveURL('/')
 
-      await inviteePage.goto('/household')
+      await inviteePage.goto('/household/settings')
       await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await inviteePage.goto('/household')
       await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
       await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
 
@@ -251,8 +253,9 @@ test.describe('Household member invite', () => {
       await expect(inviteePage).toHaveURL('/')
 
       // --- 4. Invitee is in the inviter's household as the named member -----
-      await inviteePage.goto('/household')
+      await inviteePage.goto('/household/settings')
       await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await inviteePage.goto('/household')
       await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
       await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
 
@@ -262,8 +265,15 @@ test.describe('Household member invite', () => {
       await expect(badge(page, 'No account')).toHaveCount(0)
       await expect(badge(page, 'Invite pending')).toHaveCount(0)
 
-      // --- 6. Invitee, now a member, leaves from /household ----------------
+      // --- 6. Invitee, now a member, leaves from Household → Settings -------
+      // The cannot-leave link of the invite card points here too (HON-1257).
       await inviteePage.goto('/household')
+      await inviteePage
+        .getByRole('navigation', { name: 'Household sections' })
+        .getByRole('link', { name: 'Settings' })
+        .click()
+      await expect(inviteePage).toHaveURL('/household/settings')
+      await expect(inviteePage).toHaveTitle(/^Settings · Household/)
       await inviteePage.getByRole('button', { name: 'Leave household' }).click()
       const leaveConfirm = inviteePage.getByRole('alertdialog')
       await expect(leaveConfirm).toContainText(householdName)
@@ -272,7 +282,7 @@ test.describe('Household member invite', () => {
 
       // The owner's household stays, without the member who left.
       await page.reload()
-      await expect(page.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(page.getByText(OWNER_NAME)).toBeVisible()
       await expect(page.getByText(INVITEE_NAME)).toHaveCount(0)
     } finally {
       await inviteeContext.close()

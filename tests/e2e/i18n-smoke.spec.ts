@@ -1,4 +1,4 @@
-// ROUTES: /, /household · COMPONENTS: Header, MealsToPlanForm, HouseholdSettingsForm
+// ROUTES: /, /household/meal-preferences · COMPONENTS: Header, MealsToPlanForm
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 
@@ -11,7 +11,7 @@ import { signUpWithHousehold } from './utils/test-helpers'
  *      persists `Household.locale = "et"` (HON-549 — `et` is public, so the
  *      Accept-Language-resolved locale is no longer clamped to English).
  *      the meals grid's breakfast column head therefore renders "Hommikusöök"
- *      on the household settings form.
+ *      on Household → Meal preferences.
  */
 
 test.describe('@i18n platform smoke', () => {
@@ -39,8 +39,8 @@ test.describe('@i18n platform smoke', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'et')
 
     // `MealsToPlanForm` renders the Estonian `enums.MealType.breakfast` as a
-    // column head of the meals grid on the household settings form.
-    await page.goto('/household')
+    // column head of the meals grid on Household → Meal preferences.
+    await page.goto('/household/meal-preferences')
     await expect(page.getByText('Hommikusöök').first()).toBeVisible()
   })
 })
