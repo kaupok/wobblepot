@@ -86,8 +86,8 @@ export function MobileNav({
         {/* `icon` for the full touch target, `pill` so its hover disc sits
             inside the header pill's curve. */}
         <Button variant="ghost" size="icon" shape="pill" className="md:hidden">
-          {/* The dot sits inside the icon's box, so the 48px disc the pill
-              draws in to when scrolled never clips it. */}
+          {/* The dot sits inside the icon's box, so the 56px account disc
+              around the trigger never clips it. */}
           <span className="relative flex">
             <User className="size-5" />
             {showsDot && <AttentionDot className="absolute -top-0.5 -right-0.5" />}
