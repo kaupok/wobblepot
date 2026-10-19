@@ -13,6 +13,7 @@
  */
 export const SHARED_FIXTURE_SPECS = [
   'forgot-password.spec.ts',
+  'make-it-my-recipe.spec.ts',
   'mcp-read.spec.ts',
   'mcp-write.spec.ts',
   'meal-card-click.spec.ts',

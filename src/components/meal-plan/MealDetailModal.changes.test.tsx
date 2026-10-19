@@ -132,4 +132,39 @@ describe('MealDetailModal with ingredient changes (HON-1243)', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(await screen.findByText('Bake it')).toBeInTheDocument()
   })
+
+  // "Make it my recipe" (HON-1245) sits with the ingredient controls, so only
+  // a planned, editable entry gets it; saving drops the cached steps.
+  it('keeps the changes as a recipe, then regenerates the steps and refreshes the plan', async () => {
+    const PROMOTE_URL = '/api/meal-plans/plan-1/entries/entry-1/components/promote'
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === TIPS_URL
+          ? json({ tips: { steps: ['Bake it'], pitfalls: [] } })
+          : json({ outcome: 'forked', mealId: 'meal-new' }),
+      ),
+    )
+    renderModal()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Make it my recipe' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save to My recipes' }))
+
+    await waitFor(() => expect(callsTo(TIPS_URL)).toHaveLength(1))
+    expect(callsTo(PROMOTE_URL)).toHaveLength(1)
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers "Update the recipe" on the household\'s own recipe', () => {
+    renderModal({ meal: { ...meal, isCustom: true }, generateOnOpen: false })
+
+    expect(screen.getByRole('button', { name: 'Update the recipe' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Make it my recipe' })).not.toBeInTheDocument()
+  })
+
+  it('offers no action on a completed entry', () => {
+    renderModal({ status: 'completed', onDoneCooking: undefined, generateOnOpen: false })
+
+    expect(screen.queryByRole('button', { name: 'Make it my recipe' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Update the recipe' })).not.toBeInTheDocument()
+  })
 })

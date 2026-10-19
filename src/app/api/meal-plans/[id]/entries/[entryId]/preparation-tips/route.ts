@@ -162,8 +162,11 @@ async function handlePOST(
       measuredByVolume: comp.ingredient.measuredByVolume,
     }))
     // The list is then the whole meal, not the name's (HON-1254). A stale
-    // change merged nothing, so it does not count.
-    const hasChanges = hasLiveChanges(entry.meal.components, entry.changes)
+    // change merged nothing, so it does not count. A household's own recipe
+    // lists what the household wrote, so its list is always the whole meal:
+    // "Tuna pasta with garlic (my version)" may have no garlic (HON-1245).
+    const hasChanges =
+      hasLiveChanges(entry.meal.components, entry.changes) || !!entry.meal.householdId
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
     // One wall-clock budget for all AI time in this request, shared by the

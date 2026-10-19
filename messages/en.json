@@ -453,6 +453,28 @@
         "alreadyInMeal": "This ingredient is already in the meal.",
         "ingredientNotFound": "This ingredient is not available. Pick another.",
         "changesMoved": "Someone changed this meal meanwhile. Check the changes and try again."
+      },
+      "promote": {
+        "forkAction": "Make it my recipe",
+        "updateAction": "Update the recipe",
+        "forkTitle": "Make it my recipe",
+        "forkDescription": "A new recipe with these ingredients goes to My recipes, and this meal uses it.",
+        "updateTitle": "Update the recipe",
+        "updateDescription": "The recipe gets these ingredients. Every planned meal of this recipe changes too.",
+        "nameLabel": "Recipe name",
+        "myVersionName": "{name} (my version)",
+        "submitFork": "Save to My recipes",
+        "submitUpdate": "Update the recipe",
+        "forked": "Saved to My recipes",
+        "updated": "Recipe updated",
+        "errors": {
+          "failed": "Could not save the recipe. Try again.",
+          "notPlanned": "Only a planned meal can be saved as a recipe.",
+          "noChanges": "This meal has no changes to keep.",
+          "mealNotFound": "This recipe is no longer available.",
+          "changesMoved": "Someone changed this meal meanwhile. Check the changes and try again.",
+          "invalidRecipe": "A recipe needs 1 to {max} ingredients. Change the list and try again."
+        }
       }
     },
     "adjust": {

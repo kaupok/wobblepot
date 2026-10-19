@@ -124,7 +124,7 @@ const leaveOut = (originalIngredientId: string) => ({
  * `loadEntryForAi`'s result: `meal.components` is the shared recipe, and
  * `components` the recipe with the entry's `changes` merged.
  */
-function entry(changes: unknown[], components: unknown[]) {
+function entry(changes: unknown[], components: unknown[], householdId: string | null = null) {
   return {
     id: 'entry-1',
     planId: 'plan-1',
@@ -136,6 +136,7 @@ function entry(changes: unknown[], components: unknown[]) {
       name: 'Chicken with garlic',
       timeMinutes: 30,
       preparationNotes: null,
+      householdId,
       components: [chicken, garlic],
     },
     changes,
@@ -212,5 +213,24 @@ describe("POST cook-question: the entry's ingredient changes", () => {
     expect(response.status).toBe(200)
     expect(promptSent()).not.toContain(RULE)
     expect(promptSent()).toContain('- Garlic')
+  })
+
+  // A household's own recipe lists what the household wrote, so "Chicken with
+  // garlic (my version)" may have no garlic and no change left (HON-1245).
+  it("says the list is the whole meal on the household's own recipe without a change", async () => {
+    mockLoadEntry.mockResolvedValue(entry([], [chicken], 'household-123') as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(promptSent()).toContain(RULE)
+  })
+
+  it('leaves the rule out on a library meal without a change', async () => {
+    mockLoadEntry.mockResolvedValue(entry([], [chicken, garlic]) as never)
+
+    await callPost()
+
+    expect(promptSent()).not.toContain(RULE)
   })
 })

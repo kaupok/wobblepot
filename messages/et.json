@@ -453,6 +453,28 @@
         "alreadyInMeal": "See koostisosa on toidus juba olemas.",
         "ingredientNotFound": "See koostisosa pole saadaval. Vali teine.",
         "changesMoved": "Keegi muutis vahepeal seda toitu. Vaata muudatused üle ja proovi uuesti."
+      },
+      "promote": {
+        "forkAction": "Tee sellest minu retsept",
+        "updateAction": "Uuenda retsepti",
+        "forkTitle": "Tee sellest minu retsept",
+        "forkDescription": "Nende koostisosadega uus retsept läheb minu retseptide hulka ja see toidukord kasutab seda.",
+        "updateTitle": "Uuenda retsepti",
+        "updateDescription": "Retsept saab need koostisosad. Muutuvad ka kõik selle retsepti planeeritud toidukorrad.",
+        "nameLabel": "Retsepti nimi",
+        "myVersionName": "{name} (minu versioon)",
+        "submitFork": "Salvesta minu retseptidesse",
+        "submitUpdate": "Uuenda retsepti",
+        "forked": "Salvestatud minu retseptidesse",
+        "updated": "Retsept on uuendatud",
+        "errors": {
+          "failed": "Retsepti salvestamine ei õnnestunud. Proovi uuesti.",
+          "notPlanned": "Retseptiks saab salvestada ainult planeeritud toidu.",
+          "noChanges": "Sellel toidul pole muudatusi, mida alles hoida.",
+          "mealNotFound": "See retsept pole enam saadaval.",
+          "changesMoved": "Keegi muutis vahepeal seda toitu. Vaata muudatused üle ja proovi uuesti.",
+          "invalidRecipe": "Retseptis peab olema 1 kuni {max} koostisosa. Muuda loendit ja proovi uuesti."
+        }
       }
     },
     "adjust": {

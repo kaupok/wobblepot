@@ -207,8 +207,9 @@ async function handlePOST(
         defaultUnit: comp.ingredient.defaultUnit,
         measuredByVolume: comp.ingredient.measuredByVolume,
       })),
-      // The list is then the whole meal, not the name's (HON-1254).
-      hasChanges: hasLiveChanges(entry.meal.components, entry.changes),
+      // The list is then the whole meal, not the name's (HON-1254), and
+      // always on the household's own recipe (HON-1245).
+      hasChanges: hasLiveChanges(entry.meal.components, entry.changes) || !!entry.meal.householdId,
       preparationNotes: shownMeal.preparationNotes ?? null,
       steps,
       equipment,

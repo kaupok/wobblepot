@@ -29,6 +29,12 @@ import type { EntryChangeInput, EntryChangeSetInput } from '@/lib/meal-planning/
  *   already, so the list would name it twice (409).
  * - `changesMoved`: a whole-set replace was built from changes that moved
  *   since, so it would delete one nobody reviewed (409).
+ * - `noChanges`: "Make it my recipe" on an entry with no live change, so
+ *   there is nothing to keep (409, HON-1245).
+ * - `mealNotFound`: "Make it my recipe" on a deleted meal, or on a meal the
+ *   household cannot see (404, HON-1245).
+ * - `invalidRecipe`: "Make it my recipe" on a list a recipe cannot hold: no
+ *   ingredient left, or more than `MAX_MEAL_COMPONENTS` (400, HON-1245).
  */
 export type EntryChangeRefusal =
   | 'entryNotFound'
@@ -39,6 +45,9 @@ export type EntryChangeRefusal =
   | 'alreadyChanged'
   | 'alreadyInMeal'
   | 'changesMoved'
+  | 'noChanges'
+  | 'mealNotFound'
+  | 'invalidRecipe'
 
 /** A refusal from a change write. Thrown so the transaction rolls back. */
 export class EntryChangeError extends Error {
@@ -60,7 +69,7 @@ type Tx = Prisma.TransactionClient
  * nobody else can move — and with the completion claim in `updateEntry`, which
  * re-reads the change set under the same lock.
  */
-async function claimPlannedEntry(tx: Tx, entryId: string) {
+export async function claimPlannedEntry(tx: Tx, entryId: string) {
   const { count } = await tx.mealPlanEntry.updateMany({
     where: { id: entryId, status: MealPlanEntryStatus.planned, mealId: { not: null } },
     data: { preparationTips: null },
@@ -99,7 +108,7 @@ async function mergedComponents(tx: Tx, entryId: string) {
 }
 
 /** The entry of a plan the household owns, or `entryNotFound`. */
-async function findOwnEntry(householdId: string, planId: string, entryId: string) {
+export async function findOwnEntry(householdId: string, planId: string, entryId: string) {
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, planId, plan: { householdId } },
     select: { id: true },
