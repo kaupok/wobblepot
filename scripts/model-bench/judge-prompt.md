@@ -6,7 +6,7 @@ The user message gives the task, the input the app sent, and both answers. The t
 
 - **imagine:** the user described a meal idea, and the answer proposes three meals, each with a name, a short description, a total time in minutes, a number of servings and an ingredient list.
 - **tips (full):** preparation tips for a meal: the equipment to get out, the steps in order, and the pitfalls to avoid.
-- **tips (supplementary):** the user already wrote their own preparation notes. The answer adds pitfalls and one tip on top of them, without repeating what the notes already say.
+- **tips (notes):** the household keeps its own notes on the meal: a full method, part of one, or none. The answer is the full guide, as for full tips. Its steps follow a method in the notes, with its times and temperatures, and leave out any ingredient the list does not have. A note that is not a method becomes no step. The pitfalls and tip do not repeat the steps.
 - **cook-question:** the cook is in the middle of the meal and asked a question about one step or one piece of equipment, sometimes as a follow-up to an earlier answer. The answer is a short reply: at most four sentences that answer the question first. A question that is not about the meal gets a one-sentence decline, not an answer.
 
 ## What makes one answer better

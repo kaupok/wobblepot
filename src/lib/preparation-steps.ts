@@ -39,13 +39,18 @@ export function serializePreparationSteps(tips: PreparationSteps, servings: numb
  * migrates before the new code is live, and the old code keeps caching tips at
  * the member count in that gap. Checking on read closes that gap and any
  * future one.
+ *
+ * A cache with no `steps` array is null too: it is a meal with the household's
+ * notes, cached when its prompt gave only Watch out and Tip. Every prompt now
+ * returns steps, so the next open generates them (HON-1259). An empty array
+ * still counts, so a reply with no steps is not regenerated on every open.
  */
 export function parseCachedPreparationSteps(
   stored: string,
   { servings, legacyServings }: { servings: number; legacyServings: number },
 ): PreparationSteps | null {
   const parsed = parsePreparationSteps(stored) as (PreparationSteps & { servings?: unknown }) | null
-  if (!parsed) return null
+  if (!parsed || !Array.isArray(parsed.steps)) return null
   const { servings: pricedAt, ...tips } = parsed
   const priced = typeof pricedAt === 'number' ? pricedAt : legacyServings
   return priced === servings ? tips : null

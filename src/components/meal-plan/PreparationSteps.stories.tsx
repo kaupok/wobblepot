@@ -34,7 +34,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view’s steps area (HON-932): the household’s notes, then numbered steps, Watch out and Tip at the step size, straight on the meal’s tint. `PreparationEquipment` is the “You’ll need” list that sits under the ingredients instead, one item per row at the ingredient rows’ 18px.',
+          'The cook view’s steps area (HON-932): numbered steps, Watch out and Tip at the step size, then the household’s notes, closed under “Your notes” (HON-1259), straight on the meal’s tint. `PreparationEquipment` is the “You’ll need” list that sits under the ingredients instead, one item per row at the ingredient rows’ 18px.',
       },
     },
   },
@@ -160,7 +160,17 @@ export const UserNotesWithSteps: Story = {
     steps: fullTips,
     isLoading: false,
     error: null,
+    onToggleStep: fn(),
     preparationNotes: 'Double the garlic. Serve with couscous instead of rice.',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // The generated steps are the method; the notes come last, closed (HON-1259).
+    const notes = canvas.getByRole('button', { name: 'Your notes' })
+    await expect(notes).toHaveAttribute('aria-expanded', 'false')
+    const tip = canvas.getByText(fullTips.tip!)
+    await expect(tip.compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await expect(canvas.queryByText(/Double the garlic/)).toBeNull()
   },
 }
 

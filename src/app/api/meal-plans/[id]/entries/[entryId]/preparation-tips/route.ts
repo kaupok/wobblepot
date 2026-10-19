@@ -9,7 +9,7 @@ import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { serverEnv } from '@/lib/env'
 import { STEPS_MODEL } from '@/lib/ai/models'
 import { STEPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
-import { buildFullStepsRequest, buildSupplementaryStepsRequest } from '@/lib/ai/preparation-steps'
+import { buildFullStepsRequest, buildStepsFromNotesRequest } from '@/lib/ai/preparation-steps'
 import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -89,7 +89,9 @@ async function handlePOST(
 
     // Return cached tips if available, valid JSON and priced at these servings.
     // Tips priced at other servings are regenerated, which also catches tips
-    // the pre-HON-1040 code cached at the member count (`parseCachedPreparationSteps`).
+    // the pre-HON-1040 code cached at the member count, and so are tips with
+    // no steps, which a meal with notes cached before HON-1259
+    // (`parseCachedPreparationSteps`).
     if (entry.preparationTips) {
       const cached = parseCachedPreparationSteps(entry.preparationTips, {
         servings: effectiveServings,
@@ -140,8 +142,8 @@ async function handlePOST(
 
     // The prompt reads the household's names and notes, not the English ones:
     // given English inputs the model translates them itself, and its ingredient
-    // names then differ from the Estonian ones the same modal shows, while the
-    // supplementary mode would build on notes the user never read (HON-913).
+    // names then differ from the Estonian ones the same modal shows, and the
+    // steps would follow notes the user never read (HON-913).
     // The translated notes fall back to the English ones per field.
     //
     // A translation row is not covered by the `meal.updatedAt` cache guard
@@ -173,106 +175,60 @@ async function handlePOST(
     // initial attempt and every retry. Sized against `maxDuration` in `@/lib/ai/budgets`.
     const timeout = AbortSignal.timeout(STEPS_AI_BUDGET_MS)
 
-    let tips: PreparationSteps
-
-    if (preparationNotes && preparationNotes.trim()) {
-      const request = buildSupplementaryStepsRequest({
-        mealName,
-        servings: effectiveServings,
-        timeMinutes,
-        components,
-        preparationNotes,
-        locale,
-        adjustmentNote: entry.adjustmentNote,
-        hasChanges,
-      })
-
-      const startedAt = Date.now()
-      const result = await withUsageOnFailure(
-        STEPS_MODEL,
-        (stats) =>
-          recordAiUsage({
-            householdId: household.id,
-            feature: 'entry_preparation_tips',
-            ...stats,
-          }),
-        () =>
-          generateObject({
-            ...request,
-            model: anthropic(STEPS_MODEL),
-            abortSignal: timeout,
-          }),
-      )
-
-      await recordAiUsage({
-        householdId: household.id,
-        feature: 'entry_preparation_tips',
-        ...toAiUsageStats(STEPS_MODEL, result.usage, Date.now() - startedAt),
-      })
-
-      await logAiSample({
-        callSite: 'preparation-tips-supplementary',
-        locale,
-        input: {
-          mealName,
-          householdSize: effectiveServings,
-          timeMinutes,
-          ingredientsCount: entry.components.length,
-          hasUserNotes: true,
-        },
-        output: result.object,
-      })
-
-      tips = result.object
-    } else {
-      const request = buildFullStepsRequest({
-        mealName,
-        servings: effectiveServings,
-        timeMinutes,
-        components,
-        locale,
-        adjustmentNote: entry.adjustmentNote,
-        hasChanges,
-      })
-
-      const startedAt = Date.now()
-      const result = await withUsageOnFailure(
-        STEPS_MODEL,
-        (stats) =>
-          recordAiUsage({
-            householdId: household.id,
-            feature: 'entry_preparation_tips',
-            ...stats,
-          }),
-        () =>
-          generateObject({
-            ...request,
-            model: anthropic(STEPS_MODEL),
-            abortSignal: timeout,
-          }),
-      )
-
-      await recordAiUsage({
-        householdId: household.id,
-        feature: 'entry_preparation_tips',
-        ...toAiUsageStats(STEPS_MODEL, result.usage, Date.now() - startedAt),
-      })
-
-      await logAiSample({
-        callSite: 'preparation-tips-full',
-        locale,
-        input: {
-          mealName,
-          householdSize: effectiveServings,
-          timeMinutes,
-          ingredientsCount: entry.components.length,
-          hasUserNotes: false,
-        },
-        output: result.object,
-      })
-
-      tips = result.object
+    // A meal with the household's notes gets full steps too, with the notes as
+    // input: the steps follow a method in them, and the ingredient list wins
+    // where the two differ (HON-1259).
+    const notes = preparationNotes?.trim() ? preparationNotes : null
+    const base = {
+      mealName,
+      servings: effectiveServings,
+      timeMinutes,
+      components,
+      locale,
+      adjustmentNote: entry.adjustmentNote,
+      hasChanges,
     }
+    const request = notes
+      ? buildStepsFromNotesRequest({ ...base, preparationNotes: notes })
+      : buildFullStepsRequest(base)
+
+    const startedAt = Date.now()
+    const result = await withUsageOnFailure(
+      STEPS_MODEL,
+      (stats) =>
+        recordAiUsage({
+          householdId: household.id,
+          feature: 'entry_preparation_tips',
+          ...stats,
+        }),
+      () =>
+        generateObject({
+          ...request,
+          model: anthropic(STEPS_MODEL),
+          abortSignal: timeout,
+        }),
+    )
+
+    await recordAiUsage({
+      householdId: household.id,
+      feature: 'entry_preparation_tips',
+      ...toAiUsageStats(STEPS_MODEL, result.usage, Date.now() - startedAt),
+    })
+
+    await logAiSample({
+      callSite: notes ? 'preparation-tips-from-notes' : 'preparation-tips-full',
+      locale,
+      input: {
+        mealName,
+        householdSize: effectiveServings,
+        timeMinutes,
+        ingredientsCount: entry.components.length,
+        hasUserNotes: notes !== null,
+      },
+      output: result.object,
+    })
+
+    const tips: PreparationSteps = result.object
 
     // Cache tips on the entry, but only while the inputs they were priced
     // from still hold: `cachePreparationTips` pins the meal, the

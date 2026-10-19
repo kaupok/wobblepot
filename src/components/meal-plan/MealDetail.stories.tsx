@@ -521,13 +521,13 @@ export const WithPreparationNotes: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    // The household's own notes come first; the generated steps supplement them.
-    await expect(
-      follows(
-        canvas.getByRole('heading', { name: 'Your notes' }),
-        canvas.getByText(tips.steps![0]!),
-      ),
-    ).toBe(true)
+    // The generated steps are the method; the notes follow them, closed
+    // until opened (HON-1259).
+    const notes = canvas.getByRole('button', { name: 'Your notes' })
+    await expect(follows(canvas.getByText(tips.steps![0]!), notes)).toBe(true)
+    await expect(notes).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(notes)
+    await expect(canvas.getByText(/Add extra thyme/)).toBeVisible()
   },
 }
 

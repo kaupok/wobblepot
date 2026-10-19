@@ -683,7 +683,7 @@ describe('buildCheckReport', () => {
       check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips']),
     )
     expect(summary).toContain('# AI eval check: production configuration')
-    expect(summary).toContain('**Pass.** All 5 gates hold.')
+    expect(summary).toContain('**Pass.** All 7 gates hold.')
     expect(summary).toContain('## Gates')
     expect(summary).not.toContain('## tips')
   })

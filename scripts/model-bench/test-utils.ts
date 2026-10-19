@@ -27,7 +27,7 @@ export const STARTER_CASE_IDS: readonly string[] = [
   'review/en-chicken-stir-fry',
   'review/et-kartulisalat',
   'tips/en-full-bolognese',
-  'tips/et-supplementary-ahjulohe',
+  'tips/et-notes-method-ahjulohe',
   'cook-question/en-changed-no-mushrooms-substitute',
   'cook-question/et-hakklihakaste-substitute',
   'adjust/en-no-cream-use-yoghurt',

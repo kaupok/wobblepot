@@ -24,7 +24,7 @@
 11442 scripts/model-bench/report.ts
 10033 scripts/model-bench/run.test.ts
 7407 scripts/model-bench/run.ts
-7125 scripts/model-bench/scorers.test.ts
+6939 scripts/model-bench/scorers.test.ts
 5874 scripts/neon-cleanup.sh
 24962 scripts/orchestrator-outcome-harness.sh
 7876 scripts/orchestrator.failure.test.ts
@@ -38,7 +38,7 @@
 5623 scripts/refit-meal-images.ts
 5063 scripts/review-checklist-gate.test.ts
 5352 scripts/spike-meal-colour.ts
-12791 scripts/spike-meal-images.ts
+12758 scripts/spike-meal-images.ts
 6328 scripts/test-ai-selection.ts
 47207 scripts/worktree-claude.sh
 7640 scripts/worktree-done.test.ts
@@ -46,7 +46,7 @@
 5209 src/app/account/connections/ApiKeysSection.test.tsx
 5382 src/app/account/connections/ApiKeysSection.tsx
 6293 src/app/api/meal-plans/[id]/entries/[entryId]/cook-question/route.test.ts
-10883 src/app/api/meal-plans/[id]/entries/[entryId]/preparation-tips/route.test.ts
+10098 src/app/api/meal-plans/[id]/entries/[entryId]/preparation-tips/route.test.ts
 6657 src/app/api/meals/[id]/image/route.test.ts
 6959 src/app/api/meals/imagine/route.test.ts
 5368 src/app/api/recipes/parse/route.test.ts
@@ -84,14 +84,14 @@
 5435 src/lib/ai/imagine-meal.test.ts
 8790 src/lib/ai/match-ingredients.test.ts
 7258 src/lib/ai/parse-recipe.test.ts
-6614 src/lib/ai/prompts.test.ts
+6610 src/lib/ai/prompts.test.ts
 5365 src/lib/ai/prompts.ts
 7807 src/lib/ai/repair-plan.test.ts
 5621 src/lib/ai/usage.test.ts
 5944 src/lib/auth.test.ts
 7137 src/lib/auth.ts
 6281 src/lib/household-meals.db.test.ts
-7729 src/lib/household-meals.ts
+7728 src/lib/household-meals.ts
 7010 src/lib/meal-images/generate.test.ts
 7928 src/lib/meal-planning/candidates.test.ts
 11019 src/lib/meal-planning/shopping-list.test.ts

@@ -115,7 +115,7 @@ export function estonianVoice(locale: string | null | undefined): string {
 }
 
 /**
- * Estonian voice block for preparation tips (full and supplementary):
+ * Estonian voice block for preparation tips (full and from notes):
  * equipment, steps, pitfalls, tip — all in sina-form imperative. Empty for
  * every other locale.
  */
@@ -138,7 +138,7 @@ ESTONIAN EXAMPLES (draft → what to output):
 }
 
 /**
- * English voice block for preparation tips (full and supplementary): the
+ * English voice block for preparation tips (full and from notes): the
  * counterpart of `estonianVoiceForPrepSteps`, so a step can be read at a glance
  * from across the counter (HON-963). Empty for Estonian, so exactly one of the
  * two blocks is non-empty for a locale and the Estonian prompt is unchanged.

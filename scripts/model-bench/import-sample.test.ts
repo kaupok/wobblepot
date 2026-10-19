@@ -96,10 +96,10 @@ const SAMPLES = {
     },
     output: { equipment: [], steps: [], pitfalls: [] },
   },
-  'preparation-tips-supplementary': {
+  'preparation-tips-from-notes': {
     type: 'ai_sample',
     timestamp: '2026-10-01T12:00:00.000Z',
-    callSite: 'preparation-tips-supplementary',
+    callSite: 'preparation-tips-from-notes',
     locale: 'et',
     sampleRate: 1,
     input: {
@@ -276,7 +276,7 @@ describe('draftFromSample', () => {
 
   it.each([
     ['preparation-tips-full', 'full'],
-    ['preparation-tips-supplementary', 'supplementary'],
+    ['preparation-tips-from-notes', 'notes'],
   ] as const)('maps %s to a %s tips case', (callSite, kind) => {
     const { task, draft, missingInput } = draftFromSample(sample(callSite))
     expect(task).toBe('tips')
@@ -285,7 +285,7 @@ describe('draftFromSample', () => {
     expect(draft.timeMinutes).toBe(SAMPLES[callSite].input.timeMinutes)
     expect(draft.components).toEqual([])
     expect(missingInput[0]).toMatch(/components: .* had \d ingredients/)
-    if (kind === 'supplementary') {
+    if (kind === 'notes') {
       expect(draft.preparationNotes).toBe('')
       expect(missingInput[1]).toMatch(/preparationNotes/)
     } else {

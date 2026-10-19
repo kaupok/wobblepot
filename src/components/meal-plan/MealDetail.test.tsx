@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createMeal, createMealComponent } from '@/stories/fixtures'
 import { MealDetail } from './MealDetail'
 import type { PantryIngredient } from './types'
@@ -380,7 +381,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     expect(actions.parentElement).toHaveClass('shrink-0')
   })
 
-  it('renders the household notes in the steps area before tips are asked for', () => {
+  it('renders the household notes, closed, in the steps area before tips are asked for', async () => {
     render(
       <MealDetail
         meal={{ ...meal, preparationNotes: 'Broil the last two minutes' }}
@@ -390,6 +391,9 @@ describe('MealDetail cook view layout (HON-932)', () => {
     )
 
     const steps = screen.getByTestId('cook-view-steps')
+    const notes = within(steps).getByRole('button', { name: 'Your notes' })
+    expect(notes).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(notes)
     expect(within(steps).getByText('Broil the last two minutes')).toBeInTheDocument()
     expect(within(steps).getByRole('button', { name: 'How to prepare' })).toBeInTheDocument()
   })

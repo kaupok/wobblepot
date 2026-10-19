@@ -23,7 +23,7 @@ const mockTips: PreparationSteps = {
   tip: 'Let the chicken rest for 5 minutes before slicing',
 }
 
-const mockSupplementaryTips: PreparationSteps = {
+const mockExtrasOnlyTips: PreparationSteps = {
   pitfalls: ["Don't overcook the chicken"],
   tip: 'Let the chicken rest for 5 minutes before slicing',
 }
@@ -177,7 +177,7 @@ describe('useMealSteps', () => {
       await act(async () => {
         resolvePromise!({
           ok: true,
-          json: () => Promise.resolve({ tips: mockSupplementaryTips }),
+          json: () => Promise.resolve({ tips: mockExtrasOnlyTips }),
         } as Response)
         await fetchPromise
       })

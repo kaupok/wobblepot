@@ -339,9 +339,9 @@ describe('renderContactSheet', () => {
   it('lists the prep sample with the meal notes', () => {
     const html = renderContactSheet([], {
       ...meta,
-      prep: [{ ...prep, mealSlug: 'chicken-thighs', kind: 'supplementary', steps: [] }],
+      prep: [{ ...prep, mealSlug: 'chicken-thighs', kind: 'notes' }],
     })
-    expect(html).toContain('Baked Chicken Thighs (supplementary)')
+    expect(html).toContain('Baked Chicken Thighs (notes)')
     expect(html).toContain('Notes: Cut the potatoes into 2cm cubes')
   })
 
