@@ -18,7 +18,7 @@ Acceptance criteria:
 
 ## Read first
 
-- `docs/PROJECT_SPEC.md`, for the product context of this area
+- `docs/PROJECT_SPEC.md`, for the product context of this area (drop this line when Phase 1 read it)
 - The docs that CLAUDE.md → Documentation Structure names for this kind of change
 
 ## Return

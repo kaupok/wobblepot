@@ -125,7 +125,7 @@ Print `[auto-implement] Sibling check: <sibling> ([status], merged PR #<N>) touc
 
 ### 2.4 Read project context
 
-The 2.6 Explore call reads `docs/PROJECT_SPEC.md` for you.
+If Phase 1 was skipped, the 2.6 Explore call reads `docs/PROJECT_SPEC.md`; discovery already read it.
 
 ### 2.5 Fetch issue comments
 
@@ -135,7 +135,7 @@ mcp__linear-server__list_comments({ issueId: "[issue-uuid]" })
 
 ### 2.6 Explore codebase
 
-**Before the plan posts, read no file outside `.claude/skills/`: a file read in the main context is paid on every later request.** One read-only subagent reads instead and returns a short brief. Fill its prompt from `templates.md` → Explore prompt, with the 2.3 siblings:
+**From 2.4 until the plan posts, read no file outside `.claude/skills/`: a file read in the main context is paid on every later request.** One read-only subagent reads instead and returns a short brief. Fill its prompt from `templates.md` → Explore prompt, with the 2.3 siblings:
 
 ```
 Agent({ subagent_type: "Explore", model: "sonnet", run_in_background: false, description: "Explore for <ID>", prompt: "<templates.md → Explore prompt, filled>" })

@@ -40,13 +40,15 @@ describe('auto-implement Phase 2 exploration', () => {
   })
 
   it('states the rule with its reason', () => {
-    expect(explore).toContain('read no file outside `.claude/skills/`')
+    expect(explore).toContain(
+      'From 2.4 until the plan posts, read no file outside `.claude/skills/`',
+    )
     expect(explore).toContain('a file read in the main context is paid on every later request')
   })
 
   it('hands docs/PROJECT_SPEC.md to the Explore call instead of reading it in 2.4', () => {
     const projectContext = section(skill, '### 2.4 Read project context', '### 2.5')
-    expect(projectContext).toContain('The 2.6 Explore call reads `docs/PROJECT_SPEC.md`')
+    expect(projectContext).toContain('the 2.6 Explore call reads `docs/PROJECT_SPEC.md`')
     expect(read('templates.md')).toContain('`docs/PROJECT_SPEC.md`')
   })
 
