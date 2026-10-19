@@ -295,19 +295,27 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
 }
 
 /**
- * Build the standard 429 response for an over-cap call. Mirrors the rate-limit
- * 429 shape used elsewhere so existing UI handlers can treat both identically.
+ * The day the cap resets, YYYY-MM-DD in the household's timezone. Shared by
+ * `respondCapExceeded` and the MCP `adjust_meal` refusal (HON-1246).
  */
-export function respondCapExceeded(error: AiCostCapExceededError): NextResponse {
-  const seconds = Math.max(1, Math.ceil((error.resetAt.getTime() - Date.now()) / 1000))
+export function capResetDate(error: AiCostCapExceededError): string {
   // en-CA produces YYYY-MM-DD; format in the household's local timezone so a
   // Tallinn user sees "2026-05-01" and not the UTC slice "2026-04-30".
-  const localDate = new Intl.DateTimeFormat('en-CA', {
+  return new Intl.DateTimeFormat('en-CA', {
     timeZone: error.timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(error.resetAt)
+}
+
+/**
+ * Build the standard 429 response for an over-cap call. Mirrors the rate-limit
+ * 429 shape used elsewhere so existing UI handlers can treat both identically.
+ */
+export function respondCapExceeded(error: AiCostCapExceededError): NextResponse {
+  const seconds = Math.max(1, Math.ceil((error.resetAt.getTime() - Date.now()) / 1000))
+  const localDate = capResetDate(error)
   return NextResponse.json(
     {
       error: 'AI usage cap exceeded',

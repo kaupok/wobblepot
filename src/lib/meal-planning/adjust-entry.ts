@@ -23,6 +23,7 @@ import { staleChangeIds } from './entry-components'
 import { getEffectiveServings, sumPortions } from './servings'
 import {
   resolveChanges,
+  unresolvedOriginals,
   type AdjustProposal,
   type AdjustReplacement,
   storableQuantity,
@@ -90,6 +91,10 @@ export interface AdjustResult {
   followInSteps: boolean
   /** The replacement names the catalogue did not match, in proposal order. */
   unmatched: string[]
+  /** The ingredients the model meant to change that the meal does not have; dropped. */
+  notInMeal: string[]
+  /** The names the model meant to change that fit several of the meal's ingredients; dropped. */
+  ambiguous: string[]
 }
 
 /**
@@ -144,8 +149,9 @@ export async function proposeAdjustment(input: {
   await record(toAiUsageStats(ADJUST_MODEL, result.usage, Date.now() - startedAt))
 
   const stale = staleChangeIds(context.meal.components, context.changes)
+  const modelChanges = result.object.changes.slice(0, MAX_ADJUST_CHANGES)
   const resolved = resolveChanges(
-    result.object.changes.slice(0, MAX_ADJUST_CHANGES),
+    modelChanges,
     components,
     context.changes.filter((c) => !stale.has(c.id)),
   )
@@ -186,6 +192,7 @@ export async function proposeAdjustment(input: {
     unmatched: changes.flatMap((c) =>
       c.replacement && !c.replacement.matched ? [c.replacement.name] : [],
     ),
+    ...unresolvedOriginals(modelChanges, components),
   }
 }
 

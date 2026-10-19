@@ -374,7 +374,7 @@ enum ProteinType {
 - Favourite meals
 - Own recipes: create, import from a URL or pasted text, or describe one for the AI to write (`/recipes`)
 - AI preparation tips for a planned meal
-- MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased, adds or checks shopping list items, sets pantry quantities, swaps a planned meal and rates a cooked one (HON-1151, HON-1154, HON-1173, HON-1174)
+- MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased, adds or checks shopping list items, sets pantry quantities, swaps a planned meal, changes a planned meal's ingredients from an instruction through Adjust recipe (`adjust_meal`, the one tool that calls the AI, under the household's cost cap) and rates a cooked one (HON-1151, HON-1154, HON-1173, HON-1174, HON-1246)
 
 **Out of scope:**
 
@@ -385,7 +385,7 @@ enum ProteinType {
 - Email-based invites
 - Plan history/archive: the Today timeline shows only the last 7 days
 - Real-time multi-user sync
-- MCP tools that call the AI (plan generation, imagining a meal): each call costs money and needs a per-household budget first. MCP tools that create or edit recipes, or change members or preferences
+- Other MCP tools that call the AI (plan generation, imagining a meal). The household's AI cost cap is the budget they would run under, as `adjust_meal` does (HON-1246). MCP tools that create or edit recipes, or change members or preferences
 
 ---
 
@@ -477,7 +477,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 ### AI assistants (Ongoing)
 
 - MCP server at `/api/mcp` (HON-1151): an assistant such as Claude reads the household's meal plan, shopping list, pantry and meals through OAuth (HON-1150). See [MCP_SERVER.md](./MCP_SERVER.md)
-- MCP write scope `mcp:write` (HON-1154): the assistant marks shopping list items purchased, adds items and checks them off, if the user allowed it on `/consent`. The same scope sets a pantry quantity (HON-1173) swaps a planned meal and rates a cooked one (HON-1174). A swap through the assistant accepts only a meal the app's swap ranking could offer for that slot
+- MCP write scope `mcp:write` (HON-1154): the assistant marks shopping list items purchased, adds items and checks them off, if the user allowed it on `/consent`. The same scope sets a pantry quantity (HON-1173) swaps a planned meal and rates a cooked one (HON-1174). A swap through the assistant accepts only a meal the app's swap ranking could offer for that slot The same scope changes a planned meal's ingredients from an instruction (`adjust_meal`, HON-1246): the app's Adjust recipe without the review dialog, applying only the replacements the catalogue matched, under the `adjust-recipe` limit and the household's AI cost cap
 
 ### Polish & UX (Ongoing)
 

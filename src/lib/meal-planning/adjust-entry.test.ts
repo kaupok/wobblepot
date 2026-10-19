@@ -174,6 +174,8 @@ describe('proposeAdjustment', () => {
       ],
       followInSteps: false,
       unmatched: [],
+      notInMeal: [],
+      ambiguous: [],
     })
     // Matched alone, at one serving: the amount is already per serving.
     expect(mockMatch).toHaveBeenCalledWith(
@@ -270,8 +272,32 @@ describe('proposeAdjustment', () => {
   it('returns an empty list as the model sent it, with its steps flag', async () => {
     answer([], true)
 
-    expect(await propose()).toEqual({ changes: [], followInSteps: true, unmatched: [] })
+    expect(await propose()).toEqual({
+      changes: [],
+      followInSteps: true,
+      unmatched: [],
+      notInMeal: [],
+      ambiguous: [],
+    })
     expect(mockMatch).not.toHaveBeenCalled()
+  })
+
+  it('reports an original the meal does not have, and drops its change', async () => {
+    answer([
+      {
+        op: 'remove',
+        original: 'bacon',
+        replacement: null,
+        quantityPerServing: null,
+        unit: null,
+        reason: 'No meat.',
+      },
+    ])
+
+    const result = await propose()
+
+    expect(result.changes).toEqual([])
+    expect(result.notInMeal).toEqual(['bacon'])
   })
 })
 

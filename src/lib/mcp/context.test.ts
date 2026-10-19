@@ -53,7 +53,7 @@ describe('runTool', () => {
       content: [{ type: 'text', text: '{"value":42}' }],
       structuredContent: { value: 42 },
     })
-    expect(run).toHaveBeenCalledWith(ctx.household, {})
+    expect(run).toHaveBeenCalledWith(ctx.household, {}, { userId: 'user-1' })
   })
 
   it('counts each call against the household’s mcp limit', async () => {

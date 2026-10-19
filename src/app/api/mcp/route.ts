@@ -173,6 +173,14 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
+/**
+ * Platform execution ceiling for this route, in seconds. `adjust_meal` makes a
+ * model call under `ADJUST_AI_BUDGET_MS`, so it is stated as on every AI route,
+ * and the budget's refusal stays reachable (HON-1246). The other tools finish
+ * far below it.
+ */
+export const maxDuration = 60
+
 /** Stateless serving opens no server-to-client stream, so there is nothing to GET. */
 export function GET(): Response {
   return withCors(

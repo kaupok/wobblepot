@@ -84,23 +84,31 @@ const normalize = (name: string) =>
     .trim()
 
 /**
- * The merged component the model named: the same name, ignoring case and
- * punctuation, or else the one component whose name holds the model's name or
- * is held by it ("mushrooms" for "mushroom"). Null when none or several fit.
+ * The merged components the model's name fits: the one with the same name,
+ * ignoring case and punctuation, or else every component whose name holds the
+ * model's name or is held by it ("mushrooms" for "mushroom").
  */
+function fittingComponents(
+  components: readonly ResolvableComponent[],
+  name: string,
+): ResolvableComponent[] {
+  const wanted = normalize(name)
+  if (!wanted) return []
+  const exact = components.find((c) => normalize(c.name) === wanted)
+  if (exact) return [exact]
+  return components.filter((c) => {
+    const have = normalize(c.name)
+    return have.includes(wanted) || wanted.includes(have)
+  })
+}
+
+/** The merged component the model named, or null when none or several fit. */
 function findComponent(
   components: readonly ResolvableComponent[],
   name: string,
 ): ResolvableComponent | null {
-  const wanted = normalize(name)
-  if (!wanted) return null
-  const exact = components.find((c) => normalize(c.name) === wanted)
-  if (exact) return exact
-  const close = components.filter((c) => {
-    const have = normalize(c.name)
-    return have.includes(wanted) || wanted.includes(have)
-  })
-  return close.length === 1 ? close[0]! : null
+  const fitting = fittingComponents(components, name)
+  return fitting.length === 1 ? fitting[0]! : null
 }
 
 /** The replacement fields of a replace or an add, or null when the model left one out. */
@@ -166,6 +174,31 @@ export function resolveChanges(
     })
   }
   return resolved
+}
+
+/**
+ * The originals the model named that `resolveChanges` dropped, in order and
+ * without a repeat: `notInMeal` when no merged component fits the name,
+ * `ambiguous` when several do ("pepper" on a meal with black pepper and bell
+ * pepper). The review dialog has nothing to show for them; the MCP tool
+ * reports them, so the assistant can tell the user or ask which one was meant
+ * (HON-1246).
+ */
+export function unresolvedOriginals(
+  changes: readonly AdjustRecipeChange[],
+  components: readonly ResolvableComponent[],
+): { notInMeal: string[]; ambiguous: string[] } {
+  const notInMeal: string[] = []
+  const ambiguous: string[] = []
+  for (const change of changes) {
+    if (change.op === 'add') continue
+    const name = change.original?.trim()
+    if (!name || notInMeal.includes(name) || ambiguous.includes(name)) continue
+    const fitting = fittingComponents(components, name).length
+    if (fitting === 0) notInMeal.push(name)
+    else if (fitting > 1) ambiguous.push(name)
+  }
+  return { notInMeal, ambiguous }
 }
 
 /** Smallest amount a change stores: the PUT refuses 0, and rounding can reach it. */

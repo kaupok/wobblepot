@@ -79,6 +79,7 @@ const WRITE_TOOL_NAMES = [
   'set_pantry_status',
   'swap_meal',
   'rate_meal',
+  'adjust_meal',
 ]
 
 interface ListedTool {
@@ -231,6 +232,7 @@ describe('/api/mcp', () => {
         expect(annotations.add_shopping_item).toEqual({ ...write, idempotentHint: false })
         expect(annotations.rate_meal).toEqual({ ...write, idempotentHint: true })
         expect(annotations.swap_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.adjust_meal).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },
@@ -246,6 +248,7 @@ describe('/api/mcp', () => {
           set_pantry_status: { ingredientId: 'ing-1', status: 'have_some' },
           swap_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
           rate_meal: { date: '2026-10-15', mealType: 'dinner', rating: 'up' },
+          adjust_meal: { date: '2026-10-15', mealType: 'dinner', instruction: 'No cream' },
         }[name]
 
         const result = await callTool('user-a', name, args)

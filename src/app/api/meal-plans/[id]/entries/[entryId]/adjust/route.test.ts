@@ -125,15 +125,33 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/adjust', () => {
   })
 
   it('returns an empty list as it is', async () => {
-    mockPropose.mockResolvedValue({ changes: [], followInSteps: false, unmatched: [] })
+    mockPropose.mockResolvedValue({
+      changes: [],
+      followInSteps: false,
+      unmatched: [],
+      notInMeal: [],
+      ambiguous: [],
+    })
 
     const response = await post({ instruction: 'Make it vegetarian' })
 
-    expect(await response.json()).toEqual({ changes: [], followInSteps: false, unmatched: [] })
+    expect(await response.json()).toEqual({
+      changes: [],
+      followInSteps: false,
+      unmatched: [],
+      notInMeal: [],
+      ambiguous: [],
+    })
   })
 
   it('counts the request against the adjust-recipe bucket', async () => {
-    mockPropose.mockResolvedValue({ changes: [], followInSteps: false, unmatched: [] })
+    mockPropose.mockResolvedValue({
+      changes: [],
+      followInSteps: false,
+      unmatched: [],
+      notInMeal: [],
+      ambiguous: [],
+    })
 
     await post({ instruction: 'Less salt' })
 

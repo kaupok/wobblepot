@@ -70,9 +70,10 @@ export class ToolInputError extends Error {
 }
 
 /**
- * One tool. `run` gets the caller's household and the input after the SDK
- * validated it against `inputSchema`, and returns the object that becomes both
- * the text content and `structuredContent`. MCP requires `structuredContent`
+ * One tool. `run` gets the caller's household, the input after the SDK
+ * validated it against `inputSchema`, and the caller's user id (for a feature
+ * flag read per user), and returns the object that becomes both the text
+ * content and `structuredContent`. MCP requires `structuredContent`
  * to be an object, so a list is wrapped in a key.
  *
  * `annotations` defaults to {@link READ_ONLY_ANNOTATIONS}. Any tool whose
@@ -89,7 +90,11 @@ export interface McpTool<
   inputSchema: Input
   outputSchema: Output
   annotations?: ToolAnnotations
-  run: (household: McpHousehold, input: z.output<Input>) => Promise<z.output<Output>>
+  run: (
+    household: McpHousehold,
+    input: z.output<Input>,
+    caller: Pick<McpCallerContext, 'userId'>,
+  ) => Promise<z.output<Output>>
 }
 
 /** Keeps each tool file's `run` typed against its own schemas. */
@@ -165,7 +170,7 @@ export async function runTool<Input extends z.ZodObject, Output extends z.ZodObj
   }
 
   try {
-    return jsonResult(await tool.run(household, input))
+    return jsonResult(await tool.run(household, input, { userId: ctx.userId }))
   } catch (error) {
     if (error instanceof ToolInputError) return errorResult(error.message)
     captureApiError(error, {
