@@ -473,7 +473,8 @@
           "noChanges": "Sellel toidul pole muudatusi, mida alles hoida.",
           "mealNotFound": "See retsept pole enam saadaval.",
           "changesMoved": "Keegi muutis vahepeal seda toitu. Vaata muudatused üle ja proovi uuesti.",
-          "invalidRecipe": "Retseptis peab olema 1 kuni {max} koostisosa. Muuda loendit ja proovi uuesti."
+          "invalidRecipe": "Retseptis peab olema 1 kuni {max} koostisosa. Muuda loendit ja proovi uuesti.",
+          "ingredientNotFound": "Mõni loendi koostisosa pole enam saadaval. Muuda loendit ja proovi uuesti."
         }
       }
     },

@@ -124,6 +124,11 @@ describe('PromoteEntry', () => {
     ['notPlanned', 409, 'Only a planned meal can be saved as a recipe.'],
     ['mealNotFound', 404, 'This recipe is no longer available.'],
     ['invalidRecipe', 400, 'A recipe needs 1 to 50 ingredients. Change the list and try again.'],
+    [
+      'ingredientNotFound',
+      404,
+      'An ingredient in the list is no longer available. Change the list and try again.',
+    ],
     ['somethingNew', 500, 'Could not save the recipe. Try again.'],
   ])('shows catalog copy for %s, never the server text', async (code, status, copy) => {
     fetchMock.mockResolvedValue(json({ error: 'English server text', code }, status))

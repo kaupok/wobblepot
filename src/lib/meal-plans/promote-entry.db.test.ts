@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { EntryChangeError, type EntryChangeRefusal } from '@/lib/meal-plans/entry-changes'
 import { promoteEntry } from '@/lib/meal-plans/promote-entry'
@@ -326,4 +326,46 @@ describe("promoteEntry on the household's own recipe", () => {
     expect(await readEntry('entry-wed')).toMatchObject({ preparationTips: null })
     expect(await prisma.meal.count()).toBe(2)
   })
+
+  it('refuses when a change is undone after the read, and leaves the recipe as it was', async () => {
+    const { alder } = await ownRecipe()
+    // Another member taps Undo on the chili between the read and the write.
+    const read = prisma.mealPlanEntry.findUniqueOrThrow.bind(prisma.mealPlanEntry)
+    vi.spyOn(prisma.mealPlanEntry, 'findUniqueOrThrow').mockImplementationOnce(((
+      args: Parameters<typeof read>[0],
+    ) =>
+      read(args).then(async (row) => {
+        await prisma.mealPlanEntryComponent.deleteMany({
+          where: { entryId: 'entry-mon', replacementIngredientId: 'chili' },
+        })
+        return row
+      })) as never)
+
+    expect(await refusal(promoteEntry(alder.id, 'plan-alder', 'entry-mon', { name: 'x' }))).toBe(
+      'changesMoved',
+    )
+    expect(await componentsOf('meal-own')).toEqual([
+      ['cream', 50, null],
+      ['pasta', 100, null],
+    ])
+  })
+
+  it('refuses an ingredient the household can no longer see, and leaves the recipe as it was', async () => {
+    const { alder } = await ownRecipe()
+    const birch = await prisma.household.findFirstOrThrow({ where: { name: 'Birch' } })
+    await prisma.ingredient.update({ where: { id: 'chili' }, data: { householdId: birch.id } })
+
+    expect(await refusal(promoteEntry(alder.id, 'plan-alder', 'entry-mon', { name: 'x' }))).toBe(
+      'ingredientNotFound',
+    )
+    expect(await componentsOf('meal-own')).toEqual([
+      ['cream', 50, null],
+      ['pasta', 100, null],
+    ])
+    expect((await readEntry('entry-mon')).changes).toHaveLength(2)
+  })
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })

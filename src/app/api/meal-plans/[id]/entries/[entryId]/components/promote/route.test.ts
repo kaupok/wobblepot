@@ -101,6 +101,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/components/promote', () =>
     ['mealNotFound', 404],
     ['changesMoved', 409],
     ['invalidRecipe', 400],
+    ['ingredientNotFound', 404],
   ])('maps %s to %i with its code', async (reason, status) => {
     mockPromote.mockRejectedValue(new EntryChangeError(reason))
 

@@ -24,6 +24,7 @@ export const PROMOTE_ERROR_KEYS = {
   mealNotFound: 'mealNotFound',
   changesMoved: 'changesMoved',
   invalidRecipe: 'invalidRecipe',
+  ingredientNotFound: 'ingredientNotFound',
 } as const
 
 interface UsePromoteEntryOptions {

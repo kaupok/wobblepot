@@ -473,7 +473,8 @@
           "noChanges": "This meal has no changes to keep.",
           "mealNotFound": "This recipe is no longer available.",
           "changesMoved": "Someone changed this meal meanwhile. Check the changes and try again.",
-          "invalidRecipe": "A recipe needs 1 to {max} ingredients. Change the list and try again."
+          "invalidRecipe": "A recipe needs 1 to {max} ingredients. Change the list and try again.",
+          "ingredientNotFound": "An ingredient in the list is no longer available. Change the list and try again."
         }
       }
     },

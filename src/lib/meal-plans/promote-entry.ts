@@ -14,7 +14,7 @@ import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { clearChangesOnSwap } from '@/lib/meal-planning/swap-entry'
 import { parsePreparationSteps } from '@/lib/preparation-steps'
-import { updateHouseholdMeal } from '@/lib/household-meals'
+import { HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
 import { claimPlannedEntry, EntryChangeError, findOwnEntry } from './entry-changes'
 
 /**
@@ -101,8 +101,9 @@ function forkedNotes(preparationTips: string | null, mealNotes: string | null): 
  * Keeps the entry's live changes as a recipe, and clears them from the entry.
  * Refuses `entryNotFound`, `notPlanned`, `mealNotFound` (deleted, or not the
  * household's to see), `noChanges` (no change applies), `invalidRecipe` (no
- * ingredient left, or too many), and `changesMoved`
- * (a change write landed between the read and the fork).
+ * ingredient left, or too many), `ingredientNotFound` (an ingredient the
+ * changes brought in is no longer visible, on an update), and `changesMoved`
+ * (a change write landed between the read and the recipe write).
  */
 export async function promoteEntry(
   householdId: string,
@@ -147,6 +148,16 @@ export async function promoteEntry(
     })
     return { outcome: 'forked', mealId }
   }
+
+  // The recipe write is shared by every planned entry of the recipe, so it must
+  // not carry a change that was undone since the read. Not under the entry
+  // lock (`updateHouseholdMeal` opens its own transaction), so a window of
+  // milliseconds stays; the fork has none.
+  const now = await prisma.mealPlanEntryComponent.findMany({
+    where: { entryId },
+    select: { id: true },
+  })
+  if (changeSetKey(now) !== changeSetKey(changes)) throw new EntryChangeError('changesMoved')
 
   await updateOwnRecipe(householdId, meal.id, meal.servings, merged)
   await clearPromotedChanges(
@@ -237,6 +248,19 @@ async function updateOwnRecipe(
       isVague: c.isVague,
       originalPhrase: c.originalPhrase,
     })),
+    // The divisor the totals were multiplied by. Without it the update divides
+    // by the servings it reads under its lock, and a servings edit in between
+    // would store every amount under the wrong divisor (HON-701).
+    servings,
+  }).catch((error: unknown) => {
+    // The recipe was deleted since the read, or an ingredient the changes
+    // brought in is no longer the household's to see.
+    if (error instanceof HouseholdMealError) {
+      throw new EntryChangeError(
+        error.reason === 'mealNotFound' ? 'mealNotFound' : 'ingredientNotFound',
+      )
+    }
+    throw error
   })
   await discardMealImage(discardedImageUrl, PROMOTE_ROUTE)
 }
