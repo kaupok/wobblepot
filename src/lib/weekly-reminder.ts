@@ -257,6 +257,23 @@ export interface WeeklyReminderRunResult {
   failed: number
 }
 
+/**
+ * Whether the household has planned any meal from `start` up to `end`. An
+ * entry in any status counts, except a picker placeholder: an entry with no
+ * meal and no note, left when the tab closed with the picker open. The planner
+ * shows it as an empty slot (HON-1251), so it must not suppress the reminder.
+ */
+export async function isWeekPlanned(householdId: string, start: Date, end: Date) {
+  const planned = await prisma.mealPlanEntry.count({
+    where: {
+      plan: { householdId },
+      date: { gte: start, lt: end },
+      OR: [{ mealId: { not: null } }, { note: { not: null } }],
+    },
+  })
+  return planned > 0
+}
+
 type Candidate = Awaited<ReturnType<typeof findCandidates>>[number]
 
 function findCandidates() {
@@ -331,12 +348,8 @@ async function remindMember(
   const today = getTodayInTimezone(household.timezone, now)
   if (isoWeekday(today) !== member.reminderWeekday) return 'skipped'
 
-  // Any entry next week, in any status, means the household has planned it.
   const { start, end } = nextWeekRange(today)
-  const planned = await prisma.mealPlanEntry.count({
-    where: { plan: { householdId: household.id }, date: { gte: start, lt: end } },
-  })
-  if (planned > 0) return 'skipped'
+  if (await isWeekPlanned(household.id, start, end)) return 'skipped'
 
   if (!configured || !resend) return 'skipped'
 
