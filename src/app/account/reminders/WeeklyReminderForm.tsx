@@ -19,7 +19,7 @@ import {
   REMINDER_WEEKDAYS,
   type ReminderWeekday,
 } from '@/lib/weekly-reminder-schedule'
-import { SettingsSection } from './SettingsSection'
+import { SettingsSection } from '@/components/SettingsSection'
 
 type ReminderValues = { weekday: ReminderWeekday | null }
 
@@ -41,7 +41,6 @@ interface WeeklyReminderFormProps {
    * cron sends nothing, so the section says an email is waiting.
    */
   confirmed: boolean
-  isOwner: boolean
 }
 
 /**
@@ -57,15 +56,12 @@ function weekdayName(weekday: ReminderWeekday, locale: Locale) {
 /**
  * Weekly reminder (HON-1084): the viewer's own opt-in to one email on a
  * weekday, sent only when next week has no meals planned. The consent is the
- * viewer's, so every member with an account can save it, not only the owner.
- * Saves to `/api/households/me/members/me/reminder`, which emails a confirm
- * link on the first switch-on (HON-1113).
+ * viewer's, so it lives on My account → Reminders (HON-1256), and every
+ * account holder can save it, not only the owner. Saves to
+ * `/api/households/me/members/me/reminder`, which emails a confirm link on
+ * the first switch-on (HON-1113).
  */
-export function WeeklyReminderForm({
-  weekday: savedWeekday,
-  confirmed,
-  isOwner,
-}: WeeklyReminderFormProps) {
+export function WeeklyReminderForm({ weekday: savedWeekday, confirmed }: WeeklyReminderFormProps) {
   const tSettings = useTranslations('household.settings')
   const locale = useLocale() as Locale
 
@@ -93,7 +89,6 @@ export function WeeklyReminderForm({
       id="reminder"
       heading={tSettings('reminderHeading')}
       url="/api/households/me/members/me/reminder"
-      isOwner={isOwner}
       ownerOnly={false}
       values={{ weekday }}
       saved={saved}
@@ -101,8 +96,6 @@ export function WeeklyReminderForm({
     >
       {({ disabled, errorId }) => (
         <>
-          {/* The page's owner-only notice covers the other sections, not this one. */}
-          {!isOwner && <Body variant="muted">{tSettings('reminderOwnNotice')}</Body>}
           <div className="flex items-start gap-2">
             <Checkbox
               id="reminder-on"

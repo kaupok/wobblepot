@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-// `t.rich` (the Household page link) returns React elements, which the default
+// `t.rich` (the My account → Reminders link) returns React elements, which the default
 // next-intl test mock cannot handle; use the real provider.
 vi.unmock('next-intl')
 import { act, render, screen, waitFor } from '@testing-library/react'
@@ -63,9 +63,9 @@ describe('ConfirmReminderForm', () => {
       '/api/reminders/confirm',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: 'confirm-1' }) }),
     )
-    expect(screen.getByRole('link', { name: 'Household page' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'My account → Reminders' })).toHaveAttribute(
       'href',
-      '/household',
+      '/account/reminders',
     )
     // The button unmounted; focus moves to the heading that replaced it.
     await waitFor(() => expect(done).toHaveFocus())

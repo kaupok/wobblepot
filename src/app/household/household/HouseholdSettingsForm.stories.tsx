@@ -6,7 +6,6 @@ import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { HouseholdDetailsForm } from './HouseholdDetailsForm'
 import { FoodPreferencesForm } from './FoodPreferencesForm'
 import { MealsToPlanForm } from './MealsToPlanForm'
-import { WeeklyReminderForm } from './WeeklyReminderForm'
 
 const meta = {
   title: 'Feature/HouseholdSettingsForm',
@@ -17,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Household settings: four sections, each a Section-level h2 (Household details, Food preferences, Meals to plan, Weekly reminder) and its own form (HON-960, HON-961, HON-1084). A section shows its Save button only while one of its fields differs from the saved value, and saves only its own fields. Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.',
+          "Household settings: three sections, each a Section-level h2 (Household details, Food preferences, Meals to plan) and its own form (HON-960, HON-961). The weekly reminder is the viewer's own setting, on My account → Reminders (HON-1256). A section shows its Save button only while one of its fields differs from the saved value, and saves only its own fields. Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.",
       },
     },
   },
@@ -49,8 +48,6 @@ export const Default: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: true,
-    reminderWeekday: null,
-    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -87,8 +84,6 @@ export const EstonianHousehold: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: true,
-    reminderWeekday: null,
-    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -119,8 +114,6 @@ export const AllergensSelected: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: true,
-    reminderWeekday: null,
-    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -162,14 +155,12 @@ export const NonOwner: Story = {
       weekendMealTypes: [...basePreferences.weekendMealTypes],
     },
     isOwner: false,
-    reminderWeekday: null,
-    reminderConfirmed: true,
   },
   parameters: {
     docs: {
       description: {
         story:
-          "Non-owner viewer: every household control is disabled and there is no save button. Both settings endpoints are owner-only (HON-677); the owner-only notice is the page's, under its title (HON-960). The Weekly reminder is the viewer's own setting, so it stays editable and says so (HON-1084).",
+          "Non-owner viewer: every household control is disabled and there is no save button. Both settings endpoints are owner-only (HON-677); the owner-only notice is the page's, under its title (HON-960).",
       },
     },
   },
@@ -180,20 +171,12 @@ export const NonOwner: Story = {
     await expect(canvas.getByRole('radio', { name: 'Vegan' })).toBeDisabled()
     await expect(canvas.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
-    const reminder = canvas.getByRole('form', { name: 'Weekly reminder' })
-    await expect(
-      within(reminder).getByText('This setting is your own, so you can change it.'),
-    ).toBeVisible()
-    await expect(
-      within(reminder).getByRole('checkbox', { name: 'Remind me to plan next week' }),
-    ).toBeEnabled()
   },
 }
 
 // The body of the last PATCH each route received, for the payload assertions.
 let lastHouseholdBody: unknown
 let lastPreferencesBody: unknown
-let lastReminderBody: unknown
 
 // A section's submit button, in either state. While the save is in flight it
 // reads "Saving…", so waiting only for "Save" to go passes mid-request, before
@@ -209,10 +192,6 @@ const saveHandlers = [
   }),
   http.patch('/api/households/me/preferences', async ({ request }) => {
     lastPreferencesBody = await request.json()
-    return HttpResponse.json({})
-  }),
-  http.patch('/api/households/me/members/me/reminder', async ({ request }) => {
-    lastReminderBody = await request.json()
     return HttpResponse.json({})
   }),
 ]
@@ -408,127 +387,6 @@ export const MealsToPlanDirty: Story = {
   },
 }
 
-export const WeeklyReminderOff: Story = {
-  args: Default.args,
-  render: (args) => (
-    <WeeklyReminderForm
-      weekday={args.reminderWeekday}
-      confirmed={args.reminderConfirmed}
-      isOwner={args.isOwner}
-    />
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The Weekly reminder section, switched off: one checkbox and the line that says what the email does. The weekday select shows only while it is on (HON-1084).',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const toggle = canvas.getByRole('checkbox', { name: 'Remind me to plan next week' })
-    await expect(toggle).not.toBeChecked()
-    await expect(toggle).toHaveAccessibleDescription(/only when next week has no meals planned/)
-    await expect(canvas.queryByRole('combobox')).not.toBeInTheDocument()
-  },
-}
-
-export const WeeklyReminderOn: Story = {
-  args: { ...Default.args, reminderWeekday: 3 },
-  render: WeeklyReminderOff.render,
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Switched on for Wednesday. The weekday names come from `Intl` in the household language, not the catalog.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(
-      canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }),
-    ).toBeChecked()
-    await expect(canvas.getByRole('combobox', { name: 'Day' })).toHaveTextContent('Wednesday')
-    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
-  },
-}
-
-export const WeeklyReminderAwaitingConfirm: Story = {
-  args: { ...Default.args, reminderWeekday: 7, reminderConfirmed: false },
-  render: WeeklyReminderOff.render,
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Switched on, but the confirm link in the email is not opened yet: a muted line under the helper says the reminder starts after it is opened, and the checkbox carries it in its description (HON-1113).',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const line = 'We emailed you a link. The reminder starts after you open it and confirm.'
-    await expect(canvas.getByText(line)).toBeVisible()
-    await expect(
-      canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }),
-    ).toHaveAccessibleDescription(/We emailed you a link/)
-  },
-}
-
-export const WeeklyReminderSwitchOn: Story = {
-  ...WeeklyReminderOff,
-  parameters: {
-    msw: { handlers: saveHandlers },
-    docs: {
-      description: {
-        story:
-          'Ticking the checkbox picks Sunday and shows the Save button. Saving sends `{ weekday: 7 }` to the member route, and focus moves to the section heading.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    lastReminderBody = undefined
-    const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }))
-    await expect(canvas.getByRole('combobox', { name: 'Day' })).toHaveTextContent('Sunday')
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(lastReminderBody).toEqual({ weekday: 7 }))
-    await waitFor(() =>
-      expect(canvas.queryByRole('button', { name: SAVE_BUTTON })).not.toBeInTheDocument(),
-    )
-    await expect(canvas.getByRole('heading', { name: 'Weekly reminder' })).toHaveFocus()
-  },
-}
-
-export const WeeklyReminderConfirmNotSent: Story = {
-  ...WeeklyReminderOff,
-  args: { ...Default.args, reminderConfirmed: false },
-  parameters: {
-    msw: {
-      handlers: [
-        http.patch('/api/households/me/members/me/reminder', () =>
-          HttpResponse.json({ weekday: 7, confirmEmail: 'not_sent' }),
-        ),
-      ],
-    },
-    docs: {
-      description: {
-        story:
-          'The switch-on saved, but the route reports that the confirm email did not go out (rate limited or failed), so the line says the link was not sent and how to get it, instead of "We emailed you a link" (HON-1113).',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }))
-    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
-    await expect(await canvas.findByText(/We could not send you the link just now/)).toBeVisible()
-    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
-  },
-}
-
 export const OneSectionChanged: Story = {
   args: Default.args,
   parameters: {
@@ -536,7 +394,7 @@ export const OneSectionChanged: Story = {
     docs: {
       description: {
         story:
-          'The whole settings column with one change in Household details: one Save button, at the end of that section, and none in the other three. Saving it sends only the household fields.',
+          'The whole settings column with one change in Household details: one Save button, at the end of that section, and none in the other two. Saving it sends only the household fields.',
       },
     },
   },

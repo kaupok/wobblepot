@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { toDateString } from '@/lib/meal-planning/dates'
-import { isoWeekday, nextWeekRange } from './weekly-reminder-schedule'
+import { isoWeekday, nextWeekRange, toReminderWeekday } from './weekly-reminder-schedule'
 
 describe('isoWeekday', () => {
   it('numbers Monday 1 and Sunday 7', () => {
@@ -30,5 +30,15 @@ describe('nextWeekRange', () => {
 
   it('crosses a month and a year', () => {
     expect(range('2026-12-30')).toEqual(['2027-01-04', '2027-01-11'])
+  })
+})
+
+describe('toReminderWeekday', () => {
+  it.each([1, 4, 7])('keeps the stored weekday %i', (value) => {
+    expect(toReminderWeekday(value)).toBe(value)
+  })
+
+  it.each([null, 0, 8, -1, 2.5])('reads %s as off', (value) => {
+    expect(toReminderWeekday(value)).toBeNull()
   })
 })

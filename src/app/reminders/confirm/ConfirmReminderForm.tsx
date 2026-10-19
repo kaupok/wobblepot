@@ -11,8 +11,8 @@ import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
-const householdLink = (chunks: ReactNode) => (
-  <Link href="/household" className="text-foreground inline-link">
+const remindersLink = (chunks: ReactNode) => (
+  <Link href="/account/reminders" className="text-foreground inline-link">
     {chunks}
   </Link>
 )
@@ -68,8 +68,8 @@ export function ConfirmReminderForm({ token, ttlDays }: { token: string; ttlDays
           </Heading>
           <Body variant="muted" role="status">
             {confirmed
-              ? t.rich('confirmedBody', { link: householdLink })
-              : t.rich('expiredBody', { days: ttlDays, link: householdLink })}
+              ? t.rich('confirmedBody', { link: remindersLink })
+              : t.rich('expiredBody', { days: ttlDays, link: remindersLink })}
           </Body>
         </CardHeader>
       </Card>

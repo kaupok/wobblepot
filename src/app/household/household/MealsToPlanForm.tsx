@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
-import { SettingsSection } from './SettingsSection'
+import { SettingsSection } from '@/components/SettingsSection'
 import type { HouseholdPreferencesValues, MealType } from './settings-values'
 
 type MealsValues = Pick<HouseholdPreferencesValues, 'weekdayMealTypes' | 'weekendMealTypes'>

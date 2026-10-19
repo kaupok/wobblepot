@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, ProfileNameForm, SignInMethods, ChangePasswordForm, SignInForm, Header (User menu)
+// ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, RouteTabs, ProfileNameForm, SignInMethods, ChangePasswordForm, SignInForm, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import {
   grantEssentialCookieConsent,
@@ -24,7 +24,7 @@ async function submitSignIn(page: Page, email: string, password: string): Promis
 test.describe('Profile', () => {
   test.setTimeout(90_000)
 
-  // HON-1229: the account menu opens My account, and its three tabs are links
+  // HON-1229: the account menu opens My account, and its four tabs are links
   // a keyboard reaches in order. The tab list is in the layout, which stays
   // mounted, so focus stays on the tab and does not fall to <body>.
   test('the account menu opens My account, and Tab and Enter move between its tabs', async ({
@@ -43,12 +43,19 @@ test.describe('Profile', () => {
     await expect(page.getByRole('heading', { name: 'My account', level: 1 })).toBeVisible()
 
     const tabs = page.getByRole('navigation', { name: 'Account sections' })
-    await expect(tabs.getByRole('link')).toHaveText(['Profile', 'Connections', 'Your data'])
+    await expect(tabs.getByRole('link')).toHaveText([
+      'Profile',
+      'Reminders',
+      'Connections',
+      'Your data',
+    ])
     const profileTab = tabs.getByRole('link', { name: 'Profile' })
     const connectionsTab = tabs.getByRole('link', { name: 'Connections' })
     await expect(profileTab).toHaveAttribute('aria-current', 'page')
 
     await profileTab.focus()
+    await page.keyboard.press('Tab')
+    await expect(tabs.getByRole('link', { name: 'Reminders' })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(connectionsTab).toBeFocused()
     await page.keyboard.press('Enter')

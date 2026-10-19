@@ -14,6 +14,13 @@ export type ReminderWeekday = (typeof REMINDER_WEEKDAYS)[number]
 /** The day a newly switched-on reminder goes out: Sunday. */
 export const DEFAULT_REMINDER_WEEKDAY: ReminderWeekday = 7
 
+/** A stored weekday outside 1–7 reads as off rather than as a broken select. */
+export function toReminderWeekday(value: number | null): ReminderWeekday | null {
+  return (REMINDER_WEEKDAYS as readonly number[]).includes(value ?? 0)
+    ? (value as ReminderWeekday)
+    : null
+}
+
 /** The ISO weekday of a `YYYY-MM-DD` date: 1 is Monday, 7 is Sunday. */
 export function isoWeekday(dateString: string): ReminderWeekday {
   const day = parseLocalDate(dateString).getDay()

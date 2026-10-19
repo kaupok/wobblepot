@@ -1350,7 +1350,6 @@
       "weekendsRow": "Weekends",
       "mealCellAria": "{day}: {meal}",
       "reminderHeading": "Weekly reminder",
-      "reminderOwnNotice": "This setting is your own, so you can change it.",
       "reminderToggle": "Remind me to plan next week",
       "reminderWeekdayLabel": "Day",
       "reminderHelper": "One email on that day, only when next week has no meals planned yet. Every email has a link to stop them.",
@@ -1474,6 +1473,7 @@
     "tabsLabel": "Account sections",
     "tabs": {
       "profile": "Profile",
+      "reminders": "Reminders",
       "connections": "Connections",
       "data": "Your data"
     },
@@ -1858,9 +1858,9 @@
       "button": "Stop the reminders",
       "submitting": "Stopping…",
       "doneTitle": "Done",
-      "doneBody": "You can switch the reminder on again on the <link>Household page</link>.",
+      "doneBody": "You can switch the reminder on again in <link>My account → Reminders</link>.",
       "failed": "We could not stop the reminders. Try again.",
-      "incompleteLink": "This link is not complete. You can switch the reminder off on the <link>Household page</link>."
+      "incompleteLink": "This link is not complete. You can switch the reminder off in <link>My account → Reminders</link>."
     },
     "confirm": {
       "metaTitle": "Confirm the weekly reminder",
@@ -1870,9 +1870,9 @@
       "submitting": "Starting…",
       "failed": "We could not start the reminder. Try again.",
       "confirmedTitle": "The weekly reminder is on",
-      "confirmedBody": "We email you on the day you chose, when next week has no meals planned. You can change the day on the <link>Household page</link>.",
+      "confirmedBody": "We email you on the day you chose, when next week has no meals planned. You can change the day in <link>My account → Reminders</link>.",
       "expiredTitle": "This link has expired",
-      "expiredBody": "The link works for {days} days, and only while the reminder is on. To get a new link, switch the reminder off and on again on the <link>Household page</link>."
+      "expiredBody": "The link works for {days} days, and only while the reminder is on. To get a new link, switch the reminder off and on again in <link>My account → Reminders</link>."
     }
   },
   "mealPlans": {

@@ -50,6 +50,16 @@ describe('PrivacyPage', () => {
     )
   })
 
+  // The reminder left the Household page for My account (HON-1256), so the
+  // policy names the place a person gives and withdraws that consent.
+  it('names My account → Reminders as the place to switch the reminder on', () => {
+    const text = renderedText().replace(/\s+/g, ' ')
+    expect(text).toContain(
+      'switch it on, in My account → Reminders or when you plan your first meals',
+    )
+    expect(text).not.toContain('on the Household page or when you plan your first meals')
+  })
+
   it('links to the dedicated subprocessors page (HON-543)', () => {
     render(<PrivacyPage />)
     expect(screen.getByRole('link', { name: 'subprocessors page' })).toHaveAttribute(

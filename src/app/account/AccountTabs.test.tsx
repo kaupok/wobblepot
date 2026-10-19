@@ -14,13 +14,19 @@ async function renderAt(pathname: string) {
 }
 
 describe('AccountTabs', () => {
-  it('links Profile, Connections and Your data, in that order', async () => {
+  it('links Profile, Reminders, Connections and Your data, in that order', async () => {
     const nav = await renderAt('/account')
 
     const links = nav.getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Profile', 'Connections', 'Your data'])
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Profile',
+      'Reminders',
+      'Connections',
+      'Your data',
+    ])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/account',
+      '/account/reminders',
       '/account/connections',
       '/account/data',
     ])
@@ -28,6 +34,7 @@ describe('AccountTabs', () => {
 
   it.each([
     ['/account', 'Profile'],
+    ['/account/reminders', 'Reminders'],
     ['/account/connections', 'Connections'],
     ['/account/data', 'Your data'],
   ])('on %s marks %s as the current page, and only it', async (pathname, current) => {
@@ -39,7 +46,7 @@ describe('AccountTabs', () => {
     expect(marked.map((link) => link.textContent)).toEqual([current])
   })
 
-  it('marks no tab on a path outside the three', async () => {
+  it('marks no tab on a path outside the four', async () => {
     const nav = await renderAt('/account/other')
 
     for (const link of nav.getAllByRole('link')) {

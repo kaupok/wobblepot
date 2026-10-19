@@ -94,8 +94,6 @@ function renderForm(
     household: defaultHousehold,
     preferences: defaultPreferences,
     isOwner: true,
-    reminderWeekday: null,
-    reminderConfirmed: false,
     ...overrides,
   }
   function Wrapper({ children }: { children: ReactNode }) {
@@ -126,16 +124,13 @@ describe('HouseholdSettingsForm', () => {
   })
 
   describe('rendering', () => {
-    it('renders the four settings sections in order', () => {
+    // The weekly reminder is the viewer's own, on My account → Reminders (HON-1256).
+    it('renders the three settings sections in order, with no weekly reminder', () => {
       renderForm()
 
       const headings = screen.getAllByRole('heading').map((h) => h.textContent)
-      expect(headings).toEqual([
-        'Household details',
-        'Food preferences',
-        'Meals to plan',
-        'Weekly reminder',
-      ])
+      expect(headings).toEqual(['Household details', 'Food preferences', 'Meals to plan'])
+      expect(screen.queryByRole('form', { name: 'Weekly reminder' })).not.toBeInTheDocument()
     })
 
     /**
@@ -147,12 +142,7 @@ describe('HouseholdSettingsForm', () => {
     it('renders each section as an h2 at the Section size, with no h3', () => {
       renderForm()
 
-      for (const name of [
-        'Household details',
-        'Food preferences',
-        'Meals to plan',
-        'Weekly reminder',
-      ]) {
+      for (const name of ['Household details', 'Food preferences', 'Meals to plan']) {
         const heading = screen.getByRole('heading', { name, level: 2 })
         expect(heading).toHaveClass('text-base', 'font-semibold')
         expect(heading).not.toHaveClass('uppercase')
@@ -168,10 +158,9 @@ describe('HouseholdSettingsForm', () => {
       expect(within(food).getByLabelText('Ingredients to avoid (optional)')).toBeInTheDocument()
     })
 
-    // The language line, the DPIA's allergen notice (HON-666) and what the
-    // weekly reminder sends (HON-1084) are the only helper copy; the tag
-    // inputs' placeholders carry their examples.
-    it('renders only the language, allergen and reminder helper lines', () => {
+    // The language line and the DPIA's allergen notice (HON-666) are the only
+    // helper copy; the tag inputs' placeholders carry their examples.
+    it('renders only the language and allergen helper lines', () => {
       const { container } = renderForm()
 
       const helpers = Array.from(container.querySelectorAll('p.text-muted-foreground')).map(
@@ -180,7 +169,6 @@ describe('HouseholdSettingsForm', () => {
       expect(helpers).toEqual([
         'Recipes you already have keep their language.',
         expect.stringContaining('Allergens you tick here'),
-        enMessages.household.settings.reminderHelper,
       ])
     })
 
@@ -330,8 +318,7 @@ describe('HouseholdSettingsForm', () => {
       for (const name of ['No preference', 'Vegetarian', 'Vegan', 'Pescatarian']) {
         expect(screen.getByRole('radio', { name })).toBeDisabled()
       }
-      // The meal grid's checkboxes; the weekly reminder's is the member's own.
-      for (const checkbox of within(section('Meals to plan')).getAllByRole('checkbox')) {
+      for (const checkbox of screen.getAllByRole('checkbox')) {
         expect(checkbox).toBeDisabled()
       }
       expect(screen.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
@@ -454,8 +441,6 @@ describe('HouseholdSettingsForm', () => {
               household={defaultHousehold}
               preferences={defaultPreferences}
               isOwner
-              reminderWeekday={7}
-              reminderConfirmed
             />
           </QueryClientProvider>
         </NextIntlClientProvider>,
@@ -464,7 +449,6 @@ describe('HouseholdSettingsForm', () => {
 
       expect(doc.getElementById('timezone')?.textContent).toContain('Europe/Tallinn')
       expect(doc.getElementById('locale')?.textContent).toContain('English')
-      expect(doc.getElementById('reminder-weekday')?.textContent).toContain('Sunday')
     })
   })
 
@@ -758,189 +742,6 @@ describe('HouseholdSettingsForm', () => {
       await userEvent.click(screen.getByLabelText('Weekdays: Lunch'))
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(weekdayDinner).not.toHaveAccessibleDescription()
-    })
-  })
-
-  describe('weekly reminder', () => {
-    const settings = enMessages.household.settings
-
-    it('is off by default, with no weekday select', () => {
-      renderForm()
-
-      const form = section('Weekly reminder')
-      expect(
-        within(form).getByRole('checkbox', { name: settings.reminderToggle }),
-      ).not.toBeChecked()
-      expect(within(form).queryByRole('combobox')).not.toBeInTheDocument()
-      expect(within(form).getByRole('checkbox')).toHaveAccessibleDescription(
-        settings.reminderHelper,
-      )
-    })
-
-    it('switches on with Sunday and saves the weekday to its own route', async () => {
-      mockFetch.mockResolvedValue(ok())
-      renderForm()
-
-      const form = section('Weekly reminder')
-      await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-      expect(within(form).getByRole('combobox', { name: 'Day' })).toHaveTextContent('Sunday')
-      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/households/me/members/me/reminder',
-        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ weekday: 7 }) }),
-      )
-    })
-
-    describe('the confirm step (HON-1113)', () => {
-      it('says an email is waiting while the reminder is on and the address is not confirmed', () => {
-        renderForm({ reminderWeekday: 7, reminderConfirmed: false })
-
-        const form = section('Weekly reminder')
-        expect(within(form).getByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
-        expect(
-          within(form).getByRole('checkbox', { name: settings.reminderToggle }),
-        ).toHaveAccessibleDescription(
-          `${settings.reminderHelper} ${settings.reminderAwaitingConfirm}`,
-        )
-      })
-
-      it.each([
-        ['on and confirmed', { reminderWeekday: 7 as const, reminderConfirmed: true }],
-        ['off and unconfirmed', { reminderWeekday: null, reminderConfirmed: false }],
-        ['off and confirmed', { reminderWeekday: null, reminderConfirmed: true }],
-      ])('says nothing about an email when %s', (_label, props) => {
-        renderForm(props)
-
-        expect(screen.queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
-      })
-
-      it('shows the line once the switch-on is saved, not on the tick', async () => {
-        mockFetch.mockResolvedValue(ok())
-        renderForm()
-
-        const form = section('Weekly reminder')
-        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
-        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-        expect(await within(form).findByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
-      })
-
-      it('says the link was not sent when the route reports not_sent', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({ weekday: 7, confirmEmail: 'not_sent' }),
-        })
-        renderForm()
-
-        const form = section('Weekly reminder')
-        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-        expect(await within(form).findByText(settings.reminderConfirmNotSent)).toBeInTheDocument()
-        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
-      })
-
-      it('keeps the not-sent line when only the day changes after it', async () => {
-        mockFetch
-          .mockResolvedValueOnce({
-            ok: true,
-            json: () => Promise.resolve({ weekday: 7, confirmEmail: 'not_sent' }),
-          })
-          .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ weekday: 3 }) })
-        renderForm()
-
-        const form = section('Weekly reminder')
-        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-        await within(form).findByText(settings.reminderConfirmNotSent)
-
-        await userEvent.click(within(form).getByRole('combobox', { name: 'Day' }))
-        await userEvent.click(await screen.findByRole('option', { name: 'Wednesday' }))
-        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
-        await waitFor(() =>
-          expect(within(form).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
-        )
-        expect(within(form).getByText(settings.reminderConfirmNotSent)).toBeInTheDocument()
-        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
-      })
-    })
-
-    it('saves another weekday picked from the select', async () => {
-      mockFetch.mockResolvedValue(ok())
-      renderForm({ reminderWeekday: 7 })
-
-      const form = section('Weekly reminder')
-      await userEvent.click(within(form).getByRole('combobox', { name: 'Day' }))
-      await userEvent.click(await screen.findByRole('option', { name: 'Wednesday' }))
-      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-      await waitFor(() =>
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/households/me/members/me/reminder',
-          expect.objectContaining({ body: JSON.stringify({ weekday: 3 }) }),
-        ),
-      )
-    })
-
-    it('switches off with null', async () => {
-      mockFetch.mockResolvedValue(ok())
-      renderForm({ reminderWeekday: 5 })
-
-      const form = section('Weekly reminder')
-      expect(within(form).getByRole('combobox', { name: 'Day' })).toHaveTextContent('Friday')
-      await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-      expect(within(form).queryByRole('combobox')).not.toBeInTheDocument()
-      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-      await waitFor(() =>
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/households/me/members/me/reminder',
-          expect.objectContaining({ body: JSON.stringify({ weekday: null }) }),
-        ),
-      )
-    })
-
-    // The consent is the member's own, so the owner-only rule does not apply.
-    it('lets a member who is not the owner save it, and says so', async () => {
-      mockFetch.mockResolvedValue(ok())
-      renderForm({ isOwner: false })
-
-      const form = section('Weekly reminder')
-      expect(within(form).getByText(settings.reminderOwnNotice)).toBeInTheDocument()
-      const toggle = within(form).getByRole('checkbox', { name: settings.reminderToggle })
-      expect(toggle).toBeEnabled()
-      await userEvent.click(toggle)
-      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
-    })
-
-    it('shows the generic save failure, not the owner-only notice, for a member', async () => {
-      mockFetch.mockResolvedValue(fail(500, 'Failed to save the reminder'))
-      renderForm({ isOwner: false })
-
-      const form = section('Weekly reminder')
-      await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
-      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
-
-      expect(await within(form).findByText(settings.saveFailed)).toBeInTheDocument()
-      expect(within(form).queryByText(OWNER_ONLY_NOTICE)).not.toBeInTheDocument()
-    })
-
-    it('names the weekdays in the household language', () => {
-      renderForm({ reminderWeekday: 7 }, 'et')
-
-      const form = section(etMessages.household.settings.reminderHeading)
-      expect(
-        within(form).getByRole('combobox', {
-          name: etMessages.household.settings.reminderWeekdayLabel,
-        }),
-      ).toHaveTextContent('Pühapäev')
     })
   })
 
