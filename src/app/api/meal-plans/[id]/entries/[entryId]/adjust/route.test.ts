@@ -130,6 +130,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/adjust', () => {
       followInSteps: false,
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
     })
 
     const response = await post({ instruction: 'Make it vegetarian' })
@@ -139,6 +140,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/adjust', () => {
       followInSteps: false,
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
     })
   })
 
@@ -148,6 +150,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/adjust', () => {
       followInSteps: false,
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
     })
 
     await post({ instruction: 'Less salt' })

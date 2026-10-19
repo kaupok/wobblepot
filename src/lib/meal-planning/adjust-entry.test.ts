@@ -175,6 +175,7 @@ describe('proposeAdjustment', () => {
       followInSteps: false,
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
     })
     // Matched alone, at one serving: the amount is already per serving.
     expect(mockMatch).toHaveBeenCalledWith(
@@ -276,6 +277,7 @@ describe('proposeAdjustment', () => {
       followInSteps: true,
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
     })
     expect(mockMatch).not.toHaveBeenCalled()
   })

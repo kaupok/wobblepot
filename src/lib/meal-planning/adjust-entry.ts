@@ -22,8 +22,8 @@ import {
 import { staleChangeIds } from './entry-components'
 import { getEffectiveServings, sumPortions } from './servings'
 import {
-  missingOriginals,
   resolveChanges,
+  unresolvedOriginals,
   type AdjustProposal,
   type AdjustReplacement,
   storableQuantity,
@@ -93,6 +93,8 @@ export interface AdjustResult {
   unmatched: string[]
   /** The ingredients the model meant to change that the meal does not have; dropped. */
   notInMeal: string[]
+  /** The names the model meant to change that fit several of the meal's ingredients; dropped. */
+  ambiguous: string[]
 }
 
 /**
@@ -190,7 +192,7 @@ export async function proposeAdjustment(input: {
     unmatched: changes.flatMap((c) =>
       c.replacement && !c.replacement.matched ? [c.replacement.name] : [],
     ),
-    notInMeal: missingOriginals(modelChanges, components),
+    ...unresolvedOriginals(modelChanges, components),
   }
 }
 

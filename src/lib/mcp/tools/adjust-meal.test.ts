@@ -134,12 +134,17 @@ const quark: AdjustProposal = {
   reason: 'Quark is close.',
 }
 
-function proposes(changes: AdjustProposal[], followInSteps = false, notInMeal: string[] = []) {
+function proposes(
+  changes: AdjustProposal[],
+  followInSteps = false,
+  unresolved: { notInMeal?: string[]; ambiguous?: string[] } = {},
+) {
   vi.mocked(proposeAdjustment).mockResolvedValue({
     changes,
     followInSteps,
     unmatched: [],
-    notInMeal,
+    notInMeal: unresolved.notInMeal ?? [],
+    ambiguous: unresolved.ambiguous ?? [],
   })
 }
 
@@ -223,6 +228,7 @@ describe('adjust_meal', () => {
       ],
       unmatched: [],
       notInMeal: [],
+      ambiguous: [],
       // At the household's two servings, read again after the write.
       ingredients: [
         { name: 'pasta', quantity: 200, unit: 'g', note: null },
@@ -259,12 +265,13 @@ describe('adjust_meal', () => {
     expect(output(result).applied).toHaveLength(1)
   })
 
-  it('reports an ingredient the meal does not have', async () => {
-    proposes([noMushroom], false, ['bacon'])
+  it('reports an ingredient the meal does not have, and a name that fits several', async () => {
+    proposes([noMushroom], false, { notInMeal: ['bacon'], ambiguous: ['pepper'] })
 
-    const result = await call({ instruction: 'No bacon or mushrooms' })
+    const result = await call({ instruction: 'No bacon, pepper or mushrooms' })
 
     expect(output(result).notInMeal).toEqual(['bacon'])
+    expect(output(result).ambiguous).toEqual(['pepper'])
     expect(output(result).outcome).toBe('adjusted')
   })
 
@@ -282,6 +289,17 @@ describe('adjust_meal', () => {
       noteMode: 'append',
     })
     expect(output(result).outcome).toBe('note_stored')
+  })
+
+  it('stores no note when every proposed replacement was unmatched, even if the steps would follow it', async () => {
+    // The steps would follow a change the ingredients and the list do not make.
+    proposes([quark], true)
+
+    const result = await call()
+
+    expect(replaceEntryChanges).not.toHaveBeenCalled()
+    expect(output(result).outcome).toBe('unchanged')
+    expect(output(result).unmatched).toEqual([{ name: 'kohupiim', original: 'cream' }])
   })
 
   it('writes nothing and answers unchanged when nothing applies', async () => {

@@ -33,7 +33,7 @@ export const adjustMeal = defineTool({
   name: 'adjust_meal',
   title: 'Change a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "leave out the chilli", "add spinach"). Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "leave out the chilli", "add spinach"). Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal, and a name that fits several of its ingredients in ambiguous; ask the user which one they meant. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -72,6 +72,11 @@ export const adjustMeal = defineTool({
     notInMeal: z
       .array(z.string())
       .describe('Ingredients the instruction named that this meal does not have.'),
+    ambiguous: z
+      .array(z.string())
+      .describe(
+        'Names that fit several of this meal’s ingredients, so nothing was changed for them.',
+      ),
     ingredients: z
       .array(
         z.object({
@@ -151,8 +156,15 @@ export const adjustMeal = defineTool({
         : [],
     )
 
+    // The note alone only when the model proposed no change at all, as the
+    // app stores it (`AdjustRecipe.storeNote`). With every proposal unmatched,
+    // a note would make the steps follow a change the ingredients do not.
     const outcome: 'adjusted' | 'note_stored' | 'unchanged' =
-      accepted.length > 0 ? 'adjusted' : result.followInSteps ? 'note_stored' : 'unchanged'
+      accepted.length > 0
+        ? 'adjusted'
+        : result.changes.length === 0 && result.followInSteps
+          ? 'note_stored'
+          : 'unchanged'
     if (outcome !== 'unchanged') {
       // With nothing accepted, the stored set is written back unchanged with
       // the note, so the steps still follow it (`AdjustRecipe.storeNote`).
@@ -173,6 +185,7 @@ export const adjustMeal = defineTool({
       applied: accepted.map(appliedOf),
       unmatched,
       notInMeal: result.notInMeal,
+      ambiguous: result.ambiguous,
       ingredients: entry.components.map((component) => {
         // A vague amount ("a pinch") is a phrase, not a number to scale, as in get_meal.
         const vague = component.isVague && !!component.originalPhrase

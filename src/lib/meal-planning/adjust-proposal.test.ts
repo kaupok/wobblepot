@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { AdjustRecipeChange } from '@/lib/ai/adjust-recipe'
-import { buildChangeSet, missingOriginals, pickedQuantity, resolveChanges } from './adjust-proposal'
+import {
+  buildChangeSet,
+  pickedQuantity,
+  resolveChanges,
+  unresolvedOriginals,
+} from './adjust-proposal'
 
 // A cream pasta with mushrooms, after the household replaced the cream with
 // yoghurt (change c1) and added chilli (change c2).
@@ -109,10 +114,10 @@ describe('resolveChanges', () => {
   })
 })
 
-describe('missingOriginals', () => {
+describe('unresolvedOriginals', () => {
   it('names each original no component fits, once, and skips adds and found ones', () => {
     expect(
-      missingOriginals(
+      unresolvedOriginals(
         [
           change({ op: 'remove', original: 'Mushrooms' }),
           change({ op: 'remove', original: 'bacon' }),
@@ -122,7 +127,24 @@ describe('missingOriginals', () => {
         ],
         components,
       ),
-    ).toEqual(['bacon', 'cheese'])
+    ).toEqual({ notInMeal: ['bacon', 'cheese'], ambiguous: [] })
+  })
+
+  it('names apart an original that fits several components', () => {
+    const peppers = [
+      { ingredientId: 'black-pepper', name: 'black pepper' },
+      { ingredientId: 'bell-pepper', name: 'bell pepper' },
+    ]
+
+    expect(
+      unresolvedOriginals(
+        [
+          change({ op: 'remove', original: 'pepper' }),
+          change({ op: 'remove', original: 'Bell pepper' }),
+        ],
+        peppers,
+      ),
+    ).toEqual({ notInMeal: [], ambiguous: ['pepper'] })
   })
 })
 
