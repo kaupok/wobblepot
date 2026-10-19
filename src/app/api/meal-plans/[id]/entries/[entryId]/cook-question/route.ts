@@ -32,6 +32,7 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import {
@@ -206,6 +207,8 @@ async function handlePOST(
         defaultUnit: comp.ingredient.defaultUnit,
         measuredByVolume: comp.ingredient.measuredByVolume,
       })),
+      // The list is then the whole meal, not the name's (HON-1254).
+      hasChanges: hasLiveChanges(entry.meal.components, entry.changes),
       preparationNotes: shownMeal.preparationNotes ?? null,
       steps,
       equipment,

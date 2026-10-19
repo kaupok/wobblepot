@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   applyEntryChanges,
   changeSetKey,
+  hasLiveChanges,
   staleChangeIds,
   type EntryChangeRow,
   type MergeableComponent,
@@ -114,6 +115,25 @@ describe('staleChangeIds', () => {
       change('c3', null, 'chili', 2),
     ])
     expect([...stale]).toEqual(['c1'])
+  })
+})
+
+describe('hasLiveChanges', () => {
+  it('is false without changes', () => {
+    expect(hasLiveChanges(MEAL, [])).toBe(false)
+  })
+
+  it('is true with one change that applies, beside a stale one', () => {
+    expect(
+      hasLiveChanges(MEAL, [change('c1', 'bacon', 'tofu', 30), change('c2', 'cream', null)]),
+    ).toBe(true)
+    expect(hasLiveChanges(MEAL, [change('c3', null, 'chili', 2)])).toBe(true)
+  })
+
+  it('is false when every change is stale', () => {
+    expect(
+      hasLiveChanges(MEAL, [change('c1', 'bacon', 'tofu', 30), change('c2', null, 'pasta', 50)]),
+    ).toBe(false)
   })
 })
 

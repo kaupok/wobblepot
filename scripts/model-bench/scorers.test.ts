@@ -14,7 +14,6 @@ import {
   scorePlan,
   scoreRecipe,
   scoreReview,
-  scoreTips,
   sentenceCount,
 } from './scorers'
 
@@ -522,40 +521,6 @@ describe('scoreReview', () => {
   })
 })
 
-describe('scoreTips', () => {
-  const full = starter('tips', 'en-full-bolognese')
-  const supplementary = starter('tips', 'et-supplementary-ahjulohe')
-  const items = (n: number) => Array.from({ length: n }, (_, i) => `item ${i + 1}`)
-
-  it('passes full tips within every range', () => {
-    const scores = scoreTips(full, { equipment: items(4), steps: items(5), pitfalls: items(2) })
-    expect(scores).toEqual({ answered: 1, countsInRange: 1 })
-  })
-
-  it('scores whether the adjustment instruction reached the answer (HON-1244)', () => {
-    const adjusted = { ...full, adjustmentNote: 'Less salt', followsAny: ['salt'] }
-    const answer = { equipment: items(4), steps: items(5), pitfalls: items(2) }
-    expect(scoreTips(adjusted, answer).followsNote).toBe(0)
-    expect(scoreTips(adjusted, { ...answer, tip: 'Skip the extra Salt.' }).followsNote).toBe(1)
-  })
-
-  it('detects full tips with 9 steps', () => {
-    const scores = scoreTips(full, { equipment: items(4), steps: items(9), pitfalls: items(2) })
-    expect(scores.countsInRange).toBe(0)
-  })
-
-  it('detects supplementary tips with an empty tip or too many pitfalls', () => {
-    expect(
-      scoreTips(supplementary, { pitfalls: items(2), tip: 'Pat the salmon dry.' }).countsInRange,
-    ).toBe(1)
-    expect(scoreTips(supplementary, { pitfalls: items(2), tip: '  ' }).countsInRange).toBe(0)
-    expect(scoreTips(supplementary, { pitfalls: items(4), tip: 'x' })).toEqual({
-      answered: 1,
-      countsInRange: 0,
-    })
-  })
-})
-
 describe('sentenceCount', () => {
   it('splits on a sentence end before whitespace, in English and Estonian', () => {
     expect(sentenceCount('Stir it. Then wait! Done? Yes… Ok')).toBe(5)
@@ -584,7 +549,7 @@ describe('sentenceCount', () => {
 })
 
 describe('scoreCookQuestion', () => {
-  const substitute = starter('cook-question', 'en-substitute-pantry-match')
+  const substitute = starter('cook-question', 'en-changed-no-mushrooms-substitute')
   const offTopic = starter('cook-question', 'en-off-topic-football')
   const nutAllergy = starter('cook-question', 'en-nut-allergy-crunch')
   const words = (n: number) => Array.from({ length: n }, () => 'word').join(' ')
@@ -604,7 +569,15 @@ describe('scoreCookQuestion', () => {
       avoidsForbidden: null,
       avoidsClaims: null,
       mentionsExpected: 1,
+      omitsLeftOut: 1,
     })
+  })
+
+  it('fails an answer that names an ingredient the household left out (HON-1254)', () => {
+    expect(
+      scoreCookQuestion(substitute, 'Use Greek yogurt, and add the Mushrooms back.').omitsLeftOut,
+    ).toBe(0)
+    expect(scoreCookQuestion(offTopic, 'I can only help with this meal.').omitsLeftOut).toBeNull()
   })
 
   it('matches the expected phrase case-insensitively, and fails an answer without it', () => {

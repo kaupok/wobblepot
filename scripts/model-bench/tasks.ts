@@ -399,8 +399,20 @@ const tips: TaskSpec<'tips'> = {
       // Two cases carry one (HON-1244), so 6 calls: one miss in 6 passes.
       gate: { min: 0.8 },
     },
+    {
+      key: 'omitsLeftOut',
+      label: "Leaves out what the changed list doesn't have",
+      format: 'percent',
+      onError: null,
+      // One mention of an ingredient the household left out is the bug the
+      // check exists for (HON-1254), so no miss passes.
+      gate: { min: 1 },
+    },
   ],
-  inapplicableMetrics: (input) => (input.followsAny ? [] : ['followsNote']),
+  inapplicableMetrics: (input) => [
+    ...(input.followsAny ? [] : ['followsNote']),
+    ...(input.omitsAll ? [] : ['omitsLeftOut']),
+  ],
   prepare({ input }) {
     const base = {
       mealName: input.mealName,
@@ -409,6 +421,7 @@ const tips: TaskSpec<'tips'> = {
       components: input.components,
       locale: input.locale,
       adjustmentNote: input.adjustmentNote,
+      hasChanges: input.hasChanges,
     }
     const score = (object: unknown) => scoreTips(input, object as Parameters<typeof scoreTips>[1])
 
@@ -508,6 +521,14 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       onError: null,
       gate: { min: 0.9 },
     },
+    {
+      key: 'omitsLeftOut',
+      label: "Leaves out what the changed list doesn't have",
+      format: 'percent',
+      onError: null,
+      // As the tips gate: one mention is the bug the check exists for (HON-1254).
+      gate: { min: 1 },
+    },
   ],
   prepare({ input }) {
     const request = buildCookQuestionRequest({
@@ -524,6 +545,7 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       pantry: input.pantry,
       restrictions: input.restrictions,
       question: input.question,
+      hasChanges: input.hasChanges,
       previous: input.previous,
       locale: input.locale,
     })

@@ -1,4 +1,8 @@
-import { formatIngredientsList, type StepsComponent } from './preparation-steps'
+import {
+  changedIngredientsSection,
+  formatIngredientsList,
+  type StepsComponent,
+} from './preparation-steps'
 import { localeInstruction, britishEnglish, estonianVoiceForPrepSteps, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
@@ -29,6 +33,11 @@ export interface CookQuestionRequestInput {
   servings: number
   timeMinutes: number | null
   components: StepsComponent[]
+  /**
+   * The entry has a live ingredient change, so `components` differ from the
+   * recipe and the meal's name (HON-1254). Absent reads as no change.
+   */
+  hasChanges?: boolean
   /** The household's own notes on the meal, when it has any */
   preparationNotes: string | null
   /** The steps the cook sees, in order */
@@ -91,6 +100,7 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
     servings,
     timeMinutes,
     components,
+    hasChanges,
     preparationNotes,
     steps,
     equipment,
@@ -155,6 +165,11 @@ ${previous.answer}
 
 `
     : ''
+  // The shared section says "use only the ingredients listed", which would
+  // forbid the pantry substitute the rules ask for (HON-1254).
+  const changedRule = hasChanges
+    ? '\n- The ingredient list is the whole meal, but a substitute the cook asks for may still come from the pantry.'
+    : ''
   const previousRule = previous
     ? '\n- The new question may refer to your earlier answer. Answer the new question; do not repeat the earlier answer.'
     : ''
@@ -166,7 +181,7 @@ Servings: ${servings}
 ${timeMinutes ? `Time budget: ${timeMinutes} minutes` : ''}
 
 Ingredients:
-${formatIngredientsList(components, servings)}${notes}
+${formatIngredientsList(components, servings)}${changedIngredientsSection(hasChanges)}${notes}
 
 Steps:
 ${stepsList}${equipmentSection}${pitfallsSection}${tipSection}
@@ -186,7 +201,7 @@ ${question}
 
 Rules:
 - ${scopeRule}${equipmentRules}
-- When you suggest a substitute, prefer an ingredient from the pantry above, and say that the household has it. Only call an ingredient available if it is in the pantry.
+- When you suggest a substitute, prefer an ingredient from the pantry above, and say that the household has it. Only call an ingredient available if it is in the pantry.${changedRule}
 - The pantry lists ingredients only. Never claim the household has or lacks a tool or appliance.
 - Never suggest a food the household restrictions exclude.
 - 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.

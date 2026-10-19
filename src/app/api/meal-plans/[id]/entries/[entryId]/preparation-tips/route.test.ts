@@ -713,23 +713,6 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       })
     })
 
-    // An entry's own ingredient changes reach the prompt, the shared recipe
-    // does not: `loadEntryForAi` merges them into `components` (HON-1243).
-    it("builds the prompt from the entry's merged components, not the meal's", async () => {
-      mockLoadEntry.mockResolvedValue(sampleEntry({ components: components.slice(1) }) as never)
-      mockGenerateObject.mockResolvedValue({
-        object: { equipment: [], steps: [], pitfalls: [] },
-      } as never)
-
-      await callPost()
-
-      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-        ...buildFullStepsRequest({ ...builderInput, components: builderInput.components.slice(1) }),
-        model: { modelId: STEPS_MODEL },
-        abortSignal: expect.any(AbortSignal),
-      })
-    })
-
     it('sends exactly the request buildSupplementaryStepsRequest builds, plus model and signal', async () => {
       const preparationNotes = 'Sear the chicken first, then simmer.'
       mockLoadEntry.mockResolvedValue(

@@ -1,0 +1,32 @@
+{
+  "kind": "full",
+  "mealName": "Classic Tuna Pasta with Garlic and Chilli",
+  "servings": 1,
+  "timeMinutes": null,
+  "components": [
+    {
+      "name": "tuna",
+      "quantityPerServing": 120,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "spaghetti",
+      "quantityPerServing": 90,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "salt",
+      "quantityPerServing": 2,
+      "defaultUnit": "g"
+    }
+  ],
+  "hasChanges": true,
+  "omitsAll": ["garlic", "chilli", "chili", "parsley"],
+  "locale": "en",
+  "source": "HON-1254"
+}

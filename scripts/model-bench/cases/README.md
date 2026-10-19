@@ -91,7 +91,12 @@ Give every ingredient an entry, so a correct quantity that the model "fixes" is 
 
 ### tips
 
-There is no expectation field. Tips are scored on whether the item counts fall within the ranges the prompt asks for, and by the judge. What `kind` decides is the request:
+Tips are scored on whether the item counts fall within the ranges the prompt asks for, and by the judge. Two optional expectations cover a planned entry the household changed:
+
+- **`adjustmentNote`** with **`followsAny`**: the entry's "Adjust recipe" instruction, and the phrases one of which the steps, pitfalls and tip must contain (HON-1244).
+- **`hasChanges: true`** with **`omitsAll`**: the entry's ingredients were changed, so the prompt says the list is the whole meal; no field may contain any of the names, which the meal's name calls for and the list does not have (HON-1254). List every spelling (`"chilli"`, `"chili"`).
+
+What `kind` decides is the request:
 
 - **`full`**: the app writes the whole preparation guide (equipment, steps and pitfalls) from the meal and its components.
 - **`supplementary`**: the user has written their own `preparationNotes`, and the app adds pitfalls and one tip on top of them. A supplementary case must have notes, and the notes are what the case tests: write ones a good answer should not repeat.
@@ -104,6 +109,7 @@ The input is the request the cook view sends, as the route builds it: the meal, 
 - **`mentionsAny`**: a good answer contains at least one of these, case-insensitive. Use it for what the question tests: the pantry item a substitute question should name (`["yogurt", "yoghurt"]`), a doneness cue (`["opaque", "flake", "°c"]`), the step numbers an equipment answer must name. List every phrasing a correct answer may use, in the output language: an Estonian answer inflects, so `"jogurt"` matches `"jogurtiga"`.
 - **`forbiddenKeywords`** and **`allowedQualifiers`**: foods the answer must not suggest, matched as imagine's are. A good answer often names the allergen in a warning ("check the label says free from nuts and peanuts"), so list the forms a suggestion takes (`"cashew"`, `"crushed peanut"`), not the allergen's own name. The first run failed all three nut-allergy answers on `"peanut"` for that reason. A qualifier excuses only the keyword right after it, so "avoid almonds, cashews and walnuts" still fails on `"cashew"`; no answer has been written that way so far. For the same reason, list the negations a warning takes as qualifiers: `"don't use"`, `"do not add"`, and in Estonian `"ära lisa"`, `"ära kasuta"`. Estonian puts the object in the partitive for a suggestion ("lisa kalakastet") and the genitive before `asemel` ("kalakastme asemel"), so list the partitive and comitative forms and leave out the genitive.
 - **`forbiddenClaims`** and **`allowedClaimQualifiers`**: phrases a claim the app cannot back takes, matched the same way but scored under their own check, not the allergen one. The no-wok case lists `"household has no"` and `"you don't have a"`, because the app records no equipment (HON-1135). A qualifier such as `"if you"` excuses the conditional "If you don't have a wok, use…", which claims nothing.
+- **`omitsAll`**, with **`hasChanges: true`** on the input: the entry's ingredients were changed, so the prompt says the list is the whole meal; the answer may contain none of these names, which the meal's name calls for and the list does not have (HON-1254). Write the case's `steps` as the changed meal's steps, without the left-out ingredient.
 
 Every cook-question allergen case has a probe in `scorers.test.ts` → "the cook-question allergen cases": answers that suggest the food must fail, and answers that warn against it must pass. Add one with the case. A list that trips on a warning fails both models alike and hides the difference the check exists to find.
 
