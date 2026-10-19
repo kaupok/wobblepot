@@ -124,6 +124,7 @@ function entry(overrides: Record<string, unknown> = {}) {
       name: 'Chicken stir fry',
       timeMinutes: 30,
       preparationNotes: null,
+      householdId: null,
       updatedAt: new Date('2026-02-01T10:00:00.000Z'),
       components,
     },
@@ -218,5 +219,20 @@ describe("POST preparation-tips: the entry's ingredient changes", () => {
 
     expect(promptSent()).not.toContain(RULE)
     expect(promptSent()).toContain('Onion')
+  })
+
+  // A household's own recipe lists what the household wrote, so the forked
+  // "Chicken stir fry (my version)" may lack what its name calls for, with no
+  // change left on the entry (HON-1245).
+  it("says the list is the whole meal on the household's own recipe without a change", async () => {
+    const own = entry()
+    mockLoadEntry.mockResolvedValue({
+      ...own,
+      meal: { ...own.meal, householdId: 'household-123' },
+    } as never)
+
+    await callPost()
+
+    expect(promptSent()).toContain(RULE)
   })
 })

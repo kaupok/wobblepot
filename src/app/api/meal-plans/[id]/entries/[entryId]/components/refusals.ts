@@ -5,7 +5,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import type { EntryChangeRefusal } from '@/lib/meal-plans/entry-changes'
 
 /**
- * The answer to each refusal from `addEntryChange` and `removeEntryChange`;
+ * The answer to each refusal from the change writes and `promoteEntry`;
  * see `EntryChangeRefusal` for when each is raised. `code` is what the client
  * renders catalog copy from; `error` is English, for logs.
  */
@@ -18,6 +18,9 @@ export const REFUSALS: Record<EntryChangeRefusal, { status: number; error: strin
   alreadyChanged: { status: 409, error: 'This ingredient is already changed' },
   alreadyInMeal: { status: 409, error: 'This ingredient is already in the meal' },
   changesMoved: { status: 409, error: "The meal's changes moved since the set was built" },
+  noChanges: { status: 409, error: 'The entry has no change to keep' },
+  mealNotFound: { status: 404, error: 'Meal not found' },
+  invalidRecipe: { status: 400, error: 'A recipe cannot hold this ingredient list' },
 }
 
 export function refusalResponse(reason: EntryChangeRefusal) {

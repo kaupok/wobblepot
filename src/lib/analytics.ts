@@ -169,6 +169,8 @@ export type Source =
   | 'shopping_list'
   | 'cook_view'
   | 'past_meals'
+  /** "Make it my recipe" in the cook view: a planned entry's changes kept as a recipe (HON-1245). */
+  | 'plan_entry'
   /** My account → Connections, the profile page until HON-1229; the value stays so the funnel does not break (HON-1153). */
   | 'profile'
 

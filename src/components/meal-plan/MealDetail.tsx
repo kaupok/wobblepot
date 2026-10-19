@@ -14,6 +14,7 @@ import { IngredientList } from './IngredientList'
 import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
 import { AdjustRecipe } from './AdjustRecipe'
+import { PromoteEntry } from './PromoteEntry'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import {
@@ -301,6 +302,18 @@ export function MealDetail({
                 changes={ingredientChanges.changes}
                 adjustmentNote={ingredientChanges.adjustmentNote ?? null}
                 components={meal.components}
+                onChanged={ingredientChanges.onChanged}
+              />
+            )}
+            {/* Keeps the changes for good (HON-1245): a new recipe from a
+                library meal, or the household's own recipe updated. */}
+            {ingredientChanges?.editable && (
+              <PromoteEntry
+                planId={ingredientChanges.planId}
+                entryId={ingredientChanges.entryId}
+                changes={ingredientChanges.changes}
+                isCustom={!!meal.isCustom}
+                mealName={meal.name}
                 onChanged={ingredientChanges.onChanged}
               />
             )}
