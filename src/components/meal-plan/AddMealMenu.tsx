@@ -16,9 +16,10 @@ export type AddMealView = 'library' | 'imagine'
 /** A route: a selector view, or `pick`, which places the top suggestion with no dialog (HON-1248). */
 export type AddMealChoice = AddMealView | 'pick'
 
-// In menu order. Both callers offer the same routes, so the list lives here
-// and a new route is one entry.
-const ITEMS: {
+// In menu order. The open slot and a planned card's Swap group offer the
+// same routes in the same words (HON-1249), so the list lives here and a new
+// route is one entry.
+export const MEAL_ROUTES: {
   choice: AddMealChoice
   label: 'chooseRecipe' | 'pickForMe' | 'imagineMeal'
   Icon: LucideIcon
@@ -62,7 +63,7 @@ export function AddMealMenu({ children, onChoose, disabled = false }: AddMealMen
       {/* Both triggers end at the meal column's right edge, so the menu does
           too rather than hang past it. */}
       <DropdownMenuContent align="end">
-        {ITEMS.map(({ choice, label, Icon }) => (
+        {MEAL_ROUTES.map(({ choice, label, Icon }) => (
           <DropdownMenuItem key={choice} onSelect={() => onChoose(choice)}>
             <Icon aria-hidden="true" />
             {tCard(label)}

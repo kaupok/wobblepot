@@ -17,6 +17,7 @@ export const SHARED_FIXTURE_SPECS = [
   'mcp-read.spec.ts',
   'mcp-write.spec.ts',
   'meal-card-click.spec.ts',
+  'meal-card-pick-swap.spec.ts',
   'modal-focus-restore.spec.ts',
   'note-placement.spec.ts',
   'past-meals.spec.ts',

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -86,12 +85,13 @@ interface MealSelectorModalProps {
    */
   onCloseAutoFocus?: (event: Event) => void
   /**
-   * The view chosen in the slot's add menu (`AddMealMenu`, HON-1247). Set, the
-   * control row has no Imagine button, because the menu is where the route is
-   * chosen, and a dialog opened in `imagine` has no "Back": there is no list
-   * behind it. Unset (swap mode), the Imagine button stays.
+   * The view chosen in the menu that opened the selector: the slot's add menu
+   * (`AddMealMenu`, HON-1247) or a planned card's Swap group (HON-1249). The
+   * menu is where the route is chosen, so the control row has no Imagine
+   * button, and a dialog opened in `imagine` has no "Back": there is no list
+   * behind it.
    */
-  initialView?: 'library' | 'imagine'
+  initialView: 'library' | 'imagine'
 }
 
 export function MealSelectorModal({
@@ -394,12 +394,10 @@ export function MealSelectorModal({
           />
         ) : (
           <div className="flex flex-col gap-4">
-            {/* Search, the "My recipes only" filter and Imagine are one control
-                group: one row from `md`, in that order (HON-945). Below `md` the
-                search keeps a line of its own and the filter and Imagine share
-                the next: beside the labelled button the field would be ~100px,
-                too narrow for its own placeholder. A dialog opened from the add
-                menu has no Imagine button: the menu offered it (HON-1247). */}
+            {/* Search and the "My recipes only" filter are one control group:
+                one row from `md` (HON-945), and below `md` the search keeps a
+                line of its own. Imagine is not here: the menu that opened the
+                dialog offered it (HON-1247, HON-1249). */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-4 md:flex-nowrap md:gap-x-4">
               <Input
                 type="search"
@@ -419,18 +417,6 @@ export function MealSelectorModal({
                   {tSelector('myRecipesOnly')}
                 </Label>
               </div>
-              {/* Labelled, not icon-only: the dialog's second way to find a
-                  meal should be seen (HON-945). The text is its name. */}
-              {!initialView && (
-                <Button
-                  variant="outline"
-                  onClick={() => setIsImagineMode(true)}
-                  className="shrink-0 md:ml-auto"
-                >
-                  <Sparkles aria-hidden="true" />
-                  {tSelector('imagineButton')}
-                </Button>
-              )}
             </div>
 
             <AlternativesList

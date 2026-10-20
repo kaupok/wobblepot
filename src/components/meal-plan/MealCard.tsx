@@ -5,19 +5,13 @@ import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
-import { Check, MoreHorizontal, NotebookPen, Repeat, SkipForward, Undo2, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Body, Heading } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
 import { MealSelectorModal } from './MealSelectorModal'
+import { MealCardMenu } from './MealCardMenu'
 import { AddMealMenu, type AddMealView } from './AddMealMenu'
 import { usePickForMe } from './use-pick-for-me'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
@@ -152,9 +146,8 @@ export function MealCard({
   )
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
+  const [swapView, setSwapView] = useState<AddMealView>('library')
   const [isNoteEditing, setIsNoteEditing] = useState(false)
-  // Set when Note is chosen from the menu, read once as the menu closes.
-  const noteRequestedRef = useRef(false)
   const noteEditorRef = useRef<NoteEditorHandle>(null)
 
   const effectiveServings = servingOverride ?? householdServings
@@ -176,6 +169,7 @@ export function MealCard({
     setIsDeductionModalOpen,
     handleStatusChange,
     handleDeductionConfirm,
+    showStatus,
   } = useEntryStatus({
     planId,
     entryId,
@@ -224,17 +218,28 @@ export function MealCard({
   // and the skip was for the meal that left. The swap PATCH keeps the status,
   // so the card plans the new meal itself; otherwise it would show "Skipped",
   // with no Cooked and no "Done cooking" (HON-1125).
+  //
+  // "Pick for me" on a planned card swaps too. Its hook drops the cache,
+  // refreshes and plans the entry in the swap's own request, so it takes only
+  // the card's own resets.
+  const resetForSwap = useCallback(
+    (selectedMealId: string) => {
+      if (selectedMealId === meal?.id) return false
+      setServingOverride(null)
+      detailModalRef.current?.resetForSwap()
+      return true
+    },
+    [meal?.id],
+  )
   const handleSwapComplete = useCallback(
     (selectedMealId: string) => {
-      if (selectedMealId !== meal?.id) {
-        setServingOverride(null)
-        detailModalRef.current?.resetForSwap()
+      if (resetForSwap(selectedMealId)) {
         dropSuggestionCache()
         if (status === 'skipped') handleStatusChange('planned')
       }
       router.refresh()
     },
-    [router, dropSuggestionCache, meal?.id, status, handleStatusChange],
+    [router, dropSuggestionCache, resetForSwap, status, handleStatusChange],
   )
 
   // A pantry holding only staples says nothing yet, so the card claims nothing
@@ -246,12 +251,6 @@ export function MealCard({
 
   // Hide availability badge for completed/skipped meals (ingredient status no longer relevant)
   const shouldShowAvailability = status !== 'completed' && status !== 'skipped'
-
-  // A completed entry records what was cooked and what the pantry was charged
-  // for, so the API refuses to repoint it (409, HON-633) — offering Swap here
-  // would only produce an error. Skipped entries stay swappable: nothing was
-  // charged for them, and "actually, let's cook something" is a real path.
-  const canSwapMeal = status !== 'completed'
 
   // Undo posts the cleared entry to the create route. It runs after this card
   // has unmounted, which is why its callbacks live here rather than in
@@ -318,7 +317,7 @@ export function MealCard({
   // Both selectors open from state, with no `DialogTrigger`, and a modal Radix
   // dialog hands focus back only to its trigger, so it would land on the page
   // body. Return it to the control that opened the selector: "Add meal", or,
-  // for Swap, the menu trigger, since the menu item is gone by then (HON-804).
+  // for a Swap route, the menu trigger, since the item is gone by then (HON-804).
   const addMealButtonRef = useRef<HTMLButtonElement>(null)
   const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
 
@@ -337,7 +336,22 @@ export function MealCard({
     hintId: noteHintId,
   })
   const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
-  const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
+  const { pick, swap, isPicking } = usePickForMe({
+    planId,
+    date,
+    mealType,
+    onPicked,
+    onSwapped: (mealId) => {
+      resetForSwap(mealId)
+      showStatus('planned')
+    },
+    // Undo saved the entry as it was; the card shows it so.
+    onSwapUndone: (restored) => {
+      setServingOverride(restored.servingOverride)
+      detailModalRef.current?.resetForSwap()
+      showStatus(restored.status)
+    },
+  })
 
   function handleClear() {
     // Clear is offered only on a card with a meal that is not completed.
@@ -571,103 +585,38 @@ export function MealCard({
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">
-                  {/* Note, the status, Swap and Clear share one trigger: the
-                      title row keeps its width for the meal name. */}
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        ref={moreActionsTriggerRef}
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={tCard('moreActions', { name: meal.name })}
-                      >
-                        <MoreHorizontal aria-hidden="true" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      // Radix returns focus to the trigger as the menu closes,
-                      // after `NoteEditor` has focused its textarea, and on a
-                      // pointer pick it has already pulled focus back into the
-                      // closing menu by then (HON-946). When Note was chosen,
-                      // focus the textarea here instead: the menu's unmount is
-                      // the last thing to move focus.
-                      onCloseAutoFocus={(event) => {
-                        if (noteRequestedRef.current) {
-                          event.preventDefault()
-                          noteRequestedRef.current = false
-                          noteEditorRef.current?.focus()
-                        }
-                      }}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          noteRequestedRef.current = true
-                          noteOpenerRef.current = 'menu'
-                          setIsNoteEditing(true)
-                        }}
-                      >
-                        <NotebookPen aria-hidden="true" />
-                        {tCard('note')}
-                      </DropdownMenuItem>
-                      {/* Tonight's "not tonight", and a meal cooked without
-                          the cook view, take one pick here (HON-1125). */}
-                      {status === 'planned' && (
-                        <>
-                          <DropdownMenuItem
-                            onSelect={() => completeFrom('menu')}
-                            disabled={isUpdating}
-                          >
-                            <Check aria-hidden="true" />
-                            {tCard('cooked')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => handleStatusChange('skipped')}
-                            disabled={isUpdating}
-                          >
-                            <SkipForward aria-hidden="true" />
-                            {tCard('skipped')}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      {/* A completion or a skip on today's or a future day's
-                          meal needs its own way back here. Past meals have
-                          their own page (HON-1018). */}
-                      {status === 'completed' && (
-                        <DropdownMenuItem
-                          onSelect={() => handleStatusChange('planned')}
-                          disabled={isUpdating}
-                        >
-                          <Undo2 aria-hidden="true" />
-                          {tCard('notCookedYet')}
-                        </DropdownMenuItem>
-                      )}
-                      {status === 'skipped' && (
-                        <DropdownMenuItem
-                          onSelect={() => handleStatusChange('planned')}
-                          disabled={isUpdating}
-                        >
-                          <Undo2 aria-hidden="true" />
-                          {tCard('notSkipped')}
-                        </DropdownMenuItem>
-                      )}
-                      {canSwapMeal && (
-                        <DropdownMenuItem onSelect={() => setIsRegenerateModalOpen(true)}>
-                          <Repeat aria-hidden="true" />
-                          {tCard('swap')}
-                        </DropdownMenuItem>
-                      )}
-                      {/* A completed entry records what the pantry was
-                          charged for, and Undo cannot restore that; "Not
-                          cooked yet" is its way back (HON-1123). */}
-                      {status !== 'completed' && (
-                        <DropdownMenuItem onSelect={handleClear} disabled={isClearing}>
-                          <X aria-hidden="true" />
-                          {tCard('clear')}
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <MealCardMenu
+                    mealName={meal.name}
+                    status={status}
+                    triggerRef={moreActionsTriggerRef}
+                    isUpdating={isUpdating}
+                    isClearing={isClearing}
+                    onNote={() => {
+                      noteOpenerRef.current = 'menu'
+                      setIsNoteEditing(true)
+                    }}
+                    focusNote={() => noteEditorRef.current?.focus()}
+                    onComplete={() => completeFrom('menu')}
+                    onStatusChange={handleStatusChange}
+                    isPicking={isPicking}
+                    onSwap={(choice) => {
+                      if (choice === 'pick') {
+                        const from = status === 'skipped' ? 'skipped' : 'planned'
+                        const hasChanges = changes.length > 0 || adjustmentNote !== null
+                        return swap({
+                          entryId,
+                          mealId: meal.id,
+                          servingOverride,
+                          status: from,
+                          rating,
+                          hasChanges,
+                        })
+                      }
+                      setSwapView(choice)
+                      setIsRegenerateModalOpen(true)
+                    }}
+                    onClear={handleClear}
+                  />
                 </div>
               )}
             </div>
@@ -858,6 +807,7 @@ export function MealCard({
         onSwapComplete={handleSwapComplete}
         onCloseAutoFocus={focusMoreActionsOnClose}
         mode="swap"
+        initialView={swapView}
         pantryIngredients={pantryIngredients}
       />
       <PantryDeductionModal

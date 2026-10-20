@@ -222,9 +222,11 @@ export type EventPayload = {
     /**
      * How the new meal was chosen. `library`: picked from the alternatives,
      * search or My recipes list. `imagine`: a meal the AI wrote in the
-     * selector, which also fires `meal:imagined` (HON-890).
+     * selector, which also fires `meal:imagined` (HON-890). `pick_for_me`: the
+     * top swap alternative, placed from the card's menu with no dialog
+     * (HON-1249).
      */
-    via: 'library' | 'imagine'
+    via: 'library' | 'imagine' | 'pick_for_me'
   }
   'meal_plan:meal_skipped': { plan_id: string; meal_id: string; source: Source }
   'meal:imagined': { meal_id: string; source: Source }
