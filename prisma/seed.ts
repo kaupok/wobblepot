@@ -13,6 +13,7 @@ import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
 import { seedDefaultStaples } from '../src/lib/meal-planning/default-staples'
+import { seedTargetLine } from './seed-target'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -4032,6 +4033,7 @@ const isMainModule =
   process.argv[1]?.endsWith('seed.ts')
 
 if (isMainModule) {
+  console.log(seedTargetLine(process.env.DATABASE_URL))
   main()
     .catch((e) => {
       console.error(e)

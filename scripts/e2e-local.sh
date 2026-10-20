@@ -31,6 +31,7 @@
 #   pnpm review:local --seed                     # also run `pnpm db:seed` on the branch
 #   pnpm review:local --db env                   # no branch: use DATABASE_URL from .env
 #                                                # (for when the Neon branch cap is full)
+#   pnpm review:local --db env --seed            # also seed the .env database
 #
 # serve listens on REVIEW_LOCAL_PORT (default 3200) and prints one line
 # containing `REVIEW-READY http://localhost:<port>` once the server answers.
@@ -38,6 +39,9 @@
 # `--db env` never creates a branch and never migrates: it checks
 # `prisma migrate status` and refuses to start on a database that is behind.
 # Accounts created in `--db env` mode persist — clean them up afterwards.
+# To seed in `--db env` mode, pass `--seed`, not a bare `pnpm db:seed`: the seed
+# loads .env through dotenv, which keeps a DATABASE_URL the shell already
+# exports, so it can write to another database than this server reads (HON-1272).
 #
 # Requires NEON_API_KEY + NEON_PROJECT_ID in .env (already set for the worktree
 # workflow — see docs/PARALLEL_WORKFLOW.md), except `serve --db env`. @ai specs
@@ -308,7 +312,9 @@ run_seed() {
   # in CI secrets, not local .env). The base meal/translation seed always runs.
   if [ -n "${SMOKE_TEST_EMAIL:-}" ]; then export SEED_TEST_USERS="1"; fi
 
-  info "Seeding the ephemeral branch…"
+  # The seed reads DATABASE_URL from this process, which is the branch in branch
+  # mode and .env's value in env mode (load_env exports it over the shell's).
+  if [ -n "$BRANCH" ]; then info "Seeding the ephemeral branch…"; else info "Seeding the .env database…"; fi
   pnpm db:seed
 }
 
@@ -383,9 +389,6 @@ cmd_serve() {
     branch|env) ;;
     *) fail "--db must be 'branch' or 'env', got '$db_mode'" ;;
   esac
-  # Seeding and migrating a shared database is the person's call, not this
-  # script's — the same reason env mode only checks migration status.
-  [ "$db_mode" = "env" ] && [ "$seed" = "1" ] && fail "--seed only applies to branch mode; seed the .env database yourself with: pnpm db:seed"
 
   local url="http://localhost:$REVIEW_PORT"
   # Checked before a branch is created, so a doomed run never spends one.
@@ -422,6 +425,9 @@ cmd_serve() {
       log "$status"
       fail "the .env database is not up to date with prisma/migrations. Apply them yourself, then retry: pnpm db:migrate:deploy"
     fi
+    # Migrating the .env database stays the person's call. Seeding it runs only
+    # on request, and only once the schema check above has passed.
+    if [ "$seed" = "1" ]; then run_seed; fi
     warn "--db env: accounts you create are written to the database in .env and persist after this server stops. Clean them up: docs/CHROME_TESTING.md → \"Reviewing sign-up and onboarding\" → Cleanup."
   fi
 
