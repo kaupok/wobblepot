@@ -289,6 +289,42 @@ describe('matchIngredients', () => {
     expect(matched.lowConfidence).toBe(false)
   })
 
+  // A singular and a plural of one word are not a different noun (HON-1269)
+  it.each([
+    ['wonton wrapper', 'wonton wrappers', 0.81],
+    ['pine nut', 'pine nuts', 0.8],
+  ])(
+    'does not flag low-confidence when "%s" matches "%s" and only the plural differs',
+    async (recipeName, rowName, similarity) => {
+      mockQueryRaw.mockResolvedValue([makeDbMatch({ name: rowName, similarity })])
+
+      const results = await matchIngredients(
+        [makeExtracted({ name: recipeName, originalText: `8 ${recipeName}` })],
+        4,
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0]).toMatchObject({
+        type: 'matched',
+        ingredient: { name: rowName },
+        lowConfidence: false,
+      })
+    },
+  )
+
+  it('flags low-confidence when "trout fillet" matches "cod fillet" despite a high score', async () => {
+    // "fillet" is a common suffix, so trout and cod are the unique words
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ name: 'cod fillet', similarity: 0.7 })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'trout fillet', originalText: '2 trout fillet' })],
+      4,
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ type: 'matched', lowConfidence: true })
+  })
+
   it('handles vague quantities with known phrase', async () => {
     mockQueryRaw.mockResolvedValue([
       makeDbMatch({ category: 'spice', subcategory: 'mineral', name: 'salt' }),

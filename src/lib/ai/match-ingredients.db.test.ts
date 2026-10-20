@@ -48,6 +48,8 @@ describe('matchIngredients on a plural catalogue name', () => {
     ['clam', 'ing-clams', 'clams'],
     ['date', 'ing-dates', 'dates'],
     ['vine leaf', 'ing-vine-leaves', 'vine leaves'],
+    ['wonton wrapper', 'ing-wonton-wrappers', 'wonton wrappers'],
+    ['pine nut', 'ing-pine-nuts', 'pine nuts'],
   ])('matches "%s" to the global row %s, not to verify', async (recipeName, id, rowName) => {
     await ingredient(id, rowName)
 
