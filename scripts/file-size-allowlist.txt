@@ -88,7 +88,7 @@
 5365 src/lib/ai/prompts.ts
 7807 src/lib/ai/repair-plan.test.ts
 5621 src/lib/ai/usage.test.ts
-5944 src/lib/auth.test.ts
+5501 src/lib/auth.test.ts
 7137 src/lib/auth.ts
 6281 src/lib/household-meals.db.test.ts
 7728 src/lib/household-meals.ts
