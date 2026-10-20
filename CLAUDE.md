@@ -180,7 +180,7 @@ A component under `src/components` gets a colocated `.stories.tsx`, created or u
 **Issue titles,** for every issue you file, in a skill or not, because a list view only scans when every title has one shape:
 
 - Sentence case, about 80 characters at most. Detail goes in the description.
-- Work starts with an imperative verb: "Add …", "Move …".
+- Work starts with the implementer's verb: "Add …", "Move …", or "Let a household …" for a new thing the user can do. The verb is never the user's in-app action. Not "Implement" or "Support", which say nothing.
 - A bug states the symptom the user sees, in the present tense. The cause and the fix go in the description.
 - An optional screen prefix uses the name the UI shows: "Cook view: …".
 - No commit type or tool prefix (`docs:`, `auto-implement:`).
