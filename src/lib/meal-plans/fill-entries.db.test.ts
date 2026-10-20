@@ -103,6 +103,8 @@ describe('writeFilledSlots', () => {
     expect(await readEntry('entry-other')).toEqual(
       expect.objectContaining({ mealId: null, note: 'Eat out' }),
     )
-    expect(await readEntry()).toEqual(expect.objectContaining({ mealId: 'meal-stew' }))
+    expect(await slotEntries('dinner')).toEqual([
+      expect.objectContaining({ mealId: 'meal-stew', status: 'planned' }),
+    ])
   })
 })
