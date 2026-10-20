@@ -83,10 +83,18 @@ async function createCardEntry(
  * 39278279185 and 39461880803 (HON-1258). So the open is retried as a unit:
  * Escape closes a menu that opened without keyboard focus, and by the next
  * Enter the listener is in place.
+ *
+ * The retry waits for the item to unmount before it presses Enter again. The
+ * content stays mounted through its close animation, and an Enter inside it
+ * reopens that same content, whose focus-on-mount does not run again, so focus
+ * would stay on the trigger on every later attempt.
  */
 async function openMenuWithKeyboard(page: Page, trigger: Locator, firstItem: Locator) {
   await expect(async () => {
-    if (await firstItem.isVisible()) await page.keyboard.press('Escape')
+    if (await firstItem.isVisible()) {
+      await page.keyboard.press('Escape')
+      await expect(firstItem).toBeHidden()
+    }
     await trigger.focus()
     await page.keyboard.press('Enter')
     await expect(firstItem).toBeFocused({ timeout: 1_000 })
