@@ -75,8 +75,9 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
   await signInAsSmoke(page)
 
   const run = Date.now().toString(36)
-  const cucumberName = `E2E cucumber ${run}`
-  const paprikaName = `E2E paprika ${run}`
+  // Lower case, as the server stores a new household ingredient's name.
+  const cucumberName = `e2e cucumber ${run}`
+  const paprikaName = `e2e paprika ${run}`
   const cucumberId = await pantryIngredient(page, cucumberName)
   const paprikaId = await pantryIngredient(page, paprikaName)
 
