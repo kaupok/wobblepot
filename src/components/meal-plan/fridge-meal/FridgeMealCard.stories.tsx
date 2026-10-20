@@ -37,13 +37,23 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+async function openMenu(canvasElement: HTMLElement) {
+  await userEvent.click(
+    within(canvasElement).getByRole('button', { name: 'More actions: Fridge meal' }),
+  )
+  return within(await within(document.body).findByRole('menu'))
+}
+
+const itemNames = (menu: ReturnType<typeof within>) =>
+  menu.getAllByRole('menuitem').map((item: HTMLElement) => item.textContent)
+
 export const Planned: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { name: 'Fridge meal' })).toBeInTheDocument()
     await expect(canvas.getByText('Mash, from Tuesday')).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: 'Eaten' })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: 'Edit items' })).toBeInTheDocument()
+    const menu = await openMenu(canvasElement)
+    await expect(itemNames(menu)).toEqual(['Eaten', 'Edit items', 'Clear'])
   },
 }
 
@@ -55,31 +65,35 @@ export const WithNote: Story = {
 export const Eaten: Story = {
   args: { status: 'completed', note: 'Heat the mash first' },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('button', { name: 'Not eaten yet' })).toBeInTheDocument()
-    await expect(canvas.queryByRole('button', { name: 'Edit items' })).toBeNull()
-    await expect(canvas.queryByText('How was it?')).toBeNull()
+    await expect(within(canvasElement).queryByText('How was it?')).toBeNull()
+    const menu = await openMenu(canvasElement)
+    await expect(itemNames(menu)).toEqual(['Not eaten yet'])
   },
 }
 
-/** "Eaten" opens the "Used it all" dialog; Done completes and focus lands on the status button. */
+/** "Eaten" opens the "Used it all" dialog; Done completes and focus returns to ⋯. */
 export const CompleteWithDialog: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Eaten' }))
+    const menu = await openMenu(canvasElement)
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Eaten' }))
     const dialog = within(
       await within(document.body).findByRole('dialog', { name: 'Did you use anything up?' }),
     )
     await userEvent.click(dialog.getByRole('checkbox', { name: 'Used it all: Cucumber' }))
     await userEvent.click(dialog.getByRole('button', { name: 'Done' }))
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Not eaten yet' })).toHaveFocus())
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: 'More actions: Fridge meal' })).toHaveFocus(),
+    )
+    await expect(canvas.getByText('Eaten', { exact: true })).toBeInTheDocument()
   },
 }
 
 /** "Edit items" opens the picker on the meal's items. */
 export const EditItems: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Edit items' }))
+    const menu = await openMenu(canvasElement)
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Edit items' }))
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
     await expect(dialog.getByRole('button', { name: 'Remove: Cucumber' })).toBeInTheDocument()
   },

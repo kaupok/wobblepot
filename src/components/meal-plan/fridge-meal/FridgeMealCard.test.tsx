@@ -67,6 +67,18 @@ function renderCard(
 }
 
 const patches = () => requests.filter((r) => r.method === 'PATCH')
+const trigger = () => screen.getByRole('button', { name: 'More actions: Fridge meal' })
+
+async function choose(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(trigger())
+  await user.click(await screen.findByRole('menuitem', { name }))
+}
+
+async function menuItems(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(trigger())
+  const menu = within(await screen.findByRole('menu'))
+  return menu.getAllByRole('menuitem').map((item) => item.textContent)
+}
 
 describe('FridgeMealCard', () => {
   it('shows the title and every item, and no rating, tips or cook-question controls', () => {
@@ -87,7 +99,7 @@ describe('FridgeMealCard', () => {
   it('completes with the ticked pantry item through the dialog', async () => {
     const { user } = renderCard()
 
-    await user.click(screen.getByRole('button', { name: 'Eaten' }))
+    await choose(user, 'Eaten')
     const dialog = within(await screen.findByRole('dialog', { name: 'Did you use anything up?' }))
     await user.click(dialog.getByRole('checkbox', { name: 'Used it all: Cucumber' }))
     await user.click(dialog.getByRole('button', { name: 'Done' }))
@@ -100,13 +112,14 @@ describe('FridgeMealCard', () => {
         body: { status: 'completed', deductPantry: false, usedUpIngredientIds: ['cucumber'] },
       },
     ])
-    expect(screen.getByRole('button', { name: 'Not eaten yet' })).toHaveFocus()
+    // The menu's item left with the menu, so focus goes back to its trigger.
+    expect(trigger()).toHaveFocus()
   })
 
   it('completes with no dialog when no item is from the pantry', async () => {
     const { user } = renderCard({ items: fridgeItems.filter((i) => i.ingredientId === null) })
 
-    await user.click(screen.getByRole('button', { name: 'Eaten' }))
+    await choose(user, 'Eaten')
 
     await waitFor(() => expect(patches()).toHaveLength(1))
     expect(patches()[0]!.body).toEqual({ status: 'completed', deductPantry: false })
@@ -116,18 +129,23 @@ describe('FridgeMealCard', () => {
   it('completes with no dialog when the pantry was marked once already', async () => {
     const { user } = renderCard({ pantryDeducted: true })
 
-    await user.click(screen.getByRole('button', { name: 'Eaten' }))
+    await choose(user, 'Eaten')
 
     await waitFor(() => expect(patches()).toHaveLength(1))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('offers Eaten, Edit items and Clear on a planned fridge meal', async () => {
+    const { user } = renderCard()
+
+    expect(await menuItems(user)).toEqual(['Eaten', 'Edit items', 'Clear'])
+  })
+
   it('reverts a completed fridge meal and offers no edit or clear on it', async () => {
     const { user } = renderCard({ status: 'completed' })
 
-    expect(screen.queryByRole('button', { name: 'Edit items' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Not eaten yet' }))
+    expect(await menuItems(user)).toEqual(['Not eaten yet'])
+    await user.click(screen.getByRole('menuitem', { name: 'Not eaten yet' }))
 
     await waitFor(() => expect(patches()).toHaveLength(1))
     expect(patches()[0]!.body).toEqual({ status: 'planned', deductPantry: false })
@@ -136,7 +154,7 @@ describe('FridgeMealCard', () => {
   it('opens the picker on its items from "Edit items"', async () => {
     const { user } = renderCard()
 
-    await user.click(screen.getByRole('button', { name: 'Edit items' }))
+    await choose(user, 'Edit items')
 
     const dialog = within(await screen.findByRole('dialog', { name: 'Fridge meal' }))
     expect(dialog.getByRole('button', { name: 'Remove: Cucumber' })).toBeInTheDocument()
@@ -145,7 +163,7 @@ describe('FridgeMealCard', () => {
   it('clears the entry, and Undo posts the items and the note back', async () => {
     const { onCleared, user } = renderCard()
 
-    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await choose(user, 'Clear')
 
     await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
     expect(requests).toContainEqual({ method: 'DELETE', url: ENTRY_URL, body: null })

@@ -127,12 +127,14 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     // No recipe, so no cook view to open and no rating to give.
     await expect(card.getByRole('button', { name: /rate|thumbs/i })).toHaveCount(0)
 
-    await card.getByRole('button', { name: 'Eaten' }).click()
+    await card.getByRole('button', { name: 'More actions: Fridge meal' }).click()
+    await page.getByRole('menuitem', { name: 'Eaten' }).click()
     const complete = page.getByRole('dialog', { name: 'Did you use anything up?' })
     await complete.getByRole('checkbox', { name: `Used it all: ${cucumberName}` }).check()
     await complete.getByRole('button', { name: 'Done' }).click()
     await expect(complete).toHaveCount(0)
-    await expect(card.getByRole('button', { name: 'Not eaten yet' })).toBeVisible()
+    // The card's badge says so once the completion is saved.
+    await expect(card.getByText('Eaten', { exact: true })).toBeVisible()
 
     const pantry = await pantryQuantities(page)
     expect(pantry.get(cucumberId)?.quantity).toBe(0)

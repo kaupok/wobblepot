@@ -3,10 +3,16 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Check, Pencil, Undo2, X } from 'lucide-react'
+import { Check, MoreHorizontal, Pencil, Undo2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
 import { MealTypeBadge } from '../MealTypeBadge'
@@ -65,9 +71,9 @@ export function FridgeMealCard({
   const itemText = useFridgeItemText()
   const [note, setNote] = useState<string | null>(initialNote)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
-  // Both dialogs open from state, so each returns focus to its opener.
-  const editButtonRef = useRef<HTMLButtonElement>(null)
-  const statusButtonRef = useRef<HTMLButtonElement>(null)
+  // Both dialogs open from the ⋯ menu with no `DialogTrigger`, so each hands
+  // focus back to the menu's trigger as it closes (docs/DESIGN.md → Focus management).
+  const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
 
   const {
     status,
@@ -116,28 +122,64 @@ export function FridgeMealCard({
     })
   }
 
-  function focusEditOnClose(event: Event) {
+  function focusMoreActionsOnClose(event: Event) {
     event.preventDefault()
-    editButtonRef.current?.focus()
-  }
-
-  // The status button: "Eaten", or "Not eaten yet" once the completion went through.
-  function focusStatusOnClose(event: Event) {
-    event.preventDefault()
-    statusButtonRef.current?.focus()
+    moreActionsTriggerRef.current?.focus()
   }
 
   return (
     <>
       <Card size="sm">
         <CardContent className="flex flex-col gap-1.5 px-4 pt-1 pb-2">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <MealTypeBadge mealType={mealType} />
             {isCompleted && <Badge variant="surface">{t('eaten')}</Badge>}
           </div>
-          <Heading variant="section" as="h3">
-            {t('title')}
-          </Heading>
+          {/* The actions sit on the title row behind one ⋯ menu, as on a
+              recipe card (docs/DESIGN.md → Composition rules). */}
+          <div className="flex items-center justify-between gap-2">
+            <Heading variant="section" as="h3">
+              {t('title')}
+            </Heading>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  ref={moreActionsTriggerRef}
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={tCard('moreActions', { name: t('title') })}
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isCompleted ? (
+                  <DropdownMenuItem
+                    disabled={isBusy}
+                    onSelect={() => handleStatusChange('planned')}
+                  >
+                    <Undo2 aria-hidden="true" />
+                    {t('notEatenYet')}
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem disabled={isBusy} onSelect={handleEaten}>
+                      <Check aria-hidden="true" />
+                      {t('markEaten')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={isBusy} onSelect={() => setIsPickerOpen(true)}>
+                      <Pencil aria-hidden="true" />
+                      {t('editItems')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={isBusy} onSelect={handleClear}>
+                      <X aria-hidden="true" />
+                      {tCard('clear')}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <Ul variant="plain">
             {items.map((item) => (
               <Li key={item.id}>
@@ -161,54 +203,6 @@ export function FridgeMealCard({
             />
           )}
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-2 px-4 pt-0">
-          {isCompleted ? (
-            <Button
-              ref={statusButtonRef}
-              variant="outline"
-              size="sm"
-              aria-disabled={isBusy || undefined}
-              onClick={() => !isBusy && handleStatusChange('planned')}
-            >
-              <Undo2 aria-hidden="true" />
-              {t('notEatenYet')}
-            </Button>
-          ) : (
-            <>
-              {/* Not `disabled` while a request runs: a disabled button drops
-                  focus (docs/DESIGN.md → Focus management). */}
-              <Button
-                ref={statusButtonRef}
-                variant="outline"
-                size="sm"
-                aria-disabled={isBusy || undefined}
-                onClick={handleEaten}
-              >
-                <Check aria-hidden="true" />
-                {t('markEaten')}
-              </Button>
-              <Button
-                ref={editButtonRef}
-                variant="ghost"
-                size="sm"
-                aria-disabled={isBusy || undefined}
-                onClick={() => !isBusy && setIsPickerOpen(true)}
-              >
-                <Pencil aria-hidden="true" />
-                {t('editItems')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-disabled={isBusy || undefined}
-                onClick={handleClear}
-              >
-                <X aria-hidden="true" />
-                {tCard('clear')}
-              </Button>
-            </>
-          )}
-        </CardFooter>
       </Card>
       <FridgeMealPicker
         open={isPickerOpen}
@@ -220,7 +214,7 @@ export function FridgeMealCard({
         initialItems={items}
         pantryItems={pantryItems}
         onSaved={() => router.refresh()}
-        onCloseAutoFocus={focusEditOnClose}
+        onCloseAutoFocus={focusMoreActionsOnClose}
       />
       <FridgeCompleteDialog
         open={isCompleteOpen}
@@ -228,7 +222,7 @@ export function FridgeMealCard({
         items={items}
         onConfirm={(ids) => completeFridgeMeal(ids, () => setIsCompleteOpen(false))}
         isLoading={isUpdating}
-        onCloseAutoFocus={focusStatusOnClose}
+        onCloseAutoFocus={focusMoreActionsOnClose}
       />
     </>
   )

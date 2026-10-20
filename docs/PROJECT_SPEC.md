@@ -68,6 +68,7 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 | **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                |
 | **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                |
 | **Slot**            | A date + mealType position.                                                                          |
+| **Fridge meal**     | An entry with no meal: items from the pantry, a recent meal's leftovers, or free text (`kind`).      |
 | **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                          |
 | **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                |
 | **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.    |
