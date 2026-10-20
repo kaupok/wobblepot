@@ -59,6 +59,12 @@ interface ImagineReviewDialogProps {
   meal: ReviewMealData
   onSaved: (mealId: string) => void
   onEditDetails?: (currentIngredients: PrefilledIngredient[]) => void
+  /**
+   * The dialog opens from controlled state, so Radix has no trigger to return
+   * focus to and it falls to `<body>`. The caller calls
+   * `event.preventDefault()` and focuses the control that opened it.
+   */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /**
@@ -195,6 +201,7 @@ export function ImagineReviewDialog({
   meal,
   onSaved,
   onEditDetails,
+  onCloseAutoFocus,
 }: ImagineReviewDialogProps) {
   const t = useTranslations('recipes.review')
   const tForm = useTranslations('recipes.form')
@@ -335,7 +342,10 @@ export function ImagineReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-dialog overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-dialog overflow-y-auto sm:max-w-lg"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{meal.name}</DialogTitle>
           {meal.description && <DialogDescription>{meal.description}</DialogDescription>}

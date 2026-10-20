@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Check, Loader2, Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -34,6 +36,8 @@ import {
   saveImagineSession,
 } from './imagine-session'
 import { FieldError } from '@/components/FieldError'
+
+const recipeHref = (mealId: string) => `/recipes/${mealId}/edit`
 
 function SkeletonCard() {
   return (
@@ -74,7 +78,16 @@ export function ImagineClient() {
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
+  // Imagined meal ID → saved recipe ID. A saved idea shows "Open recipe" in
+  // place of Select, so it cannot be reviewed and saved a second time (HON-1270).
+  const [savedMealIds, setSavedMealIds] = useState<Record<string, string>>({})
   const abortControllerRef = useRef<AbortController | null>(null)
+  // `ReviewMealData` carries no ID, so the imagined meal behind the open
+  // dialog is kept here, set when its review lands.
+  const reviewSourceIdRef = useRef<string | null>(null)
+  // Each card's action (Select, or "Open recipe" once saved), by imagined meal
+  // ID: where focus goes when the review dialog closes.
+  const cardActionRefs = useRef(new Map<string, HTMLElement>())
 
   const {
     images,
@@ -105,13 +118,17 @@ export function ImagineClient() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrompt(stored.prompt)
     setMeals(withSavableTimeMinutes(stored.meals))
+    setSavedMealIds(stored.savedMealIds ?? {})
   }, [])
 
   // Degrades on failure and reports it — see `reviewImaginedMeal` (HON-699),
   // so this mutation never errors.
   const review = useMutation({
     mutationFn: reviewImaginedMeal,
-    onSuccess: (finalMeal) => setReviewMeal(convertToPrefilledData(finalMeal)),
+    onSuccess: (finalMeal, meal) => {
+      reviewSourceIdRef.current = meal.id
+      setReviewMeal(convertToPrefilledData(finalMeal))
+    },
   })
 
   const reviewingMealId = review.isPending ? review.variables.id : null
@@ -123,8 +140,32 @@ export function ImagineClient() {
     // selectable — dropping the stash here would leave it out of sync with
     // `meals` and blank the page on the next mount. The stash mirrors what is
     // rendered; only a new generation (or the tab closing) supersedes it.
+    // The saved ID goes into the stash too, so a reload keeps the card marked.
+    const sourceId = reviewSourceIdRef.current
+    if (sourceId && meals) {
+      const next = { ...savedMealIds, [sourceId]: mealId }
+      setSavedMealIds(next)
+      saveImagineSession({ prompt, meals, savedMealIds: next })
+    }
     setReviewMeal(null)
-    toast.success(t('savedToast'))
+    toast.success(t('savedToast'), {
+      action: { label: t('openRecipe'), onClick: () => router.push(recipeHref(mealId)) },
+    })
+  }
+
+  // Back to the card the dialog was opened from: its Select after a cancel, or
+  // its "Open recipe" link after a save, which replaced Select on that card.
+  const handleReviewCloseAutoFocus = (event: Event) => {
+    const sourceId = reviewSourceIdRef.current
+    const target = sourceId ? cardActionRefs.current.get(sourceId) : undefined
+    if (!target) return
+    event.preventDefault()
+    target.focus()
+  }
+
+  const cardActionRef = (mealId: string) => (element: HTMLElement | null) => {
+    if (element) cardActionRefs.current.set(mealId, element)
+    else cardActionRefs.current.delete(mealId)
   }
 
   const handleEditDetails = (currentIngredients: PrefilledIngredient[]) => {
@@ -229,6 +270,7 @@ export function ImagineClient() {
 
     setError('')
     setMeals(null)
+    setSavedMealIds({})
     // A new generation supersedes the stashed one; drop it now so an aborted or
     // failed run cannot restore stale suggestions on the next mount.
     clearImagineSession()
@@ -320,29 +362,49 @@ export function ImagineClient() {
           <div className="grid gap-4 sm:grid-cols-3">
             {isGenerating
               ? Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
-              : meals?.map((meal) => (
-                  <Card key={meal.id} size="sm" className="flex h-full flex-col">
-                    <CardContent className="flex-1 p-4 pb-2">
-                      <MealCardBase meal={meal} nameHeadingTag="h2" />
-                    </CardContent>
-                    <CardFooter className="p-4 pt-0">
-                      <Button
-                        className="w-full"
-                        onClick={() => review.mutate(meal)}
-                        disabled={reviewingMealId !== null}
-                      >
-                        {reviewingMealId === meal.id ? (
+              : meals?.map((meal) => {
+                  const savedMealId = savedMealIds[meal.id]
+                  return (
+                    <Card key={meal.id} size="sm" className="flex h-full flex-col">
+                      <CardContent className="flex-1 p-4 pb-2">
+                        <MealCardBase meal={meal} nameHeadingTag="h2" />
+                      </CardContent>
+                      <CardFooter className="flex-col items-stretch gap-2 p-4 pt-0">
+                        {savedMealId ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('fineTuning')}
+                            <div>
+                              <Badge variant="surface-success">
+                                <Check aria-hidden="true" />
+                                {t('saved')}
+                              </Badge>
+                            </div>
+                            <Button asChild variant="outline" className="w-full">
+                              <Link href={recipeHref(savedMealId)} ref={cardActionRef(meal.id)}>
+                                {t('openRecipe')}
+                              </Link>
+                            </Button>
                           </>
                         ) : (
-                          t('select')
+                          <Button
+                            ref={cardActionRef(meal.id)}
+                            className="w-full"
+                            onClick={() => review.mutate(meal)}
+                            disabled={reviewingMealId !== null}
+                          >
+                            {reviewingMealId === meal.id ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {t('fineTuning')}
+                              </>
+                            ) : (
+                              t('select')
+                            )}
+                          </Button>
                         )}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
+                      </CardFooter>
+                    </Card>
+                  )
+                })}
           </div>
         )}
       </div>
@@ -356,6 +418,7 @@ export function ImagineClient() {
           meal={reviewMeal}
           onSaved={handleReviewSaved}
           onEditDetails={handleEditDetails}
+          onCloseAutoFocus={handleReviewCloseAutoFocus}
         />
       )}
     </div>

@@ -64,6 +64,27 @@ describe('imagine-session', () => {
     expect(loaded?.meals.map((m) => m.id)).toEqual(['im-2'])
   })
 
+  it('round-trips the saved recipe IDs (HON-1270)', () => {
+    saveImagineSession({
+      prompt: 'something with lentils',
+      meals: [meal('im-1', 'Lentil stew'), meal('im-2', 'Dal')],
+      savedMealIds: { 'im-2': 'meal-123' },
+    })
+
+    expect(loadImagineSession()?.savedMealIds).toEqual({ 'im-2': 'meal-123' })
+  })
+
+  it('still loads a stash written before savedMealIds existed', () => {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ prompt: 'x', meals: [meal('im-1', 'Stew')], createdAt: 1 }),
+    )
+
+    const loaded = loadImagineSession()
+    expect(loaded).not.toBeNull()
+    expect(loaded?.savedMealIds).toBeUndefined()
+  })
+
   it('returns null when nothing is stored', () => {
     expect(loadImagineSession()).toBeNull()
   })
@@ -137,6 +158,14 @@ describe('imagine-session', () => {
         meals: [{ id: 'im-1', name: 'Stew', components: [], nutrition: { calories: 1 } }],
         createdAt: 1,
       }),
+    ],
+    [
+      'a savedMealIds that is an array',
+      JSON.stringify({ prompt: 'x', meals: [], createdAt: 1, savedMealIds: ['meal-1'] }),
+    ],
+    [
+      'a savedMealIds with a non-string value',
+      JSON.stringify({ prompt: 'x', meals: [], createdAt: 1, savedMealIds: { 'im-1': 7 } }),
     ],
   ])('returns null (and does not throw) for %s', (_label, stored) => {
     sessionStorage.setItem(STORAGE_KEY, stored)

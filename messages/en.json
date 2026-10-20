@@ -579,6 +579,8 @@
       "fineTuning": "Fine-tuning recipe…",
       "select": "Select",
       "savedToast": "Recipe saved to your library",
+      "saved": "Saved",
+      "openRecipe": "Open recipe",
       "errors": {
         "promptOrPhotoRequired": "Please describe what kind of meal you want or attach a photo",
         "tooManyImages": "You can attach up to {max} images",

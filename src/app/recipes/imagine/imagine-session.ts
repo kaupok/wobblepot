@@ -17,6 +17,13 @@ export interface ImagineSession {
    * is the intended TTL, which `sessionStorage` already enforces for us.
    */
   createdAt: number
+  /**
+   * Imagined meal ID → the saved recipe's ID, for each idea the user saved from
+   * the review dialog, so a reload still shows it as saved and a second save of
+   * the same idea is not offered (HON-1270). Optional: a stash written before
+   * the field existed still loads.
+   */
+  savedMealIds?: Record<string, string>
 }
 
 /**
@@ -33,6 +40,7 @@ function isImagineSession(value: unknown): value is ImagineSession {
   if (typeof candidate.prompt !== 'string') return false
   if (typeof candidate.createdAt !== 'number') return false
   if (!Array.isArray(candidate.meals)) return false
+  if (candidate.savedMealIds !== undefined && !isStringRecord(candidate.savedMealIds)) return false
   return candidate.meals.every((meal) => {
     if (typeof meal !== 'object' || meal === null) return false
     const entry = meal as Record<string, unknown>
@@ -47,6 +55,11 @@ function isImagineSession(value: unknown): value is ImagineSession {
   })
 }
 
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  return Object.values(value).every((entry) => typeof entry === 'string')
+}
+
 /**
  * Persist the current imagine session for the lifetime of the tab, so leaving
  * for the create form and coming back does not cost another AI generation.
@@ -55,6 +68,7 @@ function isImagineSession(value: unknown): value is ImagineSession {
 export function saveImagineSession(session: {
   prompt: string
   meals: ImaginedMealResponse[]
+  savedMealIds?: Record<string, string>
 }): void {
   if (typeof window === 'undefined') return
   try {

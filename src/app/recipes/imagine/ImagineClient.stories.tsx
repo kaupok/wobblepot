@@ -274,6 +274,50 @@ export const SavingOneKeepsTheStash: Story = {
     await canvas.findByText('Charred pepper and lentil bowl')
     await canvas.findByText('Lentil ragù with orzo')
     expect(sessionStorage.getItem(STORAGE_KEY)).not.toBeNull()
+
+    // The saved idea links its recipe in place of Select, and focus lands on
+    // that link rather than falling to <body> (HON-1270).
+    const openRecipe = await canvas.findByRole('link', { name: 'Open recipe' })
+    expect(openRecipe).toHaveAttribute('href', '/recipes/meal-saved/edit')
+    await waitFor(() => expect(openRecipe).toHaveFocus())
+    expect(canvas.getAllByRole('button', { name: /^select$/i })).toHaveLength(2)
+    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).savedMealIds).toEqual({
+      'im-1': 'meal-saved',
+    })
+  },
+}
+
+export const OneIdeaSaved: Story = {
+  parameters: {
+    msw: { handlers: imagineSpyHandlers },
+    docs: {
+      description: {
+        story:
+          'The user saved the second idea earlier in this tab. Its card shows "Saved" and an "Open recipe" link to the recipe in place of Select, so the same idea cannot be saved twice; the other two stay selectable (HON-1270).',
+      },
+    },
+  },
+  beforeEach: () => {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        prompt: 'something with lentils',
+        meals: suggestions,
+        createdAt: Date.now(),
+        savedMealIds: { 'im-2': 'meal-saved' },
+      }),
+    )
+    return () => sessionStorage.removeItem(STORAGE_KEY)
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    await canvas.findByText('Saved')
+    expect(canvas.getByRole('link', { name: 'Open recipe' })).toHaveAttribute(
+      'href',
+      '/recipes/meal-saved/edit',
+    )
+    expect(canvas.getAllByRole('button', { name: /^select$/i })).toHaveLength(2)
   },
 }
 
