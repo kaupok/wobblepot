@@ -608,6 +608,7 @@ export function MealCard({
                           mealId: meal.id,
                           servingOverride,
                           status: from,
+                          rating,
                           hasChanges,
                         })
                       }

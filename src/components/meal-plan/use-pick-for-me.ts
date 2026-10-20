@@ -11,7 +11,7 @@ import { rateLimitResetAt } from '@/lib/ai/error-codes'
 import { formatTimeOfDay } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
-import type { AlternativeMeal } from './types'
+import type { AlternativeMeal, EntryRating } from './types'
 
 /**
  * The cleared card's entry: it exists, so the pick fills it, and Undo puts it
@@ -27,14 +27,16 @@ export interface ClearedSlot {
 /**
  * A planned card's entry as it is before the pick swaps its meal. Undo puts
  * all of it back in one PATCH, so the note stays (HON-1249). The swap resets
- * the serving override on the server, and the card plans a skipped entry
- * that takes a new meal, so both travel with the meal.
+ * the serving override and the rating on the server, and plans a skipped
+ * entry, so all three travel with the meal.
  */
 export interface PlannedSlot {
   entryId: string
   mealId: string
   servingOverride: number | null
   status: 'planned' | 'skipped'
+  /** Kept through "Not cooked yet"; the swap ranking reads it (HON-340). */
+  rating: EntryRating | null
   /**
    * The entry has its own ingredient changes. The swap deletes them, and no
    * route can put them back, so the toast says they went (HON-1249).
@@ -188,10 +190,10 @@ export function usePickForMe({
   }
 
   const swapUndoMutation = useMutation({
-    // The route applies an explicit `servingOverride` after the swap's reset,
-    // so one request restores the meal, its servings and its status.
-    mutationFn: ({ from: { entryId, mealId, servingOverride, status } }: Swapped) =>
-      patchEntry(entryId, { mealId, servingOverride, status }),
+    // The route applies an explicit `servingOverride` and `rating` after the
+    // swap's reset, so one request restores the meal and all it held.
+    mutationFn: ({ from: { entryId, mealId, servingOverride, status, rating } }: Swapped) =>
+      patchEntry(entryId, { mealId, servingOverride, status, rating }),
     onSuccess: (_data, { from }) => {
       onSwapUndone?.(from)
       dropSuggestionCache()

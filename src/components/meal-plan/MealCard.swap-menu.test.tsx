@@ -70,7 +70,12 @@ afterEach(() => {
 })
 
 function renderCard(
-  props: { status?: 'planned' | 'skipped'; servingOverride?: number; adjustmentNote?: string } = {},
+  props: {
+    status?: 'planned' | 'skipped'
+    servingOverride?: number
+    adjustmentNote?: string
+    rating?: 'up' | 'down'
+  } = {},
 ) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
@@ -84,6 +89,7 @@ function renderCard(
         householdServings={4}
         servingOverride={props.servingOverride}
         adjustmentNote={props.adjustmentNote}
+        rating={props.rating}
         meal={meal}
         note="Use the big pan"
       />
@@ -198,7 +204,7 @@ describe('MealCard Swap → "Pick for me"', () => {
     expect(patches()[1]).toEqual({
       method: 'PATCH',
       url: ENTRY_URL,
-      body: { mealId: meal.id, servingOverride: null, status: 'planned' },
+      body: { mealId: meal.id, servingOverride: null, status: 'planned', rating: null },
     })
     expect(requests.some((r) => r.method === 'DELETE')).toBe(false)
     await waitFor(() => expect(refresh).toHaveBeenCalled())
@@ -240,8 +246,9 @@ describe('MealCard Swap → "Pick for me"', () => {
 
   // The swap reset the override on the server and planned the skipped card,
   // so Undo sends both back with the meal, and the card shows them again.
-  it('puts back the serving override and the skip on Undo', async () => {
-    renderCard({ status: 'skipped', servingOverride: 6 })
+  it('puts back the serving override, the skip and the rating on Undo', async () => {
+    // A rating outlives "Not cooked yet", and the swap clears it.
+    renderCard({ status: 'skipped', servingOverride: 6, rating: 'up' })
     await chooseRoute('Pick for me')
     const [, options] = await pickedToast()
     await waitFor(() => expect(screen.queryByText('6 servings')).not.toBeInTheDocument())
@@ -253,6 +260,7 @@ describe('MealCard Swap → "Pick for me"', () => {
         mealId: meal.id,
         servingOverride: 6,
         status: 'skipped',
+        rating: 'up',
       }),
     )
     expect(await screen.findByText('6 servings')).toBeInTheDocument()
