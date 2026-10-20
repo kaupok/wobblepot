@@ -630,6 +630,26 @@ function slipInCard(card: HTMLElement) {
   return { left: box.left - cardBox.left, top: box.top - cardBox.top }
 }
 
+/**
+ * Where the slip lies once the card has settled, to compare a move against.
+ * The web font rewraps the long name, and the description's clamp follows
+ * a frame or more after `document.fonts.ready`: `useDescriptionLines`
+ * measures from a ResizeObserver. Read before that, the card is a line
+ * taller, and the bottom-anchored slip then moves up by it with no input
+ * (HON-1266). Two frames: one for the observer to report, one for React's
+ * commit.
+ */
+async function slipAtRest(card: HTMLElement) {
+  await document.fonts.ready
+  return waitFor(async () => {
+    const earlier = slipInCard(card)
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const place = slipInCard(card)
+    await expect(place).toEqual(earlier)
+    return place
+  }, ROUND_TRIP)
+}
+
 /** Presses the slip at its centre, moves by `dx`/`dy`, and lets go. */
 async function dragSlip(slip: HTMLElement, dx: number, dy: number) {
   const box = slip.getBoundingClientRect()
@@ -672,11 +692,10 @@ export const DragNote: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
     await expect(slip).toHaveClass('touch-none')
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -60, -20)
 
@@ -714,10 +733,9 @@ export const DragNoteIsClamped: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -2000, -2000)
 
@@ -754,12 +772,11 @@ export const KeyboardMoveNote: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
     await expect(slip).toHaveAccessibleDescription(/arrow keys/i)
     slip.focus()
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await userEvent.keyboard('{ArrowLeft}')
 
@@ -784,10 +801,9 @@ export const DragNoteFailedSave: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -60, -20)
 
