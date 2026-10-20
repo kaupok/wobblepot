@@ -480,7 +480,12 @@ function validateProteinTypeConsistency(ingredients: Ingredient[]): ValidationRe
     }
 
     // Non-protein/legume/dairy categories having a proteinType is suspicious
-    if (ing.proteinType && !['protein', 'legume', 'dairy'].includes(ing.category)) {
+    // A filled dumpling is a carb whose filling decides the meal's protein type (HON-1262).
+    if (
+      ing.proteinType &&
+      !['protein', 'legume', 'dairy'].includes(ing.category) &&
+      ing.subcategory !== 'filled dumplings'
+    ) {
       warnings.push(
         `${name}: category '${ing.category}' has proteinType '${ing.proteinType}' - verify this is intentional`,
       )

@@ -57,6 +57,18 @@ export interface FoodGroup {
 /** Words that make an animal product a plant-based swap. Safe for animal-derived groups only. */
 const PLANT_SWAP = ['vegan', 'plant-based', 'plant based', 'taimne', 'taimse', 'taimsed', 'taimset']
 
+/** Filled dumplings whose usual filling is meat, so a bare dish word hides it (HON-1262). */
+const MEAT_DUMPLINGS = [
+  'pelmeni',
+  'pelmeen',
+  'khinkali',
+  'hinkaal',
+  'gyoza',
+  'wonton',
+  'jiaozi',
+  'potsticker',
+]
+
 const MEAT: FoodGroup = {
   keywords: [
     'chicken',
@@ -168,8 +180,25 @@ const MEAT: FoodGroup = {
     'taimetoit',
   ],
   prefixes: ['soja', 'seene', 'porgandi', 'tofu'],
+  ingredientKeywords: MEAT_DUMPLINGS,
   falseFriends: [
     'champignon',
+    // Meat-free dumplings and their wrappers, never a "vegetable" qualifier or a
+    // "kartuli" prefix: a prefix would excuse the pork in "kartulivorst" too.
+    'kartulipelmeen',
+    'köögiviljapelmeen',
+    'köögiviljagyoza',
+    'vegetable gyoza',
+    'vegetable wonton',
+    'gyoza wrapper',
+    'wonton wrapper',
+    'potato pelmeni',
+    'mushroom pelmeni',
+    'gyoza köögiviljadega',
+    'gyozaleh',
+    'wontonileh',
+    'pelmeenid kartuli',
+    'pelmeenid seente',
     // The cut, not the meat. Named phrases only: a bare "minced" would excuse
     // "minced steak" too.
     'minced garlic',
@@ -369,6 +398,7 @@ const SHELLFISH: FoodGroup = {
     'mereanni',
   ],
   qualifiers: PLANT_SWAP,
+  ingredientKeywords: ['har gow'],
   falseFriends: [
     'oyster mushroom',
     'crab apple',
@@ -748,6 +778,7 @@ const GLUTEN: FoodGroup = {
     'ingveripasta',
     'pastinaak',
   ],
+  ingredientKeywords: [...MEAT_DUMPLINGS, 'vareniki', 'varenyky', 'vareenik', 'pierogi', 'har gow'],
 }
 
 const SESAME: FoodGroup = {
