@@ -48,9 +48,15 @@ const SEND_GAP_MS = 500
  * reminder on again. `reminderLastSentAt` is never touched, so switching off
  * and on again cannot send twice in one week, and neither is
  * `reminderConfirmedAt`, which proves the address rather than the consent.
+ *
+ * The confirm token is made only on a switch-on, because only a switch-on
+ * emails it. An account email change drops it (HON-1137), and a day change
+ * after that must not make one: the Reminders tab reads a token as "we
+ * emailed you a link".
  */
 export function reminderUpdate(
   current: {
+    reminderWeekday: number | null
     reminderConsentAt: Date | null
     reminderToken: string | null
     reminderConfirmToken: string | null
@@ -65,7 +71,8 @@ export function reminderUpdate(
     reminderWeekday: weekday,
     reminderConsentAt: current.reminderConsentAt ?? now,
     reminderToken: current.reminderToken ?? nanoid(32),
-    reminderConfirmToken: current.reminderConfirmToken ?? nanoid(32),
+    reminderConfirmToken:
+      current.reminderConfirmToken ?? (current.reminderWeekday === null ? nanoid(32) : null),
   }
 }
 

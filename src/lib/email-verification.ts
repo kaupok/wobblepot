@@ -64,7 +64,7 @@ export const CHANGE_EMAIL_CALLBACK_URL = '/account?emailChanged=1'
 export const CHANGE_EMAIL_REQUEST_TYPE = 'change-email-verification'
 
 /** What the Profile tab shows after the email-change link redirected there. */
-export type ChangeEmailLanding = 'changed' | 'expired' | 'invalid'
+export type ChangeEmailLanding = 'changed' | 'expired' | 'invalid' | 'wrongAccount'
 
 /**
  * Reads the params the email-change link leaves on `/account`, the way
@@ -72,8 +72,9 @@ export type ChangeEmailLanding = 'changed' | 'expired' | 'invalid'
  *
  * Only `emailChanged=1` claims the `error` param, so a verification failure
  * still reads as one. A used link fails with `USER_NOT_FOUND`, because no user
- * has the token's old address any more, so every code except `INVALID_TOKEN`
- * reads as expired: the copy says "expired or already used".
+ * has the token's old address any more, so it reads as expired: the copy says
+ * "expired or already used". `INVALID_USER` is a valid link opened while
+ * another account is signed in, which needs a sign-out, not a new link.
  */
 export function parseChangeEmailLanding(params: {
   emailChanged?: string | string[]
@@ -82,7 +83,14 @@ export function parseChangeEmailLanding(params: {
   if (first(params.emailChanged) !== '1') return null
   const error = first(params.error)
   if (!error) return 'changed'
-  return error.toUpperCase() === 'INVALID_TOKEN' ? 'invalid' : 'expired'
+  switch (error.toUpperCase()) {
+    case 'INVALID_TOKEN':
+      return 'invalid'
+    case 'INVALID_USER':
+      return 'wrongAccount'
+    default:
+      return 'expired'
+  }
 }
 
 function first(value: string | string[] | undefined): string | undefined {

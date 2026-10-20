@@ -387,6 +387,7 @@ describe('AccountProfilePage', () => {
       [{ emailChanged: '1', error: 'TOKEN_EXPIRED' }, 'expired'],
       [{ emailChanged: '1', error: 'USER_NOT_FOUND' }, 'expired'],
       [{ emailChanged: '1', error: 'INVALID_TOKEN' }, 'invalid'],
+      [{ emailChanged: '1', error: 'INVALID_USER' }, 'wrongAccount'],
     ])('hands the form the change landing for %o, not the notice', async (params, landing) => {
       await signedInWithHousehold()
 

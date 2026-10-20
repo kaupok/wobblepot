@@ -128,16 +128,25 @@ export function ChangeEmailForm({ email, landing }: ChangeEmailFormProps) {
         )}
         {showLanding && (
           <Callout tone={landing === 'changed' ? 'success' : 'warning'} role="status">
-            {landing === 'changed'
-              ? t('changed', { email })
-              : landing === 'expired'
-                ? t('expired')
-                : t('linkInvalid')}
+            {landingMessage(landing)}
           </Callout>
         )}
       </div>
     </form>
   )
+
+  function landingMessage(landing: ChangeEmailLanding): string {
+    switch (landing) {
+      case 'changed':
+        return t('changed', { email })
+      case 'expired':
+        return t('expired')
+      case 'invalid':
+        return t('linkInvalid')
+      case 'wrongAccount':
+        return t('wrongAccount')
+    }
+  }
 
   function errorMessage(error: Error): string {
     if (error instanceof ApiError && error.status === 429) return tErrors('tooManyAttempts')

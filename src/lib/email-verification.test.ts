@@ -72,7 +72,13 @@ describe('parseChangeEmailLanding (HON-1137)', () => {
     expect(parseChangeEmailLanding({ emailChanged: '1', error: 'TOKEN_EXPIRED' })).toBe('expired')
     // A used link: no user has the token's old address any more.
     expect(parseChangeEmailLanding({ emailChanged: '1', error: 'USER_NOT_FOUND' })).toBe('expired')
-    expect(parseChangeEmailLanding({ emailChanged: '1', error: 'INVALID_USER' })).toBe('expired')
+  })
+
+  // A valid link opened while another account is signed in (PR #1331 review).
+  it('reads a link opened in another account as wrongAccount', () => {
+    expect(parseChangeEmailLanding({ emailChanged: '1', error: 'INVALID_USER' })).toBe(
+      'wrongAccount',
+    )
   })
 
   it('reads a broken token as invalid, in any case', () => {

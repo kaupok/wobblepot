@@ -160,6 +160,19 @@ describe('clearReminderConfirmation', () => {
     expect((await schedule()).reminderConfirmToken).toBe(result?.confirmToken)
   })
 
+  it('keeps the reminder paused through a day change, which sends no link', async () => {
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderConfirmToken: 'confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+    await clearReminderConfirmation('u-ada')
+
+    expect(await saveReminder('u-ada', 3)).toEqual({ confirmToken: null })
+    expect(await schedule()).toMatchObject({ reminderWeekday: 3, reminderConfirmToken: null })
+  })
+
   it('does nothing for a user without a member row', async () => {
     await expect(clearReminderConfirmation('u-nobody')).resolves.toBeUndefined()
   })

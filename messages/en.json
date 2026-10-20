@@ -1732,7 +1732,8 @@
       "sendFailed": "The link was not sent. Try again.",
       "changed": "Your email address is now {email}.",
       "expired": "This link has expired or was already used. Enter the new address again to get a new link.",
-      "linkInvalid": "This link does not work. Enter the new address again to get a new link."
+      "linkInvalid": "This link does not work. Enter the new address again to get a new link.",
+      "wrongAccount": "This link is for another account. Sign out, then open the link again."
     },
     "yourDataHeading": "Your data",
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",

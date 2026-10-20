@@ -107,6 +107,7 @@ describe('ChangeEmailForm', () => {
       'This link has expired or was already used. Enter the new address again to get a new link.',
     ],
     ['invalid', 'This link does not work. Enter the new address again to get a new link.'],
+    ['wrongAccount', 'This link is for another account. Sign out, then open the link again.'],
   ] as const)('shows the %s landing once and clears its params', (landing, message) => {
     window.history.replaceState(null, '', '/account?emailChanged=1&error=X')
 

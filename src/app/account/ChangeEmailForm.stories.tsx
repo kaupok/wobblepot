@@ -148,3 +148,12 @@ export const LandingInvalid: Story = {
     )
   },
 }
+
+export const LandingWrongAccount: Story = {
+  args: { landing: 'wrongAccount' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('status')).toHaveTextContent(
+      'This link is for another account. Sign out, then open the link again.',
+    )
+  },
+}
