@@ -205,6 +205,21 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'calabrian pepper': 'calabrian chilli', // DB has calabrian chilli
   sopressata: 'soppressata', // DB has soppressata (standard double-p spelling)
   'apple brandy': 'calvados', // DB has calvados
+
+  // Filled dumplings: the dish word expands to its most common filling (HON-1262).
+  // Bare "dumplings" has no entry, because in British English it means suet dumplings.
+  pelmeni: 'pork and beef pelmeni',
+  pelmeny: 'pork and beef pelmeni',
+  vareniki: 'potato vareniki',
+  varenyky: 'potato vareniki',
+  pierogi: 'potato and cheese pierogi',
+  pierogies: 'potato and cheese pierogi',
+  gyoza: 'pork gyoza',
+  jiaozi: 'pork gyoza',
+  potstickers: 'pork gyoza',
+  wontons: 'pork wontons',
+  'har gow': 'prawn har gow',
+  'shrimp dumplings': 'prawn har gow',
 }
 
 /**
@@ -343,6 +358,11 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'green chili pepper': 'green chilli',
   'red chili pepper': 'red chilli',
   'beef stew meat': 'stewing beef',
+
+  // Filled dumplings (HON-1262)
+  hinkali: 'khinkali',
+  'dumpling wrappers': 'gyoza wrappers',
+  'potsticker wrappers': 'gyoza wrappers',
 }
 
 /**

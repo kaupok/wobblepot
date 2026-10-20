@@ -7,6 +7,7 @@ import {
   findSynonym,
   synonymKey,
 } from './ingredient-aliases'
+import { findSynonymMatches } from './ingredient-synonym-match'
 
 describe('INGREDIENT_ALIASES', () => {
   it('contains expected common aliases', () => {
@@ -144,6 +145,22 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['milk']).toBeUndefined()
     expect(INGREDIENT_ALIASES['butter']).toBeUndefined()
     expect(INGREDIENT_ALIASES['basil']).toBeUndefined()
+  })
+})
+
+// HON-1262: a dumpling's dish word expands to its most common filling.
+describe('filled dumplings', () => {
+  it('expands the dish word and resolves the other spellings', () => {
+    expect(applyIngredientAlias('pelmeni')).toBe('pork and beef pelmeni')
+    expect(applyIngredientAlias('Gyoza')).toBe('pork gyoza')
+    expect(applyIngredientAlias('hinkali')).toBe('khinkali')
+    expect(applyIngredientAlias('dumplings')).toBe('dumplings')
+  })
+
+  it('shows the other wrapper names next to gyoza wrappers in search', () => {
+    expect(findSynonymMatches('dumpling wr')).toEqual([
+      expect.objectContaining({ target: 'gyoza wrappers', synonym: 'dumpling wrappers' }),
+    ])
   })
 })
 
