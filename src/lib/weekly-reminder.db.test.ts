@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { isWeekPlanned, saveReminder } from '@/lib/weekly-reminder'
+import { clearReminderConfirmation, isWeekPlanned, saveReminder } from '@/lib/weekly-reminder'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through `saveReminder`, and read back,
@@ -117,6 +117,64 @@ describe('saveReminder', () => {
 
     expect(await saveReminder('u-solo', 1)).toBeNull()
     expect((await schedule()).reminderWeekday).toBeNull()
+  })
+})
+
+describe('clearReminderConfirmation', () => {
+  // The consent time is the opt-in record, so an email change keeps it (PR #1331 review).
+  it('clears the confirmation and the confirm token, and keeps the schedule and consent', async () => {
+    const consent = new Date('2026-10-01T08:00:00Z')
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: consent,
+      reminderToken: 'stop-token',
+      reminderConfirmToken: 'confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+
+    await clearReminderConfirmation('u-ada')
+
+    expect(await schedule()).toEqual({
+      reminderWeekday: 5,
+      reminderConsentAt: consent,
+      reminderToken: 'stop-token',
+      reminderConfirmToken: null,
+      reminderConfirmedAt: null,
+      reminderLastSentAt: null,
+    })
+  })
+
+  it('lets the next switch-on send a confirm link again', async () => {
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderConfirmToken: 'confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+    await clearReminderConfirmation('u-ada')
+
+    await saveReminder('u-ada', null)
+    const result = await saveReminder('u-ada', 5)
+
+    expect(result?.confirmToken).toMatch(/^[\w-]{32}$/)
+    expect((await schedule()).reminderConfirmToken).toBe(result?.confirmToken)
+  })
+
+  it('keeps the reminder paused through a day change, which sends no link', async () => {
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderConfirmToken: 'confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+    await clearReminderConfirmation('u-ada')
+
+    expect(await saveReminder('u-ada', 3)).toEqual({ confirmToken: null })
+    expect(await schedule()).toMatchObject({ reminderWeekday: 3, reminderConfirmToken: null })
+  })
+
+  it('does nothing for a user without a member row', async () => {
+    await expect(clearReminderConfirmation('u-nobody')).resolves.toBeUndefined()
   })
 })
 

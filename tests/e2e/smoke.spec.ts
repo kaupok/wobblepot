@@ -96,7 +96,8 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     // Without the household, /account would redirect to /onboarding.
     await page.goto('/account')
     await expect(page.getByRole('heading', { name: 'My account', level: 1 })).toBeVisible()
-    await expect(page.getByText(email)).toBeVisible()
+    // A password account shows its address in the change-email field (HON-1137).
+    await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email)
   })
 
   // HON-751 and HON-777 both shipped a Today page whose server and browser

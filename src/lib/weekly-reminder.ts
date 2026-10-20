@@ -48,9 +48,15 @@ const SEND_GAP_MS = 500
  * reminder on again. `reminderLastSentAt` is never touched, so switching off
  * and on again cannot send twice in one week, and neither is
  * `reminderConfirmedAt`, which proves the address rather than the consent.
+ *
+ * The confirm token is made only on a switch-on, because only a switch-on
+ * emails it. An account email change drops it (HON-1137), and a day change
+ * after that must not make one: the Reminders tab reads a token as "we
+ * emailed you a link".
  */
 export function reminderUpdate(
   current: {
+    reminderWeekday: number | null
     reminderConsentAt: Date | null
     reminderToken: string | null
     reminderConfirmToken: string | null
@@ -65,7 +71,8 @@ export function reminderUpdate(
     reminderWeekday: weekday,
     reminderConsentAt: current.reminderConsentAt ?? now,
     reminderToken: current.reminderToken ?? nanoid(32),
-    reminderConfirmToken: current.reminderConfirmToken ?? nanoid(32),
+    reminderConfirmToken:
+      current.reminderConfirmToken ?? (current.reminderWeekday === null ? nanoid(32) : null),
   }
 }
 
@@ -101,6 +108,24 @@ export async function saveReminder(
   const switchedOn = member.reminderWeekday === null && data.reminderWeekday !== null
   const confirmDue = switchedOn && !member.reminderConfirmedAt
   return { confirmToken: (confirmDue && data.reminderConfirmToken) || null }
+}
+
+/**
+ * Forget that `userId`'s address was confirmed, after the account email
+ * changed (HON-1137). `reminderConfirmedAt` proves the old address
+ * (HON-1113), so the cron stops sending until the new one is confirmed.
+ *
+ * The confirm token is dropped too, so a confirm link still in the old inbox
+ * cannot confirm the new address. No new link is sent: the link's 7 days run
+ * from `reminderConsentAt`, the opt-in record, which an email change must not
+ * rewrite. The Reminders tab sees the missing token and asks the member to
+ * switch the reminder off and on, which sends a link to the new address.
+ */
+export async function clearReminderConfirmation(userId: string): Promise<void> {
+  await prisma.householdMember.updateMany({
+    where: { userId },
+    data: { reminderConfirmedAt: null, reminderConfirmToken: null },
+  })
 }
 
 export type ReminderConfirmState = 'pending' | 'confirmed' | 'expired'

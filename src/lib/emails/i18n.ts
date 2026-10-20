@@ -34,6 +34,8 @@ const CATALOGUES: Record<Locale, Messages> = {
 export type EmailNamespace =
   | 'resetPassword'
   | 'verifyEmail'
+  | 'changeEmail'
+  | 'emailChanged'
   | 'accountDeletionRequested'
   | 'breachNotification'
   | 'waitlistConfirm'

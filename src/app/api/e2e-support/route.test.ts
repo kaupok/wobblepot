@@ -261,6 +261,57 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
   })
 })
 
+describe('GET /api/e2e-support?action=change-email-link (HON-1137)', () => {
+  beforeEach(() => setBypass(true))
+
+  it("returns Better Auth's verify-email path with a change token", async () => {
+    const { GET } = await import('./route')
+
+    const res = await GET(
+      new Request(url('?action=change-email-link&email=old@example.com&newEmail=new@example.com')),
+    )
+    expect(res.status).toBe(200)
+    const { verifyPath } = (await res.json()) as { verifyPath: string }
+    const link = new URL(verifyPath, 'http://localhost')
+    expect(link.pathname).toBe('/api/auth/verify-email')
+    expect(link.searchParams.get('callbackURL')).toBe('/account?emailChanged=1')
+
+    const { verifyJWT } = await import('better-auth/crypto')
+    const payload = await verifyJWT(link.searchParams.get('token')!, TEST_SECRET)
+    expect(payload).toMatchObject({
+      email: 'old@example.com',
+      updateTo: 'new@example.com',
+      requestType: 'change-email-verification',
+    })
+    expect(payload!.exp! - payload!.iat!).toBe(60 * 60 * 24)
+  })
+
+  it('mints an already-expired token with expired=1', async () => {
+    const { GET } = await import('./route')
+
+    const res = await GET(
+      new Request(
+        url('?action=change-email-link&email=old@example.com&newEmail=new@example.com&expired=1'),
+      ),
+    )
+    const { verifyPath } = (await res.json()) as { verifyPath: string }
+    const token = new URL(verifyPath, 'http://localhost').searchParams.get('token')!
+
+    const { verifyJWT } = await import('better-auth/crypto')
+    expect(await verifyJWT(token, TEST_SECRET)).toBeNull()
+  })
+
+  it.each([
+    '?action=change-email-link&newEmail=new@example.com',
+    '?action=change-email-link&email=old@example.com',
+  ])('requires both addresses (%s)', async (query) => {
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url(query)))
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('GET /api/e2e-support?action=household-state', () => {
   beforeEach(() => setBypass(true))
 

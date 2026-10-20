@@ -41,6 +41,15 @@ vi.mock('./ProfileNameForm', () => ({
   ),
 }))
 
+// Renders the address as text, so the order checks below find it either way.
+vi.mock('./ChangeEmailForm', () => ({
+  ChangeEmailForm: ({ email, landing }: { email: string; landing: string | null }) => (
+    <div data-testid="change-email-form" data-landing={String(landing)}>
+      {email}
+    </div>
+  ),
+}))
+
 vi.mock('./ChangePasswordForm', () => ({
   ChangePasswordForm: () => <div data-testid="change-password-form" />,
 }))
@@ -349,6 +358,42 @@ describe('AccountProfilePage', () => {
 
       render(await AccountProfilePage(props({ linked: 'google', error: 'access_denied' })))
 
+      expect(screen.getByTestId('verify-email-notice')).toHaveAttribute('data-landing', 'null')
+    })
+  })
+
+  // HON-1137: the change form replaces the plain email for a password account.
+  describe('email change', () => {
+    it('shows the change form to an account with a password', async () => {
+      await signedInWithHousehold([PASSWORD_ACCOUNT, GOOGLE_ACCOUNT])
+
+      render(await AccountProfilePage(props()))
+
+      expect(screen.getByTestId('change-email-form')).toHaveTextContent('test@example.com')
+      expect(screen.getByTestId('change-email-form')).toHaveAttribute('data-landing', 'null')
+    })
+
+    it('shows the plain address to a Google-only account', async () => {
+      await signedInWithHousehold([GOOGLE_ACCOUNT])
+
+      render(await AccountProfilePage(props()))
+
+      expect(screen.queryByTestId('change-email-form')).not.toBeInTheDocument()
+      expect(screen.getByText('test@example.com')).toBeInTheDocument()
+    })
+
+    it.each([
+      [{ emailChanged: '1' }, 'changed'],
+      [{ emailChanged: '1', error: 'TOKEN_EXPIRED' }, 'expired'],
+      [{ emailChanged: '1', error: 'USER_NOT_FOUND' }, 'expired'],
+      [{ emailChanged: '1', error: 'INVALID_TOKEN' }, 'invalid'],
+      [{ emailChanged: '1', error: 'INVALID_USER' }, 'wrongAccount'],
+    ])('hands the form the change landing for %o, not the notice', async (params, landing) => {
+      await signedInWithHousehold()
+
+      render(await AccountProfilePage(props(params)))
+
+      expect(screen.getByTestId('change-email-form')).toHaveAttribute('data-landing', landing)
       expect(screen.getByTestId('verify-email-notice')).toHaveAttribute('data-landing', 'null')
     })
   })

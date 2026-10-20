@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createEmailVerificationToken } from 'better-auth/api'
 import { auth } from '@/lib/auth'
 import {
+  CHANGE_EMAIL_CALLBACK_URL,
+  CHANGE_EMAIL_REQUEST_TYPE,
   EMAIL_VERIFICATION_CALLBACK_URL,
   EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
 } from '@/lib/email-verification'
@@ -34,6 +36,9 @@ import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
  *   row, so there is nothing to read: the route mints one with Better Auth's
  *   own function and secret. `&expired=1` mints one that has already expired,
  *   for the expired-link path.
+ * - `GET  ?action=change-email-link&email=&newEmail=` — the link an email
+ *   change sends to the new address (HON-1137), minted the same way.
+ *   `&expired=1` mints one that has already expired.
  * - `GET  ?action=household-state&householdId=` — whether a household and its
  *   scoped rows survived. Needed *after* a purge, when the user row is gone
  *   and `user-state` can no longer reach them.
@@ -125,6 +130,21 @@ async function verifyEmailLink(email: string, expired: boolean) {
   })
 }
 
+async function changeEmailLink(email: string, newEmail: string, expired: boolean) {
+  const { secret } = await auth.$context
+  const token = await createEmailVerificationToken(
+    secret,
+    email,
+    newEmail,
+    expired ? -60 : EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+    { requestType: CHANGE_EMAIL_REQUEST_TYPE },
+  )
+
+  return NextResponse.json({
+    verifyPath: `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent(CHANGE_EMAIL_CALLBACK_URL)}`,
+  })
+}
+
 export async function GET(request: Request) {
   if (!RATE_LIMIT_BYPASS_ACTIVE) {
     return notFound()
@@ -141,6 +161,14 @@ export async function GET(request: Request) {
       return householdId
         ? NextResponse.json(await readHouseholdState(householdId))
         : missingParam('householdId')
+    }
+
+    if (action === 'change-email-link') {
+      const email = param(url, 'email')
+      const newEmail = param(url, 'newEmail')
+      if (!email) return missingParam('email')
+      if (!newEmail) return missingParam('newEmail')
+      return await changeEmailLink(email, newEmail, url.searchParams.get('expired') === '1')
     }
 
     if (action === 'reset-token' || action === 'user-state' || action === 'verify-email-link') {

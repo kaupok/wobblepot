@@ -23,6 +23,9 @@ const RATE_LIMITED_PATHS: ReadonlyArray<{ suffix: string; feature: RateLimitFeat
   // Resend on `/account` (HON-1155): forgot-password's limits on a separate
   // counter, so Resend clicks cannot block a password reset.
   { suffix: '/send-verification-email', feature: 'verify-email' },
+  // Change email on `/account` (HON-1137): it mails the typed address, so it
+  // has Resend's cost and enumeration surface and shares its counter.
+  { suffix: '/change-email', feature: 'verify-email' },
 ]
 
 function featureForPath(pathname: string): RateLimitFeature | null {

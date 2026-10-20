@@ -96,6 +96,24 @@ export async function fetchVerifyEmailPath(
   return verifyPath
 }
 
+/**
+ * Better Auth's verify-email path for an email change: the link the mail to
+ * the new address carries (HON-1137). `expired` mints a link that has already
+ * expired. Throws when the back-channel is unavailable.
+ */
+export async function fetchChangeEmailPath(
+  email: string,
+  newEmail: string,
+  { expired = false }: { expired?: boolean } = {},
+): Promise<string> {
+  const params: Record<string, string> = { email, newEmail, ...(expired ? { expired: '1' } : {}) }
+  const { verifyPath } = await fetchOrThrow<{ verifyPath: string }>(
+    supportURL('change-email-link', params),
+    'change-email-link',
+  )
+  return verifyPath
+}
+
 async function fetchOrThrow<T>(url: string, label: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) {

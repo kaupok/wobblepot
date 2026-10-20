@@ -21,6 +21,7 @@ import { Callout } from '@/components/ui/callout'
 import { Body, Heading } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { useClearLandingParams } from '@/hooks/use-clear-landing-params'
 
 interface SignInMethodsProps {
   /** Read by the page on the server, so the list is right on the first paint. */
@@ -60,14 +61,7 @@ export function SignInMethods({
   const tErrors = useTranslations('errors.auth')
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (!landing) return
-    const url = new URL(window.location.href)
-    for (const param of LANDING_PARAMS) url.searchParams.delete(param)
-    // Native `replaceState`: the App Router syncs with it, and keeping
-    // `history.state` keeps the router's own entry intact.
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
-  }, [landing])
+  useClearLandingParams(Boolean(landing), LANDING_PARAMS)
 
   const { data: accounts = initialAccounts, isError } = useQuery({
     queryKey: SIGN_IN_ACCOUNTS_QUERY_KEY,
