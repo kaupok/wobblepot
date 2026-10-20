@@ -195,7 +195,7 @@ describe('MealCard Swap → "Pick for me"', () => {
     expect(patches()[1]).toEqual({
       method: 'PATCH',
       url: ENTRY_URL,
-      body: { mealId: meal.id },
+      body: { mealId: meal.id, servingOverride: null, status: 'planned' },
     })
     expect(requests.some((r) => r.method === 'DELETE')).toBe(false)
     await waitFor(() => expect(refresh).toHaveBeenCalled())
@@ -222,6 +222,27 @@ describe('MealCard Swap → "Pick for me"', () => {
         expect.objectContaining({ status: 'planned' }),
       ),
     )
+  })
+
+  // The swap reset the override on the server and planned the skipped card,
+  // so Undo sends both back with the meal, and the card shows them again.
+  it('puts back the serving override and the skip on Undo', async () => {
+    renderCard({ status: 'skipped', servingOverride: 6 })
+    await chooseRoute('Pick for me')
+    const [, options] = await pickedToast()
+    await waitFor(() => expect(screen.queryByText('6 servings')).not.toBeInTheDocument())
+
+    clickUndo(options)
+
+    await waitFor(() =>
+      expect(patches().at(-1)?.body).toEqual({
+        mealId: meal.id,
+        servingOverride: 6,
+        status: 'skipped',
+      }),
+    )
+    expect(await screen.findByText('6 servings')).toBeInTheDocument()
+    expect(screen.getByText('Skipped')).toBeInTheDocument()
   })
 
   it.each([

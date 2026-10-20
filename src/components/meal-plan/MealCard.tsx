@@ -169,6 +169,7 @@ export function MealCard({
     setIsDeductionModalOpen,
     handleStatusChange,
     handleDeductionConfirm,
+    showStatus,
   } = useEntryStatus({
     planId,
     entryId,
@@ -338,6 +339,12 @@ export function MealCard({
     mealType,
     onPicked,
     onSwapped: resetForSwap,
+    // Undo saved the entry as it was; the card shows it so.
+    onSwapUndone: (restored) => {
+      setServingOverride(restored.servingOverride)
+      detailModalRef.current?.resetForSwap()
+      showStatus(restored.status)
+    },
   })
 
   function handleClear() {
@@ -587,7 +594,10 @@ export function MealCard({
                     onStatusChange={handleStatusChange}
                     isPicking={isPicking}
                     onSwap={(choice) => {
-                      if (choice === 'pick') return swap({ entryId, mealId: meal.id })
+                      if (choice === 'pick') {
+                        const from = status === 'skipped' ? 'skipped' : 'planned'
+                        return swap({ entryId, mealId: meal.id, servingOverride, status: from })
+                      }
                       setSwapView(choice)
                       setIsRegenerateModalOpen(true)
                     }}

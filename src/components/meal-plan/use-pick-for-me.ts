@@ -25,17 +25,20 @@ export interface ClearedSlot {
 }
 
 /**
- * A planned card's entry: the pick swaps its meal, and Undo puts the previous
- * meal back. A PATCH, so the note stays (HON-1249).
+ * A planned card's entry as it is before the pick swaps its meal. Undo puts
+ * all of it back in one PATCH, so the note stays (HON-1249). The swap resets
+ * the serving override on the server, and the card plans a skipped entry
+ * that takes a new meal, so both travel with the meal.
  */
 export interface PlannedSlot {
   entryId: string
   mealId: string
+  servingOverride: number | null
+  status: 'planned' | 'skipped'
 }
 
 interface Swapped {
-  entryId: string
-  fromMealId: string
+  from: PlannedSlot
   toMealId: string
   mealName: string
 }
@@ -53,8 +56,10 @@ interface UsePickForMeOptions {
   mealType: MealType
   /** Called once the meal is placed, before the refresh that shows it. */
   onPicked?: () => void
-  /** Called with the entry's new meal after a swap, and with the previous one after its Undo. */
+  /** Called with the entry's new meal after a swap. */
   onSwapped?: (mealId: string) => void
+  /** Called with the entry as it was once Undo has put it back. */
+  onSwapUndone?: (restored: PlannedSlot) => void
 }
 
 /**
@@ -68,7 +73,14 @@ interface UsePickForMeOptions {
  * Every callback lives in the `useMutation` options, not `mutate()`'s: the
  * caller unmounts when the refresh lands, and Undo runs after that.
  */
-export function usePickForMe({ planId, date, mealType, onPicked, onSwapped }: UsePickForMeOptions) {
+export function usePickForMe({
+  planId,
+  date,
+  mealType,
+  onPicked,
+  onSwapped,
+  onSwapUndone,
+}: UsePickForMeOptions) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
@@ -162,18 +174,21 @@ export function usePickForMe({ planId, date, mealType, onPicked, onSwapped }: Us
     },
   })
 
-  function patchMeal(entryId: string, mealId: string) {
+  function patchEntry(entryId: string, fields: Record<string, unknown>) {
     return apiFetch(`${entriesUrl}/${entryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mealId }),
+      body: JSON.stringify(fields),
     })
   }
 
   const swapUndoMutation = useMutation({
-    mutationFn: ({ entryId, fromMealId }: Swapped) => patchMeal(entryId, fromMealId),
-    onSuccess: (_data, { fromMealId }) => {
-      onSwapped?.(fromMealId)
+    // The route applies an explicit `servingOverride` after the swap's reset,
+    // so one request restores the meal, its servings and its status.
+    mutationFn: ({ from: { entryId, mealId, servingOverride, status } }: Swapped) =>
+      patchEntry(entryId, { mealId, servingOverride, status }),
+    onSuccess: (_data, { from }) => {
+      onSwapUndone?.(from)
       dropSuggestionCache()
       router.refresh()
     },
@@ -188,15 +203,15 @@ export function usePickForMe({ planId, date, mealType, onPicked, onSwapped }: Us
   })
 
   const swapMutation = useMutation({
-    mutationFn: async ({ entryId, mealId }: PlannedSlot): Promise<Swapped> => {
+    mutationFn: async (from: PlannedSlot): Promise<Swapped> => {
       const { alternatives } = await apiFetch<{ alternatives: AlternativeMeal[] }>(
-        `${entriesUrl}/${entryId}/regenerate`,
+        `${entriesUrl}/${from.entryId}/regenerate`,
         { method: 'POST' },
       )
       const [top] = alternatives
       if (!top) throw new ApiError('No suggestions', 404, { body: { code: 'no_suggestions' } })
-      await patchMeal(entryId, top.id)
-      return { entryId, fromMealId: mealId, toMealId: top.id, mealName: top.name }
+      await patchEntry(from.entryId, { mealId: top.id })
+      return { from, toMealId: top.id, mealName: top.name }
     },
     onSuccess: (swapped) => {
       onSwapped?.(swapped.toMealId)
@@ -206,7 +221,7 @@ export function usePickForMe({ planId, date, mealType, onPicked, onSwapped }: Us
       router.refresh()
       void track('meal_plan:meal_swapped', {
         plan_id: planId,
-        from_meal_id: swapped.fromMealId,
+        from_meal_id: swapped.from.mealId,
         to_meal_id: swapped.toMealId,
         source: 'meal_card',
         is_reselect: false,
