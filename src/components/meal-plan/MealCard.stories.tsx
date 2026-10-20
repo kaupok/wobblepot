@@ -55,7 +55,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Swap and Clear live behind the card's "More actions" menu (HON-688). */
+/** The Swap routes and Clear live behind the card's "More actions" menu (HON-688). */
 async function openMoreActions(canvasElement: HTMLElement) {
   await userEvent.click(within(canvasElement).getByRole('button', { name: /more actions/i }))
 }
@@ -630,6 +630,26 @@ function slipInCard(card: HTMLElement) {
   return { left: box.left - cardBox.left, top: box.top - cardBox.top }
 }
 
+/**
+ * Where the slip lies once the card has settled, to compare a move against.
+ * The web font rewraps the long name, and the description's clamp follows
+ * a frame or more after `document.fonts.ready`: `useDescriptionLines`
+ * measures from a ResizeObserver. Read before that, the card is a line
+ * taller, and the bottom-anchored slip then moves up by it with no input
+ * (HON-1266). Two frames: one for the observer to report, one for React's
+ * commit.
+ */
+async function slipAtRest(card: HTMLElement) {
+  await document.fonts.ready
+  return waitFor(async () => {
+    const earlier = slipInCard(card)
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const place = slipInCard(card)
+    await expect(place).toEqual(earlier)
+    return place
+  }, ROUND_TRIP)
+}
+
 /** Presses the slip at its centre, moves by `dx`/`dy`, and lets go. */
 async function dragSlip(slip: HTMLElement, dx: number, dy: number) {
   const box = slip.getBoundingClientRect()
@@ -672,11 +692,10 @@ export const DragNote: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
     await expect(slip).toHaveClass('touch-none')
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -60, -20)
 
@@ -714,10 +733,9 @@ export const DragNoteIsClamped: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -2000, -2000)
 
@@ -754,12 +772,11 @@ export const KeyboardMoveNote: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
     await expect(slip).toHaveAccessibleDescription(/arrow keys/i)
     slip.focus()
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await userEvent.keyboard('{ArrowLeft}')
 
@@ -784,10 +801,9 @@ export const DragNoteFailedSave: Story = {
     notePatches = []
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: LONG_NAME })
-    await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
-    const before = slipInCard(card)
+    const before = await slipAtRest(card)
 
     await dragSlip(slip, -60, -20)
 
@@ -948,16 +964,25 @@ export const Planned: Story = {
     const name = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
     await expect(badge.bottom).toBeLessThanOrEqual(name.top)
 
-    // The counterpart to `CompletedThumbsUp` below: Swap is offered here, so
-    // its absence there cannot pass on a card that failed to render at all.
-    // Cooked and Skipped sit above it, one pick each (HON-1125).
+    // The counterpart to `CompletedThumbsUp` below: the Swap routes are
+    // offered here, so their absence there cannot pass on a card that failed
+    // to render at all. Cooked and Skipped sit above them, one pick each
+    // (HON-1125), and the routes are the open slot's (HON-1249).
     await openMoreActions(canvasElement)
     const menu = await within(document.body).findByRole('menu')
     await expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Note', 'Cooked', 'Skipped', 'Swap', 'Clear'])
+    ).toEqual([
+      'Note',
+      'Cooked',
+      'Skipped',
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+      'Clear',
+    ])
   },
 }
 
@@ -1304,7 +1329,7 @@ export const SwapDropsCachedSteps: Story = {
 
     // Swap the entry to a different meal.
     await openMoreActions(canvasElement)
-    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    await userEvent.click(await body.findByRole('menuitem', { name: 'Choose a recipe' }))
     const selector = await body.findByRole('dialog')
     await within(selector).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
@@ -1336,7 +1361,7 @@ export const SwapDropsCachedSteps: Story = {
     await userEvent.keyboard('{Escape}')
     await awaitDialogClosed()
     await openMoreActions(canvasElement)
-    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    await userEvent.click(await body.findByRole('menuitem', { name: 'Choose a recipe' }))
     const reopenedSelector = await body.findByRole('dialog')
     await within(reopenedSelector).findByText('Mushroom risotto', undefined, ROUND_TRIP)
     await expect(within(reopenedSelector).queryByText('Beef stir-fry')).not.toBeInTheDocument()
@@ -1437,7 +1462,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
 
     // Search for the meal already planned and select it again.
     await openMoreActions(canvasElement)
-    await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+    await userEvent.click(await body.findByRole('menuitem', { name: 'Choose a recipe' }))
     const selector = await body.findByRole('dialog')
     await userEvent.type(within(selector).getByRole('searchbox'), 'lemon')
     // The search list offers the planned dish back — `/regenerate` would not.
@@ -1511,7 +1536,7 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
 
     const openSwap = async (card: ReturnType<typeof within>) => {
       await userEvent.click(card.getByRole('button', { name: /more actions/i }))
-      await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
+      await userEvent.click(await body.findByRole('menuitem', { name: 'Choose a recipe' }))
       return body.findByRole('dialog')
     }
     const closeSwap = async () => {
@@ -1565,7 +1590,7 @@ export const SwapOnSkippedCardPlansIt: Story = {
     const body = within(document.body)
     await expect(canvas.getByText('Skipped')).toBeInTheDocument()
 
-    await pickFromMenu(canvasElement, 'Swap')
+    await pickFromMenu(canvasElement, 'Choose a recipe')
     const swap = await body.findByRole('dialog')
     await within(swap).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(swap).getByRole('button', { name: /^select$/i }))
@@ -1731,7 +1756,7 @@ export const Skipped: Story = {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Note', 'Not skipped', 'Swap', 'Clear'])
+    ).toEqual(['Note', 'Not skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Not skipped' }))
     await waitFor(() => expect(canvas.queryByText('Skipped')).not.toBeInTheDocument())
     await waitFor(

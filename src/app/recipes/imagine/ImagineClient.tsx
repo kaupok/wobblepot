@@ -19,6 +19,7 @@ import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { downscaleImage } from '@/lib/downscale-image'
 import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
 import type { Locale } from '@/lib/i18n/locales'
 import {
@@ -198,7 +199,8 @@ export function ImagineClient() {
         if (prompt.trim()) {
           formData.append('prompt', prompt.trim())
         }
-        for (const image of imageFiles) {
+        // Shrunk first, so three phone photos fit Vercel's 4.5 MB body limit.
+        for (const image of await Promise.all(imageFiles.map(downscaleImage))) {
           formData.append('image', image)
         }
         init = { method: 'POST', body: formData, signal: controller.signal }

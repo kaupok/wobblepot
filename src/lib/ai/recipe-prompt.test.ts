@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildRecipeExtractionPrompt } from './recipe-prompt'
+import { buildRecipeExtractionPrompt, buildRecipeRequest } from './recipe-prompt'
 
 describe('buildRecipeExtractionPrompt', () => {
   it('includes the recipe text', () => {
@@ -53,5 +53,59 @@ describe('buildRecipeExtractionPrompt', () => {
 
     expect(buildRecipeExtractionPrompt('test')).not.toContain('ESTONIAN VOICE')
     expect(buildRecipeExtractionPrompt('test', 'en')).not.toContain('ESTONIAN VOICE')
+  })
+})
+
+describe('buildRecipeRequest', () => {
+  const photo = (byte: string) => ({
+    base64: Buffer.from(byte).toString('base64'),
+    mimeType: 'image/jpeg',
+  })
+
+  it('sends one text prompt and no messages without images', () => {
+    const request = buildRecipeRequest('Soup\n- 1 carrot', 'en')
+    expect(request).not.toHaveProperty('messages')
+    expect(request).toHaveProperty('prompt')
+    const prompt = (request as { prompt: string }).prompt
+    expect(prompt).toContain('Extract structured data from the following recipe text.')
+    expect(prompt).toContain('RECIPE TEXT:\nSoup\n- 1 carrot\n\nRECIPE CONFIDENCE SCORING')
+    expect(prompt).not.toContain('RECIPE PHOTOS')
+  })
+
+  it('treats an empty image list as no images', () => {
+    expect(buildRecipeRequest('Soup', 'en', [])).toEqual(buildRecipeRequest('Soup', 'en'))
+  })
+
+  it('sends one image part per photo, then the copy instruction as one text part', () => {
+    const request = buildRecipeRequest('Grandma soup', 'et', [photo('a'), photo('b')])
+    expect(request).not.toHaveProperty('prompt')
+    expect(request).toHaveProperty('messages')
+
+    const { messages } = request as Extract<typeof request, { messages: unknown }>
+    expect(messages).toHaveLength(1)
+    expect(messages[0]!.role).toBe('user')
+
+    const content = messages[0]!.content
+    expect(content.map((part) => part.type)).toEqual(['image', 'image', 'text'])
+    expect(content[0]).toEqual({ type: 'image', image: Buffer.from('a'), mediaType: 'image/jpeg' })
+    expect(content[1]).toEqual({ type: 'image', image: Buffer.from('b'), mediaType: 'image/jpeg' })
+
+    const text = (content[2] as { text: string }).text
+    expect(text).toContain('the recipe shown in the attached photos')
+    expect(text).toContain('Copy the recipe shown in the photos')
+    expect(text).toContain('do not add ingredients')
+    expect(text).toContain('Several photos can be pages of one recipe')
+    expect(text).toContain('TEXT FROM THE USER (extra context only):\nGrandma soup')
+    expect(text).not.toContain('RECIPE TEXT:')
+    // The household locale still decides the output language.
+    expect(text).toContain('LOCALE:')
+  })
+
+  it('leaves out the user text section when photos come with no text', () => {
+    const request = buildRecipeRequest('', 'en', [photo('a')])
+    const { messages } = request as Extract<typeof request, { messages: unknown }>
+    const text = (messages[0]!.content.at(-1) as { text: string }).text
+    expect(text).toContain('RECIPE PHOTOS:')
+    expect(text).not.toContain('TEXT FROM THE USER')
   })
 })

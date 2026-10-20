@@ -271,9 +271,15 @@ describe('MealCard status from the menu', () => {
   }
 
   it.each([
-    ['planned', ['Note', 'Cooked', 'Skipped', 'Swap', 'Clear']],
+    [
+      'planned',
+      ['Note', 'Cooked', 'Skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'],
+    ],
     ['completed', ['Note', 'Not cooked yet']],
-    ['skipped', ['Note', 'Not skipped', 'Swap', 'Clear']],
+    [
+      'skipped',
+      ['Note', 'Not skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'],
+    ],
   ] as const)('offers the status items in order on a %s card', async (status, items) => {
     const user = userEvent.setup()
     renderCard({ meal, status })
@@ -387,7 +393,7 @@ describe('MealCard selector focus', () => {
 
     const trigger = screen.getByRole('button', { name: `More actions: ${meal.name}` })
     await user.click(trigger)
-    await user.click(await screen.findByRole('menuitem', { name: 'Swap' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Choose a recipe' }))
 
     await dismissSelector()
     await waitFor(() => expect(trigger).toHaveFocus())
@@ -887,7 +893,7 @@ describe('MealCard card click (HON-1010)', () => {
     renderCard({ meal })
 
     await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Swap' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Choose a recipe' }))
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(cookView()).not.toBeInTheDocument()

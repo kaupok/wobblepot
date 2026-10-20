@@ -10,6 +10,7 @@ vi.mock('@/lib/prisma', () => ({
       findMany: vi.fn(),
       deleteMany: vi.fn(),
       createMany: vi.fn(),
+      updateMany: vi.fn(),
     },
     meal: {
       findMany: vi.fn(),
@@ -91,6 +92,7 @@ const mockValidatePlan = vi.mocked(validatePlan)
 const mockMealPlanEntryFindMany = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockMealPlanEntryDeleteMany = vi.mocked(prisma.mealPlanEntry.deleteMany)
 const mockMealPlanEntryCreateMany = vi.mocked(prisma.mealPlanEntry.createMany)
+const mockMealPlanEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
 const mockMealFindMany = vi.mocked(prisma.meal.findMany)
 const mockMealPlanFindUnique = vi.mocked(prisma.mealPlan.findUnique)
 const mockMealPlanFindUniqueOrThrow = vi.mocked(prisma.mealPlan.findUniqueOrThrow)
@@ -106,6 +108,7 @@ const mockPrisma = {
     findMany: mockMealPlanEntryFindMany,
     deleteMany: mockMealPlanEntryDeleteMany,
     createMany: mockMealPlanEntryCreateMany,
+    updateMany: mockMealPlanEntryUpdateMany,
   },
   meal: { findMany: mockMealFindMany },
   mealPlan: {
@@ -186,6 +189,7 @@ describe('fillEmptySlots', () => {
       mealId,
       planId: 'plan-1',
       status: 'planned',
+      note: null as string | null,
       meal: mealId
         ? {
             id: mealId,
@@ -208,6 +212,7 @@ describe('fillEmptySlots', () => {
     mockTransaction.mockImplementation(async (fn) => fn(mockPrisma as never) as never)
     mockMealPlanEntryDeleteMany.mockResolvedValue({ count: 0 } as never)
     mockMealPlanEntryCreateMany.mockResolvedValue({ count: 0 } as never)
+    mockMealPlanEntryUpdateMany.mockResolvedValue({ count: 1 } as never)
   })
 
   it('throws when the plan does not exist', async () => {
@@ -497,16 +502,19 @@ describe('fillEmptySlots', () => {
     })
   })
 
-  it('deletes orphan null-mealId entries that overlap with fillable empty slots', async () => {
+  it('deletes orphan null-mealId entries in fillable slots and fills a note-only one', async () => {
     const orphanEntry = { ...entry('2026-01-18', 'dinner', null), id: 'orphan-id' }
+    const noteEntry = { ...entry('2026-01-17', 'dinner', null), id: 'note-id', note: 'Grandma' }
     const existing = [
       entry('2026-01-12', 'dinner', 'meal-1'),
       entry('2026-01-13', 'dinner', 'meal-2'),
       entry('2026-01-14', 'dinner', 'meal-3'),
       entry('2026-01-15', 'dinner', 'meal-4'),
       entry('2026-01-16', 'dinner', 'meal-5'),
-      entry('2026-01-17', 'dinner', 'meal-6'),
+      noteEntry,
       orphanEntry,
+      { ...entry('2026-01-19', 'dinner', null), note: 'Later' },
+      entry('2026-01-12', 'lunch', null),
     ]
 
     mockMealPlanFindUnique
@@ -523,7 +531,10 @@ describe('fillEmptySlots', () => {
     mockGetCandidates.mockResolvedValue([createCandidate({ id: 'meal-new' })])
     mockGenerateObject.mockResolvedValue({
       object: {
-        entries: [{ date: '2026-01-18', mealType: 'dinner', mealId: 'meal-new' }],
+        entries: [
+          { date: '2026-01-17', mealType: 'dinner', mealId: 'meal-new' },
+          { date: '2026-01-18', mealType: 'dinner', mealId: 'meal-new' },
+        ],
       },
     } as never)
     mockMealFindMany.mockResolvedValue([
@@ -539,7 +550,16 @@ describe('fillEmptySlots', () => {
     await fillEmptySlots(fillOptions)
 
     expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ['orphan-id'] } },
+      where: { id: { in: ['orphan-id'] }, mealId: null, note: null },
+    })
+    expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledTimes(1)
+    // The note slip keeps its entry, so its slot is not created again (HON-1252).
+    expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'note-id', mealId: null },
+      data: { mealId: 'meal-new', status: 'planned' },
+    })
+    expect(mockMealPlanEntryCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ mealId: 'meal-new', date: date('2026-01-18') })],
     })
   })
 

@@ -187,5 +187,7 @@ export function useEntryStatus({
     setIsDeductionModalOpen,
     handleStatusChange,
     handleDeductionConfirm: completeWithDeduction,
+    /** Shows a status another request already saved, such as Undo after a swap (HON-1249). */
+    showStatus: setStatus,
   }
 }

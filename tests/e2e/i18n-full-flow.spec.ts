@@ -315,7 +315,7 @@ test.describe(
         await fixtureCard
           .getByRole('button', { name: `Rohkem toiminguid: ${commaTarget!.name}` }) // more actions
           .click()
-        await page.getByRole('menuitem', { name: 'Vaheta' }).click() // swap
+        await page.getByRole('menuitem', { name: 'Vali retsept' }).click() // Swap → choose a recipe
         const selectorDialog = page.getByRole('dialog')
         await expect(selectorDialog).toBeVisible()
         await selectorDialog

@@ -1,6 +1,7 @@
 import { VAGUE_PHRASES } from '@/lib/vague-quantities'
 import { localeInstruction, britishEnglish, estonianVoiceForRecipeParse } from './prompts'
 import { RecipeExtractionSchema } from './recipe-schema'
+import type { EncodedImage } from '@/lib/image-attachments-server'
 
 /**
  * Build the prompt for recipe extraction.
@@ -11,10 +12,17 @@ import { RecipeExtractionSchema } from './recipe-schema'
  * comes out Estonian). Ingredient names stay lowercase singular base form for
  * matcher reliability; `@/lib/i18n/content#translateIngredient` handles display.
  */
-export function buildRecipeExtractionPrompt(recipeText: string, locale?: string): string {
+export function buildRecipeExtractionPrompt(
+  recipeText: string,
+  locale?: string,
+  fromPhotos = false,
+): string {
   const vaguePhrasesList = VAGUE_PHRASES.join(', ')
+  const source = fromPhotos
+    ? 'the recipe shown in the attached photos'
+    : 'the following recipe text'
 
-  return `You are a recipe parsing assistant. Extract structured data from the following recipe text.
+  return `You are a recipe parsing assistant. Extract structured data from ${source}.
 
 IMPORTANT GUIDELINES:
 1. Extract the recipe name, description, cooking time, servings, ingredients, and preparation steps
@@ -106,11 +114,10 @@ Extract cooking/preparation steps from the recipe text into the preparationNotes
 - Focus on actionable cooking instructions only
 - If the source genuinely has no preparation steps at all, set preparationNotes to null — do NOT fabricate steps
 
-RECIPE TEXT:
-${recipeText}
+${fromPhotos ? photoSection(recipeText) : `RECIPE TEXT:\n${recipeText}`}
 
 RECIPE CONFIDENCE SCORING:
-Rate your confidence (0-100) that this text contains a real recipe:
+Rate your confidence (0-100) that ${fromPhotos ? 'the photos show' : 'this text contains'} a real recipe:
 - 90-100: Structured recipe with clear name, ingredients list, and quantities
 - 70-89: Recognizable recipe but informal format or missing some details
 - 50-69: Might be a recipe but very incomplete or ambiguous
@@ -122,14 +129,48 @@ Extract the structured recipe data.${localeInstruction(locale)}${britishEnglish(
 }
 
 /**
+ * The photo branch of the prompt (HON-1274). The photos are a recipe the
+ * family already cooks, so the model copies it: unlike Imagine, which uses a
+ * photo as inspiration, it must not invent or add anything.
+ */
+function photoSection(recipeText: string): string {
+  const context = recipeText ? `\n\nTEXT FROM THE USER (extra context only):\n${recipeText}` : ''
+  return `RECIPE PHOTOS:
+- Copy the recipe shown in the photos. Do not invent a recipe, and do not add ingredients, quantities or steps that the photos do not show
+- Several photos can be pages of one recipe. Combine them into one recipe
+- The photos can be a cookbook page, a handwritten card or a screenshot, in any language
+- If the photos show a dish, food or anything else but no written recipe, there is no recipe to copy: return an empty ingredients list and give a confidence below 20. Do not guess ingredients from how a dish looks${context}`
+}
+
+/**
  * Every `generateObject` argument recipe parsing sends except `model` and
  * `abortSignal`. Pure, so the model benchmark (HON-795) sends the request
  * production sends (HON-796). `recipeText` is already trimmed; the length
  * check and every post-call check stay in `parseRecipeText`.
+ *
+ * Without images the request is a single `prompt`, unchanged by HON-1274.
+ * With images it is one user message: an image part per photo, then the
+ * prompt as one text part, the shape `buildImagineRequest` sends.
  */
-export function buildRecipeRequest(recipeText: string, locale?: string) {
+export function buildRecipeRequest(recipeText: string, locale?: string, images?: EncodedImage[]) {
+  if (!images?.length) {
+    return {
+      schema: RecipeExtractionSchema,
+      prompt: buildRecipeExtractionPrompt(recipeText, locale),
+    }
+  }
+
+  const content: Array<
+    { type: 'text'; text: string } | { type: 'image'; image: Buffer; mediaType: string }
+  > = images.map((img) => ({
+    type: 'image' as const,
+    image: Buffer.from(img.base64, 'base64'),
+    mediaType: img.mimeType,
+  }))
+  content.push({ type: 'text', text: buildRecipeExtractionPrompt(recipeText, locale, true) })
+
   return {
     schema: RecipeExtractionSchema,
-    prompt: buildRecipeExtractionPrompt(recipeText, locale),
+    messages: [{ role: 'user' as const, content }],
   }
 }

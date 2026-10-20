@@ -1,4 +1,4 @@
-// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, AddMealMenu, MealCard, MealSelectorModal
+// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, AddMealMenu, MealCard, MealCardMenu, MealSelectorModal
 import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import { signIn, signUpWithHousehold } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -214,9 +214,10 @@ test.describe('Modal focus-restore', () => {
   })
 
   // The card's two selectors open from state with no `DialogTrigger` either:
-  // "Add meal" on an entry with no meal, and Swap from the card's more-actions
-  // menu. Swap hands focus to the menu trigger, since the menu item it was
-  // chosen from is gone by the time the selector closes (HON-804).
+  // "Add meal" on an entry with no meal, and a Swap route ("Choose a recipe")
+  // from the card's more-actions menu. The swap selector hands focus to the
+  // menu trigger, since the menu item it was chosen from is gone by the time
+  // the selector closes (HON-804, HON-1249).
   test('focus returns to the card menu after the Swap selector is dismissed', async ({ page }) => {
     await signInAsSmoke(page)
 
@@ -241,7 +242,7 @@ test.describe('Modal focus-restore', () => {
       await trigger.focus()
       await page.keyboard.press('Enter')
 
-      const swap = page.getByRole('menuitem', { name: 'Swap' })
+      const swap = page.getByRole('menuitem', { name: 'Choose a recipe' })
       await swap.focus()
       await page.keyboard.press('Enter')
 

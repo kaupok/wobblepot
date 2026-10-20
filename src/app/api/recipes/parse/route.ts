@@ -19,7 +19,8 @@ import { withRequestId } from '@/lib/request-id'
 import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import type { RecipeImportErrorCode } from '@/lib/ai/error-codes'
+import type { RecipeImportErrorCode, RecipeParseErrorCode } from '@/lib/ai/error-codes'
+import { readImageAttachments, type EncodedImage } from '@/lib/image-attachments-server'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
 import {
   RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS,
@@ -41,6 +42,69 @@ function errorBody(error: string, code: RecipeImportErrorCode) {
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
 })
+
+/**
+ * With photos attached, these parser codes mean the photos hold no recipe —
+ * most often a photo of a plated dish. They answer `photo_no_recipe`, whose
+ * copy points the household to Imagine a meal (HON-1274). A dish photo can
+ * also come back as placeholder ingredients (`no_ingredients_found`), and that
+ * code's copy asks for pasted text, so it joins them.
+ */
+const PHOTO_NO_RECIPE_CODES: ReadonlySet<RecipeParseErrorCode> = new Set([
+  'no_recipe_found',
+  'no_ingredients_found',
+  'low_confidence',
+])
+
+/**
+ * Read the request body: JSON `{ text }`, or `multipart/form-data` with an
+ * optional `text` field and one `image` field per photo (HON-1274). Returns
+ * the error response to send when the body is not valid.
+ */
+async function readParseBody(
+  request: Request,
+): Promise<{ text: string; images: EncodedImage[] } | NextResponse> {
+  const contentType = request.headers.get('content-type') ?? ''
+  let body: unknown
+
+  if (contentType.includes('multipart/form-data')) {
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch {
+      return NextResponse.json(errorBody('Invalid form data', 'invalid_request'), { status: 400 })
+    }
+    const attached = await readImageAttachments(formData)
+    if (!attached.ok) {
+      return NextResponse.json(errorBody(attached.error, attached.code), { status: 400 })
+    }
+    const textField = formData.get('text')
+    // Multipart encoding turns every newline into CRLF; undo it so the prompt
+    // reads as it does from a JSON body.
+    const text = typeof textField === 'string' ? textField.replace(/\r\n/g, '\n') : ''
+    if (attached.images.length > 0) {
+      return { text, images: attached.images }
+    }
+    // No photo: the same validation as a JSON body.
+    body = { text }
+  } else {
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(errorBody('Invalid JSON', 'invalid_request'), { status: 400 })
+    }
+  }
+
+  const parsed = parseRecipeSchema.safeParse(body)
+  if (!parsed.success) {
+    const errors = parsed.error.flatten().fieldErrors
+    return NextResponse.json(
+      { ...errorBody('Validation failed', 'invalid_request'), details: errors },
+      { status: 400 },
+    )
+  }
+  return { text: parsed.data.text, images: [] }
+}
 
 /**
  * `Retry-After` for a `provider_unavailable` 503. The SDK has already retried
@@ -132,29 +196,19 @@ async function handlePOST(request: Request) {
     throw error
   }
 
-  let body
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json(errorBody('Invalid JSON', 'invalid_request'), { status: 400 })
+  const input = await readParseBody(request)
+  if (input instanceof NextResponse) {
+    return input
   }
-
-  const parsed = parseRecipeSchema.safeParse(body)
-
-  if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors
-    return NextResponse.json(
-      { ...errorBody('Validation failed', 'invalid_request'), details: errors },
-      { status: 400 },
-    )
-  }
+  const { images } = input
 
   try {
-    let recipeText = parsed.data.text
+    let recipeText = input.text
     let sourceUrl: string | undefined
 
-    // Check if input is a URL
-    const urlInput = extractUrlAndContext(recipeText)
+    // Check if input is a URL. With photos, the text is context for the photos
+    // only, so a link in it is not fetched.
+    const urlInput = images.length === 0 ? extractUrlAndContext(recipeText) : null
     if (urlInput) {
       sourceUrl = urlInput.url
       const fetchedContent = await fetchRecipeFromUrl(urlInput.url)
@@ -187,6 +241,7 @@ async function handlePOST(request: Request) {
       AbortSignal.timeout(
         sourceUrl ? RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS : RECIPE_PARSE_AI_BUDGET_MS,
       ),
+      images.length > 0 ? images : undefined,
     )
 
     // The review rows render `ingredient.name` and the alternatives' names, and
@@ -228,6 +283,12 @@ async function handlePOST(request: Request) {
           status: 503,
           headers: { 'Retry-After': String(PROVIDER_RETRY_AFTER_SECONDS) },
         })
+      }
+      if (images.length > 0 && PHOTO_NO_RECIPE_CODES.has(error.code)) {
+        return NextResponse.json(
+          errorBody("Couldn't find a recipe in the photos.", 'photo_no_recipe'),
+          { status: 400 },
+        )
       }
       // The code, not the prose, picks the status — the message is free text
       // that a copy edit could silently break (HON-700).
