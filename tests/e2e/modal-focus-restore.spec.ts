@@ -1,5 +1,5 @@
 // ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, AddMealMenu, MealCard, MealCardMenu, MealSelectorModal
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
+import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import { signIn, signUpWithHousehold } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
@@ -67,6 +67,38 @@ async function createCardEntry(
   )
   const { id } = (await createResponse.json()) as { id: string }
   return { entryPath: `/api/meal-plans/${planId}/entries/${id}` }
+}
+
+/**
+ * Opens a Radix dropdown from its focused trigger with Enter and waits for the
+ * first item to take focus, as it does for a keyboard user.
+ *
+ * Radix moves focus to the first item only if its own `keydown` listener on
+ * `document` saw a key. That listener is attached in a `useEffect`, so an Enter
+ * that lands while the page is still hydrating reaches the trigger's
+ * `onKeyDown` and opens the menu, but focus stays on the menu container. A
+ * real keyboard user reaches the trigger with Tab, whose `keydown` sets the
+ * flag; the test reaches it with `.focus()`, so its Enter is the page's first
+ * key. That failed "Choose a recipe" in CI runs 39240371153, 39244334769,
+ * 39278279185 and 39461880803 (HON-1258). So the open is retried as a unit:
+ * Escape closes a menu that opened without keyboard focus, and by the next
+ * Enter the listener is in place.
+ *
+ * The retry waits for the item to unmount before it presses Enter again. The
+ * content stays mounted through its close animation, and an Enter inside it
+ * reopens that same content, whose focus-on-mount does not run again, so focus
+ * would stay on the trigger on every later attempt.
+ */
+async function openMenuWithKeyboard(page: Page, trigger: Locator, firstItem: Locator) {
+  await expect(async () => {
+    if (await firstItem.isVisible()) {
+      await page.keyboard.press('Escape')
+      await expect(firstItem).toBeHidden()
+    }
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(firstItem).toBeFocused({ timeout: 1_000 })
+  }).toPass({ timeout: 10_000 })
 }
 
 // WHY: Focus-restore is a Radix Dialog/AlertDialog contract that depends on a
@@ -143,10 +175,8 @@ test.describe('Modal focus-restore', () => {
     try {
       // The slot's button opens a menu of routes; "Choose a recipe" creates the
       // placeholder, then opens the selector (HON-1247).
-      await trigger.focus()
-      await page.keyboard.press('Enter')
       const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' })
-      await expect(chooseRecipe).toBeFocused()
+      await openMenuWithKeyboard(page, trigger, chooseRecipe)
       const [createResponse] = await Promise.all([
         page.waitForResponse(
           (r) =>
@@ -241,10 +271,8 @@ test.describe('Modal focus-restore', () => {
         .locator('[data-slot="card"]')
         .filter({ hasText: note })
         .getByRole('button', { name: 'Add meal' })
-      await addMeal.focus()
-      await page.keyboard.press('Enter')
       const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' })
-      await expect(chooseRecipe).toBeFocused()
+      await openMenuWithKeyboard(page, addMeal, chooseRecipe)
       await page.keyboard.press('Enter')
 
       const dialog = page.getByRole('dialog')

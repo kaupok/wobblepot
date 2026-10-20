@@ -244,6 +244,10 @@ This is the sanctioned exception to the "`data-testid` only when no accessible-n
 
 Any `waitForTimeout` / ad-hoc `page.waitFor(ms)` is a smell — wait on real state (`waitForResponse`, `toBeVisible`, `toHaveURL`) instead.
 
+### A keyboard-opened Radix menu needs a retry
+
+A spec that calls `.focus()` on a Radix menu trigger and presses Enter can see the menu open with no item focused. Radix focuses the first item only if its own `document` `keydown` listener saw a key, and it attaches that listener in a `useEffect`. An Enter that lands during hydration opens the menu but misses the listener ([HON-1258](https://linear.app/honkadori/issue/HON-1258)). A real user who reaches the trigger with Tab never hits it. Open the menu with `openMenuWithKeyboard` in `modal-focus-restore.spec.ts`: it retries the open, and waits for the menu to unmount between tries, because an Enter during the close animation reopens the same content with no new focus.
+
 ## Spec header convention
 
 Every `tests/e2e/*.spec.ts` file carries a single-line header comment as its first non-blank line:
