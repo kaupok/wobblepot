@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 
-// The households, meals and entries the `entries` and `create-entry` db tests
+// The households, meals and entries the `entries`, `create-entry` and `fill-entries` db tests
 // share. Each test file runs against a fresh PGlite database (HON-1186).
 
 const INGREDIENTS = ['ing-apple', 'ing-beef', 'ing-salt', 'ing-rice'] as const

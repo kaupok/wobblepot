@@ -10,6 +10,7 @@ import { PLANNING_MODEL } from './models'
 import { buildMealPlanRequest } from './prompts'
 import { logAiSample } from './sampling'
 import { toAiUsageStats, withUsageOnFailure } from './usage'
+import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
@@ -26,7 +27,7 @@ import {
 
 /**
  * Fill empty slots in an existing meal plan with AI-generated meals.
- * Does NOT delete existing entries - only adds new ones for empty slots.
+ * Keeps every entry with a meal, and the household's note in a slot it fills.
  * Throws NoEmptySlotsError if there are no empty slots to fill.
  */
 export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<GeneratePlanResult> {
@@ -73,8 +74,9 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   // Calculate expected slots based on date range and meal type preferences
   const dates = getDatesBetween(startDate, endDate)
 
-  // Find existing entry slots that actually have a meal assigned.
-  // Entries with mealId=null are treated as empty.
+  // Find existing entry slots that actually have a meal assigned. A slot whose
+  // entry has no meal is open, even with a note: the fill puts the meal on that
+  // entry and keeps the note (HON-1252).
   const filledSlotKeys = new Set(
     existingPlan.entries
       .filter((e) => e.mealId !== null)
@@ -90,13 +92,11 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   )
 
   // Track null-mealId entries only for slots we'll attempt to fill.
-  // Don't delete orphaned entries for slots outside the expected set.
+  // Leave entries in slots outside the expected set alone.
   const emptySlotKeys = new Set(emptySlots.map((s) => slotKey(toDateString(s.date), s.mealType)))
-  const nullMealEntryIds = existingPlan.entries
-    .filter(
-      (e) => e.mealId === null && emptySlotKeys.has(slotKey(toDateString(e.date), e.mealType)),
-    )
-    .map((e) => e.id)
+  const emptySlotEntries = existingPlan.entries.filter(
+    (e) => e.mealId === null && emptySlotKeys.has(slotKey(toDateString(e.date), e.mealType)),
+  )
 
   if (emptySlots.length === 0) {
     throw new NoEmptySlotsError()
@@ -218,26 +218,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   // Validate constraints and repair if needed
   const validatedPlan = validateAndRepairPlan(hydratedPlan, requiredSlots, candidatePools)
 
-  // Delete orphaned entries (mealId=null) and create new entries in a transaction
-  await prisma.$transaction(async (tx) => {
-    // Delete orphaned null-mealId entries that overlap with fillable slots
-    if (nullMealEntryIds.length > 0) {
-      await tx.mealPlanEntry.deleteMany({
-        where: { id: { in: nullMealEntryIds } },
-      })
-    }
-
-    // Create new entries
-    await tx.mealPlanEntry.createMany({
-      data: validatedPlan.map((entry) => ({
-        planId,
-        date: entry.date,
-        mealType: entry.mealType,
-        mealId: entry.mealId,
-        status: 'planned',
-      })),
-    })
-  })
+  await writeFilledSlots(planId, validatedPlan, emptySlotEntries)
 
   // Fetch entries for this week with meal details
   const updatedPlan = await prisma.mealPlan.findUnique({
