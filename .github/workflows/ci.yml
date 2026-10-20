@@ -352,23 +352,28 @@ jobs:
         run: pnpm audit --audit-level critical
 
   # ==========================================
-  # Unit tests (Vitest), with the coverage gate (HON-1192)
+  # Unit tests (Vitest), in two shards, with the coverage gate (HON-1192)
   # ==========================================
-  # One run of the `unit`, `unit-node` and `unit-db` projects, so the
-  # coverage report covers all three and a run under the thresholds in
-  # vitest.config.ts fails this job. Still no database service (HON-1183):
-  # `unit-db` runs `*.db.test.ts` against PGlite, an in-process Postgres
-  # (HON-1186), and points its own `DATABASE_URL` at a closed port. That
-  # project adds about 5 s, so it has no job of its own: a second job would
-  # repeat the checkout and install, and merging two coverage reports would
-  # add a third.
+  # The `unit`, `unit-node` and `unit-db` projects, split by file into two
+  # shards that run in parallel (HON-1203): one run was the slowest CI job.
+  # Each shard writes a blob report with its coverage, and `unit-report`
+  # merges them, so the thresholds in vitest.config.ts apply to the whole
+  # suite. A shard covers about half the files, so it sets `COVERAGE_SHARD`,
+  # which turns the thresholds off for that run. Still no database service
+  # (HON-1183): `unit-db` runs `*.db.test.ts` against PGlite, an in-process
+  # Postgres (HON-1186), and points its own `DATABASE_URL` at a closed port.
   unit:
-    name: Unit tests
+    name: Unit tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       actions: write
+    strategy:
+      # Run both shards to the end, so one red run shows every failure.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
 
     steps:
       - name: Checkout code
@@ -386,9 +391,70 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `default` prints the failures in this log; `blob` writes
+      # `.vitest/blob/blob-<shard>-2.json` for the merge. Coverage goes into
+      # the blob, so `json` is the only coverage reporter a shard needs.
+      - name: Run unit tests with coverage (shard ${{ matrix.shard }}/2)
+        env:
+          COVERAGE_SHARD: '1'
+        run: >-
+          pnpm test:coverage --shard=${{ matrix.shard }}/2
+          --reporter=default --reporter=blob --coverage.reporter=json
+
+      # `.vitest/` is a hidden directory, which upload-artifact skips by
+      # default.
+      - name: Upload blob report
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-blob-${{ matrix.shard }}
+          path: .vitest/blob/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # ==========================================
+  # Unit tests: merge the shards and apply the coverage gate (HON-1203)
+  # ==========================================
+  # Merges the two blob reports and checks the merged coverage against the
+  # thresholds in vitest.config.ts, so a merged run under any of them fails
+  # this job. No `if: always()`: when a shard fails this job is skipped, and
+  # `ci` fails on the shard result. It runs no tests, but it loads the
+  # config, so it still needs the install.
+  unit-report:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: unit
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v7
+        with:
+          pattern: unit-blob-*
+          merge-multiple: true
+          path: .vitest/blob/
+
       # `text-summary`: the config's `text` reporter prints a row per file.
-      - name: Run unit tests with coverage
-        run: pnpm test:coverage --coverage.reporter=text-summary
+      - name: Merge reports and check coverage thresholds
+        run: pnpm exec vitest --merge-reports --coverage --coverage.reporter=text-summary
 
   # ==========================================
   # Storybook: a11y gate and static build
@@ -595,7 +661,7 @@ jobs:
     name: Lint, Type Check & Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static, unit, storybook, e2e]
+    needs: [static, unit, unit-report, storybook, e2e]
     if: always()
     permissions: {}
 
@@ -604,13 +670,15 @@ jobs:
         env:
           STATIC_RESULT: ${{ needs.static.result }}
           UNIT_RESULT: ${{ needs.unit.result }}
+          UNIT_REPORT_RESULT: ${{ needs.unit-report.result }}
           STORYBOOK_RESULT: ${{ needs.storybook.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
         run: |
           status=0
           for pair in \
             "Static checks=$STATIC_RESULT" \
-            "Unit tests=$UNIT_RESULT" \
+            "Unit tests (shards)=$UNIT_RESULT" \
+            "Unit tests (merge)=$UNIT_REPORT_RESULT" \
             "Storybook=$STORYBOOK_RESULT" \
             "E2E=$E2E_RESULT"; do
             name=${pair%%=*}
