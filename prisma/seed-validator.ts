@@ -3,8 +3,8 @@
  *
  * Validates seed data before database seeding to catch:
  * - Hard errors: duplicates, meal names that share a slug, invalid references,
- *   unit mismatches, piece counts written as grams, missing fields, missing or
- *   orphaned et translations
+ *   unit mismatches, piece counts written as grams, missing fields, a wrapper
+ *   without gramsPerPiece, missing or orphaned et translations
  * - Warnings: nutritional outliers, fiber > carbs, shared et ingredient names
  * - Naming conventions: lowercase, trimmed, no punctuation
  * - Nutritional plausibility: Atwater formula cross-check
@@ -28,6 +28,7 @@ import {
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
+import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
 import type { IngredientInput } from './seed-types'
 
 // ============================================
@@ -178,6 +179,8 @@ function validateIngredientFields(ingredients: Ingredient[]): ValidationResult {
       }
     }
   }
+
+  errors.push(...validateWrapperGramsPerPiece(ingredients))
 
   return { errors, warnings }
 }

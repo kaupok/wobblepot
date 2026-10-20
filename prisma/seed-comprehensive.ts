@@ -607,6 +607,7 @@ export const comprehensiveIngredients = [
     carbs: 56,
     fat: 2.8,
     fiber: 1.5,
+    gramsPerPiece: 8,
   },
   {
     name: 'spring roll wrappers',
@@ -619,6 +620,7 @@ export const comprehensiveIngredients = [
     carbs: 64,
     fat: 1.5,
     fiber: 1.2,
+    gramsPerPiece: 15,
   },
   {
     name: 'sticky rice',
@@ -808,6 +810,7 @@ export const comprehensiveIngredients = [
     carbs: 76,
     fat: 0.1,
     fiber: 0.3,
+    gramsPerPiece: 9,
   },
   {
     name: 'dried shiitake mushroom',
