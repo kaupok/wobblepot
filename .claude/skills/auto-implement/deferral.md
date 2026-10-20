@@ -34,7 +34,7 @@ mcp__linear-server__list_issues({ query: "<distinctive phrase from the finding>"
 ```
 mcp__linear-server__save_issue({
   team: "Wobblebot",
-  title: "[AUTO DRAFT] <sentence-case description of the problem>",
+  title: "[AUTO DRAFT] <title per CLAUDE.md → Issue titles>",
   description: "<body — required sections below>",
   state: "Backlog",
   priority: <2-4, matching severity>,
@@ -99,7 +99,7 @@ needs-merge: yes | no
 ```
 mcp__linear-server__save_issue({
   team: "Wobblebot",
-  title: "<sentence-case step, no prefix>",
+  title: "<title per CLAUDE.md → Issue titles, no prefix>",
   description: "Follow-up to HON-XX, filed by /auto-implement <2.8 | 3.2 | 6.8>.
 
   <## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX and the PR>",

@@ -177,6 +177,15 @@ A component under `src/components` gets a colocated `.stories.tsx`, created or u
 
 **Title prefixes:** `[DRAFT]` (a human-driven session, spec not ready) and `[AUTO DRAFT]` (only `/auto-implement` 6.8) both keep an issue out of unattended pickup. With a human in the loop, never use `[AUTO DRAFT]`. Rules: `/refine-backlog` → Title prefixes.
 
+**Issue titles,** for every issue you file, in a skill or not, because a list view only scans when every title has one shape:
+
+- Sentence case, about 80 characters at most. Detail goes in the description.
+- Work starts with an imperative verb: "Add …", "Move …".
+- A bug states the symptom the user sees, in the present tense. The cause and the fix go in the description.
+- An optional screen prefix uses the name the UI shows: "Cook view: …".
+- No commit type or tool prefix (`docs:`, `auto-implement:`).
+- A series ends in "(1/3)".
+
 **Queued is the queue.** The orchestrator and `/auto-implement` pick up only `Queued`; Todo means a human will do it. Queue an issue only when an agent can finish it alone, and set any `blockedBy` in the same call. Skips, overlapping files and timing: docs/PARALLEL_WORKFLOW.md → Queued is the queue.
 
 **A follow-up is an issue.** A step the work needs but the PR does not ship is a Linear issue before the parent closes, because nobody reads a Done issue again. Rules: `/plan-issue` → A follow-up is an issue.

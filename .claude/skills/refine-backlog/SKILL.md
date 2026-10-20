@@ -186,7 +186,7 @@ When writing descriptions, reference other issues as plain text (`HON-NNN`), nev
 ```typescript
 mcp__linear-server__save_issue({
   id: 'HON-XX',
-  title: 'Refined title without the prefix', // Strip a leading [DRAFT] or [AUTO DRAFT]; keep as-is for labeled issues
+  title: 'Refined title without the prefix', // Strip a leading [DRAFT] or [AUTO DRAFT]; reshape to CLAUDE.md → Issue titles
   description: 'Full description with acceptance criteria',
   // Add relationships as needed:
   // blockedBy: ['HON-XX'],
@@ -199,7 +199,7 @@ mcp__linear-server__save_issue({
 
 ```typescript
 mcp__linear-server__save_issue({
-  title: 'New issue title',
+  title: 'New issue title', // CLAUDE.md → Issue titles
   team: 'Wobblebot',
   description: 'Description',
   parentId: 'HON-XX', // the issue being split — makes this a sub-issue
@@ -290,5 +290,5 @@ Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implemen
 - Work through issues one at a time with user approval
 - Don't update Linear until user confirms the refinement
 - Keep descriptions concise but complete
-- Use sentence case for titles (per project conventions)
+- Write titles per CLAUDE.md → Issue titles
 - Consider implementation order when setting dependencies

@@ -127,7 +127,7 @@ When the user agrees a finding is worth tracking:
 
 ```typescript
 mcp__linear-server__save_issue({
-    title: 'Agreed title in sentence case',
+    title: 'Agreed title, per CLAUDE.md → Issue titles',
     team: 'Wobblebot',
     description: `## What
 Description of the finding.
@@ -165,5 +165,5 @@ When the user is done reviewing (or explicitly wraps up), provide:
 - **Avoid duplicates**: Cross-reference findings with the existing backlog fetched in step 2. If a finding looks like a duplicate, flag it.
 - **Be specific**: "The shopping list takes 3 seconds to load" is better than "performance could be improved."
 - **Stay grounded**: Report what you actually observe. Don't speculate about issues you can't verify in the browser.
-- **Sentence case**: All issue titles use sentence case per project conventions.
+- **Titles**: Follow CLAUDE.md → Issue titles.
 - **Keep momentum**: Don't over-discuss minor items. Quick observations can be quick conversations.

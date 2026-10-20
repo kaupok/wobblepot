@@ -160,7 +160,7 @@ Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `
 
 ```typescript
 mcp__linear-server__save_issue({
-  title: 'Issue title',
+  title: 'Issue title', // CLAUDE.md → Issue titles
   team: 'Wobblebot',
   state: 'Backlog',
   description: 'Full description with acceptance criteria',
@@ -220,7 +220,7 @@ Skip browsing when:
 - **Interactive by default**: Don't rush past discussion to issue creation. The conversation IS the value. The interaction is rounds of numbered questions, each with a recommended answer, not one question per turn.
 - **Challenge scope**: Push back gently if an idea is too vague or too ambitious for a single issue.
 - **Stay aligned**: Reference the project spec and current phase when relevant.
-- **Sentence case**: Use sentence case for issue titles per project conventions.
+- **Titles**: Follow CLAUDE.md → Issue titles.
 - **Write agent-ready issues**: Issues from ideation feed into the agentic workflow (`/auto-implement`, but also product and design agents). They must contain enough context and reasoning for an agent to act without the ideation conversation. Include the problem/motivation, not just the solution. After drafting the description and acceptance criteria, do a deeper codebase scan to add an **Implementation guidance** section with: key files to study (with line numbers and what to reuse), API/schema design, UI structure, and any non-obvious integration points. Self-check before creating: "Could an agent complete this from the issue alone?"
 - **Label appropriately**: Add labels if the idea clearly fits a category.
 - **Browse naturally**: Weave app browsing into the conversation as a natural information-gathering step — like checking a reference, not running a test suite.
