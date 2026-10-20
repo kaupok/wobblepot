@@ -74,6 +74,7 @@ describe('rate-limit', () => {
         'data-export',
         'forgot-password',
         'household-leave',
+        'ingredient-create',
         'mcp',
         'meal-image',
         'meal-imagination',
@@ -92,6 +93,14 @@ describe('rate-limit', () => {
 
     it('configures adjust-recipe at 30 per hour per household (HON-1244)', () => {
       expect(RATE_LIMIT_CONFIG['adjust-recipe']).toEqual({
+        limit: 30,
+        window: '1 h',
+        dimension: 'household',
+      })
+    })
+
+    it('configures ingredient-create at 30 per hour per household (HON-1263)', () => {
+      expect(RATE_LIMIT_CONFIG['ingredient-create']).toEqual({
         limit: 30,
         window: '1 h',
         dimension: 'household',

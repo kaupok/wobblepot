@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Check, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -88,6 +88,23 @@ export function IngredientRow({
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.ingredientRow')
   const vaguePhrase = useVaguePhrase()
+  // A resolved row re-renders here as matched, and the control that resolved
+  // it is gone, so focus moves to the new quantity input rather than <body>.
+  // Where the list moves matched rows elsewhere (the Imagine review), this
+  // row unmounts and the dialog keeps focus.
+  const matchedRowRef = useRef<HTMLDivElement>(null)
+  const focusQuantityOnMatch = useRef(false)
+
+  useEffect(() => {
+    if (data.type === 'unmatched' || !focusQuantityOnMatch.current) return
+    focusQuantityOnMatch.current = false
+    matchedRowRef.current?.querySelector<HTMLElement>('input, button')?.focus()
+  }, [data.type])
+
+  const handleResolve = (ingredient: IngredientResult, totalQuantity: number) => {
+    focusQuantityOnMatch.current = true
+    onResolve?.(ingredient, totalQuantity)
+  }
 
   const handleQuantityChange = (newQuantity: number) => {
     if (data.type === 'matched' || data.type === 'low-confidence') {
@@ -130,7 +147,7 @@ export function IngredientRow({
         data={data}
         disabled={disabled}
         onRemove={onRemove}
-        onResolve={onResolve}
+        onResolve={onResolve && handleResolve}
       />
     )
   }
@@ -160,7 +177,10 @@ export function IngredientRow({
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (
-    <div className="border-success/30 flex items-start gap-3 rounded-md border p-3 sm:items-center">
+    <div
+      ref={matchedRowRef}
+      className="border-success/30 flex items-start gap-3 rounded-md border p-3 sm:items-center"
+    >
       <Check className="text-success mt-0.5 h-4 w-4 shrink-0 sm:mt-0" />
       {/* Below `sm` the controls stack under the text so the name keeps the row's width */}
       <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">

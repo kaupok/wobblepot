@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { createUnmatchedIngredientRowData, ingredientResults } from '@/stories/fixtures'
 import {
@@ -6,6 +7,7 @@ import {
   loadingIngredientsHandlers,
   synonymIngredientsHandlers,
 } from '@/stories/msw-handlers'
+import { expectWithinHorizontally } from '@/stories/layout-helpers'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 
 const meta = {
@@ -210,5 +212,101 @@ export const MatchedByOtherName: Story = {
         100,
       ),
     )
+  },
+}
+
+/** The answer the add form's Save gets: a new household row named as typed. */
+const createdIngredientHandlers = [
+  http.post('/api/ingredients', () =>
+    HttpResponse.json(
+      {
+        ingredient: {
+          id: 'household-pickled-daikon',
+          name: 'pickled daikon',
+          category: 'vegetable',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          measuredByVolume: false,
+          calories: 25,
+          protein: 0.5,
+          carbs: 5,
+          fat: 0.1,
+        },
+      },
+      { status: 201 },
+    ),
+  ),
+]
+
+export const AddFormOpen: Story = {
+  parameters: {
+    msw: { handlers: createdIngredientHandlers },
+    docs: {
+      description: {
+        story:
+          '"Add as new ingredient" opens the form in place of the search (HON-1263). At the default 390px viewport every field stays inside the row, as the Imagine review dialog needs (HON-834). Saving resolves the row with the new ingredient and the parsed 50 g.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add as new ingredient: pickled daikon' }),
+    )
+
+    const name = canvas.getByLabelText('Name')
+    await expect(name).toHaveFocus()
+    const row = canvasElement.querySelector<HTMLElement>('.border-warning\\/30')!
+    for (const field of canvas.getAllByRole('textbox')) expectWithinHorizontally(field, row)
+    for (const button of canvas.getAllByRole('button')) expectWithinHorizontally(button, row)
+
+    await userEvent.click(canvas.getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await within(document.body).findByRole('option', { name: 'Vegetables' }))
+    // Radix Select holds `pointer-events: none` on the body until it has closed.
+    await waitFor(() => expect(document.body.style.pointerEvents).not.toBe('none'))
+    await userEvent.type(canvas.getByLabelText('Calories, kcal'), '25')
+    await userEvent.type(canvas.getByLabelText('Protein, g'), '0,5')
+    await userEvent.type(canvas.getByLabelText('Carbs, g'), '5')
+    await userEvent.type(canvas.getByLabelText('Fat, g'), '0,1')
+    await userEvent.click(canvas.getByRole('button', { name: 'Save ingredient' }))
+
+    await waitFor(() =>
+      expect(args.onResolve).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'household-pickled-daikon', name: 'pickled daikon' }),
+        50,
+      ),
+    )
+  },
+}
+
+export const AddButtonLongName: Story = {
+  args: {
+    data: createUnmatchedIngredientRowData({
+      extractedName: 'Japanese sweet pickled daikon radish with yuzu peel',
+    }),
+  },
+  decorators: [
+    // The Imagine review dialog lays its body out on a grid, whose column grows
+    // to its items' min-content width, then scrolls sideways.
+    (Story) => (
+      <div data-testid="dialog-column" className="grid overflow-x-auto">
+        <Story />
+      </div>
+    ),
+  ],
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A long name truncates inside "Add as new ingredient" at 390px and does not widen the grid column around the row, as the Imagine review dialog has (HON-834); the row heading shows the name in full.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const column = canvas.getByTestId('dialog-column')
+    const button = canvas.getByRole('button', { name: /^Add as new ingredient: Japanese/ })
+    expectWithinHorizontally(button, column)
+    await expect(column.scrollWidth).toBeLessThanOrEqual(column.clientWidth)
   },
 }

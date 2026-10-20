@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { GET } from './route'
+import { GET, POST } from './route'
 
 // The queries and the ranking live in `@/lib/ingredients/search`, tested
 // against a database in `search.db.test.ts` and as a pure merge in
@@ -24,6 +24,16 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 90),
+}))
+
+vi.mock('@/lib/ingredients/create', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ingredients/create')>()),
+  createHouseholdIngredient: vi.fn(),
+}))
+
 vi.mock('@/lib/ingredients/search', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/ingredients/search')>()),
   searchIngredients: vi.fn(),
@@ -33,11 +43,15 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { searchIngredients } from '@/lib/ingredients/search'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { createHouseholdIngredient } from '@/lib/ingredients/create'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockSearch = vi.mocked(searchIngredients)
+const mockRateLimit = vi.mocked(checkRateLimit)
+const mockCreate = vi.mocked(createHouseholdIngredient)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -168,6 +182,111 @@ describe('GET /api/ingredients', () => {
 
     expect(response.status).toBe(500)
     expect(await response.json()).toEqual({ error: 'Failed to search ingredients' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('POST /api/ingredients', () => {
+  const lovage = {
+    name: 'Lovage',
+    category: 'vegetable',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 36,
+    protein: 3,
+    carbs: 6,
+    fat: 0.5,
+  }
+  const created = {
+    id: 'ing-lovage',
+    name: 'lovage',
+    category: 'vegetable',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    measuredByVolume: false,
+    calories: 36,
+    protein: 3,
+    carbs: 6,
+    fat: 0.5,
+  } as const
+  const allowed = { allowed: true, limit: 30, remaining: 29, resetAt: new Date(0) }
+
+  const post = (body: unknown) =>
+    POST(
+      new Request('http://localhost/api/ingredients', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    )
+
+  beforeEach(() => {
+    mockRateLimit.mockResolvedValue(allowed as never)
+    mockCreate.mockResolvedValue(created)
+  })
+
+  it('returns 401 when not authenticated', async () => {
+    mockGetSession.mockResolvedValue(null)
+
+    const response = await post(lovage)
+
+    expect(response.status).toBe(401)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 for a user with no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
+
+    const response = await post(lovage)
+
+    expect(response.status).toBe(403)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['calories of 950', { ...lovage, calories: 950 }, 'calories'],
+    ['piece with no grams per piece', { ...lovage, defaultUnit: 'piece' }, 'gramsPerPiece'],
+    ['grams with grams per piece', { ...lovage, gramsPerPiece: 40 }, 'gramsPerPiece'],
+    ['protein with no protein type', { ...lovage, category: 'protein' }, 'proteinType'],
+    ['dairy with pork', { ...lovage, category: 'dairy', proteinType: 'pork' }, 'proteinType'],
+    ['a vegetable with a protein type', { ...lovage, proteinType: 'none' }, 'proteinType'],
+    ['a repeated allergen', { ...lovage, allergens: ['nuts', 'nuts'] }, 'allergens'],
+    ['an 81-character name', { ...lovage, name: 'a'.repeat(81) }, 'name'],
+  ])('returns 400 on %s', async (_label, body, field) => {
+    const response = await post(body)
+
+    expect(response.status).toBe(400)
+    expect(Object.keys((await response.json()).details)).toEqual([field])
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 429 with Retry-After past the limit', async () => {
+    mockRateLimit.mockResolvedValue({ ...allowed, allowed: false, remaining: 0 } as never)
+
+    const response = await post(lovage)
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('90')
+    expect(mockRateLimit).toHaveBeenCalledWith('household-123', 'ingredient-create')
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it("returns 201 with the lib's ingredient, created in the household's locale", async () => {
+    mockGetMembership.mockResolvedValue(membershipWithLocale('et'))
+    const body = { ...lovage, category: 'dairy', proteinType: 'none', allergens: ['dairy'] }
+
+    const response = await post(body)
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toEqual({ ingredient: created })
+    expect(mockCreate).toHaveBeenCalledWith('household-123', 'et', body)
+  })
+
+  it('returns 500 and reports a failed save', async () => {
+    mockCreate.mockRejectedValue(new Error('db down'))
+
+    const response = await post(lovage)
+
+    expect(response.status).toBe(500)
     expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })

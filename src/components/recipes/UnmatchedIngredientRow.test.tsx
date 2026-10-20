@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { stubPointerApis } from '@/test/household-settings'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import type { UnmatchedIngredientData } from './IngredientRow'
 import { imaginedIngredientText } from '@/lib/ai/imagine-request'
@@ -126,5 +127,126 @@ describe('UnmatchedIngredientRow other English name', () => {
       { id: 'sugar', name: 'icing sugar', category: 'carb', defaultUnit: 'g' },
       100,
     )
+  })
+})
+
+// HON-1263: "Add as new ingredient" opens a form in place of the search.
+describe('UnmatchedIngredientRow add as new ingredient', () => {
+  const lovage = {
+    id: 'ing-lovage',
+    name: 'lovage',
+    category: 'vegetable',
+    defaultUnit: 'g',
+    gramsPerPiece: null,
+    measuredByVolume: false,
+    calories: 36,
+    protein: 3,
+    carbs: 6,
+    fat: 1,
+  }
+
+  beforeEach(() => {
+    stubPointerApis()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function renderRow(row: UnmatchedIngredientData, onResolve = vi.fn()) {
+    const { wrapper } = createQueryWrapper()
+    render(
+      <UnmatchedIngredientRow
+        data={row}
+        disabled={false}
+        onRemove={vi.fn()}
+        onResolve={onResolve}
+      />,
+      { wrapper },
+    )
+    return { onResolve }
+  }
+
+  async function saveForm(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Add as new ingredient: lovage' }))
+    await user.click(screen.getByRole('combobox', { name: 'Category' }))
+    await user.click(await screen.findByRole('option', { name: 'Vegetables' }))
+    for (const [label, value] of [
+      ['Calories, kcal', '36'],
+      ['Protein, g', '3'],
+      ['Carbs, g', '6'],
+      ['Fat, g', '1'],
+    ]) {
+      await user.type(screen.getByLabelText(label!), value!)
+    }
+    await user.click(screen.getByRole('button', { name: 'Save ingredient' }))
+  }
+
+  const respond = (status: number, body: unknown) =>
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(body), { status }))
+
+  it('opens the form in place of the search, and Cancel returns focus to the button', async () => {
+    const user = userEvent.setup()
+    renderRow(data('lovage'))
+
+    await user.click(screen.getByRole('button', { name: 'Add as new ingredient: lovage' }))
+
+    expect(screen.queryByLabelText('Find a match for lovage')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveFocus()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.getByRole('button', { name: 'Add as new ingredient: lovage' })).toHaveFocus()
+  })
+
+  it('resolves with the saved ingredient and the parsed spoons in grams', async () => {
+    respond(201, { ingredient: lovage })
+    const user = userEvent.setup()
+    const { onResolve } = renderRow({
+      ...data('lovage'),
+      extractedQuantity: 2,
+      extractedUnit: 'tsp',
+    })
+
+    await saveForm(user)
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(lovage, 10))
+  })
+
+  it('resolves a vague row with 100 g', async () => {
+    respond(201, { ingredient: lovage })
+    const user = userEvent.setup()
+    const { onResolve } = renderRow({
+      ...data('lovage'),
+      extractedQuantity: 0,
+      isVague: true,
+      originalPhrase: 'a handful',
+    })
+
+    await saveForm(user)
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(lovage, 100))
+  })
+
+  it('keeps the parsed quantity when its unit is the new ingredient unit', async () => {
+    respond(201, { ingredient: lovage })
+    const user = userEvent.setup()
+    const { onResolve } = renderRow(data('lovage'))
+
+    await saveForm(user)
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(lovage, 200))
+  })
+
+  it('shows the catalog line on a 429, not the server text', async () => {
+    respond(429, { error: 'Rate limit exceeded' })
+    const user = userEvent.setup()
+    const { onResolve } = renderRow(data('lovage'))
+
+    await saveForm(user)
+
+    expect(await screen.findByText('Too many new ingredients, try again later')).toBeInTheDocument()
+    expect(screen.queryByText('Rate limit exceeded')).not.toBeInTheDocument()
+    expect(onResolve).not.toHaveBeenCalled()
   })
 })

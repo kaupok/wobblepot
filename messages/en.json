@@ -736,7 +736,41 @@
       "bestMatchSuffix": "{name} (best match)",
       "confirm": "Confirm",
       "verifyMatchAria": "Verify ingredient match",
-      "quantityAria": "Quantity"
+      "quantityAria": "Quantity",
+      "addNew": "Add as new ingredient: {name}"
+    },
+    "addIngredient": {
+      "title": "New ingredient",
+      "hint": "Copy the values from the pack label, per 100 g.",
+      "name": "Name",
+      "category": "Category",
+      "categoryPlaceholder": "Choose a category",
+      "proteinType": "Protein type",
+      "proteinTypePlaceholder": "Choose a protein type",
+      "proteinTypeNone": "Plant-based",
+      "unit": "Measured in",
+      "unitG": "Grams",
+      "unitPiece": "Pieces",
+      "gramsPerPiece": "Grams per piece",
+      "allergens": "Contains",
+      "nutrition": "Nutrition per 100 g",
+      "calories": "Calories, kcal",
+      "protein": "Protein, g",
+      "carbs": "Carbs, g",
+      "fat": "Fat, g",
+      "fiber": "Fibre, g (optional)",
+      "save": "Save ingredient",
+      "cancel": "Cancel",
+      "errors": {
+        "required": "Enter a value",
+        "chooseCategory": "Choose a category",
+        "chooseProteinType": "Choose a protein type",
+        "range": "Enter a number from {min} to {max}",
+        "gramsPerPiece": "Enter the weight of one piece, up to {max} g",
+        "check": "Check this value",
+        "rateLimited": "Too many new ingredients, try again later",
+        "generic": "Could not save the ingredient. Try again."
+      }
     },
     "review": {
       "nutritionLine": "{calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",

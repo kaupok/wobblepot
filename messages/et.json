@@ -736,7 +736,41 @@
       "bestMatchSuffix": "{name} (parim sobitus)",
       "confirm": "Kinnita",
       "verifyMatchAria": "Kontrolli koostisosa sobitust",
-      "quantityAria": "Kogus"
+      "quantityAria": "Kogus",
+      "addNew": "Lisa uue koostisosana: {name}"
+    },
+    "addIngredient": {
+      "title": "Uus koostisosa",
+      "hint": "Võta väärtused pakendi sildilt, 100 g kohta.",
+      "name": "Nimi",
+      "category": "Kategooria",
+      "categoryPlaceholder": "Vali kategooria",
+      "proteinType": "Valgu liik",
+      "proteinTypePlaceholder": "Vali valgu liik",
+      "proteinTypeNone": "Taimne",
+      "unit": "Mõõtühik",
+      "unitG": "Grammid",
+      "unitPiece": "Tükid",
+      "gramsPerPiece": "Ühe tüki kaal, g",
+      "allergens": "Sisaldab",
+      "nutrition": "Toiteväärtus 100 g kohta",
+      "calories": "Energia, kcal",
+      "protein": "Valk, g",
+      "carbs": "Süsivesikud, g",
+      "fat": "Rasv, g",
+      "fiber": "Kiudained, g (vabatahtlik)",
+      "save": "Salvesta koostisosa",
+      "cancel": "Tühista",
+      "errors": {
+        "required": "Sisesta väärtus",
+        "chooseCategory": "Vali kategooria",
+        "chooseProteinType": "Vali valgu liik",
+        "range": "Sisesta arv vahemikus {min} kuni {max}",
+        "gramsPerPiece": "Sisesta ühe tüki kaal, kuni {max} g",
+        "check": "Kontrolli seda väärtust",
+        "rateLimited": "Liiga palju uusi koostisosi, proovi hiljem uuesti",
+        "generic": "Koostisosa salvestamine ebaõnnestus. Proovi uuesti."
+      }
     },
     "review": {
       "nutritionLine": "{calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",

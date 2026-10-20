@@ -66,7 +66,7 @@ Unique on `("mealId", locale)`.
 
 English is canonical and lives on the base row — `ingredient.name`, `meal.name` / `.description` / `.preparationNotes`. A typo in the **English** text is not a translation fix: it is a change to seeded content, which means a seed-script edit and a normal PR. A typo in an English **name** is a rename, and needs a migration as well; see [Renaming a seeded ingredient or meal](#renaming-a-seeded-ingredient-or-meal). This runbook covers overlays only.
 
-The same boundary applies to household-scoped rows. The schema allows an ingredient with a non-null `ingredient."householdId"`, and the matcher and display handle one, but nothing creates them today: no code path writes an `ingredient` row at runtime, the recipe parser's unmatched rows must be resolved to an existing ingredient, and `POST /api/households/me/meals` rejects unknown ingredient ids. Household meals do exist; do not hand-edit another household's content. There is no path that promotes a household row into the curated global pool (see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles)).
+The same boundary applies to household-scoped rows. The schema allows an ingredient with a non-null `ingredient."householdId"`, and the matcher and display handle one. Households create them through "Add as new ingredient" on an unmatched ingredient row (`POST /api/ingredients`, HON-1263), in the creator's locale with no translation row, so there is no overlay to fix: the name is the household's own content. Household meals do exist; do not hand-edit another household's content. There is no path that promotes a household row into the curated global pool (see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles)).
 
 ## Getting a SQL prompt
 
