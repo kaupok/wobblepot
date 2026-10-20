@@ -219,24 +219,27 @@ export function MealCard({
   // so the card plans the new meal itself; otherwise it would show "Skipped",
   // with no Cooked and no "Done cooking" (HON-1125).
   //
-  // "Pick for me" on a planned card swaps too, and its hook drops the cache
-  // and refreshes itself, so it takes only the card's own resets.
+  // "Pick for me" on a planned card swaps too. Its hook drops the cache,
+  // refreshes and plans the entry in the swap's own request, so it takes only
+  // the card's own resets.
   const resetForSwap = useCallback(
     (selectedMealId: string) => {
       if (selectedMealId === meal?.id) return false
       setServingOverride(null)
       detailModalRef.current?.resetForSwap()
-      if (status === 'skipped') handleStatusChange('planned')
       return true
     },
-    [meal?.id, status, handleStatusChange],
+    [meal?.id],
   )
   const handleSwapComplete = useCallback(
     (selectedMealId: string) => {
-      if (resetForSwap(selectedMealId)) dropSuggestionCache()
+      if (resetForSwap(selectedMealId)) {
+        dropSuggestionCache()
+        if (status === 'skipped') handleStatusChange('planned')
+      }
       router.refresh()
     },
-    [router, dropSuggestionCache, resetForSwap],
+    [router, dropSuggestionCache, resetForSwap, status, handleStatusChange],
   )
 
   // A pantry holding only staples says nothing yet, so the card claims nothing
@@ -338,7 +341,10 @@ export function MealCard({
     date,
     mealType,
     onPicked,
-    onSwapped: resetForSwap,
+    onSwapped: (mealId) => {
+      resetForSwap(mealId)
+      showStatus('planned')
+    },
     // Undo saved the entry as it was; the card shows it so.
     onSwapUndone: (restored) => {
       setServingOverride(restored.servingOverride)
@@ -596,7 +602,14 @@ export function MealCard({
                     onSwap={(choice) => {
                       if (choice === 'pick') {
                         const from = status === 'skipped' ? 'skipped' : 'planned'
-                        return swap({ entryId, mealId: meal.id, servingOverride, status: from })
+                        const hasChanges = changes.length > 0 || adjustmentNote !== null
+                        return swap({
+                          entryId,
+                          mealId: meal.id,
+                          servingOverride,
+                          status: from,
+                          hasChanges,
+                        })
                       }
                       setSwapView(choice)
                       setIsRegenerateModalOpen(true)

@@ -69,7 +69,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderCard(props: { status?: 'planned' | 'skipped'; servingOverride?: number } = {}) {
+function renderCard(
+  props: { status?: 'planned' | 'skipped'; servingOverride?: number; adjustmentNote?: string } = {},
+) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
@@ -81,6 +83,7 @@ function renderCard(props: { status?: 'planned' | 'skipped'; servingOverride?: n
         status={props.status ?? 'planned'}
         householdServings={4}
         servingOverride={props.servingOverride}
+        adjustmentNote={props.adjustmentNote}
         meal={meal}
         note="Use the big pan"
       />
@@ -162,7 +165,7 @@ describe('MealCard Swap → "Pick for me"', () => {
       `POST ${ENTRY_URL}/regenerate`,
       `PATCH ${ENTRY_URL}`,
     ])
-    expect(patches()[0]!.body).toEqual({ mealId: 'meal-7' })
+    expect(patches()[0]!.body).toEqual({ mealId: 'meal-7', status: 'planned' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(refresh).toHaveBeenCalled()
   })
@@ -212,15 +215,26 @@ describe('MealCard Swap → "Pick for me"', () => {
     expect(screen.queryByText('6 servings')).not.toBeInTheDocument()
   })
 
-  it('plans a skipped card that took a new meal', async () => {
+  // In the swap's own request, so no second PATCH can land after an Undo
+  // that puts the skip back.
+  it('plans a skipped card that took a new meal in the same request', async () => {
     renderCard({ status: 'skipped' })
+    expect(screen.getByText('Skipped')).toBeInTheDocument()
     await chooseRoute('Pick for me')
     await pickedToast()
 
-    await waitFor(() =>
-      expect(patches().map((p) => p.body)).toContainEqual(
-        expect.objectContaining({ status: 'planned' }),
-      ),
+    expect(patches().map((p) => p.body)).toEqual([{ mealId: 'meal-7', status: 'planned' }])
+    expect(screen.queryByText('Skipped')).not.toBeInTheDocument()
+  })
+
+  // The swap deletes the entry's own changes, and Undo cannot put them back.
+  it('says the recipe changes went when the entry had them', async () => {
+    renderCard({ adjustmentNote: 'No soy, use tamari' })
+    await chooseRoute('Pick for me')
+
+    const [message] = await pickedToast()
+    expect(message).toBe(
+      'Picked for you: Fish pie. Your changes to the previous recipe were removed.',
     )
   })
 

@@ -219,6 +219,7 @@
       "clearFailed": "Failed to clear meal. Please try again.",
       "cleared": "Cleared: {name}",
       "pickedForYou": "Picked for you: {name}",
+      "pickedForYouChangesRemoved": "Picked for you: {name}. Your changes to the previous recipe were removed.",
       "pickForMeNoMatch": "No meal fits this slot yet. Choose a recipe instead.",
       "undo": "Undo",
       "undoFailed": "Couldn't restore the meal. Add it again from the empty slot.",

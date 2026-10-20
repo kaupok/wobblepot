@@ -35,6 +35,11 @@ export interface PlannedSlot {
   mealId: string
   servingOverride: number | null
   status: 'planned' | 'skipped'
+  /**
+   * The entry has its own ingredient changes. The swap deletes them, and no
+   * route can put them back, so the toast says they went (HON-1249).
+   */
+  hasChanges: boolean
 }
 
 interface Swapped {
@@ -56,7 +61,7 @@ interface UsePickForMeOptions {
   mealType: MealType
   /** Called once the meal is placed, before the refresh that shows it. */
   onPicked?: () => void
-  /** Called with the entry's new meal after a swap. */
+  /** Called with the entry's new meal after a swap, which also planned it. */
   onSwapped?: (mealId: string) => void
   /** Called with the entry as it was once Undo has put it back. */
   onSwapUndone?: (restored: PlannedSlot) => void
@@ -210,7 +215,10 @@ export function usePickForMe({
       )
       const [top] = alternatives
       if (!top) throw new ApiError('No suggestions', 404, { body: { code: 'no_suggestions' } })
-      await patchEntry(from.entryId, { mealId: top.id })
+      // The swap plans a skipped entry in the same request: the skip was for
+      // the meal that left (HON-1125), and a second request could land after
+      // an Undo that puts the skip back.
+      await patchEntry(from.entryId, { mealId: top.id, status: 'planned' })
       return { from, toMealId: top.id, mealName: top.name }
     },
     onSuccess: (swapped) => {
@@ -227,7 +235,8 @@ export function usePickForMe({
         is_reselect: false,
         via: 'pick_for_me',
       })
-      toast(tCard('pickedForYou', { name: swapped.mealName }), {
+      const message = swapped.from.hasChanges ? 'pickedForYouChangesRemoved' : 'pickedForYou'
+      toast(tCard(message, { name: swapped.mealName }), {
         action: { label: tCard('undo'), onClick: () => swapUndoMutation.mutate(swapped) },
         duration: 6000,
       })

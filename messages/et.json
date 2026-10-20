@@ -219,6 +219,7 @@
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
       "cleared": "Eemaldatud: {name}",
       "pickedForYou": "Valitud sinu eest: {name}",
+      "pickedForYouChangesRemoved": "Valitud sinu eest: {name}. Eelmise retsepti muudatused eemaldati.",
       "pickForMeNoMatch": "Ühtegi sobivat toitu veel pole. Vali retsept ise.",
       "undo": "Võta tagasi",
       "undoFailed": "Toitu ei õnnestunud taastada. Lisa see uuesti tühjast kohast.",
