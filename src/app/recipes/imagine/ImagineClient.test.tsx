@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // the global mock always answers from English, which would pass whether or not
 // the leak is fixed.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { toast } from 'sonner'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
@@ -11,11 +12,13 @@ import etMessages from '../../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { ImagineClient } from './ImagineClient'
-import { saveImagineSession } from './imagine-session'
+import { loadImagineSession, saveImagineSession } from './imagine-session'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }))
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push, refresh: vi.fn() }),
 }))
 
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
@@ -297,5 +300,181 @@ describe('ImagineClient Edit details stash', () => {
       origin: 'imagine',
       returnTo: '/recipes/imagine',
     })
+  })
+})
+
+describe('ImagineClient saved ideas (HON-1270)', () => {
+  const imaginedMeal = (id: string, name: string) =>
+    ({
+      id,
+      name,
+      description: null,
+      timeMinutes: 25,
+      servings: 4,
+      suitableFor: ['dinner'],
+      kidFriendly: false,
+      primaryProteinType: 'legume',
+      components: [],
+      nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+      // A resolved ingredient, so the review dialog's Save is reachable: it
+      // refuses to save a meal with no components.
+      ingredients: [
+        {
+          type: 'matched',
+          extractedName: 'red lentils',
+          extractedQuantity: 360,
+          extractedUnit: 'g',
+          originalText: '360 g red lentils',
+          ingredient: {
+            id: 'ing-lentil',
+            name: 'Red lentils',
+            category: 'protein',
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+          },
+          convertedQuantity: 360,
+          isVague: false,
+        },
+      ],
+      allMatched: true,
+    }) as unknown as ImaginedMealResponse
+
+  const ideas = [
+    imaginedMeal('im-1', 'Lentil soup'),
+    imaginedMeal('im-2', 'Chickpea curry'),
+    imaginedMeal('im-3', 'Bean chili'),
+  ]
+
+  /** The card is the heading's nearest ancestor that also holds its action. */
+  const cardOf = (name: string) =>
+    // eslint-disable-next-line testing-library/no-node-access -- the card root has no role
+    screen.getByRole('heading', { name }).closest('[data-slot="card"]') as HTMLElement
+
+  /**
+   * The quantity review degrades to the unreviewed meal on a failure, which is
+   * all the dialog needs; the recipe POST answers with `meal-123`.
+   */
+  function stubReviewAndSave() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url === '/api/households/me/meals'
+            ? { ok: true, status: 201, json: () => Promise.resolve({ id: 'meal-123' }) }
+            : { ok: false, status: 500, json: () => Promise.resolve({ error: 'Review failed' }) },
+        ),
+      ),
+    )
+  }
+
+  async function saveSecondIdea() {
+    saveImagineSession({ prompt: 'something with lentils', meals: ideas })
+    stubReviewAndSave()
+    renderInLocale(<ImagineClient />, 'en')
+
+    const card = await waitFor(() => cardOf('Chickpea curry'))
+    fireEvent.click(within(card).getByRole('button', { name: 'Select' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save recipe' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    return card
+  }
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    push.mockClear()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('marks the saved idea, links its recipe, and moves focus to the link', async () => {
+    const card = await saveSecondIdea()
+
+    expect(within(card).getByText('Saved')).toBeInTheDocument()
+    const link = within(card).getByRole('link', { name: 'Open recipe' })
+    expect(link).toHaveAttribute('href', '/recipes/meal-123/edit')
+    expect(within(card).queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+    expect(
+      within(cardOf('Lentil soup')).getByRole('button', { name: 'Select' }),
+    ).toBeInTheDocument()
+    expect(within(cardOf('Bean chili')).getByRole('button', { name: 'Select' })).toBeInTheDocument()
+    await waitFor(() => expect(link).toHaveFocus())
+  })
+
+  it('returns focus to Select when the dialog closes without a save', async () => {
+    saveImagineSession({ prompt: 'something with lentils', meals: ideas })
+    stubReviewAndSave()
+    renderInLocale(<ImagineClient />, 'en')
+
+    const card = await waitFor(() => cardOf('Chickpea curry'))
+    const select = within(card).getByRole('button', { name: 'Select' })
+    fireEvent.click(select)
+    fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' })
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(select).toHaveFocus())
+    expect(within(card).queryByText('Saved')).not.toBeInTheDocument()
+  })
+
+  it('writes the saved recipe ID into the stash', async () => {
+    await saveSecondIdea()
+
+    expect(loadImagineSession()?.savedMealIds).toEqual({ 'im-2': 'meal-123' })
+  })
+
+  it('gives the save toast an "Open recipe" action to the recipe', async () => {
+    const success = vi.spyOn(toast, 'success')
+    await saveSecondIdea()
+
+    expect(success).toHaveBeenCalledWith('Recipe saved to your library', {
+      action: expect.objectContaining({ label: 'Open recipe' }),
+    })
+    const [, options] = success.mock.calls[0]!
+    const action = options?.action as unknown as { onClick: () => void }
+    action.onClick()
+    expect(push).toHaveBeenCalledWith('/recipes/meal-123/edit')
+  })
+
+  it('restores the saved state from the stash on mount', async () => {
+    saveImagineSession({
+      prompt: 'something with lentils',
+      meals: ideas,
+      savedMealIds: { 'im-2': 'meal-123' },
+    })
+    renderInLocale(<ImagineClient />, 'en')
+
+    const card = await waitFor(() => cardOf('Chickpea curry'))
+    expect(within(card).getByText('Saved')).toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: 'Open recipe' })).toHaveAttribute(
+      'href',
+      '/recipes/meal-123/edit',
+    )
+    expect(within(card).queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+  })
+
+  it('shows Select on every card of a new run', async () => {
+    saveImagineSession({
+      prompt: 'something with lentils',
+      meals: ideas,
+      savedMealIds: { 'im-1': 'meal-1', 'im-2': 'meal-2', 'im-3': 'meal-3' },
+    })
+    renderInLocale(<ImagineClient />, 'en')
+    await waitFor(() =>
+      expect(screen.getAllByRole('link', { name: 'Open recipe' })).toHaveLength(3),
+    )
+
+    respondWith(
+      { success: true, meals: [imaginedMeal('im-1', 'Pea soup'), imaginedMeal('im-2', 'Dal')] },
+      200,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /imagine meals/i }))
+
+    expect(await screen.findByText('Pea soup')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Select' })).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: 'Open recipe' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
   })
 })
