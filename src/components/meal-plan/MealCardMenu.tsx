@@ -1,15 +1,19 @@
 'use client'
 
-import { useRef, type RefObject } from 'react'
+import { useId, useRef, type RefObject } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, MoreHorizontal, NotebookPen, Repeat, SkipForward, Undo2, X } from 'lucide-react'
+import { Check, MoreHorizontal, NotebookPen, SkipForward, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { MEAL_ROUTES, type AddMealChoice } from './AddMealMenu'
 import type { MealStatus } from './types'
 
 interface MealCardMenuProps {
@@ -19,13 +23,16 @@ interface MealCardMenuProps {
   triggerRef: RefObject<HTMLButtonElement | null>
   isUpdating: boolean
   isClearing: boolean
+  /** "Pick for me" is placing a meal: its item waits. */
+  isPicking?: boolean
   /** Opens the note editor. */
   onNote: () => void
   /** Focuses the note editor's textarea, once the menu has closed. */
   focusNote: () => void
   onComplete: () => void
   onStatusChange: (status: 'planned' | 'skipped') => void
-  onSwap: () => void
+  /** A Swap route: a selector view, or `pick`, which places the top swap with no dialog. */
+  onSwap: (choice: AddMealChoice) => void
   onClear: () => void
 }
 
@@ -39,6 +46,7 @@ export function MealCardMenu({
   triggerRef,
   isUpdating,
   isClearing,
+  isPicking = false,
   onNote,
   focusNote,
   onComplete,
@@ -49,11 +57,13 @@ export function MealCardMenu({
   const tCard = useTranslations('meal-plan.card')
   // Set when Note is chosen, read once as the menu closes.
   const noteRequestedRef = useRef(false)
+  const swapLabelId = useId()
 
   // A completed entry records what was cooked and what the pantry was charged
-  // for, so the API refuses to repoint it (409, HON-633) — offering Swap here
-  // would only produce an error. Skipped entries stay swappable: nothing was
-  // charged for them, and "actually, let's cook something" is a real path.
+  // for, so the API refuses to repoint it (409, HON-633) — offering the Swap
+  // routes here would only produce an error. Skipped entries stay swappable:
+  // nothing was charged for them, and "actually, let's cook something" is a
+  // real path.
   const canSwapMeal = status !== 'completed'
 
   return (
@@ -120,11 +130,27 @@ export function MealCardMenu({
             {tCard('notSkipped')}
           </DropdownMenuItem>
         )}
+        {/* The open slot's routes, in its words, so a household learns one
+            set (HON-1249). Flat, not a submenu: each route stays one tap away
+            on a phone. */}
         {canSwapMeal && (
-          <DropdownMenuItem onSelect={onSwap}>
-            <Repeat aria-hidden="true" />
-            {tCard('swap')}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup aria-labelledby={swapLabelId}>
+              <DropdownMenuLabel id={swapLabelId}>{tCard('swap')}</DropdownMenuLabel>
+              {MEAL_ROUTES.map(({ choice, label, Icon }) => (
+                <DropdownMenuItem
+                  key={choice}
+                  onSelect={() => onSwap(choice)}
+                  disabled={choice === 'pick' && isPicking}
+                >
+                  <Icon aria-hidden="true" />
+                  {tCard(label)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
         )}
         {/* A completed entry records what the pantry was charged for, and
             Undo cannot restore that; "Not cooked yet" is its way back

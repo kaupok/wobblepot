@@ -146,6 +146,7 @@ export function MealCard({
   )
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
+  const [swapView, setSwapView] = useState<AddMealView>('library')
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   const noteEditorRef = useRef<NoteEditorHandle>(null)
 
@@ -216,17 +217,25 @@ export function MealCard({
   // and the skip was for the meal that left. The swap PATCH keeps the status,
   // so the card plans the new meal itself; otherwise it would show "Skipped",
   // with no Cooked and no "Done cooking" (HON-1125).
+  //
+  // "Pick for me" on a planned card swaps too, and its hook drops the cache
+  // and refreshes itself, so it takes only the card's own resets.
+  const resetForSwap = useCallback(
+    (selectedMealId: string) => {
+      if (selectedMealId === meal?.id) return false
+      setServingOverride(null)
+      detailModalRef.current?.resetForSwap()
+      if (status === 'skipped') handleStatusChange('planned')
+      return true
+    },
+    [meal?.id, status, handleStatusChange],
+  )
   const handleSwapComplete = useCallback(
     (selectedMealId: string) => {
-      if (selectedMealId !== meal?.id) {
-        setServingOverride(null)
-        detailModalRef.current?.resetForSwap()
-        dropSuggestionCache()
-        if (status === 'skipped') handleStatusChange('planned')
-      }
+      if (resetForSwap(selectedMealId)) dropSuggestionCache()
       router.refresh()
     },
-    [router, dropSuggestionCache, meal?.id, status, handleStatusChange],
+    [router, dropSuggestionCache, resetForSwap],
   )
 
   // A pantry holding only staples says nothing yet, so the card claims nothing
@@ -304,7 +313,7 @@ export function MealCard({
   // Both selectors open from state, with no `DialogTrigger`, and a modal Radix
   // dialog hands focus back only to its trigger, so it would land on the page
   // body. Return it to the control that opened the selector: "Add meal", or,
-  // for Swap, the menu trigger, since the menu item is gone by then (HON-804).
+  // for a Swap route, the menu trigger, since the item is gone by then (HON-804).
   const addMealButtonRef = useRef<HTMLButtonElement>(null)
   const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
 
@@ -323,7 +332,13 @@ export function MealCard({
     hintId: noteHintId,
   })
   const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
-  const { pick, isPicking } = usePickForMe({ planId, date, mealType, onPicked })
+  const { pick, swap, isPicking } = usePickForMe({
+    planId,
+    date,
+    mealType,
+    onPicked,
+    onSwapped: resetForSwap,
+  })
 
   function handleClear() {
     // Clear is offered only on a card with a meal that is not completed.
@@ -570,7 +585,12 @@ export function MealCard({
                     focusNote={() => noteEditorRef.current?.focus()}
                     onComplete={() => completeFrom('menu')}
                     onStatusChange={handleStatusChange}
-                    onSwap={() => setIsRegenerateModalOpen(true)}
+                    isPicking={isPicking}
+                    onSwap={(choice) => {
+                      if (choice === 'pick') return swap({ entryId, mealId: meal.id })
+                      setSwapView(choice)
+                      setIsRegenerateModalOpen(true)
+                    }}
                     onClear={handleClear}
                   />
                 </div>
@@ -763,6 +783,7 @@ export function MealCard({
         onSwapComplete={handleSwapComplete}
         onCloseAutoFocus={focusMoreActionsOnClose}
         mode="swap"
+        initialView={swapView}
         pantryIngredients={pantryIngredients}
       />
       <PantryDeductionModal

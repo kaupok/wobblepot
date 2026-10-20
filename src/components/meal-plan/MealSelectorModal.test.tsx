@@ -99,6 +99,7 @@ function renderModal(
         householdServings={4}
         onSwapComplete={vi.fn()}
         mode="add"
+        initialView="library"
         {...props}
       />
     </NextIntlClientProvider>,
@@ -231,10 +232,7 @@ describe('MealSelectorModal plan-assignment error localization', () => {
   })
 
   it('toasts Estonian, not the server prose, when assigning an imagined meal fails', async () => {
-    renderModal()
-    fireEvent.click(
-      screen.getByRole('button', { name: etMessages['meal-plan'].selector.imagineButton }),
-    )
+    renderModal({ initialView: 'imagine' })
     fireEvent.click(screen.getByRole('button', { name: 'save imagined meal' }))
 
     await waitFor(() =>
@@ -304,7 +302,7 @@ describe('MealSelectorModal accessible names', () => {
   const selector = etMessages['meal-plan'].selector
 
   // getByLabelText matches aria-label but not a placeholder or a title, so
-  // both assertions fail against a field or button named only by those (HON-808).
+  // the assertion fails against a field named only by those (HON-808).
   it('names the library search independently of its placeholder', () => {
     renderModal()
 
@@ -312,17 +310,6 @@ describe('MealSelectorModal accessible names', () => {
       'placeholder',
       selector.searchPlaceholder,
     )
-  })
-
-  // The label is visible text, so it is the name; no aria-label to drift
-  // from it, and no title (HON-808, HON-945).
-  it('names the imagine button by its visible label', () => {
-    renderModal()
-
-    const button = screen.getByRole('button', { name: selector.imagineButton })
-    expect(button).toHaveTextContent(selector.imagineButton)
-    expect(button).not.toHaveAttribute('aria-label')
-    expect(button).not.toHaveAttribute('title')
   })
 })
 
@@ -389,8 +376,8 @@ describe('MealSelectorModal empty search', () => {
   })
 })
 
-// The route is chosen in the slot's menu, so the dialog opens in its view and
-// carries no Imagine button of its own (HON-1247).
+// The route is chosen in the menu that opens the dialog, so it opens in its
+// view and carries no Imagine button of its own (HON-1247, HON-1249).
 describe('MealSelectorModal initial view', () => {
   const selector = enMessages['meal-plan'].selector
 
@@ -441,13 +428,13 @@ describe('MealSelectorModal initial view', () => {
     })
   })
 
-  it('keeps the Imagine button in swap mode', () => {
-    renderModal({ mode: 'swap' }, { locale: 'en' })
+  // A planned card's Swap group offers Imagine, as the slot's menu does
+  // (HON-1249), so no caller gets a control-row button.
+  it('has no Imagine button in swap mode', () => {
+    renderModal({ mode: 'swap', initialView: 'library' }, { locale: 'en' })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Imagine a meal' }))
-    expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'back to library' }))
-    expect(screen.getByRole('button', { name: 'Imagine a meal' })).toBeInTheDocument()
+    expect(screen.getByLabelText(selector.searchAria)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Imagine a meal' })).not.toBeInTheDocument()
   })
 
   describe('from the empty-search link', () => {

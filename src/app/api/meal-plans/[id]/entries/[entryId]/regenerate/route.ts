@@ -85,10 +85,14 @@ async function handlePOST(
 
     const alternatives = await suggestForSlot(household, entry, 'swap', locale)
 
-    // No suggestions available
+    // No suggestions available. The code tells this 404 from a missing entry,
+    // so "Pick for me" can say no meal fits (HON-1249).
     if (alternatives.length === 0) {
       return NextResponse.json(
-        { error: 'No alternative meals available matching your preferences' },
+        {
+          error: 'No alternative meals available matching your preferences',
+          code: 'no_suggestions',
+        },
         { status: 404 },
       )
     }

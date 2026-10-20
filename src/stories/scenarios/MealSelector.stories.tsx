@@ -20,6 +20,7 @@ const meta = {
   args: {
     open: true,
     mode: 'swap',
+    initialView: 'library',
     currentMealName: 'Lemon-garlic roast chicken',
     onOpenChange: fn(),
     planId: 'plan-1',

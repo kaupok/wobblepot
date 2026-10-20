@@ -173,12 +173,15 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
     expect(mockSuggestForSlot).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when no meal passes the filters', async () => {
+  it('returns 404 with code no_suggestions when no meal passes the filters', async () => {
     mockSuggestForSlot.mockResolvedValue([])
 
     expect(await answer(post())).toEqual({
       status: 404,
-      body: { error: 'No alternative meals available matching your preferences' },
+      body: {
+        error: 'No alternative meals available matching your preferences',
+        code: 'no_suggestions',
+      },
     })
   })
 

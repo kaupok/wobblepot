@@ -223,6 +223,7 @@
       "undo": "Võta tagasi",
       "undoFailed": "Toitu ei õnnestunud taastada. Lisa see uuesti tühjast kohast.",
       "undoSlotFilled": "Toitu ei õnnestunud taastada. Sellel kohal on nüüd teine toit.",
+      "swapUndoFailed": "Eelmist toitu ei õnnestunud taastada. Vali see uuesti menüüst Vaheta.",
       "createEntryFailed": "Toidukoha lisamine ebaõnnestus",
       "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha.",
       "conflict": {
@@ -287,7 +288,6 @@
       "myRecipesHeaderNoCount": "Minu retseptid",
       "loadMore": "Lae rohkem ({loaded} / {total})",
       "loading": "Laadin…",
-      "imagineButton": "Mõtle välja toit",
       "noSuggestions": "Soovitusi pole. Proovi otsida toitu.",
       "rateLimited": "Viimase tunni jooksul on küsitud liiga palju soovitusi. Proovi hiljem uuesti või otsi toitu.",
       "rateLimitedUntil": "Viimase tunni jooksul on küsitud liiga palju soovitusi. Proovi uuesti pärast kella {time} või otsi toitu.",

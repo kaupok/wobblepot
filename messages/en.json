@@ -223,6 +223,7 @@
       "undo": "Undo",
       "undoFailed": "Couldn't restore the meal. Add it again from the empty slot.",
       "undoSlotFilled": "Couldn't restore the meal. The slot has another meal now.",
+      "swapUndoFailed": "Couldn't put the previous meal back. Choose it again under Swap.",
       "createEntryFailed": "Failed to add meal slot",
       "entryAlreadyExists": "This slot already has a meal. Refresh the page to see it.",
       "conflict": {
@@ -287,7 +288,6 @@
       "myRecipesHeaderNoCount": "My recipes",
       "loadMore": "Load more ({loaded} of {total})",
       "loading": "Loading…",
-      "imagineButton": "Imagine a meal",
       "noSuggestions": "No suggestions available. Try searching for a meal.",
       "rateLimited": "Too many suggestion requests in the last hour. Try again later, or search for a meal.",
       "rateLimitedUntil": "Too many suggestion requests in the last hour. Try again after {time}, or search for a meal.",
