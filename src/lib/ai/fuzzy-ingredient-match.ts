@@ -85,14 +85,19 @@ export function rankFuzzyMatches(
  * `ingredient.name` even when matched via a translation row — callers translate
  * for display via `@/lib/i18n/content`. `matchedName` carries the name the match
  * was made on.
+ *
+ * `options.pluralName` is searched in the same query: a row scores the better of
+ * its similarity to `searchName` and to `pluralName`, so "bay leaf" finds a
+ * "bay leaves" row at 1.0 (HON-1267).
  */
 export async function fuzzySearchIngredient(
   searchName: string,
-  options: { householdId?: string | null; locale?: string } = {},
+  options: { householdId?: string | null; locale?: string; pluralName?: string } = {},
 ): Promise<FuzzyIngredientMatch[]> {
   const householdIdParam = options.householdId ?? null
   const locale = options.locale ?? DEFAULT_LOCALE
   const localeParam = locale === DEFAULT_LOCALE ? null : locale
+  const pluralName = options.pluralName ?? searchName
 
   const rows = await prisma.$queryRaw<FuzzyIngredientMatch[]>`
     SELECT * FROM (
@@ -108,12 +113,12 @@ export async function fuzzySearchIngredient(
         protein,
         carbs,
         fat,
-        similarity(name, ${searchName}) AS similarity,
+        GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) AS similarity,
         'global'::text AS source,
         name AS "matchedName"
       FROM "ingredient"
       WHERE "householdId" IS NULL
-        AND similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+        AND GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) >= ${SIMILARITY_THRESHOLD}
 
       UNION ALL
 
@@ -129,12 +134,12 @@ export async function fuzzySearchIngredient(
         protein,
         carbs,
         fat,
-        similarity(name, ${searchName}) AS similarity,
+        GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) AS similarity,
         'household'::text AS source,
         name AS "matchedName"
       FROM "ingredient"
       WHERE "householdId" = ${householdIdParam}::text
-        AND similarity(name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+        AND GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) >= ${SIMILARITY_THRESHOLD}
 
       UNION ALL
 
@@ -150,13 +155,13 @@ export async function fuzzySearchIngredient(
         i.protein,
         i.carbs,
         i.fat,
-        similarity(t.name, ${searchName}) AS similarity,
+        GREATEST(similarity(t.name, ${searchName}), similarity(t.name, ${pluralName})) AS similarity,
         'translation'::text AS source,
         t.name AS "matchedName"
       FROM "ingredient_translation" t
       INNER JOIN "ingredient" i ON i.id = t."ingredientId"
       WHERE t.locale = ${localeParam}::text
-        AND similarity(t.name, ${searchName}) >= ${SIMILARITY_THRESHOLD}
+        AND GREATEST(similarity(t.name, ${searchName}), similarity(t.name, ${pluralName})) >= ${SIMILARITY_THRESHOLD}
         AND (i."householdId" IS NULL OR i."householdId" = ${householdIdParam}::text)
     ) AS results
     ORDER BY similarity DESC

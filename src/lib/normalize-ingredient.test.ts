@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   singularize,
+  pluralize,
   stripModifiers,
   normalizeIngredientName,
   extractLastWord,
@@ -74,6 +75,23 @@ describe('singularize', () => {
   it('handles short words gracefully', () => {
     expect(singularize('as')).toBe('as')
     expect(singularize('is')).toBe('is')
+  })
+})
+
+describe('pluralize', () => {
+  it.each([
+    ['leaf', 'leaves'],
+    ['pea', 'peas'],
+    ['anchovy', 'anchovies'],
+    ['clam', 'clams'],
+    ['date', 'dates'],
+    ['tomato', 'tomatoes'],
+    ['peach', 'peaches'],
+    ['chilli', 'chillies'],
+    ['turkey', 'turkeys'],
+    ['hummus', 'hummus'],
+  ])('makes %s plural as %s', (word, plural) => {
+    expect(pluralize(word)).toBe(plural)
   })
 })
 

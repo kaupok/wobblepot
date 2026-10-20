@@ -6,7 +6,12 @@ import {
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
 import { applyIngredientAlias, findSynonym } from '@/lib/ingredient-aliases'
-import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
+import {
+  normalizeIngredientName,
+  extractLastWord,
+  pluralize,
+  singularize,
+} from '@/lib/normalize-ingredient'
 import type { ExtractedIngredient } from './recipe-schema'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, isReasonableQuantity, DEFAULT_GRAMS_PER_PIECE } from './recipe-quantities'
@@ -115,10 +120,23 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized)
+    // The normalized name with its last word made plural, so a singular recipe word
+    // finds a plural catalogue or household row: "bay leaf" → "bay leaves" (HON-1267).
+    // It is searched in the normalized name's own query, so it costs no extra query.
+    const normalizedWords = normalizedName.split(' ')
+    const lastNormalizedWord = normalizedWords.pop()
+    const pluralName = lastNormalizedWord
+      ? [...normalizedWords, pluralize(lastNormalizedWord)].join(' ')
+      : undefined
+
+    // Phase 1: Search semantic candidates (direct, alias, normalized + plural,
+    // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     for (const candidate of candidateNames) {
-      const candidateMatches = await fuzzySearchIngredient(candidate, searchOptions)
+      const candidateMatches = await fuzzySearchIngredient(
+        candidate,
+        candidate === normalizedName ? { ...searchOptions, pluralName } : searchOptions,
+      )
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
       }
@@ -190,8 +208,10 @@ export async function matchIngredients(
           'loin',
           'rib',
         ])
-        const extractedWords = new Set(directName.split(/\s+/))
-        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/))
+        // Singular words on both sides, so "bay leaf" is not judged against
+        // "bay leaves" as a different noun (HON-1267)
+        const extractedWords = new Set(directName.split(/\s+/).map(singularize))
+        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/).map(singularize))
 
         const extractedUnique = [...extractedWords].filter(
           (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
