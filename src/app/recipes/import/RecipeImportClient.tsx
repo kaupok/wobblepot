@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -18,155 +18,11 @@ import {
   translateErrorCode,
 } from '@/lib/ai/error-codes'
 import type { Locale } from '@/lib/i18n/locales'
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
-import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { FieldError } from '@/components/FieldError'
-
-// Types for the parsed recipe response from the API
-interface IngredientAlternative {
-  id: string
-  name: string
-  category: IngredientCategory
-  defaultUnit: Unit
-  measuredByVolume?: boolean
-  similarity: number
-}
-
-interface MatchedIngredient {
-  type: 'matched'
-  extractedName: string
-  extractedQuantity: number
-  extractedUnit: string
-  originalText: string
-  ingredient: {
-    id: string
-    name: string
-    category: IngredientCategory
-    defaultUnit: Unit
-    gramsPerPiece: number | null
-    measuredByVolume?: boolean
-    calories?: number
-    protein?: number
-    carbs?: number
-    fat?: number
-  }
-  convertedQuantity: number
-  isVague: boolean
-  originalPhrase?: string
-  similarityScore?: number
-  lowConfidence?: boolean
-  alternatives?: IngredientAlternative[]
-}
-
-interface UnmatchedIngredient {
-  type: 'unmatched'
-  extractedName: string
-  extractedQuantity: number
-  extractedUnit: string
-  originalText: string
-  isVague: boolean
-  originalPhrase?: string
-}
-
-type IngredientMatchResult = MatchedIngredient | UnmatchedIngredient
-
-interface ParsedRecipeData {
-  name: string
-  description: string | null
-  preparationNotes: string | null
-  sourceUrl: string | null
-  timeMinutes: number | null
-  servings: number
-  mealTypes: MealType[]
-  kidFriendly: boolean
-  ingredients: IngredientMatchResult[]
-  allMatched: boolean
-}
-
-// Convert parsed recipe to prefilled format for MealForm
-function convertToPrefilledData(recipe: ParsedRecipeData): {
-  name: string
-  description: string | null
-  preparationNotes: string | null
-  sourceUrl: string | null
-  timeMinutes: number | null
-  servings: number
-  mealTypes: MealType[]
-  kidFriendly: boolean
-  prefilledIngredients: PrefilledIngredient[]
-} {
-  const prefilledIngredients: PrefilledIngredient[] = recipe.ingredients.map((ingredient) => {
-    if (ingredient.type === 'unmatched') {
-      return {
-        type: 'unmatched' as const,
-        extractedName: ingredient.extractedName,
-        originalText: ingredient.originalText,
-        extractedQuantity: ingredient.extractedQuantity,
-        extractedUnit: ingredient.extractedUnit,
-        isVague: ingredient.isVague,
-        originalPhrase: ingredient.originalPhrase,
-      }
-    }
-
-    // Low-confidence match with alternatives
-    if (ingredient.lowConfidence && ingredient.alternatives) {
-      return {
-        type: 'low-confidence' as const,
-        ingredient: {
-          id: ingredient.ingredient.id,
-          name: ingredient.ingredient.name,
-          category: ingredient.ingredient.category,
-          defaultUnit: ingredient.ingredient.defaultUnit,
-          measuredByVolume: ingredient.ingredient.measuredByVolume,
-          gramsPerPiece: ingredient.ingredient.gramsPerPiece,
-          calories: ingredient.ingredient.calories,
-          protein: ingredient.ingredient.protein,
-          carbs: ingredient.ingredient.carbs,
-          fat: ingredient.ingredient.fat,
-        },
-        convertedQuantity: ingredient.convertedQuantity,
-        isVague: ingredient.isVague,
-        originalPhrase: ingredient.originalPhrase,
-        lowConfidence: true,
-        alternatives: ingredient.alternatives,
-        extractedName: ingredient.extractedName,
-        originalText: ingredient.originalText,
-      }
-    }
-
-    // High-confidence match
-    return {
-      type: 'matched' as const,
-      ingredient: {
-        id: ingredient.ingredient.id,
-        name: ingredient.ingredient.name,
-        category: ingredient.ingredient.category,
-        defaultUnit: ingredient.ingredient.defaultUnit,
-        measuredByVolume: ingredient.ingredient.measuredByVolume,
-        gramsPerPiece: ingredient.ingredient.gramsPerPiece,
-        calories: ingredient.ingredient.calories,
-        protein: ingredient.ingredient.protein,
-        carbs: ingredient.ingredient.carbs,
-        fat: ingredient.ingredient.fat,
-      },
-      convertedQuantity: ingredient.convertedQuantity,
-      isVague: ingredient.isVague,
-      originalPhrase: ingredient.originalPhrase,
-    }
-  })
-
-  return {
-    name: recipe.name,
-    description: recipe.description,
-    preparationNotes: recipe.preparationNotes,
-    sourceUrl: recipe.sourceUrl,
-    timeMinutes: recipe.timeMinutes,
-    servings: recipe.servings,
-    mealTypes: recipe.mealTypes,
-    kidFriendly: recipe.kidFriendly,
-    prefilledIngredients,
-  }
-}
+import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { downscaleImage } from '@/lib/downscale-image'
+import { convertToPrefilledData, type ParsedRecipeData } from './convert-parsed-recipe'
 
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
@@ -176,13 +32,16 @@ type ParseResponse = { confidenceTier?: string; recipe: ParsedRecipeData }
 
 const URL_STEP_DELAYS = [0, 4000, 10000]
 const TEXT_STEP_DELAYS = [0, 4000]
+// Reading a photo takes longer than reading pasted text, so each step stays up longer.
+const PHOTO_STEP_DELAYS = [0, 5000, 12000]
 
 export function RecipeImportClient() {
   const router = useRouter()
   const t = useTranslations('recipes.import')
   const locale = useLocale() as Locale
   const [recipeText, setRecipeText] = useState('')
-  const [error, setError] = useState('')
+  // A node, not a string: the `photoNoRecipe` copy carries a link to Imagine a meal.
+  const [error, setError] = useState<ReactNode>(null)
   const [progressStep, setProgressStep] = useState('')
   const [stepVisible, setStepVisible] = useState(false)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -200,6 +59,23 @@ export function RecipeImportClient() {
     () => [t('steps.extractingRecipe'), t('steps.matchingIngredients')],
     [t],
   )
+  const photoSteps = useMemo(
+    () => [t('steps.readingPhoto'), t('steps.extractingRecipe'), t('steps.matchingIngredients')],
+    [t],
+  )
+
+  const {
+    images,
+    files: imageFiles,
+    handleFileSelect,
+    removeImage,
+    reset: resetImages,
+  } = useAttachImages({
+    tooManyImages: t('errors.tooManyImages', { max: MAX_ATTACHED_IMAGES }),
+    wrongImageType: t('errors.wrongImageType'),
+    imageTooLarge: t('errors.imageTooLarge'),
+  })
+  const hasInput = recipeText.trim() !== '' || images.length > 0
 
   useEffect(() => {
     const timers = timersRef
@@ -213,7 +89,13 @@ export function RecipeImportClient() {
     const prefilledData = convertToPrefilledData(recipe)
     sessionStorage.setItem(
       'prefilled-meal',
-      JSON.stringify({ ...prefilledData, originalRecipeText: recipeText, origin: 'import' }),
+      JSON.stringify({
+        ...prefilledData,
+        // Photos are not stored with the recipe, so a photo import keeps only
+        // the typed text, and none when nothing was typed (HON-1274).
+        originalRecipeText: recipeText.trim() ? recipeText : undefined,
+        origin: 'import',
+      }),
     )
     router.push('/recipes/create?prefilled=true')
   }
@@ -225,11 +107,16 @@ export function RecipeImportClient() {
 
   // Driven from the parse's start and end rather than an effect on `isPending`,
   // so the steps change in the same event that starts or ends the request.
-  const startProgress = (text: string) => {
+  const startProgress = (text: string, hasPhotos: boolean) => {
     clearProgressTimers()
 
-    const steps = isUrl(text) ? urlSteps : textSteps
-    const delays = isUrl(text) ? URL_STEP_DELAYS : TEXT_STEP_DELAYS
+    // With photos the route does not fetch a link in the text, so the photo
+    // steps win over the link steps.
+    const [steps, delays] = hasPhotos
+      ? [photoSteps, PHOTO_STEP_DELAYS]
+      : isUrl(text)
+        ? [urlSteps, URL_STEP_DELAYS]
+        : [textSteps, TEXT_STEP_DELAYS]
 
     // Show first step immediately
     setProgressStep(steps[0]!)
@@ -261,19 +148,34 @@ export function RecipeImportClient() {
   const parse = useMutation({
     mutationFn: async ({
       text,
+      imageFiles,
       controller,
     }: {
       text: string
+      imageFiles: File[]
       controller: AbortController
     }): Promise<ParseResponse> => {
+      let init: RequestInit
+      if (imageFiles.length > 0) {
+        // No Content-Type header: the browser sets the multipart boundary.
+        const formData = new FormData()
+        if (text.trim()) formData.append('text', text)
+        // Shrunk first, so three phone photos fit Vercel's 4.5 MB body limit.
+        for (const image of await Promise.all(imageFiles.map(downscaleImage))) {
+          formData.append('image', image)
+        }
+        init = { method: 'POST', body: formData, signal: controller.signal }
+      } else {
+        init = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+          signal: controller.signal,
+        }
+      }
       // Every failure branch of the route answers non-2xx, so a resolved call
       // is always `success: true`.
-      return apiFetch<ParseResponse>('/api/recipes/parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      })
+      return apiFetch<ParseResponse>('/api/recipes/parse', init)
     },
     onSuccess: (data) => {
       // `recipe:imported` fires when the user actually saves the recipe to
@@ -314,13 +216,31 @@ export function RecipeImportClient() {
         message: body.message,
         error: body.error,
       })
+      // Vercel answers a body over 4.5 MB itself, with no JSON and so no
+      // `code`. Photos that do not shrink in the browser can still reach it.
+      if (err.status === 413) {
+        setError(t('errors.photosTooLarge'))
+        return
+      }
       const { key, values } = rateLimitMessage(
         translateErrorCode(err.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric'),
         RECIPE_IMPORT_ERROR_KEYS.rate_limited,
         err.body,
         locale,
       )
-      setError(t(`errors.${key}`, values))
+      if (key === RECIPE_IMPORT_ERROR_KEYS.photo_no_recipe) {
+        setError(
+          t.rich('errors.photoNoRecipe', {
+            link: (chunks) => (
+              <Link href="/recipes/imagine" className="inline-link">
+                {chunks}
+              </Link>
+            ),
+          }),
+        )
+        return
+      }
+      setError(t(`errors.${key}`, { max: MAX_ATTACHED_IMAGES, ...values }))
     },
     onSettled: (_data, _err, { controller }) => {
       // A cancelled run was already wound down by `handleCancel`, and may
@@ -341,18 +261,18 @@ export function RecipeImportClient() {
   }
 
   const handleParse = () => {
-    if (!recipeText.trim()) {
+    if (!hasInput) {
       setError(t('errors.empty'))
       return
     }
 
-    setError('')
+    setError(null)
     setWarning(null)
 
     const controller = new AbortController()
     abortControllerRef.current = controller
-    startProgress(recipeText)
-    parse.mutate({ text: recipeText, controller })
+    startProgress(recipeText, imageFiles.length > 0)
+    parse.mutate({ text: recipeText, imageFiles, controller })
   }
 
   return (
@@ -369,19 +289,32 @@ export function RecipeImportClient() {
           <Body variant="muted">{t('description')}</Body>
         </div>
         <div className="flex flex-col gap-4">
-          <Textarea
-            value={recipeText}
-            onChange={(e) => {
-              setRecipeText(e.target.value)
-              setError('')
+          <AttachImages
+            images={images}
+            onSelect={(e) => {
+              handleFileSelect(e)
+              setError(null)
               setWarning(null)
             }}
-            placeholder={t('placeholder')}
-            aria-label={t('textAria')}
-            rows={12}
-            className="resize-none"
+            onRemove={removeImage}
             disabled={isParsing}
-          />
+            attachLabel={t('attachAria')}
+            removeImageLabel={(filename) => t('removeImageAria', { filename })}
+          >
+            <Textarea
+              value={recipeText}
+              onChange={(e) => {
+                setRecipeText(e.target.value)
+                setError(null)
+                setWarning(null)
+              }}
+              placeholder={t('placeholder')}
+              aria-label={t('textAria')}
+              rows={12}
+              className="min-w-0 flex-1 resize-none"
+              disabled={isParsing}
+            />
+          </AttachImages>
           {error && <FieldError>{error}</FieldError>}
           {warning && (
             <div className="border-warning/30 bg-warning-muted rounded-md border p-4">
@@ -405,6 +338,7 @@ export function RecipeImportClient() {
                       onClick={() => {
                         setWarning(null)
                         setRecipeText('')
+                        resetImages()
                       }}
                     >
                       {t('tryDifferent')}
@@ -418,7 +352,7 @@ export function RecipeImportClient() {
         <div className="flex flex-col gap-3">
           <Button
             onClick={handleParse}
-            disabled={isParsing || !recipeText.trim()}
+            disabled={isParsing || !hasInput}
             className="w-full md:w-auto md:self-start"
           >
             {isParsing ? (

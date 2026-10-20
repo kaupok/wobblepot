@@ -52,6 +52,10 @@ export type RecipeImportErrorCode =
   | 'no_recipe_found'
   | 'no_ingredients_found'
   | 'low_confidence'
+  | 'too_many_images'
+  | 'wrong_image_type'
+  | 'image_too_large'
+  | 'photo_no_recipe'
   | 'parse_timeout'
   | 'provider_unavailable'
   | 'parse_failed'
@@ -170,6 +174,13 @@ export const RECIPE_IMPORT_ERROR_KEYS = {
   no_recipe_found: 'noRecipeFound',
   no_ingredients_found: 'noIngredientsFound',
   low_confidence: 'lowConfidence',
+  too_many_images: 'tooManyImages',
+  wrong_image_type: 'wrongImageType',
+  image_too_large: 'imageTooLarge',
+  // With photos attached, `no_recipe_found`, `no_ingredients_found` and
+  // `low_confidence` become this code, whose copy points a photo of a dish to
+  // Imagine a meal (HON-1274).
+  photo_no_recipe: 'photoNoRecipe',
   parse_timeout: 'parseTimeout',
   provider_unavailable: 'providerUnavailable',
   // `parseGeneric`, not `parseFailed`: this covers the 500 and a model answer

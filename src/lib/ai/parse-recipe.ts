@@ -15,6 +15,7 @@ import {
 import { buildRecipeRequest } from './recipe-prompt'
 import { isAiBudgetTimeout } from './timeout'
 import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
+import type { EncodedImage } from '@/lib/image-attachments-server'
 
 /**
  * Result of parsing recipe text, including confidence evaluation.
@@ -31,17 +32,23 @@ export interface ParseRecipeResult {
  * `abortSignal` is the wall-clock budget for the AI call, owned by
  * `/api/recipes/parse`. Undefined leaves the call unbounded, which is the
  * pre-HON-694 behaviour.
+ *
+ * `images` are photos of a recipe (HON-1274). With them, the model copies the
+ * recipe it sees and `recipeText` is optional context, so the length check
+ * applies only without images.
  */
 export async function parseRecipeText(
   recipeText: string,
   locale?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
   abortSignal?: AbortSignal,
+  images?: EncodedImage[],
 ): Promise<ParseRecipeResult> {
   const trimmedText = recipeText.trim()
+  const hasImages = (images?.length ?? 0) > 0
 
   // Minimum sanity check
-  if (trimmedText.length < 20) {
+  if (!hasImages && trimmedText.length < 20) {
     throw new RecipeParseError(
       'The text is too short to be a recipe. Please paste a complete recipe with ingredients.',
       'text_too_short',
@@ -49,7 +56,7 @@ export async function parseRecipeText(
   }
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-  const request = buildRecipeRequest(trimmedText, locale)
+  const request = buildRecipeRequest(trimmedText, locale, images)
 
   try {
     const startedAt = Date.now()
@@ -73,6 +80,7 @@ export async function parseRecipeText(
       input: {
         textPreview: trimmedText.slice(0, 1000),
         textLength: trimmedText.length,
+        ...(hasImages && { imageCount: images?.length }),
       },
       output: object,
     })
@@ -195,6 +203,7 @@ export interface ParsedRecipe {
  * @param sourceUrl - Optional source URL for URL imports (stored as dedicated field)
  * @param onAiUsage - Callback for tracking AI usage stats
  * @param matchOptions - Household + locale context for ingredient matching
+ * @param images - Photos of the recipe; with them, `recipeText` is optional context
  */
 export async function parseAndMatchRecipe(
   recipeText: string,
@@ -205,6 +214,7 @@ export async function parseAndMatchRecipe(
   // which is deterministic, so an AI-only budget on it would misstate what it
   // controls.
   abortSignal?: AbortSignal,
+  images?: EncodedImage[],
 ): Promise<ParsedRecipe> {
   // Step 1: Extract structured data from text (low confidence throws). Thread
   // the household locale so the parser prompt includes the output-language
@@ -214,6 +224,7 @@ export async function parseAndMatchRecipe(
     matchOptions.locale,
     onAiUsage,
     abortSignal,
+    images,
   )
 
   // Step 2: Match ingredients against database (pass servings for validation)

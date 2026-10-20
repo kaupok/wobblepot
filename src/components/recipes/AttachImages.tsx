@@ -160,7 +160,9 @@ export function AttachImages({
       {images.length > 0 && (
         <div className="flex gap-2">
           {images.map(({ file, previewUrl }, index) => (
-            <div key={`${file.name}-${file.lastModified}`} className="relative">
+            // The preview URL is unique per attachment; name and date are not,
+            // because the same file can be attached twice.
+            <div key={previewUrl} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element -- blob URL preview, not optimizable */}
               <img
                 src={previewUrl}
