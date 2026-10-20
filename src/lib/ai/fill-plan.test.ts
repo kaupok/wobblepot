@@ -513,6 +513,8 @@ describe('fillEmptySlots', () => {
       entry('2026-01-16', 'dinner', 'meal-5'),
       noteEntry,
       orphanEntry,
+      { ...entry('2026-01-19', 'dinner', null), note: 'Later' },
+      entry('2026-01-12', 'lunch', null),
     ]
 
     mockMealPlanFindUnique
@@ -548,8 +550,9 @@ describe('fillEmptySlots', () => {
     await fillEmptySlots(fillOptions)
 
     expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ['orphan-id'] } },
+      where: { id: { in: ['orphan-id'] }, mealId: null, note: null },
     })
+    expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledTimes(1)
     // The note slip keeps its entry, so its slot is not created again (HON-1252).
     expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledWith({
       where: { id: 'note-id', mealId: null },

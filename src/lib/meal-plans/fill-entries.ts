@@ -42,12 +42,16 @@ export async function writeFilledSlots(
 
   await prisma.$transaction(async (tx) => {
     const creates = fills.filter((fill) => !noteEntryIds.has(slotKey(fill.date, fill.mealType)))
+    // The model call takes a while, so the household may have changed an entry
+    // since the fill read it. Each write checks the entry still has no meal,
+    // so a pick or note made meanwhile is never deleted or overwritten.
     if (placeholderIds.length > 0) {
-      await tx.mealPlanEntry.deleteMany({ where: { id: { in: placeholderIds } } })
+      await tx.mealPlanEntry.deleteMany({
+        where: { id: { in: placeholderIds }, mealId: null, note: null },
+      })
     }
     for (const update of updates) {
-      // The model call takes a while, so the household may have deleted the
-      // note slip since the fill read it. Then the slot gets a new entry.
+      // A note slip deleted meanwhile leaves its slot open for a new entry.
       const { count } = await tx.mealPlanEntry.updateMany({
         where: { id: update.id, mealId: null },
         data: { mealId: update.fill.mealId, status: 'planned' },

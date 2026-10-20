@@ -73,6 +73,27 @@ describe('writeFilledSlots', () => {
     expect(await prisma.mealPlanEntry.count({ where: { id: 'entry-placeholder' } })).toBe(0)
   })
 
+  it('keeps a meal the household picked on a placeholder while the model ran', async () => {
+    await world()
+    const placeholder = await entry('entry-placeholder', { date, mealId: null })
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-placeholder' },
+      data: { mealId: 'meal-salad' },
+    })
+
+    await expect(
+      writeFilledSlots(
+        'plan-alder',
+        [{ date, mealType: 'dinner', mealId: 'meal-stew' }],
+        [placeholder],
+      ),
+    ).rejects.toThrow()
+
+    expect(await readEntry('entry-placeholder')).toEqual(
+      expect.objectContaining({ mealId: 'meal-salad' }),
+    )
+  })
+
   it('leaves entries it was not given untouched', async () => {
     await world()
     await entry('entry-other', { mealId: null, note: 'Eat out', mealType: 'lunch' })
