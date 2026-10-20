@@ -752,7 +752,10 @@ async function main() {
   const focusArg = process.argv.find((a) => a.startsWith('--focus='))
   const focus = focusArg?.split('=')[1] ?? 'all'
 
+  // The global pool only: household rows (HON-1263) are the household's own
+  // label values and follow none of the pool's naming or coverage rules.
   const ingredients = await prisma.ingredient.findMany({
+    where: { householdId: null },
     select: {
       name: true,
       category: true,

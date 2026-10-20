@@ -80,6 +80,7 @@ export type RateLimitFeature =
   | 'data-export'
   | 'reminder-confirm'
   | 'household-leave'
+  | 'ingredient-create'
 
 type Dimension = 'household' | 'ip' | 'user'
 
@@ -179,6 +180,10 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   // do that. Three, not two, so one failed leave-and-join (an invite used in
   // between) does not lock a real move out for a month.
   'household-leave': { limit: 3, window: '30 d', dimension: 'user' },
+  // One per "Add as new ingredient" save (HON-1263). No AI call, so this is
+  // abuse protection: a household adding 30 ingredients in an hour is past
+  // any recipe it is fixing.
+  'ingredient-create': { limit: 30, window: '1 h', dimension: 'household' },
 }
 
 export interface RateLimitResult {

@@ -373,6 +373,7 @@ enum ProteinType {
 - Meal ratings (thumbs up or down on an entry), which feed the swap ranking; plan generation does not read them
 - Favourite meals
 - Own recipes: create, import from a URL or pasted text, or describe one for the AI to write (`/recipes`)
+- Add a missing ingredient from an unmatched ingredient row: household-scoped, with allergens, protein type and nutrition per 100 g from the pack label (`POST /api/ingredients`, HON-1263)
 - AI preparation tips for a planned meal
 - MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased, adds or checks shopping list items, sets pantry quantities, swaps a planned meal, changes a planned meal's ingredients from an instruction through Adjust recipe (`adjust_meal`, the one tool that calls the AI, under the household's cost cap) and rates a cooked one (HON-1151, HON-1154, HON-1173, HON-1174, HON-1246)
 

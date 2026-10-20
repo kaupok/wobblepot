@@ -1,14 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations`.
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import userEvent from '@testing-library/user-event'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { IngredientRow, type MatchedIngredientData } from './IngredientRow'
+import { IngredientRow, type IngredientRowData, type MatchedIngredientData } from './IngredientRow'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'en' ? enMessages : etMessages
@@ -75,5 +76,51 @@ describe('IngredientRow per-serving formatting', () => {
       'et',
     )
     expect(screen.getByText('näputäis')).toBeInTheDocument()
+  })
+})
+
+// HON-1263: the control that resolved an unmatched row unmounts with it, so the
+// matched row that replaces it takes focus on its quantity, not <body>.
+describe('IngredientRow focus after resolve', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function ResolvingRow() {
+    const [data, setData] = useState<IngredientRowData>({
+      type: 'unmatched',
+      extractedName: 'lovage',
+      originalText: '20 g lovage',
+      extractedQuantity: 20,
+      extractedUnit: 'g',
+    })
+    return (
+      <IngredientRow
+        data={data}
+        servings={2}
+        onUpdate={setData}
+        onRemove={vi.fn()}
+        onResolve={(ingredient, totalQuantity) =>
+          setData({ type: 'matched', ingredient, totalQuantity })
+        }
+      />
+    )
+  }
+
+  it('moves focus to the quantity input of the matched row', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ingredients: [{ id: 'lovage', name: 'lovage', category: 'vegetable', defaultUnit: 'g' }],
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderInLocale(<ResolvingRow />, 'en')
+
+    await user.type(screen.getByRole('textbox', { name: 'Find a match for lovage' }), 'lov')
+    await user.click(await screen.findByRole('button', { name: /^lovage/ }, { timeout: 2000 }))
+
+    expect(screen.getByRole('textbox', { name: 'Quantity' })).toHaveFocus()
   })
 })
