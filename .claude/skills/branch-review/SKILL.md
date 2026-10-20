@@ -198,7 +198,7 @@ Files: `file1.ts`, `file2.ts`, ...
 
 #### Defer
 1. [Issue description] - [Why it's out of scope]
-   → **Create issue:** [Proposed Linear issue title]
+   → **Create issue:** [Proposed Linear issue title, per CLAUDE.md → Issue titles]
 2. ...
 (If empty: "None")
 

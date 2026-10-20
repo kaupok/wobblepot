@@ -288,7 +288,7 @@ If the user wants changes, revise the plan and ask again.
 ```
 mcp__linear-server__save_issue({
   team: "Wobblebot",
-  title: "<sentence-case step>",
+  title: "<title per CLAUDE.md → Issue titles>",
   description: "Follow-up to HON-XX, filed by /plan-issue.
 
   <## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX>",
