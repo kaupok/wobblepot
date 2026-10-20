@@ -22,6 +22,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
 import { FieldError } from '@/components/FieldError'
+import { downscaleImage } from '@/lib/downscale-image'
 import type { MealType } from '@/generated/prisma/enums'
 
 export interface ImaginePanelProps {
@@ -96,7 +97,8 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
         if (prompt.trim()) {
           formData.append('prompt', prompt.trim())
         }
-        for (const image of imageFiles) {
+        // Shrunk first, so three phone photos fit Vercel's 4.5 MB body limit.
+        for (const image of await Promise.all(imageFiles.map(downscaleImage))) {
           formData.append('image', image)
         }
         init = { method: 'POST', body: formData, signal: controller.signal }

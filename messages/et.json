@@ -642,6 +642,7 @@
         "tooManyImages": "Saad lisada kuni {max} fotot",
         "wrongImageType": "Fotod peavad olema JPEG, PNG või WebP",
         "imageTooLarge": "Iga foto peab olema kuni 5 MB",
+        "photosTooLarge": "Fotod on saatmiseks liiga suured. Proovi korraga vähem fotosid.",
         "photoNoRecipe": "Fotolt ei leidnud retsepti. Toidu foto põhjal ideede saamiseks kasuta <link>Mõtle välja toit</link>.",
         "parseTimeout": "Retsepti lugemine võttis liiga kaua aega. Palun proovi uuesti.",
         "providerUnavailable": "Retseptiteenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti."

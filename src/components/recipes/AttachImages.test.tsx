@@ -193,6 +193,22 @@ describe('useAttachImages', () => {
     expect(URL.createObjectURL).not.toHaveBeenCalled()
   })
 
+  it('shows the same file attached twice as two thumbnails, with no duplicate-key warning', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<Harness />)
+    const page = makeFile('page.jpg', { type: 'image/jpeg' })
+
+    await attach([page])
+    await attach([page])
+
+    expect(screen.getAllByRole('img', { name: 'page.jpg' })).toHaveLength(2)
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining('Encountered two children with the same key'),
+      expect.anything(),
+    )
+    consoleError.mockRestore()
+  })
+
   it('lets the same file be re-selected after removal by clearing the input', async () => {
     render(<Harness />)
     await attach([makeFile('a.png')])

@@ -21,6 +21,7 @@ import type { Locale } from '@/lib/i18n/locales'
 import { FieldError } from '@/components/FieldError'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { downscaleImage } from '@/lib/downscale-image'
 import { convertToPrefilledData, type ParsedRecipeData } from './convert-parsed-recipe'
 
 function isUrl(text: string): boolean {
@@ -159,7 +160,10 @@ export function RecipeImportClient() {
         // No Content-Type header: the browser sets the multipart boundary.
         const formData = new FormData()
         if (text.trim()) formData.append('text', text)
-        for (const image of imageFiles) formData.append('image', image)
+        // Shrunk first, so three phone photos fit Vercel's 4.5 MB body limit.
+        for (const image of await Promise.all(imageFiles.map(downscaleImage))) {
+          formData.append('image', image)
+        }
         init = { method: 'POST', body: formData, signal: controller.signal }
       } else {
         init = {
@@ -212,6 +216,12 @@ export function RecipeImportClient() {
         message: body.message,
         error: body.error,
       })
+      // Vercel answers a body over 4.5 MB itself, with no JSON and so no
+      // `code`. Photos that do not shrink in the browser can still reach it.
+      if (err.status === 413) {
+        setError(t('errors.photosTooLarge'))
+        return
+      }
       const { key, values } = rateLimitMessage(
         translateErrorCode(err.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric'),
         RECIPE_IMPORT_ERROR_KEYS.rate_limited,

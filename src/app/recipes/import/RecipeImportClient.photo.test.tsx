@@ -10,6 +10,14 @@ import etMessages from '../../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { RecipeImportClient } from './RecipeImportClient'
 
+// Passes every file through except `big.jpg`, which comes back as the file a
+// real downscale would send, so a test can see the page uploads the result.
+vi.mock('@/lib/downscale-image', () => ({
+  downscaleImage: vi.fn(async (file: File) =>
+    file.name === 'big.jpg' ? new File(['small'], 'big.jpg', { type: 'image/jpeg' }) : file,
+  ),
+}))
+
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh: vi.fn() }),
@@ -64,7 +72,8 @@ beforeEach(() => {
   sessionStorage.clear()
   push.mockClear()
   // jsdom has no blob URLs; the previews only need a string.
-  URL.createObjectURL = vi.fn(() => 'blob:mock/preview')
+  let nextUrlId = 0
+  URL.createObjectURL = vi.fn(() => `blob:mock/${++nextUrlId}`)
   URL.revokeObjectURL = vi.fn()
 })
 
@@ -162,6 +171,42 @@ describe('RecipeImportClient photos', () => {
         '/recipes/imagine',
       )
       expect(screen.queryByText('server prose')).not.toBeInTheDocument()
+    },
+  )
+
+  it('uploads the downscaled photo, not the original', async () => {
+    const fetchMock = respondWith({ success: true, confidenceTier: 'high', recipe: RECIPE })
+    renderInLocale()
+    await attach(new File(['x'.repeat(2_000_000)], 'big.jpg', { type: 'image/jpeg' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Import recipe' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const body = (fetchMock.mock.calls[0]![1] as RequestInit).body as FormData
+    expect((body.get('image') as File).size).toBe(5)
+  })
+
+  it.each([
+    ['en', 'The photos are too large to send. Try fewer photos at a time.'],
+    ['et', 'Fotod on saatmiseks liiga suured. Proovi korraga vähem fotosid.'],
+  ] as const)(
+    'renders the too-large copy for a 413 with no JSON body (%s)',
+    async (locale, copy) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 413,
+          json: () => Promise.reject(new SyntaxError('Request Entity Too Large')),
+        }),
+      )
+      renderInLocale(locale)
+      await attach(photo())
+      fireEvent.click(
+        screen.getByRole('button', { name: locale === 'en' ? 'Import recipe' : 'Impordi retsept' }),
+      )
+
+      expect(await screen.findByText(copy)).toBeInTheDocument()
     },
   )
 

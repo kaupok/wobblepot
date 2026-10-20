@@ -642,6 +642,7 @@
         "tooManyImages": "You can attach up to {max} images",
         "wrongImageType": "Images must be JPEG, PNG, or WebP",
         "imageTooLarge": "Each image must be 5 MB or less",
+        "photosTooLarge": "The photos are too large to send. Try fewer photos at a time.",
         "photoNoRecipe": "We could not find a recipe in the photo. For ideas from a photo of a dish, use <link>Imagine a meal</link>.",
         "parseTimeout": "Reading that recipe took too long. Please try again.",
         "providerUnavailable": "The recipe service is temporarily unavailable. Please try again in a moment."
