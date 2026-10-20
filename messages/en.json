@@ -602,9 +602,11 @@
     },
     "import": {
       "title": "Add recipe",
-      "description": "Paste a recipe or drop a URL and we'll extract the ingredients for you. Include how many servings it makes, otherwise we'll assume 4.",
+      "description": "Paste a recipe, add a link, or add a photo of a recipe, and we'll read the ingredients for you. Include how many servings it makes, otherwise we'll assume 4.",
       "placeholder": "Paste a recipe or URL here…\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red pepper",
       "textAria": "Recipe text or URL",
+      "attachAria": "Add a photo of a recipe",
+      "removeImageAria": "Remove {filename}",
       "submit": "Import recipe",
       "submitting": "Importing recipe…",
       "cancel": "Cancel",
@@ -613,6 +615,7 @@
       "continueAnyway": "Continue anyway",
       "tryDifferent": "Try different text",
       "steps": {
+        "readingPhoto": "Reading the photo…",
         "fetchingPage": "Fetching page…",
         "extractingRecipe": "Extracting recipe…",
         "matchingIngredients": "Matching ingredients…"
@@ -636,6 +639,10 @@
         "noRecipeFound": "We couldn't find a recipe in that text. Make sure it has a name and a list of ingredients.",
         "noIngredientsFound": "We couldn't identify the ingredients. Please paste a recipe with a clear ingredient list.",
         "lowConfidence": "That doesn't look like a recipe. Try pasting the recipe text directly.",
+        "tooManyImages": "You can attach up to {max} images",
+        "wrongImageType": "Images must be JPEG, PNG, or WebP",
+        "imageTooLarge": "Each image must be 5 MB or less",
+        "photoNoRecipe": "We could not find a recipe in the photo. For ideas from a photo of a dish, use <link>Imagine a meal</link>.",
         "parseTimeout": "Reading that recipe took too long. Please try again.",
         "providerUnavailable": "The recipe service is temporarily unavailable. Please try again in a moment."
       }

@@ -27,7 +27,7 @@ import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
-import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
+import { readImageAttachments, type EncodedImage } from '@/lib/image-attachments-server'
 import { loadIngredientNutrition } from '@/lib/meals/imagine-persist'
 import type { ImagineErrorCode } from '@/lib/ai/error-codes'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
@@ -137,7 +137,7 @@ async function handlePOST(request: Request) {
 
   // Parse request body — supports JSON (text-only) and FormData (with images)
   let prompt: string | null = null
-  const images: { base64: string; mimeType: string }[] = []
+  const images: EncodedImage[] = []
 
   const contentType = request.headers.get('content-type') ?? ''
 
@@ -154,27 +154,11 @@ async function handlePOST(request: Request) {
       prompt = promptField.trim()
     }
 
-    const imageFields = formData.getAll('image')
-    const imageFiles = imageFields.filter((file) => file instanceof File)
-
-    // Non-File entries can't be encoded, so they're skipped — but they still
-    // occupy a slot against the cap, which is how this endpoint has always
-    // counted them. Passing the difference as `alreadyAttached` keeps that.
-    const rejection = validateImageAttachments(imageFiles, imageFields.length - imageFiles.length)
-    if (rejection) {
-      const [error, code]: [string, ImagineErrorCode] =
-        rejection === 'too-many'
-          ? [`Maximum ${MAX_ATTACHED_IMAGES} images allowed`, 'too_many_images']
-          : rejection === 'wrong-type'
-            ? ['Images must be JPEG, PNG, or WebP', 'wrong_image_type']
-            : ['Each image must be 5MB or less', 'image_too_large']
-      return NextResponse.json(errorBody(error, code), { status: 400 })
+    const attached = await readImageAttachments(formData)
+    if (!attached.ok) {
+      return NextResponse.json(errorBody(attached.error, attached.code), { status: 400 })
     }
-
-    for (const file of imageFiles) {
-      const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
-      images.push({ base64, mimeType: file.type })
-    }
+    images.push(...attached.images)
 
     if (!prompt && images.length === 0) {
       return NextResponse.json(
