@@ -199,13 +199,28 @@ describe('UnmatchedIngredientRow add as new ingredient', () => {
     expect(screen.getByRole('button', { name: 'Add as new ingredient: lovage' })).toHaveFocus()
   })
 
-  it('resolves with the saved ingredient and 100 g when the parsed unit is not grams', async () => {
+  it('resolves with the saved ingredient and the parsed spoons in grams', async () => {
     respond(201, { ingredient: lovage })
     const user = userEvent.setup()
     const { onResolve } = renderRow({
       ...data('lovage'),
       extractedQuantity: 2,
       extractedUnit: 'tsp',
+    })
+
+    await saveForm(user)
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(lovage, 10))
+  })
+
+  it('resolves a vague row with 100 g', async () => {
+    respond(201, { ingredient: lovage })
+    const user = userEvent.setup()
+    const { onResolve } = renderRow({
+      ...data('lovage'),
+      extractedQuantity: 0,
+      isVague: true,
+      originalPhrase: 'a handful',
     })
 
     await saveForm(user)

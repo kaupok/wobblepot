@@ -9,6 +9,7 @@ import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
+import { convertQuantity } from '@/lib/ai/recipe-quantities'
 import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
 import { AddIngredientForm } from './AddIngredientForm'
 import type { IngredientCategory } from '@/generated/prisma/enums'
@@ -101,16 +102,20 @@ export function UnmatchedIngredientRow({
     setIsAdding(false)
   }
 
-  // The user named exactly this ingredient, so the parsed "500 g" is right
-  // when its unit is the new row's; otherwise the search's default.
+  // The user named exactly this ingredient, so the parsed amount is right:
+  // "1 tsp" becomes 5 g, as the matcher converts it for a catalogue hit. A
+  // vague or empty quantity takes the search's default.
   const handleCreated = (ingredient: IngredientResult) => {
-    const parsedFits =
-      !data.isVague && data.extractedQuantity > 0 && data.extractedUnit === ingredient.defaultUnit
-    const quantity = parsedFits
-      ? data.extractedQuantity
-      : ingredient.defaultUnit === 'piece'
-        ? 1
-        : 100
+    const quantity =
+      !data.isVague && data.extractedQuantity > 0
+        ? convertQuantity(data.extractedQuantity, data.extractedUnit || 'g', {
+            defaultUnit: ingredient.defaultUnit,
+            gramsPerPiece: ingredient.gramsPerPiece ?? null,
+            category: ingredient.category,
+          })
+        : ingredient.defaultUnit === 'piece'
+          ? 1
+          : 100
     onResolve?.(ingredient, quantity)
   }
 
