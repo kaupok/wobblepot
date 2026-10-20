@@ -73,6 +73,19 @@ describe('matchIngredients on a plural catalogue name', () => {
     })
   })
 
+  it('matches "berry" to the household\'s own "berries" row, which scores 0.40 against "berry"', async () => {
+    const household = await prisma.household.create({ data: { name: 'Birch' } })
+    await ingredient('ing-berries', 'berries', household.id)
+
+    const result = await matchOne('berry', household.id)
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-berries', name: 'berries' },
+      lowConfidence: false,
+    })
+  })
+
   it('still matches a plural recipe word to a singular row: "carrots" → "carrot"', async () => {
     await ingredient('ing-carrot', 'carrot')
 
