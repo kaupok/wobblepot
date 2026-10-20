@@ -37,11 +37,14 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 
 CI runs lint, format check and type check with a cache (HON-1181): ESLint and Prettier through `--cache --cache-strategy content`, tsc through its cached `tsconfig.tsbuildinfo`. A warm run re-checks only the files that changed. A push to `main` drops the ESLint cache and lints every file, because `shadcn/no-restyle` reads imported component files that the cache does not track. The flags are in `ci.yml`, not in the scripts, so a local run writes no cache files.
 
-**`Unit tests`** — no database service. `vitest.setup.ts` answers the MCP resource seed that loading `src/lib/auth.ts` runs (HON-1183), and the `unit-db` Vitest project runs `*.db.test.ts` against PGlite, an in-process Postgres, after applying `prisma/migrations` (HON-1186):
+**`Unit tests (1/2)`, `Unit tests (2/2)` and `Unit tests`** — no database service. `vitest.setup.ts` answers the MCP resource seed that loading `src/lib/auth.ts` runs (HON-1183), and the `unit-db` Vitest project runs `*.db.test.ts` against PGlite, an in-process Postgres, after applying `prisma/migrations` (HON-1186). The suite runs in two shards in parallel, because one run was the slowest CI job (HON-1203):
 
-- `pnpm test:coverage` - The `unit`, `unit-node` and `unit-db` projects in one run, with the coverage gate
+- `Unit tests (1/2)` and `Unit tests (2/2)` - `pnpm test:coverage --shard=<n>/2 --reporter=default --reporter=blob`: the `unit`, `unit-node` and `unit-db` projects, split by file. Each shard uploads its blob report, which holds its coverage. A shard sets `COVERAGE_SHARD`, so it does not check the thresholds: it covers about half the files and would fail them.
+- `Unit tests` - `vitest --merge-reports --coverage` merges the two blob reports and checks the coverage gate on the merged result. It runs only when both shards pass; a failed shard fails `Lint, Type Check & Test` on its own result.
 
-**Coverage gate (HON-1192).** `vitest.config.ts` → `coverage.thresholds` holds four numbers: lines, functions, branches and statements. Each is the coverage measured on `main`, rounded down. A run under any of them fails `Unit tests`, so a change that deletes tests or adds untested code shows up as a red check. The report leaves out `src/generated/**`, stories, `src/stories/**` and `scripts/**`.
+Vitest splits shards by file, so one slow file can make one shard much slower than the other. When a shard nears `E2E`'s time, compare the two shard durations in the run.
+
+**Coverage gate (HON-1192).** `vitest.config.ts` → `coverage.thresholds` holds four numbers: lines, functions, branches and statements. Each is the coverage measured on `main`, rounded down. A merged report under any of them fails the `Unit tests` merge job, and so `Lint, Type Check & Test`, so a change that deletes tests or adds untested code shows up as a red check. The report leaves out `src/generated/**`, stories, `src/stories/**` and `scripts/**`.
 
 - **Raise each threshold by at least one point a month.** Run `pnpm test:coverage` on `main` and set each threshold to the measured number, rounded down. When a number has not risen by a point, add tests until it has.
 - **Lower a threshold only in a PR that says why.** `pnpm coverage:ratchet` in `Static checks` compares the thresholds with the PR base and fails when one went down. A line `Coverage threshold lowered: <why>` in the PR body lets it pass. The check reads the body from the event that started the run, so after you edit the body, push a commit: a re-run reads the old body.
