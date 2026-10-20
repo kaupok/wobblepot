@@ -54,6 +54,45 @@ export function verificationLandingSearch(landing: VerificationLanding): string 
   }
 }
 
+/**
+ * Where Better Auth's `/api/auth/verify-email` redirects after the link to a
+ * new address is opened (HON-1137). On a failure it appends `&error=<CODE>`.
+ */
+export const CHANGE_EMAIL_CALLBACK_URL = '/account?emailChanged=1'
+
+/** The `requestType` Better Auth 1.7.7 puts in the token sent to the new address. */
+export const CHANGE_EMAIL_REQUEST_TYPE = 'change-email-verification'
+
+/** What the Profile tab shows after the email-change link redirected there. */
+export type ChangeEmailLanding = 'changed' | 'expired' | 'invalid' | 'wrongAccount'
+
+/**
+ * Reads the params the email-change link leaves on `/account`, the way
+ * {@link parseVerificationLanding} reads the verification ones.
+ *
+ * Only `emailChanged=1` claims the `error` param, so a verification failure
+ * still reads as one. A used link fails with `USER_NOT_FOUND`, because no user
+ * has the token's old address any more, so it reads as expired: the copy says
+ * "expired or already used". `INVALID_USER` is a valid link opened while
+ * another account is signed in, which needs a sign-out, not a new link.
+ */
+export function parseChangeEmailLanding(params: {
+  emailChanged?: string | string[]
+  error?: string | string[]
+}): ChangeEmailLanding | null {
+  if (first(params.emailChanged) !== '1') return null
+  const error = first(params.error)
+  if (!error) return 'changed'
+  switch (error.toUpperCase()) {
+    case 'INVALID_TOKEN':
+      return 'invalid'
+    case 'INVALID_USER':
+      return 'wrongAccount'
+    default:
+      return 'expired'
+  }
+}
+
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }

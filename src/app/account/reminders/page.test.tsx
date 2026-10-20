@@ -29,11 +29,20 @@ vi.mock('../AccountTabs', () => ({
 // The form is a client component with a mutation. Surface the props the page
 // hands it; `WeeklyReminderForm.test.tsx` covers the form itself.
 vi.mock('./WeeklyReminderForm', () => ({
-  WeeklyReminderForm: ({ weekday, confirmed }: { weekday: number | null; confirmed: boolean }) => (
+  WeeklyReminderForm: ({
+    weekday,
+    confirmed,
+    confirmLinkSent,
+  }: {
+    weekday: number | null
+    confirmed: boolean
+    confirmLinkSent: boolean
+  }) => (
     <h2
       data-testid="reminder-form"
       data-weekday={String(weekday)}
       data-confirmed={String(confirmed)}
+      data-confirm-link-sent={String(confirmLinkSent)}
     >
       Weekly reminder
     </h2>
@@ -44,6 +53,7 @@ async function signedIn(
   reminder: {
     reminderWeekday: number | null
     reminderConfirmedAt: Date | null
+    reminderConfirmToken?: string | null
   },
   role: 'owner' | 'member' = 'owner',
 ) {
@@ -84,6 +94,18 @@ describe('AccountRemindersPage', () => {
     render(await AccountRemindersPage())
 
     expect(screen.getByTestId('reminder-form')).toHaveAttribute('data-confirmed', 'false')
+  })
+
+  // HON-1137: an account email change clears the confirmation and its token.
+  it.each([
+    ['confirm-token', 'true'],
+    [null, 'false'],
+  ])('reads a confirm token of %s as a link sent: %s', async (token, sent) => {
+    await signedIn({ reminderWeekday: 7, reminderConfirmedAt: null, reminderConfirmToken: token })
+
+    render(await AccountRemindersPage())
+
+    expect(screen.getByTestId('reminder-form')).toHaveAttribute('data-confirm-link-sent', sent)
   })
 
   it.each([null, 0, 9])('reads a stored weekday of %s as off', async (stored) => {

@@ -269,7 +269,12 @@ describe('reminderUpdate', () => {
 
   it('switches on with consent now, a new stop token and a separate confirm token', () => {
     const update = reminderUpdate(
-      { reminderConsentAt: null, reminderToken: null, reminderConfirmToken: null },
+      {
+        reminderWeekday: null,
+        reminderConsentAt: null,
+        reminderToken: null,
+        reminderConfirmToken: null,
+      },
       7,
       now,
     )
@@ -284,7 +289,12 @@ describe('reminderUpdate', () => {
   it('keeps the consent time and both tokens when the day changes', () => {
     const consentAt = new Date('2026-09-01')
     const update = reminderUpdate(
-      { reminderConsentAt: consentAt, reminderToken: 'kept', reminderConfirmToken: 'confirm' },
+      {
+        reminderWeekday: 7,
+        reminderConsentAt: consentAt,
+        reminderToken: 'kept',
+        reminderConfirmToken: 'confirm',
+      },
       3,
       now,
     )
@@ -297,9 +307,27 @@ describe('reminderUpdate', () => {
     })
   })
 
+  // HON-1137: an email change drops the confirm token, and only a switch-on
+  // emails a new one, so a day change must not make one (PR #1331 review).
+  it('makes no confirm token on a day change, after an email change dropped it', () => {
+    const update = reminderUpdate(
+      {
+        reminderWeekday: 7,
+        reminderConsentAt: new Date('2026-09-01'),
+        reminderToken: 'kept',
+        reminderConfirmToken: null,
+      },
+      3,
+      now,
+    )
+
+    expect(update.reminderConfirmToken).toBeNull()
+  })
+
   it('clears the day and consent when switched off, and keeps the tokens, confirmation and last send', () => {
     const update = reminderUpdate(
       {
+        reminderWeekday: 7,
         reminderConsentAt: new Date('2026-09-01'),
         reminderToken: 'kept',
         reminderConfirmToken: 'c',

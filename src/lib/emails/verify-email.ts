@@ -1,6 +1,6 @@
 import { serverEnv } from '@/lib/env'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
-import { emailTranslator } from './i18n'
+import { emailTranslator, type EmailNamespace } from './i18n'
 
 /**
  * Account email verification (HON-1155).
@@ -24,9 +24,22 @@ interface EmailContent {
 }
 
 export function generateVerifyEmailEmail(options: VerifyEmailEmailOptions): EmailContent {
+  return generateConfirmLinkEmail('verifyEmail', options)
+}
+
+/**
+ * The confirm-this-address layout, shared with the change-email mail
+ * (HON-1137). `namespace` names the copy under `emails`; it must hold
+ * `subject`, `heading`, `instructionHtml`, `instructionText`, `cta`, `expiry`
+ * and `ignore`.
+ */
+export function generateConfirmLinkEmail(
+  namespace: Extract<EmailNamespace, 'verifyEmail' | 'changeEmail'>,
+  options: VerifyEmailEmailOptions,
+): EmailContent {
   const { verifyUrl, locale = DEFAULT_LOCALE } = options
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
-  const t = emailTranslator(locale, 'verifyEmail')
+  const t = emailTranslator(locale, namespace)
 
   const subject = t('subject', { appName })
 

@@ -159,6 +159,36 @@ describe('WeeklyReminderForm', () => {
       expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
     })
 
+    // HON-1137: an account email change drops the confirm link and sends none.
+    it('says the reminder is paused after an email change, with no "we emailed you" line', () => {
+      renderForm({ weekday: 7, confirmed: false, confirmLinkSent: false })
+
+      const form = section('Weekly reminder')
+      expect(within(form).getByText(settings.reminderConfirmAfterEmailChange)).toBeInTheDocument()
+      expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
+    })
+
+    it('says an email is waiting once a switch-on after the email change sent one', async () => {
+      mockFetch.mockResolvedValueOnce(ok()).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ weekday: 7, confirmEmail: 'sent' }),
+      })
+      renderForm({ weekday: 7, confirmed: false, confirmLinkSent: false })
+
+      const form = section('Weekly reminder')
+      const toggle = within(form).getByRole('checkbox', { name: settings.reminderToggle })
+      await userEvent.click(toggle)
+      await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+      await userEvent.click(toggle)
+      await userEvent.click(await within(form).findByRole('button', { name: 'Save' }))
+
+      expect(await within(form).findByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
+      expect(
+        within(form).queryByText(settings.reminderConfirmAfterEmailChange),
+      ).not.toBeInTheDocument()
+    })
+
     it('keeps the not-sent line when only the day changes after it', async () => {
       mockFetch
         .mockResolvedValueOnce({

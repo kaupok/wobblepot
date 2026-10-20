@@ -11,6 +11,8 @@ import { serverEnv, getServerBaseURL, isGoogleAuthConfigured } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { generateVerifyEmailEmail } from '@/lib/emails/verify-email'
+import { generateChangeEmailEmail } from '@/lib/emails/change-email'
+import { afterAccountEmailChange, readChangeEmailToken } from '@/lib/auth/change-email'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
 import { matchAcceptLanguage } from '@/lib/i18n/accept-language'
@@ -356,7 +358,7 @@ export async function afterEmailSignUp(body: unknown, userId: string | undefined
  * Resend on `/account` lets the user try again.
  */
 export async function sendAccountVerificationEmail(
-  { user, url }: { user: { id: string; email: string }; url: string },
+  { user, url, token }: { user: { id: string; email: string }; url: string; token?: string },
   request?: Request,
 ): Promise<void> {
   if (!isEmailConfigured() || !resend) {
@@ -372,7 +374,9 @@ export async function sendAccountVerificationEmail(
   const requested = matchAcceptLanguage(request?.headers.get('accept-language'))
   const fallback = requested && isPublicLocale(requested) ? requested : DEFAULT_LOCALE
   const locale = await resolveEmailLocale(user.id, fallback)
-  const { subject, ...rest } = generateVerifyEmailEmail({ verifyUrl: url, locale })
+  // An email change sends its token here too, to the new address (HON-1137).
+  const generate = readChangeEmailToken(token) ? generateChangeEmailEmail : generateVerifyEmailEmail
+  const { subject, ...rest } = generate({ verifyUrl: url, locale })
 
   try {
     await resend.emails.send({
@@ -554,6 +558,8 @@ export const auth = betterAuth({
    * here teaches the adapter the columns so they round-trip on reads.
    */
   user: {
+    // The new address gets a link; the change waits for it (HON-1137).
+    changeEmail: { enabled: true },
     additionalFields: {
       acceptedTermsAt: { type: 'date', required: false, input: false },
       acceptedTermsVersion: { type: 'number', required: false, input: false },
@@ -588,6 +594,10 @@ export const auth = betterAuth({
           if (!consent) return
           return { data: { ...user, ...consent } }
         },
+      },
+      update: {
+        /** A confirmed email change clears the reminder confirmation and tells the old address (HON-1137). */
+        after: (user, ctx) => afterAccountEmailChange(user, ctx),
       },
     },
     session: {

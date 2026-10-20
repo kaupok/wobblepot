@@ -14,7 +14,6 @@ import {
   assertValidAccountNameUpdate,
   INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
-  sendAccountVerificationEmail,
   stampTermsConsent,
   TERMS_NOT_ACCEPTED_MESSAGE,
 } from './auth'
@@ -24,8 +23,6 @@ import { claimInviteCode, linkUsedBy, releaseClaim, validateInviteCode } from '@
 import { getPosthogServer } from '@/lib/posthog-server'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
 import { joinHouseholdFromSignUp } from '@/lib/household-invite'
-import { resend, isEmailConfigured } from '@/lib/resend'
-import { resolveEmailLocale } from '@/lib/emails/locale'
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
 
 vi.mock('./breached-password', () => ({
@@ -532,6 +529,15 @@ describe('auth options wiring', () => {
     expect(auth.options.emailVerification).not.toHaveProperty('autoSignInAfterVerification')
   })
 
+  // HON-1137: the change waits for the link to the new address, which is
+  // Better Auth's default. Either of these options would skip or reroute it.
+  it('enables the email change behind the link to the new address', () => {
+    expect(auth.options.user?.changeEmail?.enabled).toBe(true)
+    expect(auth.options.user?.changeEmail).not.toHaveProperty('updateEmailWithoutVerification')
+    expect(auth.options.user?.changeEmail).not.toHaveProperty('sendChangeEmailConfirmation')
+    expect(auth.options.databaseHooks?.user?.update?.after).toBeTypeOf('function')
+  })
+
   it('registers no social provider without the Google env vars (HON-1157)', () => {
     expect(auth.options.socialProviders).not.toHaveProperty('google')
   })
@@ -547,66 +553,6 @@ describe('auth options wiring', () => {
     // or moved hook layer (e.g. accidentally placed under databaseHooks).
     expect(auth.options.hooks?.before).toBeTypeOf('function')
     expect(auth.options.hooks?.after).toBeTypeOf('function')
-  })
-})
-
-describe('sendAccountVerificationEmail', () => {
-  const user = { id: 'user-1', email: 'new@example.com' }
-  const url = 'https://wobblepot.test/api/auth/verify-email?token=t&callbackURL=%2Fprofile'
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(isEmailConfigured).mockReturnValue(true)
-    vi.mocked(resolveEmailLocale).mockResolvedValue('en')
-  })
-
-  it('sends the mail to the user from the auth sender with the link', async () => {
-    await sendAccountVerificationEmail({ user, url })
-
-    expect(resend!.emails.send).toHaveBeenCalledTimes(1)
-    const sent = vi.mocked(resend!.emails.send).mock.calls[0]![0] as {
-      from: string
-      to: string
-      text: string
-    }
-    expect(sent.from).toBe('Wobblepot <auth@mail.wobblepot.test>')
-    expect(sent.to).toBe('new@example.com')
-    expect(sent.text).toContain(url)
-  })
-
-  it("falls back to the visitor's Accept-Language when the user has no household", async () => {
-    const request = new Request('https://wobblepot.test/api/auth/sign-up/email', {
-      headers: { 'accept-language': 'et-EE,et;q=0.9,en;q=0.8' },
-    })
-
-    await sendAccountVerificationEmail({ user, url }, request)
-
-    expect(resolveEmailLocale).toHaveBeenCalledWith('user-1', 'et')
-  })
-
-  it('falls back to English without a request', async () => {
-    await sendAccountVerificationEmail({ user, url })
-
-    expect(resolveEmailLocale).toHaveBeenCalledWith('user-1', 'en')
-  })
-
-  it('does not send when email is not configured', async () => {
-    vi.mocked(isEmailConfigured).mockReturnValue(false)
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    await sendAccountVerificationEmail({ user, url })
-
-    expect(resend!.emails.send).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalled()
-  })
-
-  // A throw here would fail the sign-up request that triggered the send.
-  it('logs a failed send and does not throw', async () => {
-    vi.mocked(resend!.emails.send).mockRejectedValue(new Error('provider down'))
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    await expect(sendAccountVerificationEmail({ user, url })).resolves.toBeUndefined()
-    expect(error).toHaveBeenCalled()
   })
 })
 
