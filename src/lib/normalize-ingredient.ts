@@ -227,6 +227,33 @@ export function singularize(word: string): string {
   return word
 }
 
+/** Singular → irregular plural, the inverse of IRREGULAR_PLURALS (leaf → leaves). */
+const IRREGULAR_SINGULARS: Record<string, string> = Object.fromEntries(
+  Object.entries(IRREGULAR_PLURALS).map(([plural, singular]) => [singular, plural]),
+)
+
+/**
+ * Make a singular word plural: the inverse of `singularize`.
+ * The matcher searches this form too, so "bay leaf" finds a "bay leaves" row (HON-1267).
+ */
+export function pluralize(word: string): string {
+  if (FALSE_PLURALS.has(word)) return word
+
+  if (word in IRREGULAR_SINGULARS) return IRREGULAR_SINGULARS[word]!
+
+  // Consonant + y → -ies (anchovy → anchovies); vowel + y → +s (turkey → turkeys)
+  if (/[^aeiou]y$/.test(word)) {
+    return word.slice(0, -1) + 'ies'
+  }
+
+  // Sibilants → +es (peach → peaches, box → boxes)
+  if (/(s|x|z|ch|sh)$/.test(word)) {
+    return word + 'es'
+  }
+
+  return word + 's'
+}
+
 /**
  * Strip cooking modifier words from the beginning of an ingredient name.
  * Only strips leading modifiers; preserves the core ingredient identity.

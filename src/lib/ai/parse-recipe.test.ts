@@ -614,6 +614,7 @@ describe('parseAndMatchRecipe', () => {
           matchedName: 'spaghetti',
         },
       ])
+      .mockResolvedValueOnce([]) // "spaghettis" (plural candidate)
       .mockResolvedValueOnce([
         {
           id: 'ing-2',
@@ -626,6 +627,7 @@ describe('parseAndMatchRecipe', () => {
           matchedName: 'olive oil',
         },
       ])
+      .mockResolvedValueOnce([]) // "olive oils" (plural candidate)
 
     const result = await parseAndMatchRecipe(
       'Simple pasta recipe: 400g spaghetti, 2 tbsp olive oil',
@@ -675,8 +677,8 @@ describe('parseAndMatchRecipe', () => {
     }
 
     mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
-    // "chicken breast" → candidates: "chicken breast", "breast" (last word)
-    // "zarkleberry" → candidates: "zarkleberry" (single word, no fallbacks)
+    // "chicken breast" → candidates: "chicken breast", "chicken breasts" (plural)
+    // "zarkleberry" → candidates: "zarkleberry", "zarkleberries" (plural); one word, no fallback
     mockQueryRaw
       .mockResolvedValueOnce([
         {
@@ -690,8 +692,9 @@ describe('parseAndMatchRecipe', () => {
           matchedName: 'chicken breast',
         },
       ])
-      .mockResolvedValueOnce([]) // "breast" (last word fallback)
+      .mockResolvedValueOnce([]) // "chicken breasts" (plural candidate)
       .mockResolvedValueOnce([]) // zarkleberry not found
+      .mockResolvedValueOnce([]) // "zarkleberries" (plural candidate)
 
     const result = await parseAndMatchRecipe('Mystery dish: 300g chicken breast, 50g zarkleberry')
 
@@ -739,6 +742,7 @@ describe('parseAndMatchRecipe', () => {
         source: 'translation',
       },
     ])
+    mockQueryRaw.mockResolvedValueOnce([]) // "kanas" (plural candidate)
 
     const pastedText =
       'Kanasupp: 400g kana, 2 porgandit, 1 sibul, keeda pehmeks ja maitsesta soolaga.'
@@ -805,6 +809,7 @@ describe('parseAndMatchRecipe', () => {
         source: 'translation',
       },
     ])
+    mockQueryRaw.mockResolvedValueOnce([]) // plural candidate
 
     // Text shape that mirrors what fetchRecipeFromUrl would produce after
     // stripping an Estonian-language recipe page.

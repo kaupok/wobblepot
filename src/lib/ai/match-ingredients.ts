@@ -6,7 +6,12 @@ import {
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
 import { applyIngredientAlias, findSynonym } from '@/lib/ingredient-aliases'
-import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
+import {
+  normalizeIngredientName,
+  extractLastWord,
+  pluralize,
+  singularize,
+} from '@/lib/normalize-ingredient'
 import type { ExtractedIngredient } from './recipe-schema'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, isReasonableQuantity, DEFAULT_GRAMS_PER_PIECE } from './recipe-quantities'
@@ -115,7 +120,16 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized)
+    // Normalized name with its last word made plural, so a singular recipe word
+    // finds a plural catalogue or household row: "bay leaf" → "bay leaves" (HON-1267)
+    const normalizedWords = normalizedName.split(' ')
+    const lastNormalizedWord = normalizedWords.pop()
+    if (lastNormalizedWord) {
+      candidateNames.add([...normalizedWords, pluralize(lastNormalizedWord)].join(' '))
+    }
+
+    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized,
+    // plural). A candidate wins only on a higher score than the ones before it.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     for (const candidate of candidateNames) {
       const candidateMatches = await fuzzySearchIngredient(candidate, searchOptions)
@@ -190,8 +204,10 @@ export async function matchIngredients(
           'loin',
           'rib',
         ])
-        const extractedWords = new Set(directName.split(/\s+/))
-        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/))
+        // Singular words on both sides, so "bay leaf" is not judged against
+        // "bay leaves" as a different noun (HON-1267)
+        const extractedWords = new Set(directName.split(/\s+/).map(singularize))
+        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/).map(singularize))
 
         const extractedUnique = [...extractedWords].filter(
           (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
