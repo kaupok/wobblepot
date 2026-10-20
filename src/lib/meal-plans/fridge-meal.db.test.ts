@@ -101,15 +101,24 @@ describe('createEntry with fridge items', () => {
     expect(await prisma.mealPlanEntry.count({ where: { planId: 'plan-alder' } })).toBe(1)
   })
 
-  it('refuses a planned entry as a source, because it was not eaten', async () => {
+  // The picker offers only completed meals, but Edit items and Undo send a
+  // stored item back after its source may have been reverted.
+  it('keeps a leftover item whose source meal was reverted since, on edit and on Undo', async () => {
     const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed' },
+    })
+    const fridgeItems = [{ sourceEntryId: 'entry-alder' }, { label: 'bread' }]
+    const created = await createEntry(alder.id, 'plan-alder', { ...lunch, fridgeItems })
+    await updateEntry(alder.id, 'plan-alder', 'entry-alder', { status: 'planned' })
 
-    await expect(
-      createEntry(alder.id, 'plan-alder', {
-        ...lunch,
-        fridgeItems: [{ sourceEntryId: 'entry-alder' }],
-      }),
-    ).rejects.toBeInstanceOf(FridgeItemNotFoundError)
+    await setFridgeItems(alder.id, 'plan-alder', created.id, fridgeItems)
+    expect(await items(created.id)).toHaveLength(2)
+
+    await prisma.mealPlanEntry.delete({ where: { id: created.id } })
+    const restored = await createEntry(alder.id, 'plan-alder', { ...lunch, fridgeItems })
+    expect((await items(restored.id)).map((i) => i.sourceEntryId)).toEqual(['entry-alder', null])
   })
 
   it("refuses another household's custom ingredient", async () => {

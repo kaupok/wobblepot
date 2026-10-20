@@ -33,8 +33,10 @@ export class SetFridgeItemsError extends Error {
 /**
  * The item rows for `items`, in order, after checking each source belongs to
  * the household. An ingredient is global or the household's own. A source
- * entry is a completed recipe meal in the household's plan: the picker offers
- * only those, and another household's entry would leak its meal name.
+ * entry is in the household's plan, because another household's entry would
+ * leak its meal name. It need not still be completed: the picker offers only
+ * completed meals (`loadRecentMeals`), but Edit items and Undo send stored
+ * items back, and their source may have been reverted since.
  */
 export async function toItemRows(householdId: string, items: FridgeItemInput[]) {
   const ingredientIds = new Set(items.flatMap((i) => ('ingredientId' in i ? [i.ingredientId] : [])))
@@ -57,8 +59,6 @@ export async function toItemRows(householdId: string, items: FridgeItemInput[]) 
           where: {
             id: { in: [...sourceEntryIds] },
             plan: { householdId },
-            status: MealPlanEntryStatus.completed,
-            mealId: { not: null },
           },
         }),
   ])
