@@ -12,15 +12,15 @@ describe('MealList empty state', () => {
         meals={[]}
         onDelete={() => {}}
         onToggleFavorite={() => {}}
-        emptyAction={<a href="/recipes/create">Create recipe</a>}
+        emptyAction={<a href="/recipes/import">Add recipe</a>}
       />,
       createQueryWrapper(),
     )
 
     expect(screen.getByText(EMPTY_LINE)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Create recipe' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Add recipe' })).toHaveAttribute(
       'href',
-      '/recipes/create',
+      '/recipes/import',
     )
   })
 

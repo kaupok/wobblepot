@@ -31,6 +31,23 @@ function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   )
 }
 
+describe('RecipeImportClient heading', () => {
+  // The library's "Add recipe" button opens this page, so the heading matches
+  // its label (HON-1062, HON-1271). The submit keeps "Import recipe".
+  it.each([
+    ['en', 'Add recipe', 'Import recipe', 'Start from a blank recipe'],
+    ['et', 'Lisa retsept', 'Impordi retsept', 'Alusta tühjast retseptist'],
+  ] as const)(
+    'reads %s: heading %s, submit %s, blank link %s',
+    (locale, heading, submit, blank) => {
+      renderInLocale(<RecipeImportClient />, locale)
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: submit })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: blank })).toHaveAttribute('href', '/recipes/create')
+    },
+  )
+})
+
 describe('RecipeImportClient progress steps', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -136,8 +153,10 @@ describe('RecipeImportClient cancel', () => {
 
     // Cancel button not visible initially
     expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
-    // "create manually" link visible
-    expect(screen.getByText(/create manually/i)).toBeInTheDocument()
+    // The outline "Start from a blank recipe" link to the blank form is visible
+    const blank = screen.getByRole('link', { name: 'Start from a blank recipe' })
+    expect(blank).toHaveAttribute('href', '/recipes/create')
+    expect(blank.dataset.variant).toBe('outline')
 
     // Start import
     const textarea = screen.getByRole('textbox')
@@ -146,8 +165,10 @@ describe('RecipeImportClient cancel', () => {
 
     // Cancel button visible during parsing
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
-    // "create manually" link hidden
-    expect(screen.queryByText(/create manually/i)).not.toBeInTheDocument()
+    // Cancel takes the blank-recipe link's place
+    expect(
+      screen.queryByRole('link', { name: 'Start from a blank recipe' }),
+    ).not.toBeInTheDocument()
   })
 
   it('aborts request and restores textarea on cancel', async () => {
@@ -177,9 +198,9 @@ describe('RecipeImportClient cancel', () => {
     // No error message shown
     expect(screen.queryByText(/failed/i)).not.toBeInTheDocument()
 
-    // Cancel button hidden, "create manually" link back
+    // Cancel button hidden, the blank-recipe link back
     expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/create manually/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Start from a blank recipe' })).toBeInTheDocument()
 
     abortSpy.mockRestore()
   })

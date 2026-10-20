@@ -445,12 +445,11 @@ export function RecipeImportClient() {
               {t('cancel')}
             </Button>
           ) : (
-            <Body variant="muted">
-              {t('footerOr')}{' '}
-              <Link href="/recipes/create" className="text-primary inline-link">
-                {t('createManuallyLink')}
-              </Link>
-            </Body>
+            // A visible way to the blank form for a recipe the household
+            // types in by hand (HON-1128, HON-1271).
+            <Button variant="outline" asChild className="w-full md:w-auto md:self-start">
+              <Link href="/recipes/create">{t('startBlank')}</Link>
+            </Button>
           )}
         </div>
       </div>

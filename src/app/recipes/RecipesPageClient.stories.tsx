@@ -95,9 +95,9 @@ export const Populated: Story = {
   },
 }
 
-const ACTION_HREFS = ['/recipes/import', '/recipes/create', '/recipes/imagine']
+const ACTION_HREFS = ['/recipes/import', '/recipes/imagine']
 
-/** The Import, Create and Imagine links of the actions group, in DOM order. */
+/** The Add and Imagine links of the actions group, in DOM order. */
 function actionLinks(canvasElement: HTMLElement) {
   const group = canvasElement.querySelector<HTMLAnchorElement>(
     'a[href="/recipes/import"]',
@@ -106,22 +106,23 @@ function actionLinks(canvasElement: HTMLElement) {
 }
 
 /**
- * Import is the one primary; Create and Imagine are outline (HON-1128). On a
- * phone Import runs the width on its own row and the other two are two-up
- * under it, so the three never sit as equal buttons in one row. No label
- * overflows its button (HON-812).
+ * Add is the one primary and Imagine is outline; on an empty library Add steps
+ * down to outline, because the empty state carries the primary (HON-1271). On
+ * a phone the two sit two-up in one row across the width. No label overflows
+ * its button (HON-812).
  */
-async function expectPhoneActions(canvasElement: HTMLElement) {
+async function expectPhoneActions(
+  canvasElement: HTMLElement,
+  addVariant: 'default' | 'outline' = 'default',
+) {
   const links = actionLinks(canvasElement)
-  await expect(links.map((link) => link.dataset.variant)).toEqual(['default', 'outline', 'outline'])
-  const [importLink, create, imagine] = links.map((link) => link.getBoundingClientRect())
+  await expect(links.map((link) => link.dataset.variant)).toEqual([addVariant, 'outline'])
+  const [add, imagine] = links.map((link) => link.getBoundingClientRect())
   const row = links[0]!.parentElement!.getBoundingClientRect()
-  await expect(importLink!.left).toBeCloseTo(row.left, 0)
-  await expect(importLink!.right).toBeCloseTo(row.right, 0)
-  await expect(create!.top).toBeGreaterThan(importLink!.bottom)
-  await expect(create!.top).toBe(imagine!.top)
-  await expect(create!.left).toBeCloseTo(row.left, 0)
+  await expect(add!.top).toBe(imagine!.top)
+  await expect(add!.left).toBeCloseTo(row.left, 0)
   await expect(imagine!.right).toBeCloseTo(row.right, 0)
+  await expect(add!.width).toBeCloseTo(imagine!.width, 0)
   for (const link of links) {
     await expect(link.scrollWidth).toBeLessThanOrEqual(link.clientWidth)
   }
@@ -134,7 +135,7 @@ export const PhoneEstonian: Story = {
     docs: {
       description: {
         story:
-          'The longer Estonian labels still fit: Import on its own row, Create and Imagine two-up under it at 390px (HON-812, HON-1128).',
+          'The longer Estonian labels still fit: Add and Imagine two-up in one row at 390px (HON-812, HON-1271).',
       },
     },
   },
@@ -150,7 +151,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'From `sm` the search and the three actions share a row, and the actions are as wide as their labels at its end (HON-812, HON-1128).',
+          'From `sm` the search and the two actions share a row, and the actions are as wide as their labels at its end (HON-812, HON-1271).',
       },
     },
   },
@@ -159,7 +160,7 @@ export const Desktop: Story = {
     const links = actionLinks(canvasElement)
     const actions = links[0]!.parentElement!
     const outer = actions.parentElement!.getBoundingClientRect()
-    // Label-sized: the three take only their labels' room, after the search,
+    // Label-sized: the two take only their labels' room, after the search,
     // on the search's line and flush with the end of the row.
     await expect(actions.getBoundingClientRect().left).toBeGreaterThan(search.right)
     await expect(actions.getBoundingClientRect().right).toBeCloseTo(outer.right, 0)
@@ -172,7 +173,8 @@ export const Desktop: Story = {
 /**
  * Empty library: nothing to search and nothing to count, so the search field
  * and the count are gone. The empty state is one line and one primary
- * "Create recipe"; the three header actions stay above it (HON-1128).
+ * "Add recipe"; the two header actions stay above it, both outline, so the
+ * empty state's Add is the one primary (HON-1128, HON-1271).
  */
 export const Empty: Story = {
   name: 'Empty library',
@@ -181,7 +183,7 @@ export const Empty: Story = {
     docs: {
       description: {
         story:
-          'Endpoint returns `{ meals: [], nextCursor: null }`. No search field and no count; `MealList` renders its empty state with a primary **Create recipe** (HON-1128).',
+          'Endpoint returns `{ meals: [], nextCursor: null }`. No search field and no count; `MealList` renders its empty state with a primary **Add recipe**, and the header Add steps down to outline (HON-1128, HON-1271).',
       },
     },
   },
@@ -196,25 +198,25 @@ export const Empty: Story = {
     await expect(canvas.queryByText('No recipes')).toBeNull()
     await expect(canvas.queryByText('Loading…')).toBeNull()
 
-    // The header's outline Create, then the empty state's primary one.
-    const creates = canvas.getAllByRole('link', { name: 'Create recipe' })
-    await expect(creates).toHaveLength(2)
-    await expect(creates.map((link) => link.dataset.variant)).toEqual(['outline', 'default'])
-    for (const link of creates) await expect(link).toHaveAttribute('href', '/recipes/create')
+    // The header's outline Add, then the empty state's primary one.
+    const adds = canvas.getAllByRole('link', { name: 'Add recipe' })
+    await expect(adds).toHaveLength(2)
+    await expect(adds.map((link) => link.dataset.variant)).toEqual(['outline', 'default'])
+    for (const link of adds) await expect(link).toHaveAttribute('href', '/recipes/import')
     // A page-level button runs the column's width on a phone.
-    const column = creates[1]!.parentElement!.getBoundingClientRect()
-    await expect(creates[1]!.getBoundingClientRect().width).toBeCloseTo(column.width, 0)
-    await expectPhoneActions(canvasElement)
+    const column = adds[1]!.parentElement!.getBoundingClientRect()
+    await expect(adds[1]!.getBoundingClientRect().width).toBeCloseTo(column.width, 0)
+    await expectPhoneActions(canvasElement, 'outline')
   },
 }
 
 /**
  * Deleting the last recipe empties the library, which unmounts the search
  * field `MealList` would return focus to. Focus lands on the empty state's
- * Create button instead of the page body.
+ * Add recipe button instead of the page body.
  */
-export const LastDeleteFocusesCreate: Story = {
-  name: 'Last delete focuses Create',
+export const LastDeleteFocusesAdd: Story = {
+  name: 'Last delete focuses Add',
   parameters: {
     msw: {
       handlers: [
@@ -231,19 +233,19 @@ export const LastDeleteFocusesCreate: Story = {
     await deleteOnlyRecipe(canvasElement)
 
     await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
-    await waitFor(() => expect(document.activeElement).toBe(emptyStateCreate(canvasElement)))
+    await waitFor(() => expect(document.activeElement).toBe(emptyStateAdd(canvasElement)))
   },
 }
 
 /**
  * The other way the search unmounts: it holds the caret. Search for the only
  * recipe, delete it, then clear the field. Once the debounce settles the
- * library is empty and the search goes, and focus moves to Create rather than
+ * library is empty and the search goes, and focus moves to Add rather than
  * dropping to the page body.
  */
-export const ClearedSearchFocusesCreate: Story = {
-  name: 'Cleared search focuses Create',
-  parameters: LastDeleteFocusesCreate.parameters,
+export const ClearedSearchFocusesAdd: Story = {
+  name: 'Cleared search focuses Add',
+  parameters: LastDeleteFocusesAdd.parameters,
   beforeEach: () => {
     mealsRequest.mockClear()
   },
@@ -259,7 +261,7 @@ export const ClearedSearchFocusesCreate: Story = {
 
     await userEvent.clear(search)
     await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
-    await waitFor(() => expect(document.activeElement).toBe(emptyStateCreate(canvasElement)))
+    await waitFor(() => expect(document.activeElement).toBe(emptyStateAdd(canvasElement)))
   },
 }
 
@@ -273,10 +275,10 @@ async function deleteOnlyRecipe(canvasElement: HTMLElement) {
   await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))
 }
 
-/** The empty state's primary Create, queried fresh: it mounts with the empty library. */
-function emptyStateCreate(canvasElement: HTMLElement) {
+/** The empty state's primary Add, queried fresh: it mounts with the empty library. */
+function emptyStateAdd(canvasElement: HTMLElement) {
   return within(canvasElement)
-    .getAllByRole('link', { name: 'Create recipe', hidden: true })
+    .getAllByRole('link', { name: 'Add recipe', hidden: true })
     .find((link) => link.dataset.variant === 'default')
 }
 
@@ -287,7 +289,7 @@ export const ErrorState: Story = {
     docs: {
       description: {
         story:
-          'Endpoint returns a 500 — `useInfiniteQuery` surfaces no data. The search stays and the empty state offers no Create: a failed load is not an empty library (HON-1128).',
+          'Endpoint returns a 500 — `useInfiniteQuery` surfaces no data. The search stays and the empty state offers no Add: a failed load is not an empty library (HON-1128).',
       },
     },
   },
@@ -295,7 +297,7 @@ export const ErrorState: Story = {
     const canvas = within(canvasElement)
     await waitFor(() => expect(canvas.queryByText('Loading…')).toBeNull())
     await expect(canvas.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible()
-    await expect(canvas.getAllByRole('link', { name: 'Create recipe' })).toHaveLength(1)
+    await expect(canvas.getAllByRole('link', { name: 'Add recipe' })).toHaveLength(1)
   },
 }
 

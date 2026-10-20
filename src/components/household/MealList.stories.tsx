@@ -32,14 +32,14 @@ type Story = StoryObj<typeof meta>
 
 /**
  * Empty state: one muted line and the page's one primary action under it.
- * `/recipes` passes a "Create recipe" link as `emptyAction` (HON-1128).
+ * `/recipes` passes an "Add recipe" link as `emptyAction` (HON-1128, HON-1271).
  */
 export const Empty: Story = {
   args: {
     meals: [],
     emptyAction: (
       <Button asChild>
-        <a href="/recipes/create">Create recipe</a>
+        <a href="/recipes/import">Add recipe</a>
       </Button>
     ),
   },
@@ -58,9 +58,9 @@ export const Empty: Story = {
         'No recipes yet. Add a family favourite, import one from a link, or imagine one.',
       ),
     ).toBeVisible()
-    await expect(canvas.getByRole('link', { name: 'Create recipe' })).toHaveAttribute(
+    await expect(canvas.getByRole('link', { name: 'Add recipe' })).toHaveAttribute(
       'href',
-      '/recipes/create',
+      '/recipes/import',
     )
   },
 }

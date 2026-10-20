@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Download, Plus, Sparkles } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -148,10 +148,11 @@ export function RecipesPageClient() {
 
       {/* Search and the actions share a row from `sm`; the search takes the
           room the actions leave, up to `max-w-md`. On a phone they stack and
-          the search runs the width (HON-812). Import is the one primary: most
-          first recipes come from a link. On a phone it has its own row, with
-          Create and Imagine two-up under it, so the three never sit as equal
-          buttons in one row (docs/DESIGN.md → Reject list, HON-1128). */}
+          the search runs the width (HON-812). Two actions, two-up on a phone:
+          Add recipe for a recipe the household has (a link, pasted text, or a
+          blank form from the add page) and Imagine for ideas (HON-1271). Add
+          is the one primary; on an empty library it steps down to outline,
+          so the empty state's Add recipe is the one primary on the screen. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {isLibraryEmpty ? null : (
           <div className="sm:max-w-md sm:flex-1">
@@ -166,16 +167,10 @@ export function RecipesPageClient() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-          <Button asChild className="col-span-2">
+          <Button variant={isLibraryEmpty ? 'outline' : 'default'} asChild>
             <Link href="/recipes/import">
-              <Download />
-              {tLibrary('importButton')}
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/recipes/create">
               <Plus />
-              {tLibrary('createButton')}
+              {tLibrary('addButton')}
             </Link>
           </Button>
           <Button variant="outline" asChild>
@@ -207,8 +202,8 @@ export function RecipesPageClient() {
                 // Page-level: the column's width on a phone, the label's from
                 // `md` (docs/DESIGN.md → Buttons are as wide as their label).
                 <Button asChild className="w-full md:w-auto">
-                  <Link ref={setEmptyFocusTarget} href="/recipes/create">
-                    {tLibrary('createButton')}
+                  <Link ref={setEmptyFocusTarget} href="/recipes/import">
+                    {tLibrary('addButton')}
                   </Link>
                 </Button>
               ) : undefined
