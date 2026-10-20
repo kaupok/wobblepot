@@ -50,7 +50,7 @@ Extract and note:
 - `relatedTo` / `parentId` (for overlap check in step 3)
 - Any labels or priority
 
-**If issue is blocked:** Warn the user and list the blocking issues. Ask if they want to proceed anyway or work on the blockers first.
+**If issue is blocked:** Warn the user and list the blocking issues. Ask if they want to proceed anyway or work on the blockers first. A blocker is open unless Done or Canceled (`get_issue` each). Under `--auto`, plan without asking; step 11 skips the claim.
 
 ### 3. Check relatedTo + epic siblings for recently-merged overlap
 
@@ -80,7 +80,7 @@ For any sibling where `status` ∈ { `Done`, `In Review`, `In Progress` }:
   Inspect the `files` array. If any overlap with files you expect to modify (schema, shared lib, route files), flag it in the plan's **Design Decisions** and adjust the approach (extend rather than duplicate).
 - If status is `In Progress` / `In Review`, surface it as a coordination risk in the plan's context.
 
-Report the finding to the user inline before continuing so they can redirect if the overlap changes scope:
+Report the finding to the user inline before continuing:
 
 ```
 [plan-issue] Sibling check: HON-YY (Done, merged PR #<N> <date>) touches <files> — plan will extend, not duplicate.
@@ -114,9 +114,11 @@ Read the files the plan depends on and the existing patterns it should follow, n
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff <sha>~1..<sha> -- <overlapping-paths>`, where `<sha>` is the sibling PR's merge commit (`gh pr view <PR> --json mergeCommit --jq .mergeCommit.oid`), so you see which lines the sibling added (`history.md` → Read the sibling's diff).
 
+**For each file the issue names**, run `git log --oneline --since="14 days ago" origin/main -- <path>`. Flag a commit from a PR that is not a step 3 sibling: compare its diff with the issue's stated placement or behaviour, and put any mismatch in the plan's Context (`history.md` → Unlinked recent changes).
+
 ### 7. Scan for downstream impact
 
-Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled. Both are cheap greps, and both are cheaper here than in review.
+Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled.
 
 **AI changes: read `ai-eval.md` first.** It applies when the plan changes a constant in `src/lib/ai/models.ts`, a request builder the eval imports or the text it sends, `budgets.ts` or a committed bench case, or when the issue is about something an AI call produced. Each needs a named `pnpm ai-eval` run or a new bench case in the plan.
 
@@ -317,6 +319,8 @@ mcp__linear-server__save_comment({
 Keep every table in the plan at top level, as the step 8 template does: plan text gets copied into issue descriptions, where a table inside a list loses data (`history.md` → Tables at top level).
 
 ### 11. Move issue to In Progress and claim it
+
+**If step 2 found an open blocker**, skip the claim unless the user chose "proceed anyway", and always under `--auto`. Print `HON-XX is blocked by HON-YY; plan posted, issue not claimed.` and go to step 12 (`history.md` → No claim on a blocked issue).
 
 Update the issue status so other auto-implement sessions won't pick it up. A claimed issue must always have an assignee (matches `/auto-implement` step 2.2 — 2.1 is the pre-claim gate), but never take an issue away from a teammate.
 
