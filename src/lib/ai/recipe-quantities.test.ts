@@ -6,6 +6,7 @@ import {
   DEFAULT_GRAMS_PER_PIECE,
   CUP_CONVERSIONS,
 } from './recipe-quantities'
+import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
 
 describe('convertQuantity', () => {
   const makeIngredient = (
@@ -33,6 +34,12 @@ describe('convertQuantity', () => {
 
   it('converts pieces to grams using gramsPerPiece', () => {
     expect(convertQuantity(3, 'piece', makeIngredient('g', 60))).toBe(180)
+  })
+
+  it('converts 8 wonton wrappers to 64 g with the seed row', () => {
+    const wonton = comprehensiveIngredients.find((ing) => ing.name === 'wonton wrappers')!
+    const row = { ...wonton, gramsPerPiece: wonton.gramsPerPiece ?? null }
+    expect(convertQuantity(8, 'piece', row)).toBe(64)
   })
 
   it('converts pieces to grams using DEFAULT_GRAMS_PER_PIECE when not specified', () => {
