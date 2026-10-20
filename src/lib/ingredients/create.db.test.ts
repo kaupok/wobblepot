@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { createHouseholdIngredient, type NewIngredientInput } from '@/lib/ingredients/create'
 import { searchIngredients } from '@/lib/ingredients/search'
 import { createHouseholdMeal } from '@/lib/household-meals'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1263).
 // The migrations seed part of the global pool, so a global row a test names is
@@ -119,12 +120,49 @@ describe('createHouseholdIngredient', () => {
     expect(await householdRows(alder)).toEqual([{ id: first.id, name: 'lovage' }])
   })
 
-  it('keeps the name an Estonian household typed', async () => {
-    const { alder } = await world()
+  it('keeps the name an Estonian household typed, and its shopping list shows it', async () => {
+    // Only `Date` is faked, so "today" is fixed and PGlite's timers still run.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-15T09:00:00Z'))
+    try {
+      const household = await prisma.household.create({
+        data: {
+          name: 'Kask',
+          locale: 'et',
+          timezone: 'Europe/Tallinn',
+          mealPlans: { create: { id: 'plan-kask' } },
+        },
+      })
+      const created = await createHouseholdIngredient(household.id, 'et', {
+        ...lovage,
+        name: 'Leeskputk',
+      })
+      const soup = await createHouseholdMeal(household.id, {
+        name: 'Leeskputkesupp',
+        kidFriendly: true,
+        suitableFor: ['dinner'],
+        servings: 1,
+        components: [{ ingredientId: created.id, totalQuantity: 20 }],
+      })
+      await prisma.mealPlanEntry.create({
+        data: {
+          planId: 'plan-kask',
+          date: new Date('2026-10-16T00:00:00Z'),
+          mealType: 'dinner',
+          mealId: soup.id,
+          servingOverride: 2,
+        },
+      })
 
-    const created = await createHouseholdIngredient(alder, 'et', { ...lovage, name: 'Leeskputk' })
+      const list = await loadShoppingList(household, { days: 7 })
 
-    expect(created.name).toBe('leeskputk')
+      expect(created.name).toBe('leeskputk')
+      expect(list.groups.flatMap((group) => group.items)).toEqual([
+        expect.objectContaining({ ingredientId: created.id, name: 'leeskputk', quantity: 40 }),
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("is found by its own household's search and not by another's", async () => {
