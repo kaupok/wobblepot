@@ -120,21 +120,30 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // Normalized name with its last word made plural, so a singular recipe word
-    // finds a plural catalogue or household row: "bay leaf" → "bay leaves" (HON-1267)
-    const normalizedWords = normalizedName.split(' ')
-    const lastNormalizedWord = normalizedWords.pop()
-    if (lastNormalizedWord) {
-      candidateNames.add([...normalizedWords, pluralize(lastNormalizedWord)].join(' '))
-    }
-
-    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized,
-    // plural). A candidate wins only on a higher score than the ones before it.
+    // Phase 1: Search semantic candidates (direct, alias, normalized, alias-normalized)
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     for (const candidate of candidateNames) {
       const candidateMatches = await fuzzySearchIngredient(candidate, searchOptions)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
+      }
+    }
+
+    // Plural candidate: the normalized name with its last word made plural, so a
+    // singular recipe word finds a plural catalogue or household row: "bay leaf" →
+    // "bay leaves" (HON-1267). Like the candidates above, it wins only on a higher
+    // score. It runs only when Phase 1 found a row: a plural scores 0.5 or more
+    // against its singular ("pea" → "peas"), above SIMILARITY_THRESHOLD, so the
+    // singular search already returns a plural row and an empty result means none.
+    const normalizedWords = normalizedName.split(' ')
+    const lastNormalizedWord = normalizedWords.pop()
+    const pluralName = lastNormalizedWord
+      ? [...normalizedWords, pluralize(lastNormalizedWord)].join(' ')
+      : ''
+    if (matches[0] && pluralName && !candidateNames.has(pluralName)) {
+      const pluralMatches = await fuzzySearchIngredient(pluralName, searchOptions)
+      if (pluralMatches[0] && pluralMatches[0].similarity > matches[0].similarity) {
+        matches = pluralMatches
       }
     }
 

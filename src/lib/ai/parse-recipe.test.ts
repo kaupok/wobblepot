@@ -678,7 +678,7 @@ describe('parseAndMatchRecipe', () => {
 
     mockGenerateObject.mockResolvedValue({ object: mockExtraction } as never)
     // "chicken breast" → candidates: "chicken breast", "chicken breasts" (plural)
-    // "zarkleberry" → candidates: "zarkleberry", "zarkleberries" (plural); one word, no fallback
+    // "zarkleberry" → candidates: "zarkleberry" (nothing found, so no plural; one word, no fallback)
     mockQueryRaw
       .mockResolvedValueOnce([
         {
@@ -694,7 +694,6 @@ describe('parseAndMatchRecipe', () => {
       ])
       .mockResolvedValueOnce([]) // "chicken breasts" (plural candidate)
       .mockResolvedValueOnce([]) // zarkleberry not found
-      .mockResolvedValueOnce([]) // "zarkleberries" (plural candidate)
 
     const result = await parseAndMatchRecipe('Mystery dish: 300g chicken breast, 50g zarkleberry')
 

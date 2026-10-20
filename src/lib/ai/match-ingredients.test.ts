@@ -233,7 +233,6 @@ describe('matchIngredients', () => {
     // contain the word "sausage" — fallback should be rejected.
     mockQueryRaw
       .mockResolvedValueOnce([]) // "calabresa sausage" semantic search → no results
-      .mockResolvedValueOnce([]) // "calabresa sausages" plural search → no results
       .mockResolvedValueOnce([makeDbMatch({ name: 'sage', similarity: 0.65 })]) // "sausage" fallback → "sage"
 
     const results = await matchIngredients(
