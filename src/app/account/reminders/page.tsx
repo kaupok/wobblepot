@@ -18,6 +18,7 @@ export default async function AccountRemindersPage() {
     <WeeklyReminderForm
       weekday={toReminderWeekday(membership.reminderWeekday)}
       confirmed={membership.reminderConfirmedAt !== null}
+      confirmLinkSent={membership.reminderConfirmToken !== null}
     />
   )
 }

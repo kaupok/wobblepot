@@ -60,7 +60,7 @@ meals planned.
   days of the switch-on. Opening the page changes nothing, because the address is not proved yet and
   a mail scanner at a stranger's inbox opens every link. Switching off keeps
   the confirmation; switching off and on again before confirming resends the link, at most 3 times an
-  hour and 5 a day per account (`reminder-confirm` in `src/lib/rate-limit.ts`). An account email change clears the confirmation, because it proved the old address (HON-1137). A reminder that is on gets a new token and consent time, and the confirm link goes to the new address; a confirm link in the old inbox stops working.
+  hour and 5 a day per account (`reminder-confirm` in `src/lib/rate-limit.ts`). An account email change clears the confirmation and its token, because it proved the old address (HON-1137), and sends no new link: the link's 7 days run from `reminderConsentAt`, the opt-in record, which the change must not rewrite. The Reminders tab says the reminder is paused until the member switches it off and on, which sends a link to the new address.
 - **Stopping:** the footer links to the public page `/reminders/stop?token=…`, whose button POSTs to
   `/api/reminders/stop`. The email also carries RFC 8058 one-click headers,
   `List-Unsubscribe: <…/api/reminders/stop?token=…>` and

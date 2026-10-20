@@ -108,37 +108,17 @@ export async function saveReminder(
  * changed (HON-1137). `reminderConfirmedAt` proves the old address
  * (HON-1113), so the cron stops sending until the new one is confirmed.
  *
- * The confirm token is replaced, so a confirm link still in the old inbox
- * cannot confirm the new address. A reminder that is on gets a new token and a
- * new consent time, because the link works for {@link REMINDER_CONFIRM_TTL_DAYS}
- * from that time; the caller emails the token to the new address, so the
- * Reminders tab's "We emailed you a link" holds. A reminder that is off keeps
- * no token, and the next switch-on makes one.
- *
- * @returns the token to email, or null when the reminder is off or the user
- *   has no member row.
+ * The confirm token is dropped too, so a confirm link still in the old inbox
+ * cannot confirm the new address. No new link is sent: the link's 7 days run
+ * from `reminderConsentAt`, the opt-in record, which an email change must not
+ * rewrite. The Reminders tab sees the missing token and asks the member to
+ * switch the reminder off and on, which sends a link to the new address.
  */
-export async function clearReminderConfirmation(
-  userId: string,
-  now: Date = new Date(),
-): Promise<{ confirmToken: string | null }> {
-  const member = await prisma.householdMember.findUnique({
+export async function clearReminderConfirmation(userId: string): Promise<void> {
+  await prisma.householdMember.updateMany({
     where: { userId },
-    select: { id: true, reminderWeekday: true },
+    data: { reminderConfirmedAt: null, reminderConfirmToken: null },
   })
-  if (!member) return { confirmToken: null }
-
-  const on = member.reminderWeekday !== null
-  const confirmToken = on ? nanoid(32) : null
-  await prisma.householdMember.update({
-    where: { id: member.id },
-    data: {
-      reminderConfirmedAt: null,
-      reminderConfirmToken: confirmToken,
-      ...(on ? { reminderConsentAt: now } : {}),
-    },
-  })
-  return { confirmToken }
 }
 
 export type ReminderConfirmState = 'pending' | 'confirmed' | 'expired'

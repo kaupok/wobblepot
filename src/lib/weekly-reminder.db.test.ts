@@ -121,42 +121,22 @@ describe('saveReminder', () => {
 })
 
 describe('clearReminderConfirmation', () => {
-  const now = new Date('2026-10-21T08:00:00Z')
-
-  it('clears a reminder that is on, with a new confirm token and consent time', async () => {
+  // The consent time is the opt-in record, so an email change keeps it (PR #1331 review).
+  it('clears the confirmation and the confirm token, and keeps the schedule and consent', async () => {
+    const consent = new Date('2026-10-01T08:00:00Z')
     await member({
       reminderWeekday: 5,
-      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderConsentAt: consent,
       reminderToken: 'stop-token',
-      reminderConfirmToken: 'old-confirm-token',
+      reminderConfirmToken: 'confirm-token',
       reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
     })
 
-    const { confirmToken } = await clearReminderConfirmation('u-ada', now)
+    await clearReminderConfirmation('u-ada')
 
-    expect(confirmToken).toMatch(/^[\w-]{32}$/)
-    expect(confirmToken).not.toBe('old-confirm-token')
     expect(await schedule()).toEqual({
       reminderWeekday: 5,
-      reminderConsentAt: now,
-      reminderToken: 'stop-token',
-      reminderConfirmToken: confirmToken,
-      reminderConfirmedAt: null,
-      reminderLastSentAt: null,
-    })
-  })
-
-  it('clears a reminder that is off and leaves it without a confirm token', async () => {
-    await member({
-      reminderToken: 'stop-token',
-      reminderConfirmToken: 'old-confirm-token',
-      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
-    })
-
-    expect(await clearReminderConfirmation('u-ada', now)).toEqual({ confirmToken: null })
-    expect(await schedule()).toEqual({
-      reminderWeekday: null,
-      reminderConsentAt: null,
+      reminderConsentAt: consent,
       reminderToken: 'stop-token',
       reminderConfirmToken: null,
       reminderConfirmedAt: null,
@@ -164,8 +144,24 @@ describe('clearReminderConfirmation', () => {
     })
   })
 
+  it('lets the next switch-on send a confirm link again', async () => {
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderConfirmToken: 'confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+    await clearReminderConfirmation('u-ada')
+
+    await saveReminder('u-ada', null)
+    const result = await saveReminder('u-ada', 5)
+
+    expect(result?.confirmToken).toMatch(/^[\w-]{32}$/)
+    expect((await schedule()).reminderConfirmToken).toBe(result?.confirmToken)
+  })
+
   it('does nothing for a user without a member row', async () => {
-    expect(await clearReminderConfirmation('u-nobody', now)).toEqual({ confirmToken: null })
+    await expect(clearReminderConfirmation('u-nobody')).resolves.toBeUndefined()
   })
 })
 

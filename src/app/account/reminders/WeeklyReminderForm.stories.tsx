@@ -162,3 +162,22 @@ export const PhoneEstonian: Story = {
     await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
   },
 }
+
+export const PausedAfterEmailChange: Story = {
+  args: { weekday: 7, confirmed: false, confirmLinkSent: false },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'On, but the account email changed, which cleared the confirmation and sent no new link (HON-1137): the line asks the member to switch the reminder off and on to get a link at the new address.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByText(/Your email address changed, so the reminder is paused/),
+    ).toBeInTheDocument()
+    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
+  },
+}

@@ -1442,7 +1442,8 @@
       "reminderWeekdayLabel": "Päev",
       "reminderHelper": "Üks e-kiri sel päeval, ainult siis, kui järgmiseks nädalaks pole veel ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletused peatada.",
       "reminderAwaitingConfirm": "Saatsime sulle e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud ja kinnitanud.",
-      "reminderConfirmNotSent": "Linki ei õnnestunud praegu saata. Selle saamiseks lülita meeldetuletus hiljem välja ja uuesti sisse."
+      "reminderConfirmNotSent": "Linki ei õnnestunud praegu saata. Selle saamiseks lülita meeldetuletus hiljem välja ja uuesti sisse.",
+      "reminderConfirmAfterEmailChange": "Sinu e-posti aadress muutus, nii et meeldetuletus on peatatud. Selle jätkamiseks lülita see välja ja uuesti sisse ning ava link, mille saadame."
     },
     "members": {
       "heading": "Liikmed",

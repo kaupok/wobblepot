@@ -41,6 +41,12 @@ interface WeeklyReminderFormProps {
    * cron sends nothing, so the section says an email is waiting.
    */
   confirmed: boolean
+  /**
+   * Whether a confirm link is out for the address. False only after an
+   * account email change (HON-1137), which drops the link without sending a
+   * new one: the member switches the reminder off and on to get one.
+   */
+  confirmLinkSent?: boolean
 }
 
 /**
@@ -61,7 +67,11 @@ function weekdayName(weekday: ReminderWeekday, locale: Locale) {
  * `/api/households/me/members/me/reminder`, which emails a confirm link on
  * the first switch-on (HON-1113).
  */
-export function WeeklyReminderForm({ weekday: savedWeekday, confirmed }: WeeklyReminderFormProps) {
+export function WeeklyReminderForm({
+  weekday: savedWeekday,
+  confirmed,
+  confirmLinkSent = true,
+}: WeeklyReminderFormProps) {
   const tSettings = useTranslations('household.settings')
   const locale = useLocale() as Locale
 
@@ -69,6 +79,8 @@ export function WeeklyReminderForm({ weekday: savedWeekday, confirmed }: WeeklyR
   const [weekday, setWeekday] = useState<ReminderWeekday | null>(savedWeekday)
   // Set by the last save: the switch-on's confirm email was rate limited or failed.
   const [confirmNotSent, setConfirmNotSent] = useState(false)
+  // A switch-on that reports an outcome tried to send a link, so the email-change state ends.
+  const [linkSent, setLinkSent] = useState(confirmLinkSent)
   // The confirm email goes out on save, not on tick, so this follows the saved value.
   const awaitingConfirm = saved.weekday !== null && !confirmed
   const describedBy = ['reminder-helper', awaitingConfirm && 'reminder-awaiting-confirm']
@@ -81,7 +93,10 @@ export function WeeklyReminderForm({ weekday: savedWeekday, confirmed }: WeeklyR
     setSaved(values)
     const outcome = confirmEmailOutcome(response)
     if (values.weekday === null) setConfirmNotSent(false)
-    else if (outcome !== undefined) setConfirmNotSent(outcome === 'not_sent')
+    else if (outcome !== undefined) {
+      setConfirmNotSent(outcome === 'not_sent')
+      setLinkSent(true)
+    }
   }
 
   return (
@@ -145,7 +160,9 @@ export function WeeklyReminderForm({ weekday: savedWeekday, confirmed }: WeeklyR
             <Body id="reminder-awaiting-confirm" variant="muted">
               {confirmNotSent
                 ? tSettings('reminderConfirmNotSent')
-                : tSettings('reminderAwaitingConfirm')}
+                : linkSent
+                  ? tSettings('reminderAwaitingConfirm')
+                  : tSettings('reminderConfirmAfterEmailChange')}
             </Body>
           )}
         </>

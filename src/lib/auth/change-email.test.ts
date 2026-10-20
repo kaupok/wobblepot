@@ -3,13 +3,12 @@ import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { createEmailVerificationToken } from 'better-auth/api'
 import { afterAccountEmailChange, readChangeEmailToken } from './change-email'
-import { clearReminderConfirmation, sendReminderConfirmEmail } from '@/lib/weekly-reminder'
+import { clearReminderConfirmation } from '@/lib/weekly-reminder'
 import { resend, isEmailConfigured } from '@/lib/resend'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 
 vi.mock('@/lib/weekly-reminder', () => ({
-  clearReminderConfirmation: vi.fn(async () => ({ confirmToken: null })),
-  sendReminderConfirmEmail: vi.fn(),
+  clearReminderConfirmation: vi.fn(),
 }))
 
 vi.mock('@/lib/resend', () => ({
@@ -44,7 +43,6 @@ function sentMails() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(clearReminderConfirmation).mockResolvedValue({ confirmToken: null })
   vi.mocked(isEmailConfigured).mockReturnValue(true)
   vi.mocked(resolveEmailLocale).mockResolvedValue('en')
 })
@@ -87,21 +85,6 @@ describe('afterAccountEmailChange', () => {
     expect(mails[0]!.subject).toBe('Your Wobblepot email address changed')
     expect(mails[0]!.text).toContain('new@example.com')
     expect(mails[0]!.text).toContain('support@wobblepot.com')
-    expect(sendReminderConfirmEmail).not.toHaveBeenCalled()
-  })
-
-  it('sends a new reminder confirm link to the new address when the reminder is on', async () => {
-    vi.mocked(clearReminderConfirmation).mockResolvedValue({ confirmToken: 'new-confirm-token' })
-    const token = await changeToken('old@example.com', 'new@example.com')
-
-    await afterAccountEmailChange(user, { path: '/verify-email', query: { token } })
-
-    expect(sendReminderConfirmEmail).toHaveBeenCalledWith({
-      to: 'new@example.com',
-      userId: 'user-1',
-      token: 'new-confirm-token',
-    })
-    expect(sentMails().map((mail) => mail.to)).toEqual(['old@example.com'])
   })
 
   it('does nothing for a name update', async () => {

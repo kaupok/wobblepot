@@ -2,7 +2,7 @@ import 'server-only'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { generateEmailChangedEmail } from '@/lib/emails/email-changed'
-import { clearReminderConfirmation, sendReminderConfirmEmail } from '@/lib/weekly-reminder'
+import { clearReminderConfirmation } from '@/lib/weekly-reminder'
 import { CHANGE_EMAIL_REQUEST_TYPE } from '@/lib/email-verification'
 
 /**
@@ -58,9 +58,8 @@ interface HookContext {
 
 /**
  * `databaseHooks.user.update.after`. When the update is a confirmed email
- * change, forget the weekly-reminder confirmation (it proves the old address),
- * send a new confirm link to the new address when the reminder is on, and
- * tell the old address.
+ * change, forget the weekly-reminder confirmation (it proves the old address)
+ * and tell the old address.
  *
  * The hook also runs for a name change and for a plain verification, so it
  * acts only on `/verify-email` with a change token whose new address is the
@@ -76,14 +75,10 @@ export async function afterAccountEmailChange(
   if (!change || change.updateTo.toLowerCase() !== user.email.toLowerCase()) return
 
   try {
-    const { confirmToken } = await clearReminderConfirmation(user.id)
-    // A reminder that is on asks the new address to confirm (HON-1113).
-    if (confirmToken) {
-      await sendReminderConfirmEmail({ to: user.email, userId: user.id, token: confirmToken })
-    }
+    await clearReminderConfirmation(user.id)
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to reset the reminder confirmation after an email change:', error)
+    console.error('Failed to clear the reminder confirmation after an email change:', error)
   }
 
   await sendEmailChangedNotice({ userId: user.id, oldEmail: change.email, newEmail: user.email })
