@@ -23,6 +23,7 @@ const hookState = vi.hoisted(() => ({
   isRateLimited: false,
   rateLimitResetAt: null as Date | null,
   isSearchMode: false,
+  isMyRecipesBrowseMode: false,
 }))
 
 vi.mock('./meal-selector/use-meal-alternatives', () => ({
@@ -36,7 +37,7 @@ vi.mock('./meal-selector/use-meal-alternatives', () => ({
     total: 0,
     hasLoadedList: true,
     isSearchMode: hookState.isSearchMode,
-    isMyRecipesBrowseMode: false,
+    isMyRecipesBrowseMode: hookState.isMyRecipesBrowseMode,
     isRateLimited: hookState.isRateLimited,
     rateLimitResetAt: hookState.rateLimitResetAt,
   }),
@@ -373,6 +374,30 @@ describe('MealSelectorModal empty search', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'imagine one' })).not.toBeInTheDocument()
+  })
+})
+
+// The library's add button and this link share one name, "Add recipe", and
+// one target, the add page (HON-1271).
+describe('MealSelectorModal empty My recipes', () => {
+  beforeEach(() => {
+    hookState.isMyRecipesBrowseMode = true
+  })
+
+  afterEach(() => {
+    hookState.isMyRecipesBrowseMode = false
+  })
+
+  it.each([
+    ['en', 'No custom recipes yet. Add a recipe first.', 'Add a recipe'],
+    ['et', 'Sul pole veel oma retsepte. Lisa retsept.', 'Lisa retsept'],
+  ] as const)('reads %s: "%s", linking to the add page', (locale, text, link) => {
+    renderModal({}, { locale })
+
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === text),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: link })).toHaveAttribute('href', '/recipes/import')
   })
 })
 

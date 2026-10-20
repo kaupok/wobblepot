@@ -91,12 +91,21 @@ export default defineConfig({
       // and CI runs it. Raise each by at least one point a month; lower one only
       // in a PR that says why (`pnpm coverage:ratchet`, docs/DEPLOYMENT.md →
       // CI Pipeline).
-      thresholds: {
-        lines: 92,
-        functions: 89,
-        branches: 87,
-        statements: 92,
-      },
+      //
+      // A CI shard covers about half the files, so it would fail every
+      // threshold. It sets `COVERAGE_SHARD`, and the `Unit tests` merge job
+      // applies the thresholds to the merged report (HON-1203). The CLI cannot
+      // turn them off: Vitest 5 keeps only the first `--coverage.thresholds.*=0`.
+      ...(process.env.COVERAGE_SHARD
+        ? {}
+        : {
+            thresholds: {
+              lines: 92,
+              functions: 89,
+              branches: 87,
+              statements: 92,
+            },
+          }),
     },
     projects: [
       // `.tsx` files render components, so they run in jsdom. `.ts` files run

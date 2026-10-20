@@ -39,6 +39,7 @@ case "$*" in
     touch "$STUB_DIR/server-up"
     exec sleep "\${STUB_SERVER_SECS:-1}" ;;
   "exec playwright "*) record_env ;;
+  "db:seed") echo "$DATABASE_URL" > "$STUB_DIR/seed.db" ;;
 esac
 `
 
@@ -195,11 +196,33 @@ describe('e2e-local.sh', () => {
       expect(calls()).not.toContain('next dev')
     })
 
-    it('rejects --seed, which would write to the .env database', () => {
-      const { status, stderr } = run(['serve', '--db', 'env', '--seed'])
+    // A bare `pnpm db:seed` keeps a shell-exported DATABASE_URL (dotenv does
+    // not override), so it seeded another database than this server reads
+    // (HON-1272). --seed runs it with .env's value instead.
+    it('seeds the .env database with --seed, even when the shell exports another', () => {
+      const { status, stderr } = run(['serve', '--db', 'env', '--seed'], {
+        DATABASE_URL: 'postgres://shell-db',
+      })
+      const log = calls()
+
+      expect(status).toBe(0)
+      expect(stderr).toContain('Seeding the .env database')
+      expect(fs.readFileSync(path.join(stubDir, 'seed.db'), 'utf8').trim()).toBe(
+        'postgres://env-db',
+      )
+      // Seeded only after the schema check passed, and before the server starts.
+      expect(log.indexOf('pnpm prisma migrate status')).toBeGreaterThanOrEqual(0)
+      expect(log.indexOf('pnpm db:seed')).toBeGreaterThan(log.indexOf('pnpm prisma migrate status'))
+      expect(log.indexOf('pnpm exec next dev')).toBeGreaterThan(log.indexOf('pnpm db:seed'))
+    })
+
+    it('does not seed with --seed when the .env database is behind', () => {
+      const { status } = run(['serve', '--db', 'env', '--seed'], {
+        STUB_MIGRATE_STATUS: 'Following migration have not yet been applied: 20260929_x',
+        STUB_MIGRATE_RC: '1',
+      })
 
       expect(status).not.toBe(0)
-      expect(stderr).toContain('--seed only applies to branch mode')
       expect(calls()).not.toContain('db:seed')
     })
 
@@ -229,10 +252,14 @@ describe('e2e-local.sh', () => {
       expect(env.has('E2E_LOCAL_PORT')).toBe(false)
     })
 
-    it('seeds with --seed', () => {
-      run(['serve', '--seed'])
+    it('seeds the branch with --seed', () => {
+      const { stderr } = run(['serve', '--seed'])
 
       expect(calls()).toContain('pnpm db:seed')
+      expect(stderr).toContain('Seeding the ephemeral branch')
+      expect(fs.readFileSync(path.join(stubDir, 'seed.db'), 'utf8').trim()).toBe(
+        'postgres://branch-pooled',
+      )
     })
 
     it('names --db env when the branch cap is full', () => {

@@ -223,7 +223,7 @@ Storybook and the E2E grep are static, so a layout break, a wrong empty state or
    [ -n "$mine" ] && [ "$mine" != "$main" ] && echo "own database: --db env" || echo "shared database: branch mode"
    ```
 
-   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The port is a random free one, because up to three workers run at once. The pid file holds the script's own pid, so step 5 stops this server and no other:
+   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. When the screen needs seed data, also append `--seed`, in either mode. Do not run a bare `pnpm db:seed` for `--db env`: it keeps a `DATABASE_URL` the shell exports, so it can seed another database than the server reads (HON-1272). The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The port is a random free one, because up to three workers run at once. The pid file holds the script's own pid, so step 5 stops this server and no other:
 
    ```bash
    rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$(for p in $(seq 3201 3299 | sort -R); do curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || { echo "$p"; break; }; done) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
