@@ -90,6 +90,19 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           ...mealTranslationsInclude(locale),
         },
       },
+      // A fridge meal's items (HON-1277), with what each shows by.
+      items: {
+        orderBy: { position: 'asc' },
+        include: {
+          ingredient: { select: { name: true, ...ingredientTranslationsInclude(locale) } },
+          sourceEntry: {
+            select: {
+              date: true,
+              meal: { select: { name: true, ...mealTranslationsInclude(locale) } },
+            },
+          },
+        },
+      },
     },
     orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
   })
@@ -118,6 +131,21 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       date: toDateString(entry.date),
       mealType: entry.mealType,
       status: entry.status,
+      kind: entry.kind,
+      items: entry.items.map((item) => ({
+        id: item.id,
+        ingredientId: item.ingredientId,
+        sourceEntryId: item.sourceEntryId,
+        label: item.label,
+        // The ingredient's or the source meal's name. Null for free text, and
+        // for a source entry that has lost its meal since.
+        name: item.ingredient
+          ? translateIngredient(item.ingredient, locale).name
+          : item.sourceEntry?.meal
+            ? translateMeal(item.sourceEntry.meal, locale).name
+            : null,
+        sourceDate: item.sourceEntry ? toDateString(item.sourceEntry.date) : null,
+      })),
       rating: entry.rating,
       // Tips priced at other servings are dropped here as the tips route drops
       // them, so the cook view asks for fresh ones instead of showing these.

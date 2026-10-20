@@ -73,6 +73,7 @@ describe('MealCard cleared card add menu', () => {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
   })
 

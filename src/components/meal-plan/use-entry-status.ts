@@ -76,9 +76,12 @@ export function useEntryStatus({
     mutationFn: async ({
       newStatus,
       deductPantry = false,
+      usedUpIngredientIds,
     }: {
       newStatus: MealStatus
       deductPantry?: boolean
+      /** A fridge meal's pantry items the household used up (HON-1277). */
+      usedUpIngredientIds?: string[]
       source?: Source
     }) => {
       const data = await apiFetch<{ pantryDeducted?: boolean }>(
@@ -86,7 +89,11 @@ export function useEntryStatus({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus, deductPantry }),
+          body: JSON.stringify({
+            status: newStatus,
+            deductPantry,
+            ...(usedUpIngredientIds?.length ? { usedUpIngredientIds } : {}),
+          }),
         },
       )
       return { newStatus, deductPantry, pantryDeducted: data.pantryDeducted === true }
@@ -179,9 +186,25 @@ export function useEntryStatus({
     )
   }
 
+  // A fridge meal's completion, from its own dialog: no recipe to preview, so
+  // the household names what it used up (HON-1277).
+  function completeFridgeMeal(usedUpIngredientIds: string[], onDone?: () => void) {
+    statusMutation.mutate(
+      { newStatus: 'completed', usedUpIngredientIds },
+      {
+        onSuccess: ({ pantryDeducted: charged }) => {
+          if (charged) setChargedHere(true)
+          onDone?.()
+          onCompleted?.()
+        },
+      },
+    )
+  }
+
   return {
     status,
     isPantryCharged,
+    completeFridgeMeal,
     isUpdating: statusMutation.isPending,
     isDeductionModalOpen,
     setIsDeductionModalOpen,

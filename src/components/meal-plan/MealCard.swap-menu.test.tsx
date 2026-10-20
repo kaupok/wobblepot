@@ -119,7 +119,7 @@ function clickUndo(options?: ExternalToast) {
 const patches = () => requests.filter((r) => r.method === 'PATCH')
 
 describe('MealCard Swap group', () => {
-  it('lists the three routes under a Swap label, with no single Swap item', async () => {
+  it('lists the four routes under a Swap label, with no single Swap item', async () => {
     renderCard()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
@@ -129,6 +129,7 @@ describe('MealCard Swap group', () => {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
     expect(screen.queryByRole('menuitem', { name: 'Swap' })).not.toBeInTheDocument()
   })

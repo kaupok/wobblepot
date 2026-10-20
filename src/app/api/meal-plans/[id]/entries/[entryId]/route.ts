@@ -11,6 +11,12 @@ import {
   updateEntry,
   type EntryUpdateRefusal,
 } from '@/lib/meal-plans/entries'
+import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import {
+  FridgeItemNotFoundError,
+  setFridgeItems,
+  SetFridgeItemsError,
+} from '@/lib/meal-plans/fridge-meal'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -25,11 +31,28 @@ const updateEntrySchema = z
     noteY: notePositionAxis,
     servingOverride: z.number().int().min(1).max(20).nullable().optional(),
     rating: z.enum(['up', 'down']).nullable().optional(),
+    // A fridge meal (HON-1277): `fridgeItems` makes the entry one with these
+    // items, and `usedUpIngredientIds` names the pantry items its completion
+    // runs out.
+    fridgeItems: fridgeItemsSchema.optional(),
+    usedUpIngredientIds: z.array(z.string().min(1)).max(30).optional(),
   })
   // The note's place is one point: both axes or neither, both set or both
   // null (HON-975). A place beside a cleared note contradicts it, because
   // clearing the note clears the place.
   .superRefine((data, ctx) => {
+    // Writing the items is its own request, so it cannot half-apply beside
+    // a status or a swap.
+    if (data.fridgeItems && Object.keys(data).length > 1) {
+      ctx.addIssue({ code: 'custom', path: ['fridgeItems'], message: 'fridgeItems goes alone' })
+    }
+    if (data.usedUpIngredientIds && (data.status !== 'completed' || data.mealId)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['usedUpIngredientIds'],
+        message: 'usedUpIngredientIds needs status completed and no mealId',
+      })
+    }
     if ('noteX' in data !== 'noteY' in data || (data.noteX === null) !== (data.noteY === null)) {
       ctx.addIssue({
         code: 'custom',
@@ -142,13 +165,25 @@ export async function PATCH(
   const { id: planId, entryId } = await params
 
   try {
+    const { fridgeItems, ...patch } = parsed.data
+    if (fridgeItems) {
+      return NextResponse.json(
+        await setFridgeItems(membership.household.id, planId, entryId, fridgeItems),
+      )
+    }
     // The entry rules (a completed entry keeps its meal and count, the pantry
     // is charged at most once) and the completion transaction live in
     // `updateEntry`.
-    return NextResponse.json(
-      await updateEntry(membership.household.id, planId, entryId, parsed.data),
-    )
+    return NextResponse.json(await updateEntry(membership.household.id, planId, entryId, patch))
   } catch (error) {
+    if (error instanceof SetFridgeItemsError) {
+      return error.reason === 'entryNotFound'
+        ? NextResponse.json({ error: REFUSALS.entryNotFound.error }, { status: 404 })
+        : NextResponse.json({ error: 'Cannot change a completed meal' }, { status: 409 })
+    }
+    if (error instanceof FridgeItemNotFoundError) {
+      return NextResponse.json({ error: 'Fridge meal item not found' }, { status: 404 })
+    }
     // A refusal is a deliberate answer rather than a route failure, so it
     // takes its status and is not reported as an error (HON-633).
     if (error instanceof EntryUpdateError) {

@@ -1,0 +1,63 @@
+import type { FridgeMealItem, PantryItemFull } from '@/components/meal-plan/types'
+import type { RecentMeal } from '@/lib/meal-plans/recent-meals'
+import { createPantryItem } from './fixtures'
+
+// The fridge-meal scenario (HON-1277): yesterday's mash, a frozen vegetable
+// mix, cucumber and paprika on the side, and store meatballs.
+
+const pantry = (ingredientId: string, name: string, quantity: number | null) =>
+  createPantryItem({
+    ingredientId,
+    quantity,
+    ingredient: { id: ingredientId, name, category: 'vegetable', defaultUnit: 'g' },
+  })
+
+export const fridgePantryItems: PantryItemFull[] = [
+  pantry('cucumber', 'Cucumber', 300),
+  pantry('paprika', 'Paprika', 2),
+  pantry('veg-mix', 'Cauliflower and broccoli mix', 400),
+  pantry('butter', 'Butter', null),
+]
+
+/** Tuesday 20 October 2026: the mash's day. */
+export const MASH_DATE = '2026-10-20'
+
+export const fridgeRecentMeals: RecentMeal[] = [
+  { entryId: 'entry-mash', mealName: 'Mash', date: MASH_DATE },
+  { entryId: 'entry-soup', mealName: 'Lentil soup', date: '2026-10-19' },
+]
+
+export const fridgeItems: FridgeMealItem[] = [
+  {
+    id: 'item-mash',
+    ingredientId: null,
+    sourceEntryId: 'entry-mash',
+    label: null,
+    name: 'Mash',
+    sourceDate: MASH_DATE,
+  },
+  {
+    id: 'item-veg',
+    ingredientId: 'veg-mix',
+    sourceEntryId: null,
+    label: null,
+    name: 'Cauliflower and broccoli mix',
+    sourceDate: null,
+  },
+  {
+    id: 'item-cucumber',
+    ingredientId: 'cucumber',
+    sourceEntryId: null,
+    label: null,
+    name: 'Cucumber',
+    sourceDate: null,
+  },
+  {
+    id: 'item-meatballs',
+    ingredientId: null,
+    sourceEntryId: null,
+    label: 'store meatballs',
+    name: null,
+    sourceDate: null,
+  },
+]

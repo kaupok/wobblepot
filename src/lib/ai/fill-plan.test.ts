@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
-import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
-import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+
+import { ProteinType } from '@/generated/prisma/enums'
 
 // Mock modules before imports
 vi.mock('@/lib/prisma', () => ({
@@ -82,6 +81,13 @@ import { PLANNING_MODEL } from './models'
 import { loadCandidatePools } from './plan-candidates'
 import { buildMealPlanRequest } from './prompts'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
+import {
+  createCandidate,
+  createDefaultMealSlots,
+  createMockMeals,
+  date,
+  fillOptions,
+} from './fill-plan.fixtures'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -119,63 +125,7 @@ const mockPrisma = {
   favoriteMeal: { findMany: mockFavoriteMealFindMany },
 }
 
-// Helper functions
-function date(dateStr: string): Date {
-  return parseLocalDate(dateStr)
-}
-
-function createCandidate(overrides: Partial<CandidateMeal> = {}): CandidateMeal {
-  return {
-    id: overrides.id ?? 'meal-1',
-    name: overrides.name ?? 'Test Meal',
-    kidFriendly: overrides.kidFriendly ?? false,
-    primaryProteinType: overrides.primaryProteinType ?? ProteinType.poultry,
-    topIngredients: overrides.topIngredients ?? [
-      { name: 'Chicken', category: IngredientCategory.protein },
-    ],
-    isFavorite: overrides.isFavorite ?? false,
-    isCustom: overrides.isCustom ?? false,
-  }
-}
-
-function createMockMeals(count: number, startIndex = 1): CandidateMeal[] {
-  return Array.from({ length: count }, (_, i) =>
-    createCandidate({
-      id: `meal-${startIndex + i}`,
-      name: `Meal ${startIndex + i}`,
-      kidFriendly: i % 2 === 0, // Alternate kid-friendly
-    }),
-  )
-}
-
-// Helper to create default meal slots for a week (Mon-Sun, dinner only)
-function createDefaultMealSlots() {
-  return [
-    { date: date('2026-01-12'), mealType: 'dinner' as const },
-    { date: date('2026-01-13'), mealType: 'dinner' as const },
-    { date: date('2026-01-14'), mealType: 'dinner' as const },
-    { date: date('2026-01-15'), mealType: 'dinner' as const },
-    { date: date('2026-01-16'), mealType: 'dinner' as const },
-    { date: date('2026-01-17'), mealType: 'dinner' as const },
-    { date: date('2026-01-18'), mealType: 'dinner' as const },
-  ]
-}
-
 describe('fillEmptySlots', () => {
-  const fillOptions = {
-    planId: 'plan-1',
-    householdId: 'household-1',
-    startDate: date('2026-01-12'),
-    endDate: date('2026-01-19'),
-    dietaryType: null,
-    allergensToAvoid: [],
-    excludedIngredientIds: [],
-    restrictions: [],
-    locale: 'en',
-    weekdayMealTypes: ['dinner' as const],
-    weekendMealTypes: ['dinner' as const],
-  }
-
   // Build a plan entry that looks like Prisma's returned shape for `fillEmptySlots`.
   function entry(
     dateStr: string,
@@ -550,12 +500,12 @@ describe('fillEmptySlots', () => {
     await fillEmptySlots(fillOptions)
 
     expect(mockMealPlanEntryDeleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ['orphan-id'] }, mealId: null, note: null },
+      where: { id: { in: ['orphan-id'] }, mealId: null, note: null, kind: 'meal' },
     })
     expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledTimes(1)
     // The note slip keeps its entry, so its slot is not created again (HON-1252).
     expect(mockMealPlanEntryUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'note-id', mealId: null },
+      where: { id: 'note-id', mealId: null, kind: 'meal' },
       data: { mealId: 'meal-new', status: 'planned' },
     })
     expect(mockMealPlanEntryCreateMany).toHaveBeenCalledWith({

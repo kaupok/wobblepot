@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import { BookOpen, Sparkles, Wand, type LucideIcon } from 'lucide-react'
+import { BookOpen, Refrigerator, Sparkles, Wand, type LucideIcon } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,26 +13,33 @@ import {
 /** The selector view a route opens: the library list, or imagine. */
 export type AddMealView = 'library' | 'imagine'
 
-/** A route: a selector view, or `pick`, which places the top suggestion with no dialog (HON-1248). */
-export type AddMealChoice = AddMealView | 'pick'
+/**
+ * A route: a selector view, `pick`, which places the top suggestion with no
+ * dialog (HON-1248), or `fridge`, which opens the fridge-meal picker (HON-1277).
+ */
+export type AddMealChoice = AddMealView | 'pick' | 'fridge'
 
 // In menu order. The open slot and a planned card's Swap group offer the
 // same routes in the same words (HON-1249), so the list lives here and a new
 // route is one entry.
 export const MEAL_ROUTES: {
   choice: AddMealChoice
-  label: 'chooseRecipe' | 'pickForMe' | 'imagineMeal'
+  label: 'chooseRecipe' | 'pickForMe' | 'imagineMeal' | 'fridgeMeal'
   Icon: LucideIcon
 }[] = [
   { choice: 'library', label: 'chooseRecipe', Icon: BookOpen },
   { choice: 'pick', label: 'pickForMe', Icon: Wand },
   { choice: 'imagine', label: 'imagineMeal', Icon: Sparkles },
+  { choice: 'fridge', label: 'fridgeMeal', Icon: Refrigerator },
 ]
 
 interface AddMealMenuProps {
   /** The trigger: one element that takes a ref, as Radix `asChild` needs. */
   children: ReactNode
-  /** Called with the chosen route. A view opens the selector in it; `pick` fills the slot. */
+  /**
+   * Called with the chosen route. A view opens the selector in it, `pick`
+   * fills the slot, and `fridge` opens the fridge-meal picker.
+   */
   onChoose: (choice: AddMealChoice) => void
   /**
    * Keeps the menu closed. Mark the trigger `aria-disabled`, not `disabled`:

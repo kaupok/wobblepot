@@ -8,6 +8,8 @@ vi.mock('@/lib/prisma', () => {
     mealPlanEntry: { findFirst: vi.fn(), findMany: vi.fn(), updateManyAndReturn: vi.fn() },
     // A swap drops the entry's ingredient changes in its own transaction (HON-1243).
     mealPlanEntryComponent: { deleteMany: vi.fn() },
+    // And a fridge meal's items, since it is a recipe meal after (HON-1277).
+    mealPlanEntryItem: { deleteMany: vi.fn() },
     $transaction: vi.fn((run: (tx: unknown) => unknown) => run(prisma)),
     $queryRaw: vi.fn(),
     favoriteMeal: { findMany: vi.fn() },
@@ -248,6 +250,7 @@ describe('swap_meal', () => {
         where: { id: 'entry-1', status: { not: 'completed' } },
         data: {
           mealId: 'meal-soup',
+          kind: 'meal',
           preparationTips: null,
           servingOverride: null,
           rating: null,
@@ -326,6 +329,7 @@ describe('swap_meal', () => {
         where: { id: 'entry-1', status: { not: 'completed' } },
         data: {
           mealId: 'meal-soup',
+          kind: 'meal',
           preparationTips: null,
           servingOverride: null,
           rating: null,

@@ -47,13 +47,13 @@ export async function writeFilledSlots(
     // so a pick or note made meanwhile is never deleted or overwritten.
     if (placeholderIds.length > 0) {
       await tx.mealPlanEntry.deleteMany({
-        where: { id: { in: placeholderIds }, mealId: null, note: null },
+        where: { id: { in: placeholderIds }, mealId: null, note: null, kind: 'meal' },
       })
     }
     for (const update of updates) {
       // A note slip deleted meanwhile leaves its slot open for a new entry.
       const { count } = await tx.mealPlanEntry.updateMany({
-        where: { id: update.id, mealId: null },
+        where: { id: update.id, mealId: null, kind: 'meal' },
         data: { mealId: update.fill.mealId, status: 'planned' },
       })
       if (count === 0) creates.push(update.fill)

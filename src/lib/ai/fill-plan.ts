@@ -76,10 +76,10 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   // Find existing entry slots that actually have a meal assigned. A slot whose
   // entry has no meal is open, even with a note: the fill puts the meal on that
-  // entry and keeps the note (HON-1252).
+  // entry and keeps the note (HON-1252). A fridge meal is a meal (HON-1277).
   const filledSlotKeys = new Set(
     existingPlan.entries
-      .filter((e) => e.mealId !== null)
+      .filter((e) => e.mealId !== null || e.kind === 'fridge')
       .map((e) => slotKey(toDateString(e.date), e.mealType)),
   )
 

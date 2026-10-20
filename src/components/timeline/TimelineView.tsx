@@ -137,9 +137,10 @@ export function TimelineView({
       // Get existing entries for this day. An entry with no meal and no note is
       // a picker placeholder whose discard never ran (the tab closed with the
       // picker open), so its slot is empty (HON-1251). A note with no meal
-      // stays: the slip is the household's writing (HON-975).
+      // stays: the slip is the household's writing (HON-975), and so does a
+      // fridge meal, which has items instead of a meal (HON-1277).
       const dayEntries = (entriesByDate.get(dateStr) ?? [])
-        .filter((e) => e.meal !== null || e.note !== null)
+        .filter((e) => e.meal !== null || e.note !== null || e.kind === 'fridge')
         .sort((a, b) => (mealTypeOrder[a.mealType] ?? 3) - (mealTypeOrder[b.mealType] ?? 3))
 
       // Compute empty slots (expected types without existing entries)

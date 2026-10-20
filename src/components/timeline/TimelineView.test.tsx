@@ -189,6 +189,21 @@ describe('TimelineView', () => {
       expect(today).toHaveAttribute('data-entry-types', 'lunch')
       expect(today).toHaveAttribute('data-empty-slots', 'dinner')
     })
+
+    // A fridge meal has items, not a meal (HON-1277).
+    it('keeps the card of a fridge meal with no note', () => {
+      renderInLocale(
+        <TimelineView
+          {...defaultProps}
+          expectedMealTypes={lunchAndDinner}
+          entries={[{ ...lunch(null), kind: 'fridge' }]}
+        />,
+      )
+
+      const today = screen.getByTestId('day-card-2026-03-29')
+      expect(today).toHaveAttribute('data-entry-types', 'lunch')
+      expect(today).toHaveAttribute('data-empty-slots', 'dinner')
+    })
   })
 
   it('shows fill days action when there are empty future slots', () => {

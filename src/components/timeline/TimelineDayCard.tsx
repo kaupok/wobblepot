@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { MealCard } from '@/components/meal-plan/MealCard'
+import { FridgeMealCard } from '@/components/meal-plan/fridge-meal/FridgeMealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import { useTranslations } from 'next-intl'
@@ -110,6 +111,7 @@ export function TimelineDayCard({
                 mealType={mealType}
                 householdServings={householdServings}
                 pantryIngredients={pantryIngredients}
+                pantryItems={pantryItems}
                 autoFocus={mealType === focusSlot}
                 onAutoFocused={onSlotFocused}
                 onPicked={() => onSlotPicked?.(day.date)}
@@ -122,32 +124,50 @@ export function TimelineDayCard({
         <div className="flex flex-col gap-2">
           {/* The slot's label (Dinner, Lunch) is the card's own first row:
               `MealCard` renders `MealTypeBadge`. */}
-          {entries.map((entry) => (
-            <MealCard
-              key={entry.id}
-              entryId={entry.id}
-              planId={planId}
-              date={entry.date}
-              meal={entry.meal}
-              mealType={entry.mealType}
-              status={entry.status}
-              rating={entry.rating}
-              householdServings={householdServings}
-              pantryIngredients={pantryIngredients}
-              pantryItems={pantryItems}
-              note={entry.note}
-              noteX={entry.noteX}
-              noteY={entry.noteY}
-              servingOverride={entry.servingOverride}
-              pantryDeducted={entry.pantryDeducted}
-              preparationTips={entry.preparationTips}
-              conflicts={entry.conflicts}
-              changes={entry.changes}
-              adjustmentNote={entry.adjustmentNote}
-              onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
-              onPicked={() => onSlotPicked?.(day.date)}
-            />
-          ))}
+          {entries.map((entry) =>
+            entry.kind === 'fridge' ? (
+              <FridgeMealCard
+                key={entry.id}
+                entryId={entry.id}
+                planId={planId}
+                date={entry.date}
+                mealType={entry.mealType}
+                status={entry.status}
+                items={entry.items ?? []}
+                note={entry.note}
+                noteX={entry.noteX}
+                noteY={entry.noteY}
+                pantryItems={pantryItems}
+                pantryDeducted={entry.pantryDeducted}
+                onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
+              />
+            ) : (
+              <MealCard
+                key={entry.id}
+                entryId={entry.id}
+                planId={planId}
+                date={entry.date}
+                meal={entry.meal}
+                mealType={entry.mealType}
+                status={entry.status}
+                rating={entry.rating}
+                householdServings={householdServings}
+                pantryIngredients={pantryIngredients}
+                pantryItems={pantryItems}
+                note={entry.note}
+                noteX={entry.noteX}
+                noteY={entry.noteY}
+                servingOverride={entry.servingOverride}
+                pantryDeducted={entry.pantryDeducted}
+                preparationTips={entry.preparationTips}
+                conflicts={entry.conflicts}
+                changes={entry.changes}
+                adjustmentNote={entry.adjustmentNote}
+                onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
+                onPicked={() => onSlotPicked?.(day.date)}
+              />
+            ),
+          )}
         </div>
       ) : (
         emptySlots.length === 0 && <Body variant="muted">{tDay('noMealsPlanned')}</Body>

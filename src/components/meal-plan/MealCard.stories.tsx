@@ -981,6 +981,7 @@ export const Planned: Story = {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
       'Clear',
     ])
   },
@@ -1756,7 +1757,15 @@ export const Skipped: Story = {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Note', 'Not skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'])
+    ).toEqual([
+      'Note',
+      'Not skipped',
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+      'Fridge meal',
+      'Clear',
+    ])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Not skipped' }))
     await waitFor(() => expect(canvas.queryByText('Skipped')).not.toBeInTheDocument())
     await waitFor(

@@ -40,6 +40,7 @@ export function findSwapMeal(householdId: string, mealId: string) {
 
 export interface SwapEntryData {
   mealId: string
+  kind?: 'meal'
   preparationTips?: null
   servingOverride?: null
   rating?: null
@@ -69,6 +70,8 @@ export function swapEntryData(currentMealId: string | null, nextMealId: string):
   if (nextMealId === currentMealId) return { mealId: nextMealId }
   return {
     mealId: nextMealId,
+    // A fridge meal swapped for a recipe is a recipe meal again (HON-1277).
+    kind: 'meal',
     // Cached tips describe the previous meal, down to its equipment and
     // timings (HON-682).
     preparationTips: null,
@@ -152,6 +155,8 @@ export async function clearChangesOnSwap(
   nextMealId: string,
 ) {
   await tx.$queryRaw`SELECT 1 FROM "meal_plan_entry" WHERE "id" = ${entryId} FOR UPDATE`
+  // A fridge meal's items go with it: the entry is a recipe meal now (HON-1277).
+  await tx.mealPlanEntryItem.deleteMany({ where: { entryId } })
   return tx.mealPlanEntryComponent.deleteMany({
     where: { entryId, entry: { mealId: { not: nextMealId } } },
   })

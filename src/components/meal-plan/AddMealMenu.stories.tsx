@@ -50,6 +50,7 @@ export const Open: Story = {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
     await expect(args.onChoose).not.toHaveBeenCalled()
   },
@@ -107,6 +108,7 @@ export const Estonian: Story = {
       'Vali retsept',
       'Vali minu eest',
       'Mõtle välja toit',
+      'Külmkapitoit',
     ])
   },
 }

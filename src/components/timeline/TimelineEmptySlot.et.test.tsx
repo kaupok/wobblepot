@@ -73,6 +73,7 @@ describe('TimelineEmptySlot in Estonian', () => {
       'Vali retsept',
       'Vali minu eest',
       'Mõtle välja toit',
+      'Külmkapitoit',
     ])
   })
 

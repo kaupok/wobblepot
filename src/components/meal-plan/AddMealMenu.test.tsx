@@ -15,7 +15,7 @@ function renderMenu(props: { disabled?: boolean } = {}) {
 }
 
 describe('AddMealMenu', () => {
-  it('lists "Choose a recipe", "Pick for me", then "Imagine a meal"', async () => {
+  it('lists "Choose a recipe", "Pick for me", "Imagine a meal", then "Fridge meal"', async () => {
     const user = userEvent.setup()
     const { trigger } = renderMenu()
 
@@ -26,6 +26,7 @@ describe('AddMealMenu', () => {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
   })
 
@@ -44,6 +45,7 @@ describe('AddMealMenu', () => {
     ['Choose a recipe', 'library'],
     ['Pick for me', 'pick'],
     ['Imagine a meal', 'imagine'],
+    ['Fridge meal', 'fridge'],
   ])('passes the route for "%s"', async (name, view) => {
     const user = userEvent.setup()
     const { onChoose, trigger } = renderMenu()

@@ -39,6 +39,14 @@ enum MealPlanEntryStatus {
   skipped
 }
 
+/// What a planned entry is (HON-1277). `meal` points to a recipe through
+/// `mealId`, or is a picker placeholder or a note-only card while `mealId` is
+/// null. `fridge` is a fridge meal: no recipe, a list of `items` instead.
+enum MealPlanEntryKind {
+  meal
+  fridge
+}
+
 enum EntryRating {
   up
   down
@@ -648,6 +656,7 @@ model Ingredient {
   translations        IngredientTranslation[]
   replacedInEntries   MealPlanEntryComponent[] @relation("EntryChangeOriginal")
   usedInEntryChanges  MealPlanEntryComponent[] @relation("EntryChangeReplacement")
+  fridgeMealItems     MealPlanEntryItem[]
 
   @@index([householdId])
   @@map("ingredient")
@@ -811,6 +820,9 @@ model MealPlanEntry {
   date             DateTime
   mealType         MealType
   status           MealPlanEntryStatus @default(planned)
+  /// `fridge` keeps `mealId` null and lists `items`, so the placeholder sweep
+  /// and the note-only filter, which key on a null `mealId`, must skip it.
+  kind             MealPlanEntryKind   @default(meal)
   rating           EntryRating?
   preparationTips  String?
   note             String?
@@ -831,10 +843,14 @@ model MealPlanEntry {
   /// `replaceEntryChanges`, and cleared with the entry's last change.
   adjustmentNote   String?
 
-  plan    MealPlan                 @relation(fields: [planId], references: [id], onDelete: Cascade)
-  meal    Meal?                    @relation(fields: [mealId], references: [id])
+  plan          MealPlan                 @relation(fields: [planId], references: [id], onDelete: Cascade)
+  meal          Meal?                    @relation(fields: [mealId], references: [id])
   /// This entry's own ingredient changes (HON-1243). The meal stays shared.
-  changes MealPlanEntryComponent[]
+  changes       MealPlanEntryComponent[]
+  /// A fridge meal's items, by `position`. Empty on every other kind.
+  items         MealPlanEntryItem[]      @relation("FridgeItems")
+  /// Fridge-meal items that name this entry as their leftover source.
+  leftoverItems MealPlanEntryItem[]      @relation("FridgeItemSource")
 
   @@unique([planId, date, mealType])
   @@index([mealId])
@@ -872,6 +888,30 @@ model MealPlanEntryComponent {
   @@index([originalIngredientId])
   @@index([replacementIngredientId])
   @@map("meal_plan_entry_component")
+}
+
+/// One item of a fridge meal (HON-1277), with no quantity. Exactly one source
+/// is set, which a CHECK in the migration holds:
+///
+/// - `ingredientId`: something from the pantry
+/// - `sourceEntryId`: leftovers of a meal completed in the last days
+/// - `label`: free text, such as "store meatballs"
+model MealPlanEntryItem {
+  id            String  @id @default(cuid())
+  entryId       String
+  ingredientId  String?
+  sourceEntryId String?
+  label         String?
+  position      Int
+
+  entry       MealPlanEntry  @relation("FridgeItems", fields: [entryId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient?    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  sourceEntry MealPlanEntry? @relation("FridgeItemSource", fields: [sourceEntryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@index([ingredientId])
+  @@index([sourceEntryId])
+  @@map("meal_plan_entry_item")
 }
 
 model PantryItem {

@@ -61,7 +61,7 @@
 6131 src/components/inventory/ShoppingSection.tsx
 20528 src/components/meal-plan/MealCard.stories.tsx
 9024 src/components/meal-plan/MealCard.test.tsx
-8088 src/components/meal-plan/MealCard.tsx
+8022 src/components/meal-plan/MealCard.tsx
 6243 src/components/meal-plan/MealDetail.stories.tsx
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
 6669 src/components/meal-plan/MealDetailModal.tsx

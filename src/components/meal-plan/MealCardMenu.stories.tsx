@@ -44,7 +44,7 @@ async function openMenu(canvasElement: HTMLElement) {
 const itemNames = (menu: ReturnType<typeof within>) =>
   menu.getAllByRole('menuitem').map((item: HTMLElement) => item.textContent)
 
-const ROUTES = ['Choose a recipe', 'Pick for me', 'Imagine a meal']
+const ROUTES = ['Choose a recipe', 'Pick for me', 'Imagine a meal', 'Fridge meal']
 
 export const Planned: Story = {
   play: async ({ canvasElement, args }) => {
@@ -108,6 +108,11 @@ export const Estonian: Story = {
     await userEvent.click(within(canvasElement).getByRole('button'))
     const menu = within(await within(document.body).findByRole('menu'))
     const group = within(menu.getByRole('group', { name: 'Vaheta' }))
-    await expect(itemNames(group)).toEqual(['Vali retsept', 'Vali minu eest', 'Mõtle välja toit'])
+    await expect(itemNames(group)).toEqual([
+      'Vali retsept',
+      'Vali minu eest',
+      'Mõtle välja toit',
+      'Külmkapitoit',
+    ])
   },
 }

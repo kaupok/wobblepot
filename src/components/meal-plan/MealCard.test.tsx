@@ -273,12 +273,29 @@ describe('MealCard status from the menu', () => {
   it.each([
     [
       'planned',
-      ['Note', 'Cooked', 'Skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'],
+      [
+        'Note',
+        'Cooked',
+        'Skipped',
+        'Choose a recipe',
+        'Pick for me',
+        'Imagine a meal',
+        'Fridge meal',
+        'Clear',
+      ],
     ],
     ['completed', ['Note', 'Not cooked yet']],
     [
       'skipped',
-      ['Note', 'Not skipped', 'Choose a recipe', 'Pick for me', 'Imagine a meal', 'Clear'],
+      [
+        'Note',
+        'Not skipped',
+        'Choose a recipe',
+        'Pick for me',
+        'Imagine a meal',
+        'Fridge meal',
+        'Clear',
+      ],
     ],
   ] as const)('offers the status items in order on a %s card', async (status, items) => {
     const user = userEvent.setup()
