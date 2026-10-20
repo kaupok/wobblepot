@@ -1,6 +1,7 @@
 import { serverEnv } from '@/lib/env'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { emailTranslator } from './i18n'
+import { escapeHtml } from './escape-html'
 
 /**
  * Data Breach Notification Email Template (GDPR Art. 34)
@@ -38,21 +39,6 @@ interface EmailContent {
   subject: string
   html: string
   text: string
-}
-
-/**
- * Escapes HTML-significant characters so operator-typed free text (summary,
- * impact, remediation) and the support URL cannot break the email markup. A
- * stray `<`, `>`, `&`, or `"` in breach-time prose would otherwise corrupt the
- * rendered HTML. The plain-text branch needs no escaping.
- */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 /**

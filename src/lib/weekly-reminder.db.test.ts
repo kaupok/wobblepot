@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { isWeekPlanned, saveReminder } from '@/lib/weekly-reminder'
+import { clearReminderConfirmation, isWeekPlanned, saveReminder } from '@/lib/weekly-reminder'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through `saveReminder`, and read back,
@@ -117,6 +117,55 @@ describe('saveReminder', () => {
 
     expect(await saveReminder('u-solo', 1)).toBeNull()
     expect((await schedule()).reminderWeekday).toBeNull()
+  })
+})
+
+describe('clearReminderConfirmation', () => {
+  const now = new Date('2026-10-21T08:00:00Z')
+
+  it('clears a reminder that is on, with a new confirm token and consent time', async () => {
+    await member({
+      reminderWeekday: 5,
+      reminderConsentAt: new Date('2026-10-01T08:00:00Z'),
+      reminderToken: 'stop-token',
+      reminderConfirmToken: 'old-confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+
+    const { confirmToken } = await clearReminderConfirmation('u-ada', now)
+
+    expect(confirmToken).toMatch(/^[\w-]{32}$/)
+    expect(confirmToken).not.toBe('old-confirm-token')
+    expect(await schedule()).toEqual({
+      reminderWeekday: 5,
+      reminderConsentAt: now,
+      reminderToken: 'stop-token',
+      reminderConfirmToken: confirmToken,
+      reminderConfirmedAt: null,
+      reminderLastSentAt: null,
+    })
+  })
+
+  it('clears a reminder that is off and leaves it without a confirm token', async () => {
+    await member({
+      reminderToken: 'stop-token',
+      reminderConfirmToken: 'old-confirm-token',
+      reminderConfirmedAt: new Date('2026-10-02T08:00:00Z'),
+    })
+
+    expect(await clearReminderConfirmation('u-ada', now)).toEqual({ confirmToken: null })
+    expect(await schedule()).toEqual({
+      reminderWeekday: null,
+      reminderConsentAt: null,
+      reminderToken: 'stop-token',
+      reminderConfirmToken: null,
+      reminderConfirmedAt: null,
+      reminderLastSentAt: null,
+    })
+  })
+
+  it('does nothing for a user without a member row', async () => {
+    expect(await clearReminderConfirmation('u-nobody', now)).toEqual({ confirmToken: null })
   })
 })
 

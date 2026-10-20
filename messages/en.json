@@ -1184,6 +1184,21 @@
       "expiry": "The link works for 24 hours.",
       "ignore": "If you did not create a {appName} account, ignore this email and do not open the link."
     },
+    "changeEmail": {
+      "subject": "Confirm your new {appName} email address",
+      "heading": "Confirm your new email address",
+      "instructionHtml": "Click the button below to use this address for your {appName} account:",
+      "instructionText": "Open the link below to use this address for your {appName} account:",
+      "cta": "Confirm new address",
+      "expiry": "The link works for 24 hours. Your account email changes only when you open it.",
+      "ignore": "If you did not ask to change your {appName} email, ignore this email and do not open the link."
+    },
+    "emailChanged": {
+      "subject": "Your {appName} email address changed",
+      "heading": "Your email address changed",
+      "intro": "The email address of your {appName} account is now {newEmail}. Account emails no longer come to this address.",
+      "notYou": "If you did not do this, write to <link>{email}</link> right away."
+    },
     "waitlistConfirm": {
       "subject": "Confirm your {appName} invite request",
       "heading": "Confirm your invite request",
@@ -1705,6 +1720,18 @@
       "sent": "Sent. Check your inbox.",
       "alreadyVerified": "Your email address is already verified. Reload the page.",
       "sendFailed": "The email was not sent. Try again."
+    },
+    "changeEmail": {
+      "submit": "Change email",
+      "sending": "Sending…",
+      "sent": "Check {email} for a link. Your email changes when you open it.",
+      "required": "Enter an email address.",
+      "invalid": "Enter a valid email address.",
+      "same": "This is your current email address.",
+      "sendFailed": "The link was not sent. Try again.",
+      "changed": "Your email address is now {email}.",
+      "expired": "This link has expired or was already used. Enter the new address again to get a new link.",
+      "linkInvalid": "This link does not work. Enter the new address again to get a new link."
     },
     "yourDataHeading": "Your data",
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",

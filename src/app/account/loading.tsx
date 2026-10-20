@@ -6,16 +6,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 export default function AccountProfileLoading() {
   return (
     <div className="flex flex-col gap-6">
-      {/* Name field with Save, then the email */}
+      {/* Name field with Save, then the email field with Change email (HON-1137) */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-4 w-12" />
-          <Skeleton className="h-touch w-full md:h-10" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-4 w-12" />
-          <Skeleton className="h-7 w-48" />
-        </div>
+        {[0, 1].map((field) => (
+          <div key={field} className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-touch w-full md:h-10" />
+          </div>
+        ))}
       </div>
 
       {/* Separator */}

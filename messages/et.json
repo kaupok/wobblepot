@@ -1184,6 +1184,21 @@
       "expiry": "Link kehtib 24 tundi.",
       "ignore": "Kui sa ei loonud {appName} kontot, eira seda kirja ja ära linki ava."
     },
+    "changeEmail": {
+      "subject": "Kinnita oma uus {appName} e-posti aadress",
+      "heading": "Kinnita uus e-posti aadress",
+      "instructionHtml": "Klõpsa allolevat nuppu, et kasutada seda aadressi oma {appName} kontol:",
+      "instructionText": "Ava allolev link, et kasutada seda aadressi oma {appName} kontol:",
+      "cta": "Kinnita uus aadress",
+      "expiry": "Link kehtib 24 tundi. Konto e-posti aadress muutub alles siis, kui lingi avad.",
+      "ignore": "Kui sa ei palunud oma {appName} e-posti aadressi muuta, eira seda kirja ja ära linki ava."
+    },
+    "emailChanged": {
+      "subject": "Sinu {appName} e-posti aadress muutus",
+      "heading": "Sinu e-posti aadress muutus",
+      "intro": "Sinu {appName} konto e-posti aadress on nüüd {newEmail}. Konto kirjad sellele aadressile enam ei tule.",
+      "notYou": "Kui see polnud sina, kirjuta kohe aadressile <link>{email}</link>."
+    },
     "waitlistConfirm": {
       "subject": "Kinnita oma {appName} kutsesoov",
       "heading": "Kinnita kutsesoov",
@@ -1705,6 +1720,18 @@
       "sent": "Saadetud. Vaata postkasti.",
       "alreadyVerified": "Sinu e-posti aadress on juba kinnitatud. Laadi leht uuesti.",
       "sendFailed": "Kirja ei saadetud. Proovi uuesti."
+    },
+    "changeEmail": {
+      "submit": "Muuda e-posti aadressi",
+      "sending": "Saatmine…",
+      "sent": "Vaata aadressi {email} postkasti, sinna tuleb link. Aadress muutub, kui lingi avad.",
+      "required": "Sisesta e-posti aadress.",
+      "invalid": "Sisesta kehtiv e-posti aadress.",
+      "same": "See on sinu praegune e-posti aadress.",
+      "sendFailed": "Linki ei saadetud. Proovi uuesti.",
+      "changed": "Sinu e-posti aadress on nüüd {email}.",
+      "expired": "See link on aegunud või juba kasutatud. Sisesta uus aadress uuesti, et saada uus link.",
+      "linkInvalid": "See link ei tööta. Sisesta uus aadress uuesti, et saada uus link."
     },
     "yourDataHeading": "Sinu andmed",
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",

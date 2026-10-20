@@ -103,6 +103,44 @@ export async function saveReminder(
   return { confirmToken: (confirmDue && data.reminderConfirmToken) || null }
 }
 
+/**
+ * Forget that `userId`'s address was confirmed, after the account email
+ * changed (HON-1137). `reminderConfirmedAt` proves the old address
+ * (HON-1113), so the cron stops sending until the new one is confirmed.
+ *
+ * The confirm token is replaced, so a confirm link still in the old inbox
+ * cannot confirm the new address. A reminder that is on gets a new token and a
+ * new consent time, because the link works for {@link REMINDER_CONFIRM_TTL_DAYS}
+ * from that time; the caller emails the token to the new address, so the
+ * Reminders tab's "We emailed you a link" holds. A reminder that is off keeps
+ * no token, and the next switch-on makes one.
+ *
+ * @returns the token to email, or null when the reminder is off or the user
+ *   has no member row.
+ */
+export async function clearReminderConfirmation(
+  userId: string,
+  now: Date = new Date(),
+): Promise<{ confirmToken: string | null }> {
+  const member = await prisma.householdMember.findUnique({
+    where: { userId },
+    select: { id: true, reminderWeekday: true },
+  })
+  if (!member) return { confirmToken: null }
+
+  const on = member.reminderWeekday !== null
+  const confirmToken = on ? nanoid(32) : null
+  await prisma.householdMember.update({
+    where: { id: member.id },
+    data: {
+      reminderConfirmedAt: null,
+      reminderConfirmToken: confirmToken,
+      ...(on ? { reminderConsentAt: now } : {}),
+    },
+  })
+  return { confirmToken }
+}
+
 export type ReminderConfirmState = 'pending' | 'confirmed' | 'expired'
 
 /**

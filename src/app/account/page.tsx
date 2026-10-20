@@ -2,10 +2,11 @@ import { Heading, Body } from '@/components/ui/typography'
 import { Separator } from '@/components/ui/separator'
 import { ProfileNameForm } from './ProfileNameForm'
 import { ChangePasswordForm } from './ChangePasswordForm'
+import { ChangeEmailForm } from './ChangeEmailForm'
 import { SetPassword } from './SetPassword'
 import { SignInMethods } from './SignInMethods'
 import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
-import { parseVerificationLanding } from '@/lib/email-verification'
+import { parseChangeEmailLanding, parseVerificationLanding } from '@/lib/email-verification'
 import { hasPasswordAccount, parseGoogleLinkLanding } from '@/lib/sign-in-methods'
 import { getSignInAccounts } from '@/lib/session'
 import { isGoogleAuthConfigured } from '@/lib/env'
@@ -16,8 +17,8 @@ export function generateMetadata() {
 }
 
 /**
- * My account → Profile: name, email and its verification, sign-in methods,
- * password (HON-1229, HON-1158).
+ * My account → Profile: name, email with its change and verification, sign-in
+ * methods, password (HON-1229, HON-1158, HON-1137).
  */
 export default async function AccountProfilePage({
   searchParams,
@@ -27,8 +28,10 @@ export default async function AccountProfilePage({
   const params = await searchParams
   // The Connect callback also sends `error`, so its `linked=google` claims the
   // param; otherwise a failed Connect reads as a broken verification link.
+  // The email-change link also sends `error`, under its own `emailChanged=1`.
   const linkLanding = parseGoogleLinkLanding(params)
-  const landing = linkLanding ? null : parseVerificationLanding(params)
+  const changeLanding = linkLanding ? null : parseChangeEmailLanding(params)
+  const landing = linkLanding || changeLanding ? null : parseVerificationLanding(params)
   const { session, t } = await requireAccountMember({ landing })
   const accounts = await getSignInAccounts()
   // A Google-only account has no current password to type (HON-1158).
@@ -38,12 +41,17 @@ export default async function AccountProfilePage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <ProfileNameForm initialName={session.user.name} />
-        <div className="flex flex-col gap-1">
-          <Body variant="small" tone="muted">
-            {t('emailLabel')}
-          </Body>
-          <Body>{session.user.email}</Body>
-        </div>
+        {/* Google owns a Google-only account's address, so only a password account changes it (HON-1137). */}
+        {hasPassword ? (
+          <ChangeEmailForm email={session.user.email} landing={changeLanding} />
+        ) : (
+          <div className="flex flex-col gap-1">
+            <Body variant="small" tone="muted">
+              {t('emailLabel')}
+            </Body>
+            <Body>{session.user.email}</Body>
+          </div>
+        )}
         {/* The verification link lands here: `?verified=1`, or `&error=…` (HON-1155). */}
         <VerifyEmailNotice
           email={session.user.email}

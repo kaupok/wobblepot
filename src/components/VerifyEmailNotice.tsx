@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { useClearLandingParams } from '@/hooks/use-clear-landing-params'
 
 interface VerifyEmailNoticeProps {
   email: string
@@ -36,14 +37,7 @@ export function VerifyEmailNotice({ email, emailVerified, landing }: VerifyEmail
   const tErrors = useTranslations('errors.auth')
   const sentRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!landing) return
-    const url = new URL(window.location.href)
-    for (const param of LANDING_PARAMS) url.searchParams.delete(param)
-    // Native `replaceState`: the App Router syncs with it, and keeping
-    // `history.state` keeps the router's own entry intact.
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
-  }, [landing])
+  useClearLandingParams(Boolean(landing), LANDING_PARAMS)
 
   const resend = useMutation({
     mutationFn: async () => {
