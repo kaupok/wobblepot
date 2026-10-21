@@ -12,6 +12,12 @@ import {
 import { RecipesPageClient } from './RecipesPageClient'
 import { mealsInitialPageParam, mealsQueryKey, type MealsPage } from './meals-query'
 
+// For waits that sit behind an MSW response. On a loaded CI runner a response
+// can land after `waitFor`'s and `findBy`'s default 1 s even though the request
+// succeeded: a search that has to type, debounce for 300 ms and then fetch, or
+// a delete and its refetch (HON-1283). The same budget as `MealCard.stories.tsx`.
+const ROUND_TRIP = { timeout: 3000 }
+
 /** Records every `GET /api/households/me/meals` URL a story's handlers serve. */
 const mealsRequest = fn()
 
@@ -85,7 +91,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole('heading', { level: 1, name: 'My recipes' })).toBeVisible()
-    await canvas.findAllByRole('button', { name: /^More actions: / })
+    await canvas.findAllByRole('button', { name: /^More actions: / }, ROUND_TRIP)
     const cards = canvasElement.querySelectorAll('[data-slot="card"]')
     await expect(cards.length).toBeGreaterThan(0)
     for (const card of cards) {
@@ -156,7 +162,9 @@ export const Desktop: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const search = (await within(canvasElement).findByRole('searchbox')).getBoundingClientRect()
+    const search = (
+      await within(canvasElement).findByRole('searchbox', {}, ROUND_TRIP)
+    ).getBoundingClientRect()
     const links = actionLinks(canvasElement)
     const actions = links[0]!.parentElement!
     const outer = actions.parentElement!.getBoundingClientRect()
@@ -192,6 +200,8 @@ export const Empty: Story = {
     await expect(
       await canvas.findByText(
         'No recipes yet. Add a family favourite, import one from a link, or imagine one.',
+        {},
+        ROUND_TRIP,
       ),
     ).toBeVisible()
     await expect(canvas.queryByRole('searchbox')).toBeNull()
@@ -232,7 +242,7 @@ export const LastDeleteFocusesAdd: Story = {
     const canvas = within(canvasElement)
     await deleteOnlyRecipe(canvasElement)
 
-    await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
+    await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull(), ROUND_TRIP)
     await waitFor(() => expect(document.activeElement).toBe(emptyStateAdd(canvasElement)))
   },
 }
@@ -251,16 +261,16 @@ export const ClearedSearchFocusesAdd: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const search = await canvas.findByRole('searchbox', { name: 'Search recipes' })
+    const search = await canvas.findByRole('searchbox', { name: 'Search recipes' }, ROUND_TRIP)
     await userEvent.type(search, 'lemon')
     // The debounced search has run and its results are on the page.
-    await waitFor(() => expect(mealsRequest).toHaveBeenCalledWith('?search=lemon'))
-    await canvas.findByRole('button', { name: /^More actions: / })
+    await waitFor(() => expect(mealsRequest).toHaveBeenCalledWith('?search=lemon'), ROUND_TRIP)
+    await canvas.findByRole('button', { name: /^More actions: / }, ROUND_TRIP)
     await deleteOnlyRecipe(canvasElement)
-    await waitFor(() => expect(document.activeElement).toBe(search))
+    await waitFor(() => expect(document.activeElement).toBe(search), ROUND_TRIP)
 
     await userEvent.clear(search)
-    await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
+    await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull(), ROUND_TRIP)
     await waitFor(() => expect(document.activeElement).toBe(emptyStateAdd(canvasElement)))
   },
 }
@@ -268,7 +278,7 @@ export const ClearedSearchFocusesAdd: Story = {
 async function deleteOnlyRecipe(canvasElement: HTMLElement) {
   const body = within(document.body)
   await userEvent.click(
-    await within(canvasElement).findByRole('button', { name: /^More actions: / }),
+    await within(canvasElement).findByRole('button', { name: /^More actions: / }, ROUND_TRIP),
   )
   await userEvent.click(await body.findByRole('menuitem', { name: 'Delete' }))
   const dialog = await body.findByRole('alertdialog')
@@ -295,7 +305,7 @@ export const ErrorState: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await waitFor(() => expect(canvas.queryByText('Loading…')).toBeNull())
+    await waitFor(() => expect(canvas.queryByText('Loading…')).toBeNull(), ROUND_TRIP)
     await expect(canvas.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible()
     await expect(canvas.getAllByRole('link', { name: 'Add recipe' })).toHaveLength(1)
   },
@@ -354,14 +364,18 @@ export const PrefetchedThenSearchAndLoadMore: Story = {
 
     // Infinite scroll continues from the hydrated page's cursor.
     await userEvent.click(canvas.getByRole('button', { name: 'Load more' }))
-    await expect(await canvas.findByText('Spiced red-lentil stew')).toBeVisible()
+    await expect(await canvas.findByText('Spiced red-lentil stew', {}, ROUND_TRIP)).toBeVisible()
     await expect(mealsRequest).toHaveBeenCalledWith('?cursor=meal-salmon')
     await waitFor(() => expect(canvas.queryByRole('button', { name: 'Load more' })).toBeNull())
 
     // A search is a new key: fetched from the route, not the hydrated cache.
+    // The new key has no data, so the grid turns to a skeleton and the header
+    // reads "Loading…" until the response lands. The chicken leaves with the
+    // skeleton, so only the header tells the results apart from the wait.
     await userEvent.type(canvas.getByRole('searchbox', { name: 'Search recipes' }), 'lentil')
-    await waitFor(() => expect(mealsRequest).toHaveBeenCalledWith('?search=lentil'))
-    await waitFor(() => expect(canvas.queryByText('Lemon-garlic roast chicken')).toBeNull())
+    await waitFor(() => expect(mealsRequest).toHaveBeenCalledWith('?search=lentil'), ROUND_TRIP)
+    await waitFor(() => expect(canvas.queryByText('Loading…')).toBeNull(), ROUND_TRIP)
+    await expect(canvas.queryByText('Lemon-garlic roast chicken')).toBeNull()
     await expect(canvas.getByText('Spiced red-lentil stew')).toBeVisible()
   },
 }
