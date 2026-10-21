@@ -51,6 +51,10 @@ Vitest splits shards by file, so one slow file can make one shard much slower th
 
 **Lockfile gates (HON-595).** `pnpm audit --audit-level critical` and `pnpm lockfile:check` run in `Static checks`. The second asserts specific resolutions in `pnpm-lock.yaml` that were cleared by hand, because `pnpm update` or a regenerated lockfile can silently undo them. When it fails, re-dedupe or upgrade the dependency that pulls the bad version, or edit the pin in `scripts/check-lockfile-pins.ts` and say why in its `why`. Do not add a `pnpm.overrides` entry: an override hides the underlying spec instead of detecting drift.
 
+**Peer rules (HON-1293).** `pnpm.peerDependencyRules.allowedVersions` in `package.json` accepts a version on one peer edge. It changes no resolution, so it is not an override. Each entry, and why:
+
+- `tsconfck>typescript: 6`: `tsconfck` 3.1.6, pulled in by Storybook's `vite-tsconfig-paths`, declares an optional `typescript@^5` peer, and no release admits 6. Remove the entry when `tsconfck` widens the range or `pnpm why tsconfck` is empty.
+
 **`Storybook`**:
 
 - `pnpm test-storybook:ci` - Storybook a11y gate
