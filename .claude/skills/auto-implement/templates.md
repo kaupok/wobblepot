@@ -29,9 +29,10 @@ Acceptance criteria:
 4. **Sibling changes**: <sibling ID> (merged PR #<PR>) touched <paths>. Run `git log --oneline --since="14 days ago" -- <paths>`, find the merge commit with `gh pr view <PR> --json mergeCommit --jq .mergeCommit.oid`, and run `git diff <sha>~1..<sha> -- <paths>`. Say what it added that the plan must extend, not duplicate
 5. **Coupled callsites**: if the files to change alter a size, padding or radius default on a `src/components/ui` primitive, a `@theme` token or a shared layout wrapper, run `.claude/skills/plan-issue/SKILL.md` step 7b's greps against the old value. Return each hit as Mirror, Override or Deliberate with `path:line` and a one-line reason, or `none — no callsite hardcodes <property>`. Otherwise write `not applicable`
 6. **Doc rules**: any CLAUDE.md or docs rule this change must follow, in one line each
+7. **Unlinked recent changes**: for each file the issue names, run `git log --oneline --since="14 days ago" origin/main -- <path>`. The known siblings are <sibling IDs and their PRs from 2.3, or `none`>; the squash subject ends in `(#<PR>)`. For a commit from any other PR, compare its diff (`git show <sha> -- <path>`) with the issue's stated placement or behaviour. Return each mismatch as the PR, the file and what the issue text now gets wrong, or `none — no unlinked commit contradicts the issue`
 ```
 
-Item 4 goes in only when 2.3 flagged a merged sibling. Item 5 always goes in, because the subagent is the first to see the file set and so applies the 7b trigger. The brief's item 5 becomes the plan's `## Coupled callsites`; `not applicable` omits the section.
+Item 4 goes in only when 2.3 flagged a merged sibling. Item 5 always goes in, because the subagent is the first to see the file set and so applies the 7b trigger. The brief's item 5 becomes the plan's `## Coupled callsites`; `not applicable` omits the section. Item 7 always goes in too, because the sibling links miss a PR that no issue links; the brief's item 7 mismatches go in the plan's `## Context` (`history.md` → Unlinked recent changes).
 
 ## Plan (2.7)
 
@@ -43,7 +44,7 @@ Item 4 goes in only when 2.3 flagged a merged sibling. Item 5 always goes in, be
 
 ## Context
 
-[2-3 sentence summary of the issue and relevant background]
+[2-3 sentence summary of the issue and relevant background. Name each mismatch from the brief's item 7: the PR, and what the issue text now gets wrong, so the plan follows main and not the stale text.]
 
 ## Design Decisions
 
