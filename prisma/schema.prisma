@@ -896,6 +896,9 @@ model MealPlanEntryComponent {
 /// - `ingredientId`: something from the pantry
 /// - `sourceEntryId`: leftovers of a meal completed in the last days
 /// - `label`: free text, such as "store meatballs"
+///
+/// A trigger in the migration turns a leftover item into free text with the
+/// meal's name before its source entry is deleted, so the item outlives it.
 model MealPlanEntryItem {
   id            String  @id @default(cuid())
   entryId       String

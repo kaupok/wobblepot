@@ -40,3 +40,31 @@ ALTER TABLE "meal_plan_entry_item" ADD CONSTRAINT "meal_plan_entry_item_ingredie
 -- AddForeignKey
 ALTER TABLE "meal_plan_entry_item" ADD CONSTRAINT "meal_plan_entry_item_sourceEntryId_fkey" FOREIGN KEY ("sourceEntryId") REFERENCES "meal_plan_entry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+
+-- A leftover item keeps its words when its source entry goes (Clear, a day
+-- range delete, a regeneration): before the source row is deleted, the item
+-- becomes free text with the meal's name, in the household's language when
+-- the meal has a translation. Without it the cascade would drop the item and
+-- could leave a fridge meal with no items, whose Undo then fails. A source
+-- with no meal keeps the cascade, because it has no name to keep.
+CREATE FUNCTION "keep_fridge_leftover_items"() RETURNS trigger AS $$
+BEGIN
+  IF OLD."mealId" IS NOT NULL THEN
+    UPDATE "meal_plan_entry_item"
+    SET "label" = COALESCE(
+          (SELECT mt."name"
+             FROM "meal_translation" mt
+             JOIN "meal_plan" p ON p."id" = OLD."planId"
+             JOIN "household" h ON h."id" = p."householdId"
+            WHERE mt."mealId" = OLD."mealId" AND mt."locale" = h."locale"),
+          (SELECT m."name" FROM "meal" m WHERE m."id" = OLD."mealId")),
+        "sourceEntryId" = NULL
+    WHERE "sourceEntryId" = OLD."id";
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "meal_plan_entry_keep_fridge_leftover_items"
+BEFORE DELETE ON "meal_plan_entry"
+FOR EACH ROW EXECUTE FUNCTION "keep_fridge_leftover_items"();

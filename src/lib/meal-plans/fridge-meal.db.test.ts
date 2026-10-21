@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
-import { updateEntry } from '@/lib/meal-plans/entries'
+import { deleteEntriesInRange, updateEntry } from '@/lib/meal-plans/entries'
 import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
 import {
   FridgeItemNotFoundError,
@@ -226,6 +226,18 @@ describe('setFridgeItems', () => {
     ])
   })
 
+  it('plans a skipped recipe again, as a recipe swap does', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'skipped' },
+    })
+
+    await setFridgeItems(alder.id, 'plan-alder', 'entry-alder', [{ label: 'toast' }])
+
+    expect((await readEntry()).status).toBe('planned')
+  })
+
   it("edits a fridge meal's items", async () => {
     const { alder, fridgeId } = await fridgeWorld()
 
@@ -366,7 +378,7 @@ describe('swapping a fridge meal for a recipe', () => {
 })
 
 describe('deleting a source entry', () => {
-  it("drops the leftover item and keeps the fridge meal's other items", async () => {
+  it('keeps the leftover item as free text with the meal name', async () => {
     const { alder } = await world()
     await prisma.mealPlanEntry.update({
       where: { id: 'entry-alder' },
@@ -380,7 +392,59 @@ describe('deleting a source entry', () => {
     await prisma.mealPlanEntry.delete({ where: { id: 'entry-alder' } })
 
     expect(await items(created.id)).toEqual([
+      { ingredientId: null, sourceEntryId: null, label: 'meal-stew', position: 0 },
       { ingredientId: null, sourceEntryId: null, label: 'bread', position: 1 },
     ])
+  })
+
+  // The meal's only item is a leftover, and a range delete takes its source.
+  it('keeps a meal of leftovers only, in the household language', async () => {
+    const { alder } = await world()
+    await prisma.household.update({ where: { id: alder.id }, data: { locale: 'et' } })
+    await prisma.mealTranslation.create({
+      data: { mealId: 'meal-stew', locale: 'et', name: 'Hautis' },
+    })
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed' },
+    })
+    const created = await createEntry(alder.id, 'plan-alder', {
+      date: new Date('2026-10-15T00:00:00Z'),
+      mealType: 'lunch',
+      fridgeItems: [{ sourceEntryId: 'entry-alder' }],
+    })
+
+    await deleteEntriesInRange(
+      alder.id,
+      'plan-alder',
+      new Date('2026-10-14T00:00:00Z'),
+      new Date('2026-10-15T00:00:00Z'),
+    )
+
+    expect(await items(created.id)).toEqual([
+      { ingredientId: null, sourceEntryId: null, label: 'Hautis', position: 0 },
+    ])
+  })
+
+  it('drops the items with the fridge meal when one range deletes both', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed' },
+    })
+    await createEntry(alder.id, 'plan-alder', {
+      ...lunch,
+      fridgeItems: [{ sourceEntryId: 'entry-alder' }],
+    })
+
+    const deleted = await deleteEntriesInRange(
+      alder.id,
+      'plan-alder',
+      new Date('2026-10-14T00:00:00Z'),
+      new Date('2026-10-15T00:00:00Z'),
+    )
+
+    expect(deleted).toBe(2)
+    expect(await prisma.mealPlanEntryItem.count()).toBe(0)
   })
 })

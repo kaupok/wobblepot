@@ -127,12 +127,14 @@ function PickerForm({
   const chosenSourceIds = new Set(items.flatMap((i) => (i.sourceEntryId ? [i.sourceEntryId] : [])))
   const isFull = items.length >= FRIDGE_ITEMS_MAX
 
+  // Quantity 0 is "ran out": not at home.
+  const atHome = useMemo(() => pantryItems.filter((p) => p.quantity !== 0), [pantryItems])
   const pantryMatches = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase()
-    return [...pantryItems]
+    return [...atHome]
       .filter((p) => !needle || p.ingredient.name.toLocaleLowerCase().includes(needle))
       .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-  }, [pantryItems, query])
+  }, [atHome, query])
   const shownPantry = pantryMatches
     .filter((p) => !chosenIngredientIds.has(p.ingredientId))
     .slice(0, PANTRY_MATCHES_SHOWN)
@@ -241,7 +243,7 @@ function PickerForm({
             placeholder={t('pantrySearchPlaceholder')}
             autoComplete="off"
           />
-          {pantryItems.length === 0 ? (
+          {atHome.length === 0 ? (
             <Body variant="muted">{t('pantryEmpty')}</Body>
           ) : shownPantry.length === 0 ? (
             query.trim() && (

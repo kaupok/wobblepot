@@ -77,9 +77,9 @@ export async function toItemRows(householdId: string, items: FridgeItemInput[]) 
 /**
  * Makes the entry a fridge meal with these items, in place of what it held:
  * the household's way to edit the items, and to replace a planned recipe or
- * fill a note-only card. The note stays. Everything that described the recipe
- * goes: the tips, the serving override, the rating, the ingredient changes and
- * the "Adjust recipe" instruction.
+ * fill a note-only card. The note stays, and a skipped entry is planned again.
+ * Everything that described the recipe goes: the tips, the serving override,
+ * the rating, the ingredient changes and the "Adjust recipe" instruction.
  *
  * Refused on a completed entry, for the reason a swap is (HON-633): it records
  * what was eaten and what the pantry was charged for. The status is re-tested
@@ -104,6 +104,8 @@ export async function setFridgeItems(
       where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
       data: {
         kind: 'fridge',
+        // A skip was for the meal that left, as on a recipe swap (HON-1125).
+        status: MealPlanEntryStatus.planned,
         mealId: null,
         preparationTips: null,
         servingOverride: null,

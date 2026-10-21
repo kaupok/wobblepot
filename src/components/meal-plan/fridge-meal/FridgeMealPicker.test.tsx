@@ -92,6 +92,33 @@ describe('FridgeMealPicker', () => {
     expect(dialog.queryByRole('button', { name: 'Add: Cucumber' })).not.toBeInTheDocument()
   })
 
+  // "Used it all" leaves a row at 0, which means ran out (HON-1277).
+  it('does not offer a pantry item the household has run out of', () => {
+    const ranOut = fridgePantryItems.map((p) =>
+      p.ingredientId === 'cucumber' ? { ...p, quantity: 0 } : p,
+    )
+    const onOpenChange = vi.fn()
+    const { wrapper: Wrapper } = createQueryWrapper()
+    render(
+      <Wrapper>
+        <FridgeMealPicker
+          open
+          onOpenChange={onOpenChange}
+          planId="plan-1"
+          date="2026-10-21"
+          mealType="dinner"
+          pantryItems={ranOut}
+          onSaved={vi.fn()}
+        />
+      </Wrapper>,
+    )
+    const dialog = within(screen.getByRole('dialog', { name: 'Fridge meal' }))
+
+    expect(dialog.queryByRole('button', { name: 'Add: Cucumber' })).not.toBeInTheDocument()
+    // Unknown amount (null) is still at home.
+    expect(dialog.getByRole('button', { name: 'Add: Butter' })).toBeInTheDocument()
+  })
+
   it('says so when nothing in the pantry matches', async () => {
     const { dialog, user } = renderPicker()
 
