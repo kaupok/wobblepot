@@ -234,9 +234,9 @@ const config = defineConfig([
               deny: TYPE_MARGIN_DENY,
               message: TYPE_MARGIN_MESSAGE,
             },
-            // An option label beside a `RadioGroupItem` or `Checkbox` is normal
-            // weight; a field label is medium. `Label` is a registry primitive,
-            // so a variant there would drift on the next `shadcn add`.
+            // An option label beside a `Checkbox` is normal weight; a field
+            // label is medium. `Label` is a registry primitive, so a variant
+            // there would drift on the next `shadcn add`.
             {
               pattern: '^Label$',
               allow: [...LAYOUT, 'font-normal'],
@@ -288,7 +288,7 @@ const config = defineConfig([
   {
     files: [
       'src/components/ui/{alert-dialog,badge,button,card,checkbox,collapsible}.tsx',
-      'src/components/ui/{dialog,dropdown-menu,input,label,popover,radio-group,select}.tsx',
+      'src/components/ui/{dialog,dropdown-menu,input,label,popover,select}.tsx',
       'src/components/ui/{separator,sheet,skeleton,table,textarea,toggle,tooltip}.tsx',
     ],
     rules: { 'shadcn/no-arbitrary-values': 'off' },
