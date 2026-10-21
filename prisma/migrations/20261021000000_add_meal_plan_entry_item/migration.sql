@@ -46,18 +46,20 @@ ALTER TABLE "meal_plan_entry_item" ADD CONSTRAINT "meal_plan_entry_item_sourceEn
 -- becomes free text with the meal's name, in the household's language when
 -- the meal has a translation. Without it the cascade would drop the item and
 -- could leave a fridge meal with no items, whose Undo then fails. A source
--- with no meal keeps the cascade, because it has no name to keep.
+-- with no meal keeps the cascade, because it has no name to keep. The name
+-- is cut at 80 characters, `FRIDGE_ITEM_LABEL_MAX`, so Edit items and Undo
+-- can send the label back (src/lib/meal-plans/fridge-items.ts).
 CREATE FUNCTION "keep_fridge_leftover_items"() RETURNS trigger AS $$
 BEGIN
   IF OLD."mealId" IS NOT NULL THEN
     UPDATE "meal_plan_entry_item"
-    SET "label" = COALESCE(
+    SET "label" = LEFT(COALESCE(
           (SELECT mt."name"
              FROM "meal_translation" mt
              JOIN "meal_plan" p ON p."id" = OLD."planId"
              JOIN "household" h ON h."id" = p."householdId"
             WHERE mt."mealId" = OLD."mealId" AND mt."locale" = h."locale"),
-          (SELECT m."name" FROM "meal" m WHERE m."id" = OLD."mealId")),
+          (SELECT m."name" FROM "meal" m WHERE m."id" = OLD."mealId")), 80),
         "sourceEntryId" = NULL
     WHERE "sourceEntryId" = OLD."id";
   END IF;

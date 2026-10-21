@@ -10,6 +10,7 @@ import {
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
 import { isWeekPlanned } from '@/lib/weekly-reminder'
+import { FRIDGE_ITEM_LABEL_MAX, fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import { readEntry, world } from './entries.fixtures'
 
 // Fridge meals (HON-1277) against PGlite, with no mocks. `ing-apple` plays the
@@ -395,6 +396,28 @@ describe('deleting a source entry', () => {
       { ingredientId: null, sourceEntryId: null, label: 'meal-stew', position: 0 },
       { ingredientId: null, sourceEntryId: null, label: 'bread', position: 1 },
     ])
+  })
+
+  // Meal names run to 200 characters; an item label to 80, which the routes
+  // check when Edit items or Undo sends it back.
+  it('cuts a long meal name to the item label limit', async () => {
+    const { alder } = await world()
+    const name = 'Slow-roasted '.repeat(10)
+    await prisma.meal.update({ where: { id: 'meal-stew' }, data: { name } })
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed' },
+    })
+    const created = await createEntry(alder.id, 'plan-alder', {
+      ...lunch,
+      fridgeItems: [{ sourceEntryId: 'entry-alder' }],
+    })
+
+    await prisma.mealPlanEntry.delete({ where: { id: 'entry-alder' } })
+
+    const [item] = await items(created.id)
+    expect(item!.label).toBe(name.slice(0, FRIDGE_ITEM_LABEL_MAX))
+    expect(fridgeItemsSchema.safeParse([{ label: item!.label }]).success).toBe(true)
   })
 
   // The meal's only item is a leftover, and a range delete takes its source.
