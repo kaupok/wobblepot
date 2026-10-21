@@ -286,7 +286,7 @@ export interface WeeklyReminderRunResult {
 /**
  * Whether the household has planned any meal from `start` up to `end`. An
  * entry in any status counts, except a picker placeholder: an entry with no
- * meal and no note, left when the tab closed with the picker open. The planner
+ * meal, no note and no fridge items, left when the tab closed with the picker open. The planner
  * shows it as an empty slot (HON-1251), so it must not suppress the reminder.
  */
 export async function isWeekPlanned(householdId: string, start: Date, end: Date) {
@@ -294,7 +294,7 @@ export async function isWeekPlanned(householdId: string, start: Date, end: Date)
     where: {
       plan: { householdId },
       date: { gte: start, lt: end },
-      OR: [{ mealId: { not: null } }, { note: { not: null } }],
+      OR: [{ mealId: { not: null } }, { note: { not: null } }, { kind: 'fridge' }],
     },
   })
   return planned > 0

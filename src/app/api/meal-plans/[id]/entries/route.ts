@@ -15,6 +15,8 @@ import {
   type EntryCreateRefusal,
 } from '@/lib/meal-plans/create-entry'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
+import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -23,12 +25,14 @@ const notePositionAxis = z.number().min(0).max(1).nullable().optional()
 // entry back (HON-1123). A completed entry offers no Clear, and a restore
 // must not create a completed row the pantry was never charged for, so
 // `status` stops at `skipped`. `pick` is "Pick for me": the server places the
-// slot's top suggestion itself, so it names no meal (HON-1248).
+// slot's top suggestion itself, so it names no meal (HON-1248). `fridgeItems`
+// makes a fridge meal, which has no meal either (HON-1277).
 const createEntrySchema = z
   .object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
     mealType: z.enum(['breakfast', 'lunch', 'dinner']),
     mealId: z.string().optional(),
+    fridgeItems: fridgeItemsSchema.optional(),
     note: z.string().max(200).nullable().optional(),
     noteX: notePositionAxis,
     noteY: notePositionAxis,
@@ -56,6 +60,13 @@ const createEntrySchema = z
         code: 'custom',
         path: ['pick'],
         message: 'pick and mealId exclude each other',
+      })
+    }
+    if (data.fridgeItems && (data.mealId || data.pick)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fridgeItems'],
+        message: 'fridgeItems excludes mealId and pick',
       })
     }
   })
@@ -210,6 +221,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error instanceof EntryCreateError) {
       const { status, error: message } = REFUSALS[error.reason]
       return NextResponse.json({ error: message }, { status })
+    }
+    if (error instanceof FridgeItemNotFoundError) {
+      return NextResponse.json({ error: 'Fridge meal item not found' }, { status: 404 })
     }
 
     captureApiError(error, {

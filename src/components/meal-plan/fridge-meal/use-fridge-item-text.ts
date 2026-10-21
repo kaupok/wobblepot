@@ -1,0 +1,37 @@
+'use client'
+
+import { useLocale, useTranslations } from 'next-intl'
+import { formatDayLong } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import type { FridgeItemInput } from '@/lib/meal-plans/fridge-items'
+import type { FridgeMealItem } from '../types'
+
+/** What the client knows of an item: the stored row, or one added in the picker. */
+export type FridgeItemShown = Omit<FridgeMealItem, 'id'>
+
+/**
+ * The words one fridge-meal item shows by, on the card, in the picker and in
+ * the completion dialog (HON-1277): the ingredient's name, the leftovers'
+ * meal and weekday ("Mash, from Tuesday"), or the household's own text.
+ */
+export function useFridgeItemText() {
+  const t = useTranslations('meal-plan.fridge')
+  const locale = useLocale() as Locale
+
+  return (item: FridgeItemShown): string => {
+    if (item.label !== null) return item.label
+    if (item.sourceEntryId !== null) {
+      const day = item.sourceDate ? formatDayLong(parseLocalDate(item.sourceDate), locale) : ''
+      return item.name ? t('leftover', { meal: item.name, day }) : t('leftoverNoName', { day })
+    }
+    return item.name ?? ''
+  }
+}
+
+/** The body the entry routes take for an item. */
+export function toFridgeItemInput(item: FridgeItemShown): FridgeItemInput {
+  if (item.ingredientId !== null) return { ingredientId: item.ingredientId }
+  if (item.sourceEntryId !== null) return { sourceEntryId: item.sourceEntryId }
+  return { label: item.label ?? '' }
+}

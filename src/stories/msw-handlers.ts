@@ -14,6 +14,7 @@ import {
   lemonGarlicChickenComponents,
   misoSalmonAlternative,
 } from './fixtures'
+import { fridgeRecentMeals } from './fridge-fixtures'
 
 /**
  * Shape returned by `GET /api/meals`. Kept local because `MealSelectorModal`
@@ -306,6 +307,8 @@ export const defaultHandlers: HttpHandler[] = [
     HttpResponse.json({ id: `entry-${Date.now()}` }),
   ),
   http.delete('/api/meal-plans/:planId/entries/:entryId', () => HttpResponse.json({ ok: true })),
+  // The leftovers the fridge-meal picker offers (HON-1277).
+  http.get('/api/entries/recent', () => HttpResponse.json({ meals: fridgeRecentMeals })),
 ]
 
 /**

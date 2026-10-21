@@ -89,6 +89,7 @@ test('"Pick for me" swaps a planned meal, and Undo puts it back with its note', 
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
     await swapGroup.getByRole('menuitem', { name: 'Pick for me' }).click()
 

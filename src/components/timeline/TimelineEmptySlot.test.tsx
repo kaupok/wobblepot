@@ -162,6 +162,7 @@ describe('TimelineEmptySlot', () => {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
     expect(pickButton()).toHaveAttribute('aria-haspopup', 'menu')
     expect(pickButton()).toHaveAttribute('aria-expanded', 'true')

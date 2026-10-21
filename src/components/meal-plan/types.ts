@@ -98,6 +98,29 @@ export interface PlanEntry {
    * per line; null without one. Sent by `/api/entries` only.
    */
   adjustmentNote?: string | null
+  /**
+   * `fridge` for a fridge meal (HON-1277): no `meal`, its `items` instead.
+   * Absent reads as `meal`. Sent by `/api/entries` only.
+   */
+  kind?: 'meal' | 'fridge'
+  /** A fridge meal's items, in order. Empty on every other kind. */
+  items?: FridgeMealItem[]
+}
+
+/**
+ * One item of a fridge meal. Exactly one of `ingredientId`, `sourceEntryId`
+ * and `label` is set: a pantry ingredient, a recent meal's leftovers, or free
+ * text.
+ */
+export interface FridgeMealItem {
+  id: string
+  ingredientId: string | null
+  sourceEntryId: string | null
+  label: string | null
+  /** The ingredient's or the source meal's name; null for free text. */
+  name: string | null
+  /** The source meal's day, `YYYY-MM-DD`; null unless `sourceEntryId` is set. */
+  sourceDate: string | null
 }
 
 /**

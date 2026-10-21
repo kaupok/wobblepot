@@ -14,6 +14,7 @@ import {
   changeSetKey,
   ENTRY_CHANGES_FOR_DEDUCTION,
 } from '@/lib/meal-planning/entry-components'
+import { completeFridgeEntry } from './fridge-meal'
 
 /**
  * Persistence and rules for meal plan entries, behind
@@ -70,6 +71,8 @@ export interface EntryPatch {
   noteY?: number | null
   servingOverride?: number | null
   rating?: 'up' | 'down' | null
+  /** A fridge meal's pantry items the household used up (HON-1277). */
+  usedUpIngredientIds?: string[]
 }
 
 /** What the route sends back after an update. */
@@ -150,6 +153,7 @@ export async function updateEntry(
     select: {
       id: true,
       mealId: true,
+      kind: true,
       status: true,
       servingOverride: true,
       pantryDeductedAt: true,
@@ -368,6 +372,23 @@ export async function updateEntry(
     entry.status !== MealPlanEntryStatus.completed &&
     entry.pantryDeductedAt === null &&
     componentsToDeduct.length > 0
+
+  // A fridge meal has no recipe to charge: the household names what it used up.
+  if (
+    entry.kind === 'fridge' &&
+    patch.status === 'completed' &&
+    patch.usedUpIngredientIds?.length
+  ) {
+    const used = patch.usedUpIngredientIds
+    const pantryDeducted = await completeFridgeEntry(householdId, entryId, updateData, used)
+    return {
+      id: entryId,
+      status: updateData.status,
+      mealId: null,
+      rating: updateData.rating,
+      pantryDeducted,
+    }
+  }
 
   if (shouldDeductPantry) {
     // The members' portions, not their count: a toddler at 0.5× eats half

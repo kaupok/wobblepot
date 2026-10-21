@@ -106,6 +106,7 @@ export const MenuOpen: Story = {
       'Choose a recipe',
       'Pick for me',
       'Imagine a meal',
+      'Fridge meal',
     ])
     await expect(button).toHaveAttribute('aria-expanded', 'true')
   },

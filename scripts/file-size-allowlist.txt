@@ -61,7 +61,7 @@
 6131 src/components/inventory/ShoppingSection.tsx
 20528 src/components/meal-plan/MealCard.stories.tsx
 9024 src/components/meal-plan/MealCard.test.tsx
-8088 src/components/meal-plan/MealCard.tsx
+8022 src/components/meal-plan/MealCard.tsx
 6243 src/components/meal-plan/MealDetail.stories.tsx
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
 6669 src/components/meal-plan/MealDetailModal.tsx
@@ -76,7 +76,7 @@
 5516 src/components/recipes/ImagineReviewDialog.test.tsx
 6237 src/hooks/use-cook-question.test.ts
 5063 src/hooks/use-meal-image.test.ts
-5230 src/lib/ai/fill-plan.test.ts
+5035 src/lib/ai/fill-plan.test.ts
 6828 src/lib/ai/forbidden-foods.test.ts
 5762 src/lib/ai/forbidden-foods.ts
 11454 src/lib/ai/generate-plan.test.ts

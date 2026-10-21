@@ -2,13 +2,16 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { toDateString } from '@/lib/meal-planning/dates'
+import type { FridgeItemInput } from './fridge-items'
+import { toItemRows } from './fridge-meal'
 
 /**
  * Why `createEntry` refused a request. The route maps each one to its status:
  *
  * - `planNotFound`: no such plan of this household (404).
- * - `slotTaken`: the slot already has an entry with a meal or a note, which is
- *   also how a restore after Clear leaves a refilled slot alone (409).
+ * - `slotTaken`: the slot already has an entry with a meal, a note or fridge
+ *   items, which is also how a restore after Clear leaves a refilled slot
+ *   alone (409).
  * - `mealNotFound`: the meal does not exist, is deleted, or is another
  *   household's (404).
  */
@@ -22,13 +25,15 @@ export class EntryCreateError extends Error {
 }
 
 /**
- * The validated body of a new entry. The fields past `mealId` are for Undo
- * after Clear, which posts the cleared entry back (HON-1123).
+ * The validated body of a new entry. `fridgeItems` makes it a fridge meal
+ * with no `mealId` (HON-1277). The fields past `mealId` are for Undo after
+ * Clear, which posts the cleared entry back (HON-1123).
  */
 export interface NewEntry {
   date: Date
   mealType: 'breakfast' | 'lunch' | 'dinner'
   mealId?: string
+  fridgeItems?: FridgeItemInput[]
   note?: string | null
   noteX?: number | null
   noteY?: number | null
@@ -55,10 +60,13 @@ export async function createEntry(householdId: string, planId: string, input: Ne
   const slot = { planId, date: input.date, mealType: input.mealType }
   const existingEntry = await prisma.mealPlanEntry.findFirst({
     where: slot,
-    select: { mealId: true, note: true },
+    select: { mealId: true, note: true, kind: true },
   })
 
-  if (existingEntry && (existingEntry.mealId !== null || existingEntry.note !== null)) {
+  if (
+    existingEntry &&
+    (existingEntry.mealId !== null || existingEntry.note !== null || existingEntry.kind !== 'meal')
+  ) {
     throw new EntryCreateError('slotTaken')
   }
 
@@ -80,16 +88,22 @@ export async function createEntry(householdId: string, planId: string, input: Ne
     }
   }
 
-  // An entry with no meal and no note is a picker placeholder whose discard
-  // never ran, so the new entry replaces it (HON-1251). A write that filled the
-  // slot since the read fails the unique index: the slot is taken.
+  // Throws `FridgeItemNotFoundError` for a source the household may not see.
+  const itemRows = input.fridgeItems ? await toItemRows(householdId, input.fridgeItems) : null
+
+  // An entry with no meal, no note and no items is a picker placeholder whose
+  // discard never ran, so the new entry replaces it (HON-1251). A write that
+  // filled the slot since the read fails the unique index: the slot is taken.
   const [, entry] = await prisma
     .$transaction([
-      prisma.mealPlanEntry.deleteMany({ where: { ...slot, mealId: null, note: null } }),
+      prisma.mealPlanEntry.deleteMany({
+        where: { ...slot, mealId: null, note: null, kind: 'meal' },
+      }),
       prisma.mealPlanEntry.create({
         data: {
           ...slot,
           mealId: input.mealId ?? null,
+          ...(itemRows && { kind: 'fridge', items: { create: itemRows } }),
           status: input.status ?? 'planned',
           note: input.note ?? null,
           noteX: input.noteX ?? null,

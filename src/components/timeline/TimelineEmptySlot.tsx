@@ -13,12 +13,13 @@ import {
   type AddMealView,
 } from '@/components/meal-plan/AddMealMenu'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import { FridgeMealPicker } from '@/components/meal-plan/fridge-meal/FridgeMealPicker'
 import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
-import type { PantryIngredient } from '@/components/meal-plan/types'
+import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 
 interface TimelineEmptySlotProps {
   planId: string
@@ -30,6 +31,8 @@ interface TimelineEmptySlotProps {
   mealType: MealType
   householdServings: number
   pantryIngredients?: PantryIngredient[]
+  /** The pantry the fridge-meal picker searches (HON-1277). */
+  pantryItems?: PantryItemFull[]
   /**
    * Take focus on mount: this slot replaces a card whose meal was just
    * cleared, and focus fell to the page body with that card (HON-1123).
@@ -38,8 +41,9 @@ interface TimelineEmptySlotProps {
   /** Called once the mount has acted on `autoFocus`, so the page can drop it. */
   onAutoFocused?: () => void
   /**
-   * "Pick for me" placed a meal. This slot unmounts when the refresh lands,
-   * taking focus with it, so the page moves focus to the day (HON-1248).
+   * "Pick for me" placed a meal, or a fridge meal was saved. This slot
+   * unmounts when the refresh lands, taking focus with it, so the page moves
+   * focus to the day (HON-1248).
    */
   onPicked?: () => void
 }
@@ -52,6 +56,7 @@ export function TimelineEmptySlot({
   mealType,
   householdServings,
   pantryIngredients = [],
+  pantryItems = [],
   autoFocus = false,
   onAutoFocused,
   onPicked,
@@ -63,6 +68,7 @@ export function TimelineEmptySlot({
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const [view, setView] = useState<AddMealView>('library')
+  const [isFridgeOpen, setIsFridgeOpen] = useState(false)
   const hasSelectedRef = useRef(false)
   const pickButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -155,6 +161,12 @@ export function TimelineEmptySlot({
       pick()
       return
     }
+    // The fridge-meal picker creates the entry as it saves, so it needs no
+    // placeholder (HON-1277).
+    if (chosen === 'fridge') {
+      setIsFridgeOpen(true)
+      return
+    }
     hasSelectedRef.current = false
     setView(chosen)
     createEntryMutation.mutate()
@@ -233,6 +245,19 @@ export function TimelineEmptySlot({
           onCloseAutoFocus={handleCloseAutoFocus}
         />
       )}
+      <FridgeMealPicker
+        open={isFridgeOpen}
+        onOpenChange={setIsFridgeOpen}
+        planId={planId}
+        date={date}
+        mealType={mealType}
+        pantryItems={pantryItems}
+        onSaved={() => {
+          onPicked?.()
+          router.refresh()
+        }}
+        onCloseAutoFocus={handleCloseAutoFocus}
+      />
     </>
   )
 }
