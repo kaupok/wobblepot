@@ -65,6 +65,12 @@ A plan that said "filed as a follow-up" with no ID was the HON-1053 defect: nobo
 
 4.2 used to read three full diffs (`git diff origin/main...HEAD`, `--cached`, unstaged). It now reads `--stat` for each and `git diff -- <file>` only for the files the self-review must judge, because `scripts/pr-review.sh` reads the full diff in 6.3 and the worker does not need it twice.
 
+## Pre-PR checks (4.3; HON-1260)
+
+HON-936 measured the HON-1230 cut: review rounds per PR rose from 1.19 to 2.12. About 7 of the 26 round 2+ findings were process misses that the worker could check itself: no AI eval report for a prompt change (PR #1307 in all 3 rounds), a test that passes with the change deleted (PR #1304, PR #1307), a "Verified" line with no command (PR #1291, PR #1311), and behaviour the plan does not name. The rules were in the reviewer prompt and in `/plan-issue`'s `ai-eval.md`, never in this skill. One extra round costs about $1 to $1.50.
+
+`pre-pr-checks.md` points to each rule's source and does not copy it, so it cannot drift from the reviewer. `scripts/review-checklist-gate.test.ts` fails when a quoted phrase leaves `scripts/pr-review.sh` or `ai-eval.md`. HON-1289 measures the effect.
+
 ## Deferrals file is truncated at 4.4
 
 `scripts/orchestrator.sh` retries a failed worker once on the same issue, `/tmp` outlives the worktree teardown, and 2.1 passes that retry through. An append-only file would double every block on the second attempt and spend the 3-issue cap on copies that 6.8's Linear duplicate check cannot catch, because they are not filed yet. The file is the single sink for every deferral in the run: Phase 5, the CI waits and up to three review rounds sit between 4.4 and 6.8, so in-context state does not carry deferrals across that span.

@@ -25,6 +25,7 @@ Sibling files, read when they apply and before acting:
 - `regular-repo.md`: 0.1 finds no worktree
 - `templates.md`: 2.6 (Explore prompt), 2.7 (plan), 7.4 (Linear summary), 7.6 (filing report)
 - `recovery.md`: retry context, 2.1 stops, CI failures, a missing review
+- `pre-pr-checks.md`: 4.3, the reviewer's recurring rules, before the PR opens
 - `batched.md`: batched plans, or a verification that outruns the 600 s cap
 - `review-cap.md`: `ROUND` ≥ 3, `not actioned:` notes, the 6.7 hand-off
 - `deferral.md`: filing a deferred finding or a follow-up (2.8, 3.2, 6.8)
@@ -227,6 +228,7 @@ Read `docs/TYPOGRAPHY.md` only if typography components changed.
 - **E2E drift**: a page, route URL, dialog, or heading/button/link copy changed → `grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`, and for copy `grep -rn "<exact old copy>" tests/e2e/`; update the specs
 - **Driven screens**: a screen changed → after 4.5, run `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens"; keep its `Driven:` lines
 - **Shared-primitive coupling**: run `/plan-issue` step 7b's greps against the **old** literal; every Mirror moved, `loading.tsx` skeletons included
+- **Recurring reviewer rules**: run every item in `pre-pr-checks.md` (AI eval report, tests that go red, PR body proof, plan deviations)
 
 ### 4.4 Triage issues
 
