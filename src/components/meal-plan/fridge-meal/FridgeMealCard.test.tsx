@@ -67,7 +67,7 @@ function renderCard(
 }
 
 const patches = () => requests.filter((r) => r.method === 'PATCH')
-const trigger = () => screen.getByRole('button', { name: 'More actions: Fridge meal' })
+const trigger = () => screen.getByRole('button', { name: /^More actions: Fridge meal: / })
 
 async function choose(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(trigger())
@@ -114,6 +114,39 @@ describe('FridgeMealCard', () => {
     ])
     // The menu's item left with the menu, so focus goes back to its trigger.
     expect(trigger()).toHaveFocus()
+  })
+
+  // Today's and tomorrow's dinner can both be fridge meals (HON-1287).
+  it("names each card's ⋯ menu by its items, so two cards differ", () => {
+    const { wrapper: Wrapper } = createQueryWrapper()
+    const card = (entryId: string, items: typeof fridgeItems) => (
+      <FridgeMealCard
+        entryId={entryId}
+        planId="plan-1"
+        date="2026-10-21"
+        mealType="dinner"
+        status="planned"
+        items={items}
+        pantryItems={fridgePantryItems}
+      />
+    )
+    render(
+      <Wrapper>
+        {card('entry-1', fridgeItems.slice(2))}
+        {card('entry-2', fridgeItems.slice(0, 1))}
+      </Wrapper>,
+    )
+
+    expect(
+      screen
+        .getAllByRole('button', { name: /^More actions/ })
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual([
+      'More actions: Fridge meal: Cucumber, store meatballs',
+      'More actions: Fridge meal: Mash, from Tuesday',
+    ])
+    // The visible title stays the same.
+    expect(screen.getAllByRole('heading', { name: 'Fridge meal' })).toHaveLength(2)
   })
 
   it('completes with no dialog when no item is from the pantry', async () => {
@@ -168,7 +201,9 @@ describe('FridgeMealCard', () => {
     await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
     expect(requests).toContainEqual({ method: 'DELETE', url: ENTRY_URL, body: null })
     const [message, options] = vi.mocked(toast).mock.calls[0]!
-    expect(message).toBe('Cleared: Fridge meal')
+    expect(message).toBe(
+      'Cleared: Fridge meal: Mash, from Tuesday, Cauliflower and broccoli mix, Cucumber, store meatballs',
+    )
     const action = options?.action as { onClick: (e: unknown) => void }
     action.onClick({})
 

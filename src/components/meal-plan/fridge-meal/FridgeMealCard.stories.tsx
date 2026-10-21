@@ -37,10 +37,12 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** The ⋯ menu names the card's items, so two fridge cards differ (HON-1287). */
+const MORE_ACTIONS =
+  'More actions: Fridge meal: Mash, from Tuesday, Cauliflower and broccoli mix, Cucumber, store meatballs'
+
 async function openMenu(canvasElement: HTMLElement) {
-  await userEvent.click(
-    within(canvasElement).getByRole('button', { name: 'More actions: Fridge meal' }),
-  )
+  await userEvent.click(within(canvasElement).getByRole('button', { name: MORE_ACTIONS }))
   return within(await within(document.body).findByRole('menu'))
 }
 
@@ -82,9 +84,7 @@ export const CompleteWithDialog: Story = {
     )
     await userEvent.click(dialog.getByRole('checkbox', { name: 'Used it all: Cucumber' }))
     await userEvent.click(dialog.getByRole('button', { name: 'Done' }))
-    await waitFor(() =>
-      expect(canvas.getByRole('button', { name: 'More actions: Fridge meal' })).toHaveFocus(),
-    )
+    await waitFor(() => expect(canvas.getByRole('button', { name: MORE_ACTIONS })).toHaveFocus())
     await expect(canvas.getByText('Eaten', { exact: true })).toBeInTheDocument()
   },
 }

@@ -57,12 +57,48 @@ export const MixedItems: Story = {
   play: async () => {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
     const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
+    // Only the pantry items carry the marker: they get a "Used it all" tick later.
     await expect(chosen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Mash, from Tuesday',
-      'Cauliflower and broccoli mix',
-      'Cucumber',
+      'Cauliflower and broccoli mixpantry',
+      'Cucumberpantry',
       'store meatballs',
     ])
+  },
+}
+
+/** A search with no pantry match offers to add the words as an item (HON-1287). */
+export const NoMatch: Story = {
+  args: { pantryItems: fridgePantryItems.filter((p) => p.ingredientId !== 'cucumber') },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    const search = dialog.getByLabelText('Search the pantry')
+    await userEvent.type(search, 'cucumber')
+    await expect(dialog.getByText('Nothing in the pantry matches "cucumber".')).toBeInTheDocument()
+    await userEvent.click(dialog.getByRole('button', { name: 'Add "cucumber"' }))
+    const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
+    await expect(chosen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['cucumber'])
+    await expect(search).toHaveValue('')
+    await expect(search).toHaveFocus()
+    // Left showing for the axe gate and the screenshot.
+    await userEvent.type(search, 'tofu')
+    await expect(dialog.getByRole('button', { name: 'Add "tofu"' })).toBeInTheDocument()
+  },
+}
+
+/** The same in Estonian: „…“ quotes. */
+export const NoMatchEt: Story = {
+  args: { pantryItems: fridgePantryItems.filter((p) => p.ingredientId !== 'cucumber') },
+  globals: { locale: 'et' },
+  play: async () => {
+    const dialog = within(
+      await within(document.body).findByRole('dialog', { name: 'Külmkapitoit' }),
+    )
+    await userEvent.type(dialog.getByLabelText('Otsi sahvrist'), 'kurk')
+    await expect(
+      dialog.getByText('Sahvris pole midagi, mis sobiks otsinguga „kurk“.'),
+    ).toBeInTheDocument()
+    await expect(dialog.getByRole('button', { name: 'Lisa „kurk“' })).toBeInTheDocument()
   },
 }
 

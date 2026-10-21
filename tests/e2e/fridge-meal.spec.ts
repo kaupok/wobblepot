@@ -111,8 +111,13 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     await page.getByRole('menuitem', { name: 'Fridge meal' }).click()
 
     const picker = page.getByRole('dialog', { name: 'Fridge meal' })
-    await picker.getByLabel('Search the pantry').fill(run)
+    const search = picker.getByLabel('Search the pantry')
+    await search.fill(run)
     await picker.getByRole('button', { name: `Add: ${cucumberName}` }).click()
+    // An add clears the search and focuses it (HON-1287), so search again.
+    await expect(search).toHaveValue('')
+    await expect(search).toBeFocused()
+    await search.fill(run)
     await picker.getByRole('button', { name: `Add: ${paprikaName}` }).click()
     await picker.getByLabel('Something else').fill('store meatballs')
     await picker.getByRole('button', { name: 'Add', exact: true }).click()
@@ -128,7 +133,10 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     // No recipe, so no cook view to open and no rating to give.
     await expect(card.getByRole('button', { name: /rate|thumbs/i })).toHaveCount(0)
 
-    await card.getByRole('button', { name: 'More actions: Fridge meal' }).click()
+    // The ⋯ name lists the items, so two fridge cards differ (HON-1287).
+    await card
+      .getByRole('button', { name: `More actions: Fridge meal: ${items.join(', ')}` })
+      .click()
     await page.getByRole('menuitem', { name: 'Eaten' }).click()
     const complete = page.getByRole('dialog', { name: 'Did you use anything up?' })
     await complete.getByRole('checkbox', { name: `Used it all: ${cucumberName}` }).check()
