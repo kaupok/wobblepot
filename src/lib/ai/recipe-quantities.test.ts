@@ -7,6 +7,7 @@ import {
   CUP_CONVERSIONS,
 } from './recipe-quantities'
 import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
+import { newIngredients } from '../../../prisma/seed-expansion'
 
 describe('convertQuantity', () => {
   const makeIngredient = (
@@ -40,6 +41,12 @@ describe('convertQuantity', () => {
     const wonton = comprehensiveIngredients.find((ing) => ing.name === 'wonton wrappers')!
     const row = { ...wonton, gramsPerPiece: wonton.gramsPerPiece ?? null }
     expect(convertQuantity(8, 'piece', row)).toBe(64)
+  })
+
+  it('converts 2 bay leaves to 0.4 g with the seed row', () => {
+    const bay = newIngredients.find((ing) => ing.name === 'bay leaves')!
+    const row = { ...bay, gramsPerPiece: bay.gramsPerPiece ?? null }
+    expect(convertQuantity(2, 'piece', row)).toBeCloseTo(0.4)
   })
 
   it('converts pieces to grams using DEFAULT_GRAMS_PER_PIECE when not specified', () => {

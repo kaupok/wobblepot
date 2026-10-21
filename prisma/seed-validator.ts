@@ -29,6 +29,7 @@ import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
 import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
+import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
 import type { IngredientInput } from './seed-types'
 
 // ============================================
@@ -181,6 +182,7 @@ function validateIngredientFields(ingredients: Ingredient[]): ValidationResult {
   }
 
   errors.push(...validateWrapperGramsPerPiece(ingredients))
+  errors.push(...validatePieceSpiceGramsPerPiece(ingredients))
 
   return { errors, warnings }
 }
