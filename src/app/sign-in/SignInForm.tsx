@@ -72,6 +72,8 @@ export function SignInForm({ isOAuthRequest = false, googleEnabled = false }: Si
     // Check for password reset success
     const resetSuccess = searchParams.get('reset')
     if (resetSuccess === 'success') {
+      // Reads the URL once, then clears it with router.replace, which render cannot do.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuccessMessage(t('resetSuccess'))
       // Clear the reset parameter while preserving other params (like returnUrl)
       const newParams = new URLSearchParams(searchParams.toString())
@@ -87,6 +89,8 @@ export function SignInForm({ isOAuthRequest = false, googleEnabled = false }: Si
     const code = searchParams.get('error')
     if (code === null) return
     const key = getOAuthErrorKey(code)
+    // Reads the URL once, then clears it with router.replace, which render cannot do.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(tErrors(key))
     setShowSignUpLink(key === 'googleNoAccount')
     router.replace(googleErrorCallbackURL('/sign-in', searchParams))

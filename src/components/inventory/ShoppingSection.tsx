@@ -120,6 +120,8 @@ export function ShoppingSection({
   // render both use DEFAULT_SORT_MODE, so the select renders in the server HTML
   // with the default and switches to the stored mode a frame later (HON-771).
   useEffect(() => {
+    // Reads localStorage after hydration, so the first render matches the server.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSortMode(getInitialSortMode())
   }, [])
 
@@ -130,6 +132,8 @@ export function ShoppingSection({
   useEffect(() => {
     if (!externalUnpurchasedIds || externalUnpurchasedIds.size === 0) return
 
+    // Applies a one-off event from the parent, then tells the parent to clear it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPurchasedIds((prev) => {
       const next = new Set(prev)
       externalUnpurchasedIds.forEach((id) => next.delete(id))
