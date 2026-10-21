@@ -158,7 +158,7 @@ Both halves of the `WHERE` are load-bearing. `"ingredientId"` alone would rewrit
 
 - `UPDATE 1` — done.
 - `UPDATE 0` — the `WHERE` matched nothing. Wrong id, or wrong locale. Go back to step 1; do not loosen the `WHERE` to make it match.
-- `UPDATE 2` or more — **stop, and do not "fix it" with another `UPDATE`.** Read this count as catalogue-wide damage, not an off-by-one. Estonian is the only seeded locale and there is one row per entity, so dropping `AND locale = 'et'` would still have matched a single row. A count above 1 therefore means the **foreign key** clause was lost — the [unscoped `UPDATE`](#never-run-an-unscoped-update) below, which rewrites every Estonian name in the catalogue to the same string. Step 1 recorded one before-value; the other several hundred are gone. The [one-row rollback](#one-row) repairs the row you were looking at and leaves the rest wrong, which is worse than the original typo because nothing now points at the damage. Treat it as an incident: go to [`database-recovery.md`](database-recovery.md) for PITR **immediately**, inside the 24-hour window, and log what happened in the [change log](#change-log) either way.
+- `UPDATE 2` or more — **stop, and do not "fix it" with another `UPDATE`.** Read this count as catalogue-wide damage, not an off-by-one. Estonian is the only seeded locale and there is one row per entity, so dropping `AND locale = 'et'` would still have matched a single row. A count above 1 therefore means the **foreign key** clause was lost — the [unscoped `UPDATE`](#never-run-an-unscoped-update) below, which rewrites every Estonian name in the catalogue to the same string. Step 1 recorded one before-value; the other several hundred are gone. The [one-row rollback](#one-row) repairs the row you were looking at and leaves the rest wrong, which is worse than the original typo because nothing now points at the damage. Treat it as an incident: go to [`database-recovery.md`](database-recovery.md) for PITR **immediately**, inside the 6-hour window, and log what happened in the [change log](#change-log) either way.
 
 Inside an explicit transaction, `BEGIN; … ; ROLLBACK;` lets you see the count before committing. Worth it on production.
 
@@ -256,7 +256,7 @@ This works because every environment applies migrations before it seeds. `prisma
 UPDATE ingredient_translation SET name = 'kikerherned' WHERE locale = 'et';
 ```
 
-That statement rewrites every Estonian ingredient name in the database to the same word. There is no undo: the previous values existed only in the rows you just overwrote, and recovering them means point-in-time recovery from a Neon backup ([`database-recovery.md`](database-recovery.md)) inside a 24-hour window — a full incident for a typo fix.
+That statement rewrites every Estonian ingredient name in the database to the same word. There is no undo: the previous values existed only in the rows you just overwrote, and recovering them means point-in-time recovery from a Neon backup ([`database-recovery.md`](database-recovery.md)) inside a 6-hour window — a full incident for a typo fix.
 
 The habit that prevents it is mechanical, not clever: **write the `WHERE` clause before the `SET` clause.** Both keys, every time.
 
@@ -273,7 +273,7 @@ WHERE "ingredientId" = 'cme4x2p9k0001abcd1234wxyz'
   AND locale = 'et';
 ```
 
-This is the entire reason step 1 records the old value. If you did not record it, the row's previous content is gone from the live database and the only recourse is PITR — see [`database-recovery.md`](database-recovery.md), and act inside the 24-hour window.
+This is the entire reason step 1 records the old value. If you did not record it, the row's previous content is gone from the live database and the only recourse is PITR — see [`database-recovery.md`](database-recovery.md), and act inside the 6-hour window.
 
 Add a second change-log line for the revert. Do not edit or delete the original entry; the log is append-only, and "this was changed and then changed back" is exactly the history a future reader needs.
 
