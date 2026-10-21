@@ -196,7 +196,7 @@ export const ConflictDoesNotFireCallback: Story = {
     // WHY: after the 409 the clicked row stays focused, so its muted category
     // hint sits on `bg-muted` at 4.34:1. That is the theme's `muted-foreground`
     // on `muted` pairing, a known defect on every highlighted row, not this
-    // story's subject; remove this waiver once the token pairing passes 4.5:1.
+    // story's subject; remove this waiver once the token pairing passes 4.5:1 (HON-1296).
     a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
     docs: {
       description: {
