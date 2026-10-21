@@ -428,8 +428,8 @@ describe('check-migrations-immutable.sh', () => {
       expect(runCheck(dir, '--tree').status).toBe(0)
     })
 
-    // A rebase merge lands a PR's intermediate commits on first-parent history,
-    // so an add-then-fix within one push reads as an edit. Only the final bytes
+    // A direct multi-commit push lands its intermediate commits on first-parent
+    // history, so an add-then-fix within one push reads as an edit. Only the final bytes
     // were ever applied, so the printed remedy must name the pin, not only a
     // revert that would create the drift it is meant to clear.
     it('names the pin as the remedy for an add-then-fix within one push', () => {
