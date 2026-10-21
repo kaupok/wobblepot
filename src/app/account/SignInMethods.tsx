@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -87,6 +87,7 @@ export function SignInMethods({
     },
     onError: (error) => {
       // The server string is English and is logged, not shown (CLAUDE.md → Localization).
+      // eslint-disable-next-line no-console -- the only record of the server error
       console.error('[sign-in-methods] connect failed', error)
       requestConnectRefocus()
     },
@@ -109,6 +110,7 @@ export function SignInMethods({
       toast.success(t('disconnected'))
     },
     onError: (error) => {
+      // eslint-disable-next-line no-console -- the only record of the server error
       console.error('[sign-in-methods] disconnect failed', error)
       requestDisconnectRefocus()
     },

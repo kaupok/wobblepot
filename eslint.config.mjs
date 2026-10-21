@@ -69,6 +69,10 @@ const config = defineConfig([
     // `/* eslint-disable */` header, which ESLint 10 then reports as an unused
     // directive on every run.
     'public/mockServiceWorker.js',
+    // Gitignored scratch output (.gitignore:58), so CI never lints it.
+    '.temp/**',
+    // Gitignored Playwright MCP captures (.gitignore:83), so CI never lints them.
+    '.playwright-mcp/**',
   ]),
 
   // TypeScript-specific rules
