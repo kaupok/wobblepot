@@ -8,7 +8,9 @@ Each item names the source of its rule. Read the rule there, not here: a copy dr
 
 Source: `.claude/skills/plan-issue/ai-eval.md` → **Prompt, budget and case changes:** and **Model changes:**. The reviewer's side: `scripts/pr-review.sh` → `AI_EVAL_PROMPT` → "Also check for an AI eval report".
 
-- The diff changes a request builder or text the eval sends (the file list in **Prompt, budget and case changes:**) → run `pnpm ai-eval --baseline golden --candidate <current-id> --judge`, then `/bench-judge`.
+The trigger is the reviewer's: run this item when the diff touches a file that the `AI_EVAL_FILES` grep in `scripts/pr-review.sh` matches. The `ai-eval.md` list can lag that grep, so do not use it as the trigger.
+
+- The diff changes a request builder or text the eval sends → run `pnpm ai-eval --baseline golden --candidate <current-id> --judge`, then `/bench-judge`.
 - The diff changes a model constant in `src/lib/ai/models.ts` → run the comparison that **Model changes:** names.
 - The diff changes `budgets.ts` or a committed case → run `pnpm ai-eval --check`.
 

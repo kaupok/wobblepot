@@ -494,6 +494,13 @@ describe('pre-PR checklist', () => {
     expect(source === 'ai-eval.md' ? aiEval : heredoc(source)).toContain(anchor)
   })
 
+  // The ai-eval.md file list can lag the reviewer's grep (it lacks cook-question.ts),
+  // so the AI eval item takes its trigger from the grep that decides the finding.
+  it('takes the AI eval trigger from the reviewer gate', () => {
+    expect(checklist).toContain('the `AI_EVAL_FILES` grep in `scripts/pr-review.sh`')
+    expect(lineStartingWith('AI_EVAL_FILES=')).toContain('cook-question')
+  })
+
   it('is named in the SKILL.md sibling list and in 4.3', () => {
     const skill = read(path.join(skillDir, 'SKILL.md'))
     expect(skill).toContain('- `pre-pr-checks.md`: 4.3')
