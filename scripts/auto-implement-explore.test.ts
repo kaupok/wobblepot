@@ -89,4 +89,19 @@ describe('auto-implement Explore prompt (templates.md)', () => {
     expect(prompt).toContain('Item 5 always goes in')
     expect(prompt).toContain('Otherwise write `not applicable`')
   })
+
+  it('checks recent main commits to the issue files from PRs no sibling links (HON-1282)', () => {
+    expect(prompt).toContain('7. **Unlinked recent changes**: for each file the issue names')
+    expect(prompt).toContain('git log --oneline --since="14 days ago" origin/main -- <path>')
+    expect(prompt).toContain(
+      "compare its diff (`git show <sha> -- <path>`) with the issue's stated placement",
+    )
+    // The unlinked case has no sibling, so the item cannot depend on 2.3 finding one.
+    expect(prompt).toContain('Item 7 always goes in too')
+  })
+
+  it('puts the unlinked-change mismatches in the plan Context', () => {
+    const plan = section(read('templates.md'), '## Plan (2.7)', '## Design Decisions')
+    expect(plan).toContain("Name each mismatch from the brief's item 7")
+  })
 })

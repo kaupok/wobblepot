@@ -53,6 +53,12 @@ Every tool result stays in the main context and is paid again on every later req
 
 A read-only `Explore` subagent pays for its reads once, in its own context, and returns a brief; the main context keeps only the brief. So 2.4 and 2.6 make one Explore call, and the worker reads only the files it edits, in Phase 3. It is `model: "sonnet"` because exploring needs no Opus, and `run_in_background: false` because a headless worker exits when its turn ends and a background agent dies with it (CLAUDE.md → Working style). The prompt lives in `templates.md`, because SKILL.md is capped at 3,300 words (`scripts/check-steering-size.test.ts`). The skill's own siblings stay readable: they are the procedure, not the codebase. Phase 4 already reads `--stat` plus named files (Diff reading in 4.2), so it is unchanged. HON-1261 compares the figures above after about ten runs.
 
+## Unlinked recent changes (2.6; HON-1282)
+
+The 2.3 sibling check sees only issues linked to this one. HON-1226 (PR #1267) moved the landing cost line out of the hero, but only HON-1116 linked it, not HON-1057. A `/plan-issue` dry run on HON-1057 missed it, so the plan kept the issue's stale placement and a test that no longer matched main. HON-1240 added the check to `/plan-issue` step 6. `/auto-implement` plans on its own, so the gap stayed here until HON-1282 added Explore prompt item 7 with the same wording.
+
+A recent commit to a file the issue names is the signal the links miss, because the issue's text was written against the file before that commit. Item 7 goes in every prompt, not only when 2.3 found a sibling, because the case it catches is the one with no link. It runs in the subagent, because `git log` and `git show` output is a file read the main context must not pay for (Exploration through a subagent, above).
+
 ## Coupled callsites (2.6, 3.2, 4.3; HON-612)
 
 `/auto-implement` inlines its own planning phase, so `/plan-issue` step 7b does not otherwise fire; 2.6 runs the scan. HON-612 changed a primitive's geometry and desynced 12 route `loading.tsx` skeletons; review, not planning, caught it. `## Coupled callsites` is a sibling of `## Implementation Steps`, not a member, so 3.2 lists it as its own step: leaving the Mirrors for the 4.3 review bullet reproduces the find-it-in-review failure. A clean scan writes an explicit `none — …` line, because without it a clean scan looks like one that never ran.
