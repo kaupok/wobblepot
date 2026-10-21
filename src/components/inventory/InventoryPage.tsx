@@ -106,6 +106,9 @@ export function InventoryPage({
     [router],
   )
 
+  // "Have it" takes a ran-out row off the list: recompute it, as a removal does.
+  const handlePantryQuantityChanged = useCallback(() => router.refresh(), [router])
+
   const handleExternalUnpurchaseProcessed = useCallback(() => {
     // Clear the set after ShoppingSection has processed it
     setRemovedIngredientIds(new Set())
@@ -135,6 +138,7 @@ export function InventoryPage({
             onItemsChange={setPantryItems}
             loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
+            onPantryQuantityChanged={handlePantryQuantityChanged}
           />
         </div>
 

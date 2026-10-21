@@ -39,6 +39,11 @@ interface PantrySectionProps {
    */
   loadFailed?: boolean
   onPantryItemRemoved?: (ingredientId: string) => void
+  /**
+   * A row's quantity changed on the server ("Have it"). The shopping list
+   * buys a row at 0 and skips one at null, so the parent re-reads it.
+   */
+  onPantryQuantityChanged?: () => void
 }
 
 export function PantrySection({
@@ -46,6 +51,7 @@ export function PantrySection({
   onItemsChange,
   loadFailed = false,
   onPantryItemRemoved,
+  onPantryQuantityChanged,
 }: PantrySectionProps) {
   const tPantry = useTranslations('pantry')
   const locale = useLocale()
@@ -119,6 +125,7 @@ export function PantrySection({
         prev.map((item) => (item.id === id ? { ...item, quantity: null } : item)),
       )
     },
+    onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, id) => {
       // The row goes back to Ran out. If focus is still on its star in On hand,
       // that star unmounts, so follow the row to its "Have it".

@@ -221,14 +221,32 @@ describe('PantrySection ran out', () => {
   }
 
   /** Holds the list in state, as `InventoryPage` does, so a row can move. */
-  function StatefulSection({ initial }: { initial: PantryItemData[] }) {
+  function StatefulSectionWithRefresh({
+    initial,
+    onPantryQuantityChanged,
+  }: {
+    initial: PantryItemData[]
+    onPantryQuantityChanged?: () => void
+  }) {
     const [items, setItems] = useState(initial)
-    return <PantrySection items={items} onItemsChange={setItems} />
+    return (
+      <PantrySection
+        items={items}
+        onItemsChange={setItems}
+        onPantryQuantityChanged={onPantryQuantityChanged}
+      />
+    )
   }
 
-  function renderStateful(items: PantryItemData[]) {
+  function renderStateful(items: PantryItemData[], onPantryQuantityChanged = vi.fn()) {
     const { wrapper } = createQueryWrapper()
-    return render(<StatefulSection initial={items} />, { wrapper })
+    return render(
+      <StatefulSectionWithRefresh
+        initial={items}
+        onPantryQuantityChanged={onPantryQuantityChanged}
+      />,
+      { wrapper },
+    )
   }
 
   it('puts a non-staple row at 0 under Ran out, and a staple at 0 under Staples', () => {
@@ -261,11 +279,14 @@ describe('PantrySection ran out', () => {
   it('sends quantity null and moves the row to On hand', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
-    renderStateful([bread, avocado])
+    const onPantryQuantityChanged = vi.fn()
+    renderStateful([bread, avocado], onPantryQuantityChanged)
 
     fireEvent.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
 
     await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 2'))
+    // The shopping list beside it re-reads, because a null row is not bought.
+    await waitFor(() => expect(onPantryQuantityChanged).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-avocado', {
       method: 'PATCH',
@@ -277,11 +298,13 @@ describe('PantrySection ran out', () => {
 
   it('puts the row back under Ran out and toasts on a failed request', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
-    renderStateful([bread, avocado])
+    const onPantryQuantityChanged = vi.fn()
+    renderStateful([bread, avocado], onPantryQuantityChanged)
 
     fireEvent.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(onPantryQuantityChanged).not.toHaveBeenCalled()
     expect(groupOf('Avocado')).toBe('Ran out 1')
     expect(screen.getByRole('button', { name: 'Have it: Avocado' })).toBeInTheDocument()
   })

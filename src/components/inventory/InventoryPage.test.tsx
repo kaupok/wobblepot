@@ -296,4 +296,33 @@ describe('InventoryPage view', () => {
     await waitFor(() => expect(pantryColumn.getByText('Garlic')).toBeInTheDocument())
     expect(routerRefresh).not.toHaveBeenCalled()
   })
+  // A ran-out row is on the list for the full amount and a null row is not,
+  // so "Have it" re-reads the list beside the pantry (HON-1288).
+  it('refreshes the shopping list after "Have it" on a ran-out row', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ ok: true }))
+
+    renderPage({
+      view: 'pantry',
+      pantryItems: [
+        {
+          id: 'pantry-avocado',
+          ingredient: { id: 'avocado', name: 'Avocado', category: 'fruit', defaultUnit: 'piece' },
+          quantity: 0,
+          isStaple: false,
+          updatedAt: '2026-10-21T00:00:00.000Z',
+        },
+      ],
+      emptyStateVariant: 'nothing-needed',
+      windowDays: 7,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
+
+    await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/pantry/pantry-avocado',
+      expect.objectContaining({ method: 'PATCH', body: '{"quantity":null}' }),
+    )
+  })
 })
