@@ -25,7 +25,7 @@ interface GroupHeadingProps {
 
 /**
  * The heading over a group of rows on `/shopping` and `/pantry`: the pantry's
- * staples and on-hand groups, the list's category, urgency, "Other" and
+ * staples, on-hand and ran-out groups, the list's category, urgency, "Other" and
  * "Custom items" groups. Caption level, one step under the column's Title,
  * so it divides the list without competing with the rows (docs/DESIGN.md →
  * Composition rules, "Headings divide, borders contain"). `h3` because every

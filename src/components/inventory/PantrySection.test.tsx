@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
@@ -180,5 +181,162 @@ describe('PantrySection remove', () => {
       'Butter',
       'Carrot',
     ])
+  })
+})
+
+// A row at 0 has run out (HON-1288): it leaves On hand for its own group, with
+// a "Have it" that sets the quantity back to null, "have some".
+describe('PantrySection ran out', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  const avocado = makeItem({
+    id: 'pantry-avocado',
+    ingredient: { id: 'ing-avocado', name: 'Avocado', category: 'fruit', defaultUnit: 'piece' },
+    quantity: 0,
+  })
+  const lime = makeItem({
+    id: 'pantry-lime',
+    ingredient: { id: 'ing-lime', name: 'Lime', category: 'fruit', defaultUnit: 'piece' },
+    quantity: 0,
+  })
+  const bread = makeItem({
+    id: 'pantry-bread',
+    ingredient: { id: 'ing-bread', name: 'Bread', category: 'carb', defaultUnit: 'piece' },
+    quantity: null,
+  })
+  const salt = makeItem({
+    id: 'pantry-salt',
+    ingredient: { id: 'ing-salt', name: 'Salt', category: 'spice', defaultUnit: 'g' },
+    quantity: 0,
+    isStaple: true,
+  })
+
+  /** The group a row's name sits in, read from the heading over its `RowGroup`. */
+  function groupOf(name: string) {
+    const group = screen.getByText(name).closest('.flex-col.gap-2')
+    return group?.querySelector('h3')?.textContent
+  }
+
+  /** Holds the list in state, as `InventoryPage` does, so a row can move. */
+  function StatefulSectionWithRefresh({
+    initial,
+    onPantryQuantityChanged,
+  }: {
+    initial: PantryItemData[]
+    onPantryQuantityChanged?: () => void
+  }) {
+    const [items, setItems] = useState(initial)
+    return (
+      <PantrySection
+        items={items}
+        onItemsChange={setItems}
+        onPantryQuantityChanged={onPantryQuantityChanged}
+      />
+    )
+  }
+
+  function renderStateful(items: PantryItemData[], onPantryQuantityChanged = vi.fn()) {
+    const { wrapper } = createQueryWrapper()
+    return render(
+      <StatefulSectionWithRefresh
+        initial={items}
+        onPantryQuantityChanged={onPantryQuantityChanged}
+      />,
+      { wrapper },
+    )
+  }
+
+  it('puts a non-staple row at 0 under Ran out, and a staple at 0 under Staples', () => {
+    renderSection([salt, bread, avocado])
+
+    expect(groupOf('Avocado')).toBe('Ran out 1')
+    expect(groupOf('Bread')).toBe('On hand 1')
+    expect(groupOf('Salt')).toBe('Staples (always stocked) 1')
+    expect(screen.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'On hand 1' })).toBeInTheDocument()
+    // The title still counts every row.
+    expect(screen.getByText('3 items')).toBeInTheDocument()
+  })
+
+  it('renders no Ran out heading when no row is at 0', () => {
+    renderSection([bread, makeItem({ quantity: 2 })])
+
+    expect(screen.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Have it/ })).not.toBeInTheDocument()
+  })
+
+  it('offers "Have it" only on a ran-out row', () => {
+    renderSection([salt, bread, avocado])
+
+    expect(screen.getAllByRole('button', { name: /^Have it/ })).toEqual([
+      screen.getByRole('button', { name: 'Have it: Avocado' }),
+    ])
+  })
+
+  it('sends quantity null and moves the row to On hand', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    const onPantryQuantityChanged = vi.fn()
+    renderStateful([bread, avocado], onPantryQuantityChanged)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
+
+    await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 2'))
+    // The shopping list beside it re-reads, because a null row is not bought.
+    await waitFor(() => expect(onPantryQuantityChanged).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-avocado', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"quantity":null}',
+    })
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('puts the row back under Ran out and toasts on a failed request', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
+    const onPantryQuantityChanged = vi.fn()
+    renderStateful([bread, avocado], onPantryQuantityChanged)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(onPantryQuantityChanged).not.toHaveBeenCalled()
+    expect(groupOf('Avocado')).toBe('Ran out 1')
+    expect(screen.getByRole('button', { name: 'Have it: Avocado' })).toBeInTheDocument()
+  })
+
+  it('focuses the next ran-out row\'s "Have it", not <body>', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })))
+    renderStateful([bread, avocado, lime])
+    const haveIt = screen.getByRole('button', { name: 'Have it: Avocado' })
+    haveIt.focus()
+
+    fireEvent.click(haveIt)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Have it: Lime' })).toHaveFocus())
+    expect(document.body).not.toHaveFocus()
+  })
+
+  it("focuses the moved row's star once Ran out is empty", async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })))
+    renderStateful([avocado])
+    const haveIt = screen.getByRole('button', { name: 'Have it: Avocado' })
+    haveIt.focus()
+
+    fireEvent.click(haveIt)
+
+    // jsdom, like a browser, moves focus to <body> when the focused button
+    // unmounts with its row, so this fails without the refocus.
+    await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 1'))
+    const star = within(screen.getByText('Avocado').closest('.p-3') as HTMLElement).getByRole(
+      'button',
+      { name: 'Mark as staple' },
+    )
+    expect(star).toHaveFocus()
+    expect(document.body).not.toHaveFocus()
   })
 })

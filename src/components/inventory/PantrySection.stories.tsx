@@ -25,6 +25,16 @@ const onHand: PantryItemData[] = [
   createPantryItemData({ ingredient: ingredient('short-grain-rice', 'Short-grain rice', 'carb') }),
 ]
 
+// Quantity 0 is "ran out" (docs/PROJECT_SPEC.md → Pantry Quantity Semantics),
+// as the fridge meal's "Used it all" leaves a row.
+const ranOut: PantryItemData[] = [
+  createPantryItemData({
+    ingredient: ingredient('avocado', 'Avocado', 'fruit', 'piece'),
+    quantity: 0,
+  }),
+  createPantryItemData({ ingredient: ingredient('lime', 'Lime', 'fruit', 'piece'), quantity: 0 }),
+]
+
 /**
  * `PantrySection` is controlled — `InventoryPage` owns the list and passes its
  * `setState` as `onItemsChange`. Holding the list here lets a star toggle or a
@@ -57,7 +67,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples" and "On hand", each with a star toggle and a confirm-gated remove. Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0, with a "Have it" that sets it back to "have some"), each with a star toggle and a confirm-gated remove. Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -159,5 +169,48 @@ export const LoadFailed: Story = {
     // No count: the number of items is unknown.
     const title = canvas.getByRole('heading', { level: 2, name: 'Your pantry' })
     await expect(title.parentElement).toHaveTextContent(/^Your pantry$/)
+  },
+}
+
+export const RanOut: Story = {
+  args: { items: [...staples, ...onHand, ...ranOut] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Two rows at quantity 0 under "Ran out", after "On hand". "Have it" moves the row back to On hand and focuses the next "Have it", so focus never falls to the page.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 2' })).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 3' })).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Have it: Avocado' }))
+
+    await waitFor(() =>
+      expect(canvas.getByRole('heading', { level: 3, name: 'On hand 4' })).toBeInTheDocument(),
+    )
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Have it: Lime' })).toHaveFocus()
+  },
+}
+
+export const RanOutEstonian: Story = {
+  args: { items: [...staples, ...onHand, ...ranOut] },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The Ran out group in Estonian: "Otsas" over the rows, "Olemas" on each button. Checks that the longer labels fit the row.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Otsas 2' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Olemas: Avocado' })).toBeVisible()
   },
 }
