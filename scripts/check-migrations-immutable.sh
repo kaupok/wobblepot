@@ -32,12 +32,13 @@
 #               cannot turn `main` green over the drift.
 #
 # `--tree` assumes each first-parent commit on `main` is one merge unit — a
-# squash (what `/merge` does) or a merge commit, whose first-parent diff covers
-# the whole PR. A rebase merge, or a direct push of several commits, lands a
-# PR's intermediate commits too: a new migration added in one and fixed up in
-# the next then reads as edited, although only the final bytes were ever on a
-# pushed `main` tip and applied. Reverting there would CREATE drift — pin the
-# final blob in the allowlist instead (the repo still allows rebase merges).
+# squash, whose first-parent diff covers the whole PR. The repo allows only
+# squash merges; older merge commits in history are safe for the same reason.
+# A direct push of several commits lands its intermediate commits too: a new
+# migration added in one and fixed up in the next then reads as edited,
+# although only the final bytes were ever on a pushed `main` tip and applied.
+# Reverting there would CREATE drift — pin the final blob in the allowlist
+# instead.
 #
 # `--tree` accepts a post-add edit only when scripts/migration-immutability-
 # allowlist.txt pins that path to HEAD's exact blob (or to `deleted`), with a
@@ -152,8 +153,8 @@ EOF
     echo "clears the drift. Revert the commit that made each change (git revert) — this" >&2
     echo "check goes green on the revert's own push. Keeping an edit is only sanctioned" >&2
     echo "through a reviewed entry in $allowlist, with a reason." >&2
-    echo "Exception: if the add and the edit arrived in the SAME push (a rebase merge or" >&2
-    echo "a multi-commit push), only the final bytes were ever applied — do not revert;" >&2
+    echo "Exception: if the add and the edit arrived in the SAME push (a multi-commit" >&2
+    echo "push), only the final bytes were ever applied — do not revert;" >&2
     echo "pin HEAD's blob in the allowlist instead." >&2
     echo "See docs/GIT_WORKFLOW.md → Migration Immutability." >&2
     if [ "${GITHUB_ACTIONS-}" = true ]; then
