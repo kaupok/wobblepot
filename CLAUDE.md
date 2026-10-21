@@ -53,7 +53,7 @@ Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is m
 
 Exact versions are pinned in `package.json`. The majors:
 
-- **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript 6.0
 - **Styling**: Tailwind CSS 4 with class-variance-authority, shadcn/ui
 - **i18n**: next-intl 4, catalogs in `messages/`
 - **Data**: PostgreSQL (Neon) with Prisma 7; TanStack Query v5 on the client
