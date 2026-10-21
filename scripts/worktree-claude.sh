@@ -4246,6 +4246,10 @@ wait_for_drain() {
 cmd_stop() {
   local pid_file="$WORKTREE_BASE/orchestrator.pid"
   local status_file="$WORKTREE_BASE/orchestrator-status.json"
+  # Here, not at the top: only `wt stop` needs it, and the fixture repos in
+  # worktree-prepare.test.ts and worktree-done.test.ts copy this file alone.
+  # shellcheck source=./wt-stop-check.sh
+  source "$SCRIPT_DIR/wt-stop-check.sh"
 
   if [ ! -f "$pid_file" ]; then
     echo -e "${YELLOW}No orchestrator PID file found.${NC}"
@@ -4266,6 +4270,10 @@ cmd_stop() {
     rm -f "$pid_file"
     return 0
   fi
+
+  # Before the first signal: the orchestrator deletes the status file on exit.
+  local snapshot
+  snapshot=$(stop_drain_snapshot "$status_file")
 
   echo -e "${BLUE}Stopping orchestrator (PID $pid)...${NC}"
   echo -e "${DIM}Sending SIGTERM (graceful — waits for workers to finish)${NC}"
@@ -4308,6 +4316,7 @@ cmd_stop() {
   fi
 
   echo -e "${GREEN}Orchestrator stopped.${NC}"
+  stop_drain_check "$snapshot"
 }
 
 # ─── .env loading ────────────────────────────────────────────────────────────
