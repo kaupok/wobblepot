@@ -42,6 +42,8 @@ export function ConsentProvider({
     const clientDecision = readConsentCookieClient()
     const clientGranted = decisionToGranted(clientDecision)
     if (clientGranted !== granted) {
+      // Reads the client cookie after hydration, so the first render matches the server.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGranted(clientGranted)
     }
     // Intentionally runs once on mount — reconciles with any cookie drift between

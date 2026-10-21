@@ -108,6 +108,8 @@ export function SignUpForm({
     // it again; `invite` and `returnUrl` stay.
     const code = searchParams.get('error')
     if (code === null) return
+    // Reads the URL once, then clears it with router.replace, which render cannot do.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(tErrors(getOAuthErrorKey(code)))
     router.replace(googleErrorCallbackURL('/sign-up', searchParams))
   }, [searchParams, router, tErrors])
