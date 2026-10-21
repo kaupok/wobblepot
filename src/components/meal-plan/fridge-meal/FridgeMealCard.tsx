@@ -93,7 +93,10 @@ export function FridgeMealCard({
     pantryItems,
     source: 'meal_card',
   })
-  const { clear, isClearing } = useClearEntry({ planId, entryId, name: t('title'), onCleared })
+  // The title and the items, so two fridge cards on one page name their actions
+  // apart. Separators, not prepositions (docs/LOCALIZATION.md).
+  const cardName = t('cardName', { title: t('title'), items: items.map(itemText).join(', ') })
+  const { clear, isClearing } = useClearEntry({ planId, entryId, name: cardName, onCleared })
 
   const hasPantryItems = items.some((item) => item.ingredientId !== null)
   const isCompleted = status === 'completed'
@@ -147,7 +150,7 @@ export function FridgeMealCard({
                   ref={moreActionsTriggerRef}
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={tCard('moreActions', { name: t('title') })}
+                  aria-label={tCard('moreActions', { name: cardName })}
                 >
                   <MoreHorizontal aria-hidden="true" />
                 </Button>

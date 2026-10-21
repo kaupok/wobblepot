@@ -98,24 +98,27 @@ function CompleteForm({
 
   return (
     <>
-      <ul className="flex max-h-60 flex-col gap-3 overflow-y-auto">
+      <ul className="flex max-h-60 flex-col overflow-y-auto">
         {pantryItems.map((item) => {
           const id = `${idPrefix}-${item.ingredientId}`
           const name = itemText(item)
           return (
-            <li key={item.id} className="flex items-center justify-between gap-3">
-              <Label htmlFor={id} className="min-w-0 flex-1">
-                {name}
+            // One label fills the row, so a tap anywhere on it toggles the
+            // tick; the 20px checkbox keeps its own size. `min-h-touch` is the
+            // 44px tap-target floor.
+            <li key={item.id} className="min-h-touch flex">
+              <Label htmlFor={id} className="flex-1 justify-between">
+                <span className="min-w-0">{name}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <Checkbox
+                    id={id}
+                    checked={usedUp.has(item.ingredientId)}
+                    onCheckedChange={(checked) => toggle(item.ingredientId, checked === true)}
+                    aria-label={t('usedItAllLabel', { name })}
+                  />
+                  {t('usedItAll')}
+                </span>
               </Label>
-              <div className="flex shrink-0 items-center gap-2">
-                <Checkbox
-                  id={id}
-                  checked={usedUp.has(item.ingredientId)}
-                  onCheckedChange={(checked) => toggle(item.ingredientId, checked === true)}
-                  aria-label={t('usedItAllLabel', { name })}
-                />
-                <Label htmlFor={id}>{t('usedItAll')}</Label>
-              </div>
             </li>
           )
         })}

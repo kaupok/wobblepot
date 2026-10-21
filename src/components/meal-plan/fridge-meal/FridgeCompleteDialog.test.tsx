@@ -43,6 +43,23 @@ describe('FridgeCompleteDialog', () => {
     expect(onConfirm).toHaveBeenCalledWith(['cucumber'])
   })
 
+  // A 20px checkbox is small for a thumb (HON-1287).
+  it('toggles the tick from a click on the item name, in a 44px row', async () => {
+    const { dialog, onConfirm, user } = renderDialog()
+
+    const tick = dialog.getByRole('checkbox', { name: 'Used it all: Cucumber' })
+    // Cucumber is the second pantry row.
+    expect(dialog.getAllByRole('listitem')[1]).toHaveClass('min-h-touch')
+    await user.click(dialog.getByText('Cucumber'))
+    expect(tick).toHaveAttribute('aria-checked', 'true')
+    await user.click(dialog.getByText('Cucumber'))
+    expect(tick).toHaveAttribute('aria-checked', 'false')
+    await user.click(dialog.getAllByText('Used it all')[0]!)
+    await user.click(dialog.getByRole('button', { name: 'Done' }))
+
+    expect(onConfirm).toHaveBeenCalledWith(['veg-mix'])
+  })
+
   it('confirms with no ids when nothing is ticked', async () => {
     const { dialog, onConfirm, user } = renderDialog()
 

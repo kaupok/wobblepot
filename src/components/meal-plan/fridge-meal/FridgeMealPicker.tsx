@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useState, type FormEvent } from 'react'
+import { useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -111,6 +111,9 @@ function PickerForm({
   const itemText = useFridgeItemText()
   const searchId = useId()
   const freeTextId = useId()
+  // A chip add unmounts the chip, so focus moves here instead of to `<body>`
+  // (docs/DESIGN.md → Focus management).
+  const searchRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<Draft[]>(() => initialItems.map(toDraft))
   const [query, setQuery] = useState('')
   const [freeText, setFreeText] = useState('')
@@ -146,12 +149,32 @@ function PickerForm({
     setItems((current) => [...current, toDraft(item)])
   }
 
-  function addFreeText(event: FormEvent) {
-    event.preventDefault()
-    const label = freeText.trim()
+  /** The household's own words, as "Something else" and the no-match button add them. */
+  function addLabel(text: string) {
+    const label = text.trim().slice(0, FRIDGE_ITEM_LABEL_MAX)
     if (!label) return
     add({ ingredientId: null, sourceEntryId: null, label, name: null, sourceDate: null })
+  }
+
+  function addFreeText(event: FormEvent) {
+    event.preventDefault()
+    if (isFull) return
+    addLabel(freeText)
     setFreeText('')
+  }
+
+  /** A pantry chip or the no-match button: the search has done its job. */
+  function addFromSearch(addIt: () => void) {
+    if (isFull) return
+    addIt()
+    setQuery('')
+    searchRef.current?.focus()
+  }
+
+  function addLeftover(item: FridgeItemShown) {
+    if (isFull) return
+    add(item)
+    searchRef.current?.focus()
   }
 
   const saveMutation = useMutation({
@@ -215,7 +238,15 @@ function PickerForm({
                 const text = itemText(item)
                 return (
                   <li key={item.key} className="flex items-center justify-between gap-2">
-                    <Body variant="small">{text}</Body>
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <Body variant="small">{text}</Body>
+                      {/* Only a pantry item gets a "Used it all" tick when the meal is eaten. */}
+                      {item.ingredientId !== null && (
+                        <Body variant="small" tone="muted">
+                          {t('pantryMarker')}
+                        </Body>
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -236,6 +267,7 @@ function PickerForm({
         <section className="flex flex-col gap-2">
           <Label htmlFor={searchId}>{t('pantrySearch')}</Label>
           <Input
+            ref={searchRef}
             id={searchId}
             type="search"
             value={query}
@@ -247,7 +279,24 @@ function PickerForm({
             <Body variant="muted">{t('pantryEmpty')}</Body>
           ) : shownPantry.length === 0 ? (
             query.trim() && (
-              <Body variant="muted">{t('pantryNoMatch', { query: query.trim() })}</Body>
+              <>
+                <Body variant="muted">{t('pantryNoMatch', { query: query.trim() })}</Body>
+                <div>
+                  {/* A long query truncates rather than widen the dialog. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="max-w-full"
+                    aria-disabled={isFull || undefined}
+                    onClick={() => addFromSearch(() => addLabel(query))}
+                  >
+                    <Plus aria-hidden="true" />
+                    <span className="truncate">
+                      {t('addQuery', { query: query.trim().slice(0, FRIDGE_ITEM_LABEL_MAX) })}
+                    </span>
+                  </Button>
+                </div>
+              </>
             )
           ) : (
             <ChoiceList
@@ -263,7 +312,7 @@ function PickerForm({
                 },
               }))}
               disabled={isFull}
-              onAdd={add}
+              onAdd={(item) => addFromSearch(() => add(item))}
               addLabel={(name) => t('add', { name })}
             />
           )}
@@ -292,7 +341,7 @@ function PickerForm({
                 return { key: meal.entryId, text: itemText(item), item }
               })}
               disabled={isFull}
-              onAdd={add}
+              onAdd={addLeftover}
               addLabel={(name) => t('add', { name })}
             />
           )}
