@@ -278,7 +278,10 @@ function PickerForm({
           {atHome.length === 0 ? (
             <Body variant="muted">{t('pantryEmpty')}</Body>
           ) : shownPantry.length === 0 ? (
-            query.trim() && (
+            // A match that is already in the meal is not "no match": offering
+            // the words then would add a free-text copy of a pantry item.
+            query.trim() &&
+            pantryMatches.length === 0 && (
               <>
                 <Body variant="muted">{t('pantryNoMatch', { query: query.trim() })}</Body>
                 <div>

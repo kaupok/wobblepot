@@ -159,6 +159,19 @@ describe('FridgeMealPicker', () => {
     expect(saves()[0]!.body).toMatchObject({ fridgeItems: [{ label: 'cucumber' }] })
   })
 
+  it('does not offer the words of a pantry item already in the meal', async () => {
+    const { dialog, user } = renderPicker()
+    const search = dialog.getByLabelText('Search the pantry')
+
+    await user.type(search, 'cuc')
+    await user.click(dialog.getByRole('button', { name: 'Add: Cucumber' }))
+    await user.type(search, 'cucumber')
+
+    expect(dialog.queryByRole('button', { name: 'Add "cucumber"' })).not.toBeInTheDocument()
+    expect(dialog.queryByText(/Nothing in the pantry matches/)).not.toBeInTheDocument()
+    expect(chosen(dialog)).toEqual(['Cucumber pantry'])
+  })
+
   it('cuts an unmatched search to the label limit', async () => {
     const { dialog, user } = renderPicker()
 
