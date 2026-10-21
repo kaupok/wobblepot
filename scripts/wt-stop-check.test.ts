@@ -4,7 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { scriptsDir, shellFunctionBody, worktreeClaude } from './orchestrator-test-harness'
+import {
+  launchLine,
+  scriptsDir,
+  shellFunctionBody,
+  worktreeClaude,
+} from './orchestrator-test-harness'
 
 // `wt stop` checks its own drain (HON-575 B4): no `claude` worker left running,
 // and no drained issue left where the picker skips it forever.
@@ -23,6 +28,8 @@ const verdict = (snapshot: string, orphans: string, states: string) =>
 
 const tmpDirs: string[] = []
 const children: ChildProcess[] = []
+// Processes started outside Node's child list, by PID.
+const strays: number[] = []
 
 function tmpDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-stop-check-'))
@@ -32,8 +39,29 @@ function tmpDir() {
 
 afterEach(() => {
   for (const child of children.splice(0)) child.kill('SIGKILL')
+  for (const pid of strays.splice(0)) {
+    try {
+      process.kill(pid, 'SIGKILL')
+    } catch {
+      // Already exited, as it should after `wt stop`.
+    }
+  }
   for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
 })
+
+// A `curl` on PATH that records its request body and prints a fixed reply.
+function fakeCurl(reply: string) {
+  const dir = tmpDir()
+  const bin = path.join(dir, 'curl')
+  fs.writeFileSync(
+    bin,
+    `#!/bin/bash\nwhile [ $# -gt 0 ]; do [ "$1" = -d ] && printf '%s\\n' "$2" >> "${dir}/requests"; shift; done\nprintf '%s' '${reply}'\n`,
+  )
+  fs.chmodSync(bin, 0o755)
+  return { dir, env: { PATH: `${dir}:${process.env.PATH}`, LINEAR_API_KEY: 'lin_api_test' } }
+}
+
+const QUEUED = '{"data":{"issue":{"state":{"name":"Queued"},"assignee":null}}}'
 
 describe('stop_drain_snapshot', () => {
   it('lists each worker as issue and PID from the status file', () => {
@@ -93,18 +121,6 @@ describe('stop_drain_orphans', () => {
 })
 
 describe('stop_drain_issue_states', () => {
-  // A `curl` on PATH that records its request body and prints a fixed reply.
-  function fakeCurl(reply: string) {
-    const dir = tmpDir()
-    const bin = path.join(dir, 'curl')
-    fs.writeFileSync(
-      bin,
-      `#!/bin/bash\nwhile [ $# -gt 0 ]; do [ "$1" = -d ] && printf '%s\\n' "$2" >> "${dir}/requests"; shift; done\nprintf '%s' '${reply}'\n`,
-    )
-    fs.chmodSync(bin, 0o755)
-    return { dir, env: { PATH: `${dir}:${process.env.PATH}`, LINEAR_API_KEY: 'lin_api_test' } }
-  }
-
   it("prints each issue's state and assignee from Linear", () => {
     const curl = fakeCurl(
       '{"data":{"issue":{"state":{"name":"In Progress"},"assignee":{"name":"Worker Bot"}}}}',
@@ -190,17 +206,72 @@ describe('stop_drain_verdict', () => {
   })
 })
 
-describe('cmd_stop', () => {
-  const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_stop')
+describe('wt stop', () => {
+  // A fake orchestrator that, like the real one, deletes its status file on
+  // exit. So the check can name the worker only from a snapshot taken before
+  // the first signal.
+  function stop(workerPid: number, linearReply: string) {
+    const home = tmpDir()
+    const base = path.join(home, '.worktrees', 'wobblepot')
+    fs.mkdirSync(base, { recursive: true })
+    const status = path.join(base, 'orchestrator-status.json')
+    fs.writeFileSync(status, JSON.stringify({ workers: [{ issue: 'HON-7', pid: workerPid }] }))
+    // Double-forked, so the system reaps it on exit. As a direct child, it would
+    // stay a zombie while spawnSync blocks Node, and `kill -0` on a zombie
+    // succeeds, so `wt stop` would wait its full bound.
+    const orchestratorPid = Number(
+      spawnSync(
+        'bash',
+        [
+          '-c',
+          '( trap \'rm -f "$1"; exit 0\' TERM; while :; do sleep 0.1; done ) >/dev/null 2>&1 & echo $!',
+          '_',
+          status,
+        ],
+        { encoding: 'utf8' },
+      ).stdout,
+    )
+    strays.push(orchestratorPid)
+    fs.writeFileSync(path.join(base, 'orchestrator.pid'), String(orchestratorPid))
 
-  it('takes the snapshot before its first signal, while the status file still exists', () => {
-    expect(body.indexOf('stop_drain_snapshot "$status_file"')).toBeGreaterThan(-1)
-    expect(body.indexOf('stop_drain_snapshot')).toBeLessThan(body.indexOf('kill -TERM'))
+    // The real .env, when there is one, wins over LINEAR_API_KEY here, and the
+    // stub curl answers either way.
+    const curl = fakeCurl(linearReply)
+    const result = spawnSync('bash', [worktreeClaude, 'stop'], {
+      encoding: 'utf8',
+      env: { ...process.env, ...curl.env, HOME: home },
+    })
+    return {
+      out: result.stdout.replace(/\x1b\[[0-9;]*m/g, ''),
+      statusFileLeft: fs.existsSync(status),
+    }
+  }
+
+  it('reports a worker that still runs claude, after the orchestrator deleted its status file', () => {
+    const worker = spawn('sleep', ['30'], { argv0: 'claude', stdio: 'ignore' })
+    children.push(worker)
+
+    const result = stop(worker.pid!, QUEUED)
+
+    expect(result.statusFileLeft).toBe(false)
+    expect(result.out).toContain(`FAIL HON-7: its worker (PID ${worker.pid}) still runs`)
+    expect(result.out).toContain('Drain check: 1 problem(s) across 1 worker(s)')
   })
 
-  it('runs the drain check after the orchestrator has stopped', () => {
-    expect(body.indexOf('stop_drain_check "$snapshot"')).toBeGreaterThan(
-      body.indexOf('Orchestrator stopped.'),
+  it('passes when the worker has exited and its issue is Queued and unassigned', () => {
+    const exited = Number(spawnSync('bash', ['-c', 'echo $$'], { encoding: 'utf8' }).stdout)
+
+    expect(stop(exited, QUEUED).out).toContain(
+      'Drain check: passed (1 worker(s): none left running, no issue stuck)',
     )
+  })
+
+  // The status file holds the PID `wt auto` was started with. The check can
+  // see a leftover worker only while that PID becomes the claude process; a
+  // wrapper shell in between would exit and leave claude running unseen.
+  it('relies on wt auto exec-ing claude, so the worker PID is the claude process', () => {
+    const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
+
+    expect(launchLine(body)).toMatch(/^exec env .* claude /)
   })
 })
