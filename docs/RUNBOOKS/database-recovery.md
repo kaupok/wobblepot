@@ -24,17 +24,24 @@ The one exception is [playbook 5](#5-migration-failed-to-apply-or-applied-halfwa
 
 If a recovery step seems to require one of the above, stop and re-read this runbook — there is always a non-destructive path.
 
-## Plan baseline: Neon Free (24-hour PITR)
+## Plan baseline: Neon Free + limit increase (6-hour PITR)
 
-We are on **Neon Free**. That gives us:
+We are on **Neon Free + limit increase**. That gives us:
 
-- **24-hour PITR window** — any timestamp within the last 24 hours is restorable as a new branch.
+- **6-hour PITR window** — any timestamp within the last 6 hours is restorable as a new branch.
 - **Automatic history** — no manual snapshot action required.
 - **Branching** — copy-on-write, near-instant.
 
-**24h is the floor, not the ceiling.** If we upgrade to Neon Pro, PITR extends to 7 or 14 days and this runbook's timing assumptions become more forgiving. Nothing in the procedures below needs to change — only the allowable incident-detection lag widens.
+**Read the window from Neon, not from this page.** The source of the value is the project's `history_retention_seconds`. It read `21600` (6 hours) on 2026-10-21:
 
-If an incident is discovered **more than 24 hours** after it occurred on Free tier, the PITR window is gone. In that case: stop this runbook, rebuild from the latest clean staging branch + `pnpm db:seed`, and note that any user data written in the missing window is not recoverable. Document in the incident log.
+```bash
+curl -s -H "Authorization: Bearer $NEON_API_KEY" \
+  "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID" | jq '.project.history_retention_seconds'
+```
+
+**A plan change alone does not change the window.** The paid Neon Launch plan allows a longer window, but the operator sets it on the project. Nothing in the procedures below needs to change when it grows — only the allowable incident-detection lag widens. When `history_retention_seconds` changes, update this section, the [backup residuals note](gdpr-deletion.md#backup-residuals-neon-pitr), the privacy policy and the DPIA together.
+
+If an incident is discovered **more than 6 hours** after it occurred, the PITR window is gone. In that case: stop this runbook, rebuild from the latest clean staging branch + `pnpm db:seed`, and note that any user data written in the missing window is not recoverable. Document in the incident log.
 
 ## Forward-only migration philosophy
 

@@ -44,7 +44,7 @@ Daily cron — 03:00 UTC (vercel.json → /api/cron/purge-deleted-users)
     refresh token rows past expiresAt (HON-1165)
         │
         ▼
-Hard cascade complete → row gone → backup copies clear within ~24h (Neon PITR)
+Hard cascade complete → row gone → backup copies clear within 6h (Neon PITR)
 ```
 
 The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by the cron. The PostHog call is `deletePosthogPersons` in `src/lib/posthog-purge.ts`. The soft-delete and the cron never run destructive SQL by hand — they use Prisma + the schema's `onDelete: Cascade` rules.
@@ -320,9 +320,9 @@ Running it twice is safe: a second run finds nothing due and returns `{"purged":
 
 The hard cascade removes data from the live database, but backup copies linger:
 
-- **Neon Free plan: 24-hour PITR window.** Backup copies of purged data clear automatically within ~24 hours of the hard purge. After that, the data is irrecoverable from backups too — which is what makes the erasure complete for Art. 17 purposes.
-- This 24-hour residual is disclosed in the privacy policy's retention schedule (HON-457).
-- **If Neon moves to a paid plan** (HON-553), the PITR window lengthens (e.g. 7 days). When that lands, **update this note and the privacy policy retention text** so the published residual window stays accurate.
+- **6-hour PITR window** (Neon Free + limit increase; source: `history_retention_seconds`, see [`database-recovery.md`](database-recovery.md#plan-baseline-neon-free--limit-increase-6-hour-pitr)). Backup copies of purged data clear automatically within 6 hours of the hard purge. After that, the data is irrecoverable from backups too — which is what makes the erasure complete for Art. 17 purposes.
+- This 6-hour residual is disclosed in the privacy policy's retention schedule (HON-457).
+- **When `history_retention_seconds` changes**, update this note, the privacy policy retention text and the DPIA together, so the published residual window stays accurate. A plan change alone (HON-553) does not change the value: the operator sets it on the project.
 
 ## Reference
 

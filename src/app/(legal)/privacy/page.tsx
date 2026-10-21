@@ -342,8 +342,8 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
-              Database backups: our database keeps a 24-hour point-in-time-recovery window, so
-              backup copies of deleted data clear automatically within 24 hours.
+              Database backups: our database keeps a 6-hour point-in-time-recovery window, so backup
+              copies of deleted data clear automatically within 6 hours.
             </Body>
           </Li>
           <Li>

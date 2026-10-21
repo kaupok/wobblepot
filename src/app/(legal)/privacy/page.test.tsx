@@ -83,7 +83,7 @@ describe('PrivacyPage', () => {
     expect(text).toContain(
       'purged after a 30-day grace period; the purge runs nightly, so deletion happens within a day of that period ending',
     )
-    expect(text).toContain('24-hour point-in-time-recovery window')
+    expect(text).toContain('6-hour point-in-time-recovery window')
     expect(text).toContain('runtime logs are kept for 1 day, build logs for 7 days')
     expect(text).toContain('roughly 30 days')
     expect(text).toContain('rotating 7-day lifetime')

@@ -29,7 +29,7 @@ A household member can also connect an AI assistant, such as Claude, to the read
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | Excess data collected on children | Data minimisation: no DOB, no photos, no identifiers beyond a display name — not even an under-16 flag is stored, only what meal planning needs | Low      |
 | Non-parent adds a child's data    | Household membership is invite-gated by the account holder; profiles are only visible inside the household                                      | Low      |
-| Child's data outlives relevance   | 30-day account-deletion purge; 24 h backup (PITR) window; members deletable individually at any time                                            | Low      |
+| Child's data outlives relevance   | 30-day account-deletion purge; 6 h backup (PITR) window; members deletable individually at any time                                             | Low      |
 
 ## Risk area 2 — AI processing via Anthropic
 
