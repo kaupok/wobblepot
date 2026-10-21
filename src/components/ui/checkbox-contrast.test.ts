@@ -13,17 +13,17 @@ import {
 } from '@/test/oklch-contrast'
 
 /**
- * An unticked checkbox or radio is only its border, so the border is the
- * control's whole visual cue and needs 3:1 against what it sits on (WCAG
- * 1.4.11, HON-1019). It draws in `muted-foreground`, which the note sheet
- * re-scopes to its tint, so each surface pairs with its own muted value.
+ * An unticked checkbox is only its border, so the border is the control's
+ * whole visual cue and needs 3:1 against what it sits on (WCAG 1.4.11,
+ * HON-1019). It draws in `muted-foreground`, which the note sheet re-scopes
+ * to its tint, so each surface pairs with its own muted value.
  */
 
 const FLOOR = 3
 const NOTE_HUE = 95
 
-// The measurement below is only about what ships if the primitives use it.
-describe.each(['checkbox.tsx', 'radio-group.tsx'])('%s border', (file) => {
+// The measurement below is only about what ships if the primitive uses it.
+describe.each(['checkbox.tsx'])('%s border', (file) => {
   const source = readFileSync(join(process.cwd(), 'src/components/ui', file), 'utf8')
 
   it('draws the unticked border in muted-foreground, not input', () => {

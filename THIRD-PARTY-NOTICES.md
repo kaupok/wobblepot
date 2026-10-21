@@ -8,7 +8,7 @@ Dependencies installed through `pnpm` are not listed. They are not committed to 
 
 - **Licence:** MIT
 - **Upstream:** <https://github.com/shadcn-ui/ui>
-- **Files:** components generated from the `new-york` registry (see [`components.json`](components.json)) and adapted in places since, in `src/components/ui/`: `alert-dialog.tsx`, `badge.tsx`, `button.tsx`, `card.tsx`, `checkbox.tsx`, `collapsible.tsx`, `dialog.tsx`, `dropdown-menu.tsx`, `input.tsx`, `label.tsx`, `radio-group.tsx`, `select.tsx`, `separator.tsx`, `sheet.tsx`, `skeleton.tsx`, `table.tsx`, `textarea.tsx`, `tooltip.tsx`
+- **Files:** components generated from the `new-york` registry (see [`components.json`](components.json)) and adapted in places since, in `src/components/ui/`: `alert-dialog.tsx`, `badge.tsx`, `button.tsx`, `card.tsx`, `checkbox.tsx`, `collapsible.tsx`, `dialog.tsx`, `dropdown-menu.tsx`, `input.tsx`, `label.tsx`, `select.tsx`, `separator.tsx`, `sheet.tsx`, `skeleton.tsx`, `table.tsx`, `textarea.tsx`, `tooltip.tsx`
 
 The other files in that directory, including `typography.tsx`, `number-input.tsx`, `confirm-dialog.tsx`, and the stories and tests, are Honkadori OÜ's.
 
