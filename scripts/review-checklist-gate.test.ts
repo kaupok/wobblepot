@@ -1,8 +1,9 @@
 /**
  * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
  * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), the
- * driven-screen item (HON-1188), the Spec axis's issue-ID gate (HON-1200), and the
- * proof the Spec axis and the /auto-implement Linear summary ask for (HON-1236).
+ * driven-screen item (HON-1188), the Spec axis's issue-ID gate (HON-1200), the proof
+ * the Spec axis asks for (HON-1236), and the /auto-implement pre-PR checklist that
+ * cites these rules (HON-1260). The Linear summary proof is in auto-implement-proof.test.ts.
  *
  * All six rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
@@ -471,25 +472,39 @@ describe('Spec axis', () => {
   })
 })
 
-// HON-1236: the Linear summary is the cycle's last word on "done". Without a proof line
-// per criterion it is self-report, so the template and the step that fills it must agree.
-describe('Linear summary proof', () => {
+// HON-1260: the /auto-implement pre-PR checklist cites reviewer rules instead of copying
+// them, so a rule removed here would leave the worker checking for something stale.
+describe('pre-PR checklist', () => {
   const skillDir = path.join(repoRoot, '.claude/skills/auto-implement')
+  const checklist = read(path.join(skillDir, 'pre-pr-checks.md'))
+  const aiEval = read(path.join(repoRoot, '.claude/skills/plan-issue/ai-eval.md'))
 
-  it('gives the 7.4 template a Proof section with the three labels', () => {
-    const templates = read(path.join(skillDir, 'templates.md'))
-    const summary = templates.slice(templates.indexOf('## Linear summary comment (7.4)'))
-    expect(summary).toContain('### Proof')
-    for (const label of ['measured:', 'inferred:', 'not proven:']) {
-      expect(summary).toContain(`— ${label}`)
-    }
+  it.each([
+    ['AI_EVAL_PROMPT', 'Also check for an AI eval report'],
+    ['TEST_PROMPT', '**Unable to go red**'],
+    ['PR_BODY_PROMPT', "Also check the PR body's Verified / Not verified lists"],
+    ['PR_BODY_PROMPT', '"Verified" line that names no command, test, story or spec'],
+    ['SPEC_PROMPT', '**Not asked for**'],
+    ['SPEC_PROMPT', "A change the plan's Design Decisions choose, with a reason, is asked for"],
+    ['ai-eval.md', '**Prompt, budget and case changes:**'],
+    ['ai-eval.md', '**Model changes:**'],
+  ])('cites %s → %s, which its source still has', (source, anchor) => {
+    expect(checklist).toContain(source)
+    expect(checklist).toContain(anchor)
+    expect(source === 'ai-eval.md' ? aiEval : heredoc(source)).toContain(anchor)
   })
 
-  it('tells 7.4 to fill Proof from the implement phase, one line per criterion', () => {
+  // The ai-eval.md file list can lag the reviewer's grep (it lacks cook-question.ts),
+  // so the AI eval item takes its trigger from the grep that decides the finding.
+  it('takes the AI eval trigger from the reviewer gate', () => {
+    expect(checklist).toContain('the `AI_EVAL_FILES` grep in `scripts/pr-review.sh`')
+    expect(lineStartingWith('AI_EVAL_FILES=')).toContain('cook-question')
+  })
+
+  it('is named in the SKILL.md sibling list and in 4.3', () => {
     const skill = read(path.join(skillDir, 'SKILL.md'))
-    const step = skill.slice(skill.indexOf('### 7.4'), skill.indexOf('### 7.5'))
-    expect(step).toContain('`### Proof`')
-    expect(step).toContain('one line per acceptance criterion')
-    expect(step).toContain('`Driven:` lines')
+    expect(skill).toContain('- `pre-pr-checks.md`: 4.3')
+    const step = skill.slice(skill.indexOf('### 4.3'), skill.indexOf('### 4.4'))
+    expect(step).toContain('`pre-pr-checks.md`')
   })
 })

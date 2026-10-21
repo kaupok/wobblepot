@@ -1,0 +1,35 @@
+# Auto-implement — pre-PR checks (4.3)
+
+The PR reviewer (`scripts/pr-review.sh`) checks these four rules on every round. Check them yourself in 4.3, before the PR opens, because each miss the reviewer finds costs one more review round (`history.md` → Pre-PR checks).
+
+Each item names the source of its rule. Read the rule there, not here: a copy drifts from the reviewer prompt. `scripts/review-checklist-gate.test.ts` fails when a phrase quoted here leaves its source.
+
+## 1. AI eval report
+
+Source: `.claude/skills/plan-issue/ai-eval.md` → **Prompt, budget and case changes:** and **Model changes:**. The reviewer's side: `scripts/pr-review.sh` → `AI_EVAL_PROMPT` → "Also check for an AI eval report".
+
+The trigger is the reviewer's: run this item when the diff touches a file that the `AI_EVAL_FILES` grep in `scripts/pr-review.sh` matches. The `ai-eval.md` list can lag that grep, so do not use it as the trigger.
+
+- The diff changes a request builder or text the eval sends → run `pnpm ai-eval --baseline golden --candidate <current-id> --judge`, then `/bench-judge`.
+- The diff changes a model constant in `src/lib/ai/models.ts` → run the comparison that **Model changes:** names.
+- The diff changes `budgets.ts` or a committed case → run `pnpm ai-eval --check`.
+
+Commit the report and cite it in the PR body. A run past 600 s: `batched.md`.
+
+## 2. Tests can go red
+
+Source: `scripts/pr-review.sh` → `TEST_PROMPT` → **Unable to go red**.
+
+For each new or changed test, revert the lines of the implementation it covers, run only that test, and see it fail. Then restore the lines. Do not use `git stash`: the stash is shared with other worktrees. A test that still passes asserts nothing about the change, so assert the specific value the change produces.
+
+## 3. PR body proof
+
+Source: `scripts/pr-review.sh` → `PR_BODY_PROMPT` → "Also check the PR body's Verified / Not verified lists".
+
+Apply it in 5.4, when you write the body. The reviewer reports a "Verified" line that names no command, test, story or spec. So each "Verified" line names the command, test, story or spec you ran, and its result.
+
+## 4. Plan deviations
+
+Source: `scripts/pr-review.sh` → `SPEC_PROMPT` → **Not asked for**: "A change the plan's Design Decisions choose, with a reason, is asked for".
+
+Compare the diff with the plan comment from 2.8. The diff adds behaviour that the plan does not name → add a Design Decisions row with the reason to that comment (`save_comment` with its `id`), before 5.4. Behaviour you cannot give a reason for comes out of the diff.
