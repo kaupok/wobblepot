@@ -142,3 +142,5 @@ It matches what would execute, so a `grep` or a commit message that mentions one
 - Linear history, signed commits and conversation resolution are not required.
 
 Re-run the command above before relying on this list; it changes in the repository settings, not in this file.
+
+**Dependabot.** Dependabot alerts are on for `kaupok/wobblepot` (HON-605). Dependabot security-update PRs and version-update PRs are deliberately off: a bot branch has no `HON-` issue, so Linear does not link it and `/merge` has no issue to close. When an alert names a runtime dependency, queue a one-line refresh issue for that package. CI's `pnpm audit --audit-level critical` gate is described in docs/DEPLOYMENT.md → Lockfile gates.
