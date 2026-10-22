@@ -392,6 +392,7 @@ describe('CI-settle gate', () => {
 
     // Each invocation is one chunk; the count lives in /tmp keyed on the PR, so
     // the sixth chunk of one episode times out with exit 1 and clears its state.
+    // Six script runs outlast the 10 s default on a loaded machine (HON-1295).
     it('counts chunks across invocations and times out on the sixth with exit 1', () => {
       const pending = [job(CI_JOB, 'pending')]
       const markers = [runChunk(pending).marker]
@@ -402,7 +403,7 @@ describe('CI-settle gate', () => {
       expect(last.out).toBe('CI_TIMEOUT\n')
       expect(last.status).toBe(1)
       expect(fs.existsSync(`/tmp/ci-poll-${prNumber}.chunks`)).toBe(false)
-    })
+    }, 60_000)
 
     // The previous poll's list carries over between chunks: a chunk whose last
     // poll saw the final list settles on the next chunk's first poll, while a
