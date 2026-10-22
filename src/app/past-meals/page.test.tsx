@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import PastMealsPage from './page'
 import enMessages from '../../../messages/en.json'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { toDateString } from '@/lib/meal-planning/dates'
 
 // Resolve `getTranslations('pastMeals')` → (key) → en.json.pastMeals[key].
 vi.mock('next-intl/server', () => ({
@@ -77,10 +77,18 @@ async function mockLoaders(
 describe('PastMealsPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
+    // 23:59:59.9 on 2026-10-22 in Tallinn (UTC+3), a tenth of a second before
+    // the household's day turns: the page and the assertions read one instant.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-22T20:59:59.900Z'))
     const { getSession } = await import('@/lib/session')
     const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membership as never)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('redirects to sign-in without a session', async () => {
@@ -103,12 +111,9 @@ describe('PastMealsPage', () => {
 
     render(await PastMealsPage())
 
-    const today = getTodayInTimezone('Europe/Tallinn')
     const [, query] = vi.mocked(loadPlanEntries).mock.calls[0]!
-    const expectedStart = parseLocalDate(today)
-    expectedStart.setDate(expectedStart.getDate() - 7)
-    expect(toDateString(query.startDate)).toBe(toDateString(expectedStart))
-    expect(toDateString(query.endDate)).toBe(today)
+    expect(toDateString(query.startDate)).toBe('2026-10-15')
+    expect(toDateString(query.endDate)).toBe('2026-10-22')
   })
 
   it('titles the page and renders the list', async () => {
@@ -122,7 +127,7 @@ describe('PastMealsPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Past meals' })).toBeInTheDocument()
     const list = screen.getByTestId('past-meals-list')
     expect(list).toHaveAttribute('data-entries', 'e1,e2')
-    expect(list).toHaveAttribute('data-today', getTodayInTimezone('Europe/Tallinn'))
+    expect(list).toHaveAttribute('data-today', '2026-10-22')
     expect(list).toHaveAttribute('data-household-servings', '2.5')
     expect(screen.queryByRole('link', { name: 'Back to the meal plan' })).not.toBeInTheDocument()
   })
