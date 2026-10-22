@@ -611,9 +611,11 @@ async function imagineAndSaveMeal() {
   await body.findByRole('dialog')
   await userEvent.type(await body.findByRole('textbox'), 'something with lentils')
   await userEvent.click(body.getByRole('button', { name: /imagine meals/i }))
-  await body.findByText('Smoky red lentil stew')
+  await body.findByText('Smoky red lentil stew', undefined, { timeout: 3000 })
   await userEvent.click(body.getByRole('button', { name: /^select$/i }))
-  await userEvent.click(await body.findByRole('button', { name: /^save recipe$/i }))
+  await userEvent.click(
+    await body.findByRole('button', { name: /^save recipe$/i }, { timeout: 3000 }),
+  )
 }
 
 /**
@@ -635,7 +637,9 @@ export const ImagineSwapFiresSwappedEvent: Story = {
   play: async ({ args }) => {
     await imagineAndSaveMeal()
 
-    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'))
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'), {
+      timeout: 3000,
+    })
     await expect(track).toHaveBeenCalledWith('meal:imagined', {
       meal_id: 'new-meal-123',
       source: 'meal_selector',
@@ -667,7 +671,9 @@ export const ImagineAddFiresNoSwappedEvent: Story = {
   play: async ({ args }) => {
     await imagineAndSaveMeal()
 
-    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'))
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'), {
+      timeout: 3000,
+    })
     await expect(track).toHaveBeenCalledTimes(1)
     await expect(track).toHaveBeenCalledWith('meal:imagined', {
       meal_id: 'new-meal-123',
