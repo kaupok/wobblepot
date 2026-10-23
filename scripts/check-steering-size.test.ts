@@ -1,7 +1,8 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 
 /**
  * CLAUDE.md loads into every session, and it regrows because each incident
@@ -18,15 +19,23 @@ import { describe, expect, it } from 'vitest'
  * Every other skill grows the same way, so HON-1235 capped each project
  * SKILL.md at that limit too and cut /plan-issue, then 3,690 words, under it.
  *
+ * `.claude/rules/*.md` is the third kind (HON-1303). A path-scoped rule loads
+ * on every Read, Write or Edit of a matching file, so it reaches unattended
+ * workers that read no doc, and it is where per-area rules go now that
+ * CLAUDE.md is at its cap (3,185 words and 235 lines against Claude Code's
+ * 200-line target on 2026-10-23). It loads often, so its cap is lower.
+ *
  * Raise a limit only on purpose, in a PR that says why.
  */
 const MAX_WORDS = 3300
+const RULE_MAX_WORDS = 1000
 
 /** Upstream copies, updated by re-copying them, so a local cut would be lost. */
 const VENDOR_SKILLS = ['better-auth-best-practices', 'create-auth-skill', 'next-upgrade']
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const skillsDir = path.join(repoRoot, '.claude/skills')
+const rulesDir = path.join(repoRoot, '.claude/rules')
 
 interface SteeringFile {
   file: string
@@ -63,7 +72,40 @@ const claudeMd: SteeringFile = {
   advice: 'Move a section that applies to one task into the skill or doc that task reads',
 }
 
-const STEERING_FILES: SteeringFile[] = [claudeMd, ...projectSkills().map(skillSteeringFile)]
+/**
+ * Every `.md` under `dir`, recursively, as Claude Code discovers rules: a rule
+ * in a subdirectory loads like one at the top. Absolute paths, sorted.
+ * `statSync` follows a symlinked rules directory, which Claude Code loads too.
+ * A missing directory returns nothing, so the `toContain` assertion below
+ * names the problem instead of the whole file dying at import.
+ */
+function ruleFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return []
+  return fs
+    .readdirSync(dir)
+    .flatMap((name) => {
+      const full = path.join(dir, name)
+      if (fs.statSync(full).isDirectory()) return ruleFiles(full)
+      return name.endsWith('.md') ? [full] : []
+    })
+    .sort()
+}
+
+function ruleSteeringFile(file: string): SteeringFile {
+  return {
+    file: path.relative(repoRoot, file),
+    maxWords: RULE_MAX_WORDS,
+    advice:
+      'Split the rule file by concern, or move a rule that is not needed on every touch of a ' +
+      'matching file into the doc that task reads',
+  }
+}
+
+const STEERING_FILES: SteeringFile[] = [
+  claudeMd,
+  ...projectSkills().map(skillSteeringFile),
+  ...ruleFiles(rulesDir).map(ruleSteeringFile),
+]
 
 /** Words as `wc -w` counts them: runs of non-whitespace. */
 function countWords(text: string): number {
@@ -94,11 +136,20 @@ describe('countWords', () => {
 describe('STEERING_FILES', () => {
   const files = STEERING_FILES.map((steering) => steering.file)
 
-  it('caps CLAUDE.md and the project skills, all at 3,300 words', () => {
+  const limitsUnder = (prefix: string) =>
+    new Set(STEERING_FILES.filter((s) => s.file.startsWith(prefix)).map((s) => s.maxWords))
+
+  it('caps CLAUDE.md and the project skills at 3,300 words', () => {
     expect(files).toContain('CLAUDE.md')
     expect(files).toContain('.claude/skills/auto-implement/SKILL.md')
     expect(files).toContain('.claude/skills/plan-issue/SKILL.md')
-    expect(new Set(STEERING_FILES.map((steering) => steering.maxWords))).toEqual(new Set([3300]))
+    expect(claudeMd.maxWords).toBe(3300)
+    expect(limitsUnder('.claude/skills/')).toEqual(new Set([3300]))
+  })
+
+  it('caps every rule file at 1,000 words', () => {
+    expect(files).toContain('.claude/rules/code.md')
+    expect(limitsUnder('.claude/rules/')).toEqual(new Set([1000]))
   })
 
   it('leaves out the vendor skills', () => {
@@ -111,6 +162,23 @@ describe('STEERING_FILES', () => {
   // and a project skill reusing the name would go uncapped.
   it.each(VENDOR_SKILLS)('excludes %s, which still exists', (skill) => {
     expect(fs.existsSync(path.join(skillsDir, skill, 'SKILL.md'))).toBe(true)
+  })
+})
+
+describe('ruleFiles', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'steering-rules-'))
+  afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
+
+  it('finds .md files in subdirectories and skips other files', () => {
+    fs.mkdirSync(path.join(tmp, 'sub'))
+    fs.writeFileSync(path.join(tmp, 'b.md'), '')
+    fs.writeFileSync(path.join(tmp, 'sub', 'a.md'), '')
+    fs.writeFileSync(path.join(tmp, 'notes.txt'), '')
+    expect(ruleFiles(tmp)).toEqual([path.join(tmp, 'b.md'), path.join(tmp, 'sub', 'a.md')])
+  })
+
+  it('returns nothing for a missing directory', () => {
+    expect(ruleFiles(path.join(tmp, 'missing'))).toEqual([])
   })
 })
 
@@ -132,9 +200,20 @@ describe('sizeViolation', () => {
     expect(message).toContain('Do not shorten sentences')
   })
 
+  it('fails a 1,001-word rule file and says to split it', () => {
+    const rule = ruleSteeringFile(path.join(rulesDir, 'code.md'))
+    const message = sizeViolation('word '.repeat(1001), rule)
+    expect(message).toContain('.claude/rules/code.md is 1001 words; the limit is 1000.')
+    expect(message).toContain('Split the rule file by concern')
+    expect(message).toContain('Do not shorten sentences')
+  })
+
   it('passes a text exactly at the limit', () => {
     expect(sizeViolation('word '.repeat(3300), claudeMd)).toBeNull()
     expect(sizeViolation('word '.repeat(3300), skillSteeringFile('plan-issue'))).toBeNull()
+    expect(
+      sizeViolation('word '.repeat(1000), ruleSteeringFile(path.join(rulesDir, 'code.md'))),
+    ).toBeNull()
   })
 })
 
