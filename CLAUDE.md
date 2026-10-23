@@ -44,10 +44,11 @@ CLAUDE.md says _how_ to code. The project spec says _what_ to build and _why_. T
 - `docs/AGENT_HISTORY.md`: the incident behind each rule. Read before changing or disputing one
 - `docs/SECURITY.md`, `compliance/`: CSP, MCP OAuth, Better Auth schema; DPAs, DPIA
 - `docs/AI_MODELS.md`, `docs/FEATURE_FLAGS.md`, `docs/RUNBOOKS/`, and setup guides for environment, email, MCP and browser review
+- `.claude/rules/`: rules that load only when you Read, Write, Edit or `cat` a matching file. `code.md` covers `src/**`
 
 ## Agent memory
 
-Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is machine-local, so machines drift apart. Save guidance and cross-session context in this file, `docs/`, or the relevant `.claude/skills/*/SKILL.md`.
+Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is machine-local, so machines drift apart. Save guidance and cross-session context in this file, `.claude/rules/`, `docs/`, or the relevant `.claude/skills/*/SKILL.md`.
 
 ## Tech Stack
 
@@ -221,6 +222,8 @@ Do not nest a markdown table inside a list item in a Linear description: Linear 
 5. If it is still absent, lead with what you checked ("I checked X, Y, grepped for Q — no match") so the user can verify the coverage. One file checked and the feature declared missing is how a shipped issue becomes a blocker.
 
 **Never hand the user a check you could run: run it and quote the output.**
+
+**Ask before you guard against an unlikely case.** A check for a theoretical race or attack costs every later reader. Name the failure, its likelihood and the guard's cost, and get a yes. Unattended, leave it out and file a follow-up issue.
 
 **Waiting inside a skill with a defined endpoint.** `/auto-implement`, `/implement-issue`, `/merge` and `/branch-review` end on their own, so do not schedule a `ScheduleWakeup` fallback: it fires after the work ends and re-runs the skill on stale state. To wait on CI, a build or a deploy, poll with foreground wait-chunks: a `Bash` call under the 600 s cap that prints a terminal or "still waiting" marker, re-issued until terminal. Do not rely on a completion notification from a backgrounded Bash call, a subagent (pass `run_in_background: false`) or Monitor: a headless worker exits when its turn ends, and the backgrounded work dies with it. Backgrounding a command that outruns the cap is fine if the same turn waits on its marker. Interactive `/merge` has a TTY, so its CI poll may run in the background. `ScheduleWakeup` is for real polling: `/loop`, or an external state change.
 

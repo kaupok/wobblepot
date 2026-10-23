@@ -129,6 +129,7 @@ Use the Read tool to read each changed file to understand the full context.
 CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the changes involve typography components.
 
 - **Bugs**: Logic errors, edge cases, null/undefined handling
+- **Speculative guards**: a check for a race, retry or attack case the issue did not name. CLAUDE.md → Working style says to ask first, so put it in Address Now as a question, not a bug.
 - **Security**: Injection risks, auth bypasses, sensitive data exposure
 - **Patterns**: Adherence to CLAUDE.md conventions (sentence case, typography components, etc.)
 - **TypeScript**: Type safety, any types, missing types
