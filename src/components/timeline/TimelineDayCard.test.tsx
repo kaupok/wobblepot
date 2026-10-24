@@ -70,6 +70,7 @@ const baseDay: TimelineDay = {
   isTomorrow: false,
   entries: [],
   emptySlots: ['dinner'],
+  extras: [],
 }
 
 const defaultProps = {
@@ -219,6 +220,52 @@ describe('TimelineDayCard', () => {
 
     const slots = screen.getAllByTestId(/^empty-slot-/).map((el) => el.dataset.testid)
     expect(slots).toEqual(['empty-slot-breakfast', 'empty-slot-lunch', 'empty-slot-dinner'])
+  })
+
+  // Extras (HON-1309): "+ Extra" shows on every day, a full one too, and the
+  // day's extras sit in one row under its meals.
+  it('shows "+ Extra" in the heading row when every slot is full', () => {
+    render(<TimelineDayCard day={dayWithDinnerAnd([])} {...defaultProps} />)
+
+    const headingRow = screen.getByRole('heading', { name: 'Today' }).parentElement
+    const addExtra = screen.getByRole('button', { name: 'Add an extra: Today' })
+    expect(headingRow).toContainElement(addExtra)
+    expect(screen.queryByTestId(/^empty-slot-/)).not.toBeInTheDocument()
+  })
+
+  it('puts "+ Extra" after the empty slots', () => {
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+
+    const slot = screen.getByTestId('empty-slot-dinner')
+    const addExtra = screen.getByRole('button', { name: 'Add an extra: Today' })
+    expect(slot.compareDocumentPosition(addExtra) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("lists the day's extras under its meals", () => {
+    const day: TimelineDay = {
+      ...dayWithDinnerAnd([]),
+      extras: [
+        {
+          id: 'x1',
+          date: '2026-03-29',
+          ingredientId: null,
+          name: 'chips',
+          quantity: null,
+          unit: null,
+        },
+      ],
+    }
+    render(<TimelineDayCard day={day} {...defaultProps} />)
+
+    const extras = screen.getByRole('list', { name: 'Extras' })
+    const card = screen.getByTestId('meal-card-dinner')
+    expect(screen.getByRole('button', { name: 'Edit extra: chips' })).toBeInTheDocument()
+    expect(card.compareDocumentPosition(extras) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows no extras row on a day with none', () => {
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+    expect(screen.queryByRole('list', { name: 'Extras' })).not.toBeInTheDocument()
   })
 
   it('does not show "No meals planned" when the day has only empty slots', () => {

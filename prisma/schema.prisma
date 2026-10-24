@@ -527,6 +527,7 @@ model Household {
   customShoppingItems CustomShoppingItem[]
   aiUsage             AiUsage[]
   ingredients         Ingredient[]
+  dayExtras           DayExtra[]
 
   @@map("household")
 }
@@ -657,6 +658,7 @@ model Ingredient {
   replacedInEntries   MealPlanEntryComponent[] @relation("EntryChangeOriginal")
   usedInEntryChanges  MealPlanEntryComponent[] @relation("EntryChangeReplacement")
   fridgeMealItems     MealPlanEntryItem[]
+  dayExtras           DayExtra[]
 
   @@index([householdId])
   @@map("ingredient")
@@ -933,6 +935,30 @@ model PantryItem {
   @@unique([householdId, ingredientId])
   @@index([ingredientId])
   @@map("pantry_item")
+}
+
+/// A snack, a drink or another item a household adds to a day, outside its
+/// meals (HON-1309). Keyed by household, not by an entry, so a plan
+/// regeneration never deletes it. Exactly one of `ingredientId` and `label`
+/// is set, and a `label` row has no `quantity` (CHECK in the migration).
+/// `quantity` is in the ingredient's `defaultUnit`, as
+/// `MealComponent.quantityPerServing` is; null means no amount.
+model DayExtra {
+  id           String   @id @default(cuid())
+  householdId  String
+  date         DateTime
+  ingredientId String?
+  label        String?
+  quantity     Float?
+  position     Int
+  createdAt    DateTime @default(now())
+
+  household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, date])
+  @@index([ingredientId])
+  @@map("day_extra")
 }
 
 model CustomShoppingItem {

@@ -8,6 +8,7 @@ import {
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
 import { slowCreateEntryHandlers } from '@/stories/msw-handlers'
+import { mixedExtras } from '@/stories/day-extra-fixtures'
 import { TimelineDayCard } from './TimelineDayCard'
 
 const meta = {
@@ -37,6 +38,21 @@ type Story = StoryObj<typeof meta>
 export const TodayWithDinner: Story = {
   args: {
     day: createTimelineDay(),
+  },
+}
+
+/**
+ * Every slot is full and the day has extras (HON-1309): "+ Extra" still sits
+ * on the heading, and the extras take one row under the meal.
+ */
+export const FullDayWithExtras: Story = {
+  args: {
+    day: createTimelineDay({ extras: mixedExtras }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('button', { name: 'Add an extra: Today' })).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Edit extra: Red wine 750ml' })).toBeVisible()
   },
 }
 

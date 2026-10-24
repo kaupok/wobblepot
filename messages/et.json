@@ -580,6 +580,36 @@
     },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"
+    },
+    "extras": {
+      "button": "Lisa",
+      "addLabel": "Uus lisa: {day}",
+      "rowLabel": "Lisad",
+      "editLabel": "Muuda lisa: {name}",
+      "addTitle": "Uus lisa",
+      "addDescription": "Suupisted, joogid ja muu päeva jaoks. Koostisosa läheb selle päeva ostunimekirja.",
+      "search": "Otsi koostisosa",
+      "searchPlaceholder": "Näiteks: punane vein",
+      "searching": "Otsin…",
+      "noMatch": "Ükski koostisosa ei sobi otsinguga „{query}“.",
+      "addAsText": "Lisa „{query}“ tekstina",
+      "textNote": "Tekst läheb ostunimekirja eraldi kirjena.",
+      "pick": "Vali: {name}",
+      "pickAnother": "Vali teine",
+      "amount": "Kogus (vabatahtlik)",
+      "add": "Lisa",
+      "adding": "Lisan…",
+      "cancel": "Tühista",
+      "addFailed": "Lisa lisamine ebaõnnestus. Palun proovi uuesti.",
+      "pastDay": "See päev on möödas. Värskenda lehte, et näha tänast päeva.",
+      "editDescription": "Muuda kogust või eemalda see päevast.",
+      "editTextDescription": "Eemalda see päevast. Ostunimekirja kirje jääb alles.",
+      "save": "Salvesta",
+      "saving": "Salvestan…",
+      "remove": "Eemalda",
+      "removing": "Eemaldan…",
+      "saveFailed": "Lisa salvestamine ebaõnnestus. Palun proovi uuesti.",
+      "removeFailed": "Lisa eemaldamine ebaõnnestus. Palun proovi uuesti."
     }
   },
   "pastMeals": {

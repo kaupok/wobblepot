@@ -15,6 +15,7 @@ import {
   misoSalmonAlternative,
 } from './fixtures'
 import { fridgeRecentMeals } from './fridge-fixtures'
+import { extraSearchResults } from './day-extra-fixtures'
 
 /**
  * Shape returned by `GET /api/meals`. Kept local because `MealSelectorModal`
@@ -309,6 +310,23 @@ export const defaultHandlers: HttpHandler[] = [
   http.delete('/api/meal-plans/:planId/entries/:entryId', () => HttpResponse.json({ ok: true })),
   // The leftovers the fridge-meal picker offers (HON-1277).
   http.get('/api/entries/recent', () => HttpResponse.json({ meals: fridgeRecentMeals })),
+  // Day extras (HON-1309): `AddExtra` creates, `DayExtrasRow` edits and removes.
+  http.post('/api/extras', () => HttpResponse.json({ id: `extra-${Date.now()}` }, { status: 201 })),
+  http.patch('/api/extras/:id', () => HttpResponse.json({ ok: true })),
+  http.delete('/api/extras/:id', () => new HttpResponse(null, { status: 204 })),
+]
+
+/**
+ * `GET /api/ingredients` over the day extras scenario's catalogue (red wine,
+ * white wine, eggs, olives), for the `AddExtra` picker.
+ */
+export const extraSearchHandlers: HttpHandler[] = [
+  http.get('/api/ingredients', ({ request }) => {
+    const search = new URL(request.url).searchParams.get('search')?.toLowerCase().trim() ?? ''
+    return HttpResponse.json({
+      ingredients: extraSearchResults.filter((i) => i.name.toLowerCase().includes(search)),
+    })
+  }),
 ]
 
 /**

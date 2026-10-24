@@ -38,6 +38,8 @@ export function buildPastDays(
           (a, b) => (mealTypeOrder[a.mealType] ?? 3) - (mealTypeOrder[b.mealType] ?? 3),
         ),
         emptySlots: [],
+        // Past meals show no extras: an extra is for a day still to come (HON-1309).
+        extras: [],
       }
     })
 }

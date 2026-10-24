@@ -580,6 +580,36 @@
     },
     "day": {
       "noMealsPlanned": "No meals planned"
+    },
+    "extras": {
+      "button": "Extra",
+      "addLabel": "Add an extra: {day}",
+      "rowLabel": "Extras",
+      "editLabel": "Edit extra: {name}",
+      "addTitle": "Add an extra",
+      "addDescription": "Snacks, drinks and other things for the day. An ingredient goes on the shopping list for this day.",
+      "search": "Search for an ingredient",
+      "searchPlaceholder": "For example: red wine",
+      "searching": "Searching…",
+      "noMatch": "No ingredient matches \"{query}\".",
+      "addAsText": "Add \"{query}\" as text",
+      "textNote": "Text goes on the shopping list as an item of its own.",
+      "pick": "Pick: {name}",
+      "pickAnother": "Pick another",
+      "amount": "Amount (optional)",
+      "add": "Add",
+      "adding": "Adding…",
+      "cancel": "Cancel",
+      "addFailed": "Couldn't add the extra. Please try again.",
+      "pastDay": "This day has passed. Refresh the page to see today.",
+      "editDescription": "Change the amount, or remove it from the day.",
+      "editTextDescription": "Remove it from the day. Its shopping list item stays.",
+      "save": "Save",
+      "saving": "Saving…",
+      "remove": "Remove",
+      "removing": "Removing…",
+      "saveFailed": "Couldn't save the extra. Please try again.",
+      "removeFailed": "Couldn't remove the extra. Please try again."
     }
   },
   "pastMeals": {
