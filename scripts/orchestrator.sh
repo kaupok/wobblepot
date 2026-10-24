@@ -235,10 +235,11 @@ RELOAD_PENDING=false
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 # What runs out of the main checkout: this script, the worktree-claude.sh it
-# spawns every worker through, and the models.sh both of them source. Everything
+# spawns every worker through, the models.sh both of them source, and the
+# repo-node-bin.sh both of them run to pick the .nvmrc Node (HON-1307). Everything
 # else under scripts/ runs from the worker's own worktree, which branches from a
 # fresh origin/main, so a commit there leaves nothing stale to warn about.
-CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh)
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh .claude/hooks/repo-node-bin.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_CODE=0
@@ -3501,6 +3502,22 @@ log_breaker_pause() {
   return 0
 }
 
+# Put the .nvmrc Node first on PATH, so a direct run and a reload match what
+# `wt start` gives this process (HON-1307). Each worker's worktree-claude.sh runs
+# the same hook again, so a worker still gets Node 22 after nvm replaces the
+# folder this PATH names. Run, not sourced: ORCHESTRATOR_CODE_FILES lists only
+# sourced files. The hook exits 0 either way: a directory or its warning text.
+use_repo_node() {
+  local out
+  out=$("$REPO_ROOT/.claude/hooks/repo-node-bin.sh" 2>&1) || true
+  if [ -d "$out" ]; then
+    export PATH="$out:$PATH"
+    log INFO "Node: using $out (.nvmrc)"
+  elif [ -n "$out" ]; then
+    log WARN "$out; workers will fail pnpm install"
+  fi
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
@@ -3519,6 +3536,7 @@ main() {
   else
     log INFO "═══ Orchestrator starting ═══"
   fi
+  use_repo_node
 
   log INFO "Config: max_workers=$MAX_WORKERS poll=${POLL_INTERVAL}s timeout=${WORKER_TIMEOUT}s neon_branch_cap=$NEON_BRANCH_CAP dry_run=$DRY_RUN once=$RUN_ONCE"
 

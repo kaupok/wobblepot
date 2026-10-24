@@ -4163,6 +4163,13 @@ cmd_start() {
     return 1
   fi
 
+  # Every worker would fail `pnpm install` engine-strict, so do not start one
+  # (HON-1307). The dispatcher has already printed the hook's warning.
+  if [ -n "${NODE_MISMATCH:-}" ]; then
+    echo -e "${RED}Error: not starting the orchestrator: $NODE_MISMATCH${NC}" >&2
+    return 1
+  fi
+
   mkdir -p "$log_dir"
 
   # Pass through any extra flags (--max-workers, --once, etc.)
@@ -4426,6 +4433,20 @@ load_env_file "$REPO_ROOT/.env"
 # has to be in the environment before models.sh resolves it (HON-730).
 # shellcheck source=./models.sh
 source "$SCRIPT_DIR/models.sh"
+
+# Put the .nvmrc Node first on PATH before any subcommand, so the three
+# `pnpm install` calls and the orchestrator `start` launches all run on it. A
+# PATH taken before nvm replaced 22.x.y falls through to Homebrew's newer Node,
+# and engine-strict in .npmrc fails every worker's install (HON-1307). The hook
+# exits 0 either way: a directory is the Node to use, other text its warning.
+NODE_MISMATCH=""
+node_bin=$("$REPO_ROOT/.claude/hooks/repo-node-bin.sh" 2>&1) || true
+if [ -d "$node_bin" ]; then
+  export PATH="$node_bin:$PATH"
+elif [ -n "$node_bin" ]; then
+  NODE_MISMATCH="$node_bin"
+  echo -e "${YELLOW}Warning: $node_bin${NC}" >&2
+fi
 
 # Main command router
 case "${1:-}" in
