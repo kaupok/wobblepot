@@ -160,6 +160,29 @@ describe('create_meal', () => {
     expect(await mealCount(household.id)).toBe(0)
   })
 
+  it('saves nothing when an unsure match lands on the same ingredient as a sure one', async () => {
+    const household = await world()
+
+    const result = await call(household, {
+      ...LASAGNE,
+      ingredients: [
+        ...LASAGNE.ingredients,
+        { name: 'brindleberry jam', quantity: 2, unit: 'g' },
+        { name: 'brindleberry jelly', quantity: 3, unit: 'g' },
+      ],
+    })
+
+    expect(result.outcome).toBe('unmatched')
+    expect(result.unmatched).toEqual([
+      {
+        name: 'brindleberry jam',
+        original: '2 g brindleberry jam + 3 g brindleberry jelly',
+        alternatives: ['brindleberry jam'],
+      },
+    ])
+    expect(await mealCount(household.id)).toBe(0)
+  })
+
   it('saves nothing when the household has a recipe of that name in another case', async () => {
     const household = await world()
     const existing = await prisma.meal.create({
