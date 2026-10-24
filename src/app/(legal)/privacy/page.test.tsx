@@ -123,7 +123,7 @@ describe('PrivacyPage', () => {
     )
     // `create_meal` makes no model call (HON-1305).
     expect(text).toContain(
-      'A recipe it adds is stored as you would type it in the app, and no AI provider receives it.',
+      'Adding a recipe makes no AI call: the recipe is stored as you would type it in the app, and is then used like any recipe you typed.',
     )
     // `adjust_meal` passes the instruction to the AI provider (HON-1246).
     expect(text).toContain(

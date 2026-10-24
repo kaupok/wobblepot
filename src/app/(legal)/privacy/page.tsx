@@ -241,12 +241,13 @@ export default function PrivacyPage() {
           to: mark shopping list items as bought, add items to the list, change what is in your
           pantry, change your meal plan, and add a recipe to your household&rsquo;s recipes. When
           you ask the assistant to change a meal&rsquo;s ingredients, the instruction it passes on
-          is sent to our AI provider, as the same request from the app is. A recipe it adds is
-          stored as you would type it in the app, and no AI provider receives it. Each change is one
-          you can also make, and undo, in Wobblepot. An assistant cannot edit or delete recipes,
-          change your household&rsquo;s members or preferences, or ask Wobblepot to generate a meal
-          plan. Without that line on the consent page, an assistant can only read. Changes made by
-          an assistant are not marked as such; they look like changes you made in the app.
+          is sent to our AI provider, as the same request from the app is. Adding a recipe makes no
+          AI call: the recipe is stored as you would type it in the app, and is then used like any
+          recipe you typed. Each change is one you can also make, and undo, in Wobblepot. An
+          assistant cannot edit or delete recipes, change your household&rsquo;s members or
+          preferences, or ask Wobblepot to generate a meal plan. Without that line on the consent
+          page, an assistant can only read. Changes made by an assistant are not marked as such;
+          they look like changes you made in the app.
         </Body>
         <Body>
           The assistant is not one of our processors. You choose it, you allow it, and you tell it
