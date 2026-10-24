@@ -1189,7 +1189,7 @@
       "scopesHeading": "See saab:",
       "scopes": {
         "mcpRead": "lugeda sinu söögiplaani, ostunimekirja, sahvrit ja retsepte;",
-        "mcpWrite": "muuta sinu ostunimekirja, sahvrit ja söögiplaani;",
+        "mcpWrite": "muuta sinu ostunimekirja, sahvrit ja söögiplaani ning lisada retsepte;",
         "openid": "kinnitada, et see oled sina;",
         "profile": "näha sinu nime ja profiilipilti;",
         "offlineAccess": "jääda ühendatuks, nii et sa ei pea seda uuesti lubama."
@@ -1679,7 +1679,7 @@
       "connectedOn": "Ühendatud: {date}",
       "scopes": {
         "mcpRead": "Loeb söögiplaani, ostunimekirja, sahvrit ja retsepte",
-        "mcpWrite": "Muudab ostunimekirja, sahvrit ja söögiplaani",
+        "mcpWrite": "Muudab ostunimekirja, sahvrit ja söögiplaani ning lisab retsepte",
         "openid": "Kinnitab, et see oled sina",
         "profile": "Näeb sinu nime ja profiilipilti",
         "offlineAccess": "Jääb ühendatuks"

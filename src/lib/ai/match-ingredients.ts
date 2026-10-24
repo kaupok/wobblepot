@@ -335,8 +335,23 @@ export async function matchIngredients(
 }
 
 /**
+ * A merged row is unsure when either of its rows was, so a guessed match that
+ * lands on the same ingredient as a sure one still needs a check (HON-1305).
+ * It then carries the unsure row's name, the one the user has to decide on.
+ */
+function unsureOf(existing: MatchedIngredient, result: MatchedIngredient) {
+  const takeResult = result.lowConfidence && !existing.lowConfidence
+  return {
+    lowConfidence: existing.lowConfidence || result.lowConfidence,
+    alternatives: existing.alternatives ?? result.alternatives,
+    ...(takeResult && { extractedName: result.extractedName }),
+  }
+}
+
+/**
  * Merge duplicate matched ingredients (same ingredientId) into single rows.
- * Quantities are summed. If either row is vague, the merged row is vague with no quantity.
+ * Quantities are summed. If either row is vague, the merged row is vague with no quantity;
+ * if either is low-confidence, so is the merged row.
  * Unmatched ingredients pass through unchanged.
  * Re-runs guardrail checks on summed quantities since individually-valid amounts may exceed
  * thresholds when combined.
@@ -371,6 +386,7 @@ export function mergeDuplicateIngredients(
         originalPhrase: existing.originalPhrase ?? result.originalPhrase,
         originalText: `${existing.originalText} + ${result.originalText}`,
         quantityWarning: undefined,
+        ...unsureOf(existing, result),
       })
     } else {
       // Both have quantities — sum them, re-run guardrails on combined total
@@ -395,6 +411,7 @@ export function mergeDuplicateIngredients(
         convertedQuantity: summedQuantity,
         originalText: `${existing.originalText} + ${result.originalText}`,
         quantityWarning,
+        ...unsureOf(existing, result),
       })
     }
   }

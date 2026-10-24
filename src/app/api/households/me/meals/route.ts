@@ -12,23 +12,9 @@ import {
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
+import { mealFieldsSchema } from '@/lib/meals/meal-fields-schema'
 
-const createMealSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(1000).nullish(),
-  preparationNotes: z.string().max(5000).nullish(),
-  sourceUrl: z
-    .string()
-    .url()
-    .max(2000)
-    .refine((url) => /^https?:\/\//i.test(url), 'Only http/https URLs are allowed')
-    .nullish(),
-  timeMinutes: z.number().int().positive().max(480).nullish(),
-  kidFriendly: z.boolean().optional().default(false),
-  suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),
-  servings: z.number().int().positive().max(50),
-  components: mealComponentsSchema,
-})
+const createMealSchema = mealFieldsSchema.extend({ components: mealComponentsSchema })
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({
