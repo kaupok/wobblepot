@@ -17,7 +17,7 @@ const meta = {
   },
   args: {
     status: 'valid',
-    householdName: 'Kõrvid',
+    householdName: 'Tammed',
     memberName: 'Mari',
     code: 'ABC123',
   },

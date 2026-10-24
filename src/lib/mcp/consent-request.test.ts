@@ -55,7 +55,7 @@ describe('loadConsentRequest', () => {
       disabled: false,
     } as never)
     vi.mocked(prisma.householdMember.findFirst).mockResolvedValue({
-      household: { name: 'Kõrvid' },
+      household: { name: 'Tammed' },
     } as never)
   })
 
@@ -66,7 +66,7 @@ describe('loadConsentRequest', () => {
       status: 'ready',
       clientName: 'Claude',
       redirectTarget: 'claude.ai',
-      householdName: 'Kõrvid',
+      householdName: 'Tammed',
       scopes: ['mcp:read', 'openid', 'offline_access'],
     })
     expect(verifyOAuthQueryParams).toHaveBeenCalledWith(

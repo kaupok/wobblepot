@@ -89,10 +89,10 @@ describe('MemberList', () => {
       {
         id: 'member-123',
         userId: 'user-123',
-        name: 'Kaupo',
+        name: 'Henri',
         role: 'owner',
         joinedAt: '2026-01-01T00:00:00.000Z',
-        user: { id: 'user-123', name: 'Kaupo', email: 'k@example.com', image: null },
+        user: { id: 'user-123', name: 'Henri', email: 'k@example.com', image: null },
         preferences: null,
         invite: null,
       },
@@ -100,7 +100,7 @@ describe('MemberList', () => {
     renderList()
 
     const row = await screen.findByRole('listitem')
-    expect(row).toHaveTextContent('Kaupo')
+    expect(row).toHaveTextContent('Henri')
   })
 
   // The edit dialog opens from state, with no trigger to hand focus back to
@@ -110,17 +110,17 @@ describe('MemberList', () => {
       {
         id: 'member-123',
         userId: 'user-123',
-        name: 'Kaupo',
+        name: 'Henri',
         role: 'owner',
         joinedAt: '2026-01-01T00:00:00.000Z',
-        user: { id: 'user-123', name: 'Kaupo', email: 'k@example.com', image: null },
+        user: { id: 'user-123', name: 'Henri', email: 'k@example.com', image: null },
         preferences: null,
         invite: null,
       },
     ])
     renderList()
 
-    const name = await screen.findByRole('button', { name: 'Kaupo' })
+    const name = await screen.findByRole('button', { name: 'Henri' })
     await userEvent.click(name)
     await screen.findByRole('dialog')
     await userEvent.keyboard('{Escape}')

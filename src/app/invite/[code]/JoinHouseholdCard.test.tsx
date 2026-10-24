@@ -48,7 +48,7 @@ function respondWith(body: unknown, status: number) {
 
 async function clickJoin(locale: 'en' | 'et') {
   renderInLocale(
-    <JoinHouseholdCard status="valid" householdName="Kõrv" memberName={null} code="ABC123" />,
+    <JoinHouseholdCard status="valid" householdName="Tamm" memberName={null} code="ABC123" />,
     locale,
   )
   fireEvent.click(screen.getByRole('button', { name: locale === 'et' ? /liitu/i : /join/i }))
@@ -156,7 +156,7 @@ describe('JoinHouseholdCard page heading', () => {
     renderInLocale(
       <JoinHouseholdCard
         status={status}
-        householdName="Kõrv"
+        householdName="Tamm"
         memberName={memberName}
         code="ABC123"
       />,
@@ -194,7 +194,7 @@ describe('JoinHouseholdCard for a signed-out visitor (HON-1131)', () => {
 
   it('renders the Estonian copy', () => {
     renderInLocale(
-      <JoinHouseholdCard status="signed_out" householdName="Kõrv" memberName="Mari" code="abc" />,
+      <JoinHouseholdCard status="signed_out" householdName="Tamm" memberName="Mari" code="abc" />,
       'et',
     )
 
@@ -216,7 +216,7 @@ describe('JoinHouseholdCard for a member of another household', () => {
     renderInLocale(
       <JoinHouseholdCard
         status="leave_and_join"
-        householdName="Kõrv"
+        householdName="Tamm"
         memberName="Mari"
         code="ABC123"
         currentHousehold={currentHousehold}
@@ -232,7 +232,7 @@ describe('JoinHouseholdCard for a member of another household', () => {
     vi.stubGlobal('fetch', fetchMock)
     renderLeaveAndJoin()
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Join "Kõrv"?' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Join "Tamm"?' })).toBeInTheDocument()
     expect(
       screen.getByText(/Your household "Mari kodu" .* are deleted\. This cannot be undone\./),
     ).toBeInTheDocument()
@@ -275,7 +275,7 @@ describe('JoinHouseholdCard for a member of another household', () => {
     renderLeaveAndJoin(OWN_HOUSEHOLD, 'et')
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Liitud leibkonnaga „Kõrv"?' }),
+      screen.getByRole('heading', { level: 1, name: 'Liitud leibkonnaga „Tamm"?' }),
     ).toBeInTheDocument()
   })
 
@@ -283,7 +283,7 @@ describe('JoinHouseholdCard for a member of another household', () => {
     renderInLocale(
       <JoinHouseholdCard
         status="cannot_leave"
-        householdName="Kõrv"
+        householdName="Tamm"
         memberName="Mari"
         code="ABC123"
         currentHousehold={{ name: 'Mari kodu', deletesHousehold: false, otherAccountCount: 2 }}

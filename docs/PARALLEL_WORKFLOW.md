@@ -229,7 +229,7 @@ The picker skips any Queued issue carrying the `Gated` label (`[SKIP] HON-XX gat
 **Lost branches (HON-1095).** After every outcome that is not `SUCCESS` or `GATED`, the orchestrator checks the branch the run worked on. If the run made commits, the local branch is gone from the main checkout, `origin` has no branch of that name, and the branch has no merged PR, it logs:
 
 ```
-WARN  [LOST-BRANCH] HON-611 kaupo/hon-611-x: 3 commit(s) and no merged PR, but the branch is gone locally and on origin
+WARN  [LOST-BRANCH] HON-611 henri/hon-611-x: 3 commit(s) and no merged PR, but the branch is gone locally and on origin
 ```
 
 This line means a cleanup path deleted work that the stranding rules above should have kept. Find the commits with `git reflog` in the main checkout (the deleted branch's last SHA is there), and read the worker log for what the run did. Then file an issue against the orchestrator. A `git` or `gh` call that fails skips the check with a `DEBUG` line, so the warning never comes from a network error. `wt watch` shows the line on its `⚠` line until the orchestrator restarts. It gives way only to a live blocker.
@@ -322,7 +322,7 @@ Outside the orchestrator you can run a worktree yourself: to work interactively 
 
 ```bash
 wt new feat/my-feature                  # interactive Claude Code in a new worktree
-wt auto kaupokorv/hon-51-feature-name   # /auto-implement on the issue's Linear branch name
+wt auto henritamm/hon-51-feature-name   # /auto-implement on the issue's Linear branch name
 wt auto HON-51                          # same, by issue ID (branch auto/hon-51)
 wt resume feat/my-feature               # reopen the session in an existing worktree
 wt cleanup feat/my-feature              # remove the worktree and its Neon branch
@@ -331,7 +331,7 @@ wt done                                 # after the merge: prune merged worktree
 
 **`wt auto` with an issue skips the queue's filters.** An explicit issue ID or branch reaches `/auto-implement` as an argument, and that path skips its no-human-input filters (step 1.5): passing the issue is your call that it can run unattended. The status, assignee and blocker gate (step 2.1) still applies. With no argument, `wt auto` picks from `Queued`, as the orchestrator does.
 
-- **Use the Linear branch name.** `wt auto kaupokorv/hon-51-…` names the branch so Linear links the PR to the issue. `/next-issue` prints a ready-to-paste `wt auto <branch>` line per candidate.
+- **Use the Linear branch name.** `wt auto henritamm/hon-51-…` names the branch so Linear links the PR to the issue. `/next-issue` prints a ready-to-paste `wt auto <branch>` line per candidate.
 - **A hand-run worktree holds a Neon branch** from the same cap as the orchestrator's workers ([Branch budget](#branch-budget)). Running one beside a full orchestrator can push the next worker over it.
 - **A common split** is planning and review in the main checkout while a `wt new` worktree carries out the plan.
 - **Clean up** with `wt done` once the PR has merged, from the worktree or the main checkout. `wt cleanup <branch>` removes one worktree whatever its state.
@@ -434,7 +434,7 @@ When the Neon project hits its branch cap (10 on the free tier), `wt` automatica
 
 A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text, then tests `already exists` / `duplicate` first, and reaches a `cap` verdict only when the word `branch` and one of `limit` / `quota` / `cap` / `exceed` / `maximum` appear on the **same line**. All three parts matter, because the keyword test is bare substring matching:
 
-- Without the strip, a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — reads as a capacity problem. That cost HON-580 the reuse path its RETRY depended on, and reported a full project that held 6 branches out of 10 (HON-581).
+- Without the strip, a branch whose slug carries one of those words — `henri--hon-580-…-silent-queue-cap-dead-code-stale`, say — reads as a capacity problem. That cost HON-580 the reuse path its RETRY depended on, and reported a full project that held 6 branches out of 10 (HON-581).
 - Without the ordering, the same name shadows the unambiguous `already exists` signal underneath it.
 - Without the same-line requirement, `Rate limit exceeded`, `insufficient capacity`, even `invalid escape sequence` (es-**cap**-e) call the GC. That is not a harmless sweep: it deletes every Neon branch with no live worktree, project-wide, and a RETRY parks exactly that shape — `cleanup_worker_worktree "$branch" true` removes the worktree and keeps the branch for the respawn. One worker's rate limit must not be able to destroy another worker's retry database.
 
@@ -442,7 +442,7 @@ An `already exists` error is not a failure when the git branch is being resumed:
 
 GC is scoped so it can't touch hand-managed branches. Eligible:
 
-- **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `kaupokorv/hon-51-slug` → Neon `kaupokorv--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
+- **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `henritamm/hon-51-slug` → Neon `henritamm--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
 - **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
 - **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
 

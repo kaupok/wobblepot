@@ -371,7 +371,7 @@ describe('orchestrator.sh', () => {
     // looked, and no later claim recovers the commits (HON-1095).
     describe('holds a [LOST-BRANCH] warning for the whole run', () => {
       const LOST =
-        '[LOST-BRANCH] HON-702 kaupo/hon-702-x: 2 commit(s) and no merged PR, but the branch is gone locally and on origin'
+        '[LOST-BRANCH] HON-702 henri/hon-702-x: 2 commit(s) and no merged PR, but the branch is gone locally and on origin'
       const LINES = [
         `2026-09-20 10:00:00 WARN  ${LOST}`,
         '2026-09-20 10:30:00 INFO  Selected: HON-706 — a later claim',
@@ -1102,7 +1102,7 @@ describe('orchestrator.sh', () => {
       '2026-10-01 18:43:00 INFO  Claimed HON-902 → In Progress',
       '2026-10-01 20:16:00 INFO  [OUTCOME] HON-902 SUCCESS 1h33m 4-commits phase=done',
       '2026-10-02 03:37:00 WARN  [OUTCOME] HON-924 STRANDED 2h0m 6-commits phase=ci pr=#1018 ci=failing exit=clean',
-      '2026-10-02 03:37:00 WARN  Preserved worktree and branch for HON-924 — resume with: wt resume kaupo/hon-924-rename (release with: wt cleanup kaupo/hon-924-rename)',
+      '2026-10-02 03:37:00 WARN  Preserved worktree and branch for HON-924 — resume with: wt resume henri/hon-924-rename (release with: wt cleanup henri/hon-924-rename)',
     ]
 
     let dir = ''
@@ -1167,7 +1167,7 @@ describe('orchestrator.sh', () => {
     })
 
     it('keeps a stranded outcome yellow while its PR is open and its worktree exists', () => {
-      fs.mkdirSync(path.join(dir, 'worktrees', 'kaupo--hon-924-rename'), { recursive: true })
+      fs.mkdirSync(path.join(dir, 'worktrees', 'henri--hon-924-rename'), { recursive: true })
       try {
         expect(render(LOG)[0]).toContain('\\033[0;33m1 stranded\\033[0m')
         expect(render(LOG, '1018')[1]).toContain('1 stranded (resolved)')
@@ -1346,9 +1346,9 @@ describe('orchestrator.sh', () => {
       // (merged 11:53) above #786 (merged 12:50), so the pane claimed the wrong
       // PR had landed last.
       const rows = landed([
-        PR(787, 'docs: c (HON-603)', 'kaupo/hon-603-c', '2026-09-20T11:53:28Z'),
-        PR(786, 'feat: a (HON-513)', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
-        PR(785, 'fix: b (HON-682)', 'kaupo/hon-682-b', '2026-09-20T12:08:48Z'),
+        PR(787, 'docs: c (HON-603)', 'henri/hon-603-c', '2026-09-20T11:53:28Z'),
+        PR(786, 'feat: a (HON-513)', 'henri/hon-513-a', '2026-09-20T12:50:18Z'),
+        PR(785, 'fix: b (HON-682)', 'henri/hon-682-b', '2026-09-20T12:08:48Z'),
       ])
 
       expect(rows.map((r) => r.number)).toEqual(['786', '785', '787'])
@@ -1356,7 +1356,7 @@ describe('orchestrator.sh', () => {
 
     it('strips the trailing issue id, which has its own column', () => {
       const rows = landed([
-        PR(786, 'feat(i18n): Localize emails (HON-513)', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+        PR(786, 'feat(i18n): Localize emails (HON-513)', 'henri/hon-513-a', '2026-09-20T12:50:18Z'),
       ])
 
       expect(rows[0]?.id).toBe('HON-513')
@@ -1368,7 +1368,7 @@ describe('orchestrator.sh', () => {
         PR(
           786,
           'fix: Revert (HON-500) behaviour (HON-513)',
-          'kaupo/hon-513-a',
+          'henri/hon-513-a',
           '2026-09-20T12:50:18Z',
         ),
       ])
@@ -1378,7 +1378,7 @@ describe('orchestrator.sh', () => {
 
     it('derives the issue id from the branch, upcased', () => {
       const rows = landed([
-        PR(786, 'feat: a', 'kaupo/hon-513-localize-emails', '2026-09-20T12:50:18Z'),
+        PR(786, 'feat: a', 'henri/hon-513-localize-emails', '2026-09-20T12:50:18Z'),
       ])
 
       expect(rows[0]?.id).toBe('HON-513')
@@ -1389,7 +1389,7 @@ describe('orchestrator.sh', () => {
       // The placeholder is load-bearing rather than cosmetic: the consumer reads
       // these rows with IFS=$'\t', tab is IFS whitespace, and an empty field
       // would collapse and shift every later column left.
-      const rows = landed([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
+      const rows = landed([PR(786, 'chore: tidy', 'henri/no-issue-here', '2026-09-20T12:50:18Z')])
 
       expect(rows[0]?.id).toBe('-')
       expect(rows[0]?.title).toBe('chore: tidy')
@@ -1413,8 +1413,8 @@ describe('orchestrator.sh', () => {
 
     it('skips a row with no merge time rather than sorting on null', () => {
       const rows = landed([
-        PR(786, 'feat: a', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
-        { number: 999, title: 'odd', headRefName: 'kaupo/hon-1-x', mergedAt: null },
+        PR(786, 'feat: a', 'henri/hon-513-a', '2026-09-20T12:50:18Z'),
+        { number: 999, title: 'odd', headRefName: 'henri/hon-1-x', mergedAt: null },
       ])
 
       expect(rows.map((r) => r.number)).toEqual(['786'])
@@ -1460,9 +1460,9 @@ describe('orchestrator.sh', () => {
 
     it('keeps the columns aligned for a branch carrying no issue id', () => {
       // The reported bug, and the shape this very branch has: an ad-hoc
-      // `kaupo/<slug>` branch rendered its TITLE in the id column and lost the
+      // `henri/<slug>` branch rendered its TITLE in the id column and lost the
       // merge timestamp entirely.
-      const rows = readRows([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')])
+      const rows = readRows([PR(786, 'chore: tidy', 'henri/no-issue-here', '2026-09-20T12:50:18Z')])
 
       expect(rows[0]).toEqual(['786', '-', 'chore: tidy', '2026-09-20T12:50:18Z'])
     })
@@ -1470,7 +1470,7 @@ describe('orchestrator.sh', () => {
     it('never emits an empty field, which is what makes the read safe', () => {
       const raw = runHarness(
         'watch-landed-probe',
-        JSON.stringify([PR(786, 'chore: tidy', 'kaupo/no-issue-here', '2026-09-20T12:50:18Z')]),
+        JSON.stringify([PR(786, 'chore: tidy', 'henri/no-issue-here', '2026-09-20T12:50:18Z')]),
       )
 
       expect(raw).not.toMatch(/\t\t/)
@@ -1478,7 +1478,7 @@ describe('orchestrator.sh', () => {
 
     it('keeps the columns aligned for an ordinary issue branch', () => {
       const rows = readRows([
-        PR(786, 'feat(i18n): Localize emails', 'kaupo/hon-513-a', '2026-09-20T12:50:18Z'),
+        PR(786, 'feat(i18n): Localize emails', 'henri/hon-513-a', '2026-09-20T12:50:18Z'),
       ])
 
       expect(rows[0]).toEqual([

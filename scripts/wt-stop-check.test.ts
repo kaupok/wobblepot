@@ -71,8 +71,8 @@ describe('stop_drain_snapshot', () => {
       JSON.stringify({
         triage_timeout: 120,
         workers: [
-          { issue: 'HON-1287', pid: 87399, branch: 'kaupo/hon-1287-x' },
-          { issue: 'HON-1288', pid: 95553, branch: 'kaupo/hon-1288-y' },
+          { issue: 'HON-1287', pid: 87399, branch: 'henri/hon-1287-x' },
+          { issue: 'HON-1288', pid: 95553, branch: 'henri/hon-1288-y' },
         ],
       }),
     )
@@ -157,7 +157,7 @@ describe('stop_drain_verdict', () => {
   const snapshot = 'HON-1\t101\nHON-2\t102'
 
   it('passes when no worker runs and no issue is stuck', () => {
-    expect(verdict(snapshot, '', 'HON-1\tQueued\t\nHON-2\tIn Review\tKaupo')).toEqual({
+    expect(verdict(snapshot, '', 'HON-1\tQueued\t\nHON-2\tIn Review\tHenri')).toEqual({
       out: 'Drain check: passed (2 worker(s): none left running, no issue stuck)\n',
       status: 0,
     })

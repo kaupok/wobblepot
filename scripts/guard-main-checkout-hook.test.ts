@@ -76,8 +76,8 @@ describe('file tools', () => {
 
 describe('git commands in the main checkout', () => {
   it.each([
-    'git checkout -b kaupo/hon-1-feature',
-    'git checkout kaupo/hon-1-feature',
+    'git checkout -b henri/hon-1-feature',
+    'git checkout henri/hon-1-feature',
     'git switch -c fix/thing',
     'git switch feature',
     'git checkout -- src/app/page.tsx',
@@ -103,7 +103,7 @@ describe('git commands in the main checkout', () => {
     'git switch main',
     'git checkout main && git pull origin main',
     'git fetch origin main',
-    'git branch -d kaupo/hon-1-feature',
+    'git branch -d henri/hon-1-feature',
     'git stash list',
     'git stash show -p',
     'git reset',

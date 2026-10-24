@@ -227,7 +227,7 @@ describe('orchestrator.sh', () => {
 
       it('maps `/` to `--`, matching neon_branch_name', () => {
         expect(normalize('feat/foo-bar')).toBe('feat--foo-bar')
-        expect(normalize('kaupokorv/hon-51-slug')).toBe('kaupokorv--hon-51-slug')
+        expect(normalize('henritamm/hon-51-slug')).toBe('henritamm--hon-51-slug')
       })
 
       it('gives `feat/foo-bar` and `feat-foo/bar` distinct directories', () => {

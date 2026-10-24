@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 /** Verbatim shape of `DELETE /api/auth/user`'s `sole_owner` prose. */
 const SOLE_OWNER_PROSE =
-  'You are the sole owner of "Kõrvid" which has 2 other member(s). Please remove the other members first.'
+  'You are the sole owner of "Tammed" which has 2 other member(s). Please remove the other members first.'
 
 function respondWith(body: unknown, status: number) {
   vi.stubGlobal(
@@ -37,7 +37,7 @@ async function openAndConfirm(locale: 'en' | 'et') {
   render(
     <QueryWrapper>
       <NextIntlClientProvider locale={locale} messages={messages}>
-        <DeleteAccountDialog userEmail="kaupo@example.com" />
+        <DeleteAccountDialog userEmail="henri@example.com" />
       </NextIntlClientProvider>
     </QueryWrapper>,
   )
@@ -63,7 +63,7 @@ describe('DeleteAccountDialog error localization', () => {
         code: 'sole_owner',
         error: 'Cannot delete account',
         message: SOLE_OWNER_PROSE,
-        householdName: 'Kõrvid',
+        householdName: 'Tammed',
         otherMemberCount: 2,
       },
       400,
@@ -72,7 +72,7 @@ describe('DeleteAccountDialog error localization', () => {
     await openAndConfirm('et')
 
     await screen.findByText(
-      'Kontot ei saa veel kustutada: oled leibkonna „Kõrvid" ainus omanik ja seal on 2 muud liiget. Palun eemalda enne teised liikmed.',
+      'Kontot ei saa veel kustutada: oled leibkonna „Tammed" ainus omanik ja seal on 2 muud liiget. Palun eemalda enne teised liikmed.',
     )
     expect(screen.queryByText(SOLE_OWNER_PROSE)).not.toBeInTheDocument()
     expect(console.error).toHaveBeenCalledWith(
@@ -104,7 +104,7 @@ describe('DeleteAccountDialog error localization', () => {
       {
         code: 'sole_owner',
         message: SOLE_OWNER_PROSE,
-        householdName: 'Kõrvid',
+        householdName: 'Tammed',
         otherMemberCount: 1,
       },
       400,
@@ -113,7 +113,7 @@ describe('DeleteAccountDialog error localization', () => {
     await openAndConfirm('en')
 
     await screen.findByText(
-      'You can\'t delete your account yet: you are the only owner of "Kõrvid", which has 1 other member. Please remove the other members first.',
+      'You can\'t delete your account yet: you are the only owner of "Tammed", which has 1 other member. Please remove the other members first.',
     )
   })
 })
@@ -131,8 +131,8 @@ describe('DeleteAccountDialog owner household line', () => {
       <QueryWrapper>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <DeleteAccountDialog
-            userEmail="kaupo@example.com"
-            householdName="Kõrvid"
+            userEmail="henri@example.com"
+            householdName="Tammed"
             isOwner
             accountMemberCount={accountMemberCount}
           />
@@ -146,11 +146,11 @@ describe('DeleteAccountDialog owner household line', () => {
   it.each([
     [
       'en' as const,
-      'Your household "Kõrvid" and all its data (meal plans, pantry items, members without their own account, etc.)',
+      'Your household "Tammed" and all its data (meal plans, pantry items, members without their own account, etc.)',
     ],
     [
       'et' as const,
-      'Sinu leibkond „Kõrvid" ja kõik selle andmed (söögiplaanid, sahvri tooted, oma kontota liikmed jms)',
+      'Sinu leibkond „Tammed" ja kõik selle andmed (söögiplaanid, sahvri tooted, oma kontota liikmed jms)',
     ],
   ])(
     'lists the household for an owner who is the only account holder (%s)',
@@ -170,7 +170,7 @@ describe('DeleteAccountDialog owner household line', () => {
 
     expect(
       within(dialog).getByText(
-        'Warning: You cannot delete your account because you are the owner of "Kõrvid" with 1 other member. Please remove the other members first.',
+        'Warning: You cannot delete your account because you are the owner of "Tammed" with 1 other member. Please remove the other members first.',
       ),
     ).toBeInTheDocument()
     expect(within(dialog).queryByText(/and all its data/)).not.toBeInTheDocument()

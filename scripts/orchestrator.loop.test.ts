@@ -808,7 +808,7 @@ describe('orchestrator.sh', () => {
       id: `u${n}`,
       identifier: `HON-${n}`,
       title: `Fixture ${n}`,
-      branchName: `kaupo/hon-${n}-fixture`,
+      branchName: `henri/hon-${n}-fixture`,
       priority,
       assignee: null,
       labels: { nodes: [] },
@@ -833,9 +833,9 @@ describe('orchestrator.sh', () => {
     it('marks a Small issue with 1 in the PICK line, and an unlabelled one with 0', () => {
       const small = { ...node(1, QUEUED), labels: { nodes: [{ name: 'Tech' }, { name: 'Small' }] } }
 
-      expect(poll([small])).toContain('PICK:u1\tHON-1\tkaupo/hon-1-fixture\t1\tFixture 1\n')
+      expect(poll([small])).toContain('PICK:u1\tHON-1\thenri/hon-1-fixture\t1\tFixture 1\n')
       expect(poll([node(2, QUEUED)])).toContain(
-        'PICK:u2\tHON-2\tkaupo/hon-2-fixture\t0\tFixture 2\n',
+        'PICK:u2\tHON-2\thenri/hon-2-fixture\t0\tFixture 2\n',
       )
     })
 
@@ -866,7 +866,7 @@ describe('orchestrator.sh', () => {
               id: `u${n}`,
               identifier: `HON-${n}`,
               title: `Fixture ${n}`,
-              branchName: `kaupo/hon-${n}-fixture`,
+              branchName: `henri/hon-${n}-fixture`,
               priority: 3,
               assignee: null,
               labels: { nodes: gated.includes(n) ? [{ name: 'Gated' }] : [] },

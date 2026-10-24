@@ -40,7 +40,7 @@ const WITH_EXPIRY: ApiKeyRow[] = [
 
 /** The owner's view: every member's keys, each with its member (HON-1221). */
 const HOUSEHOLD: ApiKeyRow[] = [
-  { ...KITCHEN, memberName: 'Kaupo' },
+  { ...KITCHEN, memberName: 'Henri' },
   { ...TWO[1]!, memberName: 'Jane' },
 ]
 

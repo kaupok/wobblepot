@@ -19,14 +19,14 @@ import {
 describe('orchestrator.sh', () => {
   // ─── HON-572 finding 4: Neon GC coverage ──────────────────────────────────
   // spawn_worker prefers Linear's branchName, so the orchestrator's real branch
-  // is `kaupokorv/hon-51-slug` -> Neon `kaupokorv--hon-51-slug`. Every reaper
+  // is `henritamm/hon-51-slug` -> Neon `henritamm--hon-51-slug`. Every reaper
   // looked for `auto-*` instead, so a crashed orchestrator leaked Neon branches
   // with no backstop until the project hit its branch cap.
   describe('Neon orphan GC selection', () => {
     const FIXTURE = [
-      'kaupokorv--hon-51-slug',
+      'henritamm--hon-51-slug',
       'auto--hon-51',
-      'kaupo-interactive',
+      'henri-interactive',
       'feat--some-branch',
       'main',
       'production',
@@ -45,7 +45,7 @@ describe('orchestrator.sh', () => {
     }
 
     it('selects an orchestrator branch named from a Linear branchName', () => {
-      expect(select()).toContain('kaupokorv--hon-51-slug')
+      expect(select()).toContain('henritamm--hon-51-slug')
     })
 
     it('still selects the auto-- fallback shape', () => {
@@ -53,8 +53,8 @@ describe('orchestrator.sh', () => {
     })
 
     it('selects NEON_USER_PREFIX branches only when the prefix is set', () => {
-      expect(select('', 'kaupo')).toContain('kaupo-interactive')
-      expect(select()).not.toContain('kaupo-interactive')
+      expect(select('', 'henri')).toContain('henri-interactive')
+      expect(select()).not.toContain('henri-interactive')
     })
 
     it.each(['main', 'production', 'staging', 'preview'])(
@@ -69,9 +69,9 @@ describe('orchestrator.sh', () => {
     })
 
     it('skips a matching branch that still has a live worktree', () => {
-      const selected = select('kaupokorv--hon-51-slug')
+      const selected = select('henritamm--hon-51-slug')
 
-      expect(selected).not.toContain('kaupokorv--hon-51-slug')
+      expect(selected).not.toContain('henritamm--hon-51-slug')
       expect(selected).toContain('auto--hon-51')
     })
   })
@@ -110,7 +110,7 @@ describe('orchestrator.sh', () => {
       ).trim()
     }
 
-    it.each(['kaupokorv--hon-51-slug', 'auto--hon-51', 'kaupo--hon-572-a-long-slug-here'])(
+    it.each(['henritamm--hon-51-slug', 'auto--hon-51', 'henri--hon-572-a-long-slug-here'])(
       'SAFE_BRANCH_REGEX matches %s',
       (name) => {
         expect(matchesSafeRegex(name)).toBe(true)
@@ -127,7 +127,7 @@ describe('orchestrator.sh', () => {
     it('maps a merged orchestrator branch to the Neon branch that exists', () => {
       // The old pattern matched `^auto--hon-<N>$` against the raw git head ref,
       // a shape it never has, and then guessed a name no run ever creates.
-      expect(onMergeTarget('kaupokorv/hon-51-slug')).toBe('kaupokorv--hon-51-slug')
+      expect(onMergeTarget('henritamm/hon-51-slug')).toBe('henritamm--hon-51-slug')
       expect(onMergeTarget('auto/hon-51')).toBe('auto--hon-51')
     })
 
@@ -158,7 +158,7 @@ describe('orchestrator.sh', () => {
   describe('HON-581 Neon create-error classification', () => {
     // The real strings from the incident, not a paraphrase.
     const HON580_BRANCH =
-      'kaupo/hon-580-orchestrator-script-cleanup-silent-queue-cap-dead-code-stale'
+      'henri/hon-580-orchestrator-script-cleanup-silent-queue-cap-dead-code-stale'
     const HON580_NEON = HON580_BRANCH.replace('/', '--')
     const EXISTS_ERROR = `ERROR: branch already exists; branch_name:"${HON580_NEON}"`
     // A cap error whose branch name is free of the exhaustion substrings, so
@@ -225,7 +225,7 @@ describe('orchestrator.sh', () => {
     })
 
     it('still runs orphan GC and retries once for a genuine cap error', () => {
-      const result = create(CAP_ERROR, 'kaupo/hon-581-neutral-slug', 0, 'retry-ok')
+      const result = create(CAP_ERROR, 'henri/hon-581-neutral-slug', 0, 'retry-ok')
 
       // The observed count is part of the message now (HON-616); the stubbed
       // `branches list` returns an empty array, hence 0.
@@ -235,7 +235,7 @@ describe('orchestrator.sh', () => {
     })
 
     it('retries the cap path exactly once before giving up', () => {
-      const result = create(CAP_ERROR, 'kaupo/hon-581-neutral-slug', 0, 'retry-fail')
+      const result = create(CAP_ERROR, 'henri/hon-581-neutral-slug', 0, 'retry-fail')
 
       expect(result.text).toContain('Neon branch cap still exceeded after orphan GC.')
       expect(result.calls).toEqual(['CREATE', 'GC_RAN', 'CREATE'])
@@ -243,7 +243,7 @@ describe('orchestrator.sh', () => {
     })
 
     it('falls through to the generic create failure for an unrecognised error', () => {
-      const result = create('ERROR: connection reset by peer', 'kaupo/hon-581-neutral-slug', 1)
+      const result = create('ERROR: connection reset by peer', 'henri/hon-581-neutral-slug', 1)
 
       expect(result.text).toContain('Neon branch create failed:')
       expect(result.text).toContain('ERROR: connection reset by peer')
@@ -252,13 +252,13 @@ describe('orchestrator.sh', () => {
     })
 
     it.each(KEYWORDS)('reads an already-exists error as exists when the name holds %s', (kw) => {
-      const name = `kaupo--hon-1-queue-${kw}-slug`
+      const name = `henri--hon-1-queue-${kw}-slug`
 
       expect(classify(`ERROR: branch already exists; branch_name:"${name}"`, name)).toBe('exists')
     })
 
     it.each(KEYWORDS)('never invents a cap verdict from a name holding %s', (kw) => {
-      const name = `kaupo--hon-1-queue-${kw}-slug`
+      const name = `henri--hon-1-queue-${kw}-slug`
 
       expect(classify(`ERROR: internal server error; branch_name:"${name}"`, name)).toBe('unknown')
     })
@@ -266,7 +266,7 @@ describe('orchestrator.sh', () => {
     it('strips the branch name even when neonctl does not use the branch_name field', () => {
       // The `branch_name:"…"` sed is the documented shape; the literal removal
       // is what covers every other way the name can come back.
-      const name = 'kaupo--hon-1-queue-cap-slug'
+      const name = 'henri--hon-1-queue-cap-slug'
 
       expect(classify(`ERROR: could not create ${name}: internal error`, name)).toBe('unknown')
     })
@@ -297,7 +297,7 @@ describe('orchestrator.sh', () => {
         ['de-LIMIT-er', 'ERROR: unexpected delimiter in response'],
         ['region capacity', 'ERROR: insufficient capacity in region eu-central-1'],
       ])('does not read %s as branch exhaustion', (_label, error) => {
-        expect(classify(error, 'kaupo--hon-581-neutral-slug')).toBe('unknown')
+        expect(classify(error, 'henri--hon-581-neutral-slug')).toBe('unknown')
       })
 
       it.each([
@@ -307,11 +307,11 @@ describe('orchestrator.sh', () => {
           'You have reached the maximum number of branches for this project',
         ],
       ])('still reads a genuine cap error (%s) as cap', (_label, error) => {
-        expect(classify(error, 'kaupo--hon-581-neutral-slug')).toBe('cap')
+        expect(classify(error, 'henri--hon-581-neutral-slug')).toBe('cap')
       })
 
       it('never sweeps on a rate-limit response', () => {
-        const result = create('ERROR: Rate limit exceeded', 'kaupo/hon-581-neutral-slug', 0)
+        const result = create('ERROR: Rate limit exceeded', 'henri/hon-581-neutral-slug', 0)
 
         expect(result.calls).toEqual(['CREATE'])
         expect(result.text).toContain('Neon branch create failed:')
@@ -325,7 +325,7 @@ describe('orchestrator.sh', () => {
     it('refuses to reuse an existing branch when --fresh-db was requested', () => {
       const result = create(
         'ERROR: branch already exists',
-        'kaupo/hon-581-neutral-slug',
+        'henri/hon-581-neutral-slug',
         1,
         'retry-fail',
         1,
@@ -823,7 +823,7 @@ describe('orchestrator.sh', () => {
             id: `u${n}`,
             identifier: `HON-${n}`,
             title: `Fixture ${n}`,
-            branchName: `kaupo/hon-${n}-fixture`,
+            branchName: `henri/hon-${n}-fixture`,
             priority: 3,
             assignee: null,
             labels: { nodes: [] },
@@ -926,7 +926,7 @@ describe('orchestrator.sh', () => {
     function capMessage(env: Record<string, string> = {}): string {
       return execFileSync(
         'bash',
-        [harness, 'neon-create', CAP_ERROR, 'kaupo/hon-616-neutral-slug', '0', 'retry-fail', '0'],
+        [harness, 'neon-create', CAP_ERROR, 'henri/hon-616-neutral-slug', '0', 'retry-fail', '0'],
         { encoding: 'utf8', timeout: 30_000, env: harnessEnv(env) },
       ).replace(ANSI, '')
     }

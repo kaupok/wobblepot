@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-The parallel-worktree `/auto-implement` workflow creates one Neon branch per HON issue. The name is the git branch with `/` mapped to `--`, so it is usually `<prefix>--hon-<N>-<slug>` (`kaupokorv--hon-51-slug`) — the orchestrator prefers Linear's `branchName` — and `auto--hon-<N>` only on the fallback path. The Neon Free tier caps compute endpoints at **10 per project**. Without cleanup, these stale branches drift up to the cap, the Vercel-Neon integration starts racing its own bookkeeping, and Vercel preview env vars get pinned to endpoint names that have already been reaped — surfacing as `P1001: Can't reach database server` in CI. See HON-492 for the incident.
+The parallel-worktree `/auto-implement` workflow creates one Neon branch per HON issue. The name is the git branch with `/` mapped to `--`, so it is usually `<prefix>--hon-<N>-<slug>` (`henritamm--hon-51-slug`) — the orchestrator prefers Linear's `branchName` — and `auto--hon-<N>` only on the fallback path. The Neon Free tier caps compute endpoints at **10 per project**. Without cleanup, these stale branches drift up to the cap, the Vercel-Neon integration starts racing its own bookkeeping, and Vercel preview env vars get pinned to endpoint names that have already been reaped — surfacing as `P1001: Can't reach database server` in CI. See HON-492 for the incident.
 
 ## How the automation works
 
@@ -24,8 +24,8 @@ Every branch above is one the tooling created. `preview/<git-branch>` is not: th
 
 The integration does delete its branch when the PR merges — within seconds (`delete_timeline` 7 s after `head_ref_deleted` on PR #889). What it also does is leave, or re-create, branches that nothing owns:
 
-- **Closed without merge.** `preview/kaupo/hon-702-…` (PR #798, closed unmerged 2026-09-22, git branch left in place) was still there nine days later. Deleting the git branch did not make the integration remove it.
-- **Re-created after merge.** `preview/kaupo/hon-802-…` was deleted at merge (11:00:07 on 2026-09-29) and **created again at 18:53:56**, same name, parent `main`, with no GitHub event, Vercel deployment, git ref or worktree behind it. `hon-796`, `hon-800` and `hon-801` followed the same shape overnight, hours apart, one at a time.
+- **Closed without merge.** `preview/henri/hon-702-…` (PR #798, closed unmerged 2026-09-22, git branch left in place) was still there nine days later. Deleting the git branch did not make the integration remove it.
+- **Re-created after merge.** `preview/henri/hon-802-…` was deleted at merge (11:00:07 on 2026-09-29) and **created again at 18:53:56**, same name, parent `main`, with no GitHub event, Vercel deployment, git ref or worktree behind it. `hon-796`, `hon-800` and `hon-801` followed the same shape overnight, hours apart, one at a time.
 
 All of them had `creation_source: "vercel"`, `compute_time_seconds: 0` and `written_data_bytes: 0`. Each took one of the ten free-plan branches, and at three queue workers there is exactly one spare: on 2026-09-29 the project sat at 10 of 10 and `pnpm test:e2e:local` failed with `branches limit exceeded`. The trigger is not visible from the repo, the GitHub API or the Vercel CLI; it lives in the integration's settings (see [Integration settings](#integration-settings)).
 

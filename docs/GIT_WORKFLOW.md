@@ -16,7 +16,7 @@ Which scheme to use depends on who is creating the branch and whether a Linear i
 
 | Scheme                   | When                                                                                                    | Example                           |
 | ------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `<username>/hon-NN-slug` | Local or interactive work on a Linear issue — use `gitBranchName` verbatim                              | `kaupokorv/hon-51-feature-name`   |
+| `<username>/hon-NN-slug` | Local or interactive work on a Linear issue — use `gitBranchName` verbatim                              | `henritamm/hon-51-feature-name`   |
 | `posthog/hon-NN-slug`    | PostHog Desktop agent, Linear-sourced — `gitBranchName` with the username segment replaced by `posthog` | `posthog/hon-123-add-pantry-sync` |
 | `posthog/<slug>`         | PostHog Desktop agent, no Linear issue behind the task                                                  | `posthog/fix-login-redirect`      |
 | `<type>/<slug>`          | Manual work with no Linear issue                                                                        | `feat/auth-improvements`          |

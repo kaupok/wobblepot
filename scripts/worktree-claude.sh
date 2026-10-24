@@ -188,7 +188,7 @@ update_env_var() {
 # SAFE_BRANCH_REGEX — the two reapers must agree on what "an orchestrator branch"
 # looks like (HON-572). `--` is neon_branch_name's mapping of the git `/`, so this
 # covers both `auto/hon-51` (no-branchName fallback) and Linear's real branch
-# names like `kaupokorv/hon-51-slug`, which is what spawn_worker actually uses.
+# names like `henritamm/hon-51-slug`, which is what spawn_worker actually uses.
 NEON_ISSUE_BRANCH_REGEX='^[A-Za-z0-9._-]+--hon-[0-9]+(-[A-Za-z0-9._-]+)?$'
 
 # Pure selection half of neon_gc_orphans: given the `neonctl branches list` JSON
@@ -356,7 +356,7 @@ neon_cap_budget_note() {
 # echoes it back (`branch_name:"…"`), and the exhaustion test below is substring
 # matching, so a branch whose slug contains `cap`, `limit`, `quota`, `exceed` or
 # `maximum` would otherwise read as branch exhaustion. That is HON-581:
-# `kaupo--hon-580-…-silent-queue-cap-dead-code-stale` turned a plain "already
+# `henri--hon-580-…-silent-queue-cap-dead-code-stale` turned a plain "already
 # exists" into a reported capacity problem, and the orchestrator RETRY that
 # needed the reuse path lost it. Two removals, because they fail differently:
 # the `sed` handles the field even when the name we asked for is not what came
