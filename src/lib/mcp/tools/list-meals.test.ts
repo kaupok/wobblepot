@@ -87,6 +87,30 @@ describe('list_meals', () => {
     })
   })
 
+  it.each([
+    ['own', 'custom'],
+    ['favourites', 'favorites'],
+  ])('passes source %s to the shared meal query as %s', async (source, loadSource) => {
+    await call({ source })
+
+    expect(vi.mocked(loadMeals).mock.calls[0]![1]).toEqual({
+      search: undefined,
+      mealType: undefined,
+      limit: 20,
+      source: loadSource,
+    })
+  })
+
+  it('passes no source when the input has none, so every meal is listed as before', async () => {
+    await call({})
+
+    expect(vi.mocked(loadMeals).mock.calls[0]![1]).not.toHaveProperty('source')
+  })
+
+  it('refuses a source it does not know', () => {
+    expect(listMeals.inputSchema.safeParse({ source: 'system' }).success).toBe(false)
+  })
+
   it('defaults the limit to 20 and caps it at 50', () => {
     expect(listMeals.inputSchema.parse({}).limit).toBe(20)
     expect(listMeals.inputSchema.safeParse({ limit: 51 }).success).toBe(false)

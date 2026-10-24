@@ -81,6 +81,7 @@ const WRITE_TOOL_NAMES = [
   'rate_meal',
   'adjust_meal',
   'create_meal',
+  'plan_meal',
 ]
 
 interface ListedTool {
@@ -205,7 +206,7 @@ describe('/api/mcp', () => {
       ['a read-only token', as('user-a')],
       ['a read and write token', asWriter('user-a')],
     ])(
-      'lists the five read tools and the eight write tools for %s, each with both schemas',
+      'lists the five read tools and the nine write tools for %s, each with both schemas',
       async (_label, headers) => {
         const response = await POST(mcpRequest('tools/list', {}, headers))
         const body = await readMcpBody<{ tools: ListedTool[] }>(response)
@@ -235,6 +236,7 @@ describe('/api/mcp', () => {
         expect(annotations.swap_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.adjust_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.create_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },
@@ -257,6 +259,7 @@ describe('/api/mcp', () => {
             servings: 4,
             ingredients: [{ name: 'beef mince', quantity: 500, unit: 'g' }],
           },
+          plan_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
         }[name]
 
         const result = await callTool('user-a', name, args)
