@@ -7,6 +7,11 @@
 # because EnterWorktree rejects a name over 64 characters. Stdout must carry
 # the worktree path and nothing else.
 set -euo pipefail
+# Run on the .nvmrc Node, so `wt prepare`'s pnpm install passes engine-strict.
+node_bin=$("$(dirname "$0")/repo-node-bin.sh")
+if [ -n "$node_bin" ]; then
+  export PATH="$node_bin:$PATH"
+fi
 name=$(node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>process.stdout.write(JSON.parse(s).name??""))')
 if [ -z "$name" ]; then
   echo "worktree-create hook: no name in the hook input" >&2
