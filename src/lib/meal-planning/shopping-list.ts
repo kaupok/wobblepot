@@ -12,6 +12,7 @@ import { applyEntryChanges } from './entry-components'
 import { loadHouseholdServings } from '@/lib/household'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
+import { extraAggregationEntries } from '@/lib/day-extras/shopping'
 
 /**
  * Category configuration for shopping list grouping.
@@ -378,7 +379,8 @@ export interface RollingWindowResult {
    * holds no planned entries, this answers "does this household have a plan?"
    * — so a household whose entries fall past the window is not told it has none.
    * Past entries are excluded: they are never deleted, so counting them would
-   * keep a lapsed household away from "Generate plan" for good.
+   * keep a lapsed household away from "Generate plan" for good. A day extra
+   * from today on counts as a plan too (HON-1309).
    */
   hasAnyPlan: boolean
 }
@@ -412,17 +414,17 @@ export async function computeRollingWindowShoppingList(
   // 1. Get all entries across any plans for this household within the window
   // Only PLANNED status, today through endDate (exclusive). Alongside it, count
   // every entry from today on, in any status and past the window, for `hasAnyPlan`.
-  const [planEntries, totalEntryCount] = await Promise.all([
+  // The day extras (HON-1309) are read the same way: the window's ingredient
+  // extras, and a count of every extra from today on.
+  const inWindow = { gte: startOfToday, lt: endDate }
+  const [planEntries, totalEntryCount, extras, totalExtraCount] = await Promise.all([
     prisma.mealPlanEntry.findMany({
       where: {
         plan: {
           householdId,
         },
         status: 'planned',
-        date: {
-          gte: startOfToday,
-          lt: endDate,
-        },
+        date: inWindow,
       },
       select: {
         date: true,
@@ -451,13 +453,27 @@ export async function computeRollingWindowShoppingList(
     prisma.mealPlanEntry.count({
       where: { plan: { householdId }, date: { gte: startOfToday } },
     }),
+    prisma.dayExtra.findMany({
+      where: { householdId, ingredientId: { not: null }, date: inWindow },
+      select: {
+        date: true,
+        quantity: true,
+        createdAt: true,
+        ingredient: shoppingIngredientArgs(locale),
+      },
+    }),
+    prisma.dayExtra.count({ where: { householdId, date: { gte: startOfToday } } }),
   ])
 
-  // Track earliest plan creation date for purchase tracking
+  // Track earliest plan creation date for purchase tracking. An extra counts
+  // too, so a window that holds only extras can show a line as purchased.
   let earliestPlanCreatedAt: Date | null = null
-  for (const entry of planEntries) {
-    if (!earliestPlanCreatedAt || entry.plan.createdAt < earliestPlanCreatedAt) {
-      earliestPlanCreatedAt = entry.plan.createdAt
+  for (const createdAt of [
+    ...planEntries.map((entry) => entry.plan.createdAt),
+    ...extras.map((extra) => extra.createdAt),
+  ]) {
+    if (!earliestPlanCreatedAt || createdAt < earliestPlanCreatedAt) {
+      earliestPlanCreatedAt = createdAt
     }
   }
 
@@ -467,17 +483,21 @@ export async function computeRollingWindowShoppingList(
   // 3. Aggregate quantities per ingredient. An entry without a meal (an
   // eating_out entry before its status change) contributes nothing.
   const needed = aggregateComponents(
-    planEntries.flatMap((entry) =>
-      entry.meal
-        ? [
-            {
-              date: entry.date,
-              servings: getEffectiveServings(entry, householdServings),
-              components: applyEntryChanges(entry.meal.components, entry.changes),
-            },
-          ]
-        : [],
-    ),
+    [
+      ...planEntries.flatMap((entry): AggregationEntry[] =>
+        entry.meal
+          ? [
+              {
+                date: entry.date,
+                servings: getEffectiveServings(entry, householdServings),
+                components: applyEntryChanges(entry.meal.components, entry.changes),
+              },
+            ]
+          : [],
+      ),
+      // The ingredient extras (HON-1309) merge with the meals' need here.
+      ...extraAggregationEntries(extras),
+    ],
     locale,
   )
 
@@ -542,6 +562,6 @@ export async function computeRollingWindowShoppingList(
     endDate: toDateString(displayEndDate),
     windowDays: days,
     earliestPlanCreatedAt,
-    hasAnyPlan: totalEntryCount > 0,
+    hasAnyPlan: totalEntryCount + totalExtraCount > 0,
   }
 }

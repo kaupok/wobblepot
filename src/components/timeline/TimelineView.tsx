@@ -17,6 +17,7 @@ import type {
   PantryItemFull,
   ExpectedMealTypes,
   TimelineDay,
+  DayExtraView,
 } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
@@ -42,9 +43,14 @@ interface TimelineViewProps {
   /** Unchecked custom items on the list: they carry no date, so they are not in `shoppingItems`. */
   openCustomItemCount?: number
   todayDate: string // YYYY-MM-DD
+  /** The window's day extras (HON-1309). They take no slot and never start a fill. */
+  extras?: DayExtraView[]
 }
 
 const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
+
+/** One empty list for every render, so the day memo does not rebuild on a default. */
+const NO_EXTRAS: DayExtraView[] = []
 
 function getDayLabel(
   dateStr: string,
@@ -80,6 +86,7 @@ export function TimelineView({
   shoppingItems,
   openCustomItemCount = 0,
   todayDate,
+  extras = NO_EXTRAS,
 }: TimelineViewProps) {
   const router = useRouter()
   const locale = useLocale() as Locale
@@ -104,6 +111,10 @@ export function TimelineView({
       const existing = entriesByDate.get(entry.date) ?? []
       existing.push(entry)
       entriesByDate.set(entry.date, existing)
+    }
+    const extrasByDate = new Map<string, DayExtraView[]>()
+    for (const extra of extras) {
+      extrasByDate.set(extra.date, [...(extrasByDate.get(extra.date) ?? []), extra])
     }
 
     // Build timeline days
@@ -159,13 +170,14 @@ export function TimelineView({
         isTomorrow,
         entries: dayEntries,
         emptySlots,
+        extras: extrasByDate.get(dateStr) ?? [],
       })
 
       current.setDate(current.getDate() + 1)
     }
 
     return { futureDays: days, fillStartDate: fillStart }
-  }, [entries, todayDate, expectedMealTypes, locale, tDates])
+  }, [entries, extras, todayDate, expectedMealTypes, locale, tDates])
 
   function handleEntryUpdated() {
     router.refresh()

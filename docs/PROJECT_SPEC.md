@@ -69,6 +69,7 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 | **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                |
 | **Slot**            | A date + mealType position.                                                                          |
 | **Fridge meal**     | An entry with no meal: items from the pantry, a recent meal's leftovers, or free text (`kind`).      |
+| **Extra**           | A snack or drink on a day, outside its meals: an ingredient with an optional amount, or free text.   |
 | **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                          |
 | **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                |
 | **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.    |
@@ -115,6 +116,7 @@ A household has one plan, and the Today page (`/`) shows it as a timeline: the p
 3. Review the days, optionally swap meals (see Meal Swap)
 4. Day by day: mark meals completed or skipped
 5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`)
+6. Any upcoming day: "+ Extra" adds a snack, a drink or another item outside the meals (see Pantry & Shopping List → Extras)
 
 Generation takes any start date, and `endDate` is exclusive. There is no week boundary and no plan per week; see Meal Plan Rules.
 
@@ -313,6 +315,8 @@ enum ProteinType {
 
 **Purchased:** the pantry tracks two states for the list: have (`null`, "have some") and do not have (`0`, or no item). A quantity above 0 is a note the household keeps; the list subtracts it from the amount needed. Buying an item (the shopping list, or checking a linked custom item) puts it in the pantry as `null`, and replaces any quantity it held, a `0` or one the household entered. An item on the list is purchased only when its pantry quantity is `null` and the pantry item changed after the plan was created, so setting a quantity of 0 or more (the pantry page, the pantry API, `set_pantry_status` with `ran_out`) is never a purchase. `set_pantry_status` writes only `null` or `0`, as the pantry page does (HON-1201). Decided 2026-10-13, HON-1173, HON-1176.
 
+**Extras.** A day's extras (`DayExtra`, HON-1309) are a list per household and date, not entries, so generation, "Regenerate a range" and "fill empty days" never touch them, and they need no slot, meal type or plan. An ingredient extra joins the rolling-window list for its day: one serving of its amount, merged with the meals' need for the same ingredient, under the same pantry rules. One with no amount is a vague line ("some"). A free-text extra adds nothing to the computed list; saving it copies its words once into a custom item, which a later change or Remove leaves alone (the sync is HON-1310). An extra in the window counts as a plan for the empty state and for purchase dating. Extras have no Complete step, no pantry deduction and no nutrition, and a past extra shows nowhere. Why a day list and not a "Snack" meal type: a meal type touches generation, balance rules, swap ranking and meal-type preferences. Decided 2026-10-24.
+
 **Default staples.** Every household starts with salt, black pepper and water marked as staples, with no quantity. Removing one from the pantry puts it back on the shopping list; unmarking it only turns it into an ordinary "have some" item, which the list also skips. Decided 2026-09-24, HON-769. Vague quantities ('to taste', 'a handful') stay on the list: they are real purchases for most ingredients, and the staple flag is what keeps seasonings off it.
 
 ### Household Invites
@@ -474,6 +478,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 - Auto-deduct pantry on meal completion
 - Mark purchased to move an item into the pantry, and undo it
 - Custom shopping items
+- Day extras (snacks, drinks) on the timeline and the shopping list
 - Missing ingredients indicators on meals
 
 ### AI assistants (Ongoing)

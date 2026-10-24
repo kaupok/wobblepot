@@ -3,6 +3,7 @@ import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
@@ -45,10 +46,12 @@ export async function TodayTimeline({
   // reaches `src/app/error.tsx` rather than rendering Today as if the plan,
   // pantry or shopping list were empty, and a failed entries load can never be
   // mistaken for a first-time household.
-  const [{ entries, planId }, pantry, shoppingList] = await Promise.all([
-    loadPlanEntries(household, { startDate: todayParsed, endDate: fourteenDaysAhead }),
+  const range = { startDate: todayParsed, endDate: fourteenDaysAhead }
+  const [{ entries, planId }, pantry, shoppingList, extras] = await Promise.all([
+    loadPlanEntries(household, range),
     loadPantry(household, { days: null }),
     loadShoppingList(household, { days: 7 }),
+    loadDayExtras(household, range),
   ])
 
   // First-time user: no entries and no plan
@@ -101,6 +104,7 @@ export async function TodayTimeline({
       shoppingItems={shoppingItems}
       openCustomItemCount={shoppingList.customItems.filter((item) => !item.checked).length}
       todayDate={todayDate}
+      extras={extras}
     />
   )
 }

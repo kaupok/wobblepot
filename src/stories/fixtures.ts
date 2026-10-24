@@ -1165,6 +1165,7 @@ export function createTimelineDay(overrides: Partial<TimelineDay> = {}): Timelin
     isTomorrow: false,
     entries: [createPlanEntry()],
     emptySlots: [],
+    extras: [],
     ...overrides,
   }
 }

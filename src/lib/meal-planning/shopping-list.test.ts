@@ -23,6 +23,12 @@ vi.mock('@/lib/prisma', () => ({
     pantryItem: {
       findMany: vi.fn(),
     },
+    // Day extras (HON-1309) have their own DB-backed tests in
+    // `shopping-list.extras.db.test.ts`; here the household has none.
+    dayExtra: {
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+    },
   },
 }))
 

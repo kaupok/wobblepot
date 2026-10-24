@@ -31,6 +31,7 @@ vi.mock('./TimelineDayCard', () => ({
       data-testid={`day-card-${day.date}`}
       data-entry-types={day.entries.map((e) => e.mealType).join(' ')}
       data-empty-slots={day.emptySlots.join(' ')}
+      data-extras={day.extras.map((x) => x.name).join(' ')}
     >
       {day.label} - {day.entries.length} entries, {day.emptySlots.length} empty
     </div>
@@ -86,6 +87,33 @@ describe('TimelineView', () => {
     expect(compact.parentElement).toHaveClass('lg:hidden')
     expect(full.parentElement).toHaveClass('hidden', 'lg:flex')
     expect(compact.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('gives each day its own extras, without starting a fill there', () => {
+    const extra = (id: string, date: string, name: string) => ({
+      id,
+      date,
+      ingredientId: null,
+      name,
+      quantity: null,
+      unit: null,
+    })
+    renderInLocale(
+      <TimelineView
+        {...defaultProps}
+        extras={[
+          extra('x1', '2026-03-29', 'chips'),
+          extra('x2', '2026-04-01', 'wine'),
+          extra('x3', '2026-03-29', 'olives'),
+        ]}
+      />,
+    )
+
+    expect(screen.getByTestId('day-card-2026-03-29')).toHaveAttribute('data-extras', 'chips olives')
+    expect(screen.getByTestId('day-card-2026-04-01')).toHaveAttribute('data-extras', 'wine')
+    expect(screen.getByTestId('day-card-2026-03-30')).toHaveAttribute('data-extras', '')
+    // An extra is not a meal: the fill still starts today.
+    expect(screen.getByTestId('fill-days')).toHaveTextContent('Fill from 2026-03-29')
   })
 
   it('groups entries by date correctly', () => {

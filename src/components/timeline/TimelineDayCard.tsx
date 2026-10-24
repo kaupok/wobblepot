@@ -5,6 +5,8 @@ import { MealCard } from '@/components/meal-plan/MealCard'
 import { FridgeMealCard } from '@/components/meal-plan/fridge-meal/FridgeMealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { AddExtra } from './day-extras/AddExtra'
+import { DayExtrasRow } from './day-extras/DayExtrasRow'
 import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -53,6 +55,7 @@ export function TimelineDayCard({
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   const headingRef = useRef<HTMLElement>(null)
+  const addExtraRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!focusHeading) return
@@ -99,26 +102,26 @@ export function TimelineDayCard({
             </>
           )}
         </Heading>
-        {emptySlots.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {emptySlots.map((mealType) => (
-              <TimelineEmptySlot
-                key={mealType}
-                planId={planId}
-                date={day.date}
-                dayLabel={dayLabel}
-                relativeDay={relativeDay}
-                mealType={mealType}
-                householdServings={householdServings}
-                pantryIngredients={pantryIngredients}
-                pantryItems={pantryItems}
-                autoFocus={mealType === focusSlot}
-                onAutoFocused={onSlotFocused}
-                onPicked={() => onSlotPicked?.(day.date)}
-              />
-            ))}
-          </div>
-        )}
+        {/* "+ Extra" shows on every day, also when every slot is full (HON-1309). */}
+        <div className="flex flex-wrap gap-1">
+          {emptySlots.map((mealType) => (
+            <TimelineEmptySlot
+              key={mealType}
+              planId={planId}
+              date={day.date}
+              dayLabel={dayLabel}
+              relativeDay={relativeDay}
+              mealType={mealType}
+              householdServings={householdServings}
+              pantryIngredients={pantryIngredients}
+              pantryItems={pantryItems}
+              autoFocus={mealType === focusSlot}
+              onAutoFocused={onSlotFocused}
+              onPicked={() => onSlotPicked?.(day.date)}
+            />
+          ))}
+          <AddExtra date={day.date} dayLabel={dayLabel} buttonRef={addExtraRef} />
+        </div>
       </div>
       {entries.length > 0 ? (
         <div className="flex flex-col gap-2">
@@ -172,6 +175,7 @@ export function TimelineDayCard({
       ) : (
         emptySlots.length === 0 && <Body variant="muted">{tDay('noMealsPlanned')}</Body>
       )}
+      <DayExtrasRow extras={day.extras} onRemoved={() => addExtraRef.current?.focus()} />
     </div>
   )
 }

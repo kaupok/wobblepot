@@ -241,6 +241,23 @@ export interface HouseholdPreferencesData {
   weekendMealTypes: MealType[]
 }
 
+/**
+ * A snack, a drink or another item on a day, outside its meals (HON-1309):
+ * a catalogue ingredient with an optional amount, or free text.
+ */
+export interface DayExtraView {
+  id: string
+  date: string // YYYY-MM-DD
+  /** Null for a free-text extra. */
+  ingredientId: string | null
+  /** The ingredient's name in the household's language, or the free text. */
+  name: string
+  /** In the ingredient's `defaultUnit`; null when no amount is set, and always for free text. */
+  quantity: number | null
+  /** The unit `quantity` is shown in; null for free text. */
+  unit: DisplayUnit | null
+}
+
 export interface TimelineDay {
   date: string // YYYY-MM-DD
   label: string // "Today", "Tomorrow", "Wednesday", etc.
@@ -250,6 +267,7 @@ export interface TimelineDay {
   isTomorrow: boolean
   entries: PlanEntry[]
   emptySlots: MealType[]
+  extras: DayExtraView[]
 }
 
 export interface TimelineData {

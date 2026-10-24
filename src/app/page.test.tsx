@@ -76,6 +76,7 @@ vi.mock('@/components/timeline', () => ({
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
+vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
 vi.mock('@/lib/landing/load-demo-day', () => ({
   DEMO_TIMEZONE: 'Europe/Tallinn',
   loadDemoDay: vi.fn(async () => null),
@@ -115,10 +116,12 @@ async function mockLoaders({
   entries = { entries: [], planId: null },
   pantry = { items: [], windowDays: null },
   shoppingList = EMPTY_SHOPPING_LIST,
+  extras = [],
 }: {
   entries?: unknown
   pantry?: unknown
   shoppingList?: unknown
+  extras?: unknown
 } = {}) {
   const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
   const { loadPantry } = await import('@/lib/meal-planning/load-pantry')
@@ -135,6 +138,8 @@ async function mockLoaders({
     if (shoppingList instanceof Error) throw shoppingList
     return shoppingList as never
   })
+  const { loadDayExtras } = await import('@/lib/day-extras/day-extras')
+  vi.mocked(loadDayExtras).mockResolvedValue(extras as never)
 }
 
 /**
@@ -727,6 +732,29 @@ describe('Home page component', () => {
 
     const [, query] = vi.mocked(loadPlanEntries).mock.calls[0]!
     expect(query.startDate).toEqual(parseLocalDate(getTodayInTimezone('Europe/Tallinn')))
+  })
+
+  it('passes the day extras over the entries range to the timeline view', async () => {
+    const { TimelineView } = await import('@/components/timeline')
+    const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
+    const { loadDayExtras } = await import('@/lib/day-extras/day-extras')
+    const chips = {
+      id: 'extra-1',
+      date: '2026-03-29',
+      ingredientId: null,
+      name: 'chips',
+      quantity: null,
+      unit: null,
+    }
+    await mockAuthedHouseholdSession(null)
+    await mockLoaders({ entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' }, extras: [chips] })
+
+    render(await signedInHome())
+
+    expect(vi.mocked(TimelineView).mock.calls[0]?.[0].extras).toEqual([chips])
+    expect(vi.mocked(loadDayExtras).mock.calls[0]?.[1]).toEqual(
+      vi.mocked(loadPlanEntries).mock.calls[0]?.[1],
+    )
   })
 
   it('maps pantry items and shopping items onto the timeline props', async () => {
