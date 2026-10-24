@@ -175,7 +175,7 @@ describe('create_meal', () => {
     expect(result.outcome).toBe('unmatched')
     expect(result.unmatched).toEqual([
       {
-        name: 'brindleberry jam',
+        name: 'brindleberry jelly',
         original: '2 g brindleberry jam + 3 g brindleberry jelly',
         alternatives: ['brindleberry jam'],
       },

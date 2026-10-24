@@ -76,13 +76,18 @@ describe('mergeDuplicateIngredients', () => {
     ]
     const results: IngredientMatchResult[] = [
       makeMatched(),
-      makeMatched({ lowConfidence: true, alternatives }),
+      makeMatched({ extractedName: 'olive oyl', lowConfidence: true, alternatives }),
     ]
 
     const merged = mergeDuplicateIngredients(results, 4)
 
     expect(merged).toHaveLength(1)
-    expect(merged[0]).toMatchObject({ lowConfidence: true, alternatives })
+    // The unsure row's name, so the question is about the word that needs it.
+    expect(merged[0]).toMatchObject({
+      extractedName: 'olive oyl',
+      lowConfidence: true,
+      alternatives,
+    })
   })
 
   it('keeps the merged vague row low-confidence when the second row was (HON-1305)', () => {

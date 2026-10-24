@@ -337,11 +337,14 @@ export async function matchIngredients(
 /**
  * A merged row is unsure when either of its rows was, so a guessed match that
  * lands on the same ingredient as a sure one still needs a check (HON-1305).
+ * It then carries the unsure row's name, the one the user has to decide on.
  */
 function unsureOf(existing: MatchedIngredient, result: MatchedIngredient) {
+  const takeResult = result.lowConfidence && !existing.lowConfidence
   return {
     lowConfidence: existing.lowConfidence || result.lowConfidence,
     alternatives: existing.alternatives ?? result.alternatives,
+    ...(takeResult && { extractedName: result.extractedName }),
   }
 }
 
