@@ -17,6 +17,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 const WINDOW = {
@@ -118,6 +119,19 @@ describe('createDayExtra', () => {
     expect(outcome.status).toBe('created')
     expect(await prisma.customShoppingItem.count({ where: { householdId: alder.id } })).toBe(1)
     expect(await prisma.dayExtra.count({ where: { householdId: alder.id } })).toBe(1)
+  })
+
+  it('returns the saved extra when the shopping-list copy fails', async () => {
+    const { alder } = await world()
+    // The copy runs after the extra is saved, so a failure there must not
+    // read as a failed add: the household would add the extra twice.
+    vi.spyOn(prisma.customShoppingItem, 'findUnique').mockRejectedValueOnce(new Error('db down'))
+
+    const outcome = await createDayExtra(alder, { date: '2026-10-16', label: 'chips' })
+
+    expect(outcome).toMatchObject({ status: 'created', extra: { name: 'chips' } })
+    expect(await prisma.dayExtra.count({ where: { householdId: alder.id } })).toBe(1)
+    expect(await prisma.customShoppingItem.count()).toBe(0)
   })
 
   it('refuses a day before today in the household timezone', async () => {

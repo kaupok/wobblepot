@@ -6,6 +6,7 @@ import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/c
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { addCustomShoppingItem } from '@/lib/shopping/custom-items'
+import { captureApiError } from '@/lib/errors'
 import type { DayExtraView } from '@/components/meal-plan/types'
 import type { CreateDayExtraInput } from './schemas'
 
@@ -113,8 +114,14 @@ export async function createDayExtra(
     select: extraSelect(locale),
   })
 
-  // Every outcome (created, reopened, exists) puts the name on the list.
-  if ('label' in input) await addCustomShoppingItem(household, input.label)
+  // Every outcome (created, reopened, exists) puts the name on the list. The
+  // extra is saved already, so a failed copy is reported, not returned as a
+  // failed add: a retry would save the extra twice.
+  if ('label' in input) {
+    await addCustomShoppingItem(household, input.label).catch((error: unknown) =>
+      captureApiError(error, { route: '/api/extras', householdId: household.id }),
+    )
+  }
 
   return { status: 'created', extra: toView(row, locale) }
 }

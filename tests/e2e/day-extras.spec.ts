@@ -82,7 +82,8 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
     await expect(page.getByText(name, { exact: true }).locator('..')).toContainText('750g')
 
     // The line is the extra's alone, with no meal behind it. Marking it
-    // purchased puts it in the pantry, and a bought item leaves the list.
+    // purchased puts it in the pantry; a bought item leaves the list on the
+    // next load.
     const [purchase] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes('/api/shopping-list/purchase') && r.request().method() === 'POST',
@@ -91,6 +92,13 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
     ])
     expect(purchase.ok()).toBe(true)
     purchasedId = ingredientId
+    // The line reads as purchased: ticked, or, when it was the list's only
+    // line, the list's "all bought" state. No meal is behind it.
+    await expect(
+      page
+        .getByRole('checkbox', { name: `Mark ${name} as not purchased` })
+        .or(page.getByText("You've bought everything on your list.")),
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible()
   } finally {
     if (extraId) await page.request.delete(`/api/extras/${extraId}`)
