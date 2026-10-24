@@ -1,15 +1,26 @@
 import 'server-only'
 import { z } from 'zod'
-import { loadMeals, MEALS_DEFAULT_LIMIT, MEALS_MAX_LIMIT } from '@/lib/meals/load-meals'
+import {
+  loadMeals,
+  MEALS_DEFAULT_LIMIT,
+  MEALS_MAX_LIMIT,
+  type MealSource,
+} from '@/lib/meals/load-meals'
 import { defineTool } from '@/lib/mcp/context'
 
 const mealType = z.enum(['breakfast', 'lunch', 'dinner'])
+
+/** The tool's words for the `loadMeals` sources it offers (HON-1306). */
+const SOURCES = { own: 'custom', favourites: 'favorites' } as const satisfies Record<
+  string,
+  MealSource
+>
 
 export const listMeals = defineTool({
   name: 'list_meals',
   title: 'List meals',
   description:
-    "Finds meals the household can plan: Wobblepot's shared recipes and the household's own, without those its allergies or excluded ingredients rule out. Use it to search by name or ingredient, or to suggest a meal. Call get_meal with an id for the ingredients.",
+    "Finds meals the household can plan: Wobblepot's shared recipes and the household's own, without those its allergies or excluded ingredients rule out. Use it to search by name or ingredient, to suggest a meal, or with source to list the household's own recipes or favourites, for example to plan from its rotation with plan_meal. Call get_meal with an id for the ingredients.",
   inputSchema: z.object({
     search: z
       .string()
@@ -18,6 +29,10 @@ export const listMeals = defineTool({
       .optional()
       .describe('Words in the meal name or an ingredient name. Tolerates typos.'),
     mealType: mealType.optional().describe('Only meals that suit this meal type.'),
+    source: z
+      .enum(['own', 'favourites'])
+      .optional()
+      .describe("own: only the household's own recipes. favourites: only its favourites."),
     limit: z
       .number()
       .int()
@@ -44,6 +59,7 @@ export const listMeals = defineTool({
       search: input.search,
       mealType: input.mealType,
       limit: input.limit,
+      ...(input.source ? { source: SOURCES[input.source] } : {}),
     })
     return {
       total,

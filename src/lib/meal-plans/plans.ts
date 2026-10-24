@@ -109,3 +109,18 @@ export async function loadMealPlan(householdId: string, planId: string, locale: 
     })),
   }
 }
+
+/**
+ * The household's plan id, created when the household has none yet. A
+ * household has one plan (`householdId @unique`), so an upsert cannot make a
+ * second one. Unlike `createEmptyPlan`, it leaves every entry alone.
+ */
+export async function findOrCreateMealPlan(householdId: string): Promise<string> {
+  const plan = await prisma.mealPlan.upsert({
+    where: { householdId },
+    create: { householdId },
+    update: {},
+    select: { id: true },
+  })
+  return plan.id
+}

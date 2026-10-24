@@ -58,6 +58,11 @@ export interface CandidateFilters {
   householdId?: string
   favoriteMealIds?: string[]
   /**
+   * Only this meal: the pool is empty or holds just it. `plan_meal` asks whether
+   * one chosen meal passes the same filters (HON-1306).
+   */
+  mealId?: string
+  /**
    * Attach each candidate's {@link CandidateMeal.netRating} from the household's own rated plan
    * entries. Opt-in: only the swap routes rank on it (HON-340), and plan generation should not
    * pay for the join. Ignored without `householdId` — ratings are never read unscoped.
@@ -111,6 +116,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
     const meals = await prisma.meal.findMany({
       where: {
         suitableFor: { has: filters.mealType },
+        ...(filters.mealId ? { id: filters.mealId } : {}),
         // Only non-deleted meals
         deletedAt: null,
         // Include system meals + household's custom meals if householdId provided
