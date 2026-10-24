@@ -26,7 +26,7 @@ const hook = path.join(repoRoot, '.claude/hooks/block-destructive.sh')
 const ctx = (overrides: Partial<CheckContext> = {}): CheckContext => ({
   cwd: repoRoot,
   env: {},
-  currentBranch: () => 'kaupo/hon-1-feature',
+  currentBranch: () => 'henri/hon-1-feature',
   scripts: {
     'db:push': 'prisma db push',
     'db:migrate': 'prisma migrate dev',
@@ -150,7 +150,7 @@ describe('git push', () => {
     expect(blocked('git checkout main && git push')).toBe(true)
     expect(blocked('git switch main; git push origin HEAD')).toBe(true)
     expect(
-      blocked('git checkout -b kaupo/hon-2-x && git push -u origin HEAD', {
+      blocked('git checkout -b henri/hon-2-x && git push -u origin HEAD', {
         currentBranch: () => 'main',
       }),
     ).toBe(false)
@@ -172,7 +172,7 @@ describe('git push', () => {
 
   it.each([
     'git push',
-    'git push -u origin kaupo/hon-1-feature',
+    'git push -u origin henri/hon-1-feature',
     'git push -u origin $(git branch --show-current)',
     'git push origin posthog/hon-1-x',
     'git push origin HEAD',
@@ -279,7 +279,7 @@ describe('hook entrypoint', () => {
   })
 
   it('exits 0 silently when allowed', () => {
-    const result = run('git push -u origin kaupo/hon-1-feature')
+    const result = run('git push -u origin henri/hon-1-feature')
     expect(result.status).toBe(0)
     expect(result.stderr).toBe('')
   })

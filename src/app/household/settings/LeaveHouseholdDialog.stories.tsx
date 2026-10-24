@@ -17,7 +17,7 @@ const meta = {
     },
   },
   args: {
-    householdName: 'Kõrvid',
+    householdName: 'Tammed',
     isOwner: false,
     accountMemberCount: 1,
   },

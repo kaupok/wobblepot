@@ -26,7 +26,7 @@ export const Default: Story = {}
 /** A preview deployment's host is long; the URL wraps rather than widening the page. */
 export const LongPreviewHost: Story = {
   args: {
-    url: 'https://wobblepot-git-kaupo-hon-1153-connect-to-an-ai-assistant-honkadori.vercel.app/api/mcp',
+    url: 'https://wobblepot-git-henri-hon-1153-connect-to-an-ai-assistant-honkadori.vercel.app/api/mcp',
   },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
 }

@@ -398,7 +398,7 @@ describe('Spec axis', () => {
   }
 
   it('reads the issue ID from a Linear branch name', () => {
-    expect(issueId('kaupo/hon-1198-foo')).toBe('HON-1198')
+    expect(issueId('henri/hon-1198-foo')).toBe('HON-1198')
     expect(issueId('posthog/hon-12-bar')).toBe('HON-12')
   })
 
@@ -414,7 +414,7 @@ describe('Spec axis', () => {
   })
 
   it('prefers the branch over the body', () => {
-    expect(issueId('kaupo/hon-5-x', 'Closes HON-6')).toBe('HON-5')
+    expect(issueId('henri/hon-5-x', 'Closes HON-6')).toBe('HON-5')
   })
 
   it('tells the reviewer to fetch the issue and report under its own heading', () => {

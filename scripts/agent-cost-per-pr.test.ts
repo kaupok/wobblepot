@@ -78,7 +78,7 @@ function prLink(sessionId: string, prNumber: number, timestamp: string): string 
 const PRS: MergedPr[] = [
   {
     number: 10,
-    headRefName: 'kaupo/hon-1-feature',
+    headRefName: 'henri/hon-1-feature',
     mergedAt: '2026-09-10T12:00:00Z',
     additions: 90,
     deletions: 10,
@@ -86,14 +86,14 @@ const PRS: MergedPr[] = [
   // Two merged PRs off one reused branch, as hon-533 has.
   {
     number: 20,
-    headRefName: 'kaupo/hon-2-reused',
+    headRefName: 'henri/hon-2-reused',
     mergedAt: '2026-09-11T12:00:00Z',
     additions: 5,
     deletions: 5,
   },
   {
     number: 21,
-    headRefName: 'kaupo/hon-2-reused',
+    headRefName: 'henri/hon-2-reused',
     mergedAt: '2026-09-12T12:00:00Z',
     additions: 5,
     deletions: 5,
@@ -124,9 +124,9 @@ const PRS: MergedPr[] = [
 
 /** Writes a `~/.claude/projects`-shaped tree. Returns its root. */
 function writeFixture(root: string, extraLines: string[] = []): string {
-  const worktree = path.join(root, '-Users-kaupo--worktrees-wobblepot-kaupo--hon-1-feature')
-  const main = path.join(root, '-Users-kaupo-Projects-wobblepot')
-  const unrelated = path.join(root, '-Users-kaupo-Projects-other')
+  const worktree = path.join(root, '-Users-henri--worktrees-wobblepot-henri--hon-1-feature')
+  const main = path.join(root, '-Users-henri-Projects-wobblepot')
+  const unrelated = path.join(root, '-Users-henri-Projects-other')
   fs.mkdirSync(path.join(worktree, 'sess-wt', 'subagents'), { recursive: true })
   fs.mkdirSync(main, { recursive: true })
   fs.mkdirSync(unrelated, { recursive: true })
@@ -138,14 +138,14 @@ function writeFixture(root: string, extraLines: string[] = []): string {
       assistantLine({
         requestId: 'r1',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-1-feature',
+        gitBranch: 'henri/hon-1-feature',
         timestamp: '2026-09-10T10:00:00Z',
         usage: { output_tokens: 3 },
       }),
       assistantLine({
         requestId: 'r1',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-1-feature',
+        gitBranch: 'henri/hon-1-feature',
         timestamp: '2026-09-10T10:00:01Z',
         skill: 'auto-implement',
         stopReason: 'end_turn',
@@ -153,19 +153,19 @@ function writeFixture(root: string, extraLines: string[] = []): string {
       assistantLine({
         requestId: 'r2',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-2-reused',
+        gitBranch: 'henri/hon-2-reused',
         timestamp: '2026-09-11T10:00:00Z',
       }),
       assistantLine({
         requestId: 'r3',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-2-reused',
+        gitBranch: 'henri/hon-2-reused',
         timestamp: '2026-09-12T10:00:00Z',
       }),
       assistantLine({
         requestId: 'r4',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-2-reused',
+        gitBranch: 'henri/hon-2-reused',
         timestamp: '2026-09-20T10:00:00Z',
       }),
       assistantLine({
@@ -183,7 +183,7 @@ function writeFixture(root: string, extraLines: string[] = []): string {
       assistantLine({
         requestId: 'r7',
         sessionId: 'sess-wt',
-        gitBranch: 'kaupo/hon-9-never-merged',
+        gitBranch: 'henri/hon-9-never-merged',
         timestamp: '2026-09-15T10:00:00Z',
       }),
       // A local placeholder message: zero usage, never sent to the API.
@@ -201,7 +201,7 @@ function writeFixture(root: string, extraLines: string[] = []): string {
     assistantLine({
       requestId: 'r8',
       sessionId: 'sess-wt',
-      gitBranch: 'kaupo/hon-1-feature',
+      gitBranch: 'henri/hon-1-feature',
       timestamp: '2026-09-10T10:05:00Z',
       isSidechain: true,
       skill: 'auto-implement',
@@ -281,7 +281,7 @@ function writeFixture(root: string, extraLines: string[] = []): string {
     assistantLine({
       requestId: 'x1',
       sessionId: 'sess-other',
-      gitBranch: 'kaupo/hon-1-feature',
+      gitBranch: 'henri/hon-1-feature',
       timestamp: '2026-09-10T10:00:00Z',
     }),
   )

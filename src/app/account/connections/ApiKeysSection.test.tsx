@@ -316,7 +316,7 @@ describe('ApiKeysSection (HON-1220)', () => {
   // HON-1221: the owner's household view.
   describe('household view', () => {
     const JANE_KEY = { ...KITCHEN, memberName: 'Jane' }
-    const OWN_KEY = { ...SCRIPT, memberName: 'Kaupo' }
+    const OWN_KEY = { ...SCRIPT, memberName: 'Henri' }
 
     it("names the list for the household and each key's member", () => {
       mockApiFetch.mockResolvedValue([JANE_KEY, OWN_KEY])
@@ -325,7 +325,7 @@ describe('ApiKeysSection (HON-1220)', () => {
       expect(screen.getByRole('heading', { name: 'Household keys' })).toBeInTheDocument()
       const rows = keyRows()
       expect(within(rows[0]!).getByText('Member: Jane')).toBeInTheDocument()
-      expect(within(rows[1]!).getByText('Member: Kaupo')).toBeInTheDocument()
+      expect(within(rows[1]!).getByText('Member: Henri')).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: 'Revoke: Kitchen screen, Jane' }),
       ).toBeInTheDocument()
@@ -344,7 +344,7 @@ describe('ApiKeysSection (HON-1220)', () => {
         }
         if (!posted) return []
         await refetched
-        return [{ ...fromPost, memberName: 'Kaupo' }]
+        return [{ ...fromPost, memberName: 'Henri' }]
       })
       renderSection([], { householdView: true })
 
@@ -357,9 +357,9 @@ describe('ApiKeysSection (HON-1220)', () => {
 
       release()
       expect(
-        await screen.findByRole('button', { name: 'Revoke: Desk screen, Kaupo' }),
+        await screen.findByRole('button', { name: 'Revoke: Desk screen, Henri' }),
       ).toBeInTheDocument()
-      expect(screen.getByText('Member: Kaupo')).toBeInTheDocument()
+      expect(screen.getByText('Member: Henri')).toBeInTheDocument()
     })
 
     it('says no one in the household has a key', () => {

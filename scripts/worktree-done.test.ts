@@ -231,33 +231,33 @@ afterEach(() => {
 
 describe('wt done branch selection (HON-1066)', () => {
   it('deletes a squash-merged branch whose tip equals the PR head', () => {
-    const tip = squashMerged('kaupo/hon-1-a', 'a.txt')
-    writePrs([{ number: 1, headRefName: 'kaupo/hon-1-a', headRefOid: tip }])
+    const tip = squashMerged('henri/hon-1-a', 'a.txt')
+    writePrs([{ number: 1, headRefName: 'henri/hon-1-a', headRefOid: tip }])
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['main'])
-    expect(r.out).toContain('kaupo/hon-1-a (squash #1)')
+    expect(r.out).toContain('henri/hon-1-a (squash #1)')
   })
 
   it('keeps a squash-merged branch with a commit after the merge, with a WARN', () => {
-    const tip = squashMerged('kaupo/hon-2-b', 'b.txt')
-    writePrs([{ number: 2, headRefName: 'kaupo/hon-2-b', headRefOid: tip }])
-    git(main, 'checkout', '-q', 'kaupo/hon-2-b')
+    const tip = squashMerged('henri/hon-2-b', 'b.txt')
+    writePrs([{ number: 2, headRefName: 'henri/hon-2-b', headRefOid: tip }])
+    git(main, 'checkout', '-q', 'henri/hon-2-b')
     commit(main, 'b-late.txt')
     git(main, 'checkout', '-q', 'main')
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-2-b', 'main'])
-    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-2-b': commits after the merge of PR #2")
+    expect(branches()).toEqual(['henri/hon-2-b', 'main'])
+    expect(r.out).toContain("WARN: Keeping 'henri/hon-2-b': commits after the merge of PR #2")
   })
 
   it('deletes a `gh pr checkout` branch pr<N> whose tip equals PR N head', () => {
     const tip = squashMerged('pr707', 'c.txt')
-    writePrs([{ number: 707, headRefName: 'kaupo/hon-627-scan', headRefOid: tip }])
+    writePrs([{ number: 707, headRefName: 'henri/hon-627-scan', headRefOid: tip }])
 
     const r = runDone(main)
 
@@ -307,15 +307,15 @@ describe('wt done branch selection (HON-1066)', () => {
   })
 
   it('deletes no squash-merged branch when gh fails, and says so', () => {
-    const tip = squashMerged('kaupo/hon-3-c', 'g.txt')
-    writePrs([{ number: 3, headRefName: 'kaupo/hon-3-c', headRefOid: tip }])
+    const tip = squashMerged('henri/hon-3-c', 'g.txt')
+    writePrs([{ number: 3, headRefName: 'henri/hon-3-c', headRefOid: tip }])
 
     const r = runDone(main, { ghFails: true })
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-3-c', 'main'])
+    expect(branches()).toEqual(['henri/hon-3-c', 'main'])
     expect(r.out).toContain('WARN: Could not list merged PRs with gh')
-    expect(r.out).toContain('kaupo/hon-3-c: merged PRs could not be listed')
+    expect(r.out).toContain('henri/hon-3-c: merged PRs could not be listed')
   })
 
   it('does not touch a branch listed as an orchestrator worker', () => {
@@ -351,15 +351,15 @@ describe('wt done branch selection (HON-1066)', () => {
 
 describe('wt done per-branch PR lookup (HON-1072)', () => {
   it('deletes a branch whose merged PR is older than the bulk window, tip equal to its head', () => {
-    const tip = squashMerged('kaupo/hon-627-scan', 'w1.txt')
-    writePrs([{ number: 707, headRefName: 'kaupo/hon-627-scan', headRefOid: tip, old: true }])
+    const tip = squashMerged('henri/hon-627-scan', 'w1.txt')
+    writePrs([{ number: 707, headRefName: 'henri/hon-627-scan', headRefOid: tip, old: true }])
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['main'])
-    expect(r.out).toContain('kaupo/hon-627-scan (squash #707)')
-    expect(ghCalls()).toContainEqual(expect.stringContaining('--head kaupo/hon-627-scan'))
+    expect(r.out).toContain('henri/hon-627-scan (squash #707)')
+    expect(ghCalls()).toContainEqual(expect.stringContaining('--head henri/hon-627-scan'))
   })
 
   it('deletes pr<N> whose tip is an ancestor of PR N head, fetching the head from origin', () => {
@@ -370,7 +370,7 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
     git(other, 'checkout', '-q', '-b', 'pr-head', 'FETCH_HEAD')
     const head = commit(other, 'w2-late.txt')
     git(other, 'push', '-q', 'origin', 'HEAD:refs/pull/688/head')
-    writePrs([{ number: 688, headRefName: 'kaupo/hon-688', headRefOid: head, old: true }])
+    writePrs([{ number: 688, headRefName: 'henri/hon-688', headRefOid: head, old: true }])
     expect(tip).not.toBe(head)
 
     const r = runDone(main)
@@ -387,7 +387,7 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
     const head = commit(main, 'w3-late.txt')
     git(main, 'checkout', '-q', 'main')
     git(main, 'branch', '-q', '-D', 'pr-head')
-    writePrs([{ number: 768, headRefName: 'kaupo/hon-768', headRefOid: head }])
+    writePrs([{ number: 768, headRefName: 'henri/hon-768', headRefOid: head }])
 
     const r = runDone(main)
 
@@ -398,18 +398,18 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
   })
 
   it('keeps a branch with a commit its old merged PR lacks, with "commits after the merge"', () => {
-    const tip = squashMerged('kaupo/hon-20-t', 'w4.txt')
-    writePrs([{ number: 20, headRefName: 'kaupo/hon-20-t', headRefOid: tip, old: true }])
-    git(main, 'checkout', '-q', 'kaupo/hon-20-t')
+    const tip = squashMerged('henri/hon-20-t', 'w4.txt')
+    writePrs([{ number: 20, headRefName: 'henri/hon-20-t', headRefOid: tip, old: true }])
+    git(main, 'checkout', '-q', 'henri/hon-20-t')
     commit(main, 'w4-late.txt')
     git(main, 'checkout', '-q', 'main')
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-20-t', 'main'])
-    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-20-t': commits after the merge of PR #20")
-    expect(r.out).toMatch(/Kept:\n {2}kaupo\/hon-20-t: commits after the merge of PR #20/)
+    expect(branches()).toEqual(['henri/hon-20-t', 'main'])
+    expect(r.out).toContain("WARN: Keeping 'henri/hon-20-t': commits after the merge of PR #20")
+    expect(r.out).toMatch(/Kept:\n {2}henri\/hon-20-t: commits after the merge of PR #20/)
   })
 
   it('keeps branches whose PR is open or closed unmerged, and names the reason', () => {
@@ -432,24 +432,24 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
   })
 
   it('keeps a branch with a WARN when its own lookup fails', () => {
-    const tip = squashMerged('kaupo/hon-21-u', 'w7.txt')
-    writePrs([{ number: 21, headRefName: 'kaupo/hon-21-u', headRefOid: tip, old: true }])
+    const tip = squashMerged('henri/hon-21-u', 'w7.txt')
+    writePrs([{ number: 21, headRefName: 'henri/hon-21-u', headRefOid: tip, old: true }])
 
     const r = runDone(main, { lookupFails: true })
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-21-u', 'main'])
-    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-21-u': PR lookup failed")
+    expect(branches()).toEqual(['henri/hon-21-u', 'main'])
+    expect(r.out).toContain("WARN: Keeping 'henri/hon-21-u': PR lookup failed")
   })
 })
 
 describe('wt done counts only PRs merged into main (HON-1079)', () => {
   it('keeps a branch whose PR merged into another base, from the bulk list', () => {
-    const tip = unmergedBranch('kaupo/hon-40-child', 'x1.txt')
+    const tip = unmergedBranch('henri/hon-40-child', 'x1.txt')
     writePrs([
       {
         number: 40,
-        headRefName: 'kaupo/hon-40-child',
+        headRefName: 'henri/hon-40-child',
         headRefOid: tip,
         baseRefName: 'feat/parent',
       },
@@ -458,18 +458,18 @@ describe('wt done counts only PRs merged into main (HON-1079)', () => {
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-40-child', 'main'])
+    expect(branches()).toEqual(['henri/hon-40-child', 'main'])
     expect(r.out).toMatch(
-      /Kept:\n {2}kaupo\/hon-40-child: PR #40 merged into feat\/parent, not main/,
+      /Kept:\n {2}henri\/hon-40-child: PR #40 merged into feat\/parent, not main/,
     )
   })
 
   it('keeps a branch whose old PR merged into another base, from its own lookup', () => {
-    const tip = unmergedBranch('kaupo/hon-41-child', 'x2.txt')
+    const tip = unmergedBranch('henri/hon-41-child', 'x2.txt')
     writePrs([
       {
         number: 41,
-        headRefName: 'kaupo/hon-41-child',
+        headRefName: 'henri/hon-41-child',
         headRefOid: tip,
         baseRefName: 'feat/parent',
         old: true,
@@ -479,15 +479,15 @@ describe('wt done counts only PRs merged into main (HON-1079)', () => {
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
-    expect(branches()).toEqual(['kaupo/hon-41-child', 'main'])
-    expect(r.out).toContain('kaupo/hon-41-child: PR #41 merged into feat/parent, not main')
-    expect(ghCalls()).toContainEqual(expect.stringContaining('--head kaupo/hon-41-child'))
+    expect(branches()).toEqual(['henri/hon-41-child', 'main'])
+    expect(r.out).toContain('henri/hon-41-child: PR #41 merged into feat/parent, not main')
+    expect(ghCalls()).toContainEqual(expect.stringContaining('--head henri/hon-41-child'))
   })
 
   it('keeps pr<N> when PR N merged into another base', () => {
     const tip = unmergedBranch('pr742', 'x3.txt')
     writePrs([
-      { number: 742, headRefName: 'kaupo/hon-742', headRefOid: tip, baseRefName: 'feat/parent' },
+      { number: 742, headRefName: 'henri/hon-742', headRefOid: tip, baseRefName: 'feat/parent' },
     ])
 
     const r = runDone(main)
@@ -497,42 +497,42 @@ describe('wt done counts only PRs merged into main (HON-1079)', () => {
   })
 
   it('keeps the worktree of a branch whose PR merged into another base', () => {
-    const tip = unmergedBranch('kaupo/hon-42-child', 'x4.txt')
+    const tip = unmergedBranch('henri/hon-42-child', 'x4.txt')
     writePrs([
       {
         number: 42,
-        headRefName: 'kaupo/hon-42-child',
+        headRefName: 'henri/hon-42-child',
         headRefOid: tip,
         baseRefName: 'feat/parent',
       },
     ])
-    const dir = addWorktree('kaupo/hon-42-child')
+    const dir = addWorktree('henri/hon-42-child')
 
     const r = runDone(main, { neon: true })
 
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(true)
     expect(neonDeletes()).toHaveLength(0)
-    expect(r.out).toContain('kaupo/hon-42-child: PR #42 merged into feat/parent, not main')
+    expect(r.out).toContain('henri/hon-42-child: PR #42 merged into feat/parent, not main')
   })
 
   it('inside a worktree whose PR merged into another base removes nothing', () => {
-    const tip = unmergedBranch('kaupo/hon-43-child', 'x5.txt')
+    const tip = unmergedBranch('henri/hon-43-child', 'x5.txt')
     writePrs([
       {
         number: 43,
-        headRefName: 'kaupo/hon-43-child',
+        headRefName: 'henri/hon-43-child',
         headRefOid: tip,
         baseRefName: 'feat/parent',
       },
     ])
-    const dir = addWorktree('kaupo/hon-43-child')
+    const dir = addWorktree('henri/hon-43-child')
 
     const r = runDone(dir)
 
     expect(r.status).toBe(1)
     expect(r.out).toContain(
-      "Keeping 'kaupo/hon-43-child': PR #43 merged into feat/parent, not main — nothing removed",
+      "Keeping 'henri/hon-43-child': PR #43 merged into feat/parent, not main — nothing removed",
     )
     expect(fs.existsSync(dir)).toBe(true)
   })
@@ -540,8 +540,8 @@ describe('wt done counts only PRs merged into main (HON-1079)', () => {
 
 describe('wt done from another repository (HON-1079)', () => {
   it('acts on the checkout that holds the script, says so, and leaves the current repo alone', () => {
-    const tip = squashMerged('kaupo/hon-44-a', 'y1.txt')
-    writePrs([{ number: 44, headRefName: 'kaupo/hon-44-a', headRefOid: tip }])
+    const tip = squashMerged('henri/hon-44-a', 'y1.txt')
+    writePrs([{ number: 44, headRefName: 'henri/hon-44-a', headRefOid: tip }])
     const elsewhere = path.join(tmp, 'elsewhere')
     git(tmp, 'init', '-q', '-b', 'main', elsewhere)
     commit(elsewhere, 'other.txt')
@@ -555,7 +555,7 @@ describe('wt done from another repository (HON-1079)', () => {
       `Acting on the wobblepot checkout at ${main} — the current directory is not in it`,
     )
     expect(branches()).toEqual(['main'])
-    expect(r.out).toContain('kaupo/hon-44-a (squash #44)')
+    expect(r.out).toContain('henri/hon-44-a (squash #44)')
     expect(git(elsewhere, 'branch', '--show-current')).toBe('feat/elsewhere')
     expect(
       git(elsewhere, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split('\n').sort(),
@@ -572,9 +572,9 @@ describe('wt done from another repository (HON-1079)', () => {
 
 describe('wt done failed pull (HON-1079)', () => {
   it('aborts the rebase and removes nothing when local main conflicts with origin', () => {
-    const tip = squashMerged('kaupo/hon-45-a', 'z1.txt')
-    writePrs([{ number: 45, headRefName: 'kaupo/hon-45-a', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-45-a')
+    const tip = squashMerged('henri/hon-45-a', 'z1.txt')
+    writePrs([{ number: 45, headRefName: 'henri/hon-45-a', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-45-a')
     conflictMainWithOrigin()
 
     const r = runDone(main, { neon: true })
@@ -584,14 +584,14 @@ describe('wt done failed pull (HON-1079)', () => {
     expect(rebaseInProgress()).toBe(false)
     expect(git(main, 'branch', '--show-current')).toBe('main')
     expect(fs.existsSync(dir)).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-45-a', 'main'])
+    expect(branches()).toEqual(['henri/hon-45-a', 'main'])
     expect(neonDeletes()).toHaveLength(0)
   })
 
   it('from inside a merged worktree keeps that worktree when the pull fails', () => {
-    const tip = squashMerged('kaupo/hon-46-a', 'z2.txt')
-    writePrs([{ number: 46, headRefName: 'kaupo/hon-46-a', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-46-a')
+    const tip = squashMerged('henri/hon-46-a', 'z2.txt')
+    writePrs([{ number: 46, headRefName: 'henri/hon-46-a', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-46-a')
     conflictMainWithOrigin()
 
     const r = runDone(dir)
@@ -600,12 +600,12 @@ describe('wt done failed pull (HON-1079)', () => {
     expect(r.out).toContain('the pull rebase was aborted — nothing removed')
     expect(rebaseInProgress()).toBe(false)
     expect(fs.existsSync(dir)).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-46-a', 'main'])
+    expect(branches()).toEqual(['henri/hon-46-a', 'main'])
   })
 
   it('stops without touching a rebase already in progress in the main checkout', () => {
-    const tip = squashMerged('kaupo/hon-47-a', 'z3.txt')
-    writePrs([{ number: 47, headRefName: 'kaupo/hon-47-a', headRefOid: tip }])
+    const tip = squashMerged('henri/hon-47-a', 'z3.txt')
+    writePrs([{ number: 47, headRefName: 'henri/hon-47-a', headRefOid: tip }])
     commit(main, 'z3-local.txt')
     // Stops at an `edit` step, so the working tree is clean and only the
     // rebase state marks it.
@@ -620,43 +620,43 @@ describe('wt done failed pull (HON-1079)', () => {
     expect(r.status).toBe(1)
     expect(r.out).toContain('A rebase is in progress in the main checkout')
     expect(rebaseInProgress()).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-47-a', 'main'])
+    expect(branches()).toEqual(['henri/hon-47-a', 'main'])
   })
 })
 
 describe('wt done worktrees (HON-1066)', () => {
   it('removes a merged, clean worktree and then deletes its branch', () => {
-    const tip = squashMerged('kaupo/hon-5-e', 'i.txt')
-    writePrs([{ number: 5, headRefName: 'kaupo/hon-5-e', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-5-e')
+    const tip = squashMerged('henri/hon-5-e', 'i.txt')
+    writePrs([{ number: 5, headRefName: 'henri/hon-5-e', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-5-e')
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(false)
     expect(branches()).toEqual(['main'])
-    expect(r.out).toMatch(/Worktrees removed:\n {2}kaupo\/hon-5-e/)
+    expect(r.out).toMatch(/Worktrees removed:\n {2}henri\/hon-5-e/)
   })
 
   it('removes the worktree of a branch merged with a merge commit, then deletes the branch', () => {
-    git(main, 'checkout', '-q', '-b', 'kaupo/hon-11-j')
+    git(main, 'checkout', '-q', '-b', 'henri/hon-11-j')
     const tip = commit(main, 'p.txt')
     git(main, 'checkout', '-q', 'main')
-    const dir = addWorktree('kaupo/hon-11-j')
+    const dir = addWorktree('henri/hon-11-j')
     // Merged on origin only, so the merge reaches the main checkout through
     // wt done's own pull, as a GitHub "Create a merge commit" does.
     const other = cloneOrigin()
-    git(other, 'fetch', '-q', main, 'kaupo/hon-11-j:kaupo/hon-11-j')
-    git(other, 'merge', '-q', '--no-ff', '-m', 'Merge PR #11', 'kaupo/hon-11-j')
+    git(other, 'fetch', '-q', main, 'henri/hon-11-j:henri/hon-11-j')
+    git(other, 'merge', '-q', '--no-ff', '-m', 'Merge PR #11', 'henri/hon-11-j')
     git(other, 'push', '-q', 'origin', 'main')
-    writePrs([{ number: 11, headRefName: 'kaupo/hon-11-j', headRefOid: tip }])
+    writePrs([{ number: 11, headRefName: 'henri/hon-11-j', headRefOid: tip }])
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(false)
     expect(branches()).toEqual(['main'])
-    expect(r.out).toContain('kaupo/hon-11-j (merged)')
+    expect(r.out).toContain('henri/hon-11-j (merged)')
   })
 
   it('keeps the worktree of a fresh branch with no commits and no PR', () => {
@@ -671,59 +671,59 @@ describe('wt done worktrees (HON-1066)', () => {
   })
 
   it('keeps the worktree of a branch with a commit after its squash merge', () => {
-    const tip = squashMerged('kaupo/hon-12-k', 'q.txt')
-    writePrs([{ number: 12, headRefName: 'kaupo/hon-12-k', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-12-k')
+    const tip = squashMerged('henri/hon-12-k', 'q.txt')
+    writePrs([{ number: 12, headRefName: 'henri/hon-12-k', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-12-k')
     commit(dir, 'q-late.txt')
 
     const r = runDone(main)
 
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-12-k', 'main'])
-    expect(r.out).toContain('kaupo/hon-12-k: commits after the merge of PR #12')
+    expect(branches()).toEqual(['henri/hon-12-k', 'main'])
+    expect(r.out).toContain('henri/hon-12-k: commits after the merge of PR #12')
   })
 
   it('deletes the Neon branch of a removed worktree only', () => {
-    const merged = squashMerged('kaupo/hon-15-n', 't.txt')
-    const stale = squashMerged('kaupo/hon-16-o', 'u.txt')
+    const merged = squashMerged('henri/hon-15-n', 't.txt')
+    const stale = squashMerged('henri/hon-16-o', 'u.txt')
     writePrs([
-      { number: 15, headRefName: 'kaupo/hon-15-n', headRefOid: merged },
-      { number: 16, headRefName: 'kaupo/hon-16-o', headRefOid: stale },
+      { number: 15, headRefName: 'henri/hon-15-n', headRefOid: merged },
+      { number: 16, headRefName: 'henri/hon-16-o', headRefOid: stale },
     ])
-    addWorktree('kaupo/hon-15-n')
-    commit(addWorktree('kaupo/hon-16-o'), 'u-late.txt')
+    addWorktree('henri/hon-15-n')
+    commit(addWorktree('henri/hon-16-o'), 'u-late.txt')
 
     const r = runDone(main, { neon: true })
 
     expect(r.status, r.out).toBe(0)
     expect(neonDeletes()).toHaveLength(1)
-    expect(neonDeletes()[0]).toContain('branches delete kaupo--hon-15-n ')
+    expect(neonDeletes()[0]).toContain('branches delete henri--hon-15-n ')
   })
 
   it('keeps every worktree when gh fails', () => {
-    const tip = squashMerged('kaupo/hon-13-l', 'r.txt')
-    writePrs([{ number: 13, headRefName: 'kaupo/hon-13-l', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-13-l')
+    const tip = squashMerged('henri/hon-13-l', 'r.txt')
+    writePrs([{ number: 13, headRefName: 'henri/hon-13-l', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-13-l')
 
     const r = runDone(main, { ghFails: true })
 
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(true)
-    expect(r.out).toContain('kaupo/hon-13-l: merged PRs could not be listed')
+    expect(r.out).toContain('henri/hon-13-l: merged PRs could not be listed')
   })
 
   it('keeps a merged worktree that has uncommitted changes, and its branch', () => {
-    const tip = squashMerged('kaupo/hon-6-f', 'j.txt')
-    writePrs([{ number: 6, headRefName: 'kaupo/hon-6-f', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-6-f')
+    const tip = squashMerged('henri/hon-6-f', 'j.txt')
+    writePrs([{ number: 6, headRefName: 'henri/hon-6-f', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-6-f')
     fs.writeFileSync(path.join(dir, 'dirty.txt'), 'x')
 
     const r = runDone(main)
 
     expect(fs.existsSync(dir)).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-6-f', 'main'])
-    expect(r.out).toContain('kaupo/hon-6-f: uncommitted changes')
+    expect(branches()).toEqual(['henri/hon-6-f', 'main'])
+    expect(r.out).toContain('henri/hon-6-f: uncommitted changes')
   })
 
   it('keeps an orchestrator worker worktree even when it is merged', () => {
@@ -743,8 +743,8 @@ describe('wt done worktrees (HON-1066)', () => {
     git(main, 'branch', 'feat/unmerged')
     const dir = addWorktree('feat/unmerged')
     commit(dir, 'l.txt')
-    const merged = squashMerged('kaupo/hon-8-g', 'm.txt')
-    writePrs([{ number: 8, headRefName: 'kaupo/hon-8-g', headRefOid: merged }])
+    const merged = squashMerged('henri/hon-8-g', 'm.txt')
+    writePrs([{ number: 8, headRefName: 'henri/hon-8-g', headRefOid: merged }])
 
     const r = runDone(dir)
 
@@ -752,28 +752,28 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(r.out).toContain("Branch 'feat/unmerged' is not merged into main — nothing removed")
     expect(fs.existsSync(dir)).toBe(true)
     // It stopped before the prune, so even the merged branch elsewhere stays.
-    expect(branches()).toEqual(['feat/unmerged', 'kaupo/hon-8-g', 'main'])
+    expect(branches()).toEqual(['feat/unmerged', 'henri/hon-8-g', 'main'])
   })
 
   it('inside a worktree with a commit after its squash merge removes nothing', () => {
-    const tip = squashMerged('kaupo/hon-14-m', 's.txt')
-    writePrs([{ number: 14, headRefName: 'kaupo/hon-14-m', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-14-m')
+    const tip = squashMerged('henri/hon-14-m', 's.txt')
+    writePrs([{ number: 14, headRefName: 'henri/hon-14-m', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-14-m')
     commit(dir, 's-late.txt')
 
     const r = runDone(dir)
 
     expect(r.status).toBe(1)
     expect(r.out).toContain(
-      "Keeping 'kaupo/hon-14-m': commits after the merge of PR #14 — nothing removed",
+      "Keeping 'henri/hon-14-m': commits after the merge of PR #14 — nothing removed",
     )
     expect(fs.existsSync(dir)).toBe(true)
   })
 
   it('inside a merged worktree removes it from the main checkout and prints the cd', () => {
-    const tip = squashMerged('kaupo/hon-9-h', 'n.txt')
-    writePrs([{ number: 9, headRefName: 'kaupo/hon-9-h', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-9-h')
+    const tip = squashMerged('henri/hon-9-h', 'n.txt')
+    writePrs([{ number: 9, headRefName: 'henri/hon-9-h', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-9-h')
 
     const r = runDone(dir)
 
@@ -784,8 +784,8 @@ describe('wt done worktrees (HON-1066)', () => {
   })
 
   it('from a subdirectory of the main checkout runs as from its root', () => {
-    const tip = squashMerged('kaupo/hon-17-p', 'v.txt')
-    writePrs([{ number: 17, headRefName: 'kaupo/hon-17-p', headRefOid: tip }])
+    const tip = squashMerged('henri/hon-17-p', 'v.txt')
+    writePrs([{ number: 17, headRefName: 'henri/hon-17-p', headRefOid: tip }])
     const sub = path.join(main, 'sub')
     fs.mkdirSync(sub)
     fs.writeFileSync(path.join(sub, 'keep.txt'), 'x')
@@ -801,9 +801,9 @@ describe('wt done worktrees (HON-1066)', () => {
   })
 
   it('stops before removing anything when the main checkout is dirty', () => {
-    const tip = squashMerged('kaupo/hon-10-i', 'o.txt')
-    writePrs([{ number: 10, headRefName: 'kaupo/hon-10-i', headRefOid: tip }])
-    const dir = addWorktree('kaupo/hon-10-i')
+    const tip = squashMerged('henri/hon-10-i', 'o.txt')
+    writePrs([{ number: 10, headRefName: 'henri/hon-10-i', headRefOid: tip }])
+    const dir = addWorktree('henri/hon-10-i')
     fs.writeFileSync(path.join(main, 'README.md'), 'edited')
 
     const r = runDone(dir)
@@ -811,7 +811,7 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(r.status).toBe(1)
     expect(r.out).toContain('The main checkout')
     expect(fs.existsSync(dir)).toBe(true)
-    expect(branches()).toEqual(['kaupo/hon-10-i', 'main'])
+    expect(branches()).toEqual(['henri/hon-10-i', 'main'])
   })
 })
 

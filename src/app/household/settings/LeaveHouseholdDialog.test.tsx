@@ -26,7 +26,7 @@ function renderDialog(props: Partial<Props> = {}, locale: 'en' | 'et' = 'en') {
     <QueryWrapper>
       <NextIntlClientProvider locale={locale} messages={messages}>
         <LeaveHouseholdDialog
-          householdName="Kõrvid"
+          householdName="Tammed"
           isOwner={false}
           accountMemberCount={1}
           {...props}
@@ -84,7 +84,7 @@ describe('LeaveHouseholdDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Leave household' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(
-      within(dialog).getByText(/Your household "Kõrvid" .* are deleted\. This cannot be undone\./),
+      within(dialog).getByText(/Your household "Tammed" .* are deleted\. This cannot be undone\./),
     ).toBeInTheDocument()
     expect(within(dialog).getByText(/download your data from your profile/)).toBeInTheDocument()
   })

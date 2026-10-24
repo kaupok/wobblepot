@@ -16,10 +16,10 @@ import { MemberRow } from './MemberRow'
 const owner: Member = {
   id: 'member-1',
   userId: 'user-1',
-  name: 'Kaupo',
+  name: 'Henri',
   role: 'owner',
   joinedAt: '2026-01-01T00:00:00.000Z',
-  user: { id: 'user-1', name: 'Kaupo', email: 'kaupo@example.com', image: null },
+  user: { id: 'user-1', name: 'Henri', email: 'henri@example.com', image: null },
   preferences: null,
   invite: null,
 }
@@ -58,7 +58,7 @@ describe('MemberRow', () => {
   it('opens the edit dialog from a button named by the member', async () => {
     const { onEdit } = renderRow()
 
-    const button = screen.getByRole('button', { name: 'Kaupo' })
+    const button = screen.getByRole('button', { name: 'Henri' })
     await userEvent.click(button)
 
     expect(onEdit).toHaveBeenCalledWith(owner, button)
@@ -67,8 +67,8 @@ describe('MemberRow', () => {
   it('renders the name as plain text when the viewer cannot edit', () => {
     renderRow({ canEdit: false })
 
-    expect(screen.getByText('Kaupo')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Kaupo' })).not.toBeInTheDocument()
+    expect(screen.getByText('Henri')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Henri' })).not.toBeInTheDocument()
   })
 
   it('shows the portion in short form', () => {

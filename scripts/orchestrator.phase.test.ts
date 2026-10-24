@@ -137,7 +137,7 @@ describe('orchestrator.sh', () => {
       })
     }
 
-    const BRANCH = 'kaupo/hon-576-fixture'
+    const BRANCH = 'henri/hon-576-fixture'
 
     type Fixture = { repo: string; wt: string; branch: string; log: string }
 
@@ -268,7 +268,7 @@ describe('orchestrator.sh', () => {
         'add',
         '-q',
         '-b',
-        'kaupo/hon-576-untracked',
+        'henri/hon-576-untracked',
         '--no-track',
         wt2,
         'origin/main',

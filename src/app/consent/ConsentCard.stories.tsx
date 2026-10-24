@@ -37,7 +37,7 @@ const meta = {
     status: 'ready',
     clientName: 'Claude',
     redirectTarget: 'claude.ai',
-    householdName: 'Kõrvid',
+    householdName: 'Tammed',
     scopes: ['mcp:read', 'mcp:write', 'openid', 'profile', 'offline_access'],
   },
 } satisfies Meta<typeof ConsentCard>

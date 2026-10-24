@@ -163,8 +163,8 @@ function sweep(fixture: Fixture, override = '') {
   return { status: r.status, err: r.stderr, calls, summary }
 }
 
-const ORPHAN = 'preview/kaupo/hon-802-some-slug'
-const ORPHAN_REF = 'kaupo/hon-802-some-slug'
+const ORPHAN = 'preview/henri/hon-802-some-slug'
+const ORPHAN_REF = 'henri/hon-802-some-slug'
 
 describe('neon-cleanup.sh sweep — preview/* path (HON-852)', () => {
   it('lists a preview branch as a candidate when its ref is gone and no open PR has it', () => {
@@ -314,11 +314,11 @@ describe('neon-cleanup.sh sweep — preview/* path (HON-852)', () => {
       dryRun: '0',
       branches: [
         { id: 'br-orphan', name: ORPHAN },
-        { id: 'br-live', name: 'preview/kaupo/hon-900-open' },
-        { id: 'br-kept', name: 'preview/kaupo/hon-901-on-origin' },
+        { id: 'br-live', name: 'preview/henri/hon-900-open' },
+        { id: 'br-kept', name: 'preview/henri/hon-901-on-origin' },
       ],
-      openPrHeads: ['kaupo/hon-900-open'],
-      remoteRefs: ['kaupo/hon-901-on-origin'],
+      openPrHeads: ['henri/hon-900-open'],
+      remoteRefs: ['henri/hon-901-on-origin'],
     })
 
     const deletes = r.calls.filter((c) => c.startsWith('curl DELETE'))
@@ -331,12 +331,12 @@ describe('neon-cleanup.sh sweep — preview/* path (HON-852)', () => {
     const r = sweep({
       branches: [
         { name: ORPHAN },
-        { name: 'preview/kaupo/hon-900-open' },
-        { name: 'preview/kaupo/hon-901-on-origin' },
-        { name: 'preview/kaupo/hon-902-on-origin' },
+        { name: 'preview/henri/hon-900-open' },
+        { name: 'preview/henri/hon-901-on-origin' },
+        { name: 'preview/henri/hon-902-on-origin' },
       ],
-      openPrHeads: ['kaupo/hon-900-open'],
-      remoteRefs: ['kaupo/hon-901-on-origin', 'kaupo/hon-902-on-origin'],
+      openPrHeads: ['henri/hon-900-open'],
+      remoteRefs: ['henri/hon-901-on-origin', 'henri/hon-902-on-origin'],
     })
 
     expect(r.err).toContain(
@@ -360,22 +360,22 @@ describe('neon-cleanup.sh sweep — preview/* path (HON-852)', () => {
 
 describe('neon-cleanup.sh sweep — <prefix>--hon-<N> path is unchanged', () => {
   it('still deletes a Done issue branch and leaves an open one', () => {
-    const done = sweep({ branches: [{ name: 'kaupo--hon-51-slug' }], linearState: 'completed' })
-    const open = sweep({ branches: [{ name: 'kaupo--hon-51-slug' }], linearState: 'started' })
+    const done = sweep({ branches: [{ name: 'henri--hon-51-slug' }], linearState: 'completed' })
+    const open = sweep({ branches: [{ name: 'henri--hon-51-slug' }], linearState: 'started' })
 
-    expect(done.err).toContain('DRY-RUN would delete: kaupo--hon-51-slug')
-    expect(open.err).toContain('skip kaupo--hon-51-slug: HON-51 not Done/Canceled')
+    expect(done.err).toContain('DRY-RUN would delete: henri--hon-51-slug')
+    expect(open.err).toContain('skip henri--hon-51-slug: HON-51 not Done/Canceled')
     // The HON path never asks git or GitHub.
     expect(done.calls.some((c) => c.startsWith('git') || c.startsWith('gh'))).toBe(false)
   })
 
   it('still applies the age gate to a Done issue branch', () => {
     const r = sweep({
-      branches: [{ name: 'kaupo--hon-51-slug', updated_at: young() }],
+      branches: [{ name: 'henri--hon-51-slug', updated_at: young() }],
       linearState: 'completed',
     })
 
-    expect(r.err).toContain('skip kaupo--hon-51-slug: younger than 24h')
+    expect(r.err).toContain('skip henri--hon-51-slug: younger than 24h')
     expect(r.err).not.toContain('DRY-RUN would delete')
   })
 })
@@ -405,22 +405,22 @@ describe('worktree-claude.sh neon_gc_preview_orphan_names (HON-852)', () => {
 
   const BRANCHES: Branch[] = [
     { name: ORPHAN },
-    { name: 'preview/kaupo/hon-900-open' },
-    { name: 'preview/kaupo/hon-901-on-origin' },
-    { name: 'preview/kaupo/hon-903-protected', protected: true },
-    { name: 'preview/kaupo/hon-904-default', default: true },
+    { name: 'preview/henri/hon-900-open' },
+    { name: 'preview/henri/hon-901-on-origin' },
+    { name: 'preview/henri/hon-903-protected', protected: true },
+    { name: 'preview/henri/hon-904-default', default: true },
     { name: 'preview/-rf' },
     { name: 'preview/a..b' },
     { name: 'preview' },
-    { name: 'kaupo--hon-51-slug' },
+    { name: 'henri--hon-51-slug' },
     { name: 'main' },
   ]
 
   it('selects only the orphaned preview branch', () => {
     const selected = localSelect({
       branches: BRANCHES,
-      openPrHeads: ['kaupo/hon-900-open'],
-      remoteRefs: ['kaupo/hon-901-on-origin'],
+      openPrHeads: ['henri/hon-900-open'],
+      remoteRefs: ['henri/hon-901-on-origin'],
     })
 
     expect(selected).toEqual([ORPHAN])

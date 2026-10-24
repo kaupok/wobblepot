@@ -32,7 +32,7 @@ function clickGenerate(locale: 'en' | 'et') {
   render(
     <Wrapper>
       <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Tallinn">
-        <FirstTimeSetup userName="Kaupo" />
+        <FirstTimeSetup userName="Henri" />
       </NextIntlClientProvider>
     </Wrapper>,
   )
@@ -142,7 +142,7 @@ describe('FirstTimeSetup outline', () => {
     const { container } = render(
       <Wrapper>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Tallinn">
-          <FirstTimeSetup userName="Kaupo" />
+          <FirstTimeSetup userName="Henri" />
         </NextIntlClientProvider>
       </Wrapper>,
     )

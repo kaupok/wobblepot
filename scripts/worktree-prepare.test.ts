@@ -120,7 +120,7 @@ beforeEach(() => {
   fs.writeFileSync(path.join(stubDir, 'curl'), CURL_STUB, { mode: 0o755 })
   fs.writeFileSync(path.join(stubDir, 'pnpm'), PNPM_STUB, { mode: 0o755 })
   fs.writeFileSync(path.join(stubDir, 'calls'), '')
-  linearAnswers({ data: { issue: { branchName: 'kaupo/hon-123-from-linear' } } })
+  linearAnswers({ data: { issue: { branchName: 'henri/hon-123-from-linear' } } })
 
   const origin = path.join(tmp, 'origin.git')
   git(tmp, 'init', '-q', '--bare', '-b', 'main', origin)
@@ -141,22 +141,22 @@ afterEach(() => {
 
 describe('resolve_prepare_branch (HON-1094)', () => {
   it('resolves an issue ID to the local branch that carries it, without asking Linear', () => {
-    localBranch('kaupo/hon-123-foo')
+    localBranch('henri/hon-123-foo')
 
     const r = resolve('hon-123', { linearKey: true })
 
     expect(r.status, r.stderr).toBe(0)
-    expect(r.stdout).toBe('kaupo/hon-123-foo\n')
+    expect(r.stdout).toBe('henri/hon-123-foo\n')
     expect(curlCalls()).toEqual([])
   })
 
   it('resolves to a branch that exists only on origin', () => {
-    remoteOnlyBranch('kaupo/hon-123-foo')
+    remoteOnlyBranch('henri/hon-123-foo')
 
     const r = resolve('hon-123', { linearKey: true })
 
     expect(r.status, r.stderr).toBe(0)
-    expect(r.stdout).toBe('kaupo/hon-123-foo\n')
+    expect(r.stdout).toBe('henri/hon-123-foo\n')
     expect(curlCalls()).toEqual([])
   })
 
@@ -164,15 +164,15 @@ describe('resolve_prepare_branch (HON-1094)', () => {
     const r = resolve('hon-123', { linearKey: true })
 
     expect(r.status, r.stderr).toBe(0)
-    expect(r.stdout).toBe('kaupo/hon-123-from-linear\n')
+    expect(r.stdout).toBe('henri/hon-123-from-linear\n')
     expect(curlCalls()).toHaveLength(1)
     expect(curlCalls()[0]).toContain('HON-123')
   })
 
   it('accepts the ID in upper case', () => {
-    localBranch('kaupo/hon-123-foo')
+    localBranch('henri/hon-123-foo')
 
-    expect(resolve('HON-123').stdout).toBe('kaupo/hon-123-foo\n')
+    expect(resolve('HON-123').stdout).toBe('henri/hon-123-foo\n')
   })
 
   it('keeps the ID and names the reason when LINEAR_API_KEY is not set', () => {
@@ -201,7 +201,7 @@ describe('resolve_prepare_branch (HON-1094)', () => {
   })
 
   it('keeps the ID when Linear answers with a name git cannot use', () => {
-    linearAnswers({ data: { issue: { branchName: 'kaupo/bad..name' } } })
+    linearAnswers({ data: { issue: { branchName: 'henri/bad..name' } } })
 
     const r = resolve('hon-123', { linearKey: true })
 
@@ -210,8 +210,8 @@ describe('resolve_prepare_branch (HON-1094)', () => {
   })
 
   it('does not resolve hon-12 to a hon-123 branch', () => {
-    localBranch('kaupo/hon-123-foo')
-    remoteOnlyBranch('kaupo/hon-123-bar')
+    localBranch('henri/hon-123-foo')
+    remoteOnlyBranch('henri/hon-123-bar')
 
     const r = resolve('hon-12')
 
@@ -219,9 +219,9 @@ describe('resolve_prepare_branch (HON-1094)', () => {
   })
 
   it('passes any other name through unchanged, without asking Linear', () => {
-    const r = resolve('kaupo/some-slug', { linearKey: true })
+    const r = resolve('henri/some-slug', { linearKey: true })
 
-    expect(r.stdout).toBe('kaupo/some-slug\n')
+    expect(r.stdout).toBe('henri/some-slug\n')
     expect(curlCalls()).toEqual([])
   })
 })
@@ -230,10 +230,10 @@ describe('cmd_prepare with an issue ID (HON-1094)', () => {
   it("prints only the worktree path, and the worktree is on the issue's Linear branch", () => {
     const r = run('cmd_prepare', 'hon-123', { linearKey: true })
 
-    const expected = path.join(tmp, '.worktrees', 'wobblepot', 'kaupo--hon-123-from-linear')
+    const expected = path.join(tmp, '.worktrees', 'wobblepot', 'henri--hon-123-from-linear')
     expect(r.status, r.stderr).toBe(0)
     expect(r.stdout).toBe(`${expected}\n`)
-    expect(r.stderr).toContain('Resolved hon-123 to the branch kaupo/hon-123-from-linear')
-    expect(git(expected, 'branch', '--show-current')).toBe('kaupo/hon-123-from-linear')
+    expect(r.stderr).toContain('Resolved hon-123 to the branch henri/hon-123-from-linear')
+    expect(git(expected, 'branch', '--show-current')).toBe('henri/hon-123-from-linear')
   })
 })

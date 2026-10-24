@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Garbage-collect stale `<prefix>--hon-<N>` Neon branches created by
-# `/auto-implement` worktrees (`auto--hon-51`, `kaupokorv--hon-51-slug`, …),
+# `/auto-implement` worktrees (`auto--hon-51`, `henritamm--hon-51-slug`, …),
 # and orphaned `preview/<git-branch>` branches the Vercel–Neon integration
 # re-creates after a PR is gone (HON-852).
 # See docs/RUNBOOKS/neon-branch-gc.md for the full runbook.
@@ -59,7 +59,7 @@ LINEAR_API_URL="https://api.linear.app/graphql"
 # optional slug tail. `--` is worktree-claude.sh's neon_branch_name mapping of the
 # git `/`, so this covers the orchestrator's fallback `auto/hon-51` -> `auto--hon-51`
 # AND the Linear branch names spawn_worker actually uses,
-# `kaupokorv/hon-51-slug` -> `kaupokorv--hon-51-slug`. Before HON-572 the pattern
+# `henritamm/hon-51-slug` -> `henritamm--hon-51-slug`. Before HON-572 the pattern
 # was `^auto--hon-[0-9]+$`, which matched only the fallback — so no reaper on any
 # path recognised a real orchestrator branch and they leaked until the branch cap.
 # Widening the NAME filter is safe because it is not the safety gate: default/
@@ -459,8 +459,8 @@ cmd_sweep() {
 # from scripts/orchestrator.neon.test.ts.
 #
 # The `/` -> `--` mapping mirrors worktree-claude.sh's neon_branch_name, so
-# `kaupokorv/hon-51-slug` resolves to the Neon branch that actually exists,
-# `kaupokorv--hon-51-slug`. Before HON-572 this matched `^auto--hon-([0-9]+)$`
+# `henritamm/hon-51-slug` resolves to the Neon branch that actually exists,
+# `henritamm--hon-51-slug`. Before HON-572 this matched `^auto--hon-([0-9]+)$`
 # against the raw GIT branch — a shape the head ref never has — so the on-merge
 # reaper only ever fired through the PR_BODY fallback, and even then guessed the
 # name `auto--hon-<N>`, which an orchestrator run does not create.

@@ -123,7 +123,7 @@ describe('parseEnvLsTable', () => {
   const table = [
     ' name                     value       environments (git branch)          created',
     ' DATABASE_URL             Encrypted   Production, Preview, staging       3d ago',
-    ' NEON_API_KEY             Encrypted   Preview (kaupo/some-branch)        4m ago',
+    ' NEON_API_KEY             Encrypted   Preview (henri/some-branch)        4m ago',
     ' UPSTASH_REDIS_REST_URL   Encrypted   Development                        3d ago',
   ].join('\n')
 
