@@ -24,7 +24,7 @@ Sign-up is gated behind single-use invite codes (HON-488) controlled by the `inv
 
 ### Target Users
 
-Target audience for public EU beta: families with young children across EU/EEA and UK. Initial real-world user: family of 4 (two young children). The first cohort joins by invitation only — admin mints `SignupCode` rows at `/admin/signup-codes` and shares them out-of-band; signups without a code return 403 while `invite_code_required` is `true`.
+Target audience for public EU beta: families with young children across EU/EEA and UK. The first cohort joins by invitation only — admin mints `SignupCode` rows at `/admin/signup-codes` and shares them out-of-band; signups without a code return 403 while `invite_code_required` is `true`.
 
 ### Core Value Proposition
 
