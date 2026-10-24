@@ -302,6 +302,18 @@ async function findComponentIngredients(
 }
 
 /**
+ * The household's own recipe with this name, ignoring case and outer spaces,
+ * or null. A deleted recipe and a shared catalogue recipe do not count, so
+ * `create_meal` refuses only a name the household already uses (HON-1305).
+ */
+export async function findOwnMealByName(householdId: string, name: string) {
+  return prisma.meal.findFirst({
+    where: { householdId, deletedAt: null, name: { equals: name.trim(), mode: 'insensitive' } },
+    select: { id: true, name: true },
+  })
+}
+
+/**
  * Store a new recipe for the household, with each component's total divided
  * by `servings` and the primary protein derived from the ingredients. It
  * writes no translation rows: a household's recipe is stored in the language

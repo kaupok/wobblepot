@@ -30,13 +30,8 @@ export async function translateMatchResults<T extends IngredientMatchResult>(
   }
   if (ids.size === 0) return results
 
-  const translations = await prisma.ingredientTranslation.findMany({
-    where: { locale: locale as string, ingredientId: { in: [...ids] } },
-    select: { ingredientId: true, name: true },
-  })
-  if (translations.length === 0) return results
-
-  const names = new Map(translations.map((t) => [t.ingredientId, t.name]))
+  const names = await translatedNames([...ids], locale as string)
+  if (names.size === 0) return results
   const nameFor = (id: string, fallback: string) => names.get(id) ?? fallback
 
   return results.map((result) => {
@@ -53,4 +48,29 @@ export async function translateMatchResults<T extends IngredientMatchResult>(
       })),
     }
   })
+}
+
+/**
+ * The locale's names for these ingredients, for a row the matcher did not
+ * return: `create_meal` offers fuzzy candidates for a name it could not
+ * match (HON-1305). An ingredient with no translation keeps its own name.
+ */
+export async function translateIngredientNames<T extends { id: string; name: string }>(
+  ingredients: T[],
+  locale: string | null | undefined,
+): Promise<T[]> {
+  if (isDefaultLocale(locale) || ingredients.length === 0) return ingredients
+  const names = await translatedNames(
+    ingredients.map((i) => i.id),
+    locale as string,
+  )
+  return ingredients.map((i) => ({ ...i, name: names.get(i.id) ?? i.name }))
+}
+
+async function translatedNames(ids: string[], locale: string): Promise<Map<string, string>> {
+  const translations = await prisma.ingredientTranslation.findMany({
+    where: { locale, ingredientId: { in: ids } },
+    select: { ingredientId: true, name: true },
+  })
+  return new Map(translations.map((t) => [t.ingredientId, t.name]))
 }
