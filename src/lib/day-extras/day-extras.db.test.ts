@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
+import { createEmptyPlan } from '@/lib/ai/generate-plan'
 import { createDayExtra, deleteDayExtra, loadDayExtras, updateDayExtraQuantity } from './day-extras'
 
 // Day extras (HON-1309), against PGlite through the `unit-db` project, with no
@@ -292,8 +293,30 @@ describe('deleteDayExtra', () => {
   })
 })
 
-describe('a plan range cleared for regeneration', () => {
-  it('leaves every extra in the range unchanged', async () => {
+describe('a plan range regenerated or cleared', () => {
+  it('leaves every extra in a regenerated range unchanged', async () => {
+    const { alder } = await world()
+    await createDayExtra(alder, { date: '2026-10-16', ingredientId: 'ing-wine', quantity: 750 })
+    await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
+    await prisma.mealPlanEntry.create({
+      data: { planId: 'plan-alder', date: new Date('2026-10-16T00:00:00Z'), mealType: 'dinner' },
+    })
+    const before = await loadDayExtras(alder, WINDOW)
+
+    // "Regenerate a range" with no AI: the same `deleteReplaceableEntries`
+    // the AI generation runs first.
+    await createEmptyPlan({
+      householdId: alder.id,
+      startDate: WINDOW.startDate,
+      endDate: WINDOW.endDate,
+    })
+
+    expect(await prisma.mealPlanEntry.count()).toBe(0)
+    expect(before).toHaveLength(2)
+    expect(await loadDayExtras(alder, WINDOW)).toEqual(before)
+  })
+
+  it('leaves every extra in a cleared range unchanged', async () => {
     const { alder } = await world()
     await createDayExtra(alder, { date: '2026-10-16', ingredientId: 'ing-wine', quantity: 750 })
     await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
