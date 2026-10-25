@@ -1,24 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma } from '@/lib/prisma'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import {
-  loadPlanShoppingList,
-  loadShoppingList,
-  ShoppingPlanError,
-  type ShoppingPlanRefusal,
-} from '@/lib/shopping/load-shopping-list'
+  NOW,
+  PANTRY_UPDATED_AT,
+  ingredient,
+  household,
+  entry,
+  world,
+  itemsById,
+} from './load-shopping-list.fixtures'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
-// written with Prisma and read through the two loaders (HON-1208). The route
+// written with Prisma and read through the loader (HON-1208). The route
 // tests cover only how each route maps these answers. `next-intl/server` is
-// the catalog shim, so the strings are the ones a household sees.
-
-// Thursday 15 October 2026, noon in Tallinn. Only `Date` is faked, so "today"
-// and the relative labels are fixed and PGlite's timers still run.
-const NOW = new Date('2026-10-15T09:00:00Z')
-const PLAN_CREATED_AT = new Date('2026-10-10T08:00:00Z')
-// After the plan was created, so a "have some" here would read as a purchase
-// if the item stayed on the list.
-const PANTRY_UPDATED_AT = new Date('2026-10-14T12:00:00Z')
+// the catalog shim, so the strings are the ones a household sees. The shared
+// rows are in load-shopping-list.fixtures.ts.
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -28,125 +25,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
 })
-
-async function ingredient(
-  id: string,
-  name: string,
-  category: 'protein' | 'carb' | 'dairy' | 'spice' | 'legume',
-  { et, measuredByVolume = false }: { et?: string; measuredByVolume?: boolean } = {},
-) {
-  await prisma.ingredient.create({
-    data: {
-      id,
-      name,
-      category,
-      defaultUnit: 'g',
-      measuredByVolume,
-      calories: 100,
-      protein: 10,
-      carbs: 10,
-      fat: 1,
-      ...(et ? { translations: { create: { locale: 'et', name: et } } } : {}),
-    },
-  })
-}
-
-async function household(id: string, locale = 'en') {
-  return prisma.household.create({
-    data: {
-      id,
-      name: id,
-      locale,
-      timezone: 'Europe/Tallinn',
-      mealPlans: { create: { id: `plan-${id}`, createdAt: PLAN_CREATED_AT } },
-    },
-  })
-}
-
-/** A planned entry on `date` (YYYY-MM-DD) cooking `mealId` for `servings`. */
-async function entry(planId: string, date: string, mealId: string, servings: number) {
-  await prisma.mealPlanEntry.create({
-    data: {
-      planId,
-      date: new Date(`${date}T00:00:00Z`),
-      mealType: 'dinner',
-      mealId,
-      servingOverride: servings,
-    },
-  })
-}
-
-/**
- * Alder's plan, read on 15 October:
- *
- * - 14 Oct (yesterday): stew for 4, which no list may count.
- * - 15 Oct (today): bowl for 4, so 1500 g rice, 1500 g oat milk (measured by
- *   volume) and salt "to taste".
- * - 16 Oct (tomorrow) and 18 Oct: stew for 4 and 2, so 900 g chicken and 6 g
- *   pepper. The pepper is vague with no phrase, so it shows as an amount.
- *
- * Rice, milk and chicken carry Estonian names.
- */
-async function world({ locale = 'en' }: { locale?: string } = {}) {
-  await ingredient('ing-test-chicken', 'chicken thigh', 'protein', { et: 'kanakints' })
-  await ingredient('ing-test-rice', 'basmati rice', 'carb', { et: 'basmatiriis' })
-  await ingredient('ing-test-milk', 'oat milk', 'dairy', {
-    et: 'kaerajook',
-    measuredByVolume: true,
-  })
-  await ingredient('ing-test-salt', 'sea salt', 'spice')
-  await ingredient('ing-test-pepper', 'black pepper', 'spice')
-  await prisma.meal.create({
-    data: {
-      id: 'meal-test-stew',
-      name: 'Chicken stew',
-      components: {
-        create: [
-          { ingredientId: 'ing-test-chicken', quantityPerServing: 150 },
-          { ingredientId: 'ing-test-pepper', quantityPerServing: 1, isVague: true },
-        ],
-      },
-    },
-  })
-  await prisma.meal.create({
-    data: {
-      id: 'meal-test-bowl',
-      name: 'Rice bowl',
-      components: {
-        create: [
-          { ingredientId: 'ing-test-rice', quantityPerServing: 375 },
-          { ingredientId: 'ing-test-milk', quantityPerServing: 375 },
-          {
-            ingredientId: 'ing-test-salt',
-            quantityPerServing: 1,
-            isVague: true,
-            originalPhrase: 'to taste',
-          },
-        ],
-      },
-    },
-  })
-  const alder = await household('alder', locale)
-  await entry('plan-alder', '2026-10-14', 'meal-test-stew', 4)
-  await entry('plan-alder', '2026-10-15', 'meal-test-bowl', 4)
-  await entry('plan-alder', '2026-10-16', 'meal-test-stew', 4)
-  await entry('plan-alder', '2026-10-18', 'meal-test-stew', 2)
-  return { alder }
-}
-
-/** The listed items across every group, by ingredient id. */
-function itemsById<T extends { ingredientId: string }>(list: { groups: { items: T[] }[] }) {
-  return Object.fromEntries(list.groups.flatMap((g) => g.items).map((i) => [i.ingredientId, i]))
-}
-
-async function refusalOf(promise: Promise<unknown>): Promise<ShoppingPlanRefusal> {
-  const error = await promise.then(
-    () => null,
-    (caught: unknown) => caught,
-  )
-  if (!(error instanceof ShoppingPlanError)) throw new Error(`Expected a refusal, got ${error}`)
-  return error.reason
-}
 
 describe('loadShoppingList', () => {
   it('returns an empty list for a household with no plan', async () => {
@@ -200,6 +78,7 @@ describe('loadShoppingList', () => {
               unit: 'g',
               displayUnit: 'g',
               displayQuantity: '900g',
+              pantryDisplayQuantity: '900g',
               mealCount: 2,
               purchased: false,
               neededByDate: '2026-10-16',
@@ -221,6 +100,7 @@ describe('loadShoppingList', () => {
               unit: 'g',
               displayUnit: 'ml',
               displayQuantity: '1.5l',
+              pantryDisplayQuantity: '1.5l',
               mealCount: 1,
               purchased: false,
               neededByDate: '2026-10-15',
@@ -242,6 +122,7 @@ describe('loadShoppingList', () => {
               unit: 'g',
               displayUnit: 'g',
               displayQuantity: '1.5kg',
+              pantryDisplayQuantity: '1.5kg',
               mealCount: 1,
               purchased: false,
               neededByDate: '2026-10-15',
@@ -263,6 +144,7 @@ describe('loadShoppingList', () => {
               unit: 'g',
               displayUnit: 'g',
               displayQuantity: 'to taste',
+              pantryDisplayQuantity: 'to taste',
               mealCount: 1,
               purchased: false,
               neededByDate: '2026-10-15',
@@ -280,6 +162,7 @@ describe('loadShoppingList', () => {
               // Vague with no phrase shows the amount, so it is not vague
               // here (HON-783).
               displayQuantity: '6g',
+              pantryDisplayQuantity: '6g',
               mealCount: 2,
               purchased: false,
               neededByDate: '2026-10-16',
@@ -460,162 +343,5 @@ describe('loadShoppingList', () => {
     expect(alderList.customItems).toEqual([])
     expect(Object.keys(itemsById(birchList))).toEqual(['ing-test-lentils'])
     expect(birchList.customItems.map((c) => c.name)).toEqual(['Birch soap'])
-  })
-})
-
-describe('loadPlanShoppingList', () => {
-  it('refuses an unknown plan as planNotFound', async () => {
-    const { alder } = await world()
-
-    expect(await refusalOf(loadPlanShoppingList(alder, 'plan-missing'))).toBe('planNotFound')
-  })
-
-  it("refuses another household's plan as otherHousehold", async () => {
-    const { alder } = await world()
-    await household('birch')
-
-    expect(await refusalOf(loadPlanShoppingList(alder, 'plan-birch'))).toBe('otherHousehold')
-  })
-
-  it("lists the plan's items from today on, in the plan route's shape", async () => {
-    const { alder } = await world()
-
-    expect(await loadPlanShoppingList(alder, 'plan-alder')).toEqual({
-      planId: 'plan-alder',
-      generatedAt: '2026-10-10T08:00:00.000Z',
-      groups: [
-        {
-          category: 'protein',
-          categoryLabel: 'Proteins',
-          items: [
-            {
-              ingredientId: 'ing-test-chicken',
-              name: 'chicken thigh',
-              // The stew on the 14th is before today, so it is left out.
-              quantity: 900,
-              unit: 'g',
-              displayQuantity: '900g',
-              mealCount: 2,
-              purchased: false,
-              neededByDate: '2026-10-16',
-              neededByRelative: 'Tomorrow',
-              neededByAbsolute: 'Oct 16',
-              dueToday: false,
-              isVague: false,
-            },
-          ],
-        },
-        {
-          category: 'dairy',
-          categoryLabel: 'Dairy',
-          items: [
-            {
-              ingredientId: 'ing-test-milk',
-              name: 'oat milk',
-              quantity: 1500,
-              unit: 'g',
-              displayQuantity: '1.5l',
-              mealCount: 1,
-              purchased: false,
-              neededByDate: '2026-10-15',
-              neededByRelative: 'Today',
-              neededByAbsolute: 'Oct 15',
-              dueToday: true,
-              isVague: false,
-            },
-          ],
-        },
-        {
-          category: 'carb',
-          categoryLabel: 'Carbs & grains',
-          items: [
-            {
-              ingredientId: 'ing-test-rice',
-              name: 'basmati rice',
-              quantity: 1500,
-              unit: 'g',
-              displayQuantity: '1.5kg',
-              mealCount: 1,
-              purchased: false,
-              neededByDate: '2026-10-15',
-              neededByRelative: 'Today',
-              neededByAbsolute: 'Oct 15',
-              dueToday: true,
-              isVague: false,
-            },
-          ],
-        },
-        {
-          category: 'spice',
-          categoryLabel: 'Spices & seasonings',
-          items: [
-            {
-              ingredientId: 'ing-test-salt',
-              name: 'sea salt',
-              quantity: 4,
-              unit: 'g',
-              displayQuantity: 'to taste',
-              mealCount: 1,
-              purchased: false,
-              neededByDate: '2026-10-15',
-              neededByRelative: 'Today',
-              neededByAbsolute: 'Oct 15',
-              dueToday: true,
-              isVague: true,
-            },
-            {
-              ingredientId: 'ing-test-pepper',
-              name: 'black pepper',
-              quantity: 6,
-              unit: 'g',
-              displayQuantity: '6g',
-              mealCount: 2,
-              purchased: false,
-              neededByDate: '2026-10-16',
-              neededByRelative: 'Tomorrow',
-              neededByAbsolute: 'Oct 16',
-              dueToday: false,
-              // The stored flag, even with no phrase to show.
-              isVague: true,
-            },
-          ],
-        },
-      ],
-      summary: { totalItems: 5, purchasedItems: 0, remainingItems: 5 },
-    })
-  })
-
-  it("names, measures and dates the items in an Estonian household's language", async () => {
-    const { alder } = await world({ locale: 'et' })
-
-    const items = itemsById(await loadPlanShoppingList(alder, 'plan-alder'))
-
-    expect(items['ing-test-rice']).toMatchObject({
-      name: 'basmatiriis',
-      displayQuantity: '1,5kg',
-      neededByRelative: 'Täna',
-      neededByAbsolute: '15. okt',
-    })
-    expect(items['ing-test-salt']).toMatchObject({ displayQuantity: 'maitse järgi' })
-  })
-
-  it('lists the amount still needed above a pantry quantity', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.create({
-      data: {
-        householdId: 'alder',
-        ingredientId: 'ing-test-chicken',
-        quantity: 400,
-        updatedAt: PANTRY_UPDATED_AT,
-      },
-    })
-
-    const list = await loadPlanShoppingList(alder, 'plan-alder')
-
-    expect(itemsById(list)['ing-test-chicken']).toMatchObject({
-      quantity: 500,
-      displayQuantity: '500g',
-      purchased: false,
-    })
   })
 })

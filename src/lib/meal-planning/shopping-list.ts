@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import { IngredientCategory, Unit, type PieceDisplay } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
 import {
   ingredientTranslationsInclude,
@@ -42,6 +42,8 @@ export interface ShoppingListItem {
     defaultUnit: Unit
     gramsPerPiece: number | null
     measuredByVolume: boolean
+    /** Shown as pieces (HON-1312). Absent reads as `none`. */
+    pieceDisplay?: PieceDisplay
   }
   neededQuantity: number // Total needed for all planned meals
   pantryQuantity: number | null // What's in pantry (null = have some)
@@ -72,6 +74,8 @@ export interface NeededIngredient {
     defaultUnit: Unit
     gramsPerPiece: number | null
     measuredByVolume: boolean
+    /** Shown as pieces (HON-1312). Absent reads as `none`. */
+    pieceDisplay?: PieceDisplay
   }
   quantity: number
   mealCount: number
@@ -203,6 +207,7 @@ function shoppingIngredientArgs(locale: Locale) {
       defaultUnit: true,
       gramsPerPiece: true,
       measuredByVolume: true,
+      pieceDisplay: true,
       ...ingredientTranslationsInclude(locale),
     },
   } as const

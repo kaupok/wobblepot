@@ -307,6 +307,7 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
               category: true,
               defaultUnit: true,
               measuredByVolume: true,
+              pieceDisplay: true,
               gramsPerPiece: true,
               calories: true,
               protein: true,
@@ -365,6 +366,7 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
           category: translatedIngredient.category,
           defaultUnit: translatedIngredient.defaultUnit,
           measuredByVolume: translatedIngredient.measuredByVolume,
+          pieceDisplay: translatedIngredient.pieceDisplay,
           gramsPerPiece: translatedIngredient.gramsPerPiece,
         },
       }

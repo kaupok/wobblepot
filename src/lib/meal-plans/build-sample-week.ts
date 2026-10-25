@@ -1,6 +1,15 @@
 import type { IngredientCategory, MealImageStatus } from '@/generated/prisma/enums'
 import { formatDayLong } from '@/lib/i18n/format-dates'
-import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import {
+  displayUnit,
+  formatShoppingQuantity,
+  withPieceUnit,
+} from '@/lib/i18n/format-shopping-quantity'
+import {
+  formatPieceFraction,
+  formatShoppingLineQuantity,
+  recipePieceCount,
+} from '@/lib/i18n/format-piece-quantity'
 import type { VaguePhraseLabel } from '@/lib/i18n/vague-phrase'
 import {
   aggregateComponents,
@@ -107,7 +116,25 @@ export function buildSampleWeek(
     isVague: boolean,
     originalPhrase: string | null,
   ) =>
-    formatShoppingQuantity(
+    formatShoppingLineQuantity(
+      quantity,
+      ingredient,
+      LOCALE,
+      isVague,
+      originalPhrase,
+      options.tVague,
+      options.pieceLabel,
+    )
+  // A recipe row shows quarter pieces with the grams after them, as the cook
+  // view does: "¾ pc (83g)" (HON-1312).
+  const formatRecipe = (
+    quantity: number,
+    ingredient: AggregationComponent['ingredient'],
+    isVague: boolean,
+    originalPhrase: string | null,
+  ) => {
+    const pieces = isVague && originalPhrase ? null : recipePieceCount(quantity, ingredient)
+    const grams = formatShoppingQuantity(
       quantity,
       displayUnit(ingredient),
       LOCALE,
@@ -116,6 +143,9 @@ export function buildSampleWeek(
       options.tVague,
       options.pieceLabel,
     )
+    if (pieces == null) return grams
+    return `${withPieceUnit(formatPieceFraction(pieces, LOCALE), options.pieceLabel)} (${grams})`
+  }
 
   const days: SampleDay[] = meals.map((input, index) => {
     const dayName = formatDayLong(dayDate(index), LOCALE, { timeZone: 'UTC' })
@@ -136,7 +166,7 @@ export function buildSampleWeek(
       ingredients: input.components.map((component) => ({
         id: component.ingredientId,
         name: component.ingredient.name,
-        quantity: format(
+        quantity: formatRecipe(
           component.quantityPerServing * servings,
           component.ingredient,
           component.isVague,

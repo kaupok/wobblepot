@@ -12,12 +12,8 @@ import {
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
-import {
-  displayUnit,
-  formatMeasure,
-  withPieceUnit,
-  type DisplayUnit,
-} from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, formatMeasure, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
+import { formatPieceFraction, recipePieceCount } from '@/lib/i18n/format-piece-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
@@ -84,37 +80,45 @@ interface IngredientListProps {
  * For vague quantities, returns the phrase in the household's language
  * (e.g., "to taste" / "maitse järgi"). Piece counts carry `pieceLabel`
  * ("1.5 pc" / "1,5 tk", HON-956).
+ *
+ * A gram-stored vegetable under the piece rule shows quarter pieces first and
+ * keeps its grams as `grams`, so a cook who wants precision still has it:
+ * "¾ pc" and "83g" (HON-1312).
  */
 function formatQuantity(
-  quantityPerServing: number,
+  comp: MealComponent,
   servings: number,
-  unit: DisplayUnit,
   locale: Locale,
-  isVague: boolean | undefined,
-  originalPhrase: string | null | undefined,
   vaguePhrase: (phrase: string) => string,
   pieceLabel: string,
-): string {
+): { amount: string; grams: string | null } {
   // For vague quantities, show the phrase instead of calculated amount
-  if (isVague && originalPhrase) {
-    return vaguePhrase(originalPhrase)
+  if (comp.isVague && comp.originalPhrase) {
+    return { amount: vaguePhrase(comp.originalPhrase), grams: null }
   }
 
-  const totalQuantity = quantityPerServing * servings
+  const totalQuantity = comp.quantityPerServing * servings
+  const unit = displayUnit(comp.ingredient)
 
   if (unit === 'piece') {
     // Quantity is already in pieces. Locale-aware so `et` renders "1,5" not
     // "1.5"; whole counts collapse to "3" and fractions pick up the locale
     // decimal separator (maximumFractionDigits: 1 matches the prior rounding).
-    return withPieceUnit(
-      formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 }),
-      pieceLabel,
-    )
+    return {
+      amount: withPieceUnit(
+        formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 }),
+        pieceLabel,
+      ),
+      grams: null,
+    }
   }
 
   // Grams switch to kg at 1000g, as on the shopping list and pantry (HON-950);
   // a liquid shows in ml and switches to l (HON-1054).
-  return formatMeasure(totalQuantity, unit, locale)
+  const measure = formatMeasure(totalQuantity, unit, locale)
+  const pieces = recipePieceCount(totalQuantity, comp.ingredient)
+  if (pieces == null) return { amount: measure, grams: null }
+  return { amount: withPieceUnit(formatPieceFraction(pieces, locale), pieceLabel), grams: measure }
 }
 
 export function IngredientList({
@@ -186,17 +190,8 @@ export function IngredientList({
     if (stapleComponents.length === 0) return null
 
     const items = stapleComponents.map((comp) => {
-      const qty = formatQuantity(
-        comp.quantityPerServing,
-        servings,
-        displayUnit(comp.ingredient),
-        locale,
-        comp.isVague,
-        comp.originalPhrase,
-        vaguePhrase,
-        pieceLabel,
-      )
-      return `${comp.ingredient.name} (${qty})`
+      const { amount, grams } = formatQuantity(comp, servings, locale, vaguePhrase, pieceLabel)
+      return `${comp.ingredient.name} (${grams ? `${amount}, ${grams}` : amount})`
     })
 
     return tDetail('staplesPrefix', { list: items.join(', ') })
@@ -231,24 +226,19 @@ export function IngredientList({
           const markMissing = isMissing && !hideAvailability && showMissingStyle
           const showCheckbox = onToggleAvailability && !hideAvailability
 
+          const { amount, grams } = formatQuantity(comp, servings, locale, vaguePhrase, pieceLabel)
+          // The grams under a piece count go on their own line, so the
+          // column keeps its width and the names stay lined up (HON-1312).
           const quantity = (
             <span
               className={cn(
-                'w-24 shrink-0 tabular-nums',
+                'flex w-24 shrink-0 flex-col tabular-nums',
                 markMissing ? 'text-warning' : 'text-muted-foreground',
                 comp.isVague && 'italic',
               )}
             >
-              {formatQuantity(
-                comp.quantityPerServing,
-                servings,
-                displayUnit(comp.ingredient),
-                locale,
-                comp.isVague,
-                comp.originalPhrase,
-                vaguePhrase,
-                pieceLabel,
-              )}
+              <span>{amount}</span>
+              {grams && <span className="text-muted-foreground text-sm">{grams}</span>}
             </span>
           )
 

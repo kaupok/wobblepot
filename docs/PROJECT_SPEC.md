@@ -84,6 +84,8 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 
 An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 g = 1 ml, because import and the seeds store 1 ml as 1 g. The rule is display only: storage, nutrition, pantry deduction and shopping sums stay in grams. `displayUnit` in `src/lib/i18n/format-shopping-quantity.ts` chooses the unit for every screen, and `formatVolume` writes `<n>ml` below 1000 and `<n>l` from there on (HON-1054). The preparation-steps and cook-question prompts send the same unit, through `promptUnit` in `src/lib/ai/preparation-steps.ts`, so the steps say ml where the ingredient list does (HON-1070).
 
+An ingredient with `pieceDisplay` shows its grams as pieces, so a cook reads "¾ pc" and a shopper buys "1 pc" (HON-1312). The rule is display only, as for millilitres. The recipe (cook view, sample weeks) divides by `gramsPerPiece`, rounds to the nearest quarter with ¼ as the minimum, and keeps the grams under the count: "¾ pc" and "83g". The shopping list sums the grams across meals and subtracts the pantry first, then rounds up to whole pieces, so three meals of ¼ onion buy 1 onion. `recipe_and_shopping` (onion, carrot, garlic cloves) applies both; `recipe` (potato, sold by weight) keeps grams on the list. The rule lives in `prisma/piece-display.ts`, which the seed reads; the formatters are in `src/lib/i18n/format-piece-quantity.ts`. Edit inputs, the pantry screen, the MCP tools and the AI prompts stay in grams. Without `gramsPerPiece` the ingredient shows in grams.
+
 ### Pantry Quantity Semantics
 
 | State         | Meaning       | Shopping Result  |

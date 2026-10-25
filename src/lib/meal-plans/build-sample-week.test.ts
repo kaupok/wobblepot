@@ -153,6 +153,53 @@ describe('buildSampleWeek', () => {
     expect(spice.items[0]!.quantity).toBe('some')
   })
 
+  // The recipe shows quarter pieces with the grams; the list rounds the
+  // summed grams up to whole pieces, or keeps potato in grams (HON-1312).
+  it('shows onion and potato in pieces as the cook view and the shopping list do', () => {
+    const vegetable = (
+      id: string,
+      gramsPerPiece: number,
+      pieceDisplay: 'recipe' | 'recipe_and_shopping',
+    ) => ({
+      ingredientId: `ing-${id}`,
+      ingredient: {
+        id: `ing-${id}`,
+        name: id,
+        category: 'vegetable' as const,
+        defaultUnit: 'g' as const,
+        gramsPerPiece,
+        measuredByVolume: false,
+        pieceDisplay,
+      },
+      isVague: false,
+      originalPhrase: null,
+    })
+    const onion = vegetable('onion', 110, 'recipe_and_shopping')
+    const potato = vegetable('potato', 150, 'recipe')
+    const week = buildSampleWeek(
+      WEEK,
+      [
+        meal({
+          components: [
+            { ...onion, quantityPerServing: 83 / 3 },
+            { ...potato, quantityPerServing: 150 },
+          ],
+        }),
+        meal({ components: [{ ...onion, quantityPerServing: 82 / 3 }] }),
+      ],
+      OPTIONS,
+    )
+
+    expect(week.days[0]!.ingredients.map((i) => i.quantity)).toEqual([
+      '¾\u00a0pc (83g)',
+      '3\u00a0pc (450g)',
+    ])
+    expect(week.shoppingList[0]!.items).toEqual([
+      { id: 'ing-onion', name: 'onion', quantity: '2\u00a0pc', isVague: false },
+      { id: 'ing-potato', name: 'potato', quantity: '450g', isVague: false },
+    ])
+  })
+
   describe('jsonLd', () => {
     const list = view.jsonLd as {
       '@type': string

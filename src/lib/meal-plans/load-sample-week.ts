@@ -58,6 +58,7 @@ export async function readSampleWeek(week: SampleWeek): Promise<SampleMealInput[
             defaultUnit: comp.ingredient.defaultUnit,
             gramsPerPiece: comp.ingredient.gramsPerPiece,
             measuredByVolume: comp.ingredient.measuredByVolume,
+            pieceDisplay: comp.ingredient.pieceDisplay,
           },
         })),
       },

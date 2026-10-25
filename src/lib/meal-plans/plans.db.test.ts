@@ -110,6 +110,7 @@ describe('loadMealPlan', () => {
                   category: 'protein',
                   defaultUnit: 'g',
                   measuredByVolume: false,
+                  pieceDisplay: 'none',
                   gramsPerPiece: null,
                 },
               },

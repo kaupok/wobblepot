@@ -229,6 +229,7 @@ async function readDemoDay({
                 category: comp.ingredient.category,
                 defaultUnit: comp.ingredient.defaultUnit,
                 measuredByVolume: comp.ingredient.measuredByVolume,
+                pieceDisplay: comp.ingredient.pieceDisplay,
                 gramsPerPiece: comp.ingredient.gramsPerPiece,
               },
             })),

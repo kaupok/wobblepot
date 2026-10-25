@@ -12,6 +12,7 @@ import {
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
 import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import { formatShoppingLineQuantity } from '@/lib/i18n/format-piece-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export interface ShoppingListHousehold {
@@ -107,7 +108,19 @@ export async function loadShoppingList(
         // every screen shows, so readers outside the UI (the MCP tools, HON-1151)
         // need not repeat the `measuredByVolume` rule.
         displayUnit: displayUnit(item.ingredient),
-        displayQuantity: formatShoppingQuantity(
+        displayQuantity: formatShoppingLineQuantity(
+          item.shoppingQuantity,
+          item.ingredient,
+          locale,
+          item.isVague,
+          item.originalPhrase,
+          tVague,
+          pieceLabel,
+        ),
+        // The same need in the pantry screen's units, which stay in grams
+        // (HON-1312): a ticked item hands it to the pantry's "needed" caption,
+        // which then matches `load-pantry.ts` after a reload.
+        pantryDisplayQuantity: formatShoppingQuantity(
           item.shoppingQuantity,
           displayUnit(item.ingredient),
           locale,
@@ -268,9 +281,9 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
         name: item.ingredient.name,
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
-        displayQuantity: formatShoppingQuantity(
+        displayQuantity: formatShoppingLineQuantity(
           item.shoppingQuantity,
-          displayUnit(item.ingredient),
+          item.ingredient,
           locale,
           item.isVague,
           item.originalPhrase,

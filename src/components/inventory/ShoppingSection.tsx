@@ -366,7 +366,8 @@ export function ShoppingSection({
           ...data.results[0].pantryItem,
           ...(shoppingItem && {
             neededQuantity: 1, // Actual value doesn't matter for display, just needs to be > 0
-            neededDisplayQuantity: shoppingItem.displayQuantity,
+            neededDisplayQuantity:
+              shoppingItem.pantryDisplayQuantity ?? shoppingItem.displayQuantity,
             windowDays,
             isVague: shoppingItem.isVague,
           }),

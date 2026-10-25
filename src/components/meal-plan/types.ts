@@ -1,5 +1,5 @@
 import type { MealImageFields } from './MealImageCard'
-import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
+import type { MealImageStatus, MealType, PieceDisplay } from '@/generated/prisma/enums'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
@@ -17,6 +17,8 @@ export interface MealComponent {
     gramsPerPiece?: number | null
     /** Shown in millilitres, 1 g = 1 ml (HON-1054). Absent reads as grams. */
     measuredByVolume?: boolean
+    /** Shown as pieces in the recipe (HON-1312). Absent reads as `none`. */
+    pieceDisplay?: PieceDisplay
   }
 }
 
