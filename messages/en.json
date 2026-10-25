@@ -603,7 +603,7 @@
       "addFailed": "Couldn't add the extra. Please try again.",
       "pastDay": "This day has passed. Refresh the page to see today.",
       "editDescription": "Change the amount, or remove it from the day.",
-      "editTextDescription": "Remove it from the day. Its shopping list item stays.",
+      "editTextDescription": "Remove it from the day. Its shopping list item goes too, unless it is ticked off.",
       "save": "Save",
       "saving": "Saving…",
       "remove": "Remove",

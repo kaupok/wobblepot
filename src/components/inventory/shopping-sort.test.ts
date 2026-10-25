@@ -100,6 +100,38 @@ describe('buildUrgencyGroups', () => {
   it('returns nothing for an empty list', () => {
     expect(buildUrgencyGroups([])).toEqual([])
   })
+
+  // HON-1310: a free-text day extra's manual item sits under its day.
+  it("puts a dated manual item in its date's bucket, after the computed lines", () => {
+    const groups = buildUrgencyGroups(
+      [item('Milk', { neededByDate: '2026-02-17|tomorrow' })],
+      [
+        customItem('chips', { neededBy: '2026-02-17|tomorrow' }),
+        customItem('cake', { neededBy: '2026-03-01|later', checked: true }),
+        customItem('Dish soap', { neededBy: null }),
+        customItem('Candles'),
+      ],
+    )
+
+    expect(
+      groups.map((g) => [g.bucket, g.items.map((i) => i.name), g.customItems.map((i) => i.name)]),
+    ).toEqual([
+      ['tomorrow', ['Milk'], ['chips']],
+      ['later', [], ['cake']],
+    ])
+  })
+
+  it('sorts dated manual items by date within a bucket', () => {
+    const groups = buildUrgencyGroups(
+      [],
+      [
+        customItem('wine', { neededBy: '2026-02-20|this-week' }),
+        customItem('chips', { neededBy: '2026-02-18|this-week' }),
+      ],
+    )
+
+    expect(groups[0]!.customItems.map((i) => i.name)).toEqual(['chips', 'wine'])
+  })
 })
 
 describe('buildAlphabeticalItems', () => {

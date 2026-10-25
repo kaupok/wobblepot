@@ -79,8 +79,8 @@ export type CreateDayExtraOutcome =
  * must be global or the household's own.
  *
  * A free-text extra also goes on the shopping list as a manual item with the
- * same name. That is a one-time copy: a later change or Remove on the extra
- * leaves the item alone. A name already on the list is not added twice.
+ * same name, and links to it (HON-1310), so `deleteDayExtra` can take it off
+ * again. A name already on the list is not added twice.
  */
 export async function createDayExtra(
   household: ExtrasHousehold & { timezone: string },
@@ -115,15 +115,32 @@ export async function createDayExtra(
   })
 
   // Every outcome (created, reopened, exists) puts the name on the list. The
-  // extra is saved already, so a failed copy is reported, not returned as a
-  // failed add: a retry would save the extra twice.
+  // extra is saved already, so a failed copy or link is reported, not
+  // returned as a failed add: a retry would save the extra twice.
   if ('label' in input) {
-    await addCustomShoppingItem(household, input.label).catch((error: unknown) =>
+    await copyToShoppingList(household, row.id, input.label).catch((error: unknown) =>
       captureApiError(error, { route: '/api/extras', householdId: household.id }),
     )
   }
 
   return { status: 'created', extra: toView(row, locale) }
+}
+
+/**
+ * Puts a free-text extra's label on the shopping list and links the extra to
+ * the item. An item that was on the list unchecked links only when another
+ * extra links to it already: otherwise the household typed it by hand, and
+ * Remove must never delete it.
+ */
+async function copyToShoppingList(household: ExtrasHousehold, extraId: string, label: string) {
+  const outcome = await addCustomShoppingItem(household, label)
+  const itemId = outcome.status === 'exists' ? outcome.existing?.id : outcome.item.id
+  if (!itemId) return
+  if (outcome.status === 'exists') {
+    const linked = await prisma.dayExtra.count({ where: { customShoppingItemId: itemId } })
+    if (linked === 0) return
+  }
+  await prisma.dayExtra.update({ where: { id: extraId }, data: { customShoppingItemId: itemId } })
 }
 
 export type UpdateDayExtraOutcome =
@@ -151,10 +168,27 @@ export async function updateDayExtraQuantity(
   return { status: 'updated', extra: toView(row, locale) }
 }
 
+/**
+ * Deletes an extra. When it was the last extra linked to a manual shopping
+ * item, the item goes too, unless it is ticked off: a bought item stays until
+ * "Clear checked". Shared by the app's Remove and the `remove_extra` MCP tool.
+ */
 export async function deleteDayExtra(
   householdId: string,
   id: string,
 ): Promise<{ status: 'deleted' | 'not_found' }> {
-  const { count } = await prisma.dayExtra.deleteMany({ where: { id, householdId } })
-  return { status: count === 0 ? 'not_found' : 'deleted' }
+  return prisma.$transaction(async (tx) => {
+    const extra = await tx.dayExtra.findFirst({
+      where: { id, householdId },
+      select: { customShoppingItemId: true },
+    })
+    if (!extra) return { status: 'not_found' as const }
+
+    await tx.dayExtra.delete({ where: { id } })
+    const itemId = extra.customShoppingItemId
+    if (itemId && (await tx.dayExtra.count({ where: { customShoppingItemId: itemId } })) === 0) {
+      await tx.customShoppingItem.deleteMany({ where: { id: itemId, householdId, checked: false } })
+    }
+    return { status: 'deleted' as const }
+  })
 }

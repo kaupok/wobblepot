@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
-import { shoppingItemsByUrgency } from '@/stories/fixtures'
+import { expect, fn, userEvent, within } from 'storybook/test'
+import { createCustomItem, shoppingItemsByUrgency } from '@/stories/fixtures'
 import { Card, CardContent } from '@/components/ui/card'
 import { UrgencyGroup } from './UrgencyGroup'
 
@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Groups shopping items by urgency (today / tomorrow / this week / later). Presentational wrapper around `ShoppingItem` — header label + progress count.',
+          'Groups shopping items by urgency (today / tomorrow / this week / later). Presentational wrapper around `ShoppingItem` — header label + progress count. A manual item dated by a free-text day extra renders as a `CustomShoppingItem` row after the computed lines.',
       },
     },
   },
@@ -90,6 +90,38 @@ export const Tomorrow: Story = {
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByText('tomorrow')).not.toBeInTheDocument()
+  },
+}
+
+// HON-1310: a free-text day extra ("chips" tomorrow) puts its manual item
+// under its day, after the computed lines, with the same tick and delete as in
+// the manual items section.
+export const WithManualItem: Story = {
+  args: {
+    bucket: 'tomorrow',
+    items: shoppingItemsByUrgency.tomorrow,
+    customItems: [
+      createCustomItem({
+        id: 'custom-chips',
+        name: 'chips',
+        ingredientId: null,
+        ingredientCategory: null,
+        neededBy: '2026-04-21',
+      }),
+    ],
+    onToggleCustomItem: fn(),
+    onUnlinkCustomItem: fn(),
+    onDeleteCustomItem: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const total = args.items.length + 1
+    await expect(canvas.getByRole('heading', { name: `Tomorrow ${total}` })).toBeInTheDocument()
+    const rows = canvas.getAllByRole('checkbox')
+    await expect(rows).toHaveLength(total)
+    await expect(rows.at(-1)).toHaveAccessibleName(/chips/)
+    await userEvent.click(rows.at(-1)!)
+    await expect(args.onToggleCustomItem).toHaveBeenCalledWith('custom-chips', true)
   },
 }
 

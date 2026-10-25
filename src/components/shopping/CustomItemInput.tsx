@@ -15,6 +15,11 @@ export interface CustomItemData {
   ingredientId: string | null
   ingredientCategory: string | null
   createdAt: string
+  /**
+   * YYYY-MM-DD: the earliest linked day extra from today on (HON-1310). Null
+   * or absent for an item typed by hand, so it sits in the manual items section.
+   */
+  neededBy?: string | null
 }
 
 /** `POST /api/shopping-list/custom`'s success body. */

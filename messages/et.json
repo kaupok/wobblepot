@@ -603,7 +603,7 @@
       "addFailed": "Lisa lisamine ebaõnnestus. Palun proovi uuesti.",
       "pastDay": "See päev on möödas. Värskenda lehte, et näha tänast päeva.",
       "editDescription": "Muuda kogust või eemalda see päevast.",
-      "editTextDescription": "Eemalda see päevast. Ostunimekirja kirje jääb alles.",
+      "editTextDescription": "Eemalda see päevast. Kirje kaob ka ostunimekirjast, kui see pole ostetuks märgitud.",
       "save": "Salvesta",
       "saving": "Salvestan…",
       "remove": "Eemalda",

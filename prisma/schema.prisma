@@ -955,21 +955,29 @@ model PantryItem {
 /// is set, and a `label` row has no `quantity` (CHECK in the migration).
 /// `quantity` is in the ingredient's `defaultUnit`, as
 /// `MealComponent.quantityPerServing` is; null means no amount.
+///
+/// `customShoppingItemId` links a free-text extra to the manual shopping item
+/// it put on the list (HON-1310), so Remove can take the item off again.
+/// Several extras can share one item. An ingredient extra never has a link
+/// (CHECK in the migration): its line is computed from the plan.
 model DayExtra {
-  id           String   @id @default(cuid())
-  householdId  String
-  date         DateTime
-  ingredientId String?
-  label        String?
-  quantity     Float?
-  position     Int
-  createdAt    DateTime @default(now())
+  id                   String   @id @default(cuid())
+  householdId          String
+  date                 DateTime
+  ingredientId         String?
+  label                String?
+  quantity             Float?
+  position             Int
+  customShoppingItemId String?
+  createdAt            DateTime @default(now())
 
-  household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient         Ingredient?         @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  customShoppingItem CustomShoppingItem? @relation(fields: [customShoppingItemId], references: [id], onDelete: SetNull)
 
   @@index([householdId, date])
   @@index([ingredientId])
+  @@index([customShoppingItemId])
   @@map("day_extra")
 }
 
@@ -983,6 +991,7 @@ model CustomShoppingItem {
 
   household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredient Ingredient? @relation(fields: [ingredientId], references: [id])
+  dayExtras  DayExtra[]
 
   @@unique([householdId, name])
   @@index([ingredientId])

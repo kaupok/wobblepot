@@ -21,6 +21,13 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** The manual shopping item an extra links to, read from the row. */
+async function linkOf(outcome: Awaited<ReturnType<typeof createDayExtra>>) {
+  if (outcome.status !== 'created') throw new Error('not created')
+  const row = await prisma.dayExtra.findUniqueOrThrow({ where: { id: outcome.extra.id } })
+  return row.customShoppingItemId
+}
+
 const WINDOW = {
   startDate: new Date('2026-10-15T00:00:00Z'),
   endDate: new Date('2026-10-30T00:00:00Z'),
@@ -109,6 +116,7 @@ describe('createDayExtra', () => {
     })
     const items = await prisma.customShoppingItem.findMany({ where: { householdId: alder.id } })
     expect(items.map((i) => i.name)).toEqual(['chips'])
+    expect(await linkOf(outcome)).toBe(items[0]!.id)
   })
 
   it('succeeds and adds no second item when the name is on the list already', async () => {
@@ -120,6 +128,47 @@ describe('createDayExtra', () => {
     expect(outcome.status).toBe('created')
     expect(await prisma.customShoppingItem.count({ where: { householdId: alder.id } })).toBe(1)
     expect(await prisma.dayExtra.count({ where: { householdId: alder.id } })).toBe(1)
+  })
+
+  it('does not link an item the household typed by hand', async () => {
+    const { alder } = await world()
+    await prisma.customShoppingItem.create({ data: { householdId: alder.id, name: 'chips' } })
+
+    const outcome = await createDayExtra(alder, { date: '2026-10-16', label: 'chips' })
+
+    expect(await linkOf(outcome)).toBeNull()
+  })
+
+  it('links a second extra of the same name to the one item', async () => {
+    const { alder } = await world()
+    const wednesday = await createDayExtra(alder, { date: '2026-10-21', label: 'chips' })
+    const saturday = await createDayExtra(alder, { date: '2026-10-24', label: 'chips' })
+
+    const item = await prisma.customShoppingItem.findFirstOrThrow({ where: { name: 'chips' } })
+    expect(await linkOf(wednesday)).toBe(item.id)
+    expect(await linkOf(saturday)).toBe(item.id)
+    expect(await prisma.customShoppingItem.count()).toBe(1)
+  })
+
+  it('puts a ticked-off item back on the list, unticked and linked', async () => {
+    const { alder } = await world()
+    await createDayExtra(alder, { date: '2026-10-21', label: 'chips' })
+    await prisma.customShoppingItem.updateMany({ data: { checked: true } })
+
+    const saturday = await createDayExtra(alder, { date: '2026-10-24', label: 'chips' })
+
+    const item = await prisma.customShoppingItem.findFirstOrThrow({ where: { name: 'chips' } })
+    expect(item.checked).toBe(false)
+    expect(await linkOf(saturday)).toBe(item.id)
+  })
+
+  it('never links an ingredient extra', async () => {
+    const { alder } = await world()
+
+    const outcome = await createDayExtra(alder, { date: '2026-10-16', ingredientId: 'ing-wine' })
+
+    expect(await linkOf(outcome)).toBeNull()
+    expect(await prisma.customShoppingItem.count()).toBe(0)
   })
 
   it('returns the saved extra when the shopping-list copy fails', async () => {
@@ -273,14 +322,69 @@ describe('updateDayExtraQuantity', () => {
 })
 
 describe('deleteDayExtra', () => {
-  it('deletes the extra and leaves its manual shopping item', async () => {
+  const chipsOnList = () => prisma.customShoppingItem.count({ where: { name: 'chips' } })
+
+  it('deletes the extra and its manual shopping item', async () => {
     const { alder } = await world()
-    const created = await createDayExtra(alder, { date: '2026-10-16', label: 'chips' })
+    const created = await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
     if (created.status !== 'created') throw new Error('not created')
 
     expect(await deleteDayExtra(alder.id, created.extra.id)).toEqual({ status: 'deleted' })
     expect(await prisma.dayExtra.count()).toBe(0)
-    expect(await prisma.customShoppingItem.count({ where: { name: 'chips' } })).toBe(1)
+    expect(await chipsOnList()).toBe(0)
+  })
+
+  it('keeps the item while another extra links to it', async () => {
+    const { alder } = await world()
+    const wednesday = await createDayExtra(alder, { date: '2026-10-21', label: 'chips' })
+    const saturday = await createDayExtra(alder, { date: '2026-10-24', label: 'chips' })
+    if (wednesday.status !== 'created' || saturday.status !== 'created')
+      throw new Error('not created')
+
+    await deleteDayExtra(alder.id, wednesday.extra.id)
+    expect(await chipsOnList()).toBe(1)
+
+    await deleteDayExtra(alder.id, saturday.extra.id)
+    expect(await chipsOnList()).toBe(0)
+  })
+
+  it('keeps an item the household typed by hand', async () => {
+    const { alder } = await world()
+    await prisma.customShoppingItem.create({ data: { householdId: alder.id, name: 'chips' } })
+    const created = await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
+    if (created.status !== 'created') throw new Error('not created')
+
+    await deleteDayExtra(alder.id, created.extra.id)
+
+    expect(await chipsOnList()).toBe(1)
+  })
+
+  it('keeps a ticked-off item', async () => {
+    const { alder } = await world()
+    const created = await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
+    if (created.status !== 'created') throw new Error('not created')
+    await prisma.customShoppingItem.updateMany({ data: { checked: true } })
+
+    await deleteDayExtra(alder.id, created.extra.id)
+
+    expect(
+      await prisma.customShoppingItem.findMany({ select: { name: true, checked: true } }),
+    ).toEqual([{ name: 'chips', checked: true }])
+  })
+
+  it('keeps the extra when "Clear checked" deletes its item', async () => {
+    const { alder } = await world()
+    const created = await createDayExtra(alder, { date: '2026-10-17', label: 'chips' })
+    if (created.status !== 'created') throw new Error('not created')
+
+    await prisma.customShoppingItem.deleteMany()
+
+    expect(
+      await prisma.dayExtra.findUniqueOrThrow({ where: { id: created.extra.id } }),
+    ).toMatchObject({
+      customShoppingItemId: null,
+    })
+    expect(await deleteDayExtra(alder.id, created.extra.id)).toEqual({ status: 'deleted' })
   })
 
   it("does not delete another household's extra", async () => {
