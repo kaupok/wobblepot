@@ -7,6 +7,10 @@
  * neonctl" and "never runs migrate deploy" are assertions on that log. The stub
  * dev server records the environment it was started with and marks the port as
  * answering, which is what the stub `curl` reports back.
+ *
+ * Toolchain preparation (HON-1315) runs on file mtimes: each test starts with an
+ * up-to-date lockfile, Prisma client and Chromium build, so only the
+ * `toolchain preparation` tests see an install step.
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -15,7 +19,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'e2e-local.sh')
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
+const script = path.join(scriptsDir, 'e2e-local.sh')
 
 const PNPM_STUB = `#!/usr/bin/env bash
 echo "pnpm $*" >> "$STUB_DIR/calls.log"
@@ -38,6 +43,13 @@ case "$*" in
     echo "$$" > "$STUB_DIR/server.pid"
     touch "$STUB_DIR/server-up"
     exec sleep "\${STUB_SERVER_SECS:-1}" ;;
+  "install --frozen-lockfile") [ "\${STUB_FAIL_STEP:-}" != install ] || exit 1 ;;
+  "db:generate") [ "\${STUB_FAIL_STEP:-}" != generate ] || exit 1 ;;
+  "exec playwright install --dry-run chromium")
+    printf '  Install location:    %s\n' "$STUB_DIR/browsers/chromium-1" "$STUB_DIR/browsers/ffmpeg-1" ;;
+  "exec playwright install chromium")
+    [ "\${STUB_FAIL_STEP:-}" != chromium ] || exit 1
+    mkdir -p "$STUB_DIR/browsers/chromium-1" && touch "$STUB_DIR/browsers/chromium-1/INSTALLATION_COMPLETE" ;;
   "exec playwright "*) record_env ;;
   "db:seed") echo "$DATABASE_URL" > "$STUB_DIR/seed.db" ;;
 esac
@@ -59,7 +71,10 @@ beforeEach(() => {
   fs.mkdirSync(path.join(root, 'scripts'))
   fs.mkdirSync(stubDir)
   fs.mkdirSync(bin)
-  fs.copyFileSync(script, path.join(root, 'scripts', 'e2e-local.sh'))
+  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh']) {
+    fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
+  }
+  writeToolchain()
   fs.writeFileSync(
     path.join(root, '.env'),
     [
@@ -77,6 +92,33 @@ beforeEach(() => {
 afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true })
 })
+
+/** Older than any output, so a fresh fixture needs no toolchain step. */
+const INPUT_TIME = new Date('2026-01-01T00:00:00Z')
+const OUTPUT_TIME = new Date('2026-01-02T00:00:00Z')
+
+const LOCKFILE = 'pnpm-lock.yaml'
+const MODULES = 'node_modules/.modules.yaml'
+const SCHEMA = 'prisma/schema.prisma'
+const CLIENT = 'src/generated/prisma/client.ts'
+
+function touch(relative: string, time: Date) {
+  const file = path.join(root, relative)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, '')
+  fs.utimesSync(file, time, time)
+}
+
+/** An up-to-date checkout: outputs newer than inputs, Chromium installed. */
+function writeToolchain() {
+  touch(LOCKFILE, INPUT_TIME)
+  touch(MODULES, OUTPUT_TIME)
+  touch(SCHEMA, INPUT_TIME)
+  touch(CLIENT, OUTPUT_TIME)
+  for (const browser of ['chromium-1', 'ffmpeg-1']) {
+    touch(path.join('stub', 'browsers', browser, 'INSTALLATION_COMPLETE'), OUTPUT_TIME)
+  }
+}
 
 /**
  * A clean environment: nothing inherited from vitest's own env block, which sets
@@ -328,6 +370,118 @@ describe('e2e-local.sh', () => {
 
       expect(source.split('export E2E_DISABLE_RATE_LIMIT=').length - 1).toBe(1)
       expect(source.split('export CRON_SECRET=').length - 1).toBe(1)
+    })
+  })
+
+  describe('toolchain preparation', () => {
+    const INSTALL = 'pnpm install --frozen-lockfile'
+    const GENERATE = 'pnpm db:generate'
+    const CHROMIUM = 'pnpm exec playwright install chromium'
+
+    it('runs no install or generate step when everything is up to date', () => {
+      const { status } = run([])
+      const log = calls()
+
+      expect(status).toBe(0)
+      expect(log).toContain('pnpm exec playwright install --dry-run chromium')
+      expect(log).not.toContain(INSTALL)
+      expect(log).not.toContain(GENERATE)
+      expect(log).not.toContain(CHROMIUM)
+    })
+
+    it.each([
+      ['the lockfile is newer than node_modules', () => touch(LOCKFILE, new Date())],
+      ['node_modules has no .modules.yaml', () => fs.rmSync(path.join(root, MODULES))],
+    ])('installs dependencies when %s', (_case, arrange) => {
+      arrange()
+      const { status, stderr } = run([])
+
+      expect(status).toBe(0)
+      expect(calls()).toContain(INSTALL)
+      expect(stderr).toContain('installing dependencies')
+    })
+
+    it.each([
+      ['the schema is newer than the client', () => touch(SCHEMA, new Date())],
+      ['there is no generated client', () => fs.rmSync(path.join(root, CLIENT))],
+    ])('regenerates the Prisma client when %s', (_case, arrange) => {
+      arrange()
+      const { status, stderr } = run([])
+
+      expect(status).toBe(0)
+      expect(calls()).toContain(GENERATE)
+      expect(stderr).toContain('regenerating it')
+    })
+
+    it('installs Chromium when one of its builds is incomplete', () => {
+      fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true })
+      const { status, stderr } = run([])
+
+      expect(status).toBe(0)
+      expect(calls()).toContain(CHROMIUM)
+      expect(stderr).toContain('Installing the Chromium build')
+    })
+
+    it.each(['run', 'serve'])(
+      'prepares everything before %s creates a branch or starts a server',
+      (command) => {
+        touch(LOCKFILE, new Date())
+        touch(SCHEMA, new Date())
+        fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true })
+        const { status } = run([command])
+        const log = calls()
+        const start = log.indexOf(
+          command === 'run' ? 'pnpm exec playwright test' : 'pnpm exec next dev',
+        )
+
+        expect(status).toBe(0)
+        expect(log.indexOf(INSTALL)).toBeGreaterThanOrEqual(0)
+        expect(log.indexOf(GENERATE)).toBeGreaterThan(log.indexOf(INSTALL))
+        expect(log.indexOf(CHROMIUM)).toBeGreaterThan(log.indexOf(GENERATE))
+        expect(log.indexOf('branches create')).toBeGreaterThan(log.indexOf(CHROMIUM))
+        expect(start).toBeGreaterThan(log.indexOf('branches create'))
+      },
+    )
+
+    it('prepares the toolchain for serve --db env too', () => {
+      touch(SCHEMA, new Date())
+      const { status } = run(['serve', '--db', 'env'])
+
+      expect(status).toBe(0)
+      expect(calls().indexOf('pnpm exec next dev')).toBeGreaterThan(calls().indexOf(GENERATE))
+    })
+
+    it.each([
+      ['install', () => touch(LOCKFILE, new Date()), INSTALL],
+      ['generate', () => touch(SCHEMA, new Date()), GENERATE],
+      [
+        'chromium',
+        () => fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true }),
+        CHROMIUM,
+      ],
+    ])('stops on a failing %s step, names it and creates no branch', (step, arrange, name) => {
+      arrange()
+      const { status, stderr } = run([], { STUB_FAIL_STEP: step })
+
+      expect(status).toBe(1)
+      expect(stderr).toContain(`toolchain step '${name}' failed`)
+      expect(calls()).not.toContain('neonctl')
+      expect(calls()).not.toContain('playwright test')
+    })
+
+    // A changed dry-run format must not leave a run with no browser.
+    it('installs Chromium when the dry run names no install location', () => {
+      fs.writeFileSync(
+        path.join(root, 'bin', 'pnpm'),
+        PNPM_STUB.replace(
+          `"exec playwright install --dry-run chromium")`,
+          `"exec playwright install --dry-run chromium") echo "new format" ;;\n  "unused")`,
+        ),
+        { mode: 0o755 },
+      )
+      run([])
+
+      expect(calls()).toContain(CHROMIUM)
     })
   })
 })

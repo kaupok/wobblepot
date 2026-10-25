@@ -43,6 +43,10 @@
 # loads .env through dotenv, which keeps a DATABASE_URL the shell already
 # exports, so it can write to another database than this server reads (HON-1272).
 #
+# Before the branch exists, `run` and `serve` install dependencies, regenerate
+# the Prisma client and fetch Chromium when the checkout outdates them
+# (scripts/e2e-local-toolchain.sh).
+#
 # Requires NEON_API_KEY + NEON_PROJECT_ID in .env (already set for the worktree
 # workflow — see docs/PARALLEL_WORKFLOW.md), except `serve --db env`. @ai specs
 # additionally need ANTHROPIC_API_KEY (also in .env).
@@ -71,6 +75,9 @@ log()  { printf '%s\n' "$*" >&2; }
 info() { printf '%b\n' "${GREEN}$*${NC}" >&2; }
 warn() { printf '%b\n' "${YELLOW}warn: $*${NC}" >&2; }
 fail() { printf '%b\n' "${RED}error: $*${NC}" >&2; exit 1; }
+
+# shellcheck source=scripts/e2e-local-toolchain.sh
+source "$SCRIPT_DIR/e2e-local-toolchain.sh"
 
 neon() { pnpm dlx "neonctl@$NEONCTL_VERSION" "$@"; }
 
@@ -341,6 +348,7 @@ cmd_run() {
     shift
   done
 
+  prepare_toolchain
   trap on_exit EXIT INT TERM
   create_branch
 
@@ -395,6 +403,7 @@ cmd_serve() {
   [ "$(http_status "$url/")" = "000" ] \
     || fail "something is already listening on $url. Stop it, or pick another port with REVIEW_LOCAL_PORT=<port>."
 
+  prepare_toolchain
   trap on_exit EXIT INT TERM
 
   if [ "$db_mode" = "branch" ]; then
