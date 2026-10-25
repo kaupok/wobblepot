@@ -12,9 +12,11 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
+vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
 
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
 import { runTool } from '@/lib/mcp/context'
 import { getMealPlan } from '@/lib/mcp/tools/get-meal-plan'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
@@ -44,6 +46,25 @@ const ENTRIES = [
   },
 ] as unknown as Entries
 
+const EXTRAS = [
+  {
+    id: 'extra-1',
+    date: '2026-10-13',
+    ingredientId: 'ing-wine',
+    name: 'Red wine',
+    quantity: 750,
+    unit: 'ml' as const,
+  },
+  {
+    id: 'extra-2',
+    date: '2026-10-13',
+    ingredientId: null,
+    name: 'chips',
+    quantity: null,
+    unit: null,
+  },
+]
+
 function get(query = '') {
   return GET(
     new Request(`http://localhost:3000/api/v1/meal-plan${query}`, {
@@ -59,6 +80,7 @@ describe('GET /api/v1/meal-plan (HON-1220)', () => {
     vi.setSystemTime(new Date('2026-10-11T21:30:00Z'))
     vi.mocked(getHouseholdMembership).mockResolvedValue({ household } as never)
     vi.mocked(loadPlanEntries).mockResolvedValue({ entries: ENTRIES, planId: 'plan-1' })
+    vi.mocked(loadDayExtras).mockResolvedValue(EXTRAS)
   })
 
   afterEach(() => {
@@ -97,6 +119,24 @@ describe('GET /api/v1/meal-plan (HON-1220)', () => {
           servings: 3,
           isCooked: false,
           isSkipped: true,
+        },
+      ],
+      extras: [
+        {
+          id: 'extra-1',
+          date: '2026-10-13',
+          name: 'Red wine',
+          kind: 'ingredient',
+          quantity: 750,
+          unit: 'ml',
+        },
+        {
+          id: 'extra-2',
+          date: '2026-10-13',
+          name: 'chips',
+          kind: 'text',
+          quantity: null,
+          unit: null,
         },
       ],
     })

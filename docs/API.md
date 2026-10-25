@@ -30,7 +30,7 @@ Base URL: `https://wobblepot.com` (staging: `https://wobblepot.dev`). Every answ
 
 ### `GET /api/v1/meal-plan`
 
-The meals planned by date and meal type.
+The meals planned by date and meal type, and each day's extras.
 
 | Query  | Value        | Default                                           |
 | ------ | ------------ | ------------------------------------------------- |
@@ -51,11 +51,31 @@ The meals planned by date and meal type.
       "isCooked": false,
       "isSkipped": false
     }
+  ],
+  "extras": [
+    {
+      "id": "cm…",
+      "date": "2026-10-14",
+      "name": "Red wine",
+      "kind": "ingredient",
+      "quantity": 750,
+      "unit": "ml"
+    },
+    {
+      "id": "cm…",
+      "date": "2026-10-14",
+      "name": "chips",
+      "kind": "text",
+      "quantity": null,
+      "unit": null
+    }
   ]
 }
 ```
 
 `mealType` is `breakfast`, `lunch` or `dinner`. `mealId` and `mealName` are `null` for an entry with no meal. Dish names are in the household's language.
+
+`extras` are the snacks, drinks and other items added to a day, outside its meals (HON-1311). `kind` is `ingredient` for a catalogue ingredient, with its name in the household's language, or `text` for free text. `quantity` is in `unit` (`g`, `ml` or `piece`); both are `null` when the extra has no amount, and always for `text`.
 
 ### `GET /api/v1/shopping-list`
 

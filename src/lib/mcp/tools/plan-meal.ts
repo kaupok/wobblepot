@@ -1,7 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { findLastPlannedDate } from '@/lib/meal-plans/last-planned'
@@ -9,10 +9,7 @@ import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-import { slotInput } from './plan-slot'
-
-/** How far ahead a meal may be planned, in days after today. */
-const MAX_DAYS_AHEAD = 28
+import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 
 export const planMeal = defineTool({
   name: 'plan_meal',
@@ -34,17 +31,15 @@ export const planMeal = defineTool({
       .describe('The latest earlier day this meal was planned, or null if never.'),
   }),
   run: async (household, { date, mealType, mealId }) => {
-    const today = getTodayInTimezone(household.timezone)
+    const { today, lastDay } = writableDays(household.timezone)
     if (date < today) {
       throw new ToolInputError(
         `${date} is in the past, so a meal cannot be planned for it. Nothing was changed.`,
       )
     }
-    const lastDay = parseLocalDate(today)
-    lastDay.setDate(lastDay.getDate() + MAX_DAYS_AHEAD)
-    if (date > toDateString(lastDay)) {
+    if (date > lastDay) {
       throw new ToolInputError(
-        `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day from today to ${toDateString(lastDay)}. Nothing was changed.`,
+        `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day from today to ${lastDay}. Nothing was changed.`,
       )
     }
 

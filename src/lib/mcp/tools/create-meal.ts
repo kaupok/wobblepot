@@ -10,13 +10,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import { mealFieldsSchema } from '@/lib/meals/meal-fields-schema'
 import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-
-const MEASURED_UNITS = ['g', 'ml', 'piece'] as const
-type MeasuredUnit = (typeof MEASURED_UNITS)[number]
-
-function isMeasured(unit: string): unit is MeasuredUnit {
-  return (MEASURED_UNITS as readonly string[]).includes(unit)
-}
+import { isMeasured, MEASURED_UNITS } from './measured-units'
 
 const ingredientInput = z
   .object({
