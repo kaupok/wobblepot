@@ -18,7 +18,7 @@ import { mcpCallTool } from './utils/mcp'
  * its own entry there. No Claude call runs.
  */
 
-const WRITE_LINE = 'Update your shopping list, pantry and meal plan, and add recipes.'
+const WRITE_LINE = 'Update your shopping list, pantry and meal plan, and add and change recipes.'
 
 /** A global ingredient id, from a system meal's components. */
 async function anyIngredientId(page: Page): Promise<string> {

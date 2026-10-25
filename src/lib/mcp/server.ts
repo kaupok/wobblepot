@@ -15,15 +15,16 @@ import { swapMeal } from './tools/swap-meal'
 import { rateMeal } from './tools/rate-meal'
 import { adjustMeal } from './tools/adjust-meal'
 import { createMeal } from './tools/create-meal'
+import { updateMeal } from './tools/update-meal'
 import { planMeal } from './tools/plan-meal'
 import { addExtra } from './tools/add-extra'
 import { removeExtra } from './tools/remove-extra'
 
 /**
  * Every tool the server lists, for every token. The write tools (HON-1154,
- * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311) need `mcp:write`; `runTool`
- * answers a read-only token with the reconnect message, so the model can tell
- * the user what to do.
+ * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314) need
+ * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
+ * so the model can tell the user what to do.
  */
 export const MCP_TOOLS: readonly McpTool[] = [
   getMealPlan,
@@ -39,6 +40,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
   rateMeal,
   adjustMeal,
   createMeal,
+  updateMeal,
   planMeal,
   addExtra,
   removeExtra,
@@ -74,7 +76,7 @@ export function mcpServerInfo(origin: string): Implementation {
  */
 export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
   const server = new McpServer(mcpServerInfo(origin), {
-    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, update its shopping list, pantry and meal plan, and add recipes. The update tools work only when the user allowed this assistant to make changes.`,
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, update its shopping list, pantry and meal plan, and add and change recipes. The update tools work only when the user allowed this assistant to make changes.`,
   })
 
   for (const tool of MCP_TOOLS) {
