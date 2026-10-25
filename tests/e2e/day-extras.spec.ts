@@ -152,7 +152,9 @@ test('Remove on a free-text extra takes its item off the shopping list', async (
     extraId = null
 
     await page.goto('/shopping')
-    await expect(page.getByRole('heading', { name: 'Shopping list' })).toBeVisible()
+    // The page heading, not the list's: a list with every line bought renders its
+    // empty state, which has none.
+    await expect(page.getByRole('heading', { level: 1, name: 'Pantry & shopping' })).toBeVisible()
     await expect(page.getByText(name, { exact: true })).toHaveCount(0)
   } finally {
     if (extraId) await page.request.delete(`/api/extras/${extraId}`)
