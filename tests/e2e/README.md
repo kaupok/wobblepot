@@ -65,6 +65,16 @@ servers before the workers start (`tests/e2e/utils/warm-dev-server.ts`). Require
 need `ANTHROPIC_API_KEY`. Because it runs on :3100 with its own server, a normal
 `pnpm dev` on :3000 can keep running alongside it.
 
+Before it forks the branch, the wrapper also prepares the browser and the
+Prisma client (`scripts/e2e-local-toolchain.sh`), so a dependency update or a
+`git pull` with a new model does not fail every spec. It runs
+`pnpm install --frozen-lockfile` when `pnpm-lock.yaml` is newer than
+`node_modules`, `pnpm db:generate` when `prisma/schema.prisma` is newer than
+`src/generated/prisma`, and `playwright install chromium` when the Chromium
+build the installed Playwright needs is missing. Each step prints one line when
+it runs. A failing step stops the run before any branch exists.
+`pnpm review:local` does the same.
+
 > **Why not just `pnpm test:e2e`?** That boots `pnpm dev`, which loads `.env`
 > and talks to your **real dev database** — every sign-up, household, and meal
 > plan a spec creates is written there for good (specs use unique emails, so the
