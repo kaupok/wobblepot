@@ -62,6 +62,7 @@ These are settled. Don't re-open without cause.
 - `enum-label.ts` provides `useEnumLabel` (client) for domain-enum rendering — meal types, ingredient categories, dietary types, etc. There is no server-side variant: render enum labels in a client component, or read `enums.<EnumName>.<value>` via `getTranslations` directly at the RSC call site.
 - Vague quantity phrases (`MealComponent.originalPhrase`: "to taste", "a pinch") are stored as English matcher keys from `VAGUE_PHRASES` and rendered through `enums.VaguePhrase`: `useVaguePhrase` (client) or `formatVaguePhrase` in `vague-phrase.ts` with a `getTranslations` translator (server; `formatShoppingQuantity` takes one). A phrase outside the vocabulary renders unchanged.
 - `format-number.ts`: `formatQuantity` and `formatInteger` — locale-aware decimal separator (`1.5` vs `1,5`).
+- `format-piece-quantity.ts`: a gram-stored vegetable in pieces (HON-1312). `formatPieceFraction` writes quarter pieces with a glyph (`¾`, `1½`) in every locale, joined to `enums.Unit.piece` by `withPieceUnit`.
 - `format-dates.ts`: locale-aware weekday / month / relative-date rendering. Always pass the household's locale, never hardcode `en-US`.
 - `parse-number.ts`: input-side counterpart to `formatQuantity` — accepts `1,5 kg` from Estonian users and parses to `1.5`.
 - `og-locale.ts`: maps app locales to OpenGraph locale strings for per-route metadata.

@@ -209,6 +209,7 @@ export async function suggestForSlot(
             category: translatedIngredient.category,
             defaultUnit: translatedIngredient.defaultUnit as 'g' | 'piece',
             measuredByVolume: translatedIngredient.measuredByVolume,
+            pieceDisplay: translatedIngredient.pieceDisplay,
             gramsPerPiece: translatedIngredient.gramsPerPiece,
           },
         }

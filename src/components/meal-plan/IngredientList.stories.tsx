@@ -243,6 +243,63 @@ export const EstonianLocale: Story = {
   },
 }
 
+// Gram-stored vegetables under the piece rule (HON-1312), per serving for 3
+// servings: 83 g onion, 8 g garlic cloves, 450 g potato.
+function pieceVegetable(
+  id: string,
+  name: string,
+  grams: number,
+  gramsPerPiece: number,
+  pieceDisplay: 'recipe' | 'recipe_and_shopping',
+) {
+  return createMealComponent({
+    ingredientId: id,
+    quantityPerServing: grams / 3,
+    ingredient: { id, name, category: 'vegetable', defaultUnit: 'g', gramsPerPiece, pieceDisplay },
+  })
+}
+
+const pieceVegetables = [
+  pieceVegetable('onion', 'Onion', 83, 110, 'recipe_and_shopping'),
+  pieceVegetable('garlic-cloves', 'Garlic', 8, 5, 'recipe_and_shopping'),
+  pieceVegetable('potato-pieces', 'Potato', 450, 150, 'recipe'),
+  createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 200 }),
+]
+
+/**
+ * Onions, garlic and potatoes in quarter pieces, with the grams under the
+ * count in the muted tone, so a cook who wants precision still has it
+ * (HON-1312). The grams take their own line, so the quantity column keeps its
+ * width and the names stay lined up.
+ */
+export const VegetablesInPieces: Story = {
+  args: { components: pieceVegetables, servings: 3, householdServings: 3 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const onion = canvas.getByText('¾ pc')
+    await expect(onion).toBeVisible()
+    await expect(canvas.getByText('83g')).toBeVisible()
+    const garlic = canvas.getByText('1½ pc')
+    expectSingleLine(garlic)
+    await expect(canvas.getByText('3 pc')).toBeVisible()
+    await expect(canvas.getByText('450g')).toBeVisible()
+    await expect(canvas.getByText('450g').getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      canvas.getByText('3 pc').getBoundingClientRect().bottom,
+    )
+  },
+}
+
+export const VegetablesInPiecesEstonian: Story = {
+  name: 'Vegetables in pieces (Estonian)',
+  globals: { locale: 'et' },
+  args: { components: pieceVegetables, servings: 3, householdServings: 3 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('¾ tk')).toBeVisible()
+    await expect(canvas.getByText('1½ tk')).toBeVisible()
+  },
+}
+
 const narrowArgs = {
   servings: 4,
   householdServings: 4,

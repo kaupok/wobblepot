@@ -206,6 +206,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
                   category: comp.ingredient.category,
                   defaultUnit: comp.ingredient.defaultUnit,
                   measuredByVolume: comp.ingredient.measuredByVolume,
+                  pieceDisplay: comp.ingredient.pieceDisplay,
                   gramsPerPiece: comp.ingredient.gramsPerPiece,
                 },
               })),

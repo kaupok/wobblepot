@@ -8,6 +8,7 @@ import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { isMeasuredByVolume } from './measured-by-volume'
+import { pieceDisplayFor } from './piece-display'
 import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
@@ -456,6 +457,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
+    gramsPerPiece: 160, // 1 medium bell pepper ≈ 160g
     allergens: [],
     calories: 31,
     protein: 1,
@@ -468,6 +470,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
+    gramsPerPiece: 160, // 1 medium red pepper ≈ 160g
     allergens: [],
     calories: 31,
     protein: 1,
@@ -480,6 +483,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'squash',
     defaultUnit: 'g',
+    gramsPerPiece: 200, // 1 medium courgette ≈ 200g
     allergens: [],
     calories: 17,
     protein: 1.2,
@@ -492,6 +496,7 @@ export const baseIngredients = [
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
+    gramsPerPiece: 300, // 1 medium cucumber ≈ 300g
     allergens: [],
     calories: 15,
     protein: 0.7,
@@ -1913,6 +1918,7 @@ async function seedIngredients() {
           gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
           // Always re-derived, so a re-seed corrects a drifted row
           measuredByVolume: isMeasuredByVolume(ingredient),
+          pieceDisplay: pieceDisplayFor(ingredient),
         },
       })
     } else {
@@ -1932,6 +1938,7 @@ async function seedIngredients() {
           gramsPerPiece: ingredient.gramsPerPiece ?? null,
           densityGPerMl: ingredient.densityGPerMl ?? null,
           measuredByVolume: isMeasuredByVolume(ingredient),
+          pieceDisplay: pieceDisplayFor(ingredient),
         },
       })
     }

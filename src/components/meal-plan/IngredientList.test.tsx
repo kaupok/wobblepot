@@ -118,3 +118,85 @@ describe('IngredientList piece quantities', () => {
     expect(screen.getByText(/Garlic \(2 pc\)/).textContent).toContain('Garlic (2 pc)')
   })
 })
+
+// A gram-stored vegetable shows as quarter pieces, with its grams kept under
+// the count (HON-1312). Stored grams are per serving, so 83 g over 3 servings
+// is 83 / 3.
+describe('IngredientList vegetables in pieces', () => {
+  function vegetable(
+    id: string,
+    name: string,
+    grams: number,
+    gramsPerPiece: number,
+    pieceDisplay: 'recipe' | 'recipe_and_shopping',
+  ) {
+    return createMealComponent({
+      ingredientId: id,
+      quantityPerServing: grams / 3,
+      ingredient: {
+        id,
+        name,
+        category: 'vegetable',
+        defaultUnit: 'g',
+        gramsPerPiece,
+        pieceDisplay,
+      },
+    })
+  }
+  const onion = vegetable('onion', 'Onion', 83, 110, 'recipe_and_shopping')
+  const cloves = vegetable('garlic-g', 'Garlic', 8, 5, 'recipe_and_shopping')
+  const potato = vegetable('potato-g', 'Potato', 450, 150, 'recipe')
+
+  it('shows 83 g onion over 3 servings as ¾ pc with 83g', () => {
+    renderInLocale(<IngredientList components={[onion]} servings={3} />)
+    expect(row('Onion').textContent).toBe('¾ pc83gOnion')
+  })
+
+  it('shows 8 g garlic as 1½ pc', () => {
+    renderInLocale(<IngredientList components={[cloves]} servings={3} />)
+    expect(row('Garlic').textContent).toBe('1½ pc8gGarlic')
+  })
+
+  it('shows 450 g potato as 3 pc', () => {
+    renderInLocale(<IngredientList components={[potato]} servings={3} />)
+    expect(row('Potato').textContent).toBe('3 pc450gPotato')
+  })
+
+  it('shows the Estonian label', () => {
+    renderInLocale(<IngredientList components={[onion]} servings={3} />, 'et')
+    expect(row('Onion').textContent).toBe('¾ tk83gOnion')
+  })
+
+  it('keeps paprika in grams and oil in ml', () => {
+    const paprika = createMealComponent({
+      ingredientId: 'paprika',
+      quantityPerServing: 2,
+      ingredient: { id: 'paprika', name: 'Paprika', category: 'spice', defaultUnit: 'g' },
+    })
+    const vegetableOil = createMealComponent({
+      ingredientId: 'vegetable-oil',
+      quantityPerServing: 11 / 3,
+      ingredient: {
+        id: 'vegetable-oil',
+        name: 'Vegetable oil',
+        category: 'fat',
+        defaultUnit: 'g',
+        measuredByVolume: true,
+      },
+    })
+    renderInLocale(<IngredientList components={[paprika, vegetableOil]} servings={3} />)
+    expect(row('Paprika').textContent).toBe('6gPaprika')
+    expect(row('Vegetable oil').textContent).toBe('11mlVegetable oil')
+  })
+
+  it('puts the pieces and the grams in a staple line', () => {
+    renderInLocale(
+      <IngredientList
+        components={[chicken, onion]}
+        servings={3}
+        pantryIngredients={[{ ingredientId: 'onion', isStaple: true }]}
+      />,
+    )
+    expect(screen.getByText(/Onion \(¾ pc, 83g\)/)).toBeInTheDocument()
+  })
+})

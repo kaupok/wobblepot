@@ -99,6 +99,7 @@ export async function loadMealPlan(householdId: string, planId: string, locale: 
                     category: translatedIngredient.category,
                     defaultUnit: translatedIngredient.defaultUnit,
                     measuredByVolume: translatedIngredient.measuredByVolume,
+                    pieceDisplay: translatedIngredient.pieceDisplay,
                     gramsPerPiece: translatedIngredient.gramsPerPiece,
                   },
                 }

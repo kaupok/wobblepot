@@ -57,6 +57,14 @@ enum Unit {
   piece
 }
 
+/// Where a gram-stored ingredient shows as pieces (HON-1312). Display only:
+/// the stored quantity stays in grams.
+enum PieceDisplay {
+  none
+  recipe
+  recipe_and_shopping
+}
+
 enum IngredientCategory {
   protein
   carb
@@ -649,6 +657,10 @@ model Ingredient {
   /// A cook measures it with a jug or a spoon, not a scale. Set on global
   /// ingredients by the rule in prisma/measured-by-volume.ts (HON-1069).
   measuredByVolume Boolean            @default(false)
+  /// Shows as pieces ("¾ pc") in the recipe, and on the shopping list for
+  /// `recipe_and_shopping`. Set on global ingredients by the rule in
+  /// prisma/piece-display.ts (HON-1312).
+  pieceDisplay     PieceDisplay       @default(none)
 
   household           Household?               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   components          MealComponent[]

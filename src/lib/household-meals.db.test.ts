@@ -387,6 +387,7 @@ describe('getHouseholdMeal', () => {
       category: 'protein',
       defaultUnit: 'g',
       measuredByVolume: false,
+      pieceDisplay: 'none',
       gramsPerPiece: null,
       calories: 100,
       protein: 31,
