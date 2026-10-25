@@ -296,6 +296,64 @@ describe('InventoryPage view', () => {
     await waitFor(() => expect(pantryColumn.getByText('Garlic')).toBeInTheDocument())
     expect(routerRefresh).not.toHaveBeenCalled()
   })
+  // The list shows the onion in pieces, but the pantry screen stays in grams,
+  // so the bought row's caption takes the gram string, as a reload would
+  // (HON-1312).
+  it('captions an item bought as pieces in grams in the pantry column', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        success: true,
+        results: [
+          {
+            pantryItem: {
+              id: 'pantry-onion',
+              ingredient: { id: 'onion', name: 'Onion', category: 'vegetable', defaultUnit: 'g' },
+              quantity: null,
+              isStaple: false,
+              updatedAt: '2026-02-16T00:00:00.000Z',
+            },
+          },
+        ],
+      }),
+    )
+
+    renderPage({
+      view: 'shopping',
+      windowDays: 7,
+      shoppingData: {
+        windowDays: 7,
+        startDate: '2026-02-16',
+        endDate: '2026-02-23',
+        groups: [
+          {
+            category: 'vegetable',
+            items: [
+              {
+                ingredientId: 'onion',
+                name: 'Onion',
+                displayQuantity: '1\u00a0pc',
+                pantryDisplayQuantity: '83g',
+                purchased: false,
+                neededByDate: '2026-02-18',
+                neededByRelative: 'Wed',
+                neededByAbsolute: 'Feb 18',
+              },
+            ],
+          },
+        ],
+        initialPurchasedIds: new Set<string>(),
+      },
+    })
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Onion as purchased' }))
+
+    const pantryColumn = within(screen.getByTestId('pantry-column'))
+    await waitFor(() =>
+      expect(pantryColumn.getByText('83g needed in next 7 days')).toBeInTheDocument(),
+    )
+  })
+
   // A ran-out row is on the list for the full amount and a null row is not,
   // so "Have it" re-reads the list beside the pantry (HON-1288).
   it('refreshes the shopping list after "Have it" on a ran-out row', async () => {

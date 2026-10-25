@@ -10,6 +10,12 @@ export interface ShoppingItemData {
   ingredientId: string
   name: string
   displayQuantity: string
+  /**
+   * The need in the pantry screen's units, which stay in grams where
+   * `displayQuantity` shows pieces (HON-1312). A ticked item hands it to the
+   * pantry's "needed" caption. Absent reads as `displayQuantity`.
+   */
+  pantryDisplayQuantity?: string
   purchased: boolean
   neededByDate: string
   neededByRelative: string

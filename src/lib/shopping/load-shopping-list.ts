@@ -11,7 +11,7 @@ import {
   formatRelativeDate,
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
-import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { formatShoppingLineQuantity } from '@/lib/i18n/format-piece-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
@@ -111,6 +111,18 @@ export async function loadShoppingList(
         displayQuantity: formatShoppingLineQuantity(
           item.shoppingQuantity,
           item.ingredient,
+          locale,
+          item.isVague,
+          item.originalPhrase,
+          tVague,
+          pieceLabel,
+        ),
+        // The same need in the pantry screen's units, which stay in grams
+        // (HON-1312): a ticked item hands it to the pantry's "needed" caption,
+        // which then matches `load-pantry.ts` after a reload.
+        pantryDisplayQuantity: formatShoppingQuantity(
+          item.shoppingQuantity,
+          displayUnit(item.ingredient),
           locale,
           item.isVague,
           item.originalPhrase,

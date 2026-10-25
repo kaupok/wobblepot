@@ -157,6 +157,19 @@ describe('shopping list vegetables in pieces', () => {
     expect(displayById(await loadShoppingList(alder, { days: 7 }))['ing-onion']).toBe('1 pc')
   })
 
+  // The pantry screen stays in grams, so a ticked item hands it the grams.
+  it('keeps the grams for the pantry beside the pieces', async () => {
+    await world()
+    const alder = await household()
+    await entry('2026-10-16', 'meal-soup')
+
+    const items = (await loadShoppingList(alder, { days: 7 })).groups.flatMap((g) => g.items)
+    expect(items.find((i) => i.ingredientId === 'ing-onion')).toMatchObject({
+      displayQuantity: '1\u00a0pc',
+      pantryDisplayQuantity: '83g',
+    })
+  })
+
   it('shows the Estonian piece label', async () => {
     await world()
     const alder = await household('et')
