@@ -16,6 +16,13 @@ import type { ExtractedIngredient } from './recipe-schema'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, isReasonableQuantity, DEFAULT_GRAMS_PER_PIECE } from './recipe-quantities'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import {
+  catalogueFormName,
+  guardFormMatch,
+  hasForm,
+  removedForms,
+  type FormGuardResult,
+} from './form-modifier-guard'
 
 /**
  * Result of matching an ingredient against the database.
@@ -132,14 +139,42 @@ export async function matchIngredients(
     // Phase 1: Search semantic candidates (direct, alias, normalized + plural,
     // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
+    let winningCandidate: string | undefined
+    const matchesByCandidate = new Map<string, typeof matches>()
     for (const candidate of candidateNames) {
       const candidateMatches = await fuzzySearchIngredient(
         candidate,
         candidate === normalizedName ? { ...searchOptions, pluralName } : searchOptions,
       )
+      matchesByCandidate.set(candidate, candidateMatches)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
+        winningCandidate = candidate
       }
+    }
+
+    // A normalized name that dropped a form word must not beat a form row the
+    // direct name finds: "canned chopped tomatoes" is not fresh `tomato` (HON-1313).
+    // The catalogue says "tinned", so the direct name is also searched that way.
+    let formGuard: FormGuardResult = { action: 'keep' }
+    const forms = removedForms(directName, normalizedName)
+    const normalizedWon =
+      winningCandidate !== aliasName &&
+      (winningCandidate === normalizedName || winningCandidate === normalizedAliasName)
+    if (
+      forms.length > 0 &&
+      normalizedWon &&
+      matches[0] &&
+      !hasForm(matches[0].matchedName, forms)
+    ) {
+      const directSide = [matchesByCandidate.get(directName) ?? []]
+      if (aliasName !== directName) directSide.push(matchesByCandidate.get(aliasName) ?? [])
+      const formName = catalogueFormName(directName)
+      if (!candidateNames.has(formName)) {
+        directSide.push(await fuzzySearchIngredient(formName, searchOptions))
+      }
+      formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
+      if (formGuard.action === 'use') matches = formGuard.matches
     }
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
@@ -182,7 +217,7 @@ export async function matchIngredients(
         continue
       }
 
-      let lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD
+      let lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD || formGuard.action === 'flag'
 
       // Safety check: if primary nouns differ between extracted and matched name,
       // force low-confidence regardless of trigram score.
@@ -196,6 +231,8 @@ export async function matchIngredients(
       const isSynonymMatch =
         synonymTarget !== undefined &&
         match.matchedName.toLowerCase() === synonymTarget.toLowerCase()
+      // A form row the guard chose is judged in the catalogue's words, "tinned" for "canned"
+      const nounCheckName = formGuard.action === 'use' ? catalogueFormName(directName) : directName
       if (!lowConfidence && !isSynonymMatch && directName.includes(' ')) {
         const COMMON_SUFFIXES = new Set([
           'fillet',
@@ -210,7 +247,7 @@ export async function matchIngredients(
         ])
         // Singular words on both sides, so "bay leaf" is not judged against
         // "bay leaves" as a different noun (HON-1267)
-        const extractedWords = new Set(directName.split(/\s+/).map(singularize))
+        const extractedWords = new Set(nounCheckName.split(/\s+/).map(singularize))
         const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/).map(singularize))
 
         const extractedUnique = [...extractedWords].filter(
@@ -226,8 +263,9 @@ export async function matchIngredients(
       }
 
       // Get alternatives for disambiguation if low confidence
+      const alternativeRows = formGuard.action === 'flag' ? formGuard.alternatives : matches
       const alternatives = lowConfidence
-        ? matches.slice(0, 3).map((m) => ({
+        ? alternativeRows.slice(0, 3).map((m) => ({
             id: m.id,
             name: m.name,
             category: m.category,

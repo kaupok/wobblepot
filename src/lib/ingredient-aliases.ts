@@ -306,6 +306,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'canned sardines': 'tinned sardines',
   'canned pumpkin': 'tinned pumpkin',
   'canned diced tomatoes': 'tinned chopped tomatoes',
+  'canned chopped tomatoes': 'tinned chopped tomatoes',
   'canned whole peeled tomatoes': 'tinned plum tomatoes',
   'canned green chiles': 'tinned green chillies',
   'coconut milk canned': 'tinned coconut milk',
