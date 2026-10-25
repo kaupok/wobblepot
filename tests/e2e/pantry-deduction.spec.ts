@@ -127,7 +127,6 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     // ellipsis, and an exact match broke silently when the i18n migration
     // normalised the ASCII `...` (HON-634). The words are the contract.
     const addInput = page.getByPlaceholder(/Add ingredient to pantry/)
-    await addInput.fill(ingredientName)
 
     // Wait for the ingredient button in the dropdown, then click it and
     // capture the POST /api/pantry response so we get the new item's id.
@@ -135,7 +134,16 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
       .getByRole('button')
       .filter({ hasText: new RegExp(`^\\s*${escapeRegex(ingredientName)}\\b`, 'i') })
       .first()
-    await expect(resultButton).toBeVisible({ timeout: 5_000 })
+    // Fill and wait are retried as a unit: a fill that lands before the page
+    // hydrates puts the text in the DOM but never reaches React's onChange, so
+    // the controlled `query` stays empty and no search runs (HON-1316: the
+    // failed trace held "beef mince" in the input and no /api/ingredients
+    // request). Clearing first makes the next fill a real change.
+    await expect(async () => {
+      await addInput.fill('')
+      await addInput.fill(ingredientName)
+      await expect(resultButton).toBeVisible({ timeout: 3_000 })
+    }).toPass({ timeout: 15_000 })
 
     const [postResponse] = await Promise.all([
       page.waitForResponse(

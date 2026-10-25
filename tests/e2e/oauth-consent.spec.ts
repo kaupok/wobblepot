@@ -225,7 +225,17 @@ test.describe('OAuth for MCP clients', () => {
 
     await row.getByRole('button', { name: 'Disconnect: E2E MCP client' }).click()
     const dialog = page.getByRole('alertdialog', { name: 'Disconnect E2E MCP client?' })
-    await dialog.getByRole('button', { name: 'Disconnect' }).click()
+    // The dialog stays open, with "Disconnecting…", until the DELETE settles, so
+    // wait on the response: its first hit compiles the route on `next dev`, which
+    // a full run's other worker can push past the 5 s expect timeout (HON-1316).
+    const [deleteResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/auth/user/mcp-consents/') && r.request().method() === 'DELETE',
+      ),
+      dialog.getByRole('button', { name: 'Disconnect' }).click(),
+    ])
+    expect(deleteResponse.status()).toBe(204)
     await expect(dialog).toBeHidden()
     await expect(section.getByText('No assistant is connected.')).toBeVisible()
 
