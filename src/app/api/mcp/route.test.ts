@@ -30,6 +30,7 @@ vi.mock('@/lib/shopping/purchase', async (importOriginal) => ({
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
+vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn(async () => []) }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
@@ -82,6 +83,8 @@ const WRITE_TOOL_NAMES = [
   'adjust_meal',
   'create_meal',
   'plan_meal',
+  'add_extra',
+  'remove_extra',
 ]
 
 interface ListedTool {
@@ -237,6 +240,8 @@ describe('/api/mcp', () => {
         expect(annotations.adjust_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.create_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },
@@ -260,6 +265,8 @@ describe('/api/mcp', () => {
             ingredients: [{ name: 'beef mince', quantity: 500, unit: 'g' }],
           },
           plan_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
+          add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
+          remove_extra: { extraId: 'extra-1' },
         }[name]
 
         const result = await callTool('user-a', name, args)

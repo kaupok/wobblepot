@@ -1,9 +1,11 @@
 import 'server-only'
 import { z } from 'zod'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
+import type { DayExtraView } from '@/components/meal-plan/types'
 
 /**
  * The household's meal plan by date and meal type: the body of the
@@ -27,6 +29,31 @@ export const mealPlanInputSchema = z.object({
     ),
 })
 
+/** One day extra (HON-1311), as `get_meal_plan` lists it and `add_extra` returns it. */
+export const dayExtraOutputSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  name: z.string().describe("The ingredient's name in the household's language, or the free text."),
+  kind: z
+    .enum(['ingredient', 'text'])
+    .describe('ingredient: a catalogue ingredient. text: free text, with no amount.'),
+  quantity: z.number().nullable().describe('The amount in unit, or null when it has none.'),
+  unit: z.enum(['g', 'ml', 'piece']).nullable(),
+})
+
+export function toDayExtraOutput(extra: DayExtraView): z.output<typeof dayExtraOutputSchema> {
+  return {
+    id: extra.id,
+    date: extra.date,
+    name: extra.name,
+    kind: extra.ingredientId ? 'ingredient' : 'text',
+    // `quantity` is in the ingredient's `defaultUnit` and `unit` is how the
+    // app shows it; 1 g is 1 ml, so a volume ingredient needs no conversion.
+    quantity: extra.quantity,
+    unit: extra.unit,
+  }
+}
+
 export const mealPlanOutputSchema = z.object({
   from: isoDate,
   to: isoDate,
@@ -41,6 +68,9 @@ export const mealPlanOutputSchema = z.object({
       isSkipped: z.boolean(),
     }),
   ),
+  extras: z
+    .array(dayExtraOutputSchema)
+    .describe('Snacks, drinks and other items added to a day, outside its meals.'),
 })
 
 function addDays(date: Date, days: number): Date {
@@ -69,10 +99,11 @@ export async function readMealPlan(
     throw new ToolInputError(`Ask for ${MAX_SPAN_DAYS} days or fewer in one call.`)
   }
 
-  const { entries } = await loadPlanEntries(household, {
-    startDate,
-    endDate: addDays(lastDay, 1),
-  })
+  const range = { startDate, endDate: addDays(lastDay, 1) }
+  const [{ entries }, extras] = await Promise.all([
+    loadPlanEntries(household, range),
+    loadDayExtras(household, range),
+  ])
   const householdServings = sumPortions(household.members)
 
   return {
@@ -87,5 +118,6 @@ export async function readMealPlan(
       isCooked: entry.status === 'completed',
       isSkipped: entry.status === 'skipped',
     })),
+    extras: extras.map(toDayExtraOutput),
   }
 }

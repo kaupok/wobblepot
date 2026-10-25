@@ -4,8 +4,10 @@ vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
 }))
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
+vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
 
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
@@ -39,6 +41,7 @@ describe('get_meal_plan', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-11T21:30:00Z'))
     vi.mocked(loadPlanEntries).mockResolvedValue({ entries: [], planId: 'plan-1' })
+    vi.mocked(loadDayExtras).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -107,8 +110,59 @@ describe('get_meal_plan', () => {
           isSkipped: true,
         },
       ],
+      extras: [],
     })
     expect(getMealPlan.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it("returns the range's extras: an ingredient with its amount, and free text with none", async () => {
+    vi.mocked(loadDayExtras).mockResolvedValue([
+      {
+        id: 'extra-1',
+        date: '2026-10-17',
+        ingredientId: 'ing-wine',
+        name: 'Red wine',
+        quantity: 750,
+        unit: 'ml',
+      },
+      {
+        id: 'extra-2',
+        date: '2026-10-17',
+        ingredientId: null,
+        name: 'chips',
+        quantity: null,
+        unit: null,
+      },
+    ])
+
+    const result = await call({ from: '2026-10-12', to: '2026-10-18' })
+
+    expect(result.structuredContent).toMatchObject({
+      extras: [
+        {
+          id: 'extra-1',
+          date: '2026-10-17',
+          name: 'Red wine',
+          kind: 'ingredient',
+          quantity: 750,
+          unit: 'ml',
+        },
+        {
+          id: 'extra-2',
+          date: '2026-10-17',
+          name: 'chips',
+          kind: 'text',
+          quantity: null,
+          unit: null,
+        },
+      ],
+    })
+    expect(getMealPlan.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+    // The same range as the entries, with the same exclusive end.
+    const [passedHousehold, query] = vi.mocked(loadDayExtras).mock.calls[0]!
+    expect(passedHousehold).toBe(household)
+    expect(toDateString(query.startDate)).toBe('2026-10-12')
+    expect(toDateString(query.endDate)).toBe('2026-10-19')
   })
 
   it('refuses a range that ends before it starts, without reading the plan', async () => {

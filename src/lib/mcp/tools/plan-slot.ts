@@ -1,7 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
@@ -17,6 +17,17 @@ export const slotInput = {
 }
 
 export type SlotMealType = z.output<typeof slotInput.mealType>
+
+/** How far ahead `plan_meal` and `add_extra` may write, in days after today. */
+export const MAX_DAYS_AHEAD = 28
+
+/** Today and the last day a tool may write to, YYYY-MM-DD in the household's timezone. */
+export function writableDays(timezone: string): { today: string; lastDay: string } {
+  const today = getTodayInTimezone(timezone)
+  const lastDay = parseLocalDate(today)
+  lastDay.setDate(lastDay.getDate() + MAX_DAYS_AHEAD)
+  return { today, lastDay: toDateString(lastDay) }
+}
 
 /**
  * The household's plan entry for one day and meal type, with its meal's name
