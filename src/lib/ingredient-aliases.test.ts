@@ -202,6 +202,7 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('powdered sugar')).toBe('icing sugar')
     expect(applyIngredientAlias('corn meal')).toBe('cornmeal')
     expect(applyIngredientAlias('canned diced tomatoes')).toBe('tinned chopped tomatoes')
+    expect(applyIngredientAlias('canned chopped tomatoes')).toBe('tinned chopped tomatoes')
     expect(applyIngredientAlias('red bell pepper')).toBe('red pepper')
     expect(applyIngredientAlias('half and half')).toBe('single cream')
     expect(applyIngredientAlias('guajillo chili')).toBe('guajillo chilli')

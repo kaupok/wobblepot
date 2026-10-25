@@ -100,3 +100,68 @@ describe('matchIngredients on a plural catalogue name', () => {
     })
   })
 })
+
+// HON-1313: normalization strips "canned", "frozen" and "dried", so the stripped
+// name must not win a sure match on the fresh row when a form row exists.
+describe('matchIngredients on a recipe name with a form word', () => {
+  async function seedCatalogue() {
+    await ingredient('ing-tomato', 'tomato')
+    await ingredient('ing-tinned-chopped', 'tinned chopped tomatoes')
+    await ingredient('ing-tinned-plum', 'tinned plum tomatoes')
+    await ingredient('ing-peas', 'peas')
+    await ingredient('ing-oregano', 'oregano')
+    await ingredient('ing-cumin', 'cumin')
+  }
+
+  it('matches "canned chopped tomatoes" to "tinned chopped tomatoes", sure', async () => {
+    await seedCatalogue()
+
+    const result = await matchOne('canned chopped tomatoes')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-tinned-chopped', name: 'tinned chopped tomatoes' },
+      lowConfidence: false,
+    })
+  })
+
+  it('takes the tinned row the direct name finds over fresh "plum tomato": "canned plum tomatoes"', async () => {
+    await seedCatalogue()
+
+    const result = await matchOne('canned plum tomatoes')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-tinned-plum', name: 'tinned plum tomatoes' },
+      lowConfidence: false,
+    })
+  })
+
+  it('asks for review of "canned crushed tomatoes", with the tinned row first', async () => {
+    await seedCatalogue()
+
+    const result = await matchOne('canned crushed tomatoes')
+
+    expect(result).toMatchObject({ type: 'matched', lowConfidence: true })
+    if (result.type !== 'matched') throw new Error('expected a match')
+    expect(result.alternatives?.[0]).toMatchObject({ id: 'ing-tinned-chopped' })
+  })
+
+  it.each([
+    ['frozen peas', 'peas', false],
+    ['dried oregano', 'dried oregano', false],
+    ['dried cumin', 'cumin', false],
+    ['canned tomatoes', 'tinned chopped tomatoes', true],
+    ['canned diced tomatoes', 'tinned chopped tomatoes', false],
+  ])('keeps the result for "%s": %s, low confidence %s', async (recipeName, rowName, low) => {
+    await seedCatalogue()
+
+    const result = await matchOne(recipeName)
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: low,
+    })
+  })
+})
