@@ -45,7 +45,7 @@ export const createMeal = defineTool({
   name: 'create_meal',
   title: 'Save a recipe',
   description:
-    'Saves a new recipe in the household’s own recipes, so it shows on the Recipes page and can be planned. Split each ingredient line into a name, a quantity for the whole recipe and a unit ("500 g veisehakkliha" is name veisehakkliha, quantity 500, unit g). Wobblepot matches each name to its ingredient list. If a name has no sure match, nothing is saved and the name comes back in unmatched with the closest ingredients Wobblepot has; ask the user which one they meant, or for another name, and call again with all the ingredients. If the household already has a recipe with this name, nothing is saved and outcome is exists; use get_meal with its id, or ask the user for another name. A shared recipe with the same name does not stop the save. This tool cannot change or delete a recipe.',
+    'Saves a new recipe in the household’s own recipes, so it shows on the Recipes page and can be planned. Split each ingredient line into a name, a quantity for the whole recipe and a unit ("500 g veisehakkliha" is name veisehakkliha, quantity 500, unit g). Wobblepot matches each name to its ingredient list. If a name has no sure match, nothing is saved and the name comes back in unmatched with the closest ingredients Wobblepot has; ask the user which one they meant, or for another name, and call again with all the ingredients. If an amount looks wrong for one serving, nothing is saved and outcome is check_quantity with each such amount per serving; ask the user, and call again with all the ingredients: with a corrected amount, or with the name from check in confirmedAmounts when the user says the amount is right. If the household already has a recipe with this name, nothing is saved and outcome is exists; use get_meal with its id, or ask the user for another name. A shared recipe with the same name does not stop the save. This tool cannot change or delete a recipe.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     name: z.string().trim().pipe(mealFieldsSchema.shape.name).describe('The recipe’s name.'),
@@ -59,12 +59,19 @@ export const createMeal = defineTool({
     ),
     timeMinutes: mealFieldsSchema.shape.timeMinutes.describe('Total time to make it, in minutes.'),
     ingredients: z.array(ingredientInput).min(1).max(MAX_MEAL_COMPONENTS),
+    confirmedAmounts: z
+      .array(z.string().trim().toLowerCase().min(1).max(200))
+      .max(MAX_MEAL_COMPONENTS)
+      .default([])
+      .describe(
+        'Names from check whose amounts the user said are right. Set only after asking the user.',
+      ),
   }),
   outputSchema: z.object({
     outcome: z
-      .enum(['created', 'exists', 'unmatched'])
+      .enum(['created', 'exists', 'unmatched', 'check_quantity'])
       .describe(
-        'created: the recipe was saved. exists: the household has a recipe with this name, and nothing was saved. unmatched: some ingredients had no sure match, and nothing was saved.',
+        'created: the recipe was saved. exists: the household has a recipe with this name, and nothing was saved. unmatched: some ingredients had no sure match, and nothing was saved. check_quantity: some amounts look wrong, and nothing was saved.',
       ),
     meal: z
       .object({ id: z.string(), name: z.string() })
@@ -89,11 +96,27 @@ export const createMeal = defineTool({
         }),
       )
       .describe('For unmatched: each name without a sure match, and the closest ingredients.'),
+    check: z
+      .array(
+        z.object({
+          name: z.string(),
+          quantity: z.number(),
+          unit: unitOutput,
+          warning: z.string(),
+        }),
+      )
+      .describe('For check_quantity: each matched ingredient, its amount per serving, and why.'),
   }),
   run: async (household, input) => {
     const existing = await findOwnMealByName(household.id, input.name)
     if (existing) {
-      return { outcome: 'exists' as const, meal: existing, ingredients: [], unmatched: [] }
+      return {
+        outcome: 'exists' as const,
+        meal: existing,
+        ingredients: [],
+        unmatched: [],
+        check: [],
+      }
     }
 
     const locale = resolveHouseholdLocale(household)
@@ -123,10 +146,38 @@ export const createMeal = defineTool({
           }
         }),
       )
-      return { outcome: 'unmatched' as const, meal: null, ingredients: [], unmatched }
+      return { outcome: 'unmatched' as const, meal: null, ingredients: [], unmatched, check: [] }
     }
 
     const matched = results as MatchedIngredient[]
+
+    // The assistant converts units itself, so a slip such as 500 piece for
+    // 500 g saves a wrong shopping list that nobody sees. The matcher's
+    // warning refuses the whole recipe, as an unsure name does, until the
+    // user confirms the amount: 2 l of broth for 3 servings is real.
+    const confirmed = new Set(input.confirmedAmounts)
+    const check = matched.flatMap((m) =>
+      m.quantityWarning && !confirmed.has(m.ingredient.name.toLowerCase())
+        ? [
+            {
+              name: m.ingredient.name,
+              quantity: Math.round((m.convertedQuantity / input.servings) * 10) / 10,
+              unit: displayUnit(m.ingredient),
+              warning: m.quantityWarning,
+            },
+          ]
+        : [],
+    )
+    if (check.length > 0) {
+      return {
+        outcome: 'check_quantity' as const,
+        meal: null,
+        ingredients: [],
+        unmatched: [],
+        check,
+      }
+    }
+
     const meal = await createHouseholdMeal(household.id, {
       name: input.name,
       preparationNotes: input.preparationNotes,
@@ -153,6 +204,7 @@ export const createMeal = defineTool({
         note: m.isVague ? (m.originalPhrase ?? null) : null,
       })),
       unmatched: [],
+      check: [],
     }
   },
 })

@@ -72,6 +72,7 @@ describe('create_meal', () => {
 
     expect(result.outcome).toBe('created')
     expect(result.unmatched).toEqual([])
+    expect(result.check).toEqual([])
     expect(result.ingredients).toEqual([
       { name: 'glimmer mince', quantity: 500, unit: 'g', note: null },
       { name: 'glimmer bulb', quantity: 1, unit: 'piece', note: null },
@@ -137,6 +138,7 @@ describe('create_meal', () => {
       unmatched: [
         { name: 'quorvax pasta', original: '50 g quorvax pasta', alternatives: ['quorvex paste'] },
       ],
+      check: [],
     })
     expect(await mealCount(household.id)).toBe(0)
   })
@@ -183,6 +185,107 @@ describe('create_meal', () => {
     expect(await mealCount(household.id)).toBe(0)
   })
 
+  it('saves nothing when an amount looks wrong, and returns it per serving with the warning', async () => {
+    const household = await world()
+
+    // The assistant meant 500 g and sent piece: 125 bulbs of 100 g per serving.
+    const result = await call(household, {
+      ...LASAGNE,
+      ingredients: [
+        { name: 'glimmer mince', quantity: 500, unit: 'g' },
+        { name: 'glimmer bulb', quantity: 500, unit: 'piece' },
+      ],
+    })
+
+    expect(result).toEqual({
+      outcome: 'check_quantity',
+      meal: null,
+      ingredients: [],
+      unmatched: [],
+      check: [
+        {
+          name: 'glimmer bulb',
+          quantity: 125,
+          unit: 'piece',
+          warning: 'Unusually high: 12500g per serving. Please verify this amount.',
+        },
+      ],
+    })
+    expect(createMeal.outputSchema.safeParse(result).success).toBe(true)
+    expect(await mealCount(household.id)).toBe(0)
+  })
+
+  it('returns every flagged amount, rounded to one decimal per serving', async () => {
+    const household = await world()
+
+    const result = await call(household, {
+      ...LASAGNE,
+      servings: 3,
+      ingredients: [
+        { name: 'glimmer mince', quantity: 2000, unit: 'g' },
+        { name: 'glimmer bulb', quantity: 500, unit: 'piece' },
+        { name: 'glimmer salt', quantity: null, unit: 'to taste' },
+      ],
+    })
+
+    expect(result.outcome).toBe('check_quantity')
+    expect(result.check.map((c) => [c.name, c.quantity, c.unit])).toEqual([
+      ['glimmer mince', 666.7, 'g'],
+      ['glimmer bulb', 166.7, 'piece'],
+    ])
+    expect(await mealCount(household.id)).toBe(0)
+  })
+
+  it('saves a flagged amount once the user confirms it, and only for the confirmed name', async () => {
+    const household = await world()
+    // 2 l for 3 servings is 666.7 g a serving, over the matcher's 500 g cap.
+    const SOUP = {
+      ...LASAGNE,
+      name: 'Glimmer soup',
+      servings: 3,
+      ingredients: [
+        { name: 'glimmer mince', quantity: 2000, unit: 'g' },
+        { name: 'glimmer bulb', quantity: 500, unit: 'piece' },
+      ],
+    }
+
+    const partly = await call(household, { ...SOUP, confirmedAmounts: ['Glimmer Mince'] })
+
+    expect(partly.outcome).toBe('check_quantity')
+    expect(partly.check.map((c) => c.name)).toEqual(['glimmer bulb'])
+    expect(await mealCount(household.id)).toBe(0)
+
+    const result = await call(household, {
+      ...SOUP,
+      confirmedAmounts: ['glimmer mince', 'glimmer bulb'],
+    })
+
+    expect(result.outcome).toBe('created')
+    expect(result.check).toEqual([])
+    expect(result.ingredients.map((i) => [i.name, i.quantity, i.unit])).toEqual([
+      ['glimmer mince', 2000, 'g'],
+      ['glimmer bulb', 500, 'piece'],
+    ])
+    expect(await mealCount(household.id)).toBe(1)
+  })
+
+  it('returns unmatched, not check_quantity, when a call has both kinds of row', async () => {
+    const household = await world()
+
+    const result = await call(household, {
+      ...LASAGNE,
+      ingredients: [
+        { name: 'glimmer bulb', quantity: 500, unit: 'piece' },
+        { name: 'quorvax pasta', quantity: 50, unit: 'g' },
+      ],
+    })
+
+    expect(result.outcome).toBe('unmatched')
+    expect(result.unmatched.map((u) => u.name)).toEqual(['quorvax pasta'])
+    expect(result.check).toEqual([])
+    expect(await mealCount(household.id)).toBe(0)
+  })
+
   it('saves nothing when the household has a recipe of that name in another case', async () => {
     const household = await world()
     const existing = await prisma.meal.create({
@@ -196,6 +299,7 @@ describe('create_meal', () => {
       meal: { id: existing.id, name: 'Glimmer Lasagne' },
       ingredients: [],
       unmatched: [],
+      check: [],
     })
     expect(await mealCount(household.id)).toBe(1)
   })
