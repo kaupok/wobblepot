@@ -42,17 +42,15 @@ function call(household: ReturnType<typeof mcpHousehold>, extraId: string) {
 }
 
 describe('remove_extra', () => {
-  it("deletes the household's extra and leaves its shopping item on the list", async () => {
-    const { alder } = await world()
+  it("deletes the household's extra and takes its unticked shopping item off the list", async () => {
+    const { alder, birch } = await world()
 
     const result = await call(alder.household, alder.extraId)
 
     expect(result).toEqual({ outcome: 'removed', extraId: alder.extraId })
     expect(await prisma.dayExtra.findUnique({ where: { id: alder.extraId } })).toBeNull()
-    const custom = await prisma.customShoppingItem.findMany({
-      where: { householdId: alder.household.id },
-    })
-    expect(custom.map((i) => i.name)).toEqual(['Alder chips'])
+    const custom = await prisma.customShoppingItem.findMany({ select: { name: true } })
+    expect(custom).toEqual([{ name: 'Birch chips' }])
   })
 
   it("refuses another household's extra, and that extra stays", async () => {

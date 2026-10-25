@@ -100,11 +100,11 @@ What to buy for the planned meals, plus the items the household added by hand.
       "purchased": false
     }
   ],
-  "customItems": [{ "id": "cm…", "name": "Candles", "checked": false }]
+  "customItems": [{ "id": "cm…", "name": "Candles", "checked": false, "neededBy": null }]
 }
 ```
 
-An item with `purchased: true` is already in the pantry.
+An item with `purchased: true` is already in the pantry. A custom item's `neededBy` is the earliest day, from today on, of a free-text day extra that put it on the list; it is `null` for an item typed by hand.
 
 ## Errors
 

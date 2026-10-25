@@ -110,3 +110,53 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
     }
   }
 })
+
+// HON-1310: a free-text extra links to the manual item it put on the list, so
+// Remove on the extra takes the item off again.
+test('Remove on a free-text extra takes its item off the shopping list', async ({ page }) => {
+  await signInAsSmoke(page)
+
+  // A name of this run, so no parallel spec and no seeded item shares it.
+  const name = `e2e chips ${Date.now().toString(36)}`
+  let extraId: string | null = null
+
+  try {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Add an extra: Tomorrow' }).click()
+
+    const picker = page.getByRole('dialog', { name: 'Add an extra' })
+    await picker.getByLabel('Search for an ingredient').fill(name)
+    const [created] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().endsWith('/api/extras') && r.request().method() === 'POST',
+      ),
+      picker.getByRole('button', { name: `Add "${name}" as text` }).click(),
+    ])
+    expect(created.status()).toBe(201)
+    extraId = ((await created.json()) as { id: string }).id
+
+    await page.goto('/shopping')
+    const item = page.getByRole('checkbox', { name: `Mark ${name} as purchased` })
+    await expect(item).toBeVisible()
+
+    await page.goto('/')
+    await page.getByRole('button', { name: `Edit extra: ${name}` }).click()
+    const editor = page.getByRole('dialog', { name })
+    const [removed] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes(`/api/extras/${extraId}`) && r.request().method() === 'DELETE',
+      ),
+      editor.getByRole('button', { name: 'Remove' }).click(),
+    ])
+    expect(removed.ok()).toBe(true)
+    extraId = null
+
+    await page.goto('/shopping')
+    // The page heading, not the list's: a list with every line bought renders its
+    // empty state, which has none.
+    await expect(page.getByRole('heading', { level: 1, name: 'Pantry & shopping' })).toBeVisible()
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0)
+  } finally {
+    if (extraId) await page.request.delete(`/api/extras/${extraId}`)
+  }
+})

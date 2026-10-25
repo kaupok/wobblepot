@@ -27,33 +27,45 @@ export function getInitialSortMode(): SortMode {
   return DEFAULT_SORT_MODE
 }
 
+/** A bucket of the urgency sort, with its computed lines and its dated manual items. */
+export interface UrgencyGroupData {
+  bucket: UrgencyBucket
+  items: ShoppingItemData[]
+  customItems: CustomItemData[]
+}
+
+const byDate = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+
 /**
  * Group items by how soon they are needed, oldest date first within each bucket.
  * Purchased items keep their date position rather than sinking to the bottom.
- * Empty buckets are omitted.
+ * A manual item with a `neededBy` date (a free-text day extra's, HON-1310)
+ * joins its date's bucket, after the computed lines; one without stays out,
+ * for the manual items section. Empty buckets are omitted.
  */
 export function buildUrgencyGroups(
   items: ShoppingItemData[],
-): Array<{ bucket: UrgencyBucket; items: ShoppingItemData[] }> {
-  // ISO dates order by code unit; collation has nothing to add.
-  const sortedItems = [...items].sort((a, b) =>
-    a.neededByDate < b.neededByDate ? -1 : a.neededByDate > b.neededByDate ? 1 : 0,
+  customItems: CustomItemData[] = [],
+): UrgencyGroupData[] {
+  const bucketOrder: UrgencyBucket[] = ['today', 'tomorrow', 'this-week', 'later']
+  const grouped = new Map<UrgencyBucket, UrgencyGroupData>(
+    bucketOrder.map((bucket) => [bucket, { bucket, items: [], customItems: [] }]),
   )
 
-  const bucketOrder: UrgencyBucket[] = ['today', 'tomorrow', 'this-week', 'later']
-  const grouped = new Map<UrgencyBucket, ShoppingItemData[]>()
-
-  for (const bucket of bucketOrder) {
-    grouped.set(bucket, [])
+  // ISO dates order by code unit; collation has nothing to add.
+  for (const item of [...items].sort((a, b) => byDate(a.neededByDate, b.neededByDate))) {
+    grouped.get(getUrgencyBucket(item.neededByDate))!.items.push(item)
+  }
+  const dated = customItems.filter((item): item is CustomItemData & { neededBy: string } =>
+    Boolean(item.neededBy),
+  )
+  for (const item of dated.sort((a, b) => byDate(a.neededBy, b.neededBy))) {
+    grouped.get(getUrgencyBucket(item.neededBy))!.customItems.push(item)
   }
 
-  for (const item of sortedItems) {
-    grouped.get(getUrgencyBucket(item.neededByDate))!.push(item)
-  }
-
-  return bucketOrder
-    .filter((bucket) => grouped.get(bucket)!.length > 0)
-    .map((bucket) => ({ bucket, items: grouped.get(bucket)! }))
+  return [...grouped.values()].filter(
+    (group) => group.items.length > 0 || group.customItems.length > 0,
+  )
 }
 
 /**

@@ -359,29 +359,28 @@ describe('ShoppingSection copy to clipboard', () => {
     )
   })
 
-  it('puts the custom-items group before the urgency buckets, on screen and in the copy', async () => {
+  it('puts undated custom items first and a dated one in its bucket, on screen and in the copy', async () => {
     const user = userEvent.setup()
     const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
     localStorage.setItem('shopping-list-sort-mode', 'urgency')
+    const custom = { checked: false, ingredientId: null, ingredientCategory: null }
     renderSection({
       initialCustomItems: [
-        {
-          id: 'c1',
-          name: 'Bananas',
-          checked: false,
-          ingredientId: null,
-          ingredientCategory: null,
-          createdAt: '2026-02-16T10:00:00Z',
-        },
+        { ...custom, id: 'c1', name: 'Bananas', createdAt: '2026-02-16T10:00:00Z' },
+        // A free-text day extra's item (HON-1310).
+        { ...custom, id: 'c2', name: 'chips', createdAt: '', neededBy: '2026-02-18' },
       ],
     })
 
-    const weekHeading = screen.getByRole('heading', { level: 3, name: 'This week 3' })
+    const weekHeading = screen.getByRole('heading', { level: 3, name: 'This week 4' })
     const customHeading = screen.getByRole('heading', { level: 3, name: 'Custom items 1' })
     // Custom items lead the urgency groups, right under the input that adds them.
     expect(customHeading.compareDocumentPosition(weekHeading)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
+    expect(
+      within(weekHeading.closest('div')!.parentElement!).getByText('chips'),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /copy list/i }))
 
@@ -394,10 +393,11 @@ describe('ShoppingSection copy to clipboard', () => {
           '📝 Custom items (1)',
           '- Bananas',
           '',
-          'This week (3)',
+          'This week (4)',
           '- Carrot 100 g',
           '- Asparagus 100 g',
           '- Beef 100 g',
+          '- chips',
         ].join('\n'),
       ),
     )

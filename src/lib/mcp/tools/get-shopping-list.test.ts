@@ -49,7 +49,10 @@ const LIST = {
       ],
     },
   ],
-  customItems: [{ id: 'custom-1', name: 'Candles', checked: false, ingredientId: null }],
+  customItems: [
+    { id: 'custom-1', name: 'Candles', checked: false, ingredientId: null, neededBy: null },
+    { id: 'custom-2', name: 'chips', checked: false, ingredientId: null, neededBy: '2026-10-14' },
+  ],
 } as unknown as ShoppingListResult
 
 function call(input: Record<string, unknown> = {}) {
@@ -91,7 +94,10 @@ describe('get_shopping_list', () => {
           purchased: true,
         },
       ],
-      customItems: [{ id: 'custom-1', name: 'Candles', checked: false }],
+      customItems: [
+        { id: 'custom-1', name: 'Candles', checked: false, neededBy: null },
+        { id: 'custom-2', name: 'chips', checked: false, neededBy: '2026-10-14' },
+      ],
     })
     expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)
   })

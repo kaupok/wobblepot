@@ -29,7 +29,16 @@ export const shoppingListOutputSchema = z.object({
       purchased: z.boolean(),
     }),
   ),
-  customItems: z.array(z.object({ id: z.string(), name: z.string(), checked: z.boolean() })),
+  // `neededBy` is the earliest day of a linked free-text extra from today on
+  // (HON-1310); null for an item typed by hand.
+  customItems: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      checked: z.boolean(),
+      neededBy: z.iso.date().nullable(),
+    }),
+  ),
 })
 
 export async function readShoppingList(
@@ -55,6 +64,7 @@ export async function readShoppingList(
       id: item.id,
       name: item.name,
       checked: item.checked,
+      neededBy: item.neededBy,
     })),
   }
 }

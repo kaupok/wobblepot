@@ -40,6 +40,10 @@ export async function loadShoppingList(
   { days }: { days: 7 | 14 },
 ) {
   const locale = resolveHouseholdLocale(household)
+  // The reference for "today" is the household's local day, not the server's,
+  // so a household in Europe/Tallinn at 23:30 local sees the right label
+  // even when the server clock is in a different timezone.
+  const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
   // Compute rolling window shopping list and fetch custom items in parallel
   const [result, pantryItems, customItems, tDates, tVague, tUnit] = await Promise.all([
     computeRollingWindowShoppingList(household.id, days, household.timezone, locale),
@@ -57,6 +61,13 @@ export async function loadShoppingList(
         ingredient: {
           select: { id: true, name: true, category: true },
         },
+        // The earliest linked day extra from today on (HON-1310) dates the item.
+        dayExtras: {
+          where: { date: { gte: todayInTz } },
+          select: { date: true },
+          orderBy: { date: 'asc' },
+          take: 1,
+        },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -67,11 +78,6 @@ export async function loadShoppingList(
   const pieceLabel = tUnit('piece')
 
   const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
-
-  // The reference for "today" is the household's local day, not the server's,
-  // so a household in Europe/Tallinn at 23:30 local sees the right label
-  // even when the server clock is in a different timezone.
-  const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
 
   // Transform to response format with display quantities and purchase status
   let totalItems = 0
@@ -165,7 +171,9 @@ export async function loadShoppingList(
     }
   })
 
-  // Format custom items for response
+  // Format custom items for response. `neededBy` is null for an item typed by
+  // hand, and for one whose linked extras are all in the past: it stays on the
+  // list, in the manual items section, until ticked off.
   const formattedCustomItems = customItems.map((item) => ({
     id: item.id,
     name: item.name,
@@ -173,6 +181,7 @@ export async function loadShoppingList(
     ingredientId: item.ingredientId,
     ingredientCategory: item.ingredient?.category ?? null,
     createdAt: item.createdAt.toISOString(),
+    neededBy: item.dayExtras[0] ? toDateString(item.dayExtras[0].date) : null,
   }))
 
   return {

@@ -286,6 +286,7 @@ describe('loadShoppingList', () => {
         ingredientId: 'ing-test-milk',
         ingredientCategory: 'dairy',
         createdAt: '2026-10-13T10:00:00.000Z',
+        neededBy: null,
       },
       {
         id: 'custom-soap',
@@ -294,8 +295,42 @@ describe('loadShoppingList', () => {
         ingredientId: null,
         ingredientCategory: null,
         createdAt: '2026-10-12T10:00:00.000Z',
+        neededBy: null,
       },
     ])
+  })
+
+  // HON-1310: a manual item a free-text extra links to is dated by the
+  // earliest linked extra from today on, in the household's timezone.
+  it('dates a linked manual item by its earliest extra from today on', async () => {
+    const { alder } = await world()
+    const linkedItem = async (name: string, dates: string[]) => {
+      const item = await prisma.customShoppingItem.create({ data: { householdId: 'alder', name } })
+      for (const [position, date] of dates.entries()) {
+        await prisma.dayExtra.create({
+          data: {
+            householdId: 'alder',
+            date: new Date(`${date}T00:00:00Z`),
+            label: name,
+            position,
+            customShoppingItemId: item.id,
+          },
+        })
+      }
+    }
+    await linkedItem('chips', ['2026-10-14', '2026-10-20', '2026-10-17'])
+    await linkedItem('cake', ['2026-10-14', '2026-10-15'])
+    await linkedItem('nuts', ['2026-10-13'])
+    await prisma.customShoppingItem.create({ data: { householdId: 'alder', name: 'soap' } })
+
+    const list = await loadShoppingList(alder, { days: 7 })
+
+    expect(Object.fromEntries(list.customItems.map((c) => [c.name, c.neededBy]))).toEqual({
+      chips: '2026-10-17',
+      cake: '2026-10-15',
+      nuts: null,
+      soap: null,
+    })
   })
 
   it('counts an entry 10 days out in the 14-day window only', async () => {

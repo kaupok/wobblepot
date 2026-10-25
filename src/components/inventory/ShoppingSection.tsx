@@ -171,9 +171,17 @@ export function ShoppingSection({
   const urgencyGroups = useMemo(
     () =>
       sortMode === 'urgency'
-        ? buildUrgencyGroups(enhancedGroups.flatMap((group) => group.items))
+        ? buildUrgencyGroups(
+            enhancedGroups.flatMap((group) => group.items),
+            customItems,
+          )
         : [],
-    [enhancedGroups, sortMode],
+    [enhancedGroups, customItems, sortMode],
+  )
+  // A free-text extra's item sits under its day (HON-1310); the rest have none.
+  const undatedCustomItems = useMemo(
+    () => customItems.filter((item) => !item.neededBy),
+    [customItems],
   )
 
   const alphabeticalItems = useMemo(
@@ -221,16 +229,18 @@ export function ShoppingSection({
     }
 
     if (sortMode === 'urgency') {
-      // Custom items lead, as on screen: they have no date, and the household
-      // added them by hand.
-      const customLines = unchecked(customItems).map(customLine)
+      // Undated custom items lead, as on screen.
+      const customLines = unchecked(undatedCustomItems).map(customLine)
       return [
         {
           heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('customItemsSection', { count: customLines.length })}`,
           lines: customLines,
         },
         ...urgencyGroups.map((group) => {
-          const lines = toBuy(group.items).map(computedLine)
+          const lines = [
+            ...toBuy(group.items).map(computedLine),
+            ...unchecked(group.customItems).map(customLine),
+          ]
           return { heading: `${tUrgency(URGENCY_KEYS[group.bucket])} (${lines.length})`, lines }
         }),
       ]
@@ -267,13 +277,13 @@ export function ShoppingSection({
     return sections
   }, [
     alphabeticalItems,
-    customItems,
     enhancedGroups,
     linkedCustomByCategory,
     sortMode,
     tCategory,
     tShopping,
     tUrgency,
+    undatedCustomItems,
     unlinkedCustomItems,
     urgencyGroups,
   ])
@@ -559,21 +569,21 @@ export function ShoppingSection({
 
             {sortMode === 'urgency' && (
               <div className="flex flex-col gap-6">
-                {/* In urgency mode, show all custom items in a single "Custom items"
-                group. It leads: the items have no date, and a new one lands
-                right under the input that added it. */}
-                {customItems.length > 0 && (
+                {/* Undated custom items lead in one "Custom items" group: a new
+                one lands right under the input that added it. */}
+                {undatedCustomItems.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <GroupHeading
                       emoji={CUSTOM_ITEMS_EMOJI}
                       label={tShopping('customItemsSectionTitle')}
-                      total={customItems.length}
+                      total={undatedCustomItems.length}
                       count={
-                        checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`
+                        undatedCustomItems.some((i) => i.checked) &&
+                        `${undatedCustomItems.filter((i) => i.checked).length}/${undatedCustomItems.length}`
                       }
                     />
                     <RowGroup variant="ruled">
-                      {customItems.map((item) => (
+                      {undatedCustomItems.map((item) => (
                         <CustomShoppingItem
                           key={item.id}
                           item={item}
@@ -591,8 +601,12 @@ export function ShoppingSection({
                     key={group.bucket}
                     bucket={group.bucket}
                     items={group.items}
+                    customItems={group.customItems}
                     onToggleItem={handleToggle}
-                    pendingIds={pendingIds}
+                    onToggleCustomItem={handleCustomToggle}
+                    onUnlinkCustomItem={handleCustomUnlink}
+                    onDeleteCustomItem={handleCustomDelete}
+                    pendingIds={allPendingIds}
                   />
                 ))}
               </div>
