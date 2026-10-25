@@ -31,7 +31,7 @@ export const NO_HOUSEHOLD_MESSAGE =
  * are listed for every token, so the model can tell the user what to do.
  */
 export const WRITE_SCOPE_MESSAGE =
-  'This assistant can only read Wobblepot. To let it change the shopping list, pantry or meal plan, or add recipes, disconnect it and connect it again, then choose Allow.'
+  'This assistant can only read Wobblepot. To let it change the shopping list, pantry or meal plan, or add or change recipes, disconnect it and connect it again, then choose Allow.'
 
 /**
  * A read tool: a client may run it freely. Anthropic's connector directory

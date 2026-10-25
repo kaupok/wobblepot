@@ -49,7 +49,7 @@ describe('ConsentCard', () => {
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
       'Read your meal plan, shopping list, pantry and recipes.',
-      'Update your shopping list, pantry and meal plan, and add recipes.',
+      'Update your shopping list, pantry and meal plan, and add and change recipes.',
       'Stay connected, so you do not need to allow it again.',
     ])
     // The read-only promise would be false with the write scope.
@@ -60,7 +60,9 @@ describe('ConsentCard', () => {
     renderCard(<ConsentCard {...READY} />)
 
     expect(
-      screen.queryByText('Update your shopping list, pantry and meal plan, and add recipes.'),
+      screen.queryByText(
+        'Update your shopping list, pantry and meal plan, and add and change recipes.',
+      ),
     ).toBeNull()
     expect(screen.getByText('It cannot change anything in Wobblepot.')).toBeInTheDocument()
   })

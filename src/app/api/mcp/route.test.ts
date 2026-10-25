@@ -82,6 +82,7 @@ const WRITE_TOOL_NAMES = [
   'rate_meal',
   'adjust_meal',
   'create_meal',
+  'update_meal',
   'plan_meal',
   'add_extra',
   'remove_extra',
@@ -239,6 +240,7 @@ describe('/api/mcp', () => {
         expect(annotations.swap_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.adjust_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.create_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.update_meal).toEqual({ ...write, idempotentHint: true })
         expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
         expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
@@ -264,6 +266,7 @@ describe('/api/mcp', () => {
             servings: 4,
             ingredients: [{ name: 'beef mince', quantity: 500, unit: 'g' }],
           },
+          update_meal: { mealId: 'meal-1', servings: 6 },
           plan_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
           add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
           remove_extra: { extraId: 'extra-1' },
