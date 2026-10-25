@@ -236,6 +236,39 @@ describe('create_meal', () => {
     expect(await mealCount(household.id)).toBe(0)
   })
 
+  it('saves a flagged amount once the user confirms it, and only for the confirmed name', async () => {
+    const household = await world()
+    // 2 l for 3 servings is 666.7 g a serving, over the matcher's 500 g cap.
+    const SOUP = {
+      ...LASAGNE,
+      name: 'Glimmer soup',
+      servings: 3,
+      ingredients: [
+        { name: 'glimmer mince', quantity: 2000, unit: 'g' },
+        { name: 'glimmer bulb', quantity: 500, unit: 'piece' },
+      ],
+    }
+
+    const partly = await call(household, { ...SOUP, confirmedAmounts: ['Glimmer Mince'] })
+
+    expect(partly.outcome).toBe('check_quantity')
+    expect(partly.check.map((c) => c.name)).toEqual(['glimmer bulb'])
+    expect(await mealCount(household.id)).toBe(0)
+
+    const result = await call(household, {
+      ...SOUP,
+      confirmedAmounts: ['glimmer mince', 'glimmer bulb'],
+    })
+
+    expect(result.outcome).toBe('created')
+    expect(result.check).toEqual([])
+    expect(result.ingredients.map((i) => [i.name, i.quantity, i.unit])).toEqual([
+      ['glimmer mince', 2000, 'g'],
+      ['glimmer bulb', 500, 'piece'],
+    ])
+    expect(await mealCount(household.id)).toBe(1)
+  })
+
   it('returns unmatched, not check_quantity, when a call has both kinds of row', async () => {
     const household = await world()
 

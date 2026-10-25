@@ -45,7 +45,7 @@ export const createMeal = defineTool({
   name: 'create_meal',
   title: 'Save a recipe',
   description:
-    'Saves a new recipe in the household’s own recipes, so it shows on the Recipes page and can be planned. Split each ingredient line into a name, a quantity for the whole recipe and a unit ("500 g veisehakkliha" is name veisehakkliha, quantity 500, unit g). Wobblepot matches each name to its ingredient list. If a name has no sure match, nothing is saved and the name comes back in unmatched with the closest ingredients Wobblepot has; ask the user which one they meant, or for another name, and call again with all the ingredients. If an amount looks wrong for one serving, nothing is saved and outcome is check_quantity with each such amount per serving; confirm the amounts with the user and call again with all the ingredients and the corrected amounts. The same amount is refused again, so if the user means it, they save the recipe in the Wobblepot app. If the household already has a recipe with this name, nothing is saved and outcome is exists; use get_meal with its id, or ask the user for another name. A shared recipe with the same name does not stop the save. This tool cannot change or delete a recipe.',
+    'Saves a new recipe in the household’s own recipes, so it shows on the Recipes page and can be planned. Split each ingredient line into a name, a quantity for the whole recipe and a unit ("500 g veisehakkliha" is name veisehakkliha, quantity 500, unit g). Wobblepot matches each name to its ingredient list. If a name has no sure match, nothing is saved and the name comes back in unmatched with the closest ingredients Wobblepot has; ask the user which one they meant, or for another name, and call again with all the ingredients. If an amount looks wrong for one serving, nothing is saved and outcome is check_quantity with each such amount per serving; ask the user, and call again with all the ingredients: with a corrected amount, or with the name from check in confirmedAmounts when the user says the amount is right. If the household already has a recipe with this name, nothing is saved and outcome is exists; use get_meal with its id, or ask the user for another name. A shared recipe with the same name does not stop the save. This tool cannot change or delete a recipe.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     name: z.string().trim().pipe(mealFieldsSchema.shape.name).describe('The recipe’s name.'),
@@ -59,6 +59,13 @@ export const createMeal = defineTool({
     ),
     timeMinutes: mealFieldsSchema.shape.timeMinutes.describe('Total time to make it, in minutes.'),
     ingredients: z.array(ingredientInput).min(1).max(MAX_MEAL_COMPONENTS),
+    confirmedAmounts: z
+      .array(z.string().trim().toLowerCase().min(1).max(200))
+      .max(MAX_MEAL_COMPONENTS)
+      .default([])
+      .describe(
+        'Names from check whose amounts the user said are right. Set only after asking the user.',
+      ),
   }),
   outputSchema: z.object({
     outcome: z
@@ -146,9 +153,11 @@ export const createMeal = defineTool({
 
     // The assistant converts units itself, so a slip such as 500 piece for
     // 500 g saves a wrong shopping list that nobody sees. The matcher's
-    // warning refuses the whole recipe, as an unsure name does.
+    // warning refuses the whole recipe, as an unsure name does, until the
+    // user confirms the amount: 2 l of broth for 3 servings is real.
+    const confirmed = new Set(input.confirmedAmounts)
     const check = matched.flatMap((m) =>
-      m.quantityWarning
+      m.quantityWarning && !confirmed.has(m.ingredient.name.toLowerCase())
         ? [
             {
               name: m.ingredient.name,
