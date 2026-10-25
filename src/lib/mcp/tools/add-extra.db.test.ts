@@ -29,7 +29,8 @@ afterEach(() => {
 /**
  * Alder, in Tallinn. Red wine is global and measured by volume. The made-up
  * names are Alder's own and never clash with the seeded pool, so "quorvax
- * pasta" has no match and "brindleberry jelly" an unsure one.
+ * pasta" has no match and "brindleberry jelly" an unsure one. A glimmer egg
+ * weighs 50 g; nothing says what a piece of red wine weighs.
  */
 async function world() {
   const row = await prisma.household.create({
@@ -57,6 +58,11 @@ async function world() {
   await ingredient('ing-wine', 'Red wine', { measuredByVolume: true })
   await ingredient('ing-jam', 'brindleberry jam', { householdId: row.id })
   await ingredient('ing-paste', 'quorvex paste', { householdId: row.id })
+  await ingredient('ing-egg', 'glimmer egg', {
+    householdId: row.id,
+    defaultUnit: 'piece',
+    gramsPerPiece: 50,
+  })
   return mcpHousehold({ id: row.id, locale: 'en', timezone: 'Europe/Tallinn' })
 }
 
@@ -87,7 +93,7 @@ describe('add_extra', () => {
       quantity: 750,
       unit: 'ml',
     }
-    expect(result).toEqual({ outcome: 'added', extra, alternatives: [] })
+    expect(result).toEqual({ outcome: 'added', extra, check: null, alternatives: [] })
     expect(addExtra.outputSchema.safeParse(result).success).toBe(true)
     expect(await loadDayExtras(household, range)).toEqual([
       expect.objectContaining({ date: SATURDAY, ingredientId: 'ing-wine', quantity: 750 }),
@@ -105,12 +111,70 @@ describe('add_extra', () => {
     expect(plan.extras).toEqual([extra])
   })
 
+  it('saves an amount in the ingredient’s own unit as given, however large', async () => {
+    const household = await world()
+
+    const result = await call(household, {
+      date: SATURDAY,
+      name: 'red wine',
+      quantity: 1500,
+      unit: 'ml',
+    })
+
+    expect(result.extra).toMatchObject({ quantity: 1500, unit: 'ml' })
+  })
+
+  it('saves an amount it converts by a known weight per piece', async () => {
+    const household = await world()
+
+    const result = await call(household, {
+      date: SATURDAY,
+      name: 'glimmer egg',
+      quantity: 100,
+      unit: 'g',
+    })
+
+    expect(result.extra).toMatchObject({ kind: 'ingredient', quantity: 2, unit: 'piece' })
+  })
+
+  it.each([
+    [
+      'pieces of an ingredient with no weight per piece',
+      { name: 'red wine', quantity: 500, unit: 'piece' },
+      {
+        name: 'Red wine',
+        quantity: 15000,
+        unit: 'ml',
+        warning:
+          'Wobblepot does not know what one piece of Red wine weighs, so 500 piece became 15000 ml by a guess.',
+      },
+    ],
+    [
+      'a converted amount the matcher flags',
+      { name: 'glimmer egg', quantity: 50000, unit: 'g' },
+      {
+        name: 'glimmer egg',
+        quantity: 1000,
+        unit: 'piece',
+        warning: '50000 g became 1000 piece, which is unusually high.',
+      },
+    ],
+  ])('saves nothing for %s, and returns check_quantity', async (_label, input, check) => {
+    const household = await world()
+
+    const result = await call(household, { date: SATURDAY, ...input })
+
+    expect(result).toEqual({ outcome: 'check_quantity', extra: null, check, alternatives: [] })
+    expect(addExtra.outputSchema.safeParse(result).success).toBe(true)
+    expect(await prisma.dayExtra.count()).toBe(0)
+  })
+
   it('saves a sure match with no amount as an ingredient extra with none', async () => {
     const household = await world()
 
     const result = await call(household, { date: SATURDAY, name: 'red wine' })
 
-    expect(result.extra).toMatchObject({ kind: 'ingredient', quantity: null, unit: 'ml' })
+    expect(result.extra).toMatchObject({ kind: 'ingredient', quantity: null, unit: null })
   })
 
   it('saves a name with no match and no amount as text, and puts it on the shopping list', async () => {
@@ -128,6 +192,7 @@ describe('add_extra', () => {
         quantity: null,
         unit: null,
       },
+      check: null,
       alternatives: [],
     })
     const custom = await prisma.customShoppingItem.findMany({
@@ -154,7 +219,12 @@ describe('add_extra', () => {
 
       const result = await call(household, { date: SATURDAY, name, quantity: 2, unit: 'piece' })
 
-      expect(result).toEqual({ outcome: 'unmatched', extra: null, alternatives: [alternative] })
+      expect(result).toEqual({
+        outcome: 'unmatched',
+        extra: null,
+        check: null,
+        alternatives: [alternative],
+      })
       expect(await prisma.dayExtra.count()).toBe(0)
       expect(await prisma.customShoppingItem.count()).toBe(0)
     },

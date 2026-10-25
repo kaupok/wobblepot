@@ -1,20 +1,21 @@
 import 'server-only'
 import { z } from 'zod'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
 import { translateIngredientNames } from '@/lib/ai/translate-match-results'
 import { dayExtraOutputSchema, toDayExtraOutput } from '@/lib/api/v1/meal-plan'
 import { createDayExtra } from '@/lib/day-extras/day-extras'
 import { DAY_EXTRA_LABEL_MAX, DAY_EXTRA_QUANTITY_MAX } from '@/lib/day-extras/schemas'
+import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-import { MEASURED_UNITS } from './measured-units'
+import { MEASURED_UNITS, type MeasuredUnit } from './measured-units'
 import { MAX_DAYS_AHEAD, writableDays } from './plan-slot'
 
 export const addExtra = defineTool({
   name: 'add_extra',
   title: 'Add an extra to a day',
-  description: `Adds one extra to a day: a snack, a drink or another item outside the meals, such as wine for Saturday. Call it again for each further item. The day is today or up to ${MAX_DAYS_AHEAD} days ahead. Give an amount as quantity and unit together, or neither. Wobblepot matches the name to its ingredient list. A sure match saves that ingredient, and it goes on the shopping list for the day. With no sure match and no amount, the name is saved as free text and added to the shopping list as an item. With no sure match and an amount, nothing is saved and outcome is unmatched with the closest ingredients; ask the user which one they meant and call again with that name, or call without the amount. To change an amount, use remove_extra and add the extra again.`,
+  description: `Adds one extra to a day: a snack, a drink or another item outside the meals, such as wine for Saturday. Call it again for each further item. The day is today or up to ${MAX_DAYS_AHEAD} days ahead. Give an amount as quantity and unit together, or neither. Wobblepot matches the name to its ingredient list. A sure match saves that ingredient, and it goes on the shopping list for the day. If a sure match's amount needs a check, nothing is saved and outcome is check_quantity with the amount Wobblepot made of it; confirm the amount with the user and call again with it in check.unit. With no sure match and no amount, the name is saved as free text and added to the shopping list as an item. With no sure match and an amount, nothing is saved and outcome is unmatched with the closest ingredients; ask the user which one they meant and call again with that name, or call without the amount. To change an amount, use remove_extra and add the extra again.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z
     .object({
@@ -43,11 +44,20 @@ export const addExtra = defineTool({
     }),
   outputSchema: z.object({
     outcome: z
-      .enum(['added', 'unmatched'])
+      .enum(['added', 'check_quantity', 'unmatched'])
       .describe(
-        'added: the extra was saved. unmatched: the name had no sure match and an amount was given, so nothing was saved.',
+        'added: the extra was saved. check_quantity: the name matched but the amount needs a check, so nothing was saved. unmatched: the name had no sure match and an amount was given, so nothing was saved.',
       ),
     extra: dayExtraOutputSchema.nullable().describe('For added: the saved extra.'),
+    check: z
+      .object({
+        name: z.string(),
+        quantity: z.number(),
+        unit: z.enum(MEASURED_UNITS),
+        warning: z.string(),
+      })
+      .nullable()
+      .describe('For check_quantity: the matched ingredient, the amount converted, and why.'),
     alternatives: z
       .array(z.string())
       .describe('For unmatched: the closest ingredients Wobblepot has, at most 3.'),
@@ -87,9 +97,23 @@ export const addExtra = defineTool({
     )
     if (!result) throw new Error('matchIngredients returned no result for one item')
 
-    // The matcher's `quantityWarning` is a per-serving recipe guardrail
-    // (500 g); a day's 750 ml of wine is not a serving, so it does not refuse.
     if (result.type === 'matched' && !result.lowConfidence) {
+      if (hasAmount) {
+        const [named = result.ingredient] = await translateIngredientNames(
+          [result.ingredient],
+          locale,
+        )
+        const shown = displayUnit(result.ingredient)
+        const warning = amountWarning(result, named.name, quantity, unit, shown)
+        if (warning) {
+          return {
+            outcome: 'check_quantity' as const,
+            extra: null,
+            check: { name: named.name, quantity: result.convertedQuantity, unit: shown, warning },
+            alternatives: [],
+          }
+        }
+      }
       return saved(
         await createDayExtra(household, {
           date,
@@ -111,10 +135,36 @@ export const addExtra = defineTool({
     return {
       outcome: 'unmatched' as const,
       extra: null,
+      check: null,
       alternatives: alternatives.map((c) => c.name),
     }
   },
 })
+
+/**
+ * Why a sure match's amount needs the user's word before it is saved, or null.
+ * The assistant converts units itself, so the risky amount is one that crosses
+ * between pieces and weight or volume: Wobblepot guesses 30 g a piece when it
+ * does not know the weight, and the matcher's `quantityWarning` flags a total
+ * that is unusually high. An amount in the ingredient's own unit is saved as
+ * given: the warning is a per-serving recipe limit (500 g), and a day's 750 ml
+ * of wine is not a serving. Sending the amount in that unit clears the check.
+ */
+function amountWarning(
+  match: MatchedIngredient,
+  name: string,
+  quantity: number,
+  unit: MeasuredUnit,
+  shown: MeasuredUnit,
+): string | null {
+  const { defaultUnit, gramsPerPiece } = match.ingredient
+  if ((unit === 'piece') === (defaultUnit === 'piece')) return null
+  const converted = `${quantity} ${unit} became ${match.convertedQuantity} ${shown}`
+  if (!gramsPerPiece) {
+    return `Wobblepot does not know what one piece of ${name} weighs, so ${converted} by a guess.`
+  }
+  return match.quantityWarning ? `${converted}, which is unusually high.` : null
+}
 
 function saved(outcome: Awaited<ReturnType<typeof createDayExtra>>, date: string) {
   // Both refusals need the day to turn over, or the ingredient to go, while this ran.
@@ -128,5 +178,10 @@ function saved(outcome: Awaited<ReturnType<typeof createDayExtra>>, date: string
       'This ingredient was deleted while this ran. Call again to match the name. Nothing was changed.',
     )
   }
-  return { outcome: 'added' as const, extra: toDayExtraOutput(outcome.extra), alternatives: [] }
+  return {
+    outcome: 'added' as const,
+    extra: toDayExtraOutput(outcome.extra),
+    check: null,
+    alternatives: [],
+  }
 }

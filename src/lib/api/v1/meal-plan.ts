@@ -38,7 +38,7 @@ export const dayExtraOutputSchema = z.object({
     .enum(['ingredient', 'text'])
     .describe('ingredient: a catalogue ingredient. text: free text, with no amount.'),
   quantity: z.number().nullable().describe('The amount in unit, or null when it has none.'),
-  unit: z.enum(['g', 'ml', 'piece']).nullable(),
+  unit: z.enum(['g', 'ml', 'piece']).nullable().describe('Null when quantity is null.'),
 })
 
 export function toDayExtraOutput(extra: DayExtraView): z.output<typeof dayExtraOutputSchema> {
@@ -49,8 +49,9 @@ export function toDayExtraOutput(extra: DayExtraView): z.output<typeof dayExtraO
     kind: extra.ingredientId ? 'ingredient' : 'text',
     // `quantity` is in the ingredient's `defaultUnit` and `unit` is how the
     // app shows it; 1 g is 1 ml, so a volume ingredient needs no conversion.
+    // With no amount there is no unit to read it in.
     quantity: extra.quantity,
-    unit: extra.unit,
+    unit: extra.quantity === null ? null : extra.unit,
   }
 }
 
