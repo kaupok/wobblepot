@@ -612,10 +612,6 @@ model HouseholdPreferences {
   @@map("household_preferences")
 }
 
-// The member_preferences table still holds nine old food and macro columns
-// until HON-1327 drops them. `prisma migrate dev` will add DROP COLUMN
-// statements for them to any new migration: remove those lines unless the
-// migration is HON-1327's.
 model MemberPreferences {
   id                String   @id @default(cuid())
   memberId          String   @unique
