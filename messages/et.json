@@ -1218,7 +1218,7 @@
       "household": "Leibkond: {householdName}",
       "scopesHeading": "See saab:",
       "scopes": {
-        "mcpRead": "lugeda sinu söögiplaani, ostunimekirja, sahvrit ja retsepte;",
+        "mcpRead": "lugeda sinu söögiplaani, ostunimekirja, sahvrit, retsepte ja leibkonna seadeid, sealhulgas allergeene ja liikmete nimesid;",
         "mcpWrite": "muuta sinu ostunimekirja, sahvrit ja söögiplaani ning lisada ja muuta retsepte;",
         "openid": "kinnitada, et see oled sina;",
         "profile": "näha sinu nime ja profiilipilti;",
@@ -1741,7 +1741,7 @@
       "unnamed": "Nimeta assistent",
       "connectedOn": "Ühendatud: {date}",
       "scopes": {
-        "mcpRead": "Loeb söögiplaani, ostunimekirja, sahvrit ja retsepte",
+        "mcpRead": "Loeb söögiplaani, ostunimekirja, sahvrit, retsepte ja leibkonna seadeid",
         "mcpWrite": "Muudab ostunimekirja, sahvrit ja söögiplaani ning lisab ja muudab retsepte",
         "openid": "Kinnitab, et see oled sina",
         "profile": "Näeb sinu nime ja profiilipilti",

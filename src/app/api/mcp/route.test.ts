@@ -33,6 +33,10 @@ vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn
 vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn(async () => []) }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
+vi.mock('@/lib/household/members', () => ({ listMembersForAssistant: vi.fn(async () => []) }))
+vi.mock('@/lib/household/excluded-ingredients', () => ({
+  matchExcludedIngredients: vi.fn(async () => []),
+}))
 vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/meals/load-meals')>()),
   loadMeals: vi.fn(),
@@ -47,6 +51,7 @@ import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadMeals } from '@/lib/meals/load-meals'
+import { listMembersForAssistant } from '@/lib/household/members'
 import { NO_HOUSEHOLD_MESSAGE, TOOL_FAILED_MESSAGE, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import {
   legacyMcpRequest,
@@ -72,6 +77,7 @@ const READ_TOOL_NAMES = [
   'get_pantry',
   'list_meals',
   'get_meal',
+  'get_household',
 ]
 const WRITE_TOOL_NAMES = [
   'mark_purchased',
@@ -213,7 +219,7 @@ describe('/api/mcp', () => {
       ['a read-only token', as('user-a')],
       ['a read and write token', asWriter('user-a')],
     ])(
-      'lists the five read tools and the thirteen write tools for %s, each with both schemas',
+      'lists the six read tools and the thirteen write tools for %s, each with both schemas',
       async (_label, headers) => {
         const response = await POST(mcpRequest('tools/list', {}, headers))
         const body = await readMcpBody<{ tools: ListedTool[] }>(response)
@@ -363,6 +369,14 @@ describe('/api/mcp', () => {
         ['household-a', 'mcp'],
         ['household-b', 'mcp'],
       ])
+    })
+
+    it("answers get_household for a read-only token with the caller's household", async () => {
+      const result = await callTool('user-b', 'get_household')
+
+      expect(result.isError).toBeUndefined()
+      expect(result.structuredContent).toMatchObject({ household: { name: 'B' } })
+      expect(vi.mocked(listMembersForAssistant).mock.calls).toEqual([['household-b']])
     })
 
     it('passes the caller’s household to every loader', async () => {

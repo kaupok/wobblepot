@@ -58,7 +58,7 @@ describe('ConnectedAssistantsList', () => {
     expect(within(rows[0]!).getByText('Connected: October 2, 2026')).toBeInTheDocument()
     expect(
       within(rows[0]!).getByText(
-        'Reads meal plan, shopping list, pantry and recipes · Updates shopping list, pantry and meal plan, and adds and changes recipes · Confirms it is you · Sees your name and profile picture · Stays connected',
+        'Reads meal plan, shopping list, pantry, recipes and household settings · Updates shopping list, pantry and meal plan, and adds and changes recipes · Confirms it is you · Sees your name and profile picture · Stays connected',
       ),
     ).toBeInTheDocument()
     expect(within(rows[1]!).getByText('Unnamed assistant')).toBeInTheDocument()

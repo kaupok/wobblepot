@@ -103,6 +103,7 @@ test.describe('MCP server', () => {
       )
       expect(readOnly).toEqual({
         get_meal: true,
+        get_household: true,
         get_meal_plan: true,
         get_pantry: true,
         get_shopping_list: true,

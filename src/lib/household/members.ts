@@ -257,3 +257,30 @@ export async function removeMember(
     await invalidateFutureEntrySteps(tx, caller.householdId, caller.household.timezone)
   })
 }
+
+/**
+ * The members `get_household` reports to an MCP assistant (HON-1323): the
+ * name the household sees, whether the member has an account, and the
+ * portion size. The select names each field, so no email, reminder or token
+ * field can reach the assistant.
+ */
+export async function listMembersForAssistant(householdId: string) {
+  const members = await prisma.householdMember.findMany({
+    where: { householdId },
+    select: {
+      name: true,
+      userId: true,
+      user: { select: { name: true } },
+      preferences: { select: { displayName: true, portionMultiplier: true } },
+    },
+    // Members created together share a `joinedAt`; the id keeps the order stable.
+    orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+  })
+  return members.map((member) => ({
+    // `||`, as `EditMemberPreferencesDialog` reads it: an empty display name
+    // falls through to the account name.
+    name: member.preferences?.displayName || member.user?.name || member.name || null,
+    linked: member.userId !== null,
+    portionMultiplier: member.preferences?.portionMultiplier ?? 1,
+  }))
+}

@@ -7,6 +7,7 @@ import { getShoppingList } from './tools/get-shopping-list'
 import { getPantry } from './tools/get-pantry'
 import { listMeals } from './tools/list-meals'
 import { getMeal } from './tools/get-meal'
+import { getHousehold } from './tools/get-household'
 import { markPurchased } from './tools/mark-purchased'
 import { addShoppingItem } from './tools/add-shopping-item'
 import { checkShoppingItem } from './tools/check-shopping-item'
@@ -33,6 +34,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
   getPantry,
   listMeals,
   getMeal,
+  getHousehold,
   markPurchased,
   addShoppingItem,
   checkShoppingItem,
@@ -78,7 +80,7 @@ export function mcpServerInfo(origin: string): Implementation {
  */
 export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
   const server = new McpServer(mcpServerInfo(origin), {
-    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, update its shopping list, pantry and meal plan, and add and change recipes. The update tools work only when the user allowed this assistant to make changes.`,
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), update its shopping list, pantry and meal plan, and add and change recipes. The update tools work only when the user allowed this assistant to make changes.`,
   })
 
   for (const tool of MCP_TOOLS) {
