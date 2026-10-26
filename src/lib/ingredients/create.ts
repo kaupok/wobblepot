@@ -70,7 +70,7 @@ function toResult(row: CreatedIngredient): CreatedIngredient {
  * ("all-purpose flour" is plain flour), then the household's own row. A near
  * miss ("tomatoe") is not caught; the search box above already shows those.
  */
-async function findExisting(householdId: string, locale: string, name: string) {
+export async function findExisting(householdId: string, locale: string, name: string) {
   const select = { ...RESULT_SELECT, ...ingredientTranslationsInclude(locale) }
   const named = (value: string) => ({ equals: value, mode: 'insensitive' as const })
 
@@ -120,23 +120,30 @@ export async function createHouseholdIngredient(
   if (existing) return toResult(translateIngredient(existing, locale))
 
   return prisma.ingredient.create({
-    data: {
-      householdId,
-      name,
-      category: input.category,
-      subcategory: null,
-      proteinType: isProteinTypedCategory(input.category) ? (input.proteinType ?? null) : null,
-      defaultUnit: input.defaultUnit,
-      gramsPerPiece: input.defaultUnit === 'piece' ? (input.gramsPerPiece ?? null) : null,
-      allergens: [...new Set(input.allergens)],
-      calories: input.calories,
-      protein: input.protein,
-      carbs: input.carbs,
-      fat: input.fat,
-      fiber: input.fiber ?? null,
-      measuredByVolume: false,
-      densityGPerMl: null,
-    },
+    data: { householdId, ...ingredientData(input), subcategory: null, densityGPerMl: null },
     select: RESULT_SELECT,
   })
+}
+
+/**
+ * The columns a household sets for its own row, shared by create and edit
+ * (HON-1264): a protein type only for a protein-typed category, grams per piece
+ * only for a piece unit, each allergen once. A household row is never measured
+ * by volume.
+ */
+export function ingredientData(input: NewIngredientInput) {
+  return {
+    name: normaliseIngredientName(input.name),
+    category: input.category,
+    proteinType: isProteinTypedCategory(input.category) ? (input.proteinType ?? null) : null,
+    defaultUnit: input.defaultUnit,
+    gramsPerPiece: input.defaultUnit === 'piece' ? (input.gramsPerPiece ?? null) : null,
+    allergens: [...new Set(input.allergens)],
+    calories: input.calories,
+    protein: input.protein,
+    carbs: input.carbs,
+    fat: input.fat,
+    fiber: input.fiber ?? null,
+    measuredByVolume: false,
+  }
 }

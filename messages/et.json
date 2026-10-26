@@ -1484,6 +1484,7 @@
     "tabs": {
       "members": "Liikmed",
       "mealPreferences": "Toidueelistused",
+      "ingredients": "Koostisosad",
       "settings": "Seaded"
     },
     "tabTitle": "{tab} · Leibkond",
@@ -1627,6 +1628,35 @@
       "errors": {
         "failed": "Leibkonnast lahkumine ebaõnnestus. Proovi uuesti.",
         "rateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
+      }
+    },
+    "ingredients": {
+      "heading": "Sinu lisatud koostisosad",
+      "empty": "Siin on koostisosad, mille lisad retseptist.",
+      "loadFailed": "Koostisosade laadimine ebaõnnestus. Laadi leht uuesti.",
+      "details": "{category} · Sisaldab: {allergens}",
+      "edit": "Muuda",
+      "editNamed": "Muuda: {name}",
+      "delete": "Kustuta",
+      "deleteNamed": "Kustuta: {name}",
+      "deleting": "Kustutan…",
+      "editTitle": "Muuda koostisosa: {name}",
+      "editDescription": "Retseptid, mis seda koostisosa kasutavad, muutuvad koos sellega.",
+      "deleteTitle": "Kustutad koostisosa: {name}?",
+      "deleteDescription": "Koostisosa kaob sinu leibkonnast. Seda ei saa tagasi võtta.",
+      "deleteFailed": "Koostisosa kustutamine ebaõnnestus. Proovi uuesti.",
+      "inUse": "{name} on veel kasutusel, seega ei saa seda kustutada: {uses}. Eemalda see enne sealt.",
+      "uses": {
+        "meals": "{count, plural, one {# retsept} other {# retsepti}}",
+        "pantry": "sahvris",
+        "shoppingList": "{count, plural, one {# ostunimekirja rida} other {# ostunimekirja rida}}",
+        "mealPlan": "{count, plural, one {# söögiplaani kirje} other {# söögiplaani kirjet}}",
+        "extras": "{count, plural, one {# lisa} other {# lisa}}"
+      },
+      "errors": {
+        "nameTaken": "Selle nimega koostisosa on juba olemas. Vali teine nimi või kasuta retseptides seda koostisosa.",
+        "unitLocked": "See koostisosa on kasutusel, seega selle mõõtühikut ei saa muuta.",
+        "rateLimited": "Liiga palju koostisosade muudatusi. Proovi hiljem uuesti."
       }
     }
   },

@@ -10,7 +10,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The three tabs under "Household" (HON-1257): Members (`/household`), Meal preferences (`/household/meal-preferences`) and Settings (`/household/settings`). Each tab is a route, so a link can name one part. The bar is the shared `RouteTabs`: the current tab has `aria-current="page"`, the foreground colour and a 2px underline in the primary colour. Each tab is at least 44px tall. When the three do not fit, the row scrolls sideways and the page does not.',
+          'The four tabs under "Household" (HON-1257, HON-1264): Members (`/household`), Meal preferences (`/household/meal-preferences`), Ingredients (`/household/ingredients`) and Settings (`/household/settings`). Each tab is a route, so a link can name one part. The bar is the shared `RouteTabs`: the current tab has `aria-current="page"`, the foreground colour and a 2px underline in the primary colour. Each tab is at least 44px tall. When the four do not fit, the row scrolls sideways and the page does not.',
       },
     },
   },
@@ -71,6 +71,13 @@ export const MealPreferences: Story = {
   },
 }
 
+export const Ingredients: Story = {
+  parameters: { nextjs: { navigation: { pathname: '/household/ingredients' } } },
+  play: async ({ canvasElement }) => {
+    await expect(currentTabs(canvasElement)).toEqual(['Ingredients'])
+  },
+}
+
 export const Settings: Story = {
   parameters: { nextjs: { navigation: { pathname: '/household/settings' } } },
   play: async ({ canvasElement }) => {
@@ -78,7 +85,7 @@ export const Settings: Story = {
   },
 }
 
-/** At 360px the three tabs sit in one row of 44px tabs inside the column. */
+/** At 360px the four tabs sit in one row of 44px tabs inside the column. */
 export const PhoneWidth: Story = {
   parameters: {
     nextjs: { navigation: { pathname: '/household/settings' } },
@@ -106,6 +113,7 @@ export const EstonianPhoneWidth: Story = {
     await expect(nav.getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Liikmed',
       'Toidueelistused',
+      'Koostisosad',
       'Seaded',
     ])
     await expect(currentTabs(canvasElement, 'Leibkonna osad')).toEqual(['Seaded'])

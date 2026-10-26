@@ -1484,6 +1484,7 @@
     "tabs": {
       "members": "Members",
       "mealPreferences": "Meal preferences",
+      "ingredients": "Ingredients",
       "settings": "Settings"
     },
     "tabTitle": "{tab} · Household",
@@ -1627,6 +1628,35 @@
       "errors": {
         "failed": "Could not leave the household. Try again.",
         "rateLimited": "You have left a household 3 times in the last 30 days. Try again later."
+      }
+    },
+    "ingredients": {
+      "heading": "Ingredients you added",
+      "empty": "Ingredients you add from a recipe show here.",
+      "loadFailed": "Could not load your ingredients. Reload the page to try again.",
+      "details": "{category} · Contains: {allergens}",
+      "edit": "Edit",
+      "editNamed": "Edit {name}",
+      "delete": "Delete",
+      "deleteNamed": "Delete {name}",
+      "deleting": "Deleting…",
+      "editTitle": "Edit ingredient: {name}",
+      "editDescription": "Recipes that use this ingredient change with it.",
+      "deleteTitle": "Delete ingredient: {name}?",
+      "deleteDescription": "This removes the ingredient from your household. You cannot undo this.",
+      "deleteFailed": "Could not delete the ingredient. Try again.",
+      "inUse": "{name} is still in use, so you cannot delete it: {uses}. Remove it from those first.",
+      "uses": {
+        "meals": "{count, plural, one {# recipe} other {# recipes}}",
+        "pantry": "the pantry",
+        "shoppingList": "{count, plural, one {# shopping list item} other {# shopping list items}}",
+        "mealPlan": "{count, plural, one {# meal plan entry} other {# meal plan entries}}",
+        "extras": "{count, plural, one {# extra} other {# extras}}"
+      },
+      "errors": {
+        "nameTaken": "An ingredient with this name exists. Choose another name, or use that ingredient in your recipes.",
+        "unitLocked": "This ingredient is in use, so its unit cannot change.",
+        "rateLimited": "Too many ingredient changes. Try again later."
       }
     }
   },

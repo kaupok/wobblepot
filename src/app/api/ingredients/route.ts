@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { Allergen, IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { searchIngredients } from '@/lib/ingredients/search'
 import { createHouseholdIngredient } from '@/lib/ingredients/create'
-import {
-  GRAMS_PER_PIECE_MAX,
-  isProteinTypedCategory,
-  NEW_INGREDIENT_NAME_MAX,
-  NUTRITION_MAX,
-  PROTEIN_TYPES_BY_CATEGORY,
-} from '@/lib/ingredients/new-ingredient'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { ingredientRateLimited, parseIngredientBody } from './request'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
@@ -63,46 +55,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** Per 100 g, from 0 to the bound in `NUTRITION_MAX`. */
-const per100g = (max: number) => z.number().finite().min(0).max(max)
-
-const createSchema = z
-  .object({
-    name: z.string().trim().min(1).max(NEW_INGREDIENT_NAME_MAX),
-    category: z.enum(IngredientCategory),
-    proteinType: z.enum(ProteinType).optional(),
-    defaultUnit: z.enum(Unit),
-    gramsPerPiece: z.number().finite().gt(0).max(GRAMS_PER_PIECE_MAX).optional(),
-    allergens: z
-      .array(z.enum(Allergen))
-      .refine((list) => new Set(list).size === list.length, 'Repeated allergen'),
-    calories: per100g(NUTRITION_MAX.calories),
-    protein: per100g(NUTRITION_MAX.protein),
-    carbs: per100g(NUTRITION_MAX.carbs),
-    fat: per100g(NUTRITION_MAX.fat),
-    fiber: per100g(NUTRITION_MAX.fiber).optional(),
-  })
-  .superRefine((body, ctx) => {
-    if (isProteinTypedCategory(body.category)) {
-      const allowed: readonly string[] = PROTEIN_TYPES_BY_CATEGORY[body.category]
-      if (!body.proteinType || !allowed.includes(body.proteinType)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['proteinType'],
-          message: `One of ${allowed.join(', ')} for ${body.category}`,
-        })
-      }
-    } else if (body.proteinType !== undefined) {
-      ctx.addIssue({ code: 'custom', path: ['proteinType'], message: 'Not for this category' })
-    }
-    if (body.defaultUnit === 'piece' && body.gramsPerPiece === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['gramsPerPiece'], message: 'Required for piece' })
-    }
-    if (body.defaultUnit === 'g' && body.gramsPerPiece !== undefined) {
-      ctx.addIssue({ code: 'custom', path: ['gramsPerPiece'], message: 'Only for piece' })
-    }
-  })
-
 /**
  * POST /api/ingredients
  *
@@ -122,38 +74,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No household found' }, { status: 403 })
   }
 
-  let body
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const parsed = createSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    )
-  }
+  const parsed = await parseIngredientBody(request)
+  if ('response' in parsed) return parsed.response
 
   const { household } = membership
 
   try {
-    const rateLimitResult = await checkRateLimit(household.id, 'ingredient-create')
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded',
-          message: `Maximum ${rateLimitResult.limit} new ingredients per hour`,
-          resetAt: rateLimitResult.resetAt.toISOString(),
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
-        },
-      )
-    }
+    const limited = await ingredientRateLimited(household.id)
+    if (limited) return limited
 
     const ingredient = await createHouseholdIngredient(
       household.id,

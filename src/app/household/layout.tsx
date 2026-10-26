@@ -3,7 +3,7 @@ import { Heading } from '@/components/ui/typography'
 import { HouseholdTabs } from './HouseholdTabs'
 
 /**
- * The "Household" title and its three tabs (HON-1257). Each tab's page owns
+ * The "Household" title and its tabs (HON-1257, HON-1264). Each tab's page owns
  * its session and household checks (`requireHouseholdMember`), because this
  * layout does not re-run when the user moves between tabs.
  */
