@@ -24,11 +24,12 @@ import { removeExtra } from './tools/remove-extra'
 import { clearMeal } from './tools/clear-meal'
 import { setMealStatus } from './tools/set-meal-status'
 import { setMealServings } from './tools/set-meal-servings'
+import { removeShoppingItem } from './tools/remove-shopping-item'
 
 /**
  * Every tool the server lists, for every token. The write tools (HON-1154,
  * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314, HON-1281, HON-1329,
- * HON-1330, HON-1331) need
+ * HON-1330, HON-1331, HON-1332) need
  * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
  * so the model can tell the user what to do.
  */
@@ -55,6 +56,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
   clearMeal,
   setMealStatus,
   setMealServings,
+  removeShoppingItem,
 ] as McpTool[]
 
 export const MCP_SERVER_DESCRIPTION = "Wobblepot is the household's meal planner."
