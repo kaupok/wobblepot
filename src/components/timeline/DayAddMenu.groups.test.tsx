@@ -5,7 +5,8 @@ import { createQueryWrapper } from '@/test/query-wrapper'
 import type { MealType } from '@/generated/prisma/enums'
 import { DayAddMenu } from './DayAddMenu'
 
-// One "+ Add" menu per day: a group per empty slot, then Extra (HON-1335).
+// One "+ Add" menu per day: the routes for each empty slot, then Extra
+// (HON-1335). Two or more empty slots each open a submenu (HON-1341).
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -52,46 +53,97 @@ function renderMenu(emptySlots: MealType[]) {
 const addButton = () => screen.getByRole('button', { name: 'Add to Thursday Apr 16' })
 
 describe('DayAddMenu groups', () => {
-  it('shows one group per empty slot, in slot order, each with the routes', async () => {
+  it('shows one submenu per empty slot, in slot order, then Extra', async () => {
     const user = renderMenu(['breakfast', 'lunch', 'dinner'])
 
     await user.click(addButton())
 
     const menu = await screen.findByRole('menu')
-    const groups = within(menu).getAllByRole('group')
-    expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
-      'Breakfast',
-      'Lunch',
-      'Dinner',
-    ])
-    for (const name of ['Breakfast', 'Lunch', 'Dinner']) {
-      const group = within(menu).getByRole('group', { name })
-      expect(
-        within(group)
-          .getAllByRole('menuitem')
-          .map((item) => item.textContent),
-      ).toEqual(ROUTES)
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Extra'])
+    for (const slot of items.slice(0, 3)) {
+      expect(slot).toHaveAttribute('aria-haspopup', 'menu')
     }
+    expect(within(menu).queryByRole('group')).toBeNull()
+  })
+
+  it('opens a slot submenu with the routes on a tap', async () => {
+    const user = renderMenu(['lunch', 'dinner'])
+
+    await user.click(addButton())
+    await user.click(await screen.findByRole('menuitem', { name: 'Dinner' }))
+
+    const submenu = await screen.findByRole('menu', { name: 'Dinner' })
+    expect(
+      within(submenu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(ROUTES)
+  })
+
+  it('opens a slot submenu with ArrowRight and closes it with ArrowLeft', async () => {
+    const user = renderMenu(['lunch', 'dinner'])
+
+    addButton().focus()
+    await user.keyboard('{Enter}')
+    const lunch = await screen.findByRole('menuitem', { name: 'Lunch' })
+    await waitFor(() => expect(lunch).toHaveFocus())
+    await user.keyboard('{ArrowRight}')
+
+    await waitFor(() => expect(screen.getAllByRole('menu')).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Choose a recipe' })).toHaveFocus(),
+    )
+
+    await user.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(screen.getAllByRole('menu')).toHaveLength(1))
+    expect(lunch).toHaveFocus()
+  })
+
+  it('runs a route from a submenu for the slot it belongs to', async () => {
+    const user = renderMenu(['lunch', 'dinner'])
+
+    // By keyboard: jsdom does not finish a pointer click inside a Radix
+    // submenu. The `MenuOpen` story clicks through one in a browser.
+    addButton().focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Lunch' })).toHaveFocus())
+    await user.keyboard('{ArrowDown}{ArrowRight}')
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Choose a recipe' })).toHaveFocus(),
+    )
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+
+    await waitFor(() =>
+      expect(requests).toContainEqual({ method: 'POST', url: '/api/meal-plans/plan-1/entries' }),
+    )
+    const post = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ date: '2026-04-16', mealType: 'dinner' })
   })
 
   it('leaves out a filled slot', async () => {
-    const user = renderMenu(['lunch'])
+    const user = renderMenu(['breakfast', 'dinner'])
 
     await user.click(addButton())
 
     const menu = await screen.findByRole('menu')
-    expect(within(menu).getAllByRole('group')).toHaveLength(1)
-    expect(within(menu).queryByRole('group', { name: 'Dinner' })).toBeNull()
-    expect(within(menu).queryByRole('group', { name: 'Breakfast' })).toBeNull()
+    expect(within(menu).queryByRole('menuitem', { name: 'Lunch' })).toBeNull()
   })
 
-  it('labels the group also when only one slot is empty', async () => {
+  it('shows the only empty slot flat, its routes under its label', async () => {
     const user = renderMenu(['dinner'])
 
     await user.click(addButton())
 
-    const group = await screen.findByRole('group', { name: 'Dinner' })
+    const menu = await screen.findByRole('menu')
+    const group = within(menu).getByRole('group', { name: 'Dinner' })
     expect(within(group).getByText('Dinner')).toBeVisible()
+    expect(
+      within(group)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(ROUTES)
+    expect(within(menu).queryByRole('menuitem', { name: 'Dinner' })).toBeNull()
   })
 
   it('ends with Extra after a separator', async () => {

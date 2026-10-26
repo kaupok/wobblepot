@@ -10,7 +10,11 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MEAL_ROUTES, type AddMealChoice } from '@/components/meal-plan/AddMealMenu'
@@ -55,11 +59,13 @@ interface DayAddMenuProps {
 }
 
 /**
- * The day heading's one add control (HON-1335): a "+ Add" menu with a group of
- * routes per empty slot and "Extra" last. A grouped flat list, not a submenu
- * per slot, so a meal stays two taps away and the arrow keys walk one list.
- * A day with no empty slot shows the "+ Extra" button alone, not a one-item
- * menu.
+ * The day heading's one add control (HON-1335): a "+ Add" menu with the routes
+ * for each empty slot and "Extra" last. With two or more empty slots, each
+ * slot is a submenu of its routes (HON-1341): a flat list of every slot's
+ * routes ran to 16 rows and scrolled. A submenu opens on a tap and from the
+ * keyboard, not only on hover. With one empty slot the routes sit flat under
+ * its label, so a half-planned day stays two taps away. A day with no empty
+ * slot shows the "+ Extra" button alone, not a one-item menu.
  */
 export function DayAddMenu({
   planId,
@@ -121,6 +127,9 @@ export function DayAddMenu({
     return <AddExtra date={date} dayLabel={dayLabel} buttonRef={buttonRef} />
   }
 
+  // The only empty slot shows flat; two or more each get a submenu (HON-1341).
+  const onlySlot = emptySlots.length === 1 ? emptySlots[0] : undefined
+
   function choose(mealType: MealType, choice: AddMealChoice) {
     controllers.current.get(mealType)?.choose(choice)
   }
@@ -166,14 +175,17 @@ export function DayAddMenu({
             setIsExtraOpen(true)
           }}
         >
-          {emptySlots.map((mealType, index) => (
-            <SlotGroup
-              key={mealType}
-              mealType={mealType}
-              withSeparator={index > 0}
-              onChoose={(choice) => choose(mealType, choice)}
-            />
-          ))}
+          {onlySlot ? (
+            <SlotGroup mealType={onlySlot} onChoose={(choice) => choose(onlySlot, choice)} />
+          ) : (
+            emptySlots.map((mealType) => (
+              <SlotSubmenu
+                key={mealType}
+                mealType={mealType}
+                onChoose={(choice) => choose(mealType, choice)}
+              />
+            ))
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => {
@@ -216,32 +228,48 @@ export function DayAddMenu({
   )
 }
 
-/** One empty slot's routes, under its meal type, also when it is the only one. */
-function SlotGroup({
-  mealType,
-  withSeparator,
-  onChoose,
-}: {
+interface SlotRoutesProps {
   mealType: MealType
-  withSeparator: boolean
   onChoose: (choice: AddMealChoice) => void
-}) {
+}
+
+/** The four routes to a meal, in the Swap group's order and words. */
+function SlotRoutes({ onChoose }: Pick<SlotRoutesProps, 'onChoose'>) {
   const tCard = useTranslations('meal-plan.card')
+  return MEAL_ROUTES.map(({ choice, label, Icon }) => (
+    <DropdownMenuItem key={choice} onSelect={() => onChoose(choice)}>
+      <Icon aria-hidden="true" />
+      {tCard(label)}
+    </DropdownMenuItem>
+  ))
+}
+
+/** The only empty slot's routes, flat under its meal type. */
+function SlotGroup({ mealType, onChoose }: SlotRoutesProps) {
   const mealTypeLabel = useEnumLabel('MealType', mealType)
   const labelId = useId()
 
   return (
-    <>
-      {withSeparator && <DropdownMenuSeparator />}
-      <DropdownMenuGroup aria-labelledby={labelId}>
-        <DropdownMenuLabel id={labelId}>{mealTypeLabel}</DropdownMenuLabel>
-        {MEAL_ROUTES.map(({ choice, label, Icon }) => (
-          <DropdownMenuItem key={choice} onSelect={() => onChoose(choice)}>
-            <Icon aria-hidden="true" />
-            {tCard(label)}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuGroup>
-    </>
+    <DropdownMenuGroup aria-labelledby={labelId}>
+      <DropdownMenuLabel id={labelId}>{mealTypeLabel}</DropdownMenuLabel>
+      <SlotRoutes onChoose={onChoose} />
+    </DropdownMenuGroup>
+  )
+}
+
+/** One of several empty slots: its meal type, opening a submenu of its routes. */
+function SlotSubmenu({ mealType, onChoose }: SlotRoutesProps) {
+  const mealTypeLabel = useEnumLabel('MealType', mealType)
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>{mealTypeLabel}</DropdownMenuSubTrigger>
+      {/* Portalled, so the parent menu's scroll box cannot clip it. */}
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent>
+          <SlotRoutes onChoose={onChoose} />
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
   )
 }

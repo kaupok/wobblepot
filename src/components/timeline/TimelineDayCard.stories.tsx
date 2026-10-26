@@ -147,7 +147,7 @@ export const MixedEntriesAndEmpty: Story = {
     docs: {
       description: {
         story:
-          'One planned dinner; the "+ Add" menu on the heading line offers the empty breakfast and lunch slots, then Extra.',
+          'One planned dinner; the "+ Add" menu on the heading line offers a submenu for each empty slot, breakfast and lunch, then Extra.',
       },
     },
   },
@@ -159,11 +159,11 @@ export const MixedEntriesAndEmpty: Story = {
     await expect(canvas.queryByRole('button', { name: /^Add an extra/ })).toBeNull()
     await userEvent.click(add)
     const menu = await within(document.body).findByRole('menu')
-    const groups = within(menu).getAllByRole('group')
-    await expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
-      'Breakfast',
-      'Lunch',
-    ])
+    await expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Breakfast', 'Lunch', 'Extra'])
     await userEvent.keyboard('{Escape}')
   },
 }
