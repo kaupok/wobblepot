@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
 
-// Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
+// Runs against PGlite through the `unit-db` project (HON-1186), with no
+// module mocks; one test spies on the transaction to make a clear fail.
 // The cron route test covers the file delete after these clears commit.
 
 const NOW = new Date('2026-10-26T03:00:00.000Z')
@@ -59,5 +60,26 @@ describe('purgeExpiredDeletedMealImages', () => {
     })
 
     expect(await purgeExpiredDeletedMealImages(NOW)).toEqual([])
+  })
+  it('returns the URLs it cleared when a later clear fails, and leaves the failed one for the next run', async () => {
+    await meal('a-deleted', daysAgo(31))
+    await meal('b-deleted', daysAgo(40))
+    await meal('c-deleted', daysAgo(50))
+    const transaction = prisma.$transaction.bind(prisma)
+    const spy = vi.spyOn(prisma, '$transaction')
+    spy.mockImplementationOnce(transaction as never)
+    spy.mockImplementationOnce(transaction as never)
+    spy.mockRejectedValueOnce(new Error('connection lost'))
+
+    try {
+      expect(await purgeExpiredDeletedMealImages(NOW)).toEqual([
+        imageOf('a-deleted'),
+        imageOf('b-deleted'),
+      ])
+    } finally {
+      spy.mockRestore()
+    }
+    expect((await imageColumns('c-deleted')).imageUrl).toBe(imageOf('c-deleted'))
+    expect(await purgeExpiredDeletedMealImages(NOW)).toEqual([imageOf('c-deleted')])
   })
 })

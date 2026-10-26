@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meals'
+import {
+  deleteHouseholdMeal,
+  HouseholdMealError,
+  type HouseholdMealRefusal,
+} from '@/lib/household-meals'
+import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import {
   listRecentlyDeletedHouseholdMeals,
   restoreHouseholdMeal,
@@ -16,12 +21,14 @@ const daysAgo = (days: number) => new Date(NOW.getTime() - days * DAY_MS)
 const IMAGE = 'https://store.example/meals/meal-recent.png'
 
 /**
- * Alder has a live curry, a recipe deleted 1 day ago with an image, one
+ * Alder has a meal plan, a live curry, a recipe deleted 1 day ago with an image, one
  * deleted 29 days ago, and one deleted 31 days ago. Birch has one deleted
  * 2 days ago. The library has one meal.
  */
 async function world() {
-  const alder = await prisma.household.create({ data: { name: 'Alder' } })
+  const alder = await prisma.household.create({
+    data: { name: 'Alder', mealPlans: { create: { id: 'plan-alder' } } },
+  })
   const birch = await prisma.household.create({ data: { name: 'Birch' } })
 
   const meal = (id: string, householdId: string | null, deletedAt: Date | null) =>
@@ -126,5 +133,21 @@ describe('restoreHouseholdMeal', () => {
     await restoreHouseholdMeal(alder, 'meal-recent', NOW)
 
     expect(await deletedAtOf('meal-recent')).toBeNull()
+  })
+  it('lets the planner plan a recipe again once it is restored', async () => {
+    const { alder } = await world()
+    const slot = { date: new Date('2026-10-27T00:00:00Z'), mealType: 'dinner' as const }
+    await deleteHouseholdMeal(alder, 'meal-live')
+
+    const refused = await createEntry(alder, 'plan-alder', { ...slot, mealId: 'meal-live' }).catch(
+      (error: unknown) => error,
+    )
+    expect(refused).toBeInstanceOf(EntryCreateError)
+    expect((refused as EntryCreateError).reason).toBe('mealNotFound')
+
+    await restoreHouseholdMeal(alder, 'meal-live')
+
+    const planned = await createEntry(alder, 'plan-alder', { ...slot, mealId: 'meal-live' })
+    expect(planned).toMatchObject({ mealId: 'meal-live', status: 'planned' })
   })
 })
