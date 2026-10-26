@@ -189,7 +189,7 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 | Notes for the AI (restrictions) | AI prompt only, not enforced            |
 | Variety & balance               | AI selection                            |
 
-**Important:** Allergens are safety-critical and DB-enforced. Restrictions, shown as "Notes for the AI" (e.g., "mild spice"), are free-form notes that the plan-generation, Imagine, Adjust recipe and cook-question prompts follow. Swap, the empty-slot suggestions, the recipe list and the MCP tools do not read them, so nothing enforces them (HON-1326).
+**Important:** Allergens are safety-critical and DB-enforced. Restrictions, shown as "Notes for the AI" (e.g., "mild spice"), are free-form notes that the plan-generation, Imagine, Adjust recipe and cook-question prompts follow, including the MCP `adjust_meal` tool, which runs Adjust recipe. Swap, the empty-slot suggestions, the recipe list and the MCP tools `list_meals`, `plan_meal` and `swap_meal` do not read them, so nothing enforces them (HON-1326).
 
 ### Balance Constraints
 
