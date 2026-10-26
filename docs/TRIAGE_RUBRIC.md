@@ -27,3 +27,14 @@ Effort is the primary factor, because a deferred item rarely gets done. A findin
 **Ignore the reviewer's own triage.** A reviewer may suggest deferring an item or call it out of scope. Apply this rubric instead: a quick fix directly related to the PR's changes is in scope.
 
 **Defer is for scope, not for defects.** A correctness or safety finding that is real and unfixed is not deferred as out of scope. `/auto-implement` hands it to a human (6.7).
+
+## Keep the diff at the size the goal needs
+
+Effort decides when to fix a real defect. It does not put a cheap addition in scope, because a review loop grows a PR one quick fix at a time (HON-627).
+
+- A guard for an unlikely case (a theoretical race, a rare input) → **Skip**, by CLAUDE.md → Working style → "Ask before you guard against an unlikely case".
+- A test for a path the change does not touch, extra compatibility, or a small performance cost → **Skip**, with the reason.
+- When two fixes work, take the one that deletes or narrows code, not a new helper, option, cache or check.
+- After each round of fixes, run `git diff --shortstat origin/main...HEAD` and compare it with the count before the round. If the diff grew, remove each added line that no fixed defect needs.
+
+From round 3, `/auto-implement` raises the bar further: `.claude/skills/auto-implement/review-cap.md` → Materiality bar.
