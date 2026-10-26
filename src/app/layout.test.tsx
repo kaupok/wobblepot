@@ -233,6 +233,22 @@ describe('generateMetadata', () => {
     expect(JSON.stringify(metadata)).not.toContain('og-image.png')
   })
 
+  // HON-1320: only staging swaps in the dotted set, so the test env serves the
+  // production URLs, with the favicon listed explicitly now that it lives in
+  // `public/` and not in the `src/app` file convention.
+  it('lists the production favicon, PWA and Apple icons outside staging', async () => {
+    const metadata = await generateMetadata()
+
+    expect(metadata.icons).toEqual({
+      icon: [
+        { url: '/favicon.ico', sizes: 'any' },
+        { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    })
+  })
+
   it('still describes the card through the meta.root keys', async () => {
     const metadata = await generateMetadata()
 

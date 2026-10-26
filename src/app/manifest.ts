@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getTranslations } from 'next-intl/server'
+import { getAppIcons } from '@/lib/app-icons'
+import { clientEnv } from '@/lib/env'
 
 /**
  * The PWA install description follows the request locale through next-intl's
@@ -19,29 +21,6 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#ffffff',
-    icons: [
-      {
-        src: '/icons/icon-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-      {
-        src: '/icons/icon-512x512.png',
-        sizes: '512x512',
-        type: 'image/png',
-      },
-      {
-        src: '/icons/icon-maskable-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
-      {
-        src: '/icons/icon-maskable-512x512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
-    ],
+    icons: getAppIcons(clientEnv.NEXT_PUBLIC_APP_ENV).manifest,
   }
 }
