@@ -28,20 +28,22 @@ async function ingredient(name: string, et?: string, householdId: string | null 
 
 async function world() {
   const alder = await prisma.household.create({ data: { name: 'Alder' } })
-  const birch = await prisma.household.create({ data: { name: 'Birch' } })
+  const birch = await prisma.household.create({ data: { name: 'Birch', locale: 'et' } })
   const rows = {
     mushroom: await ingredient('mushroom', 'seen'),
     shiitake: await ingredient('shiitake mushroom', 'šiitake'),
     chestnut: await ingredient('chestnut mushroom', 'pruun šampinjon'),
     porkMince: await ingredient('pork mince', 'seahakkliha'),
     porkBelly: await ingredient('pork belly', 'seakõht'),
+    paprika: await ingredient('paprika', 'paprikapulber'),
+    bellPepper: await ingredient('bell pepper', 'paprika'),
     egg: await ingredient('egg', 'muna'),
     aubergine: await ingredient('aubergine', 'baklažaan'),
     nutmeg: await ingredient('nutmeg', 'muskaatpähkel'),
     alderMushroom: await ingredient('Grandma pickled mushrooms', undefined, alder.id),
     birchMushroom: await ingredient('Birch mushroom mix', undefined, birch.id),
   }
-  return { alder, rows }
+  return { alder, birch, rows }
 }
 
 describe('getExcludedIngredientIds', () => {
@@ -96,6 +98,18 @@ describe('getExcludedIngredientIds', () => {
     expect((await getExcludedIngredientIds(alder.id, ['seened'])).sort()).toEqual(english.sort())
   })
 
+  // "paprika" is the spice in English and bell pepper in Estonian.
+  it("reads a name that is also an Estonian word in the household's language", async () => {
+    const { alder, birch, rows } = await world()
+
+    const english = await getExcludedIngredientIds(alder.id, ['paprika'])
+    const estonian = await getExcludedIngredientIds(birch.id, ['paprika'])
+
+    expect(english).toContain(rows.paprika.id)
+    expect(english).not.toContain(rows.bellPepper.id)
+    expect(estonian).toEqual(expect.arrayContaining([rows.paprika.id, rows.bellPepper.id]))
+  })
+
   it('excludes nothing for a name no ingredient carries', async () => {
     const { alder } = await world()
 
@@ -105,10 +119,10 @@ describe('getExcludedIngredientIds', () => {
 })
 
 describe('matchExcludedIngredients', () => {
-  it('lists each tag with its matches in the locale, and an empty list for no match', async () => {
-    const { alder } = await world()
+  it("lists each tag with its matches in the household's locale, and an empty list for no match", async () => {
+    const { birch } = await world()
 
-    const matches = await matchExcludedIngredients(alder.id, ['shiitake', 'dragonfruit'], 'et')
+    const matches = await matchExcludedIngredients(birch.id, ['shiitake', 'dragonfruit'])
 
     expect(matches).toEqual([
       { tag: 'shiitake', ingredients: [expect.objectContaining({ name: 'šiitake' })] },

@@ -9,25 +9,9 @@ import {
   matchExcludedIngredients,
   updateHouseholdPreferences,
 } from '@/lib/household/preferences'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /** The fields a planned meal can break; a save that sends one is counted (HON-1126). */
 const FOOD_FIELDS = ['dietaryType', 'allergensToAvoid', 'excludedIngredients'] as const
-
-/**
- * The rows each "Ingredients to avoid" tag excludes, named in the household's
- * locale, so the form can show what a tag matched (HON-1321).
- */
-function excludedMatches(
-  household: { id: string; locale: string },
-  excludedIngredients: readonly string[],
-) {
-  return matchExcludedIngredients(
-    household.id,
-    excludedIngredients,
-    resolveHouseholdLocale(household),
-  )
-}
 
 const updatePreferencesSchema = z.object({
   dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
@@ -72,7 +56,10 @@ export async function GET() {
     const { preferences } = membership.household
     return NextResponse.json({
       ...preferences,
-      excludedMatches: await excludedMatches(membership.household, preferences.excludedIngredients),
+      excludedMatches: await matchExcludedIngredients(
+        membership.household.id,
+        preferences.excludedIngredients,
+      ),
     })
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/preferences', userId: session.user.id })
@@ -122,7 +109,11 @@ export async function PATCH(request: Request) {
     const saved = await updateHouseholdPreferences(membership.household.id, parsed.data)
     const preferences = {
       ...saved,
-      excludedMatches: await excludedMatches(membership.household, saved.excludedIngredients),
+      // What each tag now excludes, so the form can warn about one that matches nothing (HON-1321).
+      excludedMatches: await matchExcludedIngredients(
+        membership.household.id,
+        saved.excludedIngredients,
+      ),
     }
 
     // A food save says how many planned meals now break the preferences, so

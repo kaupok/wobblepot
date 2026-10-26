@@ -1,6 +1,6 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { matchTags, type ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
 
 export type { ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
@@ -19,16 +19,19 @@ export type { ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
 export async function matchExcludedIngredients(
   householdId: string,
   tags: readonly string[],
-  locale: string = DEFAULT_LOCALE,
 ): Promise<ExcludedMatch[]> {
   if (tags.length === 0) return []
   // The whole pool, about a thousand rows: a `contains` prefilter in SQL
-  // misses the plural row names ("mixed berries" for "berry").
-  const pool = await prisma.ingredient.findMany({
-    where: { OR: [{ householdId: null }, { householdId }] },
-    select: { id: true, name: true, translations: { select: { locale: true, name: true } } },
-  })
-  return matchTags(tags, pool, locale)
+  // misses the plural row names ("mixed berries" for "berry"). The locale
+  // decides how a tag reads (`matchTag`) and names the matches.
+  const [household, pool] = await Promise.all([
+    prisma.household.findUnique({ where: { id: householdId }, select: { locale: true } }),
+    prisma.ingredient.findMany({
+      where: { OR: [{ householdId: null }, { householdId }] },
+      select: { id: true, name: true, translations: { select: { locale: true, name: true } } },
+    }),
+  ])
+  return matchTags(tags, pool, resolveHouseholdLocale(household))
 }
 
 /** The ids of every ingredient the household's tags exclude, for the planning filters. */

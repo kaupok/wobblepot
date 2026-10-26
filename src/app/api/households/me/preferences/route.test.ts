@@ -253,20 +253,19 @@ describe('PATCH /api/households/me/preferences', () => {
 
   // HON-1321: the form shows what each tag matched, so a household sees a
   // tag that excludes nothing.
-  it('answers what each tag matches, in the household locale, on GET and PATCH', async () => {
+  it('answers what each tag matches on GET and PATCH', async () => {
     mockGetMembership.mockResolvedValue(
       membership({ preferences: { ...PREFERENCES, excludedIngredients: ['seened'] } }),
     )
     expect((await answer(GET())).body.excludedMatches).toEqual(matchesFor(['seened']))
-    expect(mockMatchExcluded).toHaveBeenLastCalledWith('household-123', ['seened'], 'et')
+    expect(mockMatchExcluded).toHaveBeenLastCalledWith('household-123', ['seened'])
 
     const saved = await answer(patch({ excludedIngredients: ['mushrooms', 'dragonfruit'] }))
     expect(saved.body.excludedMatches).toEqual(matchesFor(['mushrooms', 'dragonfruit']))
-    expect(mockMatchExcluded).toHaveBeenLastCalledWith(
-      'household-123',
-      ['mushrooms', 'dragonfruit'],
-      'et',
-    )
+    expect(mockMatchExcluded).toHaveBeenLastCalledWith('household-123', [
+      'mushrooms',
+      'dragonfruit',
+    ])
   })
 
   it('does not count conflicts after a meal-types save', async () => {

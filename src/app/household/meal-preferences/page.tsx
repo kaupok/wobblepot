@@ -1,6 +1,5 @@
 import { Body } from '@/components/ui/typography'
 import { matchExcludedIngredients } from '@/lib/household/preferences'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { FoodPreferencesForm } from './FoodPreferencesForm'
 import { MealsToPlanForm } from './MealsToPlanForm'
 import { householdTabMetadata, requireHouseholdMember } from '../household-member'
@@ -31,7 +30,6 @@ export default async function HouseholdMealPreferencesPage() {
   const excludedMatches = await matchExcludedIngredients(
     membership.household.id,
     stored?.excludedIngredients ?? [],
-    resolveHouseholdLocale(membership.household),
   )
 
   return (

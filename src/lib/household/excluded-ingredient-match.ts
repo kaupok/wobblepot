@@ -1,4 +1,5 @@
 import { findSynonym } from '@/lib/ingredient-aliases'
+import { isDefaultLocale } from '@/lib/i18n/locales'
 
 /**
  * The rule that turns a household's "Ingredients to avoid" tags into
@@ -93,17 +94,23 @@ function englishTerms(tag: string): string[][] {
 /**
  * Every row of `pool` that `tag` excludes.
  *
- * The translated names are read only when the tag matches no English name.
  * Some English names are also Estonian words with another meaning: "paprika"
- * is the spice in English and bell pepper in Estonian, "pasta" is paste. A
- * tag that names an English row means that row.
+ * is the spice in English and bell pepper in Estonian. So the household's
+ * locale decides. An English household reads the translated names only when
+ * the tag matches no English name, so its "paprika" is the spice. Any other
+ * household reads them too, so an Estonian "paprika" excludes bell pepper as
+ * well as the spice.
  *
  * A row matched through a translated name adds its English name as a term,
  * so the Estonian name of "mushroom" excludes the same rows as "mushroom".
  * Estonian writes most kinds as one word ("austriseen" for oyster mushroom),
  * so the translated names alone would miss them.
  */
-export function matchTag(tag: string, pool: readonly ExclusionPoolRow[]): ExclusionPoolRow[] {
+export function matchTag(
+  tag: string,
+  pool: readonly ExclusionPoolRow[],
+  locale: string,
+): ExclusionPoolRow[] {
   const byEnglish = (row: ExclusionPoolRow, search: string[][]) => {
     const name = wordKeys(row.name)
     return search.some((term) => containsWords(name, term, sameWord))
@@ -111,13 +118,16 @@ export function matchTag(tag: string, pool: readonly ExclusionPoolRow[]): Exclus
 
   const terms = englishTerms(tag)
   const matched = new Set(pool.filter((row) => byEnglish(row, terms)))
-  if (matched.size > 0) return [...matched]
+  if (matched.size > 0 && isDefaultLocale(locale)) return [...matched]
 
   const tagWords = wordKeys(tag)
-  const viaTranslation = pool.filter((row) =>
-    row.translations.some((t) => containsWords(wordKeys(t.name), tagWords, translatedWordMatches)),
+  const viaTranslation = pool.filter(
+    (row) =>
+      !matched.has(row) &&
+      row.translations.some((t) =>
+        containsWords(wordKeys(t.name), tagWords, translatedWordMatches),
+      ),
   )
-  if (viaTranslation.length === 0) return []
   const englishNames = viaTranslation.map((row) => wordKeys(row.name))
   for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
   for (const row of viaTranslation) matched.add(row)
@@ -137,7 +147,7 @@ export function matchTags(
 ): ExcludedMatch[] {
   return tags.map((tag) => ({
     tag,
-    ingredients: matchTag(tag, pool)
+    ingredients: matchTag(tag, pool, locale)
       .map((row) => ({ id: row.id, name: displayName(row, locale) }))
       .sort((a, b) => a.name.localeCompare(b.name, locale)),
   }))

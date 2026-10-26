@@ -131,7 +131,7 @@ describe('HouseholdMealPreferencesPage', () => {
   })
 
   // HON-1321: the form warns about a tag that matches no ingredient.
-  it("hands the food form what each saved tag matches, in the household's locale", async () => {
+  it('hands the food form what each saved tag matches', async () => {
     await mockSignedIn('owner', storedPreferences)
     const { matchExcludedIngredients } = await import('@/lib/household/preferences')
 
@@ -140,11 +140,7 @@ describe('HouseholdMealPreferencesPage', () => {
     expect(JSON.parse(screen.getByTestId('food-form').dataset.matches!)).toEqual([
       { tag: 'cilantro', ingredients: [] },
     ])
-    expect(matchExcludedIngredients).toHaveBeenCalledWith(
-      'household-123',
-      ['cilantro'],
-      expect.any(String),
-    )
+    expect(matchExcludedIngredients).toHaveBeenCalledWith('household-123', ['cilantro'])
   })
 
   it('hands both forms null when the household has no preferences row', async () => {
