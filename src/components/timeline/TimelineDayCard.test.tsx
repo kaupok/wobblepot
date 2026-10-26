@@ -209,19 +209,15 @@ describe('TimelineDayCard', () => {
     expect(heading).not.toContainElement(screen.getByRole('button', { name: 'Add to Today' }))
   })
 
-  it('groups the menu breakfast, lunch, dinner', async () => {
+  it('orders the menu breakfast, lunch, dinner', async () => {
     const user = userEvent.setup()
     const day: TimelineDay = { ...baseDay, emptySlots: ['dinner', 'breakfast', 'lunch'] }
     render(<TimelineDayCard day={day} {...defaultProps} />)
 
     await user.click(screen.getByRole('button', { name: 'Add to Today' }))
 
-    const groups = within(await screen.findByRole('menu')).getAllByRole('group')
-    expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
-      'Breakfast',
-      'Lunch',
-      'Dinner',
-    ])
+    const items = within(await screen.findByRole('menu')).getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Extra'])
   })
 
   // Extras (HON-1309): a full day shows "+ Extra" alone; a day with an empty

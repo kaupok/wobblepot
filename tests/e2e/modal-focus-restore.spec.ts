@@ -173,11 +173,16 @@ test.describe('Modal focus-restore', () => {
     let discarded = false
 
     try {
-      // The day's button opens a menu of routes per empty slot; the first
+      // The day's button opens the routes for its empty slots: flat for one
+      // slot, a submenu per slot for more (HON-1335, HON-1341). The first
       // slot's "Choose a recipe" creates the placeholder, then opens the
-      // selector (HON-1247, HON-1335).
-      const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' }).first()
-      await openMenuWithKeyboard(page, trigger, chooseRecipe)
+      // selector (HON-1247).
+      const firstItem = page.getByRole('menu').getByRole('menuitem').first()
+      await openMenuWithKeyboard(page, trigger, firstItem)
+      if ((await firstItem.getAttribute('aria-haspopup')) === 'menu') {
+        await page.keyboard.press('ArrowRight')
+      }
+      await expect(page.getByRole('menuitem', { name: 'Choose a recipe' })).toBeFocused()
       const [createResponse] = await Promise.all([
         page.waitForResponse(
           (r) =>

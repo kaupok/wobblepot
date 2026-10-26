@@ -94,7 +94,7 @@ export const MenuOpen: Story = {
     docs: {
       description: {
         story:
-          'One group per empty slot, in slot order, then "Extra" (HON-1335). "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view, and each creates the placeholder entry first (HON-1247). "Pick for me" places the top suggestion in one request (HON-1248).',
+          'One submenu per empty slot, in slot order, then "Extra" (HON-1341); the play function opens Lunch. "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view, and each creates the placeholder entry first (HON-1247). "Pick for me" places the top suggestion in one request (HON-1248).',
       },
     },
   },
@@ -102,21 +102,39 @@ export const MenuOpen: Story = {
     const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
     await userEvent.click(button)
     const menu = await within(document.body).findByRole('menu')
-    const groups = within(menu).getAllByRole('group')
-    await expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
-      'Breakfast',
-      'Lunch',
-      'Dinner',
-    ])
-    for (const group of groups) {
-      await expect(
-        within(group)
-          .getAllByRole('menuitem')
-          .map((item) => item.textContent),
-      ).toEqual(['Choose a recipe', 'Pick for me', 'Imagine a meal', 'Fridge meal'])
-    }
-    await expect(within(menu).getAllByRole('menuitem').at(-1)).toHaveTextContent(/^Extra$/)
+    await expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Extra'])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Lunch' }))
+    const submenu = await within(document.body).findByRole('menu', { name: 'Lunch' })
+    await expect(
+      within(submenu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Choose a recipe', 'Pick for me', 'Imagine a meal', 'Fridge meal'])
     await expect(button).toHaveAttribute('aria-expanded', 'true')
+  },
+}
+
+/**
+ * A route chosen by pointer inside a slot's submenu opens the selector for
+ * that slot, and focus comes back to "+ Add" on close (HON-1341).
+ */
+export const RouteFromSubmenu: Story = {
+  args: { emptySlots: [MealType.lunch, MealType.dinner] },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
+    await userEvent.click(button)
+    await userEvent.click(await within(document.body).findByRole('menuitem', { name: 'Dinner' }))
+    await userEvent.click(
+      await within(document.body).findByRole('menuitem', { name: 'Choose a recipe' }),
+    )
+    await within(document.body).findByRole('dialog', { name: /dinner/i })
+    await pressEscape()
+    await awaitDialogClosed()
+    await waitFor(() => expect(document.activeElement).toBe(button))
   },
 }
 
