@@ -260,7 +260,8 @@ export type EventPayload = {
    * answer, as a follow-up (HON-980).
    */
   'cook_view:question_asked': {
-    plan_id: string
+    /** None for a recipe opened from My recipes (HON-1339) */
+    plan_id?: string
     meal_id: string
     /** A step, or an item in "You'll need" (HON-983) */
     subject: 'step' | 'equipment'

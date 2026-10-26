@@ -17,8 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealSteps } from '@/hooks/use-meal-steps'
-import { useCookQuestion } from '@/hooks/use-cook-question'
-import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { CookViewDialog } from './CookViewDialog'
 import { MealDetail } from './MealDetail'
@@ -146,33 +145,12 @@ export function MealDetailModal({
     if (open && needsSteps && !isLoadingSteps) void fetchSteps()
   }, [open, needsSteps, isLoadingSteps, fetchSteps])
 
-  // The step (HON-969) or the item in "You'll need" (HON-983) whose question
-  // panel is open, one at a time across both. Opening or closing a panel drops
-  // the answer on screen, so the hook is reset each time. A question in flight
-  // for steps that were replaced cannot show: the next panel to open resets it
-  // first.
-  const [questionSubject, setQuestionSubject] = useState<CookQuestionSubject | null>(null)
+  // Ask's open panel and its question (HON-969, HON-983).
   const {
-    ask: askQuestion,
-    active: activeQuestion,
-    previous: previousQuestion,
-    isPending: isQuestionPending,
-    isStreaming: isQuestionStreaming,
-    error: questionError,
-    retry: retryQuestion,
-    reset: resetQuestion,
-  } = useCookQuestion({ planId, entryId, mealId: meal.id })
-  const handleOpenQuestion = useCallback(
-    (subject: CookQuestionSubject) => {
-      resetQuestion()
-      setQuestionSubject(subject)
-    },
-    [resetQuestion],
-  )
-  const handleCloseQuestion = useCallback(() => {
-    resetQuestion()
-    setQuestionSubject(null)
-  }, [resetQuestion])
+    controls: questionControls,
+    closeForTickedStep,
+    forgetOpenSubject,
+  } = useCookQuestionPanel({ planId, entryId, mealId: meal.id })
 
   // Which steps the cook has ticked off. Lives here because `MealCard` keeps
   // this component mounted, so the progress survives closing and reopening
@@ -185,24 +163,18 @@ export function MealDetailModal({
     setDoneStepsFor(steps)
     setDoneSteps(new Set())
     // An open question panel points at a step or an item of the old lists.
-    setQuestionSubject(null)
+    forgetOpenSubject()
   }
   const handleToggleStep = useCallback(
     (index: number) => {
-      // Ticking the step whose panel is open closes the panel (HON-982): the
-      // cook has moved on. Focus stays on the toggle, which is outside the
-      // panel, so it is not handed to the Ask button as Close does.
-      if (!doneSteps.has(index) && sameSubject(questionSubject, { kind: 'step', index })) {
-        resetQuestion()
-        setQuestionSubject(null)
-      }
+      if (!doneSteps.has(index)) closeForTickedStep(index)
       setDoneSteps((prev) => {
         const next = new Set(prev)
         if (!next.delete(index)) next.add(index)
         return next
       })
     },
-    [doneSteps, questionSubject, resetQuestion],
+    [doneSteps, closeForTickedStep],
   )
 
   // Set by "Done cooking", read as the view finishes closing: the caller's
@@ -454,22 +426,7 @@ export function MealDetailModal({
           onToggleStep={handleToggleStep}
           // Questions are for a meal somebody is cooking: the same planned,
           // editable entry that gets "Done cooking".
-          cookQuestion={
-            onDoneCooking
-              ? {
-                  openSubject: questionSubject,
-                  onOpenSubject: handleOpenQuestion,
-                  onClose: handleCloseQuestion,
-                  ask: askQuestion,
-                  active: activeQuestion,
-                  previous: previousQuestion,
-                  isPending: isQuestionPending,
-                  isStreaming: isQuestionStreaming,
-                  error: questionError,
-                  onRetry: retryQuestion,
-                }
-              : undefined
-          }
+          cookQuestion={onDoneCooking ? questionControls : undefined}
           onDoneCooking={onDoneCooking ? handleDoneCooking : undefined}
           ingredientChanges={
             changes && !readOnly

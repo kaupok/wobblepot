@@ -427,6 +427,7 @@
         "noHousehold": "Sammu kohta küsimiseks pead kuuluma leibkonda.",
         "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
         "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
+        "mealNotFound": "Seda retsepti pole enam sinu retseptide hulgas. Sulge see ja ava loendist uuesti.",
         "rateLimited": "Oled jõudnud selle tunni küsimuste piiranguni. Palun proovi hiljem uuesti.",
         "rateLimitedUntil": "Oled jõudnud selle tunni küsimuste piiranguni. Proovi uuesti pärast kella {time}.",
         "generationDisabled": "Küsimused on praegu välja lülitatud. Palun proovi hiljem uuesti.",

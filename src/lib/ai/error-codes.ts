@@ -103,11 +103,13 @@ export type RecipeStepsErrorCode =
 
 /**
  * Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/cook-question`
- * (HON-969): the preparation-tips guards, plus its own validation, timeout and
- * failure codes.
+ * (HON-969) and `POST /api/meals/[id]/cook-question` (HON-1339): the
+ * preparation-tips guards, plus their own validation, timeout and failure
+ * codes. `meal_not_found` is the recipe route's 404.
  */
 export type CookQuestionErrorCode =
   | Exclude<PreparationStepsErrorCode, 'tips_timeout' | 'tips_failed'>
+  | 'meal_not_found'
   | 'invalid_question'
   | 'question_timeout'
   | 'question_failed'
@@ -273,6 +275,7 @@ export const COOK_QUESTION_ERROR_KEYS = {
   no_household: 'noHousehold',
   entry_not_found: 'entryNotFound',
   no_meal: 'noMeal',
+  meal_not_found: 'mealNotFound',
   rate_limited: 'rateLimited',
   generation_disabled: 'generationDisabled',
   ai_cap_exceeded: 'aiCapExceeded',

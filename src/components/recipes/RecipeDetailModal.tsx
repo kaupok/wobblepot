@@ -16,6 +16,7 @@ import { MealDetail } from '@/components/meal-plan/MealDetail'
 import type { MealData } from '@/components/meal-plan/types'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useRecipeSteps } from '@/hooks/use-recipe-steps'
+import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 
 interface RecipeDetailModalProps {
   meal: MealData
@@ -32,9 +33,10 @@ function noop() {}
  * The cook view for one of the household's own recipes, opened from My
  * recipes (HON-1338). The planned view's shell and body, without what belongs
  * to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict
- * badges, no ingredient changes and no Ask. The serving count can change, but
- * only on screen: closing the view drops it, and nothing is saved. The steps
- * are written for the count on screen.
+ * badges and no ingredient changes. The serving count can change, but only on
+ * screen: closing the view drops it, and nothing is saved. The steps are
+ * written for the count on screen, and Ask asks about them at that count
+ * (HON-1339).
  */
 export function RecipeDetailModal({
   meal,
@@ -52,6 +54,12 @@ export function RecipeDetailModal({
     enabled: open,
   })
 
+  const {
+    controls: questionControls,
+    closeForTickedStep,
+    forgetOpenSubject,
+  } = useCookQuestionPanel({ mealId: meal.id, servings })
+
   // Ticked steps, tied to the steps object they were ticked against: new
   // steps (another count, another recipe) start unticked.
   const [doneSteps, setDoneSteps] = useState<ReadonlySet<number>>(() => new Set())
@@ -59,6 +67,8 @@ export function RecipeDetailModal({
   if (doneStepsFor !== steps) {
     setDoneStepsFor(steps)
     setDoneSteps(new Set())
+    // An open question panel points at a step or an item of the old lists.
+    forgetOpenSubject()
   }
   // A closed view starts afresh: the household's servings, nothing ticked.
   if (!open && (servings !== householdServings || doneSteps.size > 0)) {
@@ -66,13 +76,27 @@ export function RecipeDetailModal({
     setDoneSteps(new Set())
   }
 
-  const handleToggleStep = useCallback((index: number) => {
-    setDoneSteps((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(index)) next.add(index)
-      return next
-    })
-  }, [])
+  const handleToggleStep = useCallback(
+    (index: number) => {
+      if (!doneSteps.has(index)) closeForTickedStep(index)
+      setDoneSteps((prev) => {
+        const next = new Set(prev)
+        if (!next.delete(index)) next.add(index)
+        return next
+      })
+    },
+    [doneSteps, closeForTickedStep],
+  )
+
+  // Closing the view drops the question, and stops one in flight.
+  const { onClose: closeQuestion } = questionControls
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) closeQuestion()
+      onOpenChange(next)
+    },
+    [closeQuestion, onOpenChange],
+  )
 
   // `ServingControl` sends null for the household's own count.
   const handleServingsChange = useCallback(
@@ -87,7 +111,7 @@ export function RecipeDetailModal({
     <CookViewDialog
       meal={meal}
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       image={{ status: image.status, imageUrl: image.imageUrl, imageHue: image.imageHue }}
     >
       {(parts) => (
@@ -129,6 +153,7 @@ export function RecipeDetailModal({
           onHowToPrepare={noop}
           doneSteps={doneSteps}
           onToggleStep={handleToggleStep}
+          cookQuestion={questionControls}
         />
       )}
     </CookViewDialog>
