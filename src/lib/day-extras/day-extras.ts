@@ -68,6 +68,19 @@ export async function loadDayExtras(
   return rows.map((row) => toView(row, locale))
 }
 
+/** One of the household's extras, or null for an id it does not have. */
+export async function findDayExtra(
+  household: ExtrasHousehold,
+  id: string,
+): Promise<DayExtraView | null> {
+  const locale = resolveHouseholdLocale(household)
+  const row = await prisma.dayExtra.findFirst({
+    where: { id, householdId: household.id },
+    select: extraSelect(locale),
+  })
+  return row && toView(row, locale)
+}
+
 export type CreateDayExtraOutcome =
   | { status: 'created'; extra: DayExtraView }
   | { status: 'past_date' }
