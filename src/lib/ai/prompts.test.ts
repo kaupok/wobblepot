@@ -252,7 +252,8 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- low FODMAP, no spicy food')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (follow them):\n- low FODMAP, no spicy food')
+      expect(result).not.toContain('best effort')
     })
 
     it('includes single restriction', () => {
@@ -260,7 +261,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- keto-friendly')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (follow them):\n- keto-friendly')
     })
 
     it('puts restrictions in their own section, not under a soft-preference section', () => {

@@ -16,6 +16,18 @@ describe('TagInput component', () => {
     expect(screen.getByText('dairy')).toBeInTheDocument()
   })
 
+  it('links the text field to its help text', () => {
+    render(
+      <>
+        <TagInput value={[]} onChange={() => {}} placeholder="Add tags" aria-describedby="help" />
+        <p id="help">Only the AI reads these.</p>
+      </>,
+    )
+    expect(screen.getByPlaceholderText('Add tags')).toHaveAccessibleDescription(
+      'Only the AI reads these.',
+    )
+  })
+
   it('hides placeholder when tags exist', () => {
     render(<TagInput value={['gluten']} onChange={() => {}} placeholder="Add tags" />)
     expect(screen.queryByPlaceholderText('Add tags')).not.toBeInTheDocument()

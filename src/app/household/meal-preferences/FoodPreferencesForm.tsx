@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Label } from '@/components/ui/label'
+import { Body } from '@/components/ui/typography'
 import { ChoiceChips } from '@/components/ui/choice-chips'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { AllergenPicker } from '@/components/household/AllergenPicker'
@@ -140,7 +141,11 @@ export function FoodPreferencesForm({
               onChange={setRestrictions}
               placeholder={tSettings('restrictionsPlaceholder')}
               disabled={disabled}
+              aria-describedby="restrictions-help"
             />
+            <Body id="restrictions-help" variant="muted">
+              {tSettings('restrictionsHelp')}
+            </Body>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="excluded">{tSettings('excludedLabel')}</Label>

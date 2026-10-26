@@ -186,10 +186,10 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 | Dietary type (e.g. vegetarian)  | Database query (excluded protein types) |
 | Meal type match                 | Database query                          |
 | Balance constraints (slots)     | Deterministic rules + DB query          |
-| Dietary concepts (restrictions) | AI guidance (best effort, not enforced) |
+| Notes for the AI (restrictions) | AI prompt only, not enforced            |
 | Variety & balance               | AI selection                            |
 
-**Important:** Allergens are safety-critical and DB-enforced. Restrictions (e.g., "low FODMAP", "keto-ish") are free-form guidance for the AI with no guarantee of enforcement.
+**Important:** Allergens are safety-critical and DB-enforced. Restrictions, shown as "Notes for the AI" (e.g., "mild spice"), are free-form notes that the plan-generation, Imagine, Adjust recipe and cook-question prompts follow. Swap, the empty-slot suggestions, the recipe list and the MCP tools do not read them, so nothing enforces them (HON-1326).
 
 ### Balance Constraints
 
@@ -259,7 +259,7 @@ enum ProteinType {
 **Allergens vs Restrictions:**
 
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
-- `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
+- `restrictions` = "Notes for the AI" in the UI ("mild spice") - free-form String\[\], read only by the AI prompts
 
 **A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on Household → Meal preferences, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
 
