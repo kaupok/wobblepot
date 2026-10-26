@@ -32,9 +32,9 @@ Effort is the primary factor, because a deferred item rarely gets done. A findin
 
 Effort decides when to fix a real defect. It does not put a cheap addition in scope, because a review loop grows a PR one quick fix at a time (HON-627).
 
-- A guard for an unlikely case (a theoretical race, a rare input) → **Skip**, by CLAUDE.md → Working style → "Ask before you guard against an unlikely case".
+- A guard for an unlikely case (a theoretical race, a rare input) → ask the user, by CLAUDE.md → Working style → "Ask before you guard against an unlikely case". Unattended, **Skip** it and file a follow-up issue.
 - A test for a path the change does not touch, extra compatibility, or a small performance cost → **Skip**, with the reason.
 - When two fixes work, take the one that deletes or narrows code, not a new helper, option, cache or check.
-- After each round of fixes, run `git diff --shortstat origin/main...HEAD` and compare it with the count before the round. If the diff grew, remove each added line that no fixed defect needs.
+- After each round of fixes, run `git diff --shortstat $(git merge-base origin/main HEAD)` before you commit, and compare it with the count before the round. This form counts uncommitted fixes too. If the diff grew, remove each added line that no fixed defect needs.
 
 From round 3, `/auto-implement` raises the bar further: `.claude/skills/auto-implement/review-cap.md` → Materiality bar.
