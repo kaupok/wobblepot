@@ -17,7 +17,8 @@ import { bootstrapFlags } from '@/lib/feature-flags'
 import { geistMono, geistSans } from '@/lib/fonts'
 import Providers from '@/app/providers'
 import '@/lib/env'
-import { getServerBaseURL } from '@/lib/env'
+import { clientEnv, getServerBaseURL } from '@/lib/env'
+import { getAppIcons } from '@/lib/app-icons'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -67,13 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: 'default',
       title,
     },
-    icons: {
-      icon: [
-        { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-        { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-      ],
-      apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
-    },
+    icons: getAppIcons(clientEnv.NEXT_PUBLIC_APP_ENV).metadata,
   }
 }
 

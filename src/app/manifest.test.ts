@@ -5,7 +5,10 @@ import etMessages from '../../messages/et.json'
 import type { Locale } from '@/lib/i18n/locales'
 import manifest from './manifest'
 
-const { localeRef } = vi.hoisted(() => ({ localeRef: { current: 'en' as Locale } }))
+const { localeRef, env } = vi.hoisted(() => ({
+  localeRef: { current: 'en' as Locale },
+  env: { NEXT_PUBLIC_APP_ENV: 'production' },
+}))
 
 const CATALOGS: Record<Locale, Messages> = { en: enMessages, et: etMessages }
 
@@ -19,9 +22,12 @@ vi.mock('next-intl/server', () => ({
   ),
 }))
 
+vi.mock('@/lib/env', () => ({ clientEnv: env }))
+
 describe('manifest', () => {
   beforeEach(() => {
     localeRef.current = 'en'
+    env.NEXT_PUBLIC_APP_ENV = 'production'
   })
 
   it('describes the app in English for an en request', async () => {
@@ -41,5 +47,31 @@ describe('manifest', () => {
     expect(result.description).toBe(
       'Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris.',
     )
+  })
+
+  it('installs the production icons in production', async () => {
+    const result = await manifest()
+
+    expect(result.icons?.map((icon) => icon.src)).toEqual([
+      '/icons/icon-192x192.png',
+      '/icons/icon-512x512.png',
+      '/icons/icon-maskable-192x192.png',
+      '/icons/icon-maskable-512x512.png',
+    ])
+  })
+
+  // HON-1320: an installed staging PWA shows the yellow dot too. The maskable
+  // pair stays production, because the platform crops a corner dot.
+  it('installs the dotted icons on staging', async () => {
+    env.NEXT_PUBLIC_APP_ENV = 'staging'
+
+    const result = await manifest()
+
+    expect(result.icons?.map((icon) => icon.src)).toEqual([
+      '/icons/staging/icon-192x192.png',
+      '/icons/staging/icon-512x512.png',
+      '/icons/icon-maskable-192x192.png',
+      '/icons/icon-maskable-512x512.png',
+    ])
   })
 })
