@@ -14,18 +14,20 @@ async function renderAt(pathname: string) {
 }
 
 describe('HouseholdTabs', () => {
-  it('links Members, Meal preferences and Settings, in that order', async () => {
+  it('links Members, Meal preferences, Ingredients and Settings, in that order', async () => {
     const nav = await renderAt('/household')
 
     const links = nav.getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'Members',
       'Meal preferences',
+      'Ingredients',
       'Settings',
     ])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/household',
       '/household/meal-preferences',
+      '/household/ingredients',
       '/household/settings',
     ])
   })
@@ -33,6 +35,7 @@ describe('HouseholdTabs', () => {
   it.each([
     ['/household', 'Members'],
     ['/household/meal-preferences', 'Meal preferences'],
+    ['/household/ingredients', 'Ingredients'],
     ['/household/settings', 'Settings'],
   ])('on %s marks %s as the current page, and only it', async (pathname, current) => {
     const nav = await renderAt(pathname)
