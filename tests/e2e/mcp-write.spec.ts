@@ -252,6 +252,7 @@ test.describe('MCP write tools', () => {
       // The app shows the thumbs on a cooked meal only, and so does the tool.
       const early = await mcpCallTool(request, token, 'rate_meal', { ...slot, rating: 'up' })
       expect(early.isError).toBe(true)
+      expect(early.content[0]?.text).toContain('set_meal_status')
       expect((await plantedEntry(page, planted.entryId)).rating).toBeNull()
 
       const cooked = await page.request.patch(
