@@ -45,12 +45,12 @@ function errorBody(error: string, code: RecipeStepsErrorCode) {
 }
 
 /**
- * The servings the view shows. A whole number from the serving control, or
- * the household's own portions, which can be a half (2.5, HON-1040). Absent
- * reads as the household's.
+ * The servings the view shows, in halves: the household's own portions can be
+ * 2.5 (HON-1040). Absent reads as the household's. The range is checked
+ * once the household is known, below.
  */
 const bodySchema = z.object({
-  servings: z.number().min(MIN_SERVINGS).max(MAX_SERVINGS).multipleOf(0.5).optional(),
+  servings: z.number().positive().multipleOf(0.5).optional(),
 })
 
 /**
@@ -82,7 +82,13 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
 
   const { household } = membership
   const { id: mealId } = await params
-  const servings = parsed.data.servings ?? sumPortions(household.members)
+  // The serving control's range, or the household's own count, which a large
+  // household can take past it: the control accepts that count too.
+  const householdServings = sumPortions(household.members)
+  const servings = parsed.data.servings ?? householdServings
+  if (servings !== householdServings && (servings < MIN_SERVINGS || servings > MAX_SERVINGS)) {
+    return NextResponse.json(errorBody('Invalid servings', 'invalid_servings'), { status: 400 })
+  }
   // Resolved, so a locale rolled back out of KNOWN_LOCALES gets English names
   // and an English prompt (HON-921). The cache write below compares the
   // stored `household.locale`.

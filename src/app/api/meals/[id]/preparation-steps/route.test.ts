@@ -181,6 +181,23 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
     expect(mockLoadRecipe).not.toHaveBeenCalled()
   })
 
+  it("accepts a large household's own count above the serving control's range", async () => {
+    mockGetMembership.mockResolvedValue({
+      household: {
+        ...membership().household,
+        members: Array.from({ length: 24 }, () => ({ preferences: { portionMultiplier: 1 } })),
+      },
+    } as never)
+
+    const response = await callPost({ servings: 24 })
+
+    expect(response.status).toBe(200)
+    expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
+      expect.objectContaining({ servings: 24 }),
+      FRESH,
+    )
+  })
+
   it("generates at the household's servings when the body names none, and stores them", async () => {
     const response = await callPost()
 
