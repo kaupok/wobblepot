@@ -53,7 +53,8 @@ function renderForm(overrides: Partial<Props> = {}) {
 /**
  * Household → Meal preferences (HON-1257): the Food preferences cases of the
  * old `HouseholdSettingsForm.test.tsx`. The cases that need both sections of
- * the tab are in `MealsToPlanForm.test.tsx`.
+ * the tab are in `MealsToPlanForm.test.tsx`, and the help under the tag
+ * inputs is in `FoodPreferencesForm.field-help.test.tsx`.
  */
 describe('FoodPreferencesForm', () => {
   beforeEach(() => {
@@ -83,19 +84,22 @@ describe('FoodPreferencesForm', () => {
       renderForm()
 
       const food = screen.getByRole('heading', { name: 'Food preferences' }).closest('section')!
-      expect(within(food).getByLabelText('Dietary restrictions (optional)')).toBeInTheDocument()
+      expect(within(food).getByLabelText('Notes for the AI (optional)')).toBeInTheDocument()
       expect(within(food).getByLabelText('Ingredients to avoid (optional)')).toBeInTheDocument()
     })
 
-    // The DPIA's allergen notice (HON-666) is the only helper copy; the tag
-    // inputs' placeholders carry their examples.
-    it('renders only the allergen helper line', () => {
+    // The DPIA's allergen notice (HON-666) and the AI notes help (HON-1326)
+    // are the only helper copy; the tag inputs' placeholders carry examples.
+    it('renders only the allergen and AI notes helper lines', () => {
       const { container } = renderForm()
 
       const helpers = Array.from(container.querySelectorAll('p.text-muted-foreground')).map(
         (p) => p.textContent,
       )
-      expect(helpers).toEqual([expect.stringContaining('Allergens you tick here')])
+      expect(helpers).toEqual([
+        expect.stringContaining('Allergens you tick here'),
+        expect.stringContaining('The AI follows these notes'),
+      ])
     })
 
     it('renders dietary type as a radio group of four chips, one checked', () => {
@@ -192,7 +196,7 @@ describe('FoodPreferencesForm', () => {
       for (const name of ['No preference', 'Vegetarian', 'Vegan', 'Pescatarian']) {
         expect(screen.getByRole('radio', { name })).toBeDisabled()
       }
-      expect(screen.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
+      expect(screen.getByLabelText('Notes for the AI (optional)')).toBeDisabled()
       expect(screen.getByLabelText('Ingredients to avoid (optional)')).toBeDisabled()
     })
 
@@ -331,7 +335,7 @@ describe('FoodPreferencesForm', () => {
       renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
-      await userEvent.type(screen.getByLabelText('Dietary restrictions (optional)'), 'halal')
+      await userEvent.type(screen.getByLabelText('Notes for the AI (optional)'), 'halal')
       fireEvent.submit(section('Food preferences'))
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalled())
@@ -446,87 +450,6 @@ describe('FoodPreferencesForm', () => {
       ).getAllByRole('button')) {
         expect(toggle).toHaveAttribute('aria-pressed', 'false')
       }
-    })
-  })
-
-  // HON-1321: a tag that matches nothing used to look saved and exclude nothing.
-  describe('what each ingredient to avoid excludes', () => {
-    const withTags = { ...defaultPreferences, excludedIngredients: ['mushrooms', 'dragonfruit'] }
-    const matches = [
-      {
-        tag: 'mushrooms',
-        ingredients: [
-          { id: 'ing-1', name: 'chestnut mushroom' },
-          { id: 'ing-2', name: 'mushroom' },
-        ],
-      },
-      { tag: 'dragonfruit', ingredients: [] },
-    ]
-    const matchList = () =>
-      screen.getByRole('list', { name: 'What each ingredient to avoid excludes' })
-
-    it('counts the matches of a tag and names them in a disclosure', async () => {
-      renderForm({ preferences: withTags, excludedMatches: matches })
-
-      const summary = within(matchList()).getByText('mushrooms: excludes 2 ingredients')
-      const names = within(matchList()).getByText('chestnut mushroom, mushroom')
-      expect(names).not.toBeVisible()
-
-      await userEvent.click(summary)
-      expect(names).toBeVisible()
-    })
-
-    it('warns about a tag that matches no ingredient', () => {
-      renderForm({ preferences: withTags, excludedMatches: matches })
-
-      expect(
-        within(matchList()).getByText(
-          'dragonfruit: matches no ingredient, so no meal is excluded.',
-        ),
-      ).toBeVisible()
-    })
-
-    it('says the same in Estonian', () => {
-      renderSettings(
-        <FoodPreferencesForm preferences={withTags} excludedMatches={matches} isOwner />,
-        'et',
-      )
-
-      const list = screen.getByRole('list', { name: 'Mida iga välditav koostisosa välistab' })
-      expect(within(list).getByText('mushrooms: välistab 2 koostisosa')).toBeInTheDocument()
-      expect(
-        within(list).getByText(
-          'dragonfruit: ükski koostisosa ei sobi, nii et ükski toit ei jää välja.',
-        ),
-      ).toBeInTheDocument()
-    })
-
-    it('shows the matches the save answers for a new tag', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            excludedMatches: [{ tag: 'pork', ingredients: [{ id: 'ing-3', name: 'pork belly' }] }],
-          }),
-      })
-      renderForm()
-      expect(
-        screen.queryByRole('list', { name: 'What each ingredient to avoid excludes' }),
-      ).not.toBeInTheDocument()
-
-      await userEvent.type(screen.getByLabelText('Ingredients to avoid (optional)'), 'pork{Enter}')
-      expect(
-        screen.queryByRole('list', { name: 'What each ingredient to avoid excludes' }),
-      ).not.toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-      expect(
-        await within(
-          await screen.findByRole('list', {
-            name: 'What each ingredient to avoid excludes',
-          }),
-        ).findByText('pork: excludes 1 ingredient'),
-      ).toBeInTheDocument()
     })
   })
 })

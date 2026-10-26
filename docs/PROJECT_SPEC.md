@@ -186,10 +186,10 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 | Dietary type (e.g. vegetarian)  | Database query (excluded protein types) |
 | Meal type match                 | Database query                          |
 | Balance constraints (slots)     | Deterministic rules + DB query          |
-| Dietary concepts (restrictions) | AI guidance (best effort, not enforced) |
+| Notes for the AI (restrictions) | AI prompt only, not enforced            |
 | Variety & balance               | AI selection                            |
 
-**Important:** Allergens are safety-critical and DB-enforced. Restrictions (e.g., "low FODMAP", "keto-ish") are free-form guidance for the AI with no guarantee of enforcement.
+**Important:** Allergens are safety-critical and DB-enforced. Restrictions, shown as "Notes for the AI" (e.g., "mild spice"), are free-form notes that the plan-generation, Imagine, Adjust recipe and cook-question prompts follow, including the MCP `adjust_meal` tool, which runs Adjust recipe. Swap, the empty-slot suggestions, the recipe list and the MCP tools `list_meals`, `plan_meal` and `swap_meal` do not read them, so nothing enforces them (HON-1326).
 
 ### Balance Constraints
 
@@ -259,7 +259,7 @@ enum ProteinType {
 **Allergens vs Restrictions:**
 
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
-- `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
+- `restrictions` = "Notes for the AI" in the UI ("mild spice") - free-form String\[\], read only by the AI prompts
 
 **Food rules are household-level (HON-293, HON-296, HON-1322).** The diet, the allergens, the restrictions and the ingredients to avoid live on `HouseholdPreferences`, and every plan filter reads them there. A member carries a name, a display name and a portion size, and nothing else: the portion size scales the household's servings (`sumPortions`, `src/lib/meal-planning/servings.ts`). `MemberPreferences` still has food and macro columns from before February 2026. No screen or route writes or returns them; the account data export still includes the stored values (`src/lib/auth/export.ts`).
 

@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Household → Meal preferences (HON-1257): the Food preferences section, a Section-level h2 and its own form (HON-960, HON-961): dietary type, allergens, restrictions and ingredients to avoid. The Save button shows only while a field differs from the saved value, and saves only these four fields.',
+          'Household → Meal preferences (HON-1257): the Food preferences section, a Section-level h2 and its own form (HON-960, HON-961): dietary type, allergens, notes for the AI and ingredients to avoid. The Save button shows only while a field differs from the saved value, and saves only these four fields.',
       },
     },
   },
@@ -111,7 +111,7 @@ export const NonOwner: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Gluten' })).toBeDisabled()
     await expect(canvas.getByRole('radio', { name: 'Vegan' })).toBeDisabled()
-    await expect(canvas.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
+    await expect(canvas.getByLabelText('Notes for the AI (optional)')).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   },
 }
@@ -272,7 +272,10 @@ export const Phone: Story = {
   },
 }
 
-/** Estonian at phone width, inside the page's `px-4` gutters: the chip rows wrap. */
+/**
+ * Estonian at phone width, inside the page's `px-4` gutters: the chip rows
+ * wrap, and the AI notes field keeps its Estonian name and help (HON-1326).
+ */
 export const PhoneEstonian: Story = {
   globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
   decorators: [
@@ -286,6 +289,9 @@ export const PhoneEstonian: Story = {
     const canvas = within(canvasElement)
     const form = canvas.getByRole('form')
     await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
+    const notes = canvas.getByLabelText('Märkmed AI-le (vabatahtlik)')
+    await expect(notes).toHaveAttribute('placeholder', 'nt mahe vürts, lastele vähem soola')
+    await expect(notes).toHaveAccessibleDescription(/^AI järgib neid märkmeid/)
   },
 }
 

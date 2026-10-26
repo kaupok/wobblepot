@@ -13,6 +13,8 @@ interface TagInputProps {
   disabled?: boolean
   className?: string
   id?: string
+  /** Id of a help text that describes the text field. */
+  'aria-describedby'?: string
 }
 
 interface TagInputRef {
@@ -25,7 +27,15 @@ interface TagInputRef {
 }
 
 const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
-  { value, onChange, placeholder = 'Type and press Enter', disabled = false, className, id },
+  {
+    value,
+    onChange,
+    placeholder = 'Type and press Enter',
+    disabled = false,
+    className,
+    id,
+    'aria-describedby': ariaDescribedBy,
+  },
   ref,
 ) {
   const t = useTranslations('common')
@@ -101,6 +111,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
       ))}
       <input
         id={id}
+        aria-describedby={ariaDescribedBy}
         type="text"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
