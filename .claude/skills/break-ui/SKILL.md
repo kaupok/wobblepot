@@ -51,6 +51,8 @@ Read [CATALOG.md](CATALOG.md) now. Pick the values for each field from it.
 
 Add the worst case to the component's colocated `.stories.tsx`, with the mock data inline (`.storybook/README.md` → What a story covers). If the screen has no story seam, use a scenario story in `src/stories/scenarios/`. If it has neither, say so, and propose the seam before you build one.
 
+When the story file is in `scripts/file-size-allowlist.txt` or close to the 5,000-token cap, put the worst case in a sibling file, `<Component>.worst-case.stories.tsx`, titled `<the component's title>/Worst case` (`src/components/meal-plan/MealCard.worst-case.stories.tsx`). A planner-style list renders several instances side by side in one story, each with different failures, at a fixed width per story (`Narrow` 288px, `Phone` 358px, `Desktop`).
+
 Add the stories that apply:
 
 | Story       | Holds                                                                                                     |
@@ -68,7 +70,7 @@ The stories stay after the skill ends. They are the regression test for the next
 
 ### 3. Look at it
 
-Start Storybook with `run_in_background: true` (`pnpm storybook`, port 6006). Wait in the foreground until it answers (`curl -sf http://localhost:6006 >/dev/null`). Pick the browser by `docs/CHROME_TESTING.md` → Which browser. Open each story alone at `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`, so the Storybook chrome takes no width.
+Start Storybook with `run_in_background: true` (`pnpm storybook`, port 6006). Wait in the foreground until it answers (`curl -sf http://localhost:6006 >/dev/null`). Pick the browser by `docs/CHROME_TESTING.md` → Which browser. Open each story alone at `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`, so the Storybook chrome takes no width. Story IDs are in `http://localhost:6006/index.json`. If the T3 Code sidebar times out on a snapshot, go to the next browser on the list. The Playwright MCP saves screenshots only inside the worktree; `.playwright-mcp/` is git-ignored.
 
 For each story, check it:
 
@@ -77,7 +79,12 @@ For each story, check it:
 - with the **root font size at 200%** (`document.documentElement.style.fontSize = '200%'` in the browser), because text grows and fixed boxes do not;
 - in **dark mode** (`&globals=theme:dark` on the URL).
 
-Take a screenshot of the default story and the worst case at each width and compare. If no browser is available, reason from the classes, and mark each finding as seen or inferred.
+Take a screenshot of the default story and the worst case at each width and compare. Measure as well as look, because a screenshot hides what lies under another element:
+
+- `document.documentElement.scrollWidth > innerWidth` means the page scrolls sideways.
+- An element whose `getBoundingClientRect().right` is past its card's has escaped the card.
+- Two boxes that intersect (a badge and the note slip) mean one covers the other.
+- An action whose box is outside its card cannot be reached. If no browser is available, reason from the classes, and mark each finding as seen or inferred.
 
 **Done when** every story is checked at every width and condition above.
 
