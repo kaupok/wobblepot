@@ -18,9 +18,9 @@ import { getStartOfTodayInTimezone } from './dates'
  * Call this inside the same transaction as the membership write, so a failed
  * write cannot leave the new servings beside the old household's tips.
  * Sites: the manual-member add, the member removal, and the account purge that
- * drops a membership from a household that survives it (HON-684), and the two
- * portion writes — the member PATCH and `PATCH /api/members/me/preferences` —
- * when the portion size actually changes (HON-1040). The rule it
+ * drops a membership from a household that survives it (HON-684), and the
+ * portion write in the member PATCH (`writeMemberPreferences`) when the
+ * portion size actually changes (HON-1040). The rule it
  * serves is the AI-cache bullet in `docs/LOCALIZATION.md` → "AI surfaces
  * (Tier 1)"; the locale and per-entry-servings invalidations next to it are
  * HON-681's.

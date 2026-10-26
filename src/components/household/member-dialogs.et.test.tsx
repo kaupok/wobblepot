@@ -132,15 +132,6 @@ describe('member dialogs in Estonian', () => {
           preferences: {
             displayName: 'Mari-Liis',
             portionMultiplier: 1.25,
-            targetCalories: null,
-            targetProtein: null,
-            targetCarbs: null,
-            targetFat: null,
-            dietaryType: null,
-            allergens: [],
-            restrictions: [],
-            excludedIngredients: [],
-            excludedIngredientIds: [],
           },
         }}
         open

@@ -204,15 +204,6 @@ export const defaultHandlers: HttpHandler[] = [
       preferences: {
         displayName: body.preferences?.displayName ?? null,
         portionMultiplier: body.preferences?.portionMultiplier ?? 1.0,
-        targetCalories: null,
-        targetProtein: null,
-        targetCarbs: null,
-        targetFat: null,
-        dietaryType: null,
-        allergens: [],
-        restrictions: [],
-        excludedIngredients: [],
-        excludedIngredientIds: [],
       },
     })
     return HttpResponse.json(newMember)
@@ -232,15 +223,6 @@ export const defaultHandlers: HttpHandler[] = [
         preferences: {
           displayName: body.preferences?.displayName ?? null,
           portionMultiplier: body.preferences?.portionMultiplier ?? 1.0,
-          targetCalories: null,
-          targetProtein: null,
-          targetCarbs: null,
-          targetFat: null,
-          dietaryType: null,
-          allergens: [],
-          restrictions: [],
-          excludedIngredients: [],
-          excludedIngredientIds: [],
         },
       }),
     )

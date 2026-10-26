@@ -96,7 +96,7 @@ describe('getHouseholdMember', () => {
   it('returns a member of the household with their account and preferences', async () => {
     const { owner } = await households()
     await prisma.memberPreferences.create({
-      data: { memberId: 'm-partner', displayName: 'Mum', excludedIngredientIds: ['ing-1'] },
+      data: { memberId: 'm-partner', displayName: 'Mum' },
     })
 
     expect(await getHouseholdMember(owner.householdId, 'm-partner')).toMatchObject({
@@ -104,8 +104,31 @@ describe('getHouseholdMember', () => {
       userId: 'u-partner',
       role: 'member',
       user: { id: 'u-partner', name: 'u-partner', email: 'u-partner@example.com', image: null },
-      preferences: { displayName: 'Mum', portionMultiplier: 1, excludedIngredientIds: ['ing-1'] },
+      preferences: { displayName: 'Mum', portionMultiplier: 1 },
     })
+  })
+
+  // Food rules are household-level (HON-1322). A row may still hold member
+  // food values saved before February 2026, and the view leaves them out.
+  it('returns only the display name and portion size of the stored preferences', async () => {
+    const { owner } = await households()
+    await prisma.memberPreferences.create({
+      data: {
+        memberId: 'm-partner',
+        displayName: 'Mum',
+        portionMultiplier: 1.5,
+        targetCalories: 1800,
+        dietaryType: 'vegan',
+        allergens: ['nuts'],
+        restrictions: ['low-salt'],
+        excludedIngredients: ['celery'],
+        excludedIngredientIds: ['ing-1'],
+      },
+    })
+
+    const member = await getHouseholdMember(owner.householdId, 'm-partner')
+
+    expect(member?.preferences).toEqual({ displayName: 'Mum', portionMultiplier: 1.5 })
   })
 
   it("returns null for another household's member and for an unknown id", async () => {
@@ -122,7 +145,7 @@ describe('addMember', () => {
 
     const added = await addMember(owner, {
       name: 'Grandma',
-      preferences: { displayName: 'Nana', portionMultiplier: 0.75, allergens: ['nuts'] },
+      preferences: { displayName: 'Nana', portionMultiplier: 0.75 },
     })
 
     expect(added).toMatchObject({
@@ -131,8 +154,8 @@ describe('addMember', () => {
       role: 'member',
       user: null,
       invite: null,
-      preferences: { displayName: 'Nana', portionMultiplier: 0.75, allergens: ['nuts'] },
     })
+    expect(added.preferences).toEqual({ displayName: 'Nana', portionMultiplier: 0.75 })
     expect(
       await prisma.householdMember.findUniqueOrThrow({
         where: { id: added.id },
@@ -142,7 +165,7 @@ describe('addMember', () => {
       householdId: owner.householdId,
       name: 'Grandma',
       role: 'member',
-      preferences: { displayName: 'Nana', portionMultiplier: 0.75, allergens: ['nuts'] },
+      preferences: { displayName: 'Nana', portionMultiplier: 0.75 },
     })
   })
 
@@ -207,38 +230,38 @@ describe('updateMember', () => {
 
     const updated = await updateMember(owner, 'm-kid', {
       name: 'Kiddo',
-      preferences: { displayName: 'K', targetCalories: 1800 },
+      preferences: { displayName: 'K', portionMultiplier: 1.5 },
     })
 
     expect(updated).toMatchObject({
       id: 'm-kid',
       name: 'Kiddo',
       user: null,
-      preferences: { displayName: 'K', targetCalories: 1800 },
+      preferences: { displayName: 'K', portionMultiplier: 1.5 },
     })
     expect(
       await prisma.householdMember.findUniqueOrThrow({
         where: { id: 'm-kid' },
         include: { preferences: true },
       }),
-    ).toMatchObject({ name: 'Kiddo', preferences: { displayName: 'K', targetCalories: 1800 } })
+    ).toMatchObject({ name: 'Kiddo', preferences: { displayName: 'K', portionMultiplier: 1.5 } })
   })
 
   it('lets a member who is not the owner edit their own preferences', async () => {
     const { partner } = await households()
 
     const updated = await updateMember(partner, 'm-partner', {
-      preferences: { dietaryType: 'vegan' },
+      preferences: { displayName: 'Mum' },
     })
 
-    expect(updated.preferences).toMatchObject({ dietaryType: 'vegan' })
+    expect(updated.preferences).toMatchObject({ displayName: 'Mum' })
   })
 
   it('refuses a member who is not the owner editing someone else, and writes nothing', async () => {
     const { partner } = await households()
 
     expect(
-      await refusalOf(updateMember(partner, 'm-kid', { preferences: { dietaryType: 'vegan' } })),
+      await refusalOf(updateMember(partner, 'm-kid', { preferences: { displayName: 'K' } })),
     ).toBe('notAllowed')
     expect(await prisma.memberPreferences.count()).toBe(0)
   })

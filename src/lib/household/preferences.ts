@@ -8,9 +8,10 @@ import { sumPortions } from '@/lib/meal-planning/servings'
 import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 
 /**
- * Persistence for household and member preferences, behind
- * `/api/households/me/preferences` and `/api/members/me/preferences`
- * (HON-1213). The routes own the session, the household, the owner check and
+ * Persistence for household preferences, behind
+ * `/api/households/me/preferences` (HON-1213), and for a member's display name
+ * and portion size, behind the member routes. Food rules are household-level
+ * only (HON-1322). The routes own the session, the household, the owner check and
  * body validation; these functions own every query, and are tested against a
  * database in `preferences.db.test.ts`.
  */
@@ -40,15 +41,6 @@ export interface HouseholdPreferencesPatch {
 export interface MemberPreferencesPatch {
   displayName?: string | null
   portionMultiplier?: number
-  targetCalories?: number | null
-  targetProtein?: number | null
-  targetCarbs?: number | null
-  targetFat?: number | null
-  dietaryType?: DietaryType | null
-  allergens?: Allergen[]
-  restrictions?: string[]
-  excludedIngredients?: string[]
-  excludedIngredientIds?: string[]
 }
 
 /**
@@ -82,12 +74,6 @@ export async function updateHouseholdPreferences(
   })
 }
 
-/** A member's preferences row, created with the column defaults when it is missing. */
-export async function getOrCreateMemberPreferences(memberId: string) {
-  const preferences = await prisma.memberPreferences.findUnique({ where: { memberId } })
-  return preferences ?? prisma.memberPreferences.create({ data: { memberId } })
-}
-
 /**
  * The member whose preferences are saved, with their household as
  * `getHouseholdMembership` returns it.
@@ -103,7 +89,9 @@ export interface PreferencesMember {
 }
 
 /**
- * Save a member's preferences and return the stored row.
+ * Save a member's preferences, on a transaction the caller holds, so
+ * `updateMember` can save a name and preferences together. Returns the stored
+ * row.
  *
  * A portion size is summed into the household's servings, which price the
  * cached prep tips on every entry without a `servingOverride` (HON-1040).
@@ -111,17 +99,6 @@ export interface PreferencesMember {
  * 1.5 + 0.75 and 1.5 + 1 both price 2.5, and a needless invalidation costs a
  * paid regeneration per entry (HON-684). `portionChanged` is the cheap guard
  * that skips the re-read.
- */
-export async function updateMemberPreferences(
-  member: PreferencesMember,
-  patch: MemberPreferencesPatch,
-) {
-  return prisma.$transaction((tx) => writeMemberPreferences(tx, member, patch))
-}
-
-/**
- * The write `updateMemberPreferences` makes, on a transaction the caller
- * holds, so `updateMember` can save a name and preferences together.
  */
 export async function writeMemberPreferences(
   tx: Prisma.TransactionClient,

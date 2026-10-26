@@ -275,6 +275,34 @@ describe('exportUserData', () => {
     expect(alder.aiUsage).toHaveLength(1)
   })
 
+  // No screen or route sets member food rules since HON-1322, but the columns
+  // still hold what households saved before February 2026, and that is their data.
+  it('holds the member food and macro values a preferences row still stores', async () => {
+    await world()
+    await prisma.memberPreferences.create({
+      data: {
+        memberId: 'm-kid',
+        targetCalories: 1800,
+        targetProtein: 80,
+        dietaryType: 'vegan',
+        allergens: ['nuts'],
+        restrictions: ['low-salt'],
+        excludedIngredients: ['celery'],
+      },
+    })
+
+    const [alder] = (await exportOf('ann')).households
+
+    expect(alder.members.find((m: { id: string }) => m.id === 'm-kid').preferences).toMatchObject({
+      targetCalories: 1800,
+      targetProtein: 80,
+      dietaryType: 'vegan',
+      allergens: ['nuts'],
+      restrictions: ['low-salt'],
+      excludedIngredients: ['celery'],
+    })
+  })
+
   it('holds nothing from another household', async () => {
     await world()
 

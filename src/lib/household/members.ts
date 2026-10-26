@@ -80,15 +80,6 @@ function memberView(member: MemberRow) {
       ? {
           displayName: member.preferences.displayName,
           portionMultiplier: member.preferences.portionMultiplier,
-          targetCalories: member.preferences.targetCalories,
-          targetProtein: member.preferences.targetProtein,
-          targetCarbs: member.preferences.targetCarbs,
-          targetFat: member.preferences.targetFat,
-          dietaryType: member.preferences.dietaryType,
-          allergens: member.preferences.allergens,
-          restrictions: member.preferences.restrictions,
-          excludedIngredients: member.preferences.excludedIngredients,
-          excludedIngredientIds: member.preferences.excludedIngredientIds,
         }
       : null,
   }
@@ -173,14 +164,6 @@ export async function addMember(
       ? {
           displayName: member.preferences.displayName,
           portionMultiplier: member.preferences.portionMultiplier,
-          targetCalories: member.preferences.targetCalories,
-          targetProtein: member.preferences.targetProtein,
-          targetCarbs: member.preferences.targetCarbs,
-          targetFat: member.preferences.targetFat,
-          dietaryType: member.preferences.dietaryType,
-          allergens: member.preferences.allergens,
-          restrictions: member.preferences.restrictions,
-          excludedIngredients: member.preferences.excludedIngredients,
         }
       : null,
     invite: null,

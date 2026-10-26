@@ -110,26 +110,6 @@ export const Child: Story = {
   },
 }
 
-export const WithAllergens: Story = {
-  args: {
-    member: createMember({
-      preferences: createMemberPreferences({
-        displayName: 'Mom',
-        allergens: ['gluten', 'nuts'],
-        dietaryType: 'pescatarian',
-      }),
-    }),
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Member with allergens + dietary type set — the dialog only edits display name + portion; the other preferences are left out of the PATCH, so the route keeps them.',
-      },
-    },
-  },
-}
-
 export const Open: Story = {
   parameters: {
     docs: {

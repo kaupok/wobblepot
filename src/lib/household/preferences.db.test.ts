@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import {
-  getOrCreateMemberPreferences,
   updateHouseholdPreferences,
-  updateMemberPreferences,
+  writeMemberPreferences,
+  type MemberPreferencesPatch,
+  type PreferencesMember,
 } from '@/lib/household/preferences'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
@@ -129,38 +130,12 @@ describe('updateHouseholdPreferences', () => {
   })
 })
 
-describe('getOrCreateMemberPreferences', () => {
-  it('creates a row with the column defaults when the member has none', async () => {
-    await twoHouseholds()
-    const membership = await getHouseholdMembership('u-alder')
+describe('writeMemberPreferences', () => {
+  /** The write on its own transaction, as `updateMember` holds one. */
+  function save(member: PreferencesMember, patch: MemberPreferencesPatch) {
+    return prisma.$transaction((tx) => writeMemberPreferences(tx, member, patch))
+  }
 
-    const first = await getOrCreateMemberPreferences(membership!.id)
-    const second = await getOrCreateMemberPreferences(membership!.id)
-
-    expect(first).toMatchObject({
-      memberId: membership!.id,
-      portionMultiplier: 1,
-      displayName: null,
-    })
-    expect(second.id).toBe(first.id)
-    expect(await prisma.memberPreferences.count()).toBe(1)
-  })
-
-  it('returns the stored row', async () => {
-    await twoHouseholds()
-    const membership = await getHouseholdMembership('u-alder')
-    await prisma.memberPreferences.create({
-      data: { memberId: membership!.id, displayName: 'Dad', portionMultiplier: 1.5 },
-    })
-
-    expect(await getOrCreateMemberPreferences(membership!.id)).toMatchObject({
-      displayName: 'Dad',
-      portionMultiplier: 1.5,
-    })
-  })
-})
-
-describe('updateMemberPreferences', () => {
   /**
    * Alder: the owner account, a partner account and a manual member, with the
    * given portion sizes (`null` for no preferences row). Its plan holds four
@@ -235,12 +210,9 @@ describe('updateMemberPreferences', () => {
     await household([null, 1, 0.5])
     const membership = await getHouseholdMembership('u-owner')
 
-    const saved = await updateMemberPreferences(membership!, {
-      displayName: 'Dad',
-      targetCalories: 2200,
-    })
+    const saved = await save(membership!, { displayName: 'Dad' })
 
-    expect(saved).toMatchObject({ displayName: 'Dad', targetCalories: 2200, portionMultiplier: 1 })
+    expect(saved).toMatchObject({ displayName: 'Dad', portionMultiplier: 1 })
     expect(
       await prisma.memberPreferences.findUniqueOrThrow({ where: { memberId: membership!.id } }),
     ).toEqual(saved)
@@ -252,7 +224,7 @@ describe('updateMemberPreferences', () => {
     await household([1, 1, 0.5])
     const membership = await getHouseholdMembership('u-owner')
 
-    const saved = await updateMemberPreferences(membership!, { portionMultiplier: 1.5 })
+    const saved = await save(membership!, { portionMultiplier: 1.5 })
 
     expect(saved.portionMultiplier).toBe(1.5)
     expect(await tips()).toEqual({ ...UNTOUCHED, future: null })
@@ -262,7 +234,7 @@ describe('updateMemberPreferences', () => {
     await household([null, 1, 0.5])
     const membership = await getHouseholdMembership('u-owner')
 
-    await updateMemberPreferences(membership!, { portionMultiplier: 2 })
+    await save(membership!, { portionMultiplier: 2 })
 
     expect(await tips()).toEqual({ ...UNTOUCHED, future: null })
   })
@@ -273,7 +245,7 @@ describe('updateMemberPreferences', () => {
     await household([1.5, 0.75, 0.5])
     const membership = await getHouseholdMembership('u-partner')
 
-    await updateMemberPreferences(membership!, { portionMultiplier: 1 })
+    await save(membership!, { portionMultiplier: 1 })
 
     expect(await tips()).toEqual(UNTOUCHED)
   })
@@ -282,7 +254,7 @@ describe('updateMemberPreferences', () => {
     await household([1, 1, 0.5])
     const membership = await getHouseholdMembership('u-owner')
 
-    await updateMemberPreferences(membership!, { portionMultiplier: 1, displayName: 'Dad' })
+    await save(membership!, { portionMultiplier: 1, displayName: 'Dad' })
 
     expect(await tips()).toEqual(UNTOUCHED)
   })
@@ -291,7 +263,7 @@ describe('updateMemberPreferences', () => {
     await household([1, 1, 0.5])
     const membership = await getHouseholdMembership('u-owner')
 
-    await updateMemberPreferences(membership!, { dietaryType: 'vegetarian' })
+    await save(membership!, { displayName: 'Dad' })
 
     expect(await tips()).toEqual(UNTOUCHED)
   })

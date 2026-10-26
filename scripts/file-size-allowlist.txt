@@ -99,6 +99,6 @@
 5352 src/lib/rate-limit.test.ts
 5067 src/lib/utils.test.ts
 5143 src/proxy.test.ts
-9688 src/stories/fixtures.ts
+9634 src/stories/fixtures.ts
 6230 src/stories/msw-handlers.ts
 5669 tests/e2e/i18n-full-flow.spec.ts

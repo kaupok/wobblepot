@@ -149,8 +149,6 @@ export const WithPreferences: Story = {
       preferences: createMemberPreferences({
         displayName: 'Mom',
         portionMultiplier: 0.85,
-        allergens: ['gluten', 'nuts'],
-        dietaryType: 'pescatarian',
       }),
     }),
   },

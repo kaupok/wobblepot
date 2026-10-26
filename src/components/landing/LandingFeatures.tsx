@@ -377,15 +377,6 @@ function member(key: string, name: string, portionMultiplier: number): Member {
   const preferences: MemberPreferences = {
     displayName: name,
     portionMultiplier,
-    targetCalories: null,
-    targetProtein: null,
-    targetCarbs: null,
-    targetFat: null,
-    dietaryType: null,
-    allergens: [],
-    restrictions: [],
-    excludedIngredients: [],
-    excludedIngredientIds: [],
   }
   return {
     id: key,
