@@ -60,6 +60,28 @@ export const planFridgeMeal = defineTool({
     if (entry?.status === 'completed') {
       throw new ToolInputError(cookedMessage(mealType, date))
     }
+    // Leftovers come from a cooked meal, as the app's picker offers them
+    // (`loadRecentMeals`). `toItemRows` accepts any entry of the household,
+    // because Edit items and Undo send stored items back, so the check is
+    // here. It also refuses the slot's own entry, which is never cooked here.
+    const sourceEntryIds = [
+      ...new Set(items.flatMap((item) => ('sourceEntryId' in item ? [item.sourceEntryId] : []))),
+    ]
+    if (sourceEntryIds.length > 0) {
+      const cooked = await prisma.mealPlanEntry.count({
+        where: {
+          id: { in: sourceEntryIds },
+          plan: { householdId: household.id },
+          status: 'completed',
+        },
+      })
+      if (cooked !== sourceEntryIds.length) {
+        throw new ToolInputError(
+          'Each sourceEntryId must be the entryId of a meal this household cooked (isCooked: true in get_meal_plan). Nothing was changed.',
+        )
+      }
+    }
+
     // An entry with no meal, no note and no items is a picker placeholder,
     // which `createEntry` replaces (HON-1251).
     const isEmpty =
