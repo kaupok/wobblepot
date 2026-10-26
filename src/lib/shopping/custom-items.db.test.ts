@@ -4,6 +4,7 @@ import {
   addCustomShoppingItem,
   clearCheckedCustomShoppingItems,
   deleteCustomShoppingItem,
+  findCustomShoppingItemName,
   updateCustomShoppingItem,
 } from '@/lib/shopping/custom-items'
 
@@ -431,6 +432,22 @@ describe('updateCustomShoppingItem', () => {
     expect(outcome).toMatchObject({ status: 'updated', item: { checked: true } })
     expect((await itemRow('item-1'))?.checked).toBe(true)
     expect(await prisma.pantryItem.count()).toBe(0)
+  })
+})
+
+describe('findCustomShoppingItemName', () => {
+  it("names the household's item, and not another household's or an unknown id", async () => {
+    await world()
+    await prisma.customShoppingItem.createMany({
+      data: [
+        { id: 'item-alder', householdId: 'hh-alder', name: 'zentrafloss' },
+        { id: 'item-birch', householdId: 'hh-birch', name: 'plinkvortex' },
+      ],
+    })
+
+    expect(await findCustomShoppingItemName('hh-alder', 'item-alder')).toBe('zentrafloss')
+    expect(await findCustomShoppingItemName('hh-alder', 'item-birch')).toBeNull()
+    expect(await findCustomShoppingItemName('hh-alder', 'item-nope')).toBeNull()
   })
 })
 

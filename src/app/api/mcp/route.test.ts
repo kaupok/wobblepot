@@ -206,7 +206,7 @@ describe('/api/mcp', () => {
       ['a read-only token', as('user-a')],
       ['a read and write token', asWriter('user-a')],
     ])(
-      'lists the six read tools and the thirteen write tools for %s, each with both schemas',
+      'lists every read and write tool for %s, each with both schemas',
       async (_label, headers) => {
         const response = await POST(mcpRequest('tools/list', {}, headers))
         const body = await readMcpBody<{ tools: ListedTool[] }>(response)
@@ -248,6 +248,7 @@ describe('/api/mcp', () => {
         })
         expect(annotations.set_meal_status).toEqual({ ...write, idempotentHint: true })
         expect(annotations.set_meal_servings).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.remove_shopping_item).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },

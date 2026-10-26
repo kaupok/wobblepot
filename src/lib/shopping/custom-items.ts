@@ -216,6 +216,22 @@ export async function updateCustomShoppingItem(
 }
 
 /**
+ * The name of one item on the household's list, or null when the household has
+ * no item with this id. Lets a caller say what it removed, because
+ * `deleteCustomShoppingItem` returns no row.
+ */
+export async function findCustomShoppingItemName(
+  householdId: string,
+  id: string,
+): Promise<string | null> {
+  const item = await prisma.customShoppingItem.findFirst({
+    where: { id, householdId },
+    select: { name: true },
+  })
+  return item?.name ?? null
+}
+
+/**
  * Removes one item from the household's list. Returns false when the household
  * has no item with this id; another household's item reads the same, so its id
  * is not revealed.
