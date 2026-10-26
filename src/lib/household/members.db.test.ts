@@ -108,22 +108,11 @@ describe('getHouseholdMember', () => {
     })
   })
 
-  // Food rules are household-level (HON-1322). A row may still hold member
-  // food values saved before February 2026, and the view leaves them out.
+  // The view leaves out the row's id, member link and timestamps.
   it('returns only the display name and portion size of the stored preferences', async () => {
     const { owner } = await households()
     await prisma.memberPreferences.create({
-      data: {
-        memberId: 'm-partner',
-        displayName: 'Mum',
-        portionMultiplier: 1.5,
-        targetCalories: 1800,
-        dietaryType: 'vegan',
-        allergens: ['nuts'],
-        restrictions: ['low-salt'],
-        excludedIngredients: ['celery'],
-        excludedIngredientIds: ['ing-1'],
-      },
+      data: { memberId: 'm-partner', displayName: 'Mum', portionMultiplier: 1.5 },
     })
 
     const member = await getHouseholdMember(owner.householdId, 'm-partner')
