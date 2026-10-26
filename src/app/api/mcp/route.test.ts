@@ -247,6 +247,7 @@ describe('/api/mcp', () => {
           idempotentHint: false,
         })
         expect(annotations.set_meal_status).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.set_meal_servings).toEqual({ ...write, idempotentHint: true })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },
