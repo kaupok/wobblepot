@@ -4,7 +4,7 @@ Read from `SKILL.md` once `ROUND` ≥ 3, or when 6.6 branch C routes to the 6.7 
 
 ## Materiality bar (6.4)
 
-**Materiality bar — applies from ROUND 3 on.** On rounds 1 and 2 every substantive finding is an Address Now item, per the `SKILL.md` 6.4 triage rules. From round 3 the bar rises, because by then the cheap defects are gone and what is left is usually accretion:
+**Materiality bar — applies from ROUND 3 on.** On rounds 1 and 2 every substantive finding is an Address Now item, per the `SKILL.md` 6.4 triage rules, except the additions that `docs/TRIAGE_RUBRIC.md` → "Keep the diff at the size the goal needs" skips. From round 3 the bar rises, because by then the cheap defects are gone and what is left is usually accretion:
 
 - **Action it** only if it is a **correctness or safety defect** — wrong behaviour, a broken reference (a path, line number, step number, or command that does not resolve), a factual error in the text, a security or data-loss risk, or a `**Spec:**` entry of kind Missing or Implemented but wrong (an acceptance criterion the PR does not meet).
 - **Do not action it** if the fix only adds coverage, edge cases, hedging, or qualification to something that already works as written. "This grep would also miss X", "this does not cover the case where Y", "consider noting Z" are coverage-only by definition. So is a `**Spec:**` entry of kind Unproven: the criterion is implemented, and only the test or `Driven:` line that shows it is missing.
