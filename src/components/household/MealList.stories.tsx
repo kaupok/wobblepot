@@ -415,7 +415,10 @@ export const RestoreFromRecentlyDeleted: Story = {
 
     const trigger = await canvas.findByRole('button', { name: `More actions: ${FIRST.name}` })
     await waitFor(() => expect(trigger).toHaveFocus())
-    await expect(canvas.queryByRole('button', { name: /Recently deleted/ })).toBeNull()
+    // Focus can land before the section's refetch empties it.
+    await waitFor(() =>
+      expect(canvas.queryByRole('button', { name: /Recently deleted/ })).toBeNull(),
+    )
   },
 }
 
