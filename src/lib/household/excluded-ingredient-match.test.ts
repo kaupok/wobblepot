@@ -15,6 +15,7 @@ const POOL = [
   row('egg', 'muna'),
   row('egg noodles', 'munanuudlid'),
   row('aubergine', 'baklažaan'),
+  row('eggplant chutney'),
   row('nutmeg', 'muskaatpähkel'),
   row('mixed nuts'),
   row('blueberries'),
@@ -67,7 +68,7 @@ describe('matchTag', () => {
   })
 
   it('matches the pool name a synonym gives', () => {
-    expect(names('eggplants')).toEqual(['aubergine'])
+    expect(names('eggplants')).toEqual(['aubergine', 'eggplant chutney'])
   })
 
   it('matches an Estonian name, singular or plural, to the rows of its English name', () => {

@@ -41,6 +41,8 @@ async function world() {
     aubergine: await ingredient('aubergine', 'baklažaan'),
     nutmeg: await ingredient('nutmeg', 'muskaatpähkel'),
     alderMushroom: await ingredient('Grandma pickled mushrooms', undefined, alder.id),
+    // The pool calls it aubergine (HON-1097); a household may still add "eggplant".
+    alderEggplant: await ingredient('eggplant', undefined, alder.id),
     birchMushroom: await ingredient('Birch mushroom mix', undefined, birch.id),
   }
   return { alder, birch, rows }
@@ -86,6 +88,7 @@ describe('getExcludedIngredientIds', () => {
 
     expect(egg).toContain(rows.egg.id)
     expect(egg).not.toContain(rows.aubergine.id)
+    expect(egg).not.toContain(rows.alderEggplant.id)
     expect(nut).not.toContain(rows.nutmeg.id)
   })
 
