@@ -36,6 +36,16 @@ const steps: PreparationSteps = {
 /** Every servings count the view asked for, in order. */
 const requested: number[] = []
 
+/** Every body Ask posted, in order. */
+const asked: Array<Record<string, unknown>> = []
+
+const ANSWER = 'Use thighs instead, and roast them 5 minutes longer.'
+
+const askHandler = http.post('/api/meals/:id/cook-question', async ({ request }) => {
+  asked.push((await request.json()) as Record<string, unknown>)
+  return HttpResponse.text(ANSWER)
+})
+
 const stepsHandler = http.post('/api/meals/:id/preparation-steps', async ({ request }) => {
   const body = (await request.json()) as { servings: number }
   requested.push(body.servings)
@@ -51,10 +61,10 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view for one of the household’s own recipes, opened from My recipes (HON-1338). The planned view’s shell (`CookViewDialog`) and body (`MealDetail`), without what belongs to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict badges, no ingredient changes and no Ask. It opens at the household’s servings; a change scales the ingredients and asks `POST /api/meals/{id}/preparation-steps` for steps at the new count, and nothing is saved. More actions holds Edit. Portal-based: queries go through `document.body`.',
+          'The cook view for one of the household’s own recipes, opened from My recipes (HON-1338). The planned view’s shell (`CookViewDialog`) and body (`MealDetail`), without what belongs to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict badges and no ingredient changes. It opens at the household’s servings; a change scales the ingredients and asks `POST /api/meals/{id}/preparation-steps` for steps at the new count, and nothing is saved. Ask (HON-1339) posts to `POST /api/meals/{id}/cook-question` with the steps and the servings on screen. More actions holds Edit. Portal-based: queries go through `document.body`.',
       },
     },
-    msw: { handlers: { steps: [stepsHandler] } },
+    msw: { handlers: { steps: [stepsHandler], cookQuestion: [askHandler] } },
   },
   args: {
     meal: recipe,
@@ -64,6 +74,7 @@ const meta = {
   },
   beforeEach: () => {
     requested.length = 0
+    asked.length = 0
   },
 } satisfies Meta<typeof RecipeDetailModal>
 
@@ -81,7 +92,8 @@ async function findDialog(): Promise<HTMLElement> {
 
 /**
  * Opens at the household's 2.5 servings and loads the steps for them at once:
- * no "How to prepare", no note, no "Done cooking", no pantry checkboxes, no Ask.
+ * no "How to prepare", no note, no "Done cooking", no pantry checkboxes. Each
+ * step and each item in "You'll need" has Ask (HON-1339).
  */
 export const Default: Story = {
   play: async () => {
@@ -92,7 +104,9 @@ export const Default: Story = {
     await expect(within(dialog).queryByRole('button', { name: 'How to prepare' })).toBeNull()
     await expect(within(dialog).queryByRole('button', { name: /Done cooking/i })).toBeNull()
     await expect(within(dialog).queryByRole('checkbox')).toBeNull()
-    await expect(within(dialog).queryByRole('button', { name: /^Ask/ })).toBeNull()
+    for (const name of ['Ask about step 1', 'Ask about step 3', 'Ask about Sheet pan']) {
+      await expect(within(dialog).getByRole('button', { name })).toBeVisible()
+    }
   },
 }
 
@@ -130,6 +144,80 @@ export const ServingChange: Story = {
     await expect(within(dialog).getByRole('button', { name: /Serves 6/ })).toBeVisible()
     await waitFor(() => expect(requested).toEqual([2.5, 6]))
     await expect(await within(dialog).findByText(steps.steps![0]!)).toBeVisible()
+  },
+}
+
+/**
+ * Ask about a step (HON-1339): the chip sends at once with the steps and the
+ * servings on screen, and the answer shows under the step. A second question
+ * on the same step carries the first and its answer (HON-980).
+ */
+export const AskAboutStep: Story = {
+  play: async () => {
+    const dialog = await findDialog()
+    await within(dialog).findByText(steps.steps![0]!)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about step 2' }))
+    const panel = within(dialog).getByRole('group', { name: 'Ask about step 2' })
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
+    )
+    await waitFor(() => expect(within(panel).getByText(ANSWER)).toBeVisible())
+    await expect(asked[0]).toMatchObject({
+      subject: { kind: 'step', index: 1 },
+      steps: steps.steps,
+      equipment: steps.equipment,
+      question: 'What can I substitute here?',
+      servings: 2.5,
+    })
+
+    const field = within(panel).getByRole('textbox', { name: 'Your question' })
+    await userEvent.type(field, 'How do I know it is done?{Enter}')
+    await waitFor(() => expect(asked).toHaveLength(2))
+    await expect(asked[1]).toMatchObject({
+      question: 'How do I know it is done?',
+      previous: { question: 'What can I substitute here?', answer: ANSWER },
+    })
+  },
+}
+
+/** Ask about an item in "You'll need" (HON-983), as in the planned view. */
+export const AskAboutEquipment: Story = {
+  play: async () => {
+    const dialog = await findDialog()
+    await within(dialog).findByText(steps.steps![0]!)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about Sheet pan' }))
+    const panel = within(dialog).getByRole('group', { name: 'Ask about Sheet pan' })
+    await expect(panel).toBeVisible()
+  },
+}
+
+/**
+ * A recipe deleted while the view was open: catalog copy, not the route's
+ * English, and no Retry, because it cannot help.
+ */
+export const AskRecipeGone: Story = {
+  parameters: {
+    msw: {
+      handlers: {
+        cookQuestion: [
+          http.post('/api/meals/:id/cook-question', () =>
+            HttpResponse.json({ error: 'Meal not found', code: 'meal_not_found' }, { status: 404 }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    await within(dialog).findByText(steps.steps![0]!)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about step 1' }))
+    const panel = within(dialog).getByRole('group', { name: 'Ask about step 1' })
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
+    )
+    await waitFor(() => expect(within(panel).getByText(/no longer in My recipes/)).toBeVisible())
+    await expect(within(panel).queryByText('Meal not found')).toBeNull()
+    await expect(within(panel).queryByRole('button', { name: 'Retry' })).toBeNull()
   },
 }
 

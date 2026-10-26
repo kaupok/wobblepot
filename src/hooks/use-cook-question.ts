@@ -17,12 +17,19 @@ import type { CookQuestionPrevious } from '@/lib/ai/cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { clipText, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 
-interface UseCookQuestionOptions {
-  planId: string
-  entryId: string
-  /** For the analytics event only */
-  mealId: string
-}
+/**
+ * What the question is about: a planned entry, or one of the household's own
+ * recipes opened from My recipes (HON-1339), at the servings on screen. The
+ * recipe has no entry to price the steps, so the request carries them.
+ */
+export type UseCookQuestionOptions =
+  | {
+      planId: string
+      entryId: string
+      /** For the analytics event only */
+      mealId: string
+    }
+  | { mealId: string; servings: number }
 
 export type CookQuestionSource = 'chip' | 'text'
 
@@ -57,7 +64,11 @@ export interface CookQuestionError {
  * The POST body. `previous` is the last question answered in full about the
  * same subject, so a follow-up has something to refer to (HON-980).
  */
-type AskRequest = Omit<CookQuestionAskInput, 'source'> & { previous?: CookQuestionPrevious }
+type AskRequest = Omit<CookQuestionAskInput, 'source'> & {
+  previous?: CookQuestionPrevious
+  /** The recipe route's servings on screen; the entry route has its own. */
+  servings?: number
+}
 
 /** A question whose answer streamed to its end, for the subject it was about. */
 type AnsweredQuestion = CookQuestionPrevious & { subject: CookQuestionSubject }
@@ -92,6 +103,7 @@ const NO_RETRY_BUTTON_CODES: ReadonlySet<string> = new Set([
   'no_household',
   'entry_not_found',
   'no_meal',
+  'meal_not_found',
 ] satisfies CookQuestionErrorCode[])
 
 /**
@@ -170,7 +182,14 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
  * subject: one panel is open at a time, and closing it discards the answer.
  * Nothing is persisted.
  */
-export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOptions) {
+export function useCookQuestion(options: UseCookQuestionOptions) {
+  const { mealId } = options
+  const planId = 'planId' in options ? options.planId : undefined
+  const url =
+    'planId' in options
+      ? `/api/meal-plans/${options.planId}/entries/${options.entryId}/cook-question`
+      : `/api/meals/${mealId}/cook-question`
+  const servings = 'servings' in options ? options.servings : undefined
   const [{ active, previous }, setQuestion] = useState<QuestionState>(NO_QUESTION)
   const [error, setError] = useState<CookQuestionError | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -192,7 +211,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
       // Not `apiFetch`: the answer is a text stream, not JSON. A failure is
       // still JSON with a `code`, read into the same `ApiError`.
       const post = async () => {
-        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}/cook-question`, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(request),
@@ -311,16 +330,16 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
             }
           : undefined
       void track('cook_view:question_asked', {
-        plan_id: planId,
+        ...(planId !== undefined && { plan_id: planId }),
         meal_id: mealId,
         subject: request.subject.kind,
         subject_index: request.subject.index,
         source,
         has_previous: previous !== undefined,
       })
-      return send({ ...request, previous })
+      return send({ ...request, previous, ...(servings !== undefined && { servings }) })
     },
-    [send, planId, mealId],
+    [send, planId, mealId, servings],
   )
 
   /**

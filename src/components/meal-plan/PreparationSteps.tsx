@@ -113,14 +113,15 @@ interface PreparationStepsProps {
   onToggleStep?: (index: number) => void
   /**
    * Puts an Ask button beside each step toggle (HON-969). The caller passes
-   * it only for a planned entry it can edit.
+   * it for a planned entry it can edit, and for a recipe opened from My
+   * recipes (HON-1339).
    */
   cookQuestion?: CookQuestionControls
 }
 
 /**
- * The cook-question state, owned by `MealDetailModal` through
- * `useCookQuestion`, so this component stays presentational.
+ * The cook-question state, owned by the modal through `useCookQuestionPanel`,
+ * so this component stays presentational.
  */
 export interface CookQuestionControls {
   /**

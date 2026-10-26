@@ -64,7 +64,6 @@
 7969 src/components/meal-plan/MealCard.tsx
 6243 src/components/meal-plan/MealDetail.stories.tsx
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
-5066 src/components/meal-plan/MealDetailModal.tsx
 5441 src/components/meal-plan/MealImageCard.stories.tsx
 5457 src/components/meal-plan/MealImageCard.test.tsx
 5414 src/components/meal-plan/MealImageCard.tsx

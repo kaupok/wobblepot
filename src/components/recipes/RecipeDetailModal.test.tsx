@@ -110,7 +110,6 @@ describe('RecipeDetailModal', () => {
 
     expect(within(dialog).queryByRole('button', { name: /Done cooking/i })).toBeNull()
     expect(within(dialog).queryByRole('checkbox')).toBeNull()
-    expect(within(dialog).queryByRole('button', { name: /^Ask/ })).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /How to prepare/i })).toBeNull()
     // No conflict badges (`meal-plan.card.conflict`) …
     expect(
@@ -120,6 +119,16 @@ describe('RecipeDetailModal', () => {
     expect(within(dialog).queryByText('Changed')).toBeNull()
     expect(within(dialog).queryByRole('button', { name: 'Change Chicken thigh' })).toBeNull()
     expect(within(dialog).queryByRole('button', { name: 'Add an ingredient' })).toBeNull()
+  })
+
+  // Ask is the one cook-view tool the recipe mode shares (HON-1339).
+  it('has Ask on each step', async () => {
+    renderModal()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(STEPS.steps[0]!)
+
+    expect(within(dialog).getByRole('button', { name: 'Ask about step 1' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Ask about step 2' })).toBeInTheDocument()
   })
 
   it('holds Edit, a link to the edit page, in More actions', async () => {

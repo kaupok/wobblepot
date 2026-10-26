@@ -427,6 +427,7 @@
         "noHousehold": "You need a household before you can ask about a step.",
         "entryNotFound": "This meal is no longer in your plan. Refresh the page and try again.",
         "noMeal": "No meal is picked for this slot yet. Pick a meal first.",
+        "mealNotFound": "This recipe is no longer in My recipes. Close it and open it again from the list.",
         "rateLimited": "You've reached this hour's limit for questions. Please try again later.",
         "rateLimitedUntil": "You've reached this hour's limit for questions. Try again after {time}.",
         "generationDisabled": "Questions are turned off right now. Please try again later.",
