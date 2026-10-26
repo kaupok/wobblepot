@@ -24,6 +24,8 @@ function entry(overrides: Partial<Entries[number]>): Entries[number] {
     date: '2026-10-12',
     mealType: 'dinner',
     status: 'planned',
+    kind: 'meal',
+    items: [],
     servingOverride: null,
     meal: { id: 'meal-1', name: 'Chicken soup' },
     ...overrides,
@@ -83,8 +85,11 @@ describe('get_meal_plan', () => {
       to: '2026-10-12',
       entries: [
         {
+          entryId: 'entry-1',
           date: '2026-10-12',
           mealType: 'dinner',
+          kind: 'recipe',
+          items: [],
           mealId: 'meal-1',
           mealName: 'Chicken soup',
           servings: 2,
@@ -92,8 +97,11 @@ describe('get_meal_plan', () => {
           isSkipped: false,
         },
         {
+          entryId: 'entry-2',
           date: '2026-10-12',
           mealType: 'lunch',
+          kind: 'recipe',
+          items: [],
           mealId: 'meal-2',
           mealName: 'Pasta',
           servings: 4,
@@ -101,8 +109,11 @@ describe('get_meal_plan', () => {
           isSkipped: false,
         },
         {
+          entryId: 'entry-3',
           date: '2026-10-12',
           mealType: 'breakfast',
+          kind: 'recipe',
+          items: [],
           mealId: null,
           mealName: null,
           servings: 2,
@@ -111,6 +122,72 @@ describe('get_meal_plan', () => {
         },
       ],
       extras: [],
+    })
+    expect(getMealPlan.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it('returns a fridge meal with kind fridge and its items named as the card names them', async () => {
+    vi.mocked(loadPlanEntries).mockResolvedValue({
+      planId: 'plan-1',
+      entries: [
+        entry({
+          id: 'entry-fridge',
+          kind: 'fridge',
+          meal: null,
+          items: [
+            {
+              id: 'item-1',
+              ingredientId: 'ing-peas',
+              sourceEntryId: null,
+              label: null,
+              name: 'Frozen peas',
+              sourceDate: null,
+            },
+            {
+              id: 'item-2',
+              ingredientId: null,
+              sourceEntryId: 'entry-old',
+              label: null,
+              name: 'Mashed potatoes',
+              sourceDate: '2026-10-10',
+            },
+            {
+              id: 'item-3',
+              ingredientId: null,
+              sourceEntryId: 'entry-gone',
+              label: null,
+              name: null,
+              sourceDate: '2026-10-11',
+            },
+            {
+              id: 'item-4',
+              ingredientId: null,
+              sourceEntryId: null,
+              label: 'Meatballs',
+              name: null,
+              sourceDate: null,
+            },
+          ],
+        }),
+      ],
+    })
+
+    const result = await call({ from: '2026-10-12', to: '2026-10-12' })
+
+    expect(result.structuredContent).toMatchObject({
+      entries: [
+        {
+          entryId: 'entry-fridge',
+          kind: 'fridge',
+          mealId: null,
+          items: [
+            { name: 'Frozen peas', source: 'pantry' },
+            { name: 'Mashed potatoes', source: 'leftover' },
+            { name: null, source: 'leftover' },
+            { name: 'Meatballs', source: 'text' },
+          ],
+        },
+      ],
     })
     expect(getMealPlan.outputSchema.safeParse(result.structuredContent).success).toBe(true)
   })

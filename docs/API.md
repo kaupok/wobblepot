@@ -43,10 +43,29 @@ The meals planned by date and meal type, and each day's extras.
   "to": "2026-10-20",
   "entries": [
     {
+      "entryId": "cm…",
       "date": "2026-10-14",
       "mealType": "dinner",
+      "kind": "recipe",
+      "items": [],
       "mealId": "cm…",
       "mealName": "Chicken soup",
+      "servings": 4,
+      "isCooked": false,
+      "isSkipped": false
+    },
+    {
+      "entryId": "cm…",
+      "date": "2026-10-15",
+      "mealType": "dinner",
+      "kind": "fridge",
+      "items": [
+        { "name": "Frozen peas", "source": "pantry" },
+        { "name": "Chicken soup", "source": "leftover" },
+        { "name": "Meatballs", "source": "text" }
+      ],
+      "mealId": null,
+      "mealName": null,
       "servings": 4,
       "isCooked": false,
       "isSkipped": false
@@ -74,6 +93,8 @@ The meals planned by date and meal type, and each day's extras.
 ```
 
 `mealType` is `breakfast`, `lunch` or `dinner`. `mealId` and `mealName` are `null` for an entry with no meal. Dish names are in the household's language.
+
+`kind` is `recipe` for a meal from a recipe, or `fridge` for a fridge meal: a planned meal made of what is at home, with no recipe (HON-1281). A fridge meal lists its `items` in order; `items` is empty for `recipe`. An item's `source` is `pantry` (an ingredient, named in the household's language), `leftover` (what is left of an earlier cooked meal, named by that meal; `null` when the meal was deleted since) or `text` (the household's own words).
 
 `extras` are the snacks, drinks and other items added to a day, outside its meals (HON-1311). `kind` is `ingredient` for a catalogue ingredient, with its name in the household's language, or `text` for free text. `quantity` is in `unit` (`g`, `ml` or `piece`); both are `null` when the extra has no amount, and always for `text`.
 
