@@ -7,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
@@ -16,10 +15,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
 import { ApiError, apiFetch } from '@/lib/api'
-import { MealImageCard, type MealImageFields } from '@/components/meal-plan/MealImageCard'
+import type { MealImageFields } from '@/components/meal-plan/MealImageCard'
+import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
+import { RecipeCard } from './RecipeCard'
 import {
   RecentlyDeletedMeals,
   recentlyDeletedMealsQueryKey,
@@ -64,6 +64,8 @@ export interface MealData extends MealImageFields {
 
 interface MealListProps {
   meals: MealData[]
+  /** The household's portions summed (HON-1040): the cook view opens at it. */
+  householdServings: number
   onDelete: (mealId: string) => void
   onToggleFavorite: (mealId: string, isFavorite: boolean) => void
   /**
@@ -81,6 +83,7 @@ interface MealListProps {
 
 export function MealList({
   meals,
+  householdServings,
   onDelete,
   onToggleFavorite,
   emptyFocusRef,
@@ -90,6 +93,10 @@ export function MealList({
 }: MealListProps) {
   const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
+  // The recipe in the cook view (HON-1338). Kept after it closes, so the view
+  // can animate out and hand focus back to the card's name.
+  const [viewedMeal, setViewedMeal] = useState<MealData | null>(null)
+  const [isViewOpen, setIsViewOpen] = useState(false)
   // The confirm dialog opens from a menu item that is gone by the time it
   // closes, so Radix has no trigger to return focus to (HON-934). These hold
   // each card's ⋯ trigger and the card whose trigger should take focus: the
@@ -231,91 +238,83 @@ export function MealList({
           Composition, HON-934). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {meals.map((meal) => (
-          <MealImageCard
+          <RecipeCard
             key={meal.id}
             meal={meal}
-            layout="bottom"
-            // `sm`: the content's own `p-4` is the card's padding; the default
-            // `py-6` on top of it doubled the space above the first row.
-            size="sm"
-            className="flex h-full flex-col"
-          >
-            <CardContent className="flex-1 p-4">
-              {/* h2: the page title is the h1 (HON-747). No ingredient list at
-                  any width: uncoloured names only, it doubled a phone card
-                  (HON-784) and left an empty band above the image beside a
-                  longer list on desktop (HON-819). Edit and the meal detail
-                  carry the list with quantities. */}
-              <MealCardBase
-                meal={meal}
-                nameHeadingTag="h2"
-                ingredients="never"
-                ownRecipe="hide"
-                titleActions={
-                  <>
+            onOpen={() => {
+              setViewedMeal(meal)
+              setIsViewOpen(true)
+            }}
+            titleActions={
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => toggleFavorite.mutate(meal)}
+                  disabled={toggleFavorite.isPending && toggleFavorite.variables?.id === meal.id}
+                  aria-label={
+                    meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
+                  }
+                >
+                  <Heart
+                    aria-hidden="true"
+                    className={cn(meal.isFavorite && 'text-primary fill-current')}
+                  />
+                </Button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
                     <Button
+                      ref={(el) => {
+                        if (!el) return
+                        triggerRefs.current.set(meal.id, el)
+                        return () => {
+                          triggerRefs.current.delete(meal.id)
+                        }
+                      }}
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => toggleFavorite.mutate(meal)}
-                      disabled={
-                        toggleFavorite.isPending && toggleFavorite.variables?.id === meal.id
-                      }
-                      aria-label={
-                        meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
-                      }
+                      aria-label={t('moreActions', { name: meal.name })}
                     >
-                      <Heart
-                        aria-hidden="true"
-                        className={cn(meal.isFavorite && 'text-primary fill-current')}
-                      />
+                      <MoreHorizontal aria-hidden="true" />
                     </Button>
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          ref={(el) => {
-                            if (!el) return
-                            triggerRefs.current.set(meal.id, el)
-                            return () => {
-                              triggerRefs.current.delete(meal.id)
-                            }
-                          }}
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t('moreActions', { name: meal.name })}
-                        >
-                          <MoreHorizontal aria-hidden="true" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {/* A real link, so middle-click and open-in-new-tab work. */}
-                        <DropdownMenuItem asChild>
-                          <Link href={`/recipes/${meal.id}/edit`}>
-                            <Pencil aria-hidden="true" />
-                            {t('edit')}
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onSelect={() => {
-                            focusTargetIdRef.current = meal.id
-                            setDeleteConfirmMeal(meal)
-                          }}
-                        >
-                          <Trash2 aria-hidden="true" />
-                          {t('delete')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                }
-              />
-            </CardContent>
-          </MealImageCard>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {/* A real link, so middle-click and open-in-new-tab work. */}
+                    <DropdownMenuItem asChild>
+                      <Link href={`/recipes/${meal.id}/edit`}>
+                        <Pencil aria-hidden="true" />
+                        {t('edit')}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => {
+                        focusTargetIdRef.current = meal.id
+                        setDeleteConfirmMeal(meal)
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      {t('delete')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            }
+          />
         ))}
       </div>
 
       {footer}
       {recentlyDeleted}
+
+      {viewedMeal && (
+        <RecipeDetailModal
+          meal={viewedMeal}
+          householdServings={householdServings}
+          open={isViewOpen}
+          onOpenChange={setIsViewOpen}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteConfirmMeal !== null}

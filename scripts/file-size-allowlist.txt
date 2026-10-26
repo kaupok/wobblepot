@@ -61,10 +61,10 @@
 6131 src/components/inventory/ShoppingSection.tsx
 20528 src/components/meal-plan/MealCard.stories.tsx
 9024 src/components/meal-plan/MealCard.test.tsx
-8022 src/components/meal-plan/MealCard.tsx
+7969 src/components/meal-plan/MealCard.tsx
 6243 src/components/meal-plan/MealDetail.stories.tsx
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
-6669 src/components/meal-plan/MealDetailModal.tsx
+5066 src/components/meal-plan/MealDetailModal.tsx
 5441 src/components/meal-plan/MealImageCard.stories.tsx
 5457 src/components/meal-plan/MealImageCard.test.tsx
 5414 src/components/meal-plan/MealImageCard.tsx
@@ -82,7 +82,7 @@
 11454 src/lib/ai/generate-plan.test.ts
 13851 src/lib/ai/imagine-fixtures.ts
 5435 src/lib/ai/imagine-meal.test.ts
-8790 src/lib/ai/match-ingredients.test.ts
+7455 src/lib/ai/match-ingredients.test.ts
 7258 src/lib/ai/parse-recipe.test.ts
 6610 src/lib/ai/prompts.test.ts
 5365 src/lib/ai/prompts.ts

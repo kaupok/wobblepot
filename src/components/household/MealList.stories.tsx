@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/api'
 import { householdMealList } from '@/stories/fixtures'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { MealList, type MealData } from './MealList'
 
 const meta = {
@@ -19,12 +20,13 @@ const meta = {
     docs: {
       description: {
         component:
-          'Renders the user’s custom meals as a responsive grid of cards (one column on a phone, two from `sm`, three from `lg`). Each card’s title row holds the favorite button and a ⋯ “More actions” menu with Edit (a link) and Delete, as on the planner card (HON-934) and carries no ingredient list at any width (HON-819): the edit page and meal detail list them with quantities. Deletion goes through a confirm dialog, which returns focus to the card’s ⋯ trigger on cancel and to the next card’s after a delete. The delete toast offers Undo, and a collapsed “Recently deleted” section at the end lists recipes deleted in the last 30 days with a Restore button each (HON-1336); it renders only when there is one. Mutations call `/api/meals/:id/favorite`, `/api/households/me/meals/:id` (DELETE) and `/api/households/me/meals/:id/restore`, and the section reads `/api/households/me/meals/deleted` — all backed by MSW in stories.',
+          'Renders the user’s custom meals as a responsive grid of cards (one column on a phone, two from `sm`, three from `lg`). Each card’s title row holds the favorite button and a ⋯ “More actions” menu with Edit (a link) and Delete, as on the planner card (HON-934) and carries no ingredient list at any width (HON-819): the edit page and meal detail list them with quantities. Deletion goes through a confirm dialog, which returns focus to the card’s ⋯ trigger on cancel and to the next card’s after a delete. The delete toast offers Undo, and a collapsed “Recently deleted” section at the end lists recipes deleted in the last 30 days with a Restore button each (HON-1336); it renders only when there is one. A click on a card’s name, its image or anywhere that is not a control opens the recipe’s cook view at the household’s servings (HON-1338). Mutations call `/api/meals/:id/favorite`, `/api/households/me/meals/:id` (DELETE) and `/api/households/me/meals/:id/restore`, and the section reads `/api/households/me/meals/deleted` — all backed by MSW in stories.',
       },
     },
   },
   args: {
     meals: householdMealList,
+    householdServings: 2,
     onDelete: fn(),
     onToggleFavorite: fn(),
   },
@@ -102,7 +104,8 @@ export const Populated: Story = {
     for (const meal of householdMealList) {
       expect(canvas.getByRole('button', { name: `More actions: ${meal.name}` })).toBeInTheDocument()
     }
-    expect(canvas.getAllByRole('button')).toHaveLength(names.length * 2)
+    // Per card: the name (it opens the cook view, HON-1338), the heart and ⋯.
+    expect(canvas.getAllByRole('button')).toHaveLength(names.length * 3)
     expect(canvas.queryAllByRole('link')).toHaveLength(0)
   },
 }
@@ -412,6 +415,69 @@ export const RestoreFromRecentlyDeleted: Story = {
 
     const trigger = await canvas.findByRole('button', { name: `More actions: ${FIRST.name}` })
     await waitFor(() => expect(trigger).toHaveFocus())
-    await expect(canvas.queryByRole('button', { name: /Recently deleted/ })).toBeNull()
+    // Focus can land before the section's refetch empties it.
+    await waitFor(() =>
+      expect(canvas.queryByRole('button', { name: /Recently deleted/ })).toBeNull(),
+    )
+  },
+}
+
+const viewedSteps = { steps: ['Heat the oven to 220°C.'], pitfalls: [] }
+const cookViewHandlers = [
+  http.post('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
+  http.post('/api/meals/:id/preparation-steps', () => HttpResponse.json({ tips: viewedSteps })),
+  http.post('/api/meals/:id/image', () => HttpResponse.json({ status: 'none' })),
+]
+
+/**
+ * A click on a card's image opens the recipe's cook view at the household's
+ * servings (HON-1338). Closing it returns focus to the card's name, the
+ * card's keyboard target.
+ */
+export const OpensCookViewFromImage: Story = {
+  args: {
+    meals: [
+      {
+        ...householdMealList[0]!,
+        imageStatus: 'ready',
+        imageUrl: mealIllustration.src,
+        imageHue: 52,
+      },
+    ],
+    showRecentlyDeleted: false,
+  },
+  parameters: { msw: { handlers: cookViewHandlers } },
+  play: async ({ canvasElement }) => {
+    // The image mounts once its source has loaded.
+    const image = await waitFor(() => {
+      const img = canvasElement.querySelector('img')
+      if (!img) throw new Error('The card renders no image yet')
+      return img
+    })
+    await userEvent.click(image)
+    const dialog = await within(document.body).findByRole('dialog', { name: FIRST.name })
+    // Visible only once the dialog's fade-in has finished.
+    await Promise.all(dialog.getAnimations().map((animation) => animation.finished))
+    await expect(await within(dialog).findByText(viewedSteps.steps[0]!)).toBeVisible()
+    await expect(within(dialog).getByRole('button', { name: /Serves 2/ })).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(within(canvasElement).getByRole('button', { name: FIRST.name })).toHaveFocus(),
+    )
+  },
+}
+
+/** The heart and the ⋯ menu keep their own actions: neither opens the view. */
+export const ControlsDoNotOpenCookView: Story = {
+  args: { meals: householdMealList.slice(0, 1), showRecentlyDeleted: false },
+  parameters: { msw: { handlers: cookViewHandlers } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /add to favourites/i }))
+    await waitFor(() => expect(args.onToggleFavorite).toHaveBeenCalled())
+    await userEvent.click(canvas.getByRole('button', { name: /more actions/i }))
+    await expect(await within(document.body).findByRole('menu')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await expect(within(document.body).queryByRole('dialog')).toBeNull()
   },
 }

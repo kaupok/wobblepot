@@ -80,6 +80,7 @@ const meta = {
       },
     },
   },
+  args: { householdServings: 2 },
 } satisfies Meta<typeof RecipesPageClient>
 
 export default meta

@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { listHouseholdMeals } from '@/lib/household-meals'
 import { getQueryClient } from '@/lib/get-query-client'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { RecipesPageClient } from './RecipesPageClient'
 import {
   getNextMealsPageParam,
@@ -53,7 +54,7 @@ export default async function RecipesPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <RecipesPageClient />
+      <RecipesPageClient householdServings={sumPortions(membership.household.members)} />
     </HydrationBoundary>
   )
 }

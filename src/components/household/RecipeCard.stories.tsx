@@ -1,0 +1,79 @@
+import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { Heart } from 'lucide-react'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { Button } from '@/components/ui/button'
+import { householdMealList } from '@/stories/fixtures'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { RecipeCard } from './RecipeCard'
+
+const meal = householdMealList[0]!
+
+const meta = {
+  title: 'Feature/Household/RecipeCard',
+  component: RecipeCard,
+  tags: ['autodocs'],
+  parameters: {
+    layout: 'padded',
+    docs: {
+      description: {
+        component:
+          'One recipe on My recipes (`MealList`). A click on the name, the image or anywhere that is not a control calls `onOpen`, which opens the recipe’s cook view (HON-1338). The name is the keyboard target; the title-row controls (`titleActions`) keep their own actions.',
+      },
+    },
+  },
+  args: {
+    meal,
+    onOpen: fn(),
+    titleActions: (
+      <Button variant="ghost" size="icon-sm" aria-label="Add to favourites">
+        <Heart aria-hidden="true" />
+      </Button>
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <div className="max-w-sm">
+        <Story />
+      </div>
+    ),
+  ],
+} satisfies Meta<typeof RecipeCard>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+/** The name opens the view, and the keyboard reaches it. */
+export const Default: Story = {
+  play: async ({ args, canvasElement }) => {
+    const name = within(canvasElement).getByRole('button', { name: meal.name })
+    await userEvent.click(name)
+    await expect(args.onOpen).toHaveBeenCalledTimes(1)
+    await expect(name).toHaveFocus()
+  },
+}
+
+/** A click on the image opens the view and puts focus on the name. */
+export const WithImage: Story = {
+  args: {
+    meal: { ...meal, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
+  },
+  play: async ({ args, canvasElement }) => {
+    // The image mounts once its source has loaded.
+    const image = await waitFor(() => {
+      const img = canvasElement.querySelector('img')
+      if (!img) throw new Error('The card renders no image yet')
+      return img
+    })
+    await userEvent.click(image)
+    await expect(args.onOpen).toHaveBeenCalledTimes(1)
+    await expect(within(canvasElement).getByRole('button', { name: meal.name })).toHaveFocus()
+  },
+}
+
+/** A control on the title row keeps its own action: the view stays shut. */
+export const ControlDoesNotOpen: Story = {
+  play: async ({ args, canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Add to favourites' }))
+    await expect(args.onOpen).not.toHaveBeenCalled()
+  },
+}
