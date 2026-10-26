@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import {
   addFavorite,
   FavoriteError,
+  findVisibleMealName,
   removeFavorite,
   type FavoriteRefusal,
 } from '@/lib/meals/favorite'
@@ -122,5 +123,44 @@ describe('removeFavorite', () => {
 
     expect(await refusalOf(removeFavorite(alder, 'meal-library'))).toBe('notFavorite')
     expect(await favourites(birch)).toEqual(['meal-library'])
+  })
+})
+
+describe('findVisibleMealName', () => {
+  it("returns a library meal and the household's own meal", async () => {
+    const { alder } = await world()
+
+    expect(await findVisibleMealName(alder, 'meal-library', 'en')).toEqual({
+      id: 'meal-library',
+      name: 'Porridge',
+    })
+    expect(await findVisibleMealName(alder, 'meal-alder', 'en')).toEqual({
+      id: 'meal-alder',
+      name: 'Stew',
+    })
+  })
+
+  it("returns null for another household's meal, a deleted meal and an unknown id", async () => {
+    const { alder } = await world()
+
+    expect(await findVisibleMealName(alder, 'meal-birch', 'en')).toBeNull()
+    expect(await findVisibleMealName(alder, 'meal-deleted', 'en')).toBeNull()
+    expect(await findVisibleMealName(alder, 'meal-none', 'en')).toBeNull()
+  })
+
+  it('names the meal in the locale, and in English without a translation', async () => {
+    const { alder } = await world()
+    await prisma.mealTranslation.create({
+      data: { mealId: 'meal-library', locale: 'et', name: 'Puder' },
+    })
+
+    expect(await findVisibleMealName(alder, 'meal-library', 'et')).toEqual({
+      id: 'meal-library',
+      name: 'Puder',
+    })
+    expect(await findVisibleMealName(alder, 'meal-alder', 'et')).toEqual({
+      id: 'meal-alder',
+      name: 'Stew',
+    })
   })
 })
