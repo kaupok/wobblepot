@@ -127,6 +127,8 @@ test.describe('MCP server', () => {
         remove_shopping_item: false,
         set_favourite: false,
         set_extra_amount: false,
+        delete_meal: false,
+        restore_meal: false,
       })
 
       const call = await mcpCallTool<{ entries: { mealId: string | null; mealType: string }[] }>(

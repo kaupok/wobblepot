@@ -32,4 +32,6 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   remove_shopping_item: { id: 'custom-1' },
   set_favourite: { mealId: 'meal-1', favourite: true },
   set_extra_amount: { extraId: 'extra-1', quantity: 1500, unit: 'ml' },
+  delete_meal: { mealId: 'meal-1' },
+  restore_meal: { mealId: 'meal-1' },
 }

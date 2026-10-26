@@ -867,9 +867,11 @@ export async function updateHouseholdMeal(
  * Soft-delete one of the household's live recipes (HON-734). Plan entries keep
  * pointing at it, so a past entry still renders the meal. The image stays, so
  * the household can restore the recipe within `RECIPE_RESTORE_WINDOW_DAYS`
- * (HON-1336); the daily purge cron clears it after that.
+ * (HON-1336); the daily purge cron clears it after that. Answers with the
+ * recipe's name and the delete time, so `delete_meal` can say until when it
+ * can be restored (HON-1337).
  */
-export async function deleteHouseholdMeal(householdId: string, id: string): Promise<void> {
+export async function deleteHouseholdMeal(householdId: string, id: string) {
   const existingMeal = await prisma.meal.findFirst({
     where: { id, householdId, deletedAt: null },
     select: { id: true },
@@ -877,8 +879,11 @@ export async function deleteHouseholdMeal(householdId: string, id: string): Prom
 
   if (!existingMeal) throw new HouseholdMealError('mealNotFound')
 
-  await prisma.meal.update({
+  const deletedAt = new Date()
+  const meal = await prisma.meal.update({
     where: { id },
-    data: { deletedAt: new Date() },
+    data: { deletedAt },
+    select: { id: true, name: true },
   })
+  return { ...meal, deletedAt }
 }

@@ -669,10 +669,11 @@ describe('deleteHouseholdMeal', () => {
   it('soft-deletes the meal, keeps its image for a restore, and leaves its plan entries pointing at it', async () => {
     const { alder } = await world()
 
-    await deleteHouseholdMeal(alder, 'meal-curry')
+    const deleted = await deleteHouseholdMeal(alder, 'meal-curry')
 
     const row = await prisma.meal.findUniqueOrThrow({ where: { id: 'meal-curry' } })
     expect(row.deletedAt).toBeInstanceOf(Date)
+    expect(deleted).toEqual({ id: 'meal-curry', name: 'Chicken curry', deletedAt: row.deletedAt })
     expect(row).toMatchObject({ imageUrl: CURRY_IMAGE, imageStatus: 'ready' })
     const entry = await prisma.mealPlanEntry.findUniqueOrThrow({ where: { id: 'entry-curry' } })
     expect(entry).toMatchObject({ mealId: 'meal-curry', preparationTips: TIPS })

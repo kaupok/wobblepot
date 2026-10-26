@@ -330,7 +330,7 @@ describe('DELETE /api/households/me/meals/[id]', () => {
   })
 
   it('deletes the meal and keeps its image blob, so a restore brings it back (HON-1336)', async () => {
-    mockDelete.mockResolvedValue(undefined)
+    mockDelete.mockResolvedValue({ id: 'meal-1', name: 'Curry', deletedAt: new Date() })
 
     const response = await remove()
 

@@ -49,7 +49,7 @@ describe('ConsentCard', () => {
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
       'Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.',
-      'Update your shopping list, pantry and meal plan, and add and change recipes.',
+      'Update your shopping list, pantry and meal plan, and add, change and delete recipes.',
       'Stay connected, so you do not need to allow it again.',
     ])
     // The read-only promise would be false with the write scope.
@@ -61,7 +61,7 @@ describe('ConsentCard', () => {
 
     expect(
       screen.queryByText(
-        'Update your shopping list, pantry and meal plan, and add and change recipes.',
+        'Update your shopping list, pantry and meal plan, and add, change and delete recipes.',
       ),
     ).toBeNull()
     expect(screen.getByText('It cannot change anything in Wobblepot.')).toBeInTheDocument()
@@ -94,6 +94,15 @@ describe('ConsentCard', () => {
     expect(screen.getByRole('heading', { name: 'Kas ühendada Claude?' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Luba' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Keela' })).toBeInTheDocument()
+  })
+
+  it('names deleting recipes in the Estonian write-scope sentence', () => {
+    renderCard(<ConsentCard {...READY} scopes={['mcp:read', 'mcp:write']} />, 'et')
+
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(items).toContain(
+      'muuta sinu ostunimekirja, sahvrit ja söögiplaani ning lisada, muuta ja kustutada retsepte;',
+    )
   })
 
   it('uses a generic title when the app sent no name', () => {
