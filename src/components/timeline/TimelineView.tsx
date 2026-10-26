@@ -183,8 +183,8 @@ export function TimelineView({
     router.refresh()
   }
 
-  // A cleared card unmounts and takes focus with it, so its empty slot takes
-  // focus as it renders (HON-1123). Held here, by date, because clearing a
+  // A cleared card unmounts and takes focus with it, so the day's "+ Add"
+  // button takes focus once the slot shows as empty (HON-1123, HON-1335). Held here, by date, because clearing a
   // day's last meal can move the day from the planned run to the empty days,
   // which remounts its `TimelineDayCard`.
   const [slotToFocus, setSlotToFocus] = useState<{ date: string; mealType: MealType } | null>(null)

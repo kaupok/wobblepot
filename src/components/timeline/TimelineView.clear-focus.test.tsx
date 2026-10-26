@@ -9,9 +9,9 @@ import { createQueryWrapper } from '@/test/query-wrapper'
 import { TimelineView } from './TimelineView'
 import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
 
-// After Clear the card unmounts and focus with it, so the slot that replaces
-// it takes focus (HON-1123). The real day card and slot are under test; the
-// card is reduced to the button that clears it.
+// After Clear the card unmounts and focus with it, so the day's "+ Add" button
+// takes focus once the slot is empty (HON-1123, HON-1335). The real day card
+// and menu are under test; the card is reduced to the button that clears it.
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -75,17 +75,17 @@ function renderTimeline() {
 describe('TimelineView after a clear', () => {
   // Today's only meal: clearing it moves Today from the planned run to the
   // empty days, which remounts its day card.
-  it("focuses the cleared meal's empty slot once the refresh lands", async () => {
+  it("focuses the day's Add button once the refresh lands", async () => {
     const user = userEvent.setup()
     const { refreshWith } = renderTimeline()
 
     await user.click(screen.getByRole('button', { name: 'Clear Chicken Rice' }))
     refreshWith([])
 
-    expect(screen.getByRole('button', { name: 'Dinner: pick a meal, Today' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Add to Today' })).toHaveFocus()
   })
 
-  it('focuses the slot once, not again when it remounts later', async () => {
+  it('focuses the Add button once, not again when it remounts later', async () => {
     const user = userEvent.setup()
     const { refreshWith } = renderTimeline()
 
@@ -95,6 +95,6 @@ describe('TimelineView after a clear', () => {
     refreshWith([dinner])
     refreshWith([])
 
-    expect(screen.getByRole('button', { name: 'Dinner: pick a meal, Today' })).not.toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Add to Today' })).not.toHaveFocus()
   })
 })

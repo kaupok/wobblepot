@@ -1,31 +1,37 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  AddMealMenu,
-  type AddMealChoice,
-  type AddMealView,
-} from '@/components/meal-plan/AddMealMenu'
+import type { AddMealChoice, AddMealView } from '@/components/meal-plan/AddMealMenu'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { FridgeMealPicker } from '@/components/meal-plan/fridge-meal/FridgeMealPicker'
 import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 
-interface TimelineEmptySlotProps {
+/** What the day's "+ Add" menu calls on a slot's controller. */
+export interface EmptySlotHandle {
+  /** Run a route for this slot: a selector view, `pick`, or `fridge`. */
+  choose: (choice: AddMealChoice) => void
+}
+
+/** A slot's requests in flight, which keep the day's menu closed. */
+export interface EmptySlotPending {
+  /** A placeholder is being created or a pick is in flight. */
+  isAdding: boolean
+  /** `isAdding`, or a placeholder is being discarded. */
+  isPending: boolean
+}
+
+interface EmptySlotControllerProps {
+  ref?: Ref<EmptySlotHandle>
   planId: string
   date: string
-  /** The day as its heading reads it, e.g. "Saturday Oct 3" or "Tomorrow". */
-  dayLabel: string
   /** Set on Today and Tomorrow, whose selector title says the word rather than the date. */
   relativeDay?: 'today' | 'tomorrow'
   mealType: MealType
@@ -33,54 +39,44 @@ interface TimelineEmptySlotProps {
   pantryIngredients?: PantryIngredient[]
   /** The pantry the fridge-meal picker searches (HON-1277). */
   pantryItems?: PantryItemFull[]
+  /** The day's "+ Add" button, which takes focus back when a dialog closes (HON-803). */
+  returnFocusRef: RefObject<HTMLButtonElement | null>
+  /** Called whenever this slot's requests in flight change. */
+  onPendingChange: (mealType: MealType, pending: EmptySlotPending) => void
   /**
-   * Take focus on mount: this slot replaces a card whose meal was just
-   * cleared, and focus fell to the page body with that card (HON-1123).
-   */
-  autoFocus?: boolean
-  /** Called once the mount has acted on `autoFocus`, so the page can drop it. */
-  onAutoFocused?: () => void
-  /**
-   * "Pick for me" placed a meal, or a fridge meal was saved. This slot
-   * unmounts when the refresh lands, taking focus with it, so the page moves
-   * focus to the day (HON-1248).
+   * "Pick for me" placed a meal, or a fridge meal was saved. The slot leaves
+   * the day's menu when the refresh lands, so the page moves focus to the day
+   * (HON-1248).
    */
   onPicked?: () => void
 }
 
-export function TimelineEmptySlot({
+/**
+ * One empty slot's routes to a meal, with no button of its own: the day's
+ * "+ Add" menu calls `choose` (HON-1335). It owns the placeholder entry, the
+ * selector and the fridge-meal picker for its slot.
+ */
+export function EmptySlotController({
+  ref,
   planId,
   date,
-  dayLabel,
   relativeDay,
   mealType,
   householdServings,
   pantryIngredients = [],
   pantryItems = [],
-  autoFocus = false,
-  onAutoFocused,
+  returnFocusRef,
+  onPendingChange,
   onPicked,
-}: TimelineEmptySlotProps) {
+}: EmptySlotControllerProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
-  const mealTypeLabel = useEnumLabel('MealType', mealType)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const [view, setView] = useState<AddMealView>('library')
   const [isFridgeOpen, setIsFridgeOpen] = useState(false)
   const hasSelectedRef = useRef(false)
-  const pickButtonRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (!autoFocus) return
-    // Only from the body: a user who moved on before the refresh landed keeps
-    // their place.
-    if (!document.activeElement || document.activeElement === document.body) {
-      pickButtonRef.current?.focus()
-    }
-    onAutoFocused?.()
-  }, [autoFocus, onAutoFocused])
 
   const createEntryMutation = useMutation({
     mutationFn: () =>
@@ -152,9 +148,15 @@ export function TimelineEmptySlot({
   // No second placeholder while the last one is still being created or deleted.
   const isPending = isAdding || isDiscarding
 
+  useEffect(() => {
+    onPendingChange(mealType, { isAdding, isPending })
+    // A slot that fills while pending leaves the menu: drop its flags with it.
+    return () => onPendingChange(mealType, { isAdding: false, isPending: false })
+  }, [onPendingChange, mealType, isAdding, isPending])
+
   function handleChoose(chosen: AddMealChoice) {
-    // The menu stays closed while pending; this guards an item chosen in the
-    // same tick as the first.
+    // The day's menu stays closed while pending; this guards an item chosen
+    // in the same tick as the first.
     if (isPending) return
     // "Pick for me" places the meal in one request, with no placeholder.
     if (chosen === 'pick') {
@@ -171,6 +173,8 @@ export function TimelineEmptySlot({
     setView(chosen)
     createEntryMutation.mutate()
   }
+
+  useImperativeHandle(ref, () => ({ choose: handleChoose }))
 
   function handleSwapComplete() {
     hasSelectedRef.current = true
@@ -193,41 +197,16 @@ export function TimelineEmptySlot({
   }
 
   // Radix hands focus back to a `DialogTrigger`, and the selector has none, so
-  // return it to the slot's button ourselves (HON-803). The button is still pending
-  // here — the discard is in flight — which is why it is `aria-disabled` rather
-  // than `disabled`: a disabled button cannot take focus.
+  // return it to the day's "+ Add" button ourselves (HON-803). The button is
+  // still pending here — the discard is in flight — which is why it is
+  // `aria-disabled` rather than `disabled`: a disabled button cannot take focus.
   function handleCloseAutoFocus(event: Event) {
     event.preventDefault()
-    pickButtonRef.current?.focus()
+    returnFocusRef.current?.focus()
   }
-
-  // The meal type alone is the visible text ("+ Dinner"), so Estonian needs no
-  // declension of it (HON-807). Every empty day has a "Dinner" button, so the
-  // name adds the action and the day after the visible text, which a voice
-  // user can still say (WCAG 2.5.3).
-  const buttonText = isAdding ? tCard('adding') : mealTypeLabel
-  const accessibleName = isAdding
-    ? tCard('slotActionLabel', { action: buttonText, day: dayLabel, mealType: mealTypeLabel })
-    : tCard('emptySlotLabel', { mealType: mealTypeLabel, day: dayLabel })
 
   return (
     <>
-      {/* The button opens the routes to a meal; a selector route creates the
-          placeholder, then opens the selector in its view (HON-1247). */}
-      <AddMealMenu onChoose={handleChoose} disabled={isPending}>
-        <Button
-          ref={pickButtonRef}
-          variant="ghost"
-          size="sm"
-          // Not `disabled`: a disabled button drops focus and cannot take it
-          // back when the selector closes (HON-803).
-          aria-disabled={isPending || undefined}
-          aria-label={accessibleName}
-        >
-          <Plus aria-hidden="true" />
-          {buttonText}
-        </Button>
-      </AddMealMenu>
       {entryId && (
         <MealSelectorModal
           open={isSelectorOpen}

@@ -9,7 +9,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { toast } from 'sonner'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { DayAddMenu } from './DayAddMenu'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -33,11 +33,11 @@ function renderSlot() {
   return render(
     <QueryWrapper>
       <NextIntlClientProvider locale="et" messages={etMessages}>
-        <TimelineEmptySlot
+        <DayAddMenu
           planId="plan-1"
           date="2026-04-16"
           dayLabel="Neljapäev"
-          mealType="dinner"
+          emptySlots={['dinner']}
           householdServings={2}
         />
       </NextIntlClientProvider>
@@ -45,14 +45,14 @@ function renderSlot() {
   )
 }
 
-const slotButton = () => screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ })
+const slotButton = () => screen.getByRole('button', { name: /^Lisa: Neljapäev$/ })
 
 async function chooseRecipe() {
   await userEvent.click(slotButton())
   await userEvent.click(await screen.findByRole('menuitem', { name: 'Vali retsept' }))
 }
 
-describe('TimelineEmptySlot in Estonian', () => {
+describe('DayAddMenu in Estonian', () => {
   beforeEach(() => {
     vi.mocked(toast.error).mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -63,7 +63,13 @@ describe('TimelineEmptySlot in Estonian', () => {
     vi.restoreAllMocks()
   })
 
-  it('lists the routes in Estonian, in order', async () => {
+  it('names the button "Lisa" and the day after it', () => {
+    renderSlot()
+
+    expect(slotButton()).toHaveTextContent(/^Lisa$/)
+  })
+
+  it('lists the routes under the meal type in Estonian, in order', async () => {
     renderSlot()
 
     await userEvent.click(slotButton())
@@ -74,7 +80,9 @@ describe('TimelineEmptySlot in Estonian', () => {
       'Vali minu eest',
       'Mõtle välja toit',
       'Külmkapitoit',
+      'Lisa',
     ])
+    expect(screen.getByRole('group', { name: 'Õhtusöök' })).toBeInTheDocument()
   })
 
   it('toasts the duplicate-slot copy for a 409, not the route error', async () => {

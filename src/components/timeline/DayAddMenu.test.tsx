@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { TimelineEmptySlot } from './TimelineEmptySlot'
+import type { MealType } from '@/generated/prisma/enums'
+import { DayAddMenu } from './DayAddMenu'
 
 const refresh = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/components/meal-plan/meal-selector/AlternativesList', () => ({
 }))
 
 const PLAN_ID = 'plan-1'
-const PICK_NAME = 'Dinner: pick a meal, Thursday Apr 16'
+const ADD_NAME = 'Add to Thursday Apr 16'
 const ENTRY_ID = 'entry-1'
 const ENTRY_URL = `/api/meal-plans/${PLAN_ID}/entries/${ENTRY_ID}`
 // The discard deletes the entry only while it is still a placeholder (HON-1251).
@@ -84,15 +85,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderSlot(props: { autoFocus?: boolean; onAutoFocused?: () => void } = {}) {
+function renderSlot(props: { focusSlot?: MealType; onSlotFocused?: () => void } = {}) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
-      <TimelineEmptySlot
+      <DayAddMenu
         planId={PLAN_ID}
         date="2026-04-16"
         dayLabel="Thursday Apr 16"
-        mealType="dinner"
+        emptySlots={['dinner']}
         householdServings={4}
         {...props}
       />
@@ -100,12 +101,13 @@ function renderSlot(props: { autoFocus?: boolean; onAutoFocused?: () => void } =
   )
 }
 
-// The slot's button opens a menu of routes; each creates the placeholder, then
-// opens the selector in its view (HON-1247).
+// The day's button opens a menu of routes per empty slot; each creates the
+// placeholder, then opens the selector in its view (HON-1247, HON-1335).
 async function chooseRoute(item: 'Choose a recipe' | 'Imagine a meal' = 'Choose a recipe') {
   const user = userEvent.setup()
-  await user.click(pickButton())
-  await user.click(await screen.findByRole('menuitem', { name: item }))
+  await user.click(addButton())
+  const dinner = await screen.findByRole('group', { name: 'Dinner' })
+  await user.click(within(dinner).getByRole('menuitem', { name: item }))
 }
 
 async function openSelector(item?: 'Choose a recipe' | 'Imagine a meal') {
@@ -118,7 +120,7 @@ function closeSelector() {
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
 }
 
-// The slot's button is `aria-disabled`, not `disabled`, while a create or discard
+// The day's button is `aria-disabled`, not `disabled`, while a create or discard
 // is pending (HON-803), so `toBeDisabled()` cannot see it.
 function expectPending(button: HTMLElement) {
   expect(button).toHaveAttribute('aria-disabled', 'true')
@@ -134,28 +136,29 @@ function pageHide({ persisted = false } = {}) {
   return Object.assign(new Event('pagehide'), { persisted })
 }
 
-const pickButton = () => screen.getByRole('button', { name: PICK_NAME })
+const addButton = () => screen.getByRole('button', { name: ADD_NAME })
 const createRequests = () =>
   requests.filter((r) => r.method === 'POST' && r.url === `/api/meal-plans/${PLAN_ID}/entries`)
 const suggestionRequests = () => requests.filter((r) => r.url === `${ENTRY_URL}/suggestions`)
 const deleteRequests = () => requests.filter((r) => r.method === 'DELETE')
 
-describe('TimelineEmptySlot', () => {
-  // Every empty day has a "Dinner" button, so the name has to say which day,
-  // and start with the visible text (WCAG 2.5.3) (HON-807, HON-1111).
-  it('shows the meal type and names the day after it', () => {
+describe('DayAddMenu', () => {
+  // Every empty day has an "Add" button, so the name has to say which day,
+  // and start with the visible text (WCAG 2.5.3) (HON-807, HON-1335).
+  it('shows "Add" and names the day after it', () => {
     renderSlot()
-    const button = pickButton()
-    expect(button).toHaveTextContent(/^Dinner$/)
-    expect(button).toHaveAccessibleName(PICK_NAME)
+    const button = addButton()
+    expect(button).toHaveTextContent(/^Add$/)
+    expect(button).toHaveAccessibleName(ADD_NAME)
   })
 
-  // The routes to a meal, in order; opening the menu creates nothing yet.
+  // The routes to a meal, in today's order and words, then Extra; opening
+  // the menu creates nothing yet.
   it('opens a menu of routes from a click', async () => {
     const user = userEvent.setup()
     renderSlot()
 
-    await user.click(pickButton())
+    await user.click(addButton())
 
     const items = await screen.findAllByRole('menuitem')
     expect(items.map((item) => item.textContent)).toEqual([
@@ -163,9 +166,10 @@ describe('TimelineEmptySlot', () => {
       'Pick for me',
       'Imagine a meal',
       'Fridge meal',
+      'Extra',
     ])
-    expect(pickButton()).toHaveAttribute('aria-haspopup', 'menu')
-    expect(pickButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(addButton()).toHaveAttribute('aria-haspopup', 'menu')
+    expect(addButton()).toHaveAttribute('aria-expanded', 'true')
     expect(createRequests()).toEqual([])
   })
 
@@ -173,7 +177,7 @@ describe('TimelineEmptySlot', () => {
     const user = userEvent.setup()
     renderSlot()
 
-    pickButton().focus()
+    addButton().focus()
     await user.keyboard('{Enter}')
 
     expect(await screen.findByRole('menuitem', { name: 'Choose a recipe' })).toBeInTheDocument()
@@ -215,20 +219,18 @@ describe('TimelineEmptySlot', () => {
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
     expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
-    await waitFor(() => expect(pickButton()).toHaveFocus())
+    await waitFor(() => expect(addButton()).toHaveFocus())
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expectIdle(pickButton()))
+    await waitFor(() => expectIdle(addButton()))
   })
 
-  it('keeps the day and meal in the name while the placeholder is being created', async () => {
+  it('keeps the day in the name while the placeholder is being created', async () => {
     createResponse = deferred()
     renderSlot()
 
     await chooseRoute()
-    const adding = await screen.findByRole('button', {
-      name: 'Adding…: Thursday Apr 16, Dinner',
-    })
+    const adding = await screen.findByRole('button', { name: 'Adding…: Thursday Apr 16' })
     expect(adding).toHaveTextContent('Adding…')
 
     createResponse.resolve(json({ id: ENTRY_ID }))
@@ -256,7 +258,7 @@ describe('TimelineEmptySlot', () => {
     expect(deleteRequests()[0]?.url).toBe(DISCARD_URL)
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expectIdle(pickButton()))
+    await waitFor(() => expectIdle(addButton()))
 
     expect(suggestionRequests()).toHaveLength(1)
     const deleteIndex = requests.findIndex((r) => r.method === 'DELETE')
@@ -272,16 +274,16 @@ describe('TimelineEmptySlot', () => {
     expect(deleteRequests()).toHaveLength(1)
   })
 
-  it('disables the button while the placeholder is being discarded', async () => {
+  it('marks the button pending while the placeholder is being discarded', async () => {
     renderSlot()
     await openSelector()
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expectPending(pickButton())
+    expectPending(addButton())
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expectIdle(pickButton()))
+    await waitFor(() => expectIdle(addButton()))
   })
 
   it('ignores a second activation while the placeholder is being created', async () => {
@@ -307,6 +309,25 @@ describe('TimelineEmptySlot', () => {
     expect(createRequests()).toHaveLength(1)
   })
 
+  // One key that only opens: the activations above toggle, so they end shut
+  // whether or not the guard holds.
+  it('keeps the menu closed from ArrowDown while the placeholder is being created', async () => {
+    const user = userEvent.setup()
+    createResponse = deferred()
+    renderSlot()
+
+    await chooseRoute()
+    const adding = await screen.findByRole('button', { name: /^Adding…/ })
+    adding.focus()
+    await user.keyboard('{ArrowDown}')
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(adding).toHaveAttribute('aria-expanded', 'false')
+
+    createResponse.resolve(json({ id: ENTRY_ID }))
+    await screen.findByRole('dialog')
+  })
+
   it('ignores a second activation while the placeholder is being discarded', async () => {
     const user = userEvent.setup()
     renderSlot()
@@ -314,7 +335,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    const button = pickButton()
+    const button = addButton()
     expectPending(button)
 
     await user.click(button)
@@ -326,7 +347,7 @@ describe('TimelineEmptySlot', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expectIdle(pickButton()))
+    await waitFor(() => expectIdle(addButton()))
   })
 
   it('returns focus to the button when the selector closes without a pick', async () => {
@@ -336,8 +357,8 @@ describe('TimelineEmptySlot', () => {
     closeSelector()
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     // Still pending: the discard has not settled, and focus lands anyway.
-    expectPending(pickButton())
-    await waitFor(() => expect(pickButton()).toHaveFocus())
+    expectPending(addButton())
+    await waitFor(() => expect(addButton()).toHaveFocus())
   })
 
   it('keeps the button focusable while it is pending', async () => {
@@ -346,7 +367,7 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    const button = pickButton()
+    const button = addButton()
     button.focus()
     expect(button).toHaveFocus()
   })
@@ -402,7 +423,7 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
     deleteResponse.resolve(json({ error: 'boom' }, 500))
 
-    await waitFor(() => expectIdle(pickButton()))
+    await waitFor(() => expectIdle(addButton()))
     expect(refresh).not.toHaveBeenCalled()
   })
 
@@ -417,33 +438,42 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
   })
 
-  // The slot replaces a card whose meal was just cleared (HON-1123).
-  describe('autoFocus', () => {
-    it('takes focus from the page body as it mounts', () => {
-      const onAutoFocused = vi.fn()
-      renderSlot({ autoFocus: true, onAutoFocused })
+  // The slot's meal was just cleared and its card left with focus (HON-1123).
+  describe('focusSlot', () => {
+    it('takes focus from the page body once the slot is empty', () => {
+      const onSlotFocused = vi.fn()
+      renderSlot({ focusSlot: 'dinner', onSlotFocused })
 
-      expect(pickButton()).toHaveFocus()
-      expect(onAutoFocused).toHaveBeenCalledTimes(1)
+      expect(addButton()).toHaveFocus()
+      expect(onSlotFocused).toHaveBeenCalledTimes(1)
+    })
+
+    // Before the refresh lands, the cleared card is still on the page.
+    it('waits while the cleared slot is not yet empty', () => {
+      const onSlotFocused = vi.fn()
+      renderSlot({ focusSlot: 'lunch', onSlotFocused })
+
+      expect(addButton()).not.toHaveFocus()
+      expect(onSlotFocused).not.toHaveBeenCalled()
     })
 
     it('leaves focus where the user moved it', () => {
       const elsewhere = document.createElement('button')
       document.body.append(elsewhere)
       elsewhere.focus()
-      const onAutoFocused = vi.fn()
+      const onSlotFocused = vi.fn()
 
-      renderSlot({ autoFocus: true, onAutoFocused })
+      renderSlot({ focusSlot: 'dinner', onSlotFocused })
 
       expect(elsewhere).toHaveFocus()
-      expect(onAutoFocused).toHaveBeenCalledTimes(1)
+      expect(onSlotFocused).toHaveBeenCalledTimes(1)
       elsewhere.remove()
     })
 
     it('takes no focus without it', () => {
       renderSlot()
 
-      expect(pickButton()).not.toHaveFocus()
+      expect(addButton()).not.toHaveFocus()
     })
   })
 })

@@ -284,7 +284,7 @@ export const defaultHandlers: HttpHandler[] = [
   // Meal plan generation — used by `FillDaysAction` (fill-empty) and
   // `FirstTimeSetup` (generate).
   http.post('/api/meal-plans/generate', () => HttpResponse.json({ planId: 'plan-1', ok: true })),
-  // Empty-slot flow: `TimelineEmptySlot` POSTs to create an entry, the user
+  // Empty-slot flow: `EmptySlotController` POSTs to create an entry, the user
   // selects a meal (MealSelectorModal), or cancels (DELETE).
   http.post('/api/meal-plans/:planId/entries', async () =>
     HttpResponse.json({ id: `entry-${Date.now()}` }),
@@ -713,7 +713,7 @@ export const slowGenerateHandlers: HttpHandler[] = [
 
 /**
  * Hold `POST /api/meal-plans/:planId/entries` open. Use to render the
- * `TimelineEmptySlot` "Adding..." pending state.
+ * `DayAddMenu` "Adding..." pending state.
  */
 export const slowCreateEntryHandlers: HttpHandler[] = [
   http.post('/api/meal-plans/:planId/entries', async () => {
@@ -724,7 +724,7 @@ export const slowCreateEntryHandlers: HttpHandler[] = [
 
 /**
  * Hold the placeholder `DELETE /api/meal-plans/:planId/entries/:entryId` open.
- * Use to render the `TimelineEmptySlot` state after the selector is closed
+ * Use to render the `DayAddMenu` state after the selector is closed
  * without a pick, while the discard is still in flight.
  */
 export const slowDiscardEntryHandlers: HttpHandler[] = [

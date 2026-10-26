@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
  *
  * `MealSelectorModal` caches its alternatives under
  * `['meal-suggestions', planId, entryId, mode]` at `staleTime: Infinity`, and
- * the components that render it — `MealCard`, `TimelineEmptySlot` — keep it
+ * the components that render it — `MealCard`, `EmptySlotController` — keep it
  * mounted whether or not it is open, so the observer stays subscribed. The
  * modal's own `reset()` on close drops only its *own* entry's list, so reopening
  * it draws a fresh tie-break (HON-709); every other entry's list stays cached.
