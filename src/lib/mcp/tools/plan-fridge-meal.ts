@@ -10,6 +10,7 @@ import {
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import { loadRecentMeals, RECENT_MEALS_DAYS } from '@/lib/meal-plans/recent-meals'
 import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
 import { fridgeItemOutputSchema, toFridgeItemOutput } from '@/lib/api/v1/meal-plan'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
@@ -23,7 +24,7 @@ import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 export const planFridgeMeal = defineTool({
   name: 'plan_fridge_meal',
   title: 'Plan a fridge meal',
-  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), the leftovers of a meal cooked earlier ({ sourceEntryId }: that meal's entryId from get_meal_plan), or free text ({ label }). On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is today or up to ${MAX_DAYS_AHEAD} days ahead. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
+  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), the leftovers of a recipe meal cooked in the last ${RECENT_MEALS_DAYS} days ({ sourceEntryId }: that meal's entryId from get_meal_plan), or free text ({ label }). On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is today or up to ${MAX_DAYS_AHEAD} days ahead. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -60,24 +61,19 @@ export const planFridgeMeal = defineTool({
     if (entry?.status === 'completed') {
       throw new ToolInputError(cookedMessage(mealType, date))
     }
-    // Leftovers come from a cooked meal, as the app's picker offers them
-    // (`loadRecentMeals`). `toItemRows` accepts any entry of the household,
-    // because Edit items and Undo send stored items back, so the check is
-    // here. It also refuses the slot's own entry, which is never cooked here.
-    const sourceEntryIds = [
-      ...new Set(items.flatMap((item) => ('sourceEntryId' in item ? [item.sourceEntryId] : []))),
-    ]
+    // Leftovers are what the app's picker offers: a recipe meal the household
+    // cooked in the last `RECENT_MEALS_DAYS` (`loadRecentMeals`). `toItemRows` accepts
+    // any entry of the household, because Edit items and Undo send stored
+    // items back, so the check is here. The slot's own entry is never in the
+    // list, because a cooked slot is refused above.
+    const sourceEntryIds = items.flatMap((item) =>
+      'sourceEntryId' in item ? [item.sourceEntryId] : [],
+    )
     if (sourceEntryIds.length > 0) {
-      const cooked = await prisma.mealPlanEntry.count({
-        where: {
-          id: { in: sourceEntryIds },
-          plan: { householdId: household.id },
-          status: 'completed',
-        },
-      })
-      if (cooked !== sourceEntryIds.length) {
+      const recent = new Set((await loadRecentMeals(household)).map((meal) => meal.entryId))
+      if (!sourceEntryIds.every((id) => recent.has(id))) {
         throw new ToolInputError(
-          'Each sourceEntryId must be the entryId of a meal this household cooked (isCooked: true in get_meal_plan). Nothing was changed.',
+          `Each sourceEntryId must be the entryId of a recipe meal this household cooked in the last ${RECENT_MEALS_DAYS} days (kind recipe, isCooked: true in get_meal_plan). Nothing was changed.`,
         )
       }
     }

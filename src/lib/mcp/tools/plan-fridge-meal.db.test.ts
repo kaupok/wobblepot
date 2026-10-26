@@ -277,23 +277,43 @@ describe('plan_fridge_meal', () => {
       ['another household’s cooked entry', 'entry-birch'],
       ['an unknown entry', 'no-such-entry'],
       ['a planned entry nobody has cooked', 'entry-tomorrow'],
+      ['a cooked fridge meal, which has no meal name', 'entry-fridge-cooked'],
+      ['a recipe meal cooked 4 days ago', 'entry-old'],
     ])('for leftovers of %s', async (_, sourceEntryId) => {
       const household = await world()
       const date = day(2)
-      await prisma.mealPlanEntry.create({
-        data: {
-          id: 'entry-tomorrow',
-          planId: 'plan-alder',
-          date: parseLocalDate(day(1)),
-          mealType: 'dinner',
-          mealId: 'stew',
-        },
+      await prisma.mealPlanEntry.createMany({
+        data: [
+          {
+            id: 'entry-tomorrow',
+            planId: 'plan-alder',
+            date: parseLocalDate(day(1)),
+            mealType: 'dinner',
+            mealId: 'stew',
+          },
+          {
+            id: 'entry-fridge-cooked',
+            planId: 'plan-alder',
+            date: parseLocalDate(day(-1)),
+            mealType: 'lunch',
+            kind: 'fridge',
+            status: 'completed',
+          },
+          {
+            id: 'entry-old',
+            planId: 'plan-alder',
+            date: parseLocalDate(day(-4)),
+            mealType: 'dinner',
+            mealId: 'stew',
+            status: 'completed',
+          },
+        ],
       })
 
       expect(
         await refusal(household, { date, mealType: 'dinner', items: [{ sourceEntryId }] }),
       ).toBe(
-        'Each sourceEntryId must be the entryId of a meal this household cooked (isCooked: true in get_meal_plan). Nothing was changed.',
+        'Each sourceEntryId must be the entryId of a recipe meal this household cooked in the last 3 days (kind recipe, isCooked: true in get_meal_plan). Nothing was changed.',
       )
       expect(await dinnerOn(date)).toEqual([])
     })
@@ -317,7 +337,7 @@ describe('plan_fridge_meal', () => {
           mealType: 'dinner',
           items: [{ sourceEntryId: 'entry-self' }],
         }),
-      ).toContain('must be the entryId of a meal this household cooked')
+      ).toContain('must be the entryId of a recipe meal this household cooked')
       const [entry] = await dinnerOn(date)
       expect(entry).toMatchObject({ kind: 'meal', mealId: 'stew', items: [] })
     })
