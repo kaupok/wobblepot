@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
+import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 
 /**
  * A household's favourite meals, behind `POST` and `DELETE
@@ -53,4 +54,24 @@ export async function addFavorite(householdId: string, mealId: string): Promise<
 export async function removeFavorite(householdId: string, mealId: string): Promise<void> {
   const { count } = await prisma.favoriteMeal.deleteMany({ where: { householdId, mealId } })
   if (count === 0) throw new FavoriteError('notFavorite')
+}
+
+/**
+ * A meal the household can see, with its name in `locale`, or null when there
+ * is no such meal, it is deleted, or it is another household's own recipe.
+ * `removeFavorite` never checks the meal, so a caller that must refuse an
+ * unknown meal reads it here first (HON-1333).
+ */
+export async function findVisibleMealName(
+  householdId: string,
+  mealId: string,
+  locale: string,
+): Promise<{ id: string; name: string } | null> {
+  const meal = await prisma.meal.findFirst({
+    where: { id: mealId, ...visibleMealWhere(householdId) },
+    select: { id: true, name: true, ...mealTranslationsInclude(locale) },
+  })
+  if (!meal) return null
+  const { id, name } = translateMeal(meal, locale)
+  return { id, name }
 }

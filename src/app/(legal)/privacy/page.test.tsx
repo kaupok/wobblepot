@@ -126,7 +126,7 @@ describe('PrivacyPage', () => {
     )
     // What it can change, only with the write scope (HON-1154).
     expect(text).toContain(
-      'If the consent page says “Update your shopping list, pantry and meal plan, and add and change recipes” and you choose Allow, the assistant can also make changes when you ask it to: mark shopping list items as bought, add items to the list, change what is in your pantry, change your meal plan, and add a recipe to your household’s recipes or change one of them.',
+      'If the consent page says “Update your shopping list, pantry and meal plan, and add and change recipes” and you choose Allow, the assistant can also make changes when you ask it to: mark shopping list items as bought, add items to the list, change what is in your pantry, change your meal plan, add a recipe to your household’s recipes or change one of them, and add a recipe to your favourites or remove it.',
     )
     // `create_meal` and `update_meal` make no model call (HON-1305, HON-1314).
     expect(text).toContain(

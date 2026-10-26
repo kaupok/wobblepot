@@ -30,4 +30,5 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   set_meal_status: { date: '2026-10-15', mealType: 'dinner', status: 'cooked' },
   set_meal_servings: { date: '2026-10-15', mealType: 'dinner', servings: 6 },
   remove_shopping_item: { id: 'custom-1' },
+  set_favourite: { mealId: 'meal-1', favourite: true },
 }
