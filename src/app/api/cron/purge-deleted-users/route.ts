@@ -3,6 +3,8 @@ import { serverEnv } from '@/lib/env'
 import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
+import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
+import { discardMealImage } from '@/lib/meal-images/storage'
 import { captureApiError } from '@/lib/errors'
 
 export const dynamic = 'force-dynamic'
@@ -31,6 +33,10 @@ export const dynamic = 'force-dynamic'
  * For the same reason it deletes expired OAuth access and refresh token rows
  * (HON-1165, `purgeExpiredOauthTokens`), as the privacy policy and the DPIA
  * promise.
+ *
+ * It also clears the image of every recipe deleted more than 30 days ago
+ * (HON-1336, `purgeExpiredDeletedMealImages`), once the recipe can no longer
+ * be restored.
  */
 export async function GET(request: Request) {
   const cronSecret = serverEnv.CRON_SECRET
@@ -68,8 +74,19 @@ export async function GET(request: Request) {
 
     const waitlist = await purgeExpiredWaitlistRequests(now)
     const oauthTokens = await purgeExpiredOauthTokens(now)
+    const mealImageUrls = await purgeExpiredDeletedMealImages(now)
+    // After each clear has committed, so a rolled-back clear keeps its file.
+    for (const url of mealImageUrls) {
+      await discardMealImage(url, '/api/cron/purge-deleted-users')
+    }
 
-    return NextResponse.json({ purged, scanned: expired.length, waitlist, oauthTokens })
+    return NextResponse.json({
+      purged,
+      scanned: expired.length,
+      waitlist,
+      oauthTokens,
+      mealImages: mealImageUrls.length,
+    })
   } catch (error) {
     captureApiError(error, { route: '/api/cron/purge-deleted-users' })
     return NextResponse.json({ error: 'Purge failed' }, { status: 500 })

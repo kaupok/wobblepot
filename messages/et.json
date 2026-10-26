@@ -882,9 +882,17 @@
       "removedFromFavorites": "Eemaldati lemmikutest",
       "deleted": "Retsept kustutati",
       "deleteFailed": "Retsepti kustutamine ebaõnnestus",
+      "undo": "Võta tagasi",
+      "restored": "Retsept taastati",
+      "restoreFailed": "Retsepti taastamine ebaõnnestus",
+      "recentlyDeleted": "Hiljuti kustutatud ({count})",
+      "recentlyDeletedHint": "Kustutatud retsepti saad taastada 30 päeva jooksul.",
+      "deletedOn": "Kustutatud {date}",
+      "restore": "Taasta",
+      "restoreAria": "Taasta: {name}",
       "deleteDialog": {
         "title": "Kustuta retsept",
-        "description": "Kas oled kindel, et soovid kustutada „{name}\"? Seda ei saa tagasi võtta.",
+        "description": "Kas oled kindel, et soovid kustutada „{name}\"? Saad selle 30 päeva jooksul taastada jaotisest „Hiljuti kustutatud\".",
         "confirm": "Kustuta",
         "cancel": "Tühista",
         "deleting": "Kustutan…"

@@ -90,7 +90,7 @@
 5621 src/lib/ai/usage.test.ts
 5501 src/lib/auth.test.ts
 7137 src/lib/auth.ts
-6281 src/lib/household-meals.db.test.ts
+6189 src/lib/household-meals.db.test.ts
 7728 src/lib/household-meals.ts
 7010 src/lib/meal-images/generate.test.ts
 7928 src/lib/meal-planning/candidates.test.ts

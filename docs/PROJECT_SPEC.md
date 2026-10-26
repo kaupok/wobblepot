@@ -473,6 +473,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 - My recipes: create, edit, and import from a URL or pasted text (`/recipes`)
 - Imagine: describe what you want, optionally with photos, and the AI suggests recipes to save (`/recipes/imagine`)
 - Generated meal images
+- Delete and restore (HON-1336): Delete sets `Meal.deletedAt` and keeps the image. For 30 days, the same window as account deletion, the household can bring the recipe back with its image, ingredients and history: Undo in the delete toast, or Restore under "Recently deleted" at the end of `/recipes` (`src/lib/deleted-household-meals.ts`, `POST /api/households/me/meals/[id]/restore`). After 30 days the recipe cannot be restored, and the daily purge cron clears its image and deletes the file (`purgeExpiredDeletedMealImages`). The `Meal` row stays, because past plan entries and `get_meal` read it.
 
 ### Shopping & Pantry (Complete)
 

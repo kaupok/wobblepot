@@ -882,9 +882,17 @@
       "removedFromFavorites": "Removed from favourites",
       "deleted": "Recipe deleted",
       "deleteFailed": "Failed to delete recipe",
+      "undo": "Undo",
+      "restored": "Recipe restored",
+      "restoreFailed": "Failed to restore recipe",
+      "recentlyDeleted": "Recently deleted ({count})",
+      "recentlyDeletedHint": "You can restore a deleted recipe for 30 days.",
+      "deletedOn": "Deleted {date}",
+      "restore": "Restore",
+      "restoreAria": "Restore: {name}",
       "deleteDialog": {
         "title": "Delete recipe",
-        "description": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+        "description": "Are you sure you want to delete \"{name}\"? You can restore it from Recently deleted for 30 days.",
         "confirm": "Delete",
         "cancel": "Cancel",
         "deleting": "Deleting…"

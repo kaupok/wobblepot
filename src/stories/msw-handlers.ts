@@ -246,6 +246,12 @@ export const defaultHandlers: HttpHandler[] = [
   http.post('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
   http.delete('/api/meals/:id/favorite', () => HttpResponse.json({ ok: true })),
   http.delete('/api/households/me/meals/:id', () => HttpResponse.json({ ok: true })),
+  // Recently deleted on the Recipes list (HON-1336): none by default, so the
+  // section stays hidden; a story that shows it overrides this.
+  http.get('/api/households/me/meals/deleted', () => HttpResponse.json({ meals: [] })),
+  http.post('/api/households/me/meals/:id/restore', ({ params }) =>
+    HttpResponse.json({ id: params.id, deletedAt: null }),
+  ),
   // Pantry CRUD — used by `InlineAddItem` (POST) and `PantryItem` (PATCH for
   // toggle-staple, DELETE for remove).
   http.post('/api/pantry', async ({ request }) => {

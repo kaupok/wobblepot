@@ -191,36 +191,39 @@ export function RecipesPageClient() {
           <Body variant="muted">{tLibrary('emptySearch', { query: debouncedSearch })}</Body>
         </div>
       ) : (
-        <>
-          <MealList
-            meals={meals}
-            onDelete={handleDelete}
-            onToggleFavorite={handleToggleFavorite}
-            emptyFocusRef={emptyFocusRef}
-            emptyAction={
-              isLibraryEmpty ? (
-                // Page-level: the column's width on a phone, the label's from
-                // `md` (docs/DESIGN.md → Buttons are as wide as their label).
-                <Button asChild className="w-full md:w-auto">
-                  <Link ref={setEmptyFocusTarget} href="/recipes/import">
-                    {tLibrary('addButton')}
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-          />
-          {hasNextPage ? (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-              >
-                {isFetchingNextPage ? tLibrary('loadingMore') : tLibrary('loadMore')}
+        <MealList
+          meals={meals}
+          onDelete={handleDelete}
+          onToggleFavorite={handleToggleFavorite}
+          emptyFocusRef={emptyFocusRef}
+          emptyAction={
+            isLibraryEmpty ? (
+              // Page-level: the column's width on a phone, the label's from
+              // `md` (docs/DESIGN.md → Buttons are as wide as their label).
+              <Button asChild className="w-full md:w-auto">
+                <Link ref={setEmptyFocusTarget} href="/recipes/import">
+                  {tLibrary('addButton')}
+                </Link>
               </Button>
-            </div>
-          ) : null}
-        </>
+            ) : undefined
+          }
+          // Recently deleted lists every deleted recipe, so it would read as
+          // a match under a search it does not filter by (HON-1336).
+          showRecentlyDeleted={debouncedSearch === ''}
+          footer={
+            hasNextPage ? (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? tLibrary('loadingMore') : tLibrary('loadMore')}
+                </Button>
+              </div>
+            ) : null
+          }
+        />
       )}
     </div>
   )
