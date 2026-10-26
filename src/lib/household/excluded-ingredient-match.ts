@@ -93,35 +93,34 @@ function englishTerms(tag: string): string[][] {
 /**
  * Every row of `pool` that `tag` excludes.
  *
- * A row matched only through a translated name adds its English name as a
- * term, so the Estonian name of "mushroom" excludes the same rows as
- * "mushroom". Estonian writes most kinds as one word ("austriseen" for oyster
- * mushroom), so the translated names alone would miss them.
+ * The translated names are read only when the tag matches no English name.
+ * Some English names are also Estonian words with another meaning: "paprika"
+ * is the spice in English and bell pepper in Estonian, "pasta" is paste. A
+ * tag that names an English row means that row.
+ *
+ * A row matched through a translated name adds its English name as a term,
+ * so the Estonian name of "mushroom" excludes the same rows as "mushroom".
+ * Estonian writes most kinds as one word ("austriseen" for oyster mushroom),
+ * so the translated names alone would miss them.
  */
 export function matchTag(tag: string, pool: readonly ExclusionPoolRow[]): ExclusionPoolRow[] {
-  const terms = englishTerms(tag)
-  const tagWords = wordKeys(tag)
-  const matched = new Set<ExclusionPoolRow>()
   const byEnglish = (row: ExclusionPoolRow, search: string[][]) => {
     const name = wordKeys(row.name)
     return search.some((term) => containsWords(name, term, sameWord))
   }
 
-  const viaTranslation: ExclusionPoolRow[] = []
-  for (const row of pool) {
-    if (byEnglish(row, terms)) matched.add(row)
-    else if (
-      row.translations.some((t) => containsWords(wordKeys(t.name), tagWords, translatedWordMatches))
-    ) {
-      viaTranslation.push(row)
-    }
-  }
+  const terms = englishTerms(tag)
+  const matched = new Set(pool.filter((row) => byEnglish(row, terms)))
+  if (matched.size > 0) return [...matched]
 
-  if (viaTranslation.length > 0) {
-    const englishNames = viaTranslation.map((row) => wordKeys(row.name))
-    for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
-    for (const row of viaTranslation) matched.add(row)
-  }
+  const tagWords = wordKeys(tag)
+  const viaTranslation = pool.filter((row) =>
+    row.translations.some((t) => containsWords(wordKeys(t.name), tagWords, translatedWordMatches)),
+  )
+  if (viaTranslation.length === 0) return []
+  const englishNames = viaTranslation.map((row) => wordKeys(row.name))
+  for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
+  for (const row of viaTranslation) matched.add(row)
   return [...matched]
 }
 

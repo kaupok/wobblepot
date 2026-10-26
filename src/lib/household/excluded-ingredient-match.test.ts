@@ -20,6 +20,10 @@ const POOL = [
   row('blueberries'),
   row('cherry tomatoes'),
   row('hummus'),
+  row('paprika', 'paprikapulber'),
+  row('bell pepper', 'paprika'),
+  row('mole paste', 'mole pasta'),
+  row('pasta', 'pasta'),
 ]
 
 const names = (tag: string) => matchTag(tag, POOL).map((r) => r.name)
@@ -71,6 +75,13 @@ describe('matchTag', () => {
     expect(names('seen')).toEqual(mushrooms)
     expect(names('Seened')).toEqual(mushrooms)
     expect(names('munad')).toEqual(['egg', 'egg noodles'])
+  })
+
+  // "paprika" is bell pepper in Estonian, "pasta" is paste: a tag that names
+  // an English row does not also read the translations.
+  it('reads the translated names only when no English name matches', () => {
+    expect(names('paprika')).toEqual(['paprika'])
+    expect(names('pasta')).toEqual(['pasta'])
   })
 
   it('matches nothing for a name no row carries', () => {
