@@ -55,13 +55,53 @@ export function toDayExtraOutput(extra: DayExtraView): z.output<typeof dayExtraO
   }
 }
 
+/** One item of a fridge meal (HON-1281), as `get_meal_plan` lists it and `plan_fridge_meal` returns it. */
+export const fridgeItemOutputSchema = z.object({
+  name: z
+    .string()
+    .nullable()
+    .describe(
+      "The ingredient's name in the household's language, the leftover meal's name, or the free text. Null for leftovers whose meal was deleted since.",
+    ),
+  source: z
+    .enum(['pantry', 'leftover', 'text'])
+    .describe(
+      'pantry: a catalogue ingredient. leftover: what is left of an earlier cooked meal. text: free text.',
+    ),
+})
+
+interface FridgeItemRow {
+  sourceEntryId: string | null
+  label: string | null
+  name: string | null
+}
+
+/** The card's naming rule (`useFridgeItemText`), without its weekday. */
+export function toFridgeItemOutput(item: FridgeItemRow): z.output<typeof fridgeItemOutputSchema> {
+  if (item.label !== null) return { name: item.label, source: 'text' }
+  return { name: item.name, source: item.sourceEntryId !== null ? 'leftover' : 'pantry' }
+}
+
 export const mealPlanOutputSchema = z.object({
   from: isoDate,
   to: isoDate,
   entries: z.array(
     z.object({
+      entryId: z
+        .string()
+        .describe(
+          "The entry's id. A cooked meal's entryId is the sourceEntryId plan_fridge_meal takes for its leftovers.",
+        ),
       date: isoDate,
       mealType: z.enum(['breakfast', 'lunch', 'dinner']),
+      kind: z
+        .enum(['recipe', 'fridge'])
+        .describe(
+          'recipe: a meal from a recipe, or an empty slot when mealId is null. fridge: a planned meal made of items at home, with no recipe.',
+        ),
+      items: z
+        .array(fridgeItemOutputSchema)
+        .describe("A fridge meal's items, in order. Empty for a recipe entry."),
       mealId: z.string().nullable(),
       mealName: z.string().nullable(),
       servings: z.number(),
@@ -111,8 +151,11 @@ export async function readMealPlan(
     from,
     to: toDateString(lastDay),
     entries: entries.map((entry) => ({
+      entryId: entry.id,
       date: entry.date,
       mealType: entry.mealType,
+      kind: entry.kind === 'fridge' ? ('fridge' as const) : ('recipe' as const),
+      items: entry.items.map(toFridgeItemOutput),
       mealId: entry.meal?.id ?? null,
       mealName: entry.meal?.name ?? null,
       servings: getEffectiveServings(entry, householdServings),

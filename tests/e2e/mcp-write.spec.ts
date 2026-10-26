@@ -10,7 +10,8 @@ import { mcpCallTool } from './utils/mcp'
  * The MCP write scope (HON-1154), driven the way an MCP client drives it:
  * consent with `mcp:write`, then `mark_purchased` puts an ingredient in the
  * pantry and takes it out again, and `swap_meal` and `rate_meal` change a
- * planned dinner and rate it once cooked (HON-1174). A read-only token gets the reconnect message.
+ * planned dinner and rate it once cooked (HON-1174), and `plan_fridge_meal`
+ * plans a fridge meal the app reads back (HON-1281). A read-only token gets the reconnect message.
  *
  * Tier 1 only. The pantry tests sign up a household of their own, so its
  * pantry is empty and no other spec changes it in parallel. The meal plan
@@ -47,8 +48,10 @@ interface EntrySummary {
   id: string
   date: string
   mealType: string
+  kind: string
   rating: string | null
   meal: { id: string } | null
+  items: { label: string | null; name: string | null }[]
 }
 
 async function listEntries(page: Page) {
@@ -151,6 +154,50 @@ test.describe('MCP write tools', () => {
     expect(result.isError).toBe(true)
     expect(result.content[0]?.text).toContain('disconnect it and connect it again')
     expect(await pantryIngredientIds(page)).not.toContain(ingredientId)
+  })
+
+  test('a client allowed to make changes plans a fridge meal, and the app reads the same items', async ({
+    page,
+    request,
+  }) => {
+    // A household of its own, with no plan yet: the tool creates the plan row.
+    await signUpWithHousehold(page)
+    const ingredientId = await anyIngredientId(page)
+    const token = await connectMcpClient(page, request, { scope: WRITE_SCOPE })
+    const slot = { date: daysFromNow(1), mealType: 'dinner' }
+
+    type FridgeItem = { name: string | null; source: string }
+    const planned = await mcpCallTool<{ outcome: string; items: FridgeItem[] }>(
+      request,
+      token,
+      'plan_fridge_meal',
+      { ...slot, items: [{ ingredientId }, { label: 'Leftover mash' }] },
+    )
+    expect(planned.isError, planned.content[0]?.text).toBeFalsy()
+    expect(planned.structuredContent!.outcome).toBe('planned')
+    const items = planned.structuredContent!.items
+    expect(items.map((item) => item.source)).toEqual(['pantry', 'text'])
+    expect(items[1]!.name).toBe('Leftover mash')
+
+    // The entry the app's card reads holds the same items, in the same order.
+    const entry = (await listEntries(page)).entries.find(
+      (e) => e.date === slot.date && e.mealType === slot.mealType,
+    )
+    expect(entry?.kind).toBe('fridge')
+    expect(entry!.items.map((item) => item.label ?? item.name)).toEqual(
+      items.map((item) => item.name),
+    )
+
+    const read = await mcpCallTool<{ entries: { kind: string; items: FridgeItem[] }[] }>(
+      request,
+      token,
+      'get_meal_plan',
+      { from: slot.date, to: slot.date },
+    )
+    expect(read.isError, read.content[0]?.text).toBeFalsy()
+    expect(read.structuredContent!.entries).toEqual([
+      expect.objectContaining({ kind: 'fridge', items }),
+    ])
   })
 
   test('a client allowed to make changes swaps a planned dinner and rates it once cooked', async ({

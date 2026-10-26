@@ -84,6 +84,7 @@ const WRITE_TOOL_NAMES = [
   'create_meal',
   'update_meal',
   'plan_meal',
+  'plan_fridge_meal',
   'add_extra',
   'remove_extra',
 ]
@@ -165,6 +166,8 @@ describe('/api/mcp', () => {
           date: '2026-10-12',
           mealType: 'dinner',
           status: 'planned',
+          kind: 'meal',
+          items: [],
           servingOverride: null,
           meal: { id: `meal-${household.id}`, name: `Dinner of ${household.id}` },
         },
@@ -210,7 +213,7 @@ describe('/api/mcp', () => {
       ['a read-only token', as('user-a')],
       ['a read and write token', asWriter('user-a')],
     ])(
-      'lists the five read tools and the nine write tools for %s, each with both schemas',
+      'lists the five read tools and the thirteen write tools for %s, each with both schemas',
       async (_label, headers) => {
         const response = await POST(mcpRequest('tools/list', {}, headers))
         const body = await readMcpBody<{ tools: ListedTool[] }>(response)
@@ -242,6 +245,7 @@ describe('/api/mcp', () => {
         expect(annotations.create_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.update_meal).toEqual({ ...write, idempotentHint: true })
         expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.plan_fridge_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
         expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
@@ -268,6 +272,11 @@ describe('/api/mcp', () => {
           },
           update_meal: { mealId: 'meal-1', servings: 6 },
           plan_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
+          plan_fridge_meal: {
+            date: '2026-10-15',
+            mealType: 'dinner',
+            items: [{ label: 'Leftover mash' }],
+          },
           add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
           remove_extra: { extraId: 'extra-1' },
         }[name]
