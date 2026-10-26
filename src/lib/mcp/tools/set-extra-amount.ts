@@ -14,7 +14,7 @@ export const setExtraAmount = defineTool({
   name: 'set_extra_amount',
   title: 'Change the amount of an extra',
   description:
-    'Sets the amount of one extra, by the id get_meal_plan gives in extras, or clears it with quantity null. Give quantity in the unit get_meal_plan shows for the extra; the tool does not convert, so convert first: 2 bottles of wine is 1500 ml. The shopping list follows the new amount. A free-text extra has no amount.',
+    'Sets the amount of one extra, by the id get_meal_plan gives in extras, or clears it with quantity null. Give quantity in the unit get_meal_plan shows for the extra; the tool does not convert, so convert first: 2 bottles of wine is 1500 ml. An extra with no amount shows no unit: use ml for a drink or other liquid, piece for an item counted in the app, such as eggs, and g for the rest; a wrong unit is refused with the right one named, and nothing changes. The shopping list follows the new amount. A free-text extra has no amount.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z
     .object({

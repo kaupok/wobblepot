@@ -102,6 +102,24 @@ describe('set_extra_amount', () => {
     )
   })
 
+  it('gives an amount to an ingredient extra that has none, after a wrong guess names the unit', async () => {
+    const { alder } = await world()
+    const noAmountId = await saved(alder, { date: SATURDAY, ingredientId: 'ing-wine' })
+    const before = await getMealPlan.run(alder, { from: SATURDAY, to: SATURDAY }, CALLER)
+    expect(before.extras.find((e) => e.id === noAmountId)).toEqual(
+      expect.objectContaining({ quantity: null, unit: null }),
+    )
+
+    await expect(call(alder, { extraId: noAmountId, quantity: 2, unit: 'piece' })).rejects.toThrow(
+      'This extra is measured in ml.',
+    )
+    expect(await storedQuantity(noAmountId)).toBeNull()
+
+    const result = await call(alder, { extraId: noAmountId, quantity: 1500, unit: 'ml' })
+    expect(result).toEqual(expect.objectContaining({ id: noAmountId, quantity: 1500, unit: 'ml' }))
+    expect(await storedQuantity(noAmountId)).toBe(1500)
+  })
+
   it('clears the amount with quantity null', async () => {
     const { alder, wineId } = await world()
 
