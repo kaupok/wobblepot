@@ -17,6 +17,10 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
+vi.mock('@/lib/household/preferences', () => ({
+  matchExcludedIngredients: vi.fn(),
+}))
+
 vi.mock('next/navigation', () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
@@ -27,15 +31,16 @@ vi.mock('../HouseholdTabs', () => ({
   HouseholdTabs: () => <nav aria-label="Household sections" />,
 }))
 
-type FormProps = { preferences: unknown; isOwner: boolean }
+type FormProps = { preferences: unknown; isOwner: boolean; excludedMatches?: unknown }
 
 // Both forms are client components with mutations. Surface the props the page
 // hands them; their colocated tests cover the forms themselves.
 vi.mock('./FoodPreferencesForm', () => ({
-  FoodPreferencesForm: ({ preferences, isOwner }: FormProps) => (
+  FoodPreferencesForm: ({ preferences, isOwner, excludedMatches }: FormProps) => (
     <h2
       data-testid="food-form"
       data-preferences={JSON.stringify(preferences)}
+      data-matches={JSON.stringify(excludedMatches)}
       data-owner={String(isOwner)}
     >
       Food preferences
@@ -81,8 +86,12 @@ async function mockSignedIn(
 }
 
 describe('HouseholdMealPreferencesPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    const { matchExcludedIngredients } = await import('@/lib/household/preferences')
+    vi.mocked(matchExcludedIngredients).mockImplementation(async (_householdId, tags) =>
+      tags.map((tag) => ({ tag, ingredients: [] })),
+    )
   })
 
   it('names its tab in the document title', async () => {
@@ -119,6 +128,23 @@ describe('HouseholdMealPreferencesPage', () => {
       expect(JSON.parse(screen.getByTestId(id).dataset.preferences!)).toEqual(expected)
       expect(screen.getByTestId(id)).toHaveAttribute('data-owner', 'true')
     }
+  })
+
+  // HON-1321: the form warns about a tag that matches no ingredient.
+  it("hands the food form what each saved tag matches, in the household's locale", async () => {
+    await mockSignedIn('owner', storedPreferences)
+    const { matchExcludedIngredients } = await import('@/lib/household/preferences')
+
+    render(await HouseholdMealPreferencesPage())
+
+    expect(JSON.parse(screen.getByTestId('food-form').dataset.matches!)).toEqual([
+      { tag: 'cilantro', ingredients: [] },
+    ])
+    expect(matchExcludedIngredients).toHaveBeenCalledWith(
+      'household-123',
+      ['cilantro'],
+      expect.any(String),
+    )
   })
 
   it('hands both forms null when the household has no preferences row', async () => {

@@ -202,7 +202,6 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
             !findPreferenceConflicts(meal, {
               dietaryType,
               allergensToAvoid: [],
-              excludedIngredients: [],
               excludedIngredientIds: [],
             }).some((conflict) => conflict.kind === 'diet'),
         )

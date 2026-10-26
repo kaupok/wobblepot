@@ -38,6 +38,10 @@ vi.mock('@/lib/meal-planning/dates', () => ({
   }),
 }))
 
+vi.mock('@/lib/household/excluded-ingredients', () => ({
+  getExcludedIngredientIds: vi.fn(),
+}))
+
 vi.mock('@/lib/feature-flags', () => ({
   getServerFlag: vi.fn(),
 }))
@@ -63,6 +67,7 @@ import {
 } from '@/lib/ai/types'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 import { getServerFlag } from '@/lib/feature-flags'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -72,6 +77,7 @@ const mockCreateEmptyPlan = vi.mocked(createEmptyPlan)
 const mockFillEmptySlots = vi.mocked(fillEmptySlots)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockGetServerFlag = vi.mocked(getServerFlag)
+const mockGetExcludedIngredientIds = vi.mocked(getExcludedIngredientIds)
 
 const mockHousehold = {
   id: 'household-123',
@@ -80,7 +86,8 @@ const mockHousehold = {
   preferences: {
     dietaryType: null,
     allergensToAvoid: [],
-    excludedIngredientIds: [],
+    excludedIngredients: ['mushrooms'],
+    excludedIngredientIds: ['stale-id'],
     restrictions: [],
     weekdayMealTypes: ['dinner'],
     weekendMealTypes: ['dinner'],
@@ -118,6 +125,7 @@ describe('POST /api/meal-plans/generate', () => {
     })
     mockAssertUnderCap.mockResolvedValue(undefined)
     mockGetServerFlag.mockResolvedValue(true)
+    mockGetExcludedIngredientIds.mockResolvedValue(['ing-mushroom', 'ing-shiitake'])
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -248,6 +256,30 @@ describe('POST /api/meal-plans/generate', () => {
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
+  })
+
+  // HON-1321: the tags are resolved now, so a household that saved before a
+  // rule change is filtered by the current rule, not by its stored ids.
+  it('filters generation and fill-empty by the ids the tags resolve to now', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockGenerateMealPlan.mockResolvedValue({ id: 'plan-123', entries: [] } as never)
+    mockFillEmptySlots.mockResolvedValue({ entries: [] } as never)
+
+    await POST(createRequest({ startDate: '2026-02-02', endDate: '2026-02-09' }))
+    await POST(
+      createRequest({
+        startDate: '2026-02-02',
+        endDate: '2026-02-09',
+        mode: 'fill-empty',
+        planId: 'plan-123',
+      }),
+    )
+
+    expect(mockGetExcludedIngredientIds).toHaveBeenCalledWith('household-123', ['mushrooms'])
+    const resolved = { excludedIngredientIds: ['ing-mushroom', 'ing-shiitake'] }
+    expect(mockGenerateMealPlan).toHaveBeenCalledWith(expect.objectContaining(resolved))
+    expect(mockFillEmptySlots).toHaveBeenCalledWith(expect.objectContaining(resolved))
   })
 
   it('returns 200 for empty mode', async () => {

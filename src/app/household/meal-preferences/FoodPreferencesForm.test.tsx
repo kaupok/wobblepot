@@ -41,7 +41,12 @@ type Props = Parameters<typeof FoodPreferencesForm>[0]
 
 function renderForm(overrides: Partial<Props> = {}) {
   return renderSettings(
-    <FoodPreferencesForm preferences={defaultPreferences} isOwner {...overrides} />,
+    <FoodPreferencesForm
+      preferences={defaultPreferences}
+      excludedMatches={[]}
+      isOwner
+      {...overrides}
+    />,
   )
 }
 
@@ -441,6 +446,87 @@ describe('FoodPreferencesForm', () => {
       ).getAllByRole('button')) {
         expect(toggle).toHaveAttribute('aria-pressed', 'false')
       }
+    })
+  })
+
+  // HON-1321: a tag that matches nothing used to look saved and exclude nothing.
+  describe('what each ingredient to avoid excludes', () => {
+    const withTags = { ...defaultPreferences, excludedIngredients: ['mushrooms', 'dragonfruit'] }
+    const matches = [
+      {
+        tag: 'mushrooms',
+        ingredients: [
+          { id: 'ing-1', name: 'chestnut mushroom' },
+          { id: 'ing-2', name: 'mushroom' },
+        ],
+      },
+      { tag: 'dragonfruit', ingredients: [] },
+    ]
+    const matchList = () =>
+      screen.getByRole('list', { name: 'What each ingredient to avoid excludes' })
+
+    it('counts the matches of a tag and names them in a disclosure', async () => {
+      renderForm({ preferences: withTags, excludedMatches: matches })
+
+      const summary = within(matchList()).getByText('mushrooms: excludes 2 ingredients')
+      const names = within(matchList()).getByText('chestnut mushroom, mushroom')
+      expect(names).not.toBeVisible()
+
+      await userEvent.click(summary)
+      expect(names).toBeVisible()
+    })
+
+    it('warns about a tag that matches no ingredient', () => {
+      renderForm({ preferences: withTags, excludedMatches: matches })
+
+      expect(
+        within(matchList()).getByText(
+          'dragonfruit: matches no ingredient, so no meal is excluded.',
+        ),
+      ).toBeVisible()
+    })
+
+    it('says the same in Estonian', () => {
+      renderSettings(
+        <FoodPreferencesForm preferences={withTags} excludedMatches={matches} isOwner />,
+        'et',
+      )
+
+      const list = screen.getByRole('list', { name: 'Mida iga välditav koostisosa välistab' })
+      expect(within(list).getByText('mushrooms: välistab 2 koostisosa')).toBeInTheDocument()
+      expect(
+        within(list).getByText(
+          'dragonfruit: ükski koostisosa ei sobi, nii et ükski toit ei jää välja.',
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('shows the matches the save answers for a new tag', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            excludedMatches: [{ tag: 'pork', ingredients: [{ id: 'ing-3', name: 'pork belly' }] }],
+          }),
+      })
+      renderForm()
+      expect(
+        screen.queryByRole('list', { name: 'What each ingredient to avoid excludes' }),
+      ).not.toBeInTheDocument()
+
+      await userEvent.type(screen.getByLabelText('Ingredients to avoid (optional)'), 'pork{Enter}')
+      expect(
+        screen.queryByRole('list', { name: 'What each ingredient to avoid excludes' }),
+      ).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(
+        await within(
+          await screen.findByRole('list', {
+            name: 'What each ingredient to avoid excludes',
+          }),
+        ).findByText('pork: excludes 1 ingredient'),
+      ).toBeInTheDocument()
     })
   })
 })

@@ -26,6 +26,7 @@ import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
 import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -163,7 +164,10 @@ async function handlePOST(request: Request) {
   const preferences = household.preferences
   const dietaryType = preferences?.dietaryType ?? null
   const allergensToAvoid = preferences?.allergensToAvoid ?? []
-  const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
+  const excludedIngredientIds = await getExcludedIngredientIds(
+    household.id,
+    preferences?.excludedIngredients ?? [],
+  )
   const restrictions = preferences?.restrictions ?? []
   const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
   const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']

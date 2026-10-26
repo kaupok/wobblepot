@@ -180,7 +180,7 @@ describe('loadMeals', () => {
     const result = await load(
       alder,
       {},
-      { preferences: { allergensToAvoid: ['gluten'], excludedIngredientIds: ['ing-onion'] } },
+      { preferences: { allergensToAvoid: ['gluten'], excludedIngredients: ['onions'] } },
     )
 
     expect(names(result)).toEqual(["Alder's stew", 'Chicken stir fry', 'Omelette'])

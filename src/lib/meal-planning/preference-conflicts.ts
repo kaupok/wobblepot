@@ -1,4 +1,4 @@
-import { findViolations, normalizeFoodName, rulesForHousehold } from '@/lib/ai/forbidden-foods'
+import { findViolations, rulesForHousehold } from '@/lib/ai/forbidden-foods'
 
 /**
  * One household food preference a planned meal breaks (HON-1126). The planner
@@ -23,11 +23,21 @@ export interface ConflictCheckedMeal {
   }[]
 }
 
-/** The `HouseholdPreferences` fields the check reads. */
-export interface ConflictPreferences {
+/** The household food preferences, as `HouseholdPreferences` stores them. */
+export interface HouseholdFoodPreferences {
   dietaryType: string | null
   allergensToAvoid: readonly string[]
   excludedIngredients: readonly string[]
+}
+
+/**
+ * The preferences the check reads. `excludedIngredientIds` are the ids
+ * `getExcludedIngredientIds` resolves now, not the stored column, so the badge
+ * marks exactly the meals the planning filters leave out (HON-1321).
+ */
+export interface ConflictPreferences {
+  dietaryType: string | null
+  allergensToAvoid: readonly string[]
   excludedIngredientIds: readonly string[]
 }
 
@@ -86,13 +96,10 @@ export function findPreferenceConflicts(
     add({ kind: 'diet', constraint: violation.constraint })
   }
 
-  // One badge for every avoided ingredient: its label does not name it.
+  // One badge for every avoided ingredient: its label does not name it. By id
+  // only, as the planning filters exclude.
   const excludedIds = new Set(preferences.excludedIngredientIds)
-  const excludedNames = new Set(preferences.excludedIngredients.map(normalizeFoodName))
-  const excluded = meal.components.find(
-    (c) =>
-      excludedIds.has(c.ingredientId) || excludedNames.has(normalizeFoodName(c.ingredient.name)),
-  )
+  const excluded = meal.components.find((c) => excludedIds.has(c.ingredientId))
   if (excluded) add({ kind: 'excluded', constraint: excluded.ingredient.name })
 
   return conflicts

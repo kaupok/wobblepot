@@ -9,6 +9,7 @@ import {
 import { toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   SIMILARITY_WEIGHTS,
   SLOT_FIT_WEIGHTS,
@@ -42,7 +43,7 @@ export interface SlotSuggestionHousehold {
   preferences?: {
     dietaryType: DietaryType | null
     allergensToAvoid: Allergen[]
-    excludedIngredientIds: string[]
+    excludedIngredients: string[]
   } | null
 }
 
@@ -97,7 +98,10 @@ export async function loadSlotCandidates(
   const filters: CandidateFilters = {
     mealType: entry.mealType,
     allergensToAvoid: preferences?.allergensToAvoid ?? [],
-    excludedIngredientIds: preferences?.excludedIngredientIds ?? [],
+    excludedIngredientIds: await getExcludedIngredientIds(
+      household.id,
+      preferences?.excludedIngredients ?? [],
+    ),
     recentMealIds: [...new Set(recentEntries.map((e) => e.mealId!).filter(Boolean))],
     dietaryType: preferences?.dietaryType ?? null,
     householdId: household.id,
