@@ -72,6 +72,19 @@ describe('deleteEntry', () => {
     expect(await deleteEntry(alder.id, 'plan-birch', 'entry-alder')).toBe(false)
     expect(await prisma.mealPlanEntry.count()).toBe(2)
   })
+
+  it('with keepCompleted, leaves a cooked entry in place and deletes a skipped one', async () => {
+    const { alder } = await world()
+    const keep = { keepCompleted: true }
+
+    await setEntry({ status: 'completed' })
+    expect(await deleteEntry(alder.id, 'plan-alder', 'entry-alder', keep)).toBe(false)
+    expect(await prisma.mealPlanEntry.count({ where: { id: 'entry-alder' } })).toBe(1)
+
+    await setEntry({ status: 'skipped' })
+    expect(await deleteEntry(alder.id, 'plan-alder', 'entry-alder', keep)).toBe(true)
+    expect(await prisma.mealPlanEntry.count({ where: { id: 'entry-alder' } })).toBe(0)
+  })
 })
 
 describe('deleteEntriesInRange', () => {

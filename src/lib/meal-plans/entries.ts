@@ -97,15 +97,24 @@ const servingsWritableWhere = (servingOverride: number | null) => ({
 
 /**
  * Deletes an entry of a plan the household owns. False when no such entry
- * exists, including when it belongs to another household's plan.
+ * exists, including when it belongs to another household's plan. With
+ * `keepCompleted`, a cooked entry stays and the answer is false: the status is
+ * part of the delete, so an entry cooked since the caller read it stays too
+ * (`clear_meal`, HON-1329).
  */
 export async function deleteEntry(
   householdId: string,
   planId: string,
   entryId: string,
+  { keepCompleted = false }: { keepCompleted?: boolean } = {},
 ): Promise<boolean> {
   const { count } = await prisma.mealPlanEntry.deleteMany({
-    where: { id: entryId, planId, plan: { householdId } },
+    where: {
+      id: entryId,
+      planId,
+      plan: { householdId },
+      ...(keepCompleted ? { status: { not: MealPlanEntryStatus.completed } } : {}),
+    },
   })
   return count > 0
 }

@@ -7,7 +7,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
 
 /**
- * The slot inputs `swap_meal`, `rate_meal` and `adjust_meal` share: a day and a meal type,
+ * The slot inputs `swap_meal`, `rate_meal`, `adjust_meal` and `clear_meal` share: a day and a meal type,
  * the way `get_meal_plan` reports an entry and the way a user names it
  * ("Thursday's dinner").
  */
@@ -51,6 +51,7 @@ export async function findPlanSlot(household: McpHousehold, date: string, mealTy
       id: true,
       planId: true,
       mealType: true,
+      kind: true,
       mealId: true,
       status: true,
       rating: true,

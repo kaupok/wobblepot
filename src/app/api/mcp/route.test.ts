@@ -61,6 +61,7 @@ import {
   type McpToolResultBody,
 } from '@/test/mcp'
 import { GET, OPTIONS, POST } from './route'
+import { WRITE_TOOL_ARGS } from './route.fixtures'
 
 const actualRequireMcpAuth = vi.mocked(requireMcpAuth).getMockImplementation()!
 
@@ -79,21 +80,7 @@ const READ_TOOL_NAMES = [
   'get_meal',
   'get_household',
 ]
-const WRITE_TOOL_NAMES = [
-  'mark_purchased',
-  'add_shopping_item',
-  'check_shopping_item',
-  'set_pantry_status',
-  'swap_meal',
-  'rate_meal',
-  'adjust_meal',
-  'create_meal',
-  'update_meal',
-  'plan_meal',
-  'plan_fridge_meal',
-  'add_extra',
-  'remove_extra',
-]
+const WRITE_TOOL_NAMES = Object.keys(WRITE_TOOL_ARGS)
 
 interface ListedTool {
   name: string
@@ -254,6 +241,11 @@ describe('/api/mcp', () => {
         expect(annotations.plan_fridge_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
         expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.clear_meal).toEqual({
+          ...write,
+          destructiveHint: true,
+          idempotentHint: false,
+        })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },
@@ -262,32 +254,7 @@ describe('/api/mcp', () => {
     it.each(WRITE_TOOL_NAMES)(
       'answers %s for a read-only token with the reconnect message',
       async (name) => {
-        const args = {
-          mark_purchased: { ingredientIds: ['ing-1'], purchased: true },
-          add_shopping_item: { name: 'Dish soap' },
-          check_shopping_item: { id: 'custom-1', checked: true },
-          set_pantry_status: { ingredientId: 'ing-1', status: 'have_some' },
-          swap_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
-          rate_meal: { date: '2026-10-15', mealType: 'dinner', rating: 'up' },
-          adjust_meal: { date: '2026-10-15', mealType: 'dinner', instruction: 'No cream' },
-          create_meal: {
-            name: 'Lasagne',
-            suitableFor: ['dinner'],
-            servings: 4,
-            ingredients: [{ name: 'beef mince', quantity: 500, unit: 'g' }],
-          },
-          update_meal: { mealId: 'meal-1', servings: 6 },
-          plan_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
-          plan_fridge_meal: {
-            date: '2026-10-15',
-            mealType: 'dinner',
-            items: [{ label: 'Leftover mash' }],
-          },
-          add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
-          remove_extra: { extraId: 'extra-1' },
-        }[name]
-
-        const result = await callTool('user-a', name, args)
+        const result = await callTool('user-a', name, WRITE_TOOL_ARGS[name])
 
         expect(result.isError).toBe(true)
         expect(result.content).toEqual([{ type: 'text', text: WRITE_SCOPE_MESSAGE }])

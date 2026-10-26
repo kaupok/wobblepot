@@ -121,6 +121,7 @@ test.describe('MCP server', () => {
         plan_fridge_meal: false,
         add_extra: false,
         remove_extra: false,
+        clear_meal: false,
       })
 
       const call = await mcpCallTool<{ entries: { mealId: string | null; mealType: string }[] }>(
