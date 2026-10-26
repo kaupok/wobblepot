@@ -273,8 +273,8 @@ describe('exportUserData', () => {
     expect(alder.aiUsage).toHaveLength(1)
   })
 
-  // HON-1324 dropped the member food and macro columns, so a member's
-  // preferences are the display name and portion size alone.
+  // HON-1324 removed the member food and macro fields from the schema, so a
+  // member's preferences are the display name and portion size alone.
   it("holds only a member's display name and portion size as preferences", async () => {
     await world()
 
