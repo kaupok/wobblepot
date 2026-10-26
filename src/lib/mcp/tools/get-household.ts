@@ -14,7 +14,7 @@ export const NO_MATCH_NOTE = 'Matches no ingredient, so it excludes no meal.'
 /** What each rule controls, so the assistant can explain a refusal or a missing meal. */
 export const RULES = {
   filters:
-    'dietaryType, allergensToAvoid and ingredientsToAvoid filter list_meals, plan_meal, swap_meal and plan generation: a meal that breaks one is left out or refused.',
+    'allergensToAvoid and ingredientsToAvoid filter list_meals, plan_meal, swap_meal and plan generation; dietaryType filters plan_meal, swap_meal and plan generation but not list_meals, so check a listed meal against the diet yourself. A meal that breaks a filter is left out or refused.',
   notesForAi:
     'restrictions ("Notes for the AI" on the settings page) goes to the AI prompt in four features: plan generation, Imagine, Adjust recipe (adjust_meal) and the cook question. list_meals, plan_meal and swap_meal ignore it, so check these notes yourself before you plan or suggest a meal.',
 }
