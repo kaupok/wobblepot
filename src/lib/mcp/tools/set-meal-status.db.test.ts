@@ -5,6 +5,7 @@ import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { setMealStatus } from './set-meal-status'
 import { getMealPlan } from './get-meal-plan'
+import { getPantry } from './get-pantry'
 import { rateMeal } from './rate-meal'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1330).
@@ -13,6 +14,7 @@ import { rateMeal } from './rate-meal'
 
 const CALLER = { userId: 'user-1' }
 const TIMEZONE = 'UTC'
+const BIRCH_ID = 'household-birch'
 
 function day(offset: number): string {
   const date = parseLocalDate(getTodayInTimezone(TIMEZONE))
@@ -37,15 +39,20 @@ const ingredient = (id: string, name: string) =>
 /**
  * Alder, with no members, so a meal is one serving: tomorrow a planned stew
  * (100 g peas), in two days a fridge meal of peas and oats, in three days an
- * empty slot. Alder's pantry holds 500 g of peas and 300 g of oats. Birch, a
- * second household, has a planned stew in four days.
+ * empty slot. Alder's pantry holds 500 g of peas, 300 g of oats and 200 g of
+ * kale. Birch, a second household, has a planned stew in four days.
  */
 async function world() {
   const alder = await prisma.household.create({
     data: { name: 'Alder', timezone: TIMEZONE, mealPlans: { create: { id: 'plan-alder' } } },
   })
   await prisma.household.create({
-    data: { name: 'Birch', timezone: TIMEZONE, mealPlans: { create: { id: 'plan-birch' } } },
+    data: {
+      id: BIRCH_ID,
+      name: 'Birch',
+      timezone: TIMEZONE,
+      mealPlans: { create: { id: 'plan-birch' } },
+    },
   })
   await ingredient('ing-peas', 'glimmer peas')
   await ingredient('ing-oats', 'hush oats')
@@ -122,10 +129,10 @@ async function dinnerOn(household: Household, date: string) {
   return plan.entries.find((entry) => entry.mealType === 'dinner')
 }
 
-/** The household's pantry as `ingredientId → quantity`. */
-async function pantry(householdId: string) {
-  const rows = await prisma.pantryItem.findMany({ where: { householdId } })
-  return Object.fromEntries(rows.map((row) => [row.ingredientId, row.quantity]))
+/** The household's pantry as the assistant reads it, through get_pantry: `ingredientId → quantity`. */
+async function pantry(household: Household) {
+  const { items } = await getPantry.run(household, {}, CALLER)
+  return Object.fromEntries(items.map((item) => [item.ingredientId, item.quantity]))
 }
 
 const STOCKED = { 'ing-peas': 500, 'ing-oats': 300, 'ing-kale': 200 }
@@ -145,7 +152,7 @@ describe('set_meal_status', () => {
       pantryDeducted: true,
     })
     expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: true, isSkipped: false })
-    expect(await pantry(household.id)).toEqual({ ...STOCKED, 'ing-peas': 400 })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 400 })
   })
 
   it('answers a second cooked with unchanged and charges the pantry nothing more', async () => {
@@ -155,7 +162,7 @@ describe('set_meal_status', () => {
     const again = await call(household, day(1), { status: 'cooked' })
 
     expect(again).toMatchObject({ outcome: 'unchanged', status: 'cooked', pantryDeducted: false })
-    expect(await pantry(household.id)).toEqual({ ...STOCKED, 'ing-peas': 400 })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 400 })
   })
 
   it('marks a fridge meal cooked and its named pantry items used up', async () => {
@@ -169,7 +176,7 @@ describe('set_meal_status', () => {
 
     expect(result).toMatchObject({ outcome: 'updated', meal: null, pantryDeducted: true })
     expect(await dinnerOn(household, day(2))).toMatchObject({ kind: 'fridge', isCooked: true })
-    expect(await pantry(household.id)).toEqual({ ...STOCKED, 'ing-peas': 0 })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 0 })
   })
 
   it('marks a dinner skipped and leaves the pantry', async () => {
@@ -179,7 +186,7 @@ describe('set_meal_status', () => {
 
     expect(result).toMatchObject({ outcome: 'updated', status: 'skipped', pantryDeducted: false })
     expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: false, isSkipped: true })
-    expect(await pantry(household.id)).toEqual(STOCKED)
+    expect(await pantry(household)).toEqual(STOCKED)
   })
 
   it('sets a cooked dinner back to planned and leaves the pantry as it is', async () => {
@@ -190,12 +197,12 @@ describe('set_meal_status', () => {
 
     expect(result).toMatchObject({ outcome: 'updated', status: 'planned', pantryDeducted: false })
     expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: false, isSkipped: false })
-    expect(await pantry(household.id)).toEqual({ ...STOCKED, 'ing-peas': 400 })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 400 })
 
     // Cooked again after the revert: the entry was charged once already.
     const recooked = await call(household, day(1), { status: 'cooked' })
     expect(recooked).toMatchObject({ outcome: 'updated', pantryDeducted: false })
-    expect(await pantry(household.id)).toEqual({ ...STOCKED, 'ing-peas': 400 })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 400 })
   })
 
   it.each([
@@ -211,7 +218,7 @@ describe('set_meal_status', () => {
       isCooked: false,
       isSkipped: false,
     })
-    expect(await pantry(household.id)).toEqual(STOCKED)
+    expect(await pantry(household)).toEqual(STOCKED)
   })
 
   it('refuses an empty slot', async () => {
@@ -250,12 +257,12 @@ describe('set_meal_status', () => {
     expect(await refusal(household, day(4), { status: 'cooked' })).toMatch(
       /^Nothing is planned for dinner on /,
     )
-    expect(
-      await prisma.mealPlanEntry.findUnique({
-        where: { id: 'entry-birch' },
-        select: { status: true },
-      }),
-    ).toEqual({ status: 'planned' })
+    const birch = mcpHousehold({ id: BIRCH_ID, locale: 'en', timezone: TIMEZONE })
+    expect(await dinnerOn(birch, day(4))).toMatchObject({
+      entryId: 'entry-birch',
+      isCooked: false,
+      isSkipped: false,
+    })
   })
 
   it('answers a read-only token with the reconnect message, and the entry stays planned', async () => {
@@ -272,6 +279,6 @@ describe('set_meal_status', () => {
       content: [{ type: 'text', text: WRITE_SCOPE_MESSAGE }],
     })
     expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: false })
-    expect(await pantry(household.id)).toEqual(STOCKED)
+    expect(await pantry(household)).toEqual(STOCKED)
   })
 })
