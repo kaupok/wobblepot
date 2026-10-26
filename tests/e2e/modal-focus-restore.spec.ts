@@ -1,4 +1,4 @@
-// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, AddMealMenu, MealCard, MealCardMenu, MealSelectorModal
+// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, DayAddMenu, EmptySlotController, AddMealMenu, MealCard, MealCardMenu, MealSelectorModal
 import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 import { signIn, signUpWithHousehold } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -147,16 +147,16 @@ test.describe('Modal focus-restore', () => {
   // Not covered by the Radix contract above: the meal selector opens
   // programmatically once an empty slot's button has created a placeholder entry, with
   // no `DialogTrigger`, and a modal Radix dialog restores focus only to its
-  // trigger. The slot hands it to its own button instead, which is still
-  // pending (the placeholder DELETE is in flight), so the button must be
-  // `aria-disabled` rather than `disabled` to take it (HON-803).
+  // trigger. The slot hands it to the day's "+ Add" button instead, which is
+  // still pending (the placeholder DELETE is in flight), so the button must be
+  // `aria-disabled` rather than `disabled` to take it (HON-803, HON-1335).
   //
   // Signs in as the seeded smoke fixture, whose household has a plan, so Today
   // renders empty slots with no AI plan generation (a fresh sign-up has no
   // plan). The selector's `/suggestions` call is a DB query, not an AI one.
   // Not `@smoke`: this file imports `signUpWithHousehold`, which
   // `scripts/check-smoke-specs.sh` rejects in a `@smoke` file.
-  test('focus returns to the empty-slot button after the empty-slot selector is dismissed', async ({
+  test("focus returns to the day's Add button after the empty-slot selector is dismissed", async ({
     page,
   }) => {
     await signInAsSmoke(page)
@@ -166,16 +166,17 @@ test.describe('Modal focus-restore', () => {
     // household, and past days hide their empty slots. The other specs that
     // share this household only touch today + 2 lunch (shopping-to-pantry) and
     // today + 10 (the card tests below), which a Today slot never is.
-    const trigger = page.getByRole('button', { name: /: pick a meal,/ }).first()
+    const trigger = page.getByRole('button', { name: /^Add to / }).first()
     await expect(trigger).toBeVisible()
 
     let entryPath: string | null = null
     let discarded = false
 
     try {
-      // The slot's button opens a menu of routes; "Choose a recipe" creates the
-      // placeholder, then opens the selector (HON-1247).
-      const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' })
+      // The day's button opens a menu of routes per empty slot; the first
+      // slot's "Choose a recipe" creates the placeholder, then opens the
+      // selector (HON-1247, HON-1335).
+      const chooseRecipe = page.getByRole('menuitem', { name: 'Choose a recipe' }).first()
       await openMenuWithKeyboard(page, trigger, chooseRecipe)
       const [createResponse] = await Promise.all([
         page.waitForResponse(

@@ -1,5 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { TimelineDayCard } from './TimelineDayCard'
 import { Header } from '@/components/header'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
@@ -54,12 +56,11 @@ vi.mock('@/components/meal-plan/MealCard', () => ({
   )),
 }))
 
-// Mock TimelineEmptySlot
-vi.mock('./TimelineEmptySlot', () => ({
-  TimelineEmptySlot: vi.fn(({ mealType, dayLabel, relativeDay }) => (
-    <div data-testid={`empty-slot-${mealType}`} data-relative-day={relativeDay}>
-      Empty {mealType} on {dayLabel}
-    </div>
+// The real "+ Add" menu renders; only each slot's controller, which owns the
+// requests and dialogs, is stubbed.
+vi.mock('./EmptySlotController', () => ({
+  EmptySlotController: vi.fn(({ mealType, relativeDay }) => (
+    <div data-testid={`empty-slot-${mealType}`} data-relative-day={relativeDay} />
   )),
 }))
 
@@ -117,19 +118,15 @@ describe('TimelineDayCard', () => {
     expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument()
   })
 
-  it('renders empty slots for future days', () => {
+  it('renders one "+ Add" button for a day with empty slots', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+    expect(screen.getByRole('button', { name: 'Add to Today' })).toHaveTextContent(/^Add$/)
     expect(screen.getByTestId('empty-slot-dinner')).toBeInTheDocument()
   })
 
-  // The slot's button is named after its day (HON-807): the heading's text,
-  // with the date when the day has one.
-  it('passes the day to empty slots', () => {
-    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
-    expect(screen.getByTestId('empty-slot-dinner')).toHaveTextContent('Empty dinner on Today')
-  })
-
-  it('passes the day with its date to empty slots', () => {
+  // The button is named after its day (HON-807): the heading's text, with the
+  // date when the day has one.
+  it('names the day with its date on the "+ Add" button', () => {
     const saturday: TimelineDay = {
       ...baseDay,
       label: 'Saturday',
@@ -137,9 +134,7 @@ describe('TimelineDayCard', () => {
       isToday: false,
     }
     render(<TimelineDayCard day={saturday} {...defaultProps} />)
-    expect(screen.getByTestId('empty-slot-dinner')).toHaveTextContent(
-      'Empty dinner on Saturday Oct 3',
-    )
+    expect(screen.getByRole('button', { name: 'Add to Saturday Oct 3' })).toBeInTheDocument()
   })
 
   // The selector's title says "today" or "tomorrow" instead of the date, as
@@ -194,36 +189,44 @@ describe('TimelineDayCard', () => {
     expect(screen.getByText('No meals planned')).toBeInTheDocument()
   })
 
-  // An empty slot is a button on the heading's line, not a row in the entry
-  // list, so an empty day takes one line (HON-1111).
-  it('renders an empty slot in the heading row, not in the entry list', () => {
+  // The "+ Add" button is on the heading's line, not a row in the entry list,
+  // so an empty day takes one line (HON-1111, HON-1335).
+  it('renders "+ Add" in the heading row, not in the entry list', () => {
     render(<TimelineDayCard day={dayWithDinnerAnd(['breakfast'])} {...defaultProps} />)
 
     const headingRow = screen.getByRole('heading', { name: 'Today' }).parentElement
-    const slot = screen.getByTestId('empty-slot-breakfast')
+    const add = screen.getByRole('button', { name: 'Add to Today' })
     const card = screen.getByTestId('meal-card-dinner')
-    expect(headingRow).toContainElement(slot)
+    expect(headingRow).toContainElement(add)
     expect(headingRow).not.toContainElement(card)
-    // The heading row comes first, so the slot precedes the dinner card.
-    expect(slot.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The heading row comes first, so the button precedes the dinner card.
+    expect(add.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('keeps the button out of the heading, so the outline reads the day alone', () => {
     render(<TimelineDayCard day={dayWithDinnerAnd(['breakfast'])} {...defaultProps} />)
     const heading = screen.getByRole('heading', { name: 'Today' })
-    expect(heading).not.toContainElement(screen.getByTestId('empty-slot-breakfast'))
+    expect(heading).not.toContainElement(screen.getByRole('button', { name: 'Add to Today' }))
   })
 
-  it('orders empty slots breakfast, lunch, dinner', () => {
+  it('groups the menu breakfast, lunch, dinner', async () => {
+    const user = userEvent.setup()
     const day: TimelineDay = { ...baseDay, emptySlots: ['dinner', 'breakfast', 'lunch'] }
     render(<TimelineDayCard day={day} {...defaultProps} />)
 
-    const slots = screen.getAllByTestId(/^empty-slot-/).map((el) => el.dataset.testid)
-    expect(slots).toEqual(['empty-slot-breakfast', 'empty-slot-lunch', 'empty-slot-dinner'])
+    await user.click(screen.getByRole('button', { name: 'Add to Today' }))
+
+    const groups = within(await screen.findByRole('menu')).getAllByRole('group')
+    expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
+      'Breakfast',
+      'Lunch',
+      'Dinner',
+    ])
   })
 
-  // Extras (HON-1309): "+ Extra" shows on every day, a full one too, and the
-  // day's extras sit in one row under its meals.
+  // Extras (HON-1309): a full day shows "+ Extra" alone; a day with an empty
+  // slot offers Extra in its "+ Add" menu (HON-1335). The day's extras sit in
+  // one row under its meals.
   it('shows "+ Extra" in the heading row when every slot is full', () => {
     render(<TimelineDayCard day={dayWithDinnerAnd([])} {...defaultProps} />)
 
@@ -231,14 +234,14 @@ describe('TimelineDayCard', () => {
     const addExtra = screen.getByRole('button', { name: 'Add an extra: Today' })
     expect(headingRow).toContainElement(addExtra)
     expect(screen.queryByTestId(/^empty-slot-/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to Today' })).not.toBeInTheDocument()
   })
 
-  it('puts "+ Extra" after the empty slots', () => {
+  it('shows no "+ Extra" button beside "+ Add"', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
 
-    const slot = screen.getByTestId('empty-slot-dinner')
-    const addExtra = screen.getByRole('button', { name: 'Add an extra: Today' })
-    expect(slot.compareDocumentPosition(addExtra) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add to Today' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add an extra: Today' })).not.toBeInTheDocument()
   })
 
   it("lists the day's extras under its meals", () => {
@@ -263,6 +266,41 @@ describe('TimelineDayCard', () => {
     expect(card.compareDocumentPosition(extras) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  // The removed extra's button leaves with the refresh, so focus goes to the
+  // day's one add button, "+ Add" here, not to the body (HON-1309, HON-1335).
+  it('focuses "+ Add" after an extra is removed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+    )
+    const user = userEvent.setup()
+    const day: TimelineDay = {
+      ...baseDay,
+      extras: [
+        {
+          id: 'x1',
+          date: '2026-03-29',
+          ingredientId: null,
+          name: 'chips',
+          quantity: null,
+          unit: null,
+        },
+      ],
+    }
+    const { wrapper: Wrapper } = createQueryWrapper()
+    render(
+      <Wrapper>
+        <TimelineDayCard day={day} {...defaultProps} />
+      </Wrapper>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Edit extra: chips' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add to Today' })).toHaveFocus())
+    vi.unstubAllGlobals()
+  })
+
   it('shows no extras row on a day with none', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
     expect(screen.queryByRole('list', { name: 'Extras' })).not.toBeInTheDocument()
@@ -274,9 +312,8 @@ describe('TimelineDayCard', () => {
   })
 
   // The slot label is the card's own first row (`MealTypeBadge` inside
-  // `MealCard`) and the empty slot's button text (`TimelineEmptySlot`), both
-  // mocked here, so the day card renders none of its own and passes each
-  // slot's `mealType` down instead.
+  // `MealCard`, mocked here) and a group label in the closed "+ Add" menu, so
+  // the day card renders none of its own.
   it('leaves the meal type label to the cards', () => {
     const dayWithEntry: TimelineDay = {
       ...baseDay,

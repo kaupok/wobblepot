@@ -10,18 +10,18 @@ import {
   slowDiscardEntryHandlers,
 } from '@/stories/msw-handlers'
 import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
-import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { DayAddMenu } from './DayAddMenu'
 
 const meta = {
-  title: 'Feature/Timeline/TimelineEmptySlot',
-  component: TimelineEmptySlot,
+  title: 'Feature/Timeline/DayAddMenu',
+  component: DayAddMenu,
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
     planId: 'plan-1',
     date: '2026-04-16',
     dayLabel: 'Thursday Apr 16',
-    mealType: MealType.dinner,
+    emptySlots: [MealType.dinner],
     householdServings: 4,
     pantryIngredients: lemonGarlicChickenPantry,
   },
@@ -32,38 +32,40 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof TimelineEmptySlot>
+} satisfies Meta<typeof DayAddMenu>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Opens the slot's menu and picks "Choose a recipe" (HON-1247). */
+const ADD_NAME = 'Add to Thursday Apr 16'
+
+/** Opens the day's menu and picks "Choose a recipe" for dinner (HON-1247). */
 async function chooseRecipe(canvasElement: HTMLElement) {
-  await userEvent.click(within(canvasElement).getByRole('button', { name: /^Dinner: pick a meal/ }))
-  await userEvent.click(
-    await within(document.body).findByRole('menuitem', { name: 'Choose a recipe' }),
-  )
+  await userEvent.click(within(canvasElement).getByRole('button', { name: ADD_NAME }))
+  const dinner = await within(document.body).findByRole('group', { name: 'Dinner' })
+  await userEvent.click(within(dinner).getByRole('menuitem', { name: 'Choose a recipe' }))
 }
 
-// The button's text is the meal type ("+ Dinner"). Every empty day has one, so
-// the name adds the action and the day after the visible text (HON-807,
-// HON-1111).
-export const Dinner: Story = {
+// The button reads "+ Add". Every day with an empty slot has one, so the name
+// adds the day after the visible text (HON-807, HON-1335).
+export const OneEmptySlot: Story = {
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByRole('button', {
-        name: 'Dinner: pick a meal, Thursday Apr 16',
-      }),
-    ).toBeVisible()
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
+    await expect(button).toBeVisible()
+    await expect(button).toHaveTextContent(/^Add$/)
   },
 }
 
-export const Lunch: Story = {
-  args: { mealType: MealType.lunch },
-}
-
-export const Breakfast: Story = {
-  args: { mealType: MealType.breakfast },
+/** A day with every slot full shows "+ Extra" alone, not a one-item menu. */
+export const NoEmptySlot: Story = {
+  args: { emptySlots: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByRole('button', { name: 'Add an extra: Thursday Apr 16' }),
+    ).toHaveTextContent(/^Extra$/)
+    await expect(canvas.queryByRole('button', { name: ADD_NAME })).toBeNull()
+  },
 }
 
 /** Today and Tomorrow have no date beside them, so the day is the word alone. */
@@ -71,44 +73,63 @@ export const Tomorrow: Story = {
   args: { date: '2026-04-17', dayLabel: 'Tomorrow', relativeDay: 'tomorrow' },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole('button', { name: 'Dinner: pick a meal, Tomorrow' }),
+      within(canvasElement).getByRole('button', { name: 'Add to Tomorrow' }),
     ).toBeVisible()
   },
 }
 
-/** Estonian: the meal type is the whole visible text, so it needs no declension. */
+/** Estonian: the day follows a separator, so it needs no declension. */
 export const Estonian: Story = {
   globals: { locale: 'et' },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole('button', { name: 'Õhtusöök: vali toit, Thursday Apr 16' }),
-    ).toHaveTextContent('Õhtusöök')
+      within(canvasElement).getByRole('button', { name: 'Lisa: Thursday Apr 16' }),
+    ).toHaveTextContent(/^Lisa$/)
   },
 }
 
 export const MenuOpen: Story = {
+  args: { emptySlots: [MealType.breakfast, MealType.lunch, MealType.dinner] },
   parameters: {
     docs: {
       description: {
         story:
-          'The slot\'s button opens the routes to a meal: "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view, and each creates the placeholder entry first (HON-1247). "Pick for me" places the top suggestion in one request (HON-1248).',
+          'One group per empty slot, in slot order, then "Extra" (HON-1335). "Choose a recipe" opens the selector\'s library view, "Imagine a meal" its imagine view, and each creates the placeholder entry first (HON-1247). "Pick for me" places the top suggestion in one request (HON-1248).',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    const button = within(canvasElement).getByRole('button', {
-      name: 'Dinner: pick a meal, Thursday Apr 16',
-    })
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
     await userEvent.click(button)
     const menu = await within(document.body).findByRole('menu')
-    const items = within(menu).getAllByRole('menuitem')
-    await expect(items.map((item) => item.textContent)).toEqual([
-      'Choose a recipe',
-      'Pick for me',
-      'Imagine a meal',
-      'Fridge meal',
+    const groups = within(menu).getAllByRole('group')
+    await expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
+      'Breakfast',
+      'Lunch',
+      'Dinner',
     ])
+    for (const group of groups) {
+      await expect(
+        within(group)
+          .getAllByRole('menuitem')
+          .map((item) => item.textContent),
+      ).toEqual(['Choose a recipe', 'Pick for me', 'Imagine a meal', 'Fridge meal'])
+    }
+    await expect(within(menu).getAllByRole('menuitem').at(-1)).toHaveTextContent(/^Extra$/)
     await expect(button).toHaveAttribute('aria-expanded', 'true')
+  },
+}
+
+/** "Extra" opens the add-extra dialog, and focus comes back to "+ Add" on close. */
+export const ExtraFromMenu: Story = {
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
+    await userEvent.click(button)
+    await userEvent.click(await within(document.body).findByRole('menuitem', { name: 'Extra' }))
+    await within(document.body).findByRole('dialog', { name: 'Add an extra' })
+    await pressEscape()
+    await awaitDialogClosed()
+    await waitFor(() => expect(document.activeElement).toBe(button))
   },
 }
 
@@ -118,16 +139,14 @@ export const Adding: Story = {
     docs: {
       description: {
         story:
-          "The create-entry POST never resolves, so choosing a route from '+ Dinner' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
+          "The create-entry POST never resolves, so choosing a route from '+ Add' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await chooseRecipe(canvasElement)
-    const adding = await canvas.findByRole('button', {
-      name: 'Adding…: Thursday Apr 16, Dinner',
-    })
+    const adding = await canvas.findByRole('button', { name: 'Adding…: Thursday Apr 16' })
     await expect(adding).toHaveAttribute('aria-disabled', 'true')
   },
 }
@@ -138,7 +157,7 @@ export const Discarding: Story = {
     docs: {
       description: {
         story:
-          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and '+ Dinner' stays aria-disabled until the discard settles (HON-799). It is aria-disabled rather than disabled so it can take focus back from the selector (HON-803).",
+          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and '+ Add' stays aria-disabled until the discard settles (HON-799). It is aria-disabled rather than disabled so it can take focus back from the selector (HON-803).",
       },
     },
   },
@@ -154,7 +173,7 @@ export const Discarding: Story = {
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() =>
-      expect(canvas.getByRole('button', { name: /^Dinner: pick a meal/ })).toHaveAttribute(
+      expect(canvas.getByRole('button', { name: ADD_NAME })).toHaveAttribute(
         'aria-disabled',
         'true',
       ),
@@ -163,16 +182,14 @@ export const Discarding: Story = {
 }
 
 /**
- * The slot replaces a card whose meal was just cleared, so it takes the
- * focus the card took with it (HON-1123).
+ * The dinner slot's meal was just cleared, so "+ Add" takes the focus the
+ * card took with it (HON-1123).
  */
-export const AutoFocus: Story = {
-  args: { autoFocus: true, onAutoFocused: fn() },
+export const FocusAfterClear: Story = {
+  args: { focusSlot: MealType.dinner, onSlotFocused: fn() },
   play: async ({ canvasElement, args }) => {
-    const button = within(canvasElement).getByRole('button', {
-      name: 'Dinner: pick a meal, Thursday Apr 16',
-    })
-    await waitFor(() => expect(args.onAutoFocused).toHaveBeenCalledTimes(1))
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
+    await waitFor(() => expect(args.onSlotFocused).toHaveBeenCalledTimes(1))
     await expect(document.activeElement).toBe(button)
   },
 }
@@ -206,7 +223,7 @@ async function pickForMe(canvasElement: HTMLElement) {
   // Sonner's toasts are module state, so the previous story's toast is still
   // there.
   toast.dismiss()
-  await userEvent.click(within(canvasElement).getByRole('button', { name: /^Dinner: pick a meal/ }))
+  await userEvent.click(within(canvasElement).getByRole('button', { name: ADD_NAME }))
   await userEvent.click(await within(document.body).findByRole('menuitem', { name: 'Pick for me' }))
 }
 

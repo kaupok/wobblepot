@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { toast, type ExternalToast } from 'sonner'
 import { track } from '@/lib/analytics'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { DayAddMenu } from './DayAddMenu'
 
 // "Pick for me" places the slot's top suggestion in one request, and a toast
 // offers Undo, as Clear does (HON-1248).
@@ -17,7 +17,7 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
 const ENTRIES_URL = '/api/meal-plans/plan-1/entries'
-const SLOT_NAME = 'Dinner: pick a meal, Thursday Apr 16'
+const SLOT_NAME = 'Add to Thursday Apr 16'
 const picked = {
   id: 'entry-9',
   date: '2026-04-16',
@@ -69,11 +69,11 @@ function renderSlot(onPicked = vi.fn()) {
   const { wrapper: Wrapper, queryClient } = createQueryWrapper()
   render(
     <Wrapper>
-      <TimelineEmptySlot
+      <DayAddMenu
         planId="plan-1"
         date="2026-04-16"
         dayLabel="Thursday Apr 16"
-        mealType="dinner"
+        emptySlots={['dinner']}
         householdServings={4}
         onPicked={onPicked}
       />
@@ -102,7 +102,7 @@ async function pickedToast() {
   return vi.mocked(toast).mock.calls[0]!
 }
 
-describe('TimelineEmptySlot: Pick for me', () => {
+describe('DayAddMenu: Pick for me', () => {
   it('sends one POST that asks for the top suggestion', async () => {
     renderSlot()
 
@@ -123,7 +123,7 @@ describe('TimelineEmptySlot: Pick for me', () => {
     renderSlot()
 
     const user = await pickForMe()
-    const adding = await screen.findByRole('button', { name: 'Adding…: Thursday Apr 16, Dinner' })
+    const adding = await screen.findByRole('button', { name: 'Adding…: Thursday Apr 16' })
     expect(adding).toHaveAttribute('aria-disabled', 'true')
 
     adding.focus()

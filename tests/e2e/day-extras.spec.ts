@@ -1,4 +1,4 @@
-// ROUTES: / · /shopping · COMPONENTS: TimelineDayCard, AddExtra, DayExtrasRow, ShoppingSection
+// ROUTES: / · /shopping · COMPONENTS: TimelineDayCard, DayAddMenu, AddExtra, DayExtrasRow, ShoppingSection
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -40,6 +40,19 @@ async function runIngredient(page: Page, name: string) {
   return ingredient.id
 }
 
+// The smoke household plans nothing, so Tomorrow has empty slots and its
+// Extra sits in the day's "+ Add" menu (HON-1335).
+async function openAddExtra(page: Page) {
+  await page.getByRole('button', { name: 'Add to Tomorrow' }).click()
+  await page.getByRole('menuitem', { name: 'Extra' }).click()
+  // The dialog opens once the menu has closed; opened in the same tick, the
+  // closing menu took focus back out of it and dropped it on the body. `fill()`
+  // below would pass either way.
+  await expect(
+    page.getByRole('dialog', { name: 'Add an extra' }).getByLabel('Search for an ingredient'),
+  ).toBeFocused()
+}
+
 test('an extra added to a day survives a reload and goes on the shopping list', async ({
   page,
 }) => {
@@ -53,7 +66,7 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
 
   try {
     await page.goto('/')
-    await page.getByRole('button', { name: 'Add an extra: Tomorrow' }).click()
+    await openAddExtra(page)
 
     const picker = page.getByRole('dialog', { name: 'Add an extra' })
     await picker.getByLabel('Search for an ingredient').fill(name)
@@ -122,7 +135,7 @@ test('Remove on a free-text extra takes its item off the shopping list', async (
 
   try {
     await page.goto('/')
-    await page.getByRole('button', { name: 'Add an extra: Tomorrow' }).click()
+    await openAddExtra(page)
 
     const picker = page.getByRole('dialog', { name: 'Add an extra' })
     await picker.getByLabel('Search for an ingredient').fill(name)

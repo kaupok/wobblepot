@@ -42,8 +42,9 @@ export const TodayWithDinner: Story = {
 }
 
 /**
- * Every slot is full and the day has extras (HON-1309): "+ Extra" still sits
- * on the heading, and the extras take one row under the meal.
+ * Every slot is full and the day has extras (HON-1309): "+ Extra" sits alone
+ * on the heading, not a one-item "+ Add" menu (HON-1335), and the extras take
+ * one row under the meal.
  */
 export const FullDayWithExtras: Story = {
   args: {
@@ -52,6 +53,7 @@ export const FullDayWithExtras: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Add an extra: Today' })).toBeVisible()
+    await expect(canvas.queryByRole('button', { name: 'Add to Today' })).toBeNull()
     await expect(canvas.getByRole('button', { name: 'Edit extra: Red wine 750ml' })).toBeVisible()
   },
 }
@@ -136,49 +138,49 @@ const mixedDay = createTimelineDay({
   emptySlots: [MealType.breakfast, MealType.lunch],
 })
 
-// The empty slots are buttons on the heading's line, in meal-type order, and
-// the planned dinner is the only card below it (HON-1111).
+// One "+ Add" button on the heading's line holds the empty slots, in
+// meal-type order, and the planned dinner is the only card below it
+// (HON-1111, HON-1335).
 export const MixedEntriesAndEmpty: Story = {
   args: { day: mixedDay },
   parameters: {
     docs: {
       description: {
         story:
-          'One planned dinner with empty breakfast and lunch slots as buttons on the heading line.',
+          'One planned dinner; the "+ Add" menu on the heading line offers the empty breakfast and lunch slots, then Extra.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const breakfast = canvas.getByRole('button', {
-      name: 'Breakfast: pick a meal, Friday Apr 17',
-    })
-    const lunch = canvas.getByRole('button', { name: 'Lunch: pick a meal, Friday Apr 17' })
+    const add = canvas.getByRole('button', { name: 'Add to Friday Apr 17' })
     const headingRow = canvas.getByRole('heading', { level: 2 }).parentElement
-    await expect(headingRow).toContainElement(breakfast)
-    await expect(headingRow).toContainElement(lunch)
-    await expect(
-      breakfast.compareDocumentPosition(lunch) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    await expect(headingRow).toContainElement(add)
+    await expect(canvas.queryByRole('button', { name: /^Add an extra/ })).toBeNull()
+    await userEvent.click(add)
+    const menu = await within(document.body).findByRole('menu')
+    const groups = within(menu).getAllByRole('group')
+    await expect(groups.map((group) => group.firstElementChild?.textContent)).toEqual([
+      'Breakfast',
+      'Lunch',
+    ])
+    await userEvent.keyboard('{Escape}')
   },
 }
 
-/** Estonian meal names are longer, so the buttons wrap below the heading sooner. */
+/** Estonian: "+ Lisa", with the day after a separator in its name. */
 export const MixedEntriesAndEmptyEstonian: Story = {
   args: { day: mixedDay },
   globals: { locale: 'et' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(
-      canvas.getByRole('button', { name: 'Hommikusöök: vali toit, Friday Apr 17' }),
-    ).toBeVisible()
-    await expect(
-      canvas.getByRole('button', { name: 'Lõunasöök: vali toit, Friday Apr 17' }),
-    ).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Lisa: Friday Apr 17' })).toHaveTextContent(
+      /^Lisa$/,
+    )
   },
 }
 
-/** A phone width: the buttons wrap below the heading, together, from the left. */
+/** A phone width: one "+ Add" button for three empty slots, beside the heading. */
 export const ThreeEmptySlotsNarrow: Story = {
   args: {
     day: createTimelineDay({
@@ -232,8 +234,8 @@ export const NoMealsExpected: Story = {
   },
 }
 
-// Play story — verify the "+ Dinner" button of an empty slot is reachable
-// and activates the empty-slot create flow. This is the user-facing entry
+// Play story — verify the day's "+ Add" button is reachable and activates
+// the empty-slot create flow. This is the user-facing entry
 // point when there is nothing planned yet for a day.
 export const PickMealFromEmptySlot: Story = {
   args: {
@@ -250,9 +252,9 @@ export const PickMealFromEmptySlot: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const pick = canvas.getByRole('button', { name: /^Dinner: pick a meal/ })
-    await userEvent.click(pick)
-    // The slot's button opens the routes to a meal (HON-1247).
+    const add = canvas.getByRole('button', { name: 'Add to Friday Apr 17' })
+    await userEvent.click(add)
+    // The day's button opens the routes to a meal per slot (HON-1247, HON-1335).
     await userEvent.click(
       await within(document.body).findByRole('menuitem', { name: 'Choose a recipe' }),
     )
@@ -264,15 +266,13 @@ export const PickMealFromEmptySlot: Story = {
   },
 }
 
-/** After a clear, the slot that replaced the card takes focus (HON-1123). */
-export const FocusesClearedSlot: Story = {
+/** After a clear, once the slot is empty, the day's "+ Add" takes focus (HON-1123). */
+export const FocusesAddAfterClear: Story = {
   args: { day: mixedDay, focusSlot: MealType.lunch, onSlotFocused: fn() },
   play: async ({ canvasElement, args }) => {
-    const lunch = within(canvasElement).getByRole('button', {
-      name: 'Lunch: pick a meal, Friday Apr 17',
-    })
+    const add = within(canvasElement).getByRole('button', { name: 'Add to Friday Apr 17' })
     await expect(args.onSlotFocused).toHaveBeenCalledTimes(1)
-    await expect(document.activeElement).toBe(lunch)
+    await expect(document.activeElement).toBe(add)
   },
 }
 

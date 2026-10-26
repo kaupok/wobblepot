@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type FormEvent, type Ref } from 'react'
+import { useId, useState, type FormEvent, type Ref, type RefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -37,32 +37,63 @@ interface AddExtraProps {
   buttonRef?: Ref<HTMLButtonElement>
   /** Open on mount, for stories. */
   defaultOpen?: boolean
+  /**
+   * Opened from the day's "+ Add" menu rather than its own button (HON-1335):
+   * the parent owns `open`, and focus goes back to `returnFocusRef` on close,
+   * because a dialog with no trigger has nowhere else to send it.
+   */
+  controlled?: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    returnFocusRef: RefObject<HTMLButtonElement | null>
+  }
 }
 
 /**
- * The "+ Extra" button on a day heading and its picker (HON-1309): a
- * catalogue ingredient with an optional amount, or the household's own words.
- * The picker is the dialog's trigger, so Radix returns focus to it on close.
+ * The picker for an extra on a day (HON-1309): a catalogue ingredient with an
+ * optional amount, or the household's own words. A day with no empty slot
+ * shows its "+ Extra" button, the dialog's trigger, so Radix returns focus to
+ * it on close; a day with one opens it from the "+ Add" menu (`controlled`).
  */
-export function AddExtra({ date, dayLabel, buttonRef, defaultOpen = false }: AddExtraProps) {
+export function AddExtra({
+  date,
+  dayLabel,
+  buttonRef,
+  defaultOpen = false,
+  controlled,
+}: AddExtraProps) {
   const t = useTranslations('meal-plan.extras')
-  const [open, setOpen] = useState(defaultOpen)
+  const [ownOpen, setOwnOpen] = useState(defaultOpen)
+  const open = controlled ? controlled.open : ownOpen
+  const setOpen = controlled ? controlled.onOpenChange : setOwnOpen
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {/* "Extra" is the visible text, as "+ Dinner" is; the name adds the day. */}
-        <Button
-          ref={buttonRef}
-          variant="ghost"
-          size="sm"
-          aria-label={t('addLabel', { day: dayLabel })}
-        >
-          <Plus aria-hidden="true" />
-          {t('button')}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      {!controlled && (
+        <DialogTrigger asChild>
+          {/* "Extra" is the visible text; the name adds the day. */}
+          <Button
+            ref={buttonRef}
+            variant="ghost"
+            size="sm"
+            aria-label={t('addLabel', { day: dayLabel })}
+          >
+            <Plus aria-hidden="true" />
+            {t('button')}
+          </Button>
+        </DialogTrigger>
+      )}
+      <DialogContent
+        className="sm:max-w-md"
+        onCloseAutoFocus={
+          controlled
+            ? (event) => {
+                event.preventDefault()
+                controlled.returnFocusRef.current?.focus()
+              }
+            : undefined
+        }
+      >
         <DialogHeader>
           <DialogTitle>{t('addTitle')}</DialogTitle>
           <DialogDescription>{t('addDescription')}</DialogDescription>

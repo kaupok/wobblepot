@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { fridgePantryItems } from '@/stories/fridge-fixtures'
-import { TimelineEmptySlot } from './TimelineEmptySlot'
+import { DayAddMenu } from './DayAddMenu'
 
 // "Fridge meal" in an open slot (HON-1277): the picker creates the entry as it
 // saves, so no placeholder is posted first and none is left behind.
@@ -41,11 +41,11 @@ function renderSlot() {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
-      <TimelineEmptySlot
+      <DayAddMenu
         planId="plan-1"
         date="2026-04-16"
         dayLabel="Thursday Apr 16"
-        mealType="dinner"
+        emptySlots={['dinner']}
         householdServings={4}
         pantryItems={fridgePantryItems}
         onPicked={onPicked}
@@ -55,11 +55,10 @@ function renderSlot() {
   return { onPicked, user: userEvent.setup() }
 }
 
-const slotButton = () =>
-  screen.getByRole('button', { name: 'Dinner: pick a meal, Thursday Apr 16' })
+const slotButton = () => screen.getByRole('button', { name: 'Add to Thursday Apr 16' })
 const writes = () => requests.filter((r) => r.method !== 'GET')
 
-describe('TimelineEmptySlot fridge meal', () => {
+describe('DayAddMenu fridge meal', () => {
   it('opens the picker with no placeholder, and creates the fridge meal on Save', async () => {
     const { onPicked, user } = renderSlot()
 
@@ -87,7 +86,7 @@ describe('TimelineEmptySlot fridge meal', () => {
     expect(onPicked).toHaveBeenCalledTimes(1)
   })
 
-  it('returns focus to the slot button when the picker closes without a save', async () => {
+  it('returns focus to the Add button when the picker closes without a save', async () => {
     const { user } = renderSlot()
 
     await user.click(slotButton())

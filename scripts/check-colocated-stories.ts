@@ -69,6 +69,10 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: 'src/components/header.tsx',
     why: 'The server half of the header: it awaits getSession() and getHasHousehold() (both import Prisma transitively, so it cannot mount in Storybook) and renders HeaderChrome, which owns every bit of markup and has the story (header-chrome.stories.tsx). header.test.tsx covers the session wiring.',
   },
+  {
+    path: 'src/components/timeline/EmptySlotController.tsx',
+    why: 'One empty slot\'s placeholder requests and dialogs, with no button of its own: the day\'s "+ Add" menu drives it through a ref (HON-1335). DayAddMenu.stories.tsx covers its states (Adding, Discarding, PickForMeWithUndo, PickForMeNoMatch), and MealSelectorModal and FridgeMealPicker have their own stories.',
+  },
 ]
 
 // ============================================

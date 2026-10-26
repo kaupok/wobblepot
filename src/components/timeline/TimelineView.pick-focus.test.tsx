@@ -11,15 +11,16 @@ import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
 
 // "Pick for me" fills a slot with no dialog, and the control it was chosen
 // from leaves with the refresh, so the day heading takes focus, as after a
-// fill (HON-1248). The real day cards are under test; the slot and the card
+// fill (HON-1248). The real day cards are under test; the slot's controller
+// and the card
 // are reduced to the button that reports a pick.
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }))
 
-vi.mock('./TimelineEmptySlot', () => ({
-  TimelineEmptySlot: ({ mealType, onPicked }: { mealType: string; onPicked?: () => void }) => (
+vi.mock('./EmptySlotController', () => ({
+  EmptySlotController: ({ mealType, onPicked }: { mealType: string; onPicked?: () => void }) => (
     <button onClick={onPicked}>Pick {mealType}</button>
   ),
 }))
