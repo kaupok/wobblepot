@@ -4,6 +4,7 @@ import { getHouseholdMembership, MAX_HOUSEHOLD_MEMBERS } from '@/lib/household'
 import {
   addMember,
   getHouseholdMember,
+  listMembersForAssistant,
   MemberChangeError,
   removeMember,
   updateMember,
@@ -125,6 +126,36 @@ describe('getHouseholdMember', () => {
 
     expect(await getHouseholdMember(owner.householdId, 'm-birch')).toBeNull()
     expect(await getHouseholdMember(owner.householdId, 'm-nobody')).toBeNull()
+  })
+})
+
+describe('listMembersForAssistant', () => {
+  it("returns each member's shown name, account link and portion size, and nothing else", async () => {
+    const { owner } = await households()
+    await prisma.memberPreferences.createMany({
+      data: [
+        { memberId: 'm-partner', displayName: 'Mum', portionMultiplier: 1.5 },
+        // An empty display name falls through to the account name.
+        { memberId: 'm-owner', displayName: '', portionMultiplier: 1 },
+        { memberId: 'm-kid', portionMultiplier: 0.5 },
+      ],
+    })
+
+    expect(await listMembersForAssistant(owner.householdId)).toEqual([
+      { name: 'Kid', linked: false, portionMultiplier: 0.5 },
+      { name: 'u-owner', linked: true, portionMultiplier: 1 },
+      { name: 'Mum', linked: true, portionMultiplier: 1.5 },
+    ])
+  })
+
+  it('counts a member with no preferences row at 1x', async () => {
+    const { owner } = await households()
+
+    expect(await listMembersForAssistant(owner.householdId)).toContainEqual({
+      name: 'Kid',
+      linked: false,
+      portionMultiplier: 1,
+    })
   })
 })
 

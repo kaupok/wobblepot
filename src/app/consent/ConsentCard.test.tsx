@@ -48,7 +48,7 @@ describe('ConsentCard', () => {
 
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
-      'Read your meal plan, shopping list, pantry and recipes.',
+      'Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.',
       'Update your shopping list, pantry and meal plan, and add and change recipes.',
       'Stay connected, so you do not need to allow it again.',
     ])
@@ -76,7 +76,7 @@ describe('ConsentCard', () => {
     expect(screen.getByText('Your answer is sent to claude.ai.')).toBeInTheDocument()
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
-      'Read your meal plan, shopping list, pantry and recipes.',
+      'Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.',
       'Confirm that it is you.',
       'Stay connected, so you do not need to allow it again.',
     ])

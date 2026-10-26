@@ -1218,7 +1218,7 @@
       "household": "Household: {householdName}",
       "scopesHeading": "It will be able to:",
       "scopes": {
-        "mcpRead": "Read your meal plan, shopping list, pantry and recipes.",
+        "mcpRead": "Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.",
         "mcpWrite": "Update your shopping list, pantry and meal plan, and add and change recipes.",
         "openid": "Confirm that it is you.",
         "profile": "See your name and profile picture.",
@@ -1742,7 +1742,7 @@
       "unnamed": "Unnamed assistant",
       "connectedOn": "Connected: {date}",
       "scopes": {
-        "mcpRead": "Reads meal plan, shopping list, pantry and recipes",
+        "mcpRead": "Reads meal plan, shopping list, pantry, recipes and household settings",
         "mcpWrite": "Updates shopping list, pantry and meal plan, and adds and changes recipes",
         "openid": "Confirms it is you",
         "profile": "Sees your name and profile picture",

@@ -74,7 +74,9 @@ test.describe('OAuth for MCP clients', () => {
     ).toBeVisible()
     await expect(page.getByText('Household: OAuth E2E household')).toBeVisible()
     await expect(
-      page.getByText('Read your meal plan, shopping list, pantry and recipes.'),
+      page.getByText(
+        'Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.',
+      ),
     ).toBeVisible()
     // Registration is open, so the name is self-declared; the card shows the
     // host that receives the answer.

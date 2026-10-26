@@ -115,7 +115,14 @@ describe('PrivacyPage', () => {
     const text = (section?.textContent ?? '').replace(/\s+/g, ' ')
     // What it reads: every MCP tool's data set, plus the `profile` scope.
     expect(text).toContain(
-      'can read your household’s meal plan, shopping list, pantry, and recipes. If the consent page says so, it can also see your name and profile picture.',
+      'can read your household’s meal plan, shopping list, pantry, and recipes.',
+    )
+    // `get_household` returns the settings, allergens and member names (HON-1323).
+    expect(text).toContain(
+      'It can also read your household settings: the meals you plan each day, your diet, the allergens and ingredients you avoid, your notes for the AI, and each member’s name and portion size. That includes the names and allergens of the children in your household.',
+    )
+    expect(text).toContain(
+      'If the consent page says so, it can also see your name and profile picture.',
     )
     // What it can change, only with the write scope (HON-1154).
     expect(text).toContain(
@@ -137,9 +144,7 @@ describe('PrivacyPage', () => {
     expect(text).toContain(
       'We do not record the data it read, what it searched for, or what it changed.',
     )
-    // `list_meals` hard-filters allergen meals, so the allergen list is inferable.
-    expect(text).toContain('so an assistant can work out which allergens you avoid')
-    expect(text).toContain('when you allow an assistant, you agree that it can learn them this way')
+    expect(text).toContain('when you allow an assistant, you agree that it can read them')
     expect(text).toContain('Deleting your account disconnects every assistant at once.')
   })
 

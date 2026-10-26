@@ -229,11 +229,12 @@ export default function PrivacyPage() {
         </Body>
         <Body>
           A connected assistant can read your household&rsquo;s meal plan, shopping list, pantry,
-          and recipes. If the consent page says so, it can also see your name and profile picture.
-          Recipe search leaves out meals that contain your household&rsquo;s allergens, so an
-          assistant can work out which allergens you avoid. That includes allergens of the children
-          in your household. Allergies are health data, and when you allow an assistant, you agree
-          that it can learn them this way.
+          and recipes. It can also read your household settings: the meals you plan each day, your
+          diet, the allergens and ingredients you avoid, your notes for the AI, and each
+          member&rsquo;s name and portion size. That includes the names and allergens of the
+          children in your household. If the consent page says so, it can also see your name and
+          profile picture. Allergies are health data, and when you allow an assistant, you agree
+          that it can read them.
         </Body>
         <Body>
           If the consent page says &ldquo;Update your shopping list, pantry and meal plan, and add
