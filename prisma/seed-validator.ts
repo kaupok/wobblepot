@@ -28,6 +28,8 @@ import {
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
+import { INGREDIENT_GROUPS } from '../src/lib/household/ingredient-groups'
+import { validateIngredientGroups } from './validate-ingredient-groups'
 import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
 import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
 import type { IngredientInput } from './seed-types'
@@ -772,6 +774,7 @@ async function main() {
     checkGramUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
     validateIngredientAliases(ingredientNames, INGREDIENT_ALIASES, INGREDIENT_SYNONYMS),
+    validateIngredientGroups(ingredientNames, INGREDIENT_GROUPS),
 
     // Translation coverage
     validateMealTranslationCoverage(allMeals, mealTranslationsEt),
@@ -795,6 +798,7 @@ async function main() {
   console.log(`   ${allMeals.length} meals (${mealCounts})`)
   console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
   console.log(`   ${Object.keys(INGREDIENT_SYNONYMS).length} ingredient synonyms`)
+  console.log(`   ${INGREDIENT_GROUPS.length} ingredient groups`)
   console.log(`   ${mealTranslationsEt.length} et meal translations`)
   console.log(`   ${ingredientTranslationsEt.length} et ingredient translations`)
 

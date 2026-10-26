@@ -72,6 +72,25 @@ describe('getExcludedIngredientIds', () => {
     )
   })
 
+  // The migrations seed "smoked sausage" but not "frankfurter", whose name
+  // has no "sausage" in it.
+  it('excludes frankfurter for "sausage", through the ingredient group', async () => {
+    const { alder, birch } = await world()
+    const frankfurter = await ingredient('frankfurter', 'viiner')
+    const smoked = await prisma.ingredient.findFirstOrThrow({
+      where: { householdId: null, name: 'smoked sausage' },
+      select: { id: true },
+    })
+
+    const sausage = [frankfurter.id, smoked.id]
+    expect(await getExcludedIngredientIds(alder.id, ['sausage'])).toEqual(
+      expect.arrayContaining(sausage),
+    )
+    expect(await getExcludedIngredientIds(birch.id, ['vorst'])).toEqual(
+      expect.arrayContaining(sausage),
+    )
+  })
+
   it('excludes every pork cut for "pork"', async () => {
     const { alder, rows } = await world()
 

@@ -1,5 +1,6 @@
 import { findSynonym } from '@/lib/ingredient-aliases'
 import { isDefaultLocale } from '@/lib/i18n/locales'
+import { INGREDIENT_GROUPS } from '@/lib/household/ingredient-groups'
 
 /**
  * The rule that turns a household's "Ingredients to avoid" tags into
@@ -10,6 +11,10 @@ import { isDefaultLocale } from '@/lib/i18n/locales'
  * the row's English name or in one of its translated names. "mushroom" then
  * matches "shiitake mushroom", "egg" matches "egg noodles" but not
  * "eggplant", and "nut" does not match "nutmeg".
+ *
+ * A tag that is a group word of `ingredient-groups.ts` as a whole ("sausage",
+ * "vorstid") also matches the group's rows by exact name (HON-1343), so
+ * "sausage" excludes frankfurter and chorizo.
  */
 
 /** An ingredient row with every name the rule reads. */
@@ -78,6 +83,41 @@ function containsWords(
 
 const sameWord = (tagWord: string, word: string) => tagWord === word
 
+/** The group words as word keys, and each group's members in lower case. */
+const GROUPS = INGREDIENT_GROUPS.map((group) => ({
+  en: group.en.map(wordKeys),
+  et: group.et.map(wordKeys),
+  members: new Set(group.members.map((member) => member.toLowerCase())),
+}))
+
+/**
+ * The rows of every group that has the whole tag as a group word. A tag that
+ * only contains the word ("smoked sausage") stays narrow. Members match by
+ * exact name, not as search terms, so "wieners" does not reach a "hot dog
+ * bun" row.
+ */
+function groupRows(
+  tagWords: string[],
+  pool: readonly ExclusionPoolRow[],
+  side: 'en' | 'et',
+  same: (tagWord: string, word: string) => boolean,
+): ExclusionPoolRow[] {
+  const members = new Set(
+    GROUPS.filter((group) =>
+      group[side].some(
+        (word) =>
+          word.length === tagWords.length &&
+          tagWords.every((tagWord, i) => {
+            const groupWord = word[i]
+            return groupWord !== undefined && same(tagWord, groupWord)
+          }),
+      ),
+    ).flatMap((group) => [...group.members]),
+  )
+  if (members.size === 0) return []
+  return pool.filter((row) => members.has(row.name.toLowerCase()))
+}
+
 /**
  * The terms a tag searches for in English: the tag, and the pool name
  * `findSynonym` gives for it ("eggplant" → "aubergine", HON-1097). The
@@ -105,6 +145,10 @@ function englishTerms(tag: string): string[][] {
  * so the Estonian name of "mushroom" excludes the same rows as "mushroom".
  * Estonian writes most kinds as one word ("austriseen" for oyster mushroom),
  * so the translated names alone would miss them.
+ *
+ * A tag that is a group word adds the group's rows. English group words apply
+ * in every locale. Estonian group words apply where the translated names do,
+ * so an English household's "vorst" still excludes the sausages.
  */
 export function matchTag(
   tag: string,
@@ -117,10 +161,11 @@ export function matchTag(
   }
 
   const terms = englishTerms(tag)
+  const tagWords = wordKeys(tag)
   const matched = new Set(pool.filter((row) => byEnglish(row, terms)))
+  for (const row of groupRows(tagWords, pool, 'en', sameWord)) matched.add(row)
   if (matched.size > 0 && isDefaultLocale(locale)) return [...matched]
 
-  const tagWords = wordKeys(tag)
   const viaTranslation = pool.filter(
     (row) =>
       !matched.has(row) &&
@@ -131,6 +176,7 @@ export function matchTag(
   const englishNames = viaTranslation.map((row) => wordKeys(row.name))
   for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
   for (const row of viaTranslation) matched.add(row)
+  for (const row of groupRows(tagWords, pool, 'et', translatedWordMatches)) matched.add(row)
   return [...matched]
 }
 

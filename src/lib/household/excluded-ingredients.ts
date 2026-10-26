@@ -11,7 +11,8 @@ export type { ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
  * `getExcludedIngredientIds`, so they agree, and a household that saved its
  * tags before a rule change, or before a matching ingredient was added, gets
  * the current answer without saving again. The rule is in
- * `excluded-ingredient-match.ts`.
+ * `excluded-ingredient-match.ts`, and the group words ("sausage") in
+ * `ingredient-groups.ts`.
  *
  * Global and this household's own ingredients only: the matches are returned
  * to the household, so another household's would reveal them (HON-889).
