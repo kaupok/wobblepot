@@ -221,7 +221,6 @@ async function getVercelVars(): Promise<{ vars: VercelVar[]; source: string }> {
 /**
  * Paths that must not count as evidence a variable is in use:
  *
- * - `.agents/` — vendored upstream skill docs, not our configuration.
  * - This script and its test — their own prose and fixtures name real
  *   variables (`SEED_TEST_USERS`, `NEON_API_KEY`, `DATABASE_URL`, …). Without
  *   this exclusion the audit immunises exactly the variables it talks about:
@@ -229,11 +228,7 @@ async function getVercelVars(): Promise<{ vars: VercelVar[]; source: string }> {
  *   never reported, not even as DOC-ONLY. The check would silently defeat
  *   itself, and worse with every fixture added.
  */
-const SCAN_PATHSPEC = [
-  ':(exclude).agents/',
-  ':(exclude)scripts/env-audit.ts',
-  ':(exclude)scripts/env-audit.test.ts',
-]
+const SCAN_PATHSPEC = [':(exclude)scripts/env-audit.ts', ':(exclude)scripts/env-audit.test.ts']
 
 /** Markdown and `.env*` files document a var; they don't consume it. */
 export function isDocFile(file: string): boolean {
