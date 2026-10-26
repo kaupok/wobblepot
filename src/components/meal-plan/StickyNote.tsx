@@ -10,24 +10,31 @@ import { cn } from '@/lib/utils'
 // The tilt is `--note-tilt`: -1° from `:root`, or a planner card's own angle
 // for its note, set on the overlay around it (HON-975).
 // No border and no shadow: it is paper stuck onto the card, not a card in it.
-const stickyNoteVariants = cva('flex flex-col self-start rounded-sm px-4 pt-3.5 pb-3 text-left', {
-  variants: {
-    variant: {
-      // Read-only: past or read-only slots.
-      static: 'w-fit max-w-xs rotate-(--note-tilt)',
-      // A saved note that opens the editor. It straightens on hover and on
-      // keyboard focus. The outline is the slip's `--ring` (re-scoped to its
-      // muted text) at full strength: at half, it fades into the yellow.
-      interactive:
-        'focus-visible:outline-ring min-h-8 w-fit max-w-xs rotate-(--note-tilt) cursor-pointer transition-transform duration-200 ease-out hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
-      // The editor: straight, at the full width so typing has room. The
-      // textarea inside draws no outline of its own, so the slip shows focus.
-      editing:
-        'focus-within:outline-ring w-full max-w-xs gap-2 focus-within:outline-2 focus-within:outline-offset-2',
+// `wrap-anywhere`: a pasted link has no break point, and `w-fit` would grow the
+// slip to its full length, past the card and the screen. It also lets `w-fit`
+// shrink the slip to one letter a line in a narrow corner at large text, so
+// `min-w-24` (in rem, so it grows with the text) holds a word's width.
+const stickyNoteVariants = cva(
+  'flex min-w-24 flex-col self-start rounded-sm px-4 pt-3.5 pb-3 text-left wrap-anywhere',
+  {
+    variants: {
+      variant: {
+        // Read-only: past or read-only slots.
+        static: 'w-fit max-w-xs rotate-(--note-tilt)',
+        // A saved note that opens the editor. It straightens on hover and on
+        // keyboard focus. The outline is the slip's `--ring` (re-scoped to its
+        // muted text) at full strength: at half, it fades into the yellow.
+        interactive:
+          'focus-visible:outline-ring min-h-8 w-fit max-w-xs rotate-(--note-tilt) cursor-pointer transition-transform duration-200 ease-out hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+        // The editor: straight, at the full width so typing has room. The
+        // textarea inside draws no outline of its own, so the slip shows focus.
+        editing:
+          'focus-within:outline-ring w-full max-w-xs gap-2 focus-within:outline-2 focus-within:outline-offset-2',
+      },
     },
+    defaultVariants: { variant: 'static' },
   },
-  defaultVariants: { variant: 'static' },
-})
+)
 
 interface StickyNoteProps
   extends React.ComponentProps<'div'>, VariantProps<typeof stickyNoteVariants> {
