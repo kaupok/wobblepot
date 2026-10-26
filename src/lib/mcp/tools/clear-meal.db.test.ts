@@ -106,6 +106,12 @@ async function refusal(household: Household, date: string) {
   return error.message
 }
 
+/** The day's dinner as the assistant reads it, through get_meal_plan. */
+async function dinnerOn(household: Household, date: string) {
+  const plan = await getMealPlan.run(household, { from: date, to: date }, CALLER)
+  return plan.entries.filter((entry) => entry.mealType === 'dinner')
+}
+
 async function entryIds() {
   return (
     await prisma.mealPlanEntry.findMany({ select: { id: true }, orderBy: { id: 'asc' } })
@@ -132,9 +138,7 @@ describe('clear_meal', () => {
       items: [],
     })
     expect(clearMeal.outputSchema.safeParse(result).success).toBe(true)
-    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-planned' } })).toBeNull()
-    const plan = await getMealPlan.run(household, { from: day(1), to: day(1) }, CALLER)
-    expect(plan.entries).toEqual([])
+    expect(await dinnerOn(household, day(1))).toEqual([])
     const listed = (await loadShoppingList(household, { days: 7 })).groups.flatMap(
       (group) => group.items,
     )
@@ -147,7 +151,7 @@ describe('clear_meal', () => {
     const result = await call(household, day(2))
 
     expect(result).toMatchObject({ outcome: 'cleared', kind: 'recipe', meal: { id: 'stew' } })
-    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-skipped' } })).toBeNull()
+    expect(await dinnerOn(household, day(2))).toEqual([])
   })
 
   it('clears a fridge meal and returns its items', async () => {
@@ -168,8 +172,7 @@ describe('clear_meal', () => {
       ],
     })
     expect(clearMeal.outputSchema.safeParse(result).success).toBe(true)
-    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-fridge' } })).toBeNull()
-    expect(await prisma.mealPlanEntryItem.count()).toBe(0)
+    expect(await dinnerOn(household, day(3))).toEqual([])
   })
 
   it('refuses a cooked meal, and the entry stays', async () => {
@@ -178,10 +181,9 @@ describe('clear_meal', () => {
     expect(await refusal(household, day(-1))).toBe(
       `The dinner on ${day(-1)} is cooked, so it cannot be cleared. Nothing was changed.`,
     )
-    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-cooked' } })).toMatchObject({
-      status: 'completed',
-      mealId: 'stew',
-    })
+    expect(await dinnerOn(household, day(-1))).toEqual([
+      expect.objectContaining({ entryId: 'entry-cooked', mealId: 'stew', isCooked: true }),
+    ])
   })
 
   it('refuses an empty slot, and nothing is deleted', async () => {
@@ -222,6 +224,8 @@ describe('clear_meal', () => {
       isError: true,
       content: [{ type: 'text', text: WRITE_SCOPE_MESSAGE }],
     })
-    expect(await prisma.mealPlanEntry.findUnique({ where: { id: 'entry-planned' } })).not.toBeNull()
+    expect(await dinnerOn(household, day(1))).toEqual([
+      expect.objectContaining({ entryId: 'entry-planned', mealId: 'stew' }),
+    ])
   })
 })
