@@ -68,7 +68,9 @@ export const clearMeal = defineTool({
       items = (planned?.items ?? []).map(toFridgeItemOutput)
     }
 
-    if (!(await deleteEntry(household.id, slot.planId, slot.id))) {
+    // The status is part of the delete, so a meal cooked while this ran stays.
+    // On a retry the cooked refusal above answers.
+    if (!(await deleteEntry(household.id, slot.planId, slot.id, { keepCompleted: true }))) {
       throw new ToolInputError('The meal plan changed while this ran. Try again.')
     }
 
