@@ -62,7 +62,7 @@ import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { assertUnderCap } from '@/lib/ai/usage'
-import { buildFullStepsRequest, buildStepsFromNotesRequest } from '@/lib/ai/preparation-steps'
+import { fullStepsSchema, notesStepsSchema } from '@/lib/ai/preparation-steps'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -191,19 +191,24 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
         mealId: 'meal-1',
         locale: 'en',
         servings: 2.5,
-        inputHash: recipeStepsRequest(recipe(), 'en', 2.5).inputHash,
+        inputHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       },
       FRESH,
     )
+    // 100 g a serving × 2.5
+    const { prompt } = mockGenerateObject.mock.calls[0]![0] as { prompt: string }
+    expect(prompt).toContain('Servings: 2.5')
+    expect(prompt).toContain('- Pasta: 250g')
   })
 
   it('generates at the servings the view shows, with the full prompt', async () => {
     await callPost({ servings: 6 })
 
-    const { input } = recipeStepsRequest(recipe(), 'en', 6)
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining(buildFullStepsRequest({ ...input, hasChanges: true })),
-    )
+    const request = mockGenerateObject.mock.calls[0]![0] as { prompt: string; schema: unknown }
+    expect(request.schema).toBe(fullStepsSchema)
+    expect(request.prompt).toContain('Meal: Pasta')
+    expect(request.prompt).toContain('Servings: 6')
+    expect(request.prompt).toContain('- Pasta: 600g')
     expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
       expect.objectContaining({ servings: 6 }),
       FRESH,
@@ -249,16 +254,10 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
 
     await callPost({ servings: 2 })
 
-    const { input } = recipeStepsRequest(recipe(), 'en', 2)
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining(
-        buildStepsFromNotesRequest({
-          ...input,
-          hasChanges: true,
-          preparationNotes: 'Bake for 20 minutes.',
-        }),
-      ),
-    )
+    const request = mockGenerateObject.mock.calls[0]![0] as { prompt: string; schema: unknown }
+    expect(request.schema).toBe(notesStepsSchema)
+    expect(request.prompt).toContain('Bake for 20 minutes.')
+    expect(request.prompt).toContain('- Pasta: 200g')
   })
 
   it('serves but does not store steps when the stored locale fell back to English', async () => {

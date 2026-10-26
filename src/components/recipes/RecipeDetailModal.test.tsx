@@ -112,6 +112,14 @@ describe('RecipeDetailModal', () => {
     expect(within(dialog).queryByRole('checkbox')).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /^Ask/ })).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /How to prepare/i })).toBeNull()
+    // No conflict badges (`meal-plan.card.conflict`) …
+    expect(
+      within(dialog).queryByText(/^(Contains|Not suitable):|Has an avoided ingredient/),
+    ).toBeNull()
+    // … and no ingredient changes (`meal-plan.changes`): no badge, row menu or add.
+    expect(within(dialog).queryByText('Changed')).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Change Chicken thigh' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Add an ingredient' })).toBeNull()
   })
 
   it('holds Edit, a link to the edit page, in More actions', async () => {
