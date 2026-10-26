@@ -38,7 +38,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Controlled tag list. Enter commits the current input as a tag; Backspace on an empty input removes the last tag; duplicates are silently ignored. Used for allergens, restrictions, and excluded-ingredient lists on the member preferences form.',
+          'Controlled tag list. Enter commits the current input as a tag; Backspace on an empty input removes the last tag; duplicates are silently ignored. Used for Ingredients to avoid on Household → Meal preferences.',
       },
     },
   },

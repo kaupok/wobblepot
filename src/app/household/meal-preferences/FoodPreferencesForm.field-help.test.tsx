@@ -43,7 +43,7 @@ function renderForm(overrides: Partial<Props> = {}) {
 }
 
 /**
- * The help under the two tag inputs of Food preferences: what reads the notes
+ * The help under the notes and ingredients fields of Food preferences: what reads the notes
  * for the AI, and what each ingredient to avoid excludes. The other cases are
  * in `FoodPreferencesForm.test.tsx`.
  */
@@ -64,7 +64,10 @@ describe('FoodPreferencesForm field help', () => {
       renderForm()
 
       const notes = screen.getByLabelText('Notes for the AI (optional)')
-      expect(notes).toHaveAttribute('placeholder', 'e.g., mild spice, less salt for the kids')
+      expect(notes).toHaveAttribute(
+        'placeholder',
+        'e.g., Less salt for the kids. Favour high-protein dishes.',
+      )
       expect(notes).toHaveAccessibleDescription(
         "The AI follows these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Swap, the recipe list and a connected assistant's plan_meal do not check them. To keep an ingredient out of every meal, add it to Ingredients to avoid.",
       )
@@ -77,7 +80,10 @@ describe('FoodPreferencesForm field help', () => {
       )
 
       const notes = screen.getByLabelText('Märkmed AI-le (vabatahtlik)')
-      expect(notes).toHaveAttribute('placeholder', 'nt mahe vürts, lastele vähem soola')
+      expect(notes).toHaveAttribute(
+        'placeholder',
+        'nt lastele vähem soola. Eelista valgurikkaid toite.',
+      )
       expect(notes).toHaveAccessibleDescription(
         'AI järgib neid märkmeid, kui see koostab plaani, mõtleb välja toidu, kohandab retsepti või vastab küsimusele toiduvalmistamise kohta. Vaheta, retseptide loend ja ühendatud assistendi plan_meal neid ei kontrolli. Et hoida koostisosa kõigist toitudest eemal, lisa see väljale „Koostisosad, mida vältida“.',
       )

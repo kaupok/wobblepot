@@ -80,7 +80,7 @@ describe('FoodPreferencesForm', () => {
       expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0)
     })
 
-    it('puts both tag inputs under Food preferences', () => {
+    it('puts the notes and ingredients fields under Food preferences', () => {
       renderForm()
 
       const food = screen.getByRole('heading', { name: 'Food preferences' }).closest('section')!
@@ -89,7 +89,7 @@ describe('FoodPreferencesForm', () => {
     })
 
     // The DPIA's allergen notice (HON-666) and the AI notes help (HON-1326)
-    // are the only helper copy; the tag inputs' placeholders carry examples.
+    // are the only helper copy; the fields' placeholders carry examples.
     it('renders only the allergen and AI notes helper lines', () => {
       const { container } = renderForm()
 
@@ -330,21 +330,79 @@ describe('FoodPreferencesForm', () => {
     })
 
     // Submitting without the blur a click causes: the tag is still only text.
-    it('sends text typed into a tag input but not yet added', async () => {
+    it('sends text typed into the tag input but not yet added', async () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
       await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
-      await userEvent.type(screen.getByLabelText('Notes for the AI (optional)'), 'halal')
+      await userEvent.type(screen.getByLabelText('Ingredients to avoid (optional)'), 'cilantro')
       fireEvent.submit(section('Food preferences'))
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalled())
       expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
-        restrictions: ['halal'],
+        excludedIngredients: ['cilantro'],
       })
       await waitFor(() =>
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
       )
+    })
+  })
+
+  // HON-1342: free text, one note per line, stored as the same `string[]`.
+  describe('notes for the AI', () => {
+    const notesField = () => screen.getByLabelText('Notes for the AI (optional)')
+
+    it('is a multi-line text field, not a tag input', () => {
+      renderForm({ preferences: { ...defaultPreferences, restrictions: ['halal'] } })
+
+      expect(notesField().tagName).toBe('TEXTAREA')
+      expect(screen.queryByRole('button', { name: /remove halal/i })).not.toBeInTheDocument()
+    })
+
+    it('shows each saved note on its own line', () => {
+      renderForm({ preferences: { ...defaultPreferences, restrictions: ['a', 'b'] } })
+
+      expect(notesField()).toHaveValue('a\nb')
+    })
+
+    it('does not mark the form dirty while the saved notes are untouched', () => {
+      renderForm({ preferences: { ...defaultPreferences, restrictions: ['a', 'b'] } })
+
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    })
+
+    it('sends one note per typed line', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.type(notesField(), 'Less salt for the kids{Enter}Favour high-protein dishes')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
+        restrictions: ['Less salt for the kids', 'Favour high-protein dishes'],
+      })
+    })
+
+    it('trims each line and drops blank lines', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.type(notesField(), '  halal  {Enter}{Enter}   {Enter}mild spice')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
+        restrictions: ['halal', 'mild spice'],
+      })
+    })
+
+    it('does not mark the form dirty for blank lines alone', async () => {
+      renderForm({ preferences: { ...defaultPreferences, restrictions: ['halal'] } })
+
+      await userEvent.type(notesField(), '{Enter}{Enter}')
+
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
 
     // HON-1126: the route counts the planned meals the new preferences break.
