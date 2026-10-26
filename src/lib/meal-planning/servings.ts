@@ -7,6 +7,13 @@
 export const PORTION_BY_TYPE = { adult: 1, child: 0.5 } as const
 
 /**
+ * The range a household can set servings to by hand: the serving control's
+ * bounds, and the bounds the routes that take a serving count check against.
+ */
+export const MIN_SERVINGS = 1
+export const MAX_SERVINGS = 20
+
+/**
  * How many servings a household cooks for when an entry carries no override:
  * the sum of its members' portion sizes, rounded to the nearest 0.5, at least 1.
  *

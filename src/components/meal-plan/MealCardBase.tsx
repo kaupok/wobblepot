@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useId, type ReactNode, type Ref } from 'react'
 import { Check, Clock, ExternalLink, Minus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
@@ -83,6 +83,16 @@ interface MealCardBaseProps {
    * card, whose title row nothing else shares.
    */
   titleActions?: ReactNode
+  /**
+   * Makes the name a button that opens the meal: the My recipes card opens
+   * the cook view (HON-1338). Built as the planner card's name is: the button
+   * covers the name's box, takes its accessible name from the visible text,
+   * and is the card's `card-target`, so an `interactive` card draws its focus
+   * ring and underlines the name on a hover anywhere on the card.
+   */
+  onNameClick?: () => void
+  /** The name's button, when `onNameClick` makes one. */
+  nameButtonRef?: Ref<HTMLButtonElement>
 }
 
 /**
@@ -98,8 +108,11 @@ export function MealCardBase({
   mealTypes = 'show',
   ownRecipe = 'show',
   titleActions,
+  onNameClick,
+  nameButtonRef,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
+  const nameId = useId()
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -119,9 +132,29 @@ export function MealCardBase({
           icon follows the last word, joined by a no-break space so it never
           wraps onto a line alone (HON-973). */}
       <div className="flex items-start justify-between gap-2">
-        <div className={mealImageTitleWidth()}>
+        <div className={cn(mealImageTitleWidth(), onNameClick && 'relative')}>
           <Heading variant="section" as={nameHeadingTag}>
-            {meal.name}
+            {onNameClick ? (
+              <>
+                <button
+                  ref={nameButtonRef}
+                  type="button"
+                  data-slot="card-target"
+                  aria-labelledby={nameId}
+                  className="absolute inset-0 cursor-pointer outline-none"
+                  onClick={onNameClick}
+                />
+                <span
+                  id={nameId}
+                  aria-hidden="true"
+                  className="underline-offset-2 group-hover/card:underline"
+                >
+                  {meal.name}
+                </span>
+              </>
+            ) : (
+              meal.name
+            )}
             {ownRecipe === 'show' && meal.isCustom && (
               <>
                 {'\u00a0'}

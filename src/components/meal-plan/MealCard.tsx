@@ -47,13 +47,7 @@ import { useEntryStatus } from './use-entry-status'
 import { useClearEntry } from './use-clear-entry'
 import { DESCRIPTION_CLAMP, useDescriptionLines } from './use-description-lines'
 import { cn } from '@/lib/utils'
-
-/**
- * What a card click leaves to itself: every control. The saved note's slip is
- * a button, and a drag of it stops its own click (`useNoteDrag`).
- */
-const CARD_CLICK_IGNORE =
-  'button, a, input, textarea, select, label, [role="menuitem"], [role="option"]'
+import { CARD_CLICK_IGNORE } from './card-click'
 
 interface MealCardProps {
   entryId: string

@@ -22,7 +22,7 @@ describe('RecipesPageClient actions and empty library', () => {
 
   it('offers Add recipe as the one primary action and Imagine as outline, with no Create', async () => {
     mockMeals(householdMealList)
-    render(<RecipesPageClient />, createQueryWrapper())
+    render(<RecipesPageClient householdServings={2} />, createQueryWrapper())
 
     await screen.findByRole('searchbox', { name: 'Search recipes' })
     const addLink = screen.getByRole('link', { name: 'Add recipe' })
@@ -42,7 +42,7 @@ describe('RecipesPageClient actions and empty library', () => {
 
   it('hides the search and the count and shows one primary Add recipe when the library is empty', async () => {
     mockMeals([])
-    render(<RecipesPageClient />, createQueryWrapper())
+    render(<RecipesPageClient householdServings={2} />, createQueryWrapper())
 
     expect(
       await screen.findByText(
@@ -67,7 +67,7 @@ describe('RecipesPageClient actions and empty library', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     )
-    render(<RecipesPageClient />, createQueryWrapper())
+    render(<RecipesPageClient householdServings={2} />, createQueryWrapper())
 
     await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull())
     expect(screen.getByRole('searchbox', { name: 'Search recipes' })).toBeInTheDocument()

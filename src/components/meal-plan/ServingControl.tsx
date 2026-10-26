@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { MAX_SERVINGS, MIN_SERVINGS } from '@/lib/meal-planning/servings'
 
 interface ServingControlProps {
   servings: number
@@ -19,9 +20,6 @@ interface ServingControlProps {
   onServingsChange: (servings: number | null) => Promise<boolean>
   disabled?: boolean
 }
-
-const MIN_SERVINGS = 1
-const MAX_SERVINGS = 20
 
 // Safe useLayoutEffect that falls back to useEffect on server
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect

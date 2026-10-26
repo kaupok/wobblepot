@@ -19,7 +19,12 @@ import {
   type MealsPage,
 } from './meals-query'
 
-export function RecipesPageClient() {
+interface RecipesPageClientProps {
+  /** The household's portions summed (HON-1040): a recipe's cook view opens at it. */
+  householdServings: number
+}
+
+export function RecipesPageClient({ householdServings }: RecipesPageClientProps) {
   const queryClient = useQueryClient()
   const tRecipes = useTranslations('recipes')
   const tLibrary = useTranslations('recipes.library')
@@ -193,6 +198,7 @@ export function RecipesPageClient() {
       ) : (
         <MealList
           meals={meals}
+          householdServings={householdServings}
           onDelete={handleDelete}
           onToggleFavorite={handleToggleFavorite}
           emptyFocusRef={emptyFocusRef}

@@ -90,6 +90,18 @@ export type PreparationStepsErrorCode =
   | 'tips_failed'
 
 /**
+ * Error codes returned by `POST /api/meals/[id]/preparation-steps` (HON-1338):
+ * the preparation-tips codes without the entry's, plus its own. `useRecipeSteps`
+ * renders from `PREPARATION_STEPS_ERROR_KEYS`, so its own two fall back to the
+ * generic copy: the view only asks for a recipe on the list, at a count its
+ * serving control allows.
+ */
+export type RecipeStepsErrorCode =
+  | Exclude<PreparationStepsErrorCode, 'entry_not_found' | 'no_meal'>
+  | 'meal_not_found'
+  | 'invalid_servings'
+
+/**
  * Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/cook-question`
  * (HON-969): the preparation-tips guards, plus its own validation, timeout and
  * failure codes.
