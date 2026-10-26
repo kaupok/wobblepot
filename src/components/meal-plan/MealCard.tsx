@@ -514,10 +514,17 @@ export function MealCard({
                 name has the next row to itself, still capped before the image
                 (`mealImageTitleWidth`). The badges are capped like the badge
                 row below: on a short card the note's slip rises into this
-                row, so they wrap before it. */}
-            <div ref={firstRowRef} className="flex min-h-8 items-center justify-between gap-1">
+                row, so they wrap before it. `min-w-0` keeps a badge wider than
+                the row (Estonian at 200% text) from pushing the menu off the card. */}
+            <div
+              ref={firstRowRef}
+              className="flex min-h-8 min-w-0 items-center justify-between gap-1"
+            >
               <div
-                className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
+                className={cn(
+                  'flex min-w-0 flex-wrap items-center gap-1.5',
+                  MEAL_IMAGE_BADGE_ROW_WIDTH,
+                )}
               >
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
@@ -632,10 +639,12 @@ export function MealCard({
             {/* Capped when the note's slip lies beside it, so a second badge
                 wraps instead of running under the slip. One badge high when it
                 is empty, so a card without badges is as tall as one with them
-                (HON-1096): the badge's floor, 26px, in rem. */}
+                (HON-1096): the badge's floor, 26px, in rem. `min-w-0`, as on
+                the first row: a badge wider than the card would widen the
+                header and push the menu off it. */}
             <div
               className={cn(
-                'flex min-h-6.5 flex-wrap items-center gap-1',
+                'flex min-h-6.5 min-w-0 flex-wrap items-center gap-1',
                 MEAL_IMAGE_BADGE_ROW_WIDTH,
               )}
             >
