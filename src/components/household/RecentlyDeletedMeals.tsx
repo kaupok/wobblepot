@@ -87,7 +87,7 @@ export function RecentlyDeletedMeals({ onRestore, restoringId }: RecentlyDeleted
   return (
     <Collapsible>
       <div className="-ml-3">
-        <Heading variant="h4" as="h2">
+        <Heading variant="section" as="h2">
           <CollapsibleTrigger asChild>
             <button
               type="button"
