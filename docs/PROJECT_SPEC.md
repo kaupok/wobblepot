@@ -181,7 +181,7 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 | Concern                         | Handled by                              |
 | ------------------------------- | --------------------------------------- |
 | Allergens                       | Database query (hard filter)            |
-| Excluded ingredients            | Database query                          |
+| Excluded ingredients            | Database query (names, at read time)    |
 | Recent history                  | Database query (`NO_REPEAT_DAYS`)       |
 | Dietary type (e.g. vegetarian)  | Database query (excluded protein types) |
 | Meal type match                 | Database query                          |

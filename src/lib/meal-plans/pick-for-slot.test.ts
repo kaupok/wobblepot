@@ -22,7 +22,7 @@ const mockCreateEntry = vi.mocked(createEntry)
 
 const household = {
   id: 'household-1',
-  preferences: { dietaryType: null, allergensToAvoid: [], excludedIngredientIds: [] },
+  preferences: { dietaryType: null, allergensToAvoid: [], excludedIngredients: [] },
 }
 const slot = { date: '2099-01-28', mealType: 'dinner' } as const
 

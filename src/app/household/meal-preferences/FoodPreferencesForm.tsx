@@ -7,7 +7,13 @@ import { ChoiceChips } from '@/components/ui/choice-chips'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { AllergenPicker } from '@/components/household/AllergenPicker'
 import { SettingsSection } from '@/components/SettingsSection'
-import type { Allergen, DietaryType, HouseholdPreferencesValues } from './preference-values'
+import { ExcludedMatches } from './ExcludedMatches'
+import type {
+  Allergen,
+  DietaryType,
+  ExcludedMatch,
+  HouseholdPreferencesValues,
+} from './preference-values'
 
 const DIETARY_TYPE_VALUES: readonly DietaryType[] = ['vegetarian', 'vegan', 'pescatarian']
 
@@ -23,8 +29,17 @@ function conflictingEntries(response: unknown): number {
   return typeof count === 'number' && count > 0 ? count : 0
 }
 
+/** The preferences route's `excludedMatches`, or null when it is absent. */
+function excludedMatchesOf(response: unknown): ExcludedMatch[] | null {
+  if (typeof response !== 'object' || response === null) return null
+  const matches = (response as { excludedMatches?: unknown }).excludedMatches
+  return Array.isArray(matches) ? (matches as ExcludedMatch[]) : null
+}
+
 interface FoodPreferencesFormProps {
   preferences: HouseholdPreferencesValues | null
+  /** What each saved "Ingredients to avoid" tag excludes (HON-1321). */
+  excludedMatches: ExcludedMatch[]
   isOwner: boolean
 }
 
@@ -33,7 +48,11 @@ interface FoodPreferencesFormProps {
  * avoid. Saves those four fields to `/api/households/me/preferences`, whose
  * schema makes every field optional, so the meal types are left alone.
  */
-export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFormProps) {
+export function FoodPreferencesForm({
+  preferences,
+  excludedMatches: initialMatches,
+  isOwner,
+}: FoodPreferencesFormProps) {
   const t = useTranslations('household')
   const tSettings = useTranslations('household.settings')
   const tDietary = useTranslations('enums.DietaryType')
@@ -50,6 +69,7 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
     saved.excludedIngredients,
   )
+  const [excludedMatches, setExcludedMatches] = useState<ExcludedMatch[]>(initialMatches)
 
   // The route counts the planned meals the saved preferences conflict with
   // (HON-1126). None, or a response without the count, keeps "Settings saved".
@@ -80,7 +100,11 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
       values={values}
       saved={saved}
       collectValues={collectValues}
-      onSaved={setSaved}
+      onSaved={(values, response) => {
+        setSaved(values)
+        const matches = excludedMatchesOf(response)
+        if (matches) setExcludedMatches(matches)
+      }}
       savedMessage={savedMessage}
     >
       {({ disabled, errorId }) => (
@@ -128,6 +152,7 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
               placeholder={tSettings('excludedPlaceholder')}
               disabled={disabled}
             />
+            <ExcludedMatches tags={excludedIngredients} matches={excludedMatches} />
           </div>
         </>
       )}

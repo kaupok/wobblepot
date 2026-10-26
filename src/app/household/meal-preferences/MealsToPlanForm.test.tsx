@@ -52,7 +52,7 @@ function renderTab(overrides: Partial<Parameters<typeof MealsToPlanForm>[0]> = {
   const props = { preferences: defaultPreferences, isOwner: true, ...overrides }
   return renderSettings(
     <>
-      <FoodPreferencesForm {...props} />
+      <FoodPreferencesForm {...props} excludedMatches={[]} />
       <MealsToPlanForm {...props} />
     </>,
   )

@@ -1,6 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import type { SlotSuggestionHousehold } from '@/lib/meal-planning/slot-suggestions'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -37,7 +38,10 @@ export async function isMealAllowedForSlot(
   const pool = await getCandidates({
     mealType,
     allergensToAvoid: preferences?.allergensToAvoid ?? [],
-    excludedIngredientIds: preferences?.excludedIngredientIds ?? [],
+    excludedIngredientIds: await getExcludedIngredientIds(
+      household.id,
+      preferences?.excludedIngredients ?? [],
+    ),
     recentMealIds: [],
     dietaryType: preferences?.dietaryType ?? null,
     householdId: household.id,

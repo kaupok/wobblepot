@@ -8,7 +8,6 @@ import {
 const NO_PREFERENCES: ConflictPreferences = {
   dietaryType: null,
   allergensToAvoid: [],
-  excludedIngredients: [],
   excludedIngredientIds: [],
 }
 
@@ -92,11 +91,13 @@ describe('findPreferenceConflicts', () => {
     ).toEqual([{ kind: 'excluded', constraint: 'Mushrooms' }])
   })
 
-  it('finds an avoided ingredient by name when no id was resolved', () => {
+  // The planning filters exclude by id only, so the badge must not flag a
+  // meal they would still offer (HON-1321).
+  it('does not flag an ingredient whose id is not excluded, whatever its name', () => {
     const risotto = meal('Risotto', [{ id: 'mushroom', name: 'Mushrooms' }])
     expect(
-      findPreferenceConflicts(risotto, { ...NO_PREFERENCES, excludedIngredients: [' mushrooms '] }),
-    ).toEqual([{ kind: 'excluded', constraint: 'Mushrooms' }])
+      findPreferenceConflicts(risotto, { ...NO_PREFERENCES, excludedIngredientIds: ['onion'] }),
+    ).toEqual([])
   })
 
   it('returns one conflict per constraint', () => {

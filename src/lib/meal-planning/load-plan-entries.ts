@@ -14,9 +14,11 @@ import {
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   findPreferenceConflicts,
   type ConflictPreferences,
+  type HouseholdFoodPreferences,
   type PreferenceConflict,
 } from '@/lib/meal-planning/preference-conflicts'
 
@@ -30,7 +32,7 @@ export interface PlanEntriesHousehold {
    * The household's food preferences, which mark the planned meals that break
    * them (HON-1126). Absent or null marks none.
    */
-  preferences?: ConflictPreferences | null
+  preferences?: HouseholdFoodPreferences | null
 }
 
 export interface PlanEntriesQuery {
@@ -108,6 +110,16 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
   })
 
   const householdServings = sumPortions(household.members)
+  // The avoided ingredients resolved now, as the planning filters do (HON-1321).
+  const conflictPreferences: ConflictPreferences | null = household.preferences
+    ? {
+        ...household.preferences,
+        excludedIngredientIds: await getExcludedIngredientIds(
+          household.id,
+          household.preferences.excludedIngredients,
+        ),
+      }
+    : null
 
   const formattedEntries = entries.map((entry) => {
     // Coalesce the locale's MealTranslation over the canonical English fields
@@ -122,8 +134,8 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
     // Planned meals only: a cooked or skipped meal is history. Canonical names,
     // not the translated ones: the keyword lists match both languages.
     const conflicts: PreferenceConflict[] =
-      entry.meal && entry.status === 'planned' && household.preferences
-        ? findPreferenceConflicts({ ...entry.meal, components }, household.preferences)
+      entry.meal && entry.status === 'planned' && conflictPreferences
+        ? findPreferenceConflicts({ ...entry.meal, components }, conflictPreferences)
         : []
 
     return {

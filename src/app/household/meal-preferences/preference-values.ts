@@ -1,3 +1,5 @@
+export type { ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
+
 // Types matching Prisma enums
 export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
 export type Allergen =

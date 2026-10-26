@@ -27,6 +27,7 @@ vi.mock('@/lib/errors', () => ({
 vi.mock('@/lib/household/preferences', () => ({
   updateHouseholdPreferences: vi.fn(),
   countConflictingPlannedEntries: vi.fn(),
+  matchExcludedIngredients: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
@@ -34,6 +35,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import {
   countConflictingPlannedEntries,
+  matchExcludedIngredients,
   updateHouseholdPreferences,
 } from '@/lib/household/preferences'
 
@@ -42,6 +44,7 @@ const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockUpdate = vi.mocked(updateHouseholdPreferences)
 const mockCountConflicts = vi.mocked(countConflictingPlannedEntries)
+const mockMatchExcluded = vi.mocked(matchExcludedIngredients)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -54,13 +57,17 @@ const PREFERENCES = {
   dietaryType: null,
   allergensToAvoid: [],
   restrictions: [],
-  excludedIngredients: [],
+  excludedIngredients: [] as string[],
   excludedIngredientIds: [],
   weekdayMealTypes: ['dinner'],
   weekendMealTypes: ['dinner'],
 }
 
-const HOUSEHOLD = { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' }
+const HOUSEHOLD = { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'et' }
+
+/** What the lib answers for each tag: one ingredient named after it. */
+const matchesFor = (tags: readonly string[]) =>
+  tags.map((tag) => ({ tag, ingredients: [{ id: `ing-${tag}`, name: tag }] }))
 
 const membership = ({
   role = 'owner',
@@ -93,6 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetSession.mockResolvedValue(mockSession)
   mockGetMembership.mockResolvedValue(membership())
+  mockMatchExcluded.mockImplementation(async (_householdId, tags) => matchesFor(tags))
 })
 
 describe('GET /api/households/me/preferences', () => {
@@ -109,7 +117,10 @@ describe('GET /api/households/me/preferences', () => {
   })
 
   it("answers with the household's preferences", async () => {
-    expect(await answer(GET())).toEqual({ status: 200, body: PREFERENCES })
+    expect(await answer(GET())).toEqual({
+      status: 200,
+      body: { ...PREFERENCES, excludedMatches: [] },
+    })
   })
 
   // The state the seeded smoke household was in (HON-672).
@@ -225,7 +236,14 @@ describe('PATCH /api/households/me/preferences', () => {
     async (_label, body) => {
       expect(await answer(patch(body))).toEqual({
         status: 200,
-        body: { ...PREFERENCES, ...body, conflictingEntries: 2 },
+        body: {
+          ...PREFERENCES,
+          ...body,
+          excludedMatches: matchesFor(
+            'excludedIngredients' in body ? body.excludedIngredients : [],
+          ),
+          conflictingEntries: 2,
+        },
       })
       const [household, saved] = mockCountConflicts.mock.calls[0]!
       expect(household).toMatchObject({ id: 'household-123', timezone: 'Europe/Tallinn' })
@@ -233,10 +251,27 @@ describe('PATCH /api/households/me/preferences', () => {
     },
   )
 
+  // HON-1321: the form shows what each tag matched, so a household sees a
+  // tag that excludes nothing.
+  it('answers what each tag matches on GET and PATCH', async () => {
+    mockGetMembership.mockResolvedValue(
+      membership({ preferences: { ...PREFERENCES, excludedIngredients: ['seened'] } }),
+    )
+    expect((await answer(GET())).body.excludedMatches).toEqual(matchesFor(['seened']))
+    expect(mockMatchExcluded).toHaveBeenLastCalledWith('household-123', ['seened'])
+
+    const saved = await answer(patch({ excludedIngredients: ['mushrooms', 'dragonfruit'] }))
+    expect(saved.body.excludedMatches).toEqual(matchesFor(['mushrooms', 'dragonfruit']))
+    expect(mockMatchExcluded).toHaveBeenLastCalledWith('household-123', [
+      'mushrooms',
+      'dragonfruit',
+    ])
+  })
+
   it('does not count conflicts after a meal-types save', async () => {
     expect(await answer(patch({ weekendMealTypes: ['lunch', 'dinner'] }))).toEqual({
       status: 200,
-      body: { ...PREFERENCES, weekendMealTypes: ['lunch', 'dinner'] },
+      body: { ...PREFERENCES, weekendMealTypes: ['lunch', 'dinner'], excludedMatches: [] },
     })
     expect(mockCountConflicts).not.toHaveBeenCalled()
   })
@@ -248,7 +283,7 @@ describe('PATCH /api/households/me/preferences', () => {
 
     expect(await answer(patch({ dietaryType: 'vegan' }))).toEqual({
       status: 200,
-      body: { ...PREFERENCES, dietaryType: 'vegan' },
+      body: { ...PREFERENCES, dietaryType: 'vegan', excludedMatches: [] },
     })
     expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
       route: '/api/households/me/preferences',

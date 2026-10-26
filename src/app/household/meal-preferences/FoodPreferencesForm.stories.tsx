@@ -27,6 +27,7 @@ const meta = {
       weekdayMealTypes: ['dinner'],
       weekendMealTypes: ['dinner'],
     },
+    excludedMatches: [],
     isOwner: true,
   },
 } satisfies Meta<typeof FoodPreferencesForm>
@@ -285,5 +286,58 @@ export const PhoneEstonian: Story = {
     const canvas = within(canvasElement)
     const form = canvas.getByRole('form')
     await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
+  },
+}
+
+const tagMatches = {
+  preferences: {
+    dietaryType: null,
+    allergensToAvoid: [],
+    restrictions: [],
+    excludedIngredients: ['mushrooms', 'dragonfruit'],
+    weekdayMealTypes: ['dinner' as const],
+    weekendMealTypes: ['dinner' as const],
+  },
+  excludedMatches: [
+    {
+      tag: 'mushrooms',
+      ingredients: [
+        { id: 'ing-1', name: 'chestnut mushroom' },
+        { id: 'ing-2', name: 'mushroom' },
+        { id: 'ing-3', name: 'shiitake mushroom' },
+      ],
+    },
+    { tag: 'dragonfruit', ingredients: [] },
+  ],
+}
+
+/**
+ * HON-1321: under "Ingredients to avoid", what each saved tag excludes. A tag
+ * that matches ingredients names them in a disclosure; one that matches none
+ * warns, with an icon, that no meal is excluded.
+ */
+export const IngredientMatches: Story = {
+  args: tagMatches,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const list = canvas.getByRole('list', { name: 'What each ingredient to avoid excludes' })
+    await userEvent.click(within(list).getByText('mushrooms: excludes 3 ingredients'))
+    await expect(
+      within(list).getByText('chestnut mushroom, mushroom, shiitake mushroom'),
+    ).toBeVisible()
+    await expect(
+      within(list).getByText('dragonfruit: matches no ingredient, so no meal is excluded.'),
+    ).toBeVisible()
+  },
+}
+
+/** The same matches in Estonian. */
+export const IngredientMatchesEstonian: Story = {
+  args: tagMatches,
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const list = canvas.getByRole('list', { name: 'Mida iga välditav koostisosa välistab' })
+    await expect(within(list).getByText('mushrooms: välistab 3 koostisosa')).toBeVisible()
   },
 }

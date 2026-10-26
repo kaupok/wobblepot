@@ -1,4 +1,5 @@
 import { Body } from '@/components/ui/typography'
+import { matchExcludedIngredients } from '@/lib/household/preferences'
 import { FoodPreferencesForm } from './FoodPreferencesForm'
 import { MealsToPlanForm } from './MealsToPlanForm'
 import { householdTabMetadata, requireHouseholdMember } from '../household-member'
@@ -25,13 +26,22 @@ export default async function HouseholdMealPreferencesPage() {
         weekendMealTypes: stored.weekendMealTypes,
       }
     : null
+  // What each saved tag excludes, so the form can warn about one that matches nothing (HON-1321).
+  const excludedMatches = await matchExcludedIngredients(
+    membership.household.id,
+    stored?.excludedIngredients ?? [],
+  )
 
   return (
     <div className="flex flex-col gap-10">
       {/* Both routes are owner-only (HON-677), so a member reads why the
           forms are locked (HON-960). */}
       {!isOwner && <Body variant="muted">{t('settings.ownerOnlyNotice')}</Body>}
-      <FoodPreferencesForm preferences={preferences} isOwner={isOwner} />
+      <FoodPreferencesForm
+        preferences={preferences}
+        excludedMatches={excludedMatches}
+        isOwner={isOwner}
+      />
       <MealsToPlanForm preferences={preferences} isOwner={isOwner} />
     </div>
   )

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import type { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
 import { loadHouseholdServings } from '@/lib/household'
-import { findSynonym } from '@/lib/ingredient-aliases'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 
@@ -21,6 +21,9 @@ import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-step
  * module.
  */
 export { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
+
+/** The rows each "Ingredients to avoid" tag excludes, for the form (HON-1321). */
+export { matchExcludedIngredients } from '@/lib/household/excluded-ingredients'
 
 /** The validated body of a household preferences update. An absent key is left alone. */
 export interface HouseholdPreferencesPatch {
@@ -49,37 +52,11 @@ export interface MemberPreferencesPatch {
 }
 
 /**
- * The ids of the ingredients the excluded names match, for filtering. Global
- * and this household's own ingredients only: the ids are returned in the
- * response, so matching another household's would reveal them (HON-889).
- *
- * A name saved before a rename or merge is now another English name for a
- * pool row ("shrimp" for prawns, HON-1097), so its pool name is looked up too,
- * or a re-save drops the exclusion. Synonyms only: an alias narrows a word
- * ("beef" → beef mince) and would exclude less than was typed.
- */
-async function resolveExcludedIngredientIds(
-  householdId: string,
-  excludedIngredients: string[],
-): Promise<string[]> {
-  const names = excludedIngredients.flatMap((name) => {
-    const poolName = findSynonym(name)
-    return poolName ? [name, poolName] : [name]
-  })
-  const ingredients = await prisma.ingredient.findMany({
-    where: {
-      name: { in: names, mode: 'insensitive' },
-      OR: [{ householdId: null }, { householdId }],
-    },
-    select: { id: true },
-  })
-  return ingredients.map((i) => i.id)
-}
-
-/**
  * Save a household's preferences and return the stored row. Sending
  * `excludedIngredients` replaces `excludedIngredientIds` with the ids those
- * names resolve to.
+ * names resolve to now. The filters do not read the stored ids: they resolve
+ * the names again (`getExcludedIngredientIds`), so the ids are a record for
+ * the data export.
  *
  * Upsert, not update: a household whose preferences row is missing self-heals
  * on first save instead of failing on Prisma's P2025 (HON-672).
@@ -91,7 +68,7 @@ export async function updateHouseholdPreferences(
   const data = patch.excludedIngredients
     ? {
         ...patch,
-        excludedIngredientIds: await resolveExcludedIngredientIds(
+        excludedIngredientIds: await getExcludedIngredientIds(
           householdId,
           patch.excludedIngredients,
         ),

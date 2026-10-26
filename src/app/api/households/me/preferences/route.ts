@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import {
   countConflictingPlannedEntries,
+  matchExcludedIngredients,
   updateHouseholdPreferences,
 } from '@/lib/household/preferences'
 
@@ -52,7 +53,14 @@ export async function GET() {
       return NextResponse.json({ error: 'No household preferences found' }, { status: 404 })
     }
 
-    return NextResponse.json(membership.household.preferences)
+    const { preferences } = membership.household
+    return NextResponse.json({
+      ...preferences,
+      excludedMatches: await matchExcludedIngredients(
+        membership.household.id,
+        preferences.excludedIngredients,
+      ),
+    })
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/preferences', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch household preferences' }, { status: 500 })
@@ -98,7 +106,15 @@ export async function PATCH(request: Request) {
 
     // Resolves the excluded names to ingredient ids, and creates a missing
     // preferences row (HON-672, HON-889).
-    const preferences = await updateHouseholdPreferences(membership.household.id, parsed.data)
+    const saved = await updateHouseholdPreferences(membership.household.id, parsed.data)
+    const preferences = {
+      ...saved,
+      // What each tag now excludes, so the form can warn about one that matches nothing (HON-1321).
+      excludedMatches: await matchExcludedIngredients(
+        membership.household.id,
+        saved.excludedIngredients,
+      ),
+    }
 
     // A food save says how many planned meals now break the preferences, so
     // the toast can tell the household to look (HON-1126). It reads only: the

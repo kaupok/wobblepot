@@ -12,6 +12,7 @@ import {
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 
 export const MEALS_DEFAULT_LIMIT = 20
 export const MEALS_MAX_LIMIT = 50
@@ -66,7 +67,7 @@ export type MealSource = 'all' | 'system' | 'custom' | 'favorites'
 export interface LoadMealsHousehold {
   id: string
   locale: string
-  preferences: { allergensToAvoid: Allergen[]; excludedIngredientIds: string[] } | null
+  preferences: { allergensToAvoid: Allergen[]; excludedIngredients: string[] } | null
 }
 
 export interface LoadMealsFilters {
@@ -106,7 +107,11 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
 
   // Preferences for allergen filtering
   const allergensToAvoid = household.preferences?.allergensToAvoid ?? []
-  const excludedIngredientIds = household.preferences?.excludedIngredientIds ?? []
+  // Resolved now, not the stored ids, so a household's old tags follow the current rule (HON-1321).
+  const excludedIngredientIds = await getExcludedIngredientIds(
+    household.id,
+    household.preferences?.excludedIngredients ?? [],
+  )
 
   // Get favorite meal IDs for this household
   const favoriteMealIds =

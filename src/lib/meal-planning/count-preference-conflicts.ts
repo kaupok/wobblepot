@@ -1,9 +1,10 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   findPreferenceConflicts,
-  type ConflictPreferences,
+  type HouseholdFoodPreferences,
 } from '@/lib/meal-planning/preference-conflicts'
 import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 
@@ -15,8 +16,12 @@ import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
  */
 export async function countConflictingPlannedEntries(
   household: { id: string; timezone: string },
-  preferences: ConflictPreferences,
+  preferences: HouseholdFoodPreferences,
 ): Promise<number> {
+  const excludedIngredientIds = await getExcludedIngredientIds(
+    household.id,
+    preferences.excludedIngredients,
+  )
   const today = parseLocalDate(getTodayInTimezone(household.timezone))
   const ingredient = { name: true, allergens: true } as const
   const entries = await prisma.mealPlanEntry.findMany({
@@ -58,7 +63,7 @@ export async function countConflictingPlannedEntries(
       entry.meal &&
       findPreferenceConflicts(
         { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
-        preferences,
+        { ...preferences, excludedIngredientIds },
       ).length > 0,
   ).length
 }

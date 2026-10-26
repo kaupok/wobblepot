@@ -254,7 +254,7 @@ describe.each(['swap', 'add'] as const)('suggestForSlot in %s mode', (mode) => {
 
       await suggest({
         ...household,
-        preferences: { dietaryType: 'vegetarian', allergensToAvoid: [], excludedIngredientIds: [] },
+        preferences: { dietaryType: 'vegetarian', allergensToAvoid: [], excludedIngredients: [] },
       })
 
       expect(candidateFilters()).toMatchObject({ dietaryType: 'vegetarian' })

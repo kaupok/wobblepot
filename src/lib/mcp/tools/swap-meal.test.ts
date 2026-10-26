@@ -21,6 +21,12 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
   NO_REPEAT_DAYS: 14,
 }))
+// The avoided ingredients resolve from the tags at read time (HON-1321).
+vi.mock('@/lib/household/excluded-ingredients', () => ({
+  getExcludedIngredientIds: vi.fn((_householdId: string, tags: string[]) =>
+    Promise.resolve(tags.includes('cilantro') ? ['ing-cilantro'] : []),
+  ),
+}))
 vi.mock('@/lib/meal-planning/pantry', () => ({
   getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
 }))
@@ -44,7 +50,7 @@ const household = mcpHousehold({
   preferences: {
     dietaryType: null,
     allergensToAvoid: ['peanuts'],
-    excludedIngredientIds: ['ing-cilantro'],
+    excludedIngredients: ['cilantro'],
   } as never,
 })
 const ctx = { userId: 'user-a', household, scopes: WRITE_SCOPES }
