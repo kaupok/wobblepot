@@ -96,6 +96,89 @@ describe('matchTag', () => {
   })
 })
 
+// The sausage rows of the seed, with their Estonian names (HON-1343).
+const SAUSAGES = [
+  row('Cumberland sausage', 'Cumberlandi vorst'),
+  row('andouille sausage', 'andouille vorst'),
+  row('breakfast sausage', 'hommikuvorst'),
+  row('calabresa sausage', 'calabresa vorst'),
+  row('italian sausage', 'itaalia vorst'),
+  row('smoked sausage', 'suitsuvorst'),
+  row('turkey sausage', 'kalkunivorst'),
+  row('bratwurst', 'bratwurst'),
+  row('chorizo', 'chorizo'),
+  row('frankfurter', 'viiner'),
+  row('hot dog', 'hot dog'),
+  row('kielbasa', 'kielbasa'),
+  row('pepperoni', 'pepperoni'),
+  row('salami', 'salaami'),
+]
+const GROUP_POOL = [...SAUSAGES, row('hot dog bun', 'hot dogi kukkel'), row('pasta', 'pasta')]
+const ALL_SAUSAGES = SAUSAGES.map((r) => r.name)
+
+const groupNames = (tag: string, locale = 'en') =>
+  matchTag(tag, GROUP_POOL, locale).map((r) => r.name)
+
+describe('matchTag with an ingredient group', () => {
+  it('excludes every sausage for "sausage", singular or plural', () => {
+    expect(groupNames('sausage')).toHaveLength(14)
+    expect(groupNames('sausage')).toEqual(expect.arrayContaining(ALL_SAUSAGES))
+    expect(groupNames('Sausages')).toEqual(expect.arrayContaining(ALL_SAUSAGES))
+    expect(groupNames('Sausages')).toHaveLength(14)
+  })
+
+  it('keeps a tag that only contains the group word narrow', () => {
+    expect(groupNames('smoked sausage')).toEqual(['smoked sausage'])
+    expect(groupNames('smoked')).toEqual(['smoked sausage'])
+  })
+
+  it('excludes frankfurter and hot dog for "wieners", by exact name', () => {
+    expect(groupNames('wieners')).toEqual(['frankfurter', 'hot dog'])
+  })
+
+  it('excludes every sausage for an Estonian household\'s "vorst" or "vorstid"', () => {
+    for (const tag of ['vorst', 'vorstid']) {
+      const found = groupNames(tag, 'et')
+      expect(found).toHaveLength(14)
+      expect(found).toEqual(expect.arrayContaining(ALL_SAUSAGES))
+    }
+  })
+
+  it('reads an Estonian group word for an English household when no English name matches', () => {
+    expect(groupNames('vorst')).toHaveLength(14)
+    expect(groupNames('viinerid')).toEqual(['frankfurter', 'hot dog'])
+  })
+
+  it('excludes the audited group members the name misses', () => {
+    const pool = [
+      row('parmesan', 'parmesan'),
+      row('cod', 'tursk'),
+      row('prawns', 'krevetid'),
+      row('bacon', 'peekon'),
+      row('oxtail', 'veisesaba'),
+      row('walnuts', 'kreeka pähklid'),
+      row('nutmeg', 'muskaatpähkel'),
+      row('peanuts', 'maapähklid'),
+    ]
+    const found = (tag: string, locale = 'en') => matchTag(tag, pool, locale).map((r) => r.name)
+    expect(found('cheese')).toEqual(['parmesan'])
+    expect(found('juustud', 'et')).toEqual(['parmesan'])
+    expect(found('fish')).toEqual(['cod'])
+    expect(found('kala', 'et')).toEqual(['cod'])
+    expect(found('shellfish')).toEqual(['prawns'])
+    expect(found('pork')).toEqual(['bacon'])
+    expect(found('sealiha', 'et')).toEqual(['bacon'])
+    expect(found('beef')).toEqual(['oxtail'])
+    expect(found('nuts')).toEqual(['walnuts'])
+    expect(found('pähklid', 'et')).toEqual(['walnuts'])
+  })
+
+  it('leaves a tag that is no group word as it was', () => {
+    expect(groupNames('pasta')).toEqual(['pasta'])
+    expect(groupNames('salami')).toEqual(['salami'])
+  })
+})
+
 describe('matchTags', () => {
   it('names each match in the locale, sorted, and keeps every tag in order', () => {
     expect(matchTags(['pork', 'dragonfruit'], POOL, 'et')).toEqual([
