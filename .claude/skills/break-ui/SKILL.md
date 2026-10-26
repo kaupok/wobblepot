@@ -128,6 +128,8 @@ Report in the format below. Leave the stories in place and stop Storybook. The u
 
 Apply only the fixes the user names. Then check every story again, including the default ones, because a fix for the worst case must not break the demo case. Run `pnpm lint`, `pnpm type-check` and `pnpm test-storybook:ci <story file>`.
 
+Give each fixed break a play function on the worst-case story that measures it, as in Phase 3 (an element inside its card, no sideways scroll), because axe does not see an overflow and a story without one cannot fail. Prove it can fail: undo the fix, watch the story go red, restore the fix (`MealCard.worst-case.stories.tsx` → `assertInsideCards`).
+
 A break the user decides not to fix now becomes a Linear issue, if the user agrees, because a break written only in this chat is lost (`/plan-issue` → A follow-up is an issue). The title states the symptom, with the screen name the UI shows: "Planner: a 200-character meal name pushes the ⋯ menu off the card". The description names the worst-case story that shows it.
 
 ## Report format

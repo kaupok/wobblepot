@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, waitFor } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createMeal,
@@ -12,8 +13,8 @@ import { MealCard } from './MealCard'
  * The planner card with the worst data a household can produce (`/break-ui`).
  * `MealCard.stories.tsx` holds the demo data and is at its file-size cap, so
  * the worst case lives here. Each card carries different failures, as a real
- * day column does. The stories are for looking at, so they have no play
- * functions; the axe gate still runs on them.
+ * day column does. Each story asserts what the first `/break-ui` run broke:
+ * a note slip stays inside its card, and so does the ⋯ menu, also at 200% text.
  */
 
 /** Card widths: a 320px phone and a 390px phone less the page's `px-4`, and the desktop planner column. */
@@ -39,6 +40,22 @@ const meta = {
     pantryIngredients: lemonGarlicChickenPantry,
     pantryItems: lemonGarlicChickenPantryItems,
   },
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(canvasElement.querySelectorAll('[data-slot="card"]')).toHaveLength(4),
+    )
+    await assertInsideCards(canvasElement, '[data-slot="sticky-note"]')
+    await assertInsideCards(canvasElement, '[data-slot="dropdown-menu-trigger"]')
+    // Text grows and the card does not: a badge wider than the card once
+    // pushed the menu off it.
+    const root = document.documentElement
+    root.style.fontSize = '200%'
+    try {
+      await assertInsideCards(canvasElement, '[data-slot="dropdown-menu-trigger"]')
+    } finally {
+      root.style.fontSize = ''
+    }
+  },
 } satisfies Meta<typeof MealCard>
 
 export default meta
@@ -61,6 +78,18 @@ const LONG_NOTE =
 /** A pasted link: 119 characters with no space. */
 const URL_NOTE =
   'https://example.com/retseptid/2024/11/kanafileepastavormiroog-juustu-ja-spinatiga?utm_source=uudiskiri&utm_medium=email'
+
+/** Every `selector` match lies inside its card's left and right edges. */
+async function assertInsideCards(canvasElement: HTMLElement, selector: string) {
+  for (const card of canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]')) {
+    const edges = card.getBoundingClientRect()
+    for (const element of card.querySelectorAll<HTMLElement>(selector)) {
+      const box = element.getBoundingClientRect()
+      await expect(box.left).toBeGreaterThanOrEqual(edges.left - 1)
+      await expect(box.right).toBeLessThanOrEqual(edges.right + 1)
+    }
+  }
+}
 
 const image = { imageStatus: 'ready' as const, imageUrl: mealIllustration.src, imageHue: 52 }
 
