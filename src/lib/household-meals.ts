@@ -29,12 +29,14 @@ import type { Locale } from '@/lib/i18n/locales'
  *
  * - `mealNotFound`: no such meal in this household (404). A library meal and
  *   another household's meal answer this too, and so does a deleted one on
- *   update and delete.
+ *   update and delete, and so does one deleted longer ago than the restore
+ *   window on restore.
+ * - `mealNotDeleted`: a restore names a live recipe (409, HON-1336).
  * - `ingredientsNotFound`: a component names an ingredient that does not
  *   exist or belongs to another household, so its id is not revealed (400,
  *   HON-889). `missingIds` names them.
  */
-export type HouseholdMealRefusal = 'mealNotFound' | 'ingredientsNotFound'
+export type HouseholdMealRefusal = 'mealNotFound' | 'mealNotDeleted' | 'ingredientsNotFound'
 
 export class HouseholdMealError extends Error {
   constructor(
@@ -862,15 +864,12 @@ export async function updateHouseholdMeal(
 }
 
 /**
- * Soft-delete one of the household's live recipes and clear its image
- * (HON-734). Plan entries keep pointing at it, so a past entry still renders
- * the meal, without its illustration. Returns the URL of the cleared image,
- * which the caller deletes once this has committed.
+ * Soft-delete one of the household's live recipes (HON-734). Plan entries keep
+ * pointing at it, so a past entry still renders the meal. The image stays, so
+ * the household can restore the recipe within `RECIPE_RESTORE_WINDOW_DAYS`
+ * (HON-1336); the daily purge cron clears it after that.
  */
-export async function deleteHouseholdMeal(
-  householdId: string,
-  id: string,
-): Promise<{ discardedImageUrl: string | null }> {
+export async function deleteHouseholdMeal(householdId: string, id: string): Promise<void> {
   const existingMeal = await prisma.meal.findFirst({
     where: { id, householdId, deletedAt: null },
     select: { id: true },
@@ -878,14 +877,8 @@ export async function deleteHouseholdMeal(
 
   if (!existingMeal) throw new HouseholdMealError('mealNotFound')
 
-  const discardedImageUrl = await prisma.$transaction(async (tx) => {
-    await tx.meal.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    })
-
-    return clearMealImage(tx, id)
+  await prisma.meal.update({
+    where: { id },
+    data: { deletedAt: new Date() },
   })
-
-  return { discardedImageUrl }
 }

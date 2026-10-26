@@ -25,6 +25,14 @@ vi.mock('@/lib/auth/purge-expired-oauth-tokens', () => ({
   purgeExpiredOauthTokens: vi.fn(),
 }))
 
+vi.mock('@/lib/meal-images/purge-deleted-meal-images', () => ({
+  purgeExpiredDeletedMealImages: vi.fn(),
+}))
+
+vi.mock('@/lib/meal-images/storage', () => ({
+  discardMealImage: vi.fn(),
+}))
+
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
@@ -34,11 +42,15 @@ import { serverEnv } from '@/lib/env'
 import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
+import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
+import { discardMealImage } from '@/lib/meal-images/storage'
 
 const mockFindDue = vi.mocked(findUsersDueForPurge)
 const mockPurgeUser = vi.mocked(purgeUser)
 const mockPurgeWaitlist = vi.mocked(purgeExpiredWaitlistRequests)
 const mockPurgeOauthTokens = vi.mocked(purgeExpiredOauthTokens)
+const mockPurgeMealImages = vi.mocked(purgeExpiredDeletedMealImages)
+const mockDiscardMealImage = vi.mocked(discardMealImage)
 // Mutable mock env so individual tests can flip CRON_SECRET / app env.
 const env = serverEnv as unknown as { CRON_SECRET?: string; NEXT_PUBLIC_APP_ENV: string }
 
@@ -56,6 +68,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     mockFindDue.mockResolvedValue([])
     mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 0, confirmed: 0 })
     mockPurgeOauthTokens.mockResolvedValue({ accessTokens: 0, refreshTokens: 0 })
+    mockPurgeMealImages.mockResolvedValue([])
   })
 
   it('returns 401 when the Authorization header is missing', async () => {
@@ -98,6 +111,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
       scanned: 2,
       waitlist: { unconfirmed: 0, confirmed: 0 },
       oauthTokens: { accessTokens: 0, refreshTokens: 0 },
+      mealImages: 0,
     })
     expect(mockPurgeUser).toHaveBeenCalledTimes(2)
     expect(mockPurgeUser).toHaveBeenCalledWith('u1')
@@ -192,6 +206,40 @@ describe('GET /api/cron/purge-deleted-users', () => {
       const response = await GET(req(`Bearer ${VALID_SECRET}`))
 
       expect(response.status).toBe(500)
+    })
+  })
+
+  describe('images of recipes past the restore window (HON-1336)', () => {
+    it('clears them in the same run, discards each file, and reports the count', async () => {
+      const urls = ['https://store.example/meals/a.png', 'https://store.example/meals/b.png']
+      mockPurgeMealImages.mockResolvedValue(urls)
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.mealImages).toBe(2)
+      expect(mockDiscardMealImage.mock.calls).toEqual([
+        [urls[0], '/api/cron/purge-deleted-users'],
+        [urls[1], '/api/cron/purge-deleted-users'],
+      ])
+      // The same instant as the user purge, so the run reads one clock.
+      expect(mockPurgeMealImages).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
+    })
+
+    it('does not clear images on an unauthorized call', async () => {
+      await GET(req('Bearer wrong-secret'))
+
+      expect(mockPurgeMealImages).not.toHaveBeenCalled()
+    })
+
+    it('answers 500 when the image purge fails', async () => {
+      mockPurgeMealImages.mockRejectedValue(new Error('db down'))
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(response.status).toBe(500)
+      expect(mockDiscardMealImage).not.toHaveBeenCalled()
     })
   })
 })

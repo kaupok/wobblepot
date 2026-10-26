@@ -666,28 +666,17 @@ describe('updateHouseholdMeal', () => {
 })
 
 describe('deleteHouseholdMeal', () => {
-  it('soft-deletes the meal, clears its image, and leaves its plan entries pointing at it', async () => {
+  it('soft-deletes the meal, keeps its image for a restore, and leaves its plan entries pointing at it', async () => {
     const { alder } = await world()
 
-    const { discardedImageUrl } = await deleteHouseholdMeal(alder, 'meal-curry')
+    await deleteHouseholdMeal(alder, 'meal-curry')
 
-    expect(discardedImageUrl).toBe(CURRY_IMAGE)
     const row = await prisma.meal.findUniqueOrThrow({ where: { id: 'meal-curry' } })
     expect(row.deletedAt).toBeInstanceOf(Date)
-    expect(row).toMatchObject({ imageUrl: null, imageStatus: 'none' })
+    expect(row).toMatchObject({ imageUrl: CURRY_IMAGE, imageStatus: 'ready' })
     const entry = await prisma.mealPlanEntry.findUniqueOrThrow({ where: { id: 'entry-curry' } })
     expect(entry).toMatchObject({ mealId: 'meal-curry', preparationTips: TIPS })
     expect(await componentsOf('meal-curry')).toEqual(['ing-chicken=150', 'ing-rice=100'])
-  })
-
-  it('returns no URL for a meal without an image', async () => {
-    const { alder } = await world()
-    await prisma.meal.update({
-      where: { id: 'meal-omelette' },
-      data: { imageUrl: null, imageStatus: 'none' },
-    })
-
-    expect(await deleteHouseholdMeal(alder, 'meal-omelette')).toEqual({ discardedImageUrl: null })
   })
 
   it("answers mealNotFound for another household's, a library, a deleted or an unknown meal, and writes nothing", async () => {

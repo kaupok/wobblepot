@@ -6,7 +6,7 @@ import { GET, PATCH, DELETE } from './route'
 // the cached tips and the image, live in `@/lib/household-meals`, tested
 // against a database in `household-meals.db.test.ts`. This file mocks that
 // module at the seam and asserts what the route owns: the session, the
-// household, body validation, the blob delete after commit, and the status
+// household, body validation, the blob delete after an edit commits, and the status
 // and body each answer maps to (HON-1210).
 
 vi.mock('next/headers', () => ({
@@ -329,15 +329,15 @@ describe('DELETE /api/households/me/meals/[id]', () => {
     expect(mockDiscardMealImage).not.toHaveBeenCalled()
   })
 
-  it('deletes the meal and its image blob', async () => {
-    mockDelete.mockResolvedValue({ discardedImageUrl: storedImageUrl })
+  it('deletes the meal and keeps its image blob, so a restore brings it back (HON-1336)', async () => {
+    mockDelete.mockResolvedValue(undefined)
 
     const response = await remove()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
     expect(mockDelete).toHaveBeenCalledWith('household-123', 'meal-1')
-    expect(mockDiscardMealImage).toHaveBeenCalledWith(storedImageUrl, ROUTE)
+    expect(mockDiscardMealImage).not.toHaveBeenCalled()
   })
 
   it('returns 500 with the { error } JSON shape when the delete throws', async () => {

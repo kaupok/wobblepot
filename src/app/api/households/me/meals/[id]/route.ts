@@ -156,9 +156,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const { discardedImageUrl } = await deleteHouseholdMeal(membership.household.id, id)
-
-    await discardMealImage(discardedImageUrl, ROUTE)
+    // The image stays so the recipe can be restored; the purge cron deletes
+    // it once the restore window has passed (HON-1336).
+    await deleteHouseholdMeal(membership.household.id, id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

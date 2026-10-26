@@ -1,9 +1,9 @@
 'use client'
 
-import { useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -18,8 +18,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { MealImageCard, type MealImageFields } from '@/components/meal-plan/MealImageCard'
+import {
+  RecentlyDeletedMeals,
+  recentlyDeletedMealsQueryKey,
+} from '@/components/household/RecentlyDeletedMeals'
 import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
 export interface MealData extends MealImageFields {
@@ -69,6 +73,10 @@ interface MealListProps {
   emptyFocusRef?: RefObject<HTMLElement | null>
   /** The empty state's one primary button, under its line. */
   emptyAction?: ReactNode
+  /** Under the grid, above Recently deleted: the page's Load more. */
+  footer?: ReactNode
+  /** The Recently deleted section at the end; off while a search filters the list. */
+  showRecentlyDeleted?: boolean
 }
 
 export function MealList({
@@ -77,6 +85,8 @@ export function MealList({
   onToggleFavorite,
   emptyFocusRef,
   emptyAction,
+  footer,
+  showRecentlyDeleted = true,
 }: MealListProps) {
   const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
@@ -86,6 +96,54 @@ export function MealList({
   // one Delete was chosen on, or after a delete its neighbour.
   const triggerRefs = useRef(new Map<string, HTMLButtonElement>())
   const focusTargetIdRef = useRef<string | null>(null)
+  const queryClient = useQueryClient()
+  // A restored card whose ⋯ trigger takes focus once the refetched list
+  // brings it back (HON-1336). `settled` marks the refetch done, so a card
+  // outside the loaded pages does not hold the request open.
+  const cardFocusRef = useRef<{ id: string; settled: boolean } | null>(null)
+
+  useEffect(() => {
+    const pending = cardFocusRef.current
+    if (!pending) return
+    const trigger = triggerRefs.current.get(pending.id)
+    if (trigger) trigger.focus()
+    if (trigger || pending.settled) cardFocusRef.current = null
+  }, [meals])
+
+  // Restores from the toast's Undo and from Recently deleted. The page's list
+  // and the section refetch before it settles, so the restored card is back
+  // (with its image) by the time the toast says so.
+  const restoreMeal = useMutation({
+    mutationFn: ({ mealId }: { mealId: string; focusCard: boolean }) =>
+      apiFetch(`/api/households/me/meals/${mealId}/restore`, { method: 'POST' }),
+    onMutate: ({ mealId, focusCard }) => {
+      cardFocusRef.current = focusCard ? { id: mealId, settled: false } : null
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['meals'] }),
+        queryClient.invalidateQueries({ queryKey: recentlyDeletedMealsQueryKey }),
+      ])
+      const pending = cardFocusRef.current
+      const trigger = pending ? triggerRefs.current.get(pending.id) : undefined
+      if (trigger) {
+        trigger.focus()
+        cardFocusRef.current = null
+      } else if (pending) {
+        pending.settled = true
+      }
+      toast.success(t('restored'))
+    },
+    onError: (err) => {
+      cardFocusRef.current = null
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      console.error(
+        '[recipes] restore failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      toast.error(t('restoreFailed'))
+    },
+  })
 
   const deleteMeal = useMutation({
     mutationFn: (mealId: string) =>
@@ -94,7 +152,20 @@ export function MealList({
       const index = meals.findIndex((meal) => meal.id === mealId)
       focusTargetIdRef.current = (meals[index + 1] ?? meals[index - 1])?.id ?? null
       onDelete(mealId)
-      toast.success(t('deleted'))
+      void queryClient.invalidateQueries({ queryKey: recentlyDeletedMealsQueryKey })
+      toast(t('deleted'), {
+        action: {
+          label: t('undo'),
+          onClick: (event) => {
+            // Sonner returns focus to where it was before the toast whenever
+            // focus leaves the toaster, which would undo the move to the
+            // restored card. Leave now, so that return happens first.
+            event.currentTarget.blur()
+            restoreMeal.mutate({ mealId, focusCard: true })
+          },
+        },
+        duration: 6000,
+      })
       setDeleteConfirmMeal(null)
     },
     onError: () => {
@@ -129,12 +200,24 @@ export function MealList({
     ;(trigger ?? emptyFocusRef?.current)?.focus()
   }
 
+  const recentlyDeleted = showRecentlyDeleted ? (
+    <RecentlyDeletedMeals
+      onRestore={(mealId, focusCard) => restoreMeal.mutate({ mealId, focusCard })}
+      restoringId={restoreMeal.isPending ? restoreMeal.variables.mealId : null}
+    />
+  ) : null
+
   if (meals.length === 0) {
+    // A household that deleted its last recipe can still bring it back.
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-        <Body variant="muted">{t('emptyBody')}</Body>
-        {emptyAction}
-      </div>
+      <>
+        <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+          <Body variant="muted">{t('emptyBody')}</Body>
+          {emptyAction}
+        </div>
+        {footer}
+        {recentlyDeleted}
+      </>
     )
   }
 
@@ -230,6 +313,9 @@ export function MealList({
           </MealImageCard>
         ))}
       </div>
+
+      {footer}
+      {recentlyDeleted}
 
       <ConfirmDialog
         open={deleteConfirmMeal !== null}

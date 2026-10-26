@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { delay, http, HttpResponse } from 'msw'
+import { toast, Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { apiFetch } from '@/lib/api'
 import { householdMealList } from '@/stories/fixtures'
-import { MealList } from './MealList'
+import { MealList, type MealData } from './MealList'
 
 const meta = {
   title: 'Feature/Household/MealList',
@@ -16,7 +19,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Renders the user’s custom meals as a responsive grid of cards (one column on a phone, two from `sm`, three from `lg`). Each card’s title row holds the favorite button and a ⋯ “More actions” menu with Edit (a link) and Delete, as on the planner card (HON-934) and carries no ingredient list at any width (HON-819): the edit page and meal detail list them with quantities. Deletion goes through a confirm dialog, which returns focus to the card’s ⋯ trigger on cancel and to the next card’s after a delete. Mutations call `/api/meals/:id/favorite` and `/api/households/me/meals/:id` (DELETE) — both backed by MSW in stories.',
+          'Renders the user’s custom meals as a responsive grid of cards (one column on a phone, two from `sm`, three from `lg`). Each card’s title row holds the favorite button and a ⋯ “More actions” menu with Edit (a link) and Delete, as on the planner card (HON-934) and carries no ingredient list at any width (HON-819): the edit page and meal detail list them with quantities. Deletion goes through a confirm dialog, which returns focus to the card’s ⋯ trigger on cancel and to the next card’s after a delete. The delete toast offers Undo, and a collapsed “Recently deleted” section at the end lists recipes deleted in the last 30 days with a Restore button each (HON-1336); it renders only when there is one. Mutations call `/api/meals/:id/favorite`, `/api/households/me/meals/:id` (DELETE) and `/api/households/me/meals/:id/restore`, and the section reads `/api/households/me/meals/deleted` — all backed by MSW in stories.',
       },
     },
   },
@@ -248,5 +251,167 @@ export const EscapeIgnoredWhileDeleting: Story = {
     await new Promise((resolve) => setTimeout(resolve, 400))
     await expect(dialog).toBeInTheDocument()
     await expect(dialog).toHaveAttribute('data-state', 'open')
+  },
+}
+
+const DELETED_AT = '2026-10-24T09:00:00.000Z'
+
+/**
+ * Recipes deleted in the last 30 days: the section sits closed at the end of
+ * the list, with the count on its trigger, and opens to one row per recipe.
+ */
+export const WithRecentlyDeleted: Story = {
+  args: { meals: householdMealList.slice(1) },
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/households/me/meals/deleted', () =>
+          HttpResponse.json({
+            meals: [
+              { id: FIRST.id, name: FIRST.name, deletedAt: DELETED_AT },
+              { id: 'meal-old', name: 'Rice soup', deletedAt: '2026-10-02T09:00:00.000Z' },
+            ],
+          }),
+        ),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = await canvas.findByRole('button', { name: 'Recently deleted (2)' })
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    await userEvent.click(trigger)
+
+    await expect(canvas.getByText('Deleted Oct 24')).toBeVisible()
+    await expect(canvas.getByRole('button', { name: `Restore: ${FIRST.name}` })).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Restore: Rice soup' })).toBeVisible()
+  },
+}
+
+/** Nothing deleted in the last 30 days: no section at all. */
+export const WithoutRecentlyDeleted: Story = {
+  play: async ({ canvasElement }) => {
+    // Past the section's fetch, so an absent trigger is not just a slow one.
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await expect(
+      within(canvasElement).queryByRole('button', { name: /Recently deleted/ }),
+    ).toBeNull()
+  },
+}
+
+/**
+ * An in-story backend for the restore flows: DELETE marks a recipe deleted,
+ * restore brings it back, and the list and the section read the same set.
+ * `beforeEach` reseeds it, so a re-run starts from the same state.
+ */
+const deletedIds = new Set<string>()
+const liveBackend = [
+  http.get('/api/households/me/meals', () =>
+    HttpResponse.json({
+      meals: householdMealList.filter((meal) => !deletedIds.has(meal.id)),
+      nextCursor: null,
+    }),
+  ),
+  http.get('/api/households/me/meals/deleted', () =>
+    HttpResponse.json({
+      meals: householdMealList
+        .filter((meal) => deletedIds.has(meal.id))
+        .map((meal) => ({ id: meal.id, name: meal.name, deletedAt: DELETED_AT })),
+    }),
+  ),
+  http.delete('/api/households/me/meals/:id', ({ params }) => {
+    deletedIds.add(String(params.id))
+    return HttpResponse.json({ success: true })
+  }),
+  http.post('/api/households/me/meals/:id/restore', ({ params }) => {
+    deletedIds.delete(String(params.id))
+    return HttpResponse.json({ id: params.id, deletedAt: null })
+  }),
+]
+
+/** The list as `/recipes` feeds it: from `['meals']`, which a restore refetches. */
+function LiveMealList(args: React.ComponentProps<typeof MealList>) {
+  const queryClient = useQueryClient()
+  const queryKey = ['meals', 'story']
+  const { data } = useQuery({
+    queryKey,
+    queryFn: () => apiFetch<{ meals: MealData[] }>('/api/households/me/meals'),
+  })
+  if (!data) return null
+  return (
+    <>
+      <MealList
+        {...args}
+        meals={data.meals}
+        onDelete={(id) => {
+          args.onDelete(id)
+          queryClient.setQueryData<{ meals: MealData[] }>(queryKey, (old) =>
+            old ? { meals: old.meals.filter((meal) => meal.id !== id) } : old,
+          )
+        }}
+      />
+      {/* The app's toaster sits in the root layout, not in the list. */}
+      <Toaster />
+    </>
+  )
+}
+
+/**
+ * Delete, then Undo in the toast: the recipe is back in the list and focus is
+ * on its ⋯ trigger, not the page body.
+ */
+export const UndoRestoresTheRecipe: Story = {
+  parameters: { msw: { handlers: liveBackend } },
+  beforeEach: () => {
+    deletedIds.clear()
+    // Sonner's toasts are global: earlier stories' delete toasts would show
+    // here too, each with its own Undo.
+    toast.dismiss()
+  },
+  render: (args) => <LiveMealList {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('button', { name: `More actions: ${FIRST.name}` })
+    const { dialog } = await chooseDelete(canvasElement, FIRST.name)
+    await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+    // The dialog's exit animation hands focus to the next card's ⋯ when it
+    // ends; a person reaches Undo after that.
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: `More actions: ${SECOND.name}` })).toHaveFocus(),
+    )
+
+    await userEvent.click(await within(document.body).findByRole('button', { name: 'Undo' }))
+
+    const trigger = await canvas.findByRole('button', { name: `More actions: ${FIRST.name}` })
+    await waitFor(() => expect(trigger).toHaveFocus())
+    // The toast fades in, so wait for its enter animation.
+    const restored = await within(document.body).findByText('Recipe restored')
+    await waitFor(() => expect(restored).toBeVisible())
+  },
+}
+
+/**
+ * Restore from Recently deleted: the recipe is back in the list. It was the
+ * only row, so the section goes and focus moves to the restored card's ⋯.
+ */
+export const RestoreFromRecentlyDeleted: Story = {
+  parameters: { msw: { handlers: liveBackend } },
+  beforeEach: () => {
+    deletedIds.clear()
+    deletedIds.add(FIRST.id)
+    toast.dismiss()
+  },
+  render: (args) => <LiveMealList {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByRole('button', { name: 'Recently deleted (1)' }))
+
+    await userEvent.click(canvas.getByRole('button', { name: `Restore: ${FIRST.name}` }))
+
+    const trigger = await canvas.findByRole('button', { name: `More actions: ${FIRST.name}` })
+    await waitFor(() => expect(trigger).toHaveFocus())
+    await expect(canvas.queryByRole('button', { name: /Recently deleted/ })).toBeNull()
   },
 }
