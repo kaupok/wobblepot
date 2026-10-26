@@ -30,9 +30,6 @@ import { afterAll, describe, expect, it } from 'vitest'
 const MAX_WORDS = 3300
 const RULE_MAX_WORDS = 1000
 
-/** Upstream copies, updated by re-copying them, so a local cut would be lost. */
-const VENDOR_SKILLS = ['better-auth-best-practices', 'create-auth-skill', 'next-upgrade']
-
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const skillsDir = path.join(repoRoot, '.claude/skills')
 const rulesDir = path.join(repoRoot, '.claude/rules')
@@ -44,14 +41,13 @@ interface SteeringFile {
 }
 
 /**
- * The project skills: every `.claude/skills/<name>/SKILL.md` but the vendor copies.
- * A skill can be a symlink (the vendor copies are), so this checks for the
- * SKILL.md, which follows the link, rather than for a directory entry.
+ * The project skills: every `.claude/skills/<name>/SKILL.md`. A skill can be a
+ * symlink, so this checks for the SKILL.md, which follows the link, rather than
+ * for a directory entry.
  */
 function projectSkills(): string[] {
   return fs
     .readdirSync(skillsDir)
-    .filter((name) => !VENDOR_SKILLS.includes(name))
     .filter((name) => fs.existsSync(path.join(skillsDir, name, 'SKILL.md')))
     .sort()
 }
@@ -150,18 +146,6 @@ describe('STEERING_FILES', () => {
   it('caps every rule file at 1,000 words', () => {
     expect(files).toContain('.claude/rules/code.md')
     expect(limitsUnder('.claude/rules/')).toEqual(new Set([1000]))
-  })
-
-  it('leaves out the vendor skills', () => {
-    expect(files).not.toContain('.claude/skills/better-auth-best-practices/SKILL.md')
-    expect(files).not.toContain('.claude/skills/create-auth-skill/SKILL.md')
-    expect(files).not.toContain('.claude/skills/next-upgrade/SKILL.md')
-  })
-
-  // A vendor skill that was renamed or deleted would leave a dead exclusion,
-  // and a project skill reusing the name would go uncapped.
-  it.each(VENDOR_SKILLS)('excludes %s, which still exists', (skill) => {
-    expect(fs.existsSync(path.join(skillsDir, skill, 'SKILL.md'))).toBe(true)
   })
 })
 

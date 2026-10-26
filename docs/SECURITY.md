@@ -120,4 +120,4 @@ A household member makes a read-only API key on My account → Connections (`/ac
 
 ## Better Auth schema changes
 
-The Better Auth vendor skills say to run `npx @better-auth/cli@latest generate`. It does not work here, and neither does its successor, `auth`: the CLI cannot load `src/lib/auth.ts`, so it is not a dependency of this repo. To pick up a Better Auth schema change, read the account, session, user and verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` by hand.
+The Better Auth CLI, `npx @better-auth/cli@latest generate`, does not work here, and neither does its successor, `auth`: the CLI cannot load `src/lib/auth.ts`, so it is not a dependency of this repo. To pick up a Better Auth schema change, read the account, session, user and verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` by hand.

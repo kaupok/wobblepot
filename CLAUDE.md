@@ -50,28 +50,9 @@ CLAUDE.md says _how_ to code. The project spec says _what_ to build and _why_. T
 
 Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is machine-local, so machines drift apart. Save guidance and cross-session context in this file, `.claude/rules/`, `docs/`, or the relevant `.claude/skills/*/SKILL.md`.
 
-## Tech Stack
-
-Exact versions are pinned in `package.json`. The majors:
-
-- **Framework**: Next.js 16 (App Router), React 19, TypeScript 6.0
-- **Styling**: Tailwind CSS 4 with class-variance-authority, shadcn/ui
-- **i18n**: next-intl 4, catalogs in `messages/`
-- **Data**: PostgreSQL (Neon) with Prisma 7; TanStack Query v5 on the client
-- **Auth**: Better Auth (email/password; OAuth 2.1 server for MCP clients)
-- **AI**: Vercel AI SDK with Claude
-- **Services**: PostHog (analytics, flags, errors), Upstash Redis (rate limits), Resend (email), Vercel (hosting)
-- **Testing**: Vitest, Playwright, Storybook 10
-- **Tooling**: ESLint 10 + Prettier, pnpm 10
-
 ## Architecture Overview
 
 - `src/app`: routes, layouts, error boundaries; API routes in `src/app/api/**/route.ts`; route-specific components colocated in the route's folder
-- `src/components/ui`: shadcn/ui primitives plus hand-written ones (`confirm-dialog`, `number-input`, `typography`)
-- `src/components/<feature>` (`meal-plan`, `timeline`, `recipes`, `household`, `inventory`, `pantry`, `shopping`); app chrome sits at the `src/components` root
-- `src/lib`: utilities and service clients: `api.ts` (`apiFetch`, `ApiError`), `auth.ts` / `auth-client.ts`, `env.ts`, `get-query-client.ts`, `prisma.ts`, `utils.ts` (`cn`), and `i18n/`, `ai/`, `meal-planning/`
-- `src/hooks`, `src/stories` (scenarios, a11y helpers), `src/test` (test utilities), `messages/`, `tests/e2e`, `prisma/`
-- `scripts/`: CI checks, the orchestrator and `wt`, the PR reviewer, the AI eval (`pnpm ai-eval`)
 
 **Patterns:** Server Components by default, "use client" only for interactivity, browser APIs or hooks. Tests (`.test.ts(x)`) and stories (`.stories.tsx`) sit next to their source. `@/` imports. Components in PascalCase files, utilities and hooks in camelCase.
 
@@ -115,7 +96,6 @@ Native HTML forms with controlled inputs and `useState`, no form library. `onSub
 
 ## Code Standards
 
-- Strict TypeScript; ESLint enforced by CI; Prettier (`pnpm format`)
 - Exact dependency versions, no `^` or `~`. When `pnpm lockfile:check` fails, see docs/DEPLOYMENT.md → Lockfile gates; never add `pnpm.overrides`
 - Code files stay under 5,000 tokens (bytes / 4); a file in `scripts/file-size-allowlist.txt` may grow 5% past its cap. When one gets too big, split it by responsibility, never by deleting comments (`pnpm file-size:check`)
 - Tailwind with shadcn/ui; `tailwind-merge` for dynamic classes; no inline styles
@@ -202,8 +182,6 @@ A component under `src/components` gets a colocated `.stories.tsx`, created or u
 **Sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`. A small issue can start at `/branch-review`. Plans are Linear comments, so a new session can fetch them. `/create-pr` triggers the PR review (`/review-pr` → When to run it). `/auto-implement HON-XX` runs the whole cycle unattended. `/branch-review` is our skill; `/code-review` is the built-in diff reviewer.
 
 **Go-to-market content stays out of this repository.** It is public, so a market, price, cohort result or channel plan written here is published. It lives in Linear (`GTM …` documents, `GTM` issues); `/gtm` has the map.
-
-**Vendor skills** (`better-auth-best-practices`, `create-auth-skill`, `next-upgrade`) are upstream references. Where they conflict, this file wins: Prisma not Drizzle, email/password and Google only, pnpm with exact pins, TanStack Query for client reads, the Next 16 guide. Their Better Auth CLI does not work here: docs/SECURITY.md → Better Auth schema changes.
 
 ### Writing for Agents
 
