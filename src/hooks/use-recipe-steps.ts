@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { apiFetch } from '@/lib/api'
 import type { Locale } from '@/lib/i18n/locales'
-import type { PreparationSteps } from '@/components/meal-plan/types'
+import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
 import { useDebouncedValue } from './use-debounced-value'
 import { isRetryableStepsError, stepsErrorMessage } from './steps-error'
 
@@ -15,11 +15,30 @@ import { isRetryableStepsError, stepsErrorMessage } from './steps-error'
  */
 export const RECIPE_STEPS_DEBOUNCE_MS = 500
 
-export const recipeStepsQueryKey = (mealId: string, servings: number) =>
-  ['meal', mealId, 'steps', servings] as const
+/**
+ * Keyed by the recipe's content as well as its servings: the steps follow
+ * the name, the time, the notes and the ingredient amounts, so an edit saved
+ * in this session must miss the cached steps rather than show the old ones
+ * beside the new amounts. The route answers the new key from its own store,
+ * or writes new steps.
+ */
+export const recipeStepsQueryKey = (mealId: string, servings: number, content: string) =>
+  ['meal', mealId, 'steps', servings, content] as const
+
+/** What the steps prompt reads from the recipe, as one string for the key. */
+export function recipeStepsContent(
+  meal: Pick<MealData, 'name' | 'timeMinutes' | 'preparationNotes' | 'components'>,
+): string {
+  return JSON.stringify([
+    meal.name,
+    meal.timeMinutes ?? null,
+    meal.preparationNotes ?? null,
+    meal.components.map((c) => [c.ingredientId, c.quantityPerServing]),
+  ])
+}
 
 interface UseRecipeStepsOptions {
-  mealId: string
+  meal: Pick<MealData, 'id' | 'name' | 'timeMinutes' | 'preparationNotes' | 'components'>
   /** The servings the view shows; steps are written for this count. */
   servings: number
   /** Whether the view is open. Nothing is fetched while closed. */
@@ -33,14 +52,16 @@ interface UseRecipeStepsOptions {
  * shows at once. The route stores the steps, so a later visit at the same count
  * costs no AI call either.
  */
-export function useRecipeSteps({ mealId, servings, enabled }: UseRecipeStepsOptions) {
+export function useRecipeSteps({ meal, servings, enabled }: UseRecipeStepsOptions) {
+  const mealId = meal.id
+  const content = recipeStepsContent(meal)
   const t = useTranslations('meal-plan.steps')
   const locale = useLocale() as Locale
   const settledServings = useDebouncedValue(servings, RECIPE_STEPS_DEBOUNCE_MS)
   const settling = settledServings !== servings
 
   const query = useQuery({
-    queryKey: recipeStepsQueryKey(mealId, settledServings),
+    queryKey: recipeStepsQueryKey(mealId, settledServings, content),
     queryFn: ({ signal }) =>
       apiFetch<{ tips: PreparationSteps }>(
         `/api/meals/${mealId}/preparation-steps`,

@@ -12,6 +12,20 @@ global.fetch = mockFetch
 
 const STEPS = { steps: ['Boil the pasta.'], pitfalls: [] }
 
+const MEAL = {
+  id: 'meal-1',
+  name: 'Pasta',
+  timeMinutes: 20,
+  preparationNotes: null,
+  components: [
+    {
+      ingredientId: 'ing-pasta',
+      quantityPerServing: 100,
+      ingredient: { id: 'ing-pasta', name: 'Pasta', category: 'carb', defaultUnit: 'g' as const },
+    },
+  ],
+}
+
 function ok(tips: unknown) {
   return new Response(JSON.stringify({ tips }), { status: 200 })
 }
@@ -38,7 +52,7 @@ describe('useRecipeSteps', () => {
 
   it('fetches nothing while the view is closed', () => {
     const { result } = renderHook(
-      () => useRecipeSteps({ mealId: 'meal-1', servings: 2, enabled: false }),
+      () => useRecipeSteps({ meal: MEAL, servings: 2, enabled: false }),
       { wrapper },
     )
 
@@ -50,7 +64,7 @@ describe('useRecipeSteps', () => {
     mockFetch.mockImplementation(async () => ok(STEPS))
 
     const { result } = renderHook(
-      () => useRecipeSteps({ mealId: 'meal-1', servings: 2.5, enabled: true }),
+      () => useRecipeSteps({ meal: MEAL, servings: 2.5, enabled: true }),
       { wrapper },
     )
 
@@ -64,7 +78,7 @@ describe('useRecipeSteps', () => {
   it('asks once for the count the servings settle on, and drops the old steps meanwhile', async () => {
     mockFetch.mockImplementation(async () => ok(STEPS))
     const { result, rerender } = renderHook(
-      ({ servings }) => useRecipeSteps({ mealId: 'meal-1', servings, enabled: true }),
+      ({ servings }) => useRecipeSteps({ meal: MEAL, servings, enabled: true }),
       { wrapper, initialProps: { servings: 2 } },
     )
     await waitFor(() => expect(result.current.steps).toEqual(STEPS))
@@ -88,11 +102,44 @@ describe('useRecipeSteps', () => {
     )
 
     const { result } = renderHook(
-      () => useRecipeSteps({ mealId: 'meal-1', servings: 2, enabled: true }),
+      () => useRecipeSteps({ meal: MEAL, servings: 2, enabled: true }),
       { wrapper },
     )
 
     await waitFor(() => expect(result.current.stepsError).toBe(stepsErrors.generationDisabled))
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks again for a recipe edited since its steps were fetched', async () => {
+    mockFetch.mockImplementation(async () => ok(STEPS))
+    const { result, rerender } = renderHook(
+      ({ meal }) => useRecipeSteps({ meal, servings: 2, enabled: true }),
+      { wrapper, initialProps: { meal: MEAL } },
+    )
+    await waitFor(() => expect(result.current.steps).toEqual(STEPS))
+
+    rerender({
+      meal: {
+        ...MEAL,
+        components: [{ ...MEAL.components[0]!, quantityPerServing: 120 }],
+      },
+    })
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+  })
+
+  it('serves a count already seen this session without asking again', async () => {
+    mockFetch.mockImplementation(async () => ok(STEPS))
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useRecipeSteps({ meal: MEAL, servings: 2, enabled }),
+      { wrapper, initialProps: { enabled: true } },
+    )
+    await waitFor(() => expect(result.current.steps).toEqual(STEPS))
+
+    rerender({ enabled: false })
+    rerender({ enabled: true })
+
+    expect(result.current.steps).toEqual(STEPS)
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })

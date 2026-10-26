@@ -47,7 +47,7 @@ export function RecipeDetailModal({
   const [servings, setServings] = useState(householdServings)
   const image = useMealImage({ meal, open })
   const { steps, isLoadingSteps, stepsError, retry } = useRecipeSteps({
-    mealId: meal.id,
+    meal,
     servings,
     enabled: open,
   })
