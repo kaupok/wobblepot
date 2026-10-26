@@ -251,6 +251,12 @@ describe('/api/mcp', () => {
         expect(annotations.remove_shopping_item).toEqual({ ...write, idempotentHint: false })
         expect(annotations.set_favourite).toEqual({ ...write, idempotentHint: true })
         expect(annotations.set_extra_amount).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.delete_meal).toEqual({
+          ...write,
+          destructiveHint: true,
+          idempotentHint: false,
+        })
+        expect(annotations.restore_meal).toEqual({ ...write, idempotentHint: true })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },

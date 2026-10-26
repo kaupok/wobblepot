@@ -1228,7 +1228,7 @@
       "scopesHeading": "It will be able to:",
       "scopes": {
         "mcpRead": "Read your meal plan, shopping list, pantry, recipes and household settings, including allergens and member names.",
-        "mcpWrite": "Update your shopping list, pantry and meal plan, and add and change recipes.",
+        "mcpWrite": "Update your shopping list, pantry and meal plan, and add, change and delete recipes.",
         "openid": "Confirm that it is you.",
         "profile": "See your name and profile picture.",
         "offlineAccess": "Stay connected, so you do not need to allow it again."
@@ -1752,7 +1752,7 @@
       "connectedOn": "Connected: {date}",
       "scopes": {
         "mcpRead": "Reads meal plan, shopping list, pantry, recipes and household settings",
-        "mcpWrite": "Updates shopping list, pantry and meal plan, and adds and changes recipes",
+        "mcpWrite": "Updates shopping list, pantry and meal plan, and adds, changes and deletes recipes",
         "openid": "Confirms it is you",
         "profile": "Sees your name and profile picture",
         "offlineAccess": "Stays connected"

@@ -126,7 +126,11 @@ describe('PrivacyPage', () => {
     )
     // What it can change, only with the write scope (HON-1154).
     expect(text).toContain(
-      'If the consent page says “Update your shopping list, pantry and meal plan, and add and change recipes” and you choose Allow, the assistant can also make changes when you ask it to: mark shopping list items as bought, add items to the list, change what is in your pantry, change your meal plan, add a recipe to your household’s recipes or change one of them, and add a recipe to your favourites or remove it.',
+      'If the consent page says “Update your shopping list, pantry and meal plan, and add, change and delete recipes” and you choose Allow, the assistant can also make changes when you ask it to: mark shopping list items as bought, add items to the list, change what is in your pantry, change your meal plan, add a recipe to your household’s recipes, change or delete one of them, and add a recipe to your favourites or remove it.',
+    )
+    // `delete_meal` and `restore_meal` work within the 30-day restore window (HON-1337).
+    expect(text).toContain(
+      'A recipe the assistant deletes stays in “Recently deleted” on the Recipes page for 30 days, and you or the assistant can restore it in that time.',
     )
     // `create_meal` and `update_meal` make no model call (HON-1305, HON-1314).
     expect(text).toContain(
@@ -137,7 +141,9 @@ describe('PrivacyPage', () => {
       'When you ask the assistant to change a meal’s ingredients, the instruction it passes on is sent to our AI provider, as the same request from the app is.',
     )
     expect(text).toContain('Without that line on the consent page, an assistant can only read.')
-    expect(text).toContain('An assistant cannot delete recipes')
+    expect(text).toContain(
+      'An assistant cannot change your household’s members or preferences, or ask Wobblepot to generate a meal plan.',
+    )
     expect(text).toContain('allow the assistant on the consent page')
     expect(text).toContain('The assistant is not one of our processors.')
     expect(text).toContain('we share the data on your instruction')

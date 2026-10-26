@@ -39,16 +39,13 @@ export async function listRecentlyDeletedHouseholdMeals(householdId: string, now
  * window. Answers `mealNotFound` for a recipe that is another household's, a
  * library one, unknown, or deleted before the window, and `mealNotDeleted`
  * for a live one. A live recipe with the same name does not block it, since
- * the edit form allows two recipes with one name.
+ * the edit form allows two recipes with one name. Answers with the recipe's
+ * id and name, for `restore_meal` (HON-1337).
  */
-export async function restoreHouseholdMeal(
-  householdId: string,
-  id: string,
-  now = new Date(),
-): Promise<void> {
+export async function restoreHouseholdMeal(householdId: string, id: string, now = new Date()) {
   const meal = await prisma.meal.findFirst({
     where: { id, householdId },
-    select: { deletedAt: true },
+    select: { name: true, deletedAt: true },
   })
 
   if (!meal) throw new HouseholdMealError('mealNotFound')
@@ -56,4 +53,5 @@ export async function restoreHouseholdMeal(
   if (meal.deletedAt < restoreWindowStart(now)) throw new HouseholdMealError('mealNotFound')
 
   await prisma.meal.update({ where: { id }, data: { deletedAt: null } })
+  return { id, name: meal.name }
 }

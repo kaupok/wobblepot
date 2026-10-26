@@ -27,11 +27,13 @@ import { setMealServings } from './tools/set-meal-servings'
 import { removeShoppingItem } from './tools/remove-shopping-item'
 import { setFavourite } from './tools/set-favourite'
 import { setExtraAmount } from './tools/set-extra-amount'
+import { deleteMeal } from './tools/delete-meal'
+import { restoreMeal } from './tools/restore-meal'
 
 /**
  * Every tool the server lists, for every token. The write tools (HON-1154,
  * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314, HON-1281, HON-1329,
- * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334) need
+ * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337) need
  * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
  * so the model can tell the user what to do.
  */
@@ -61,6 +63,8 @@ export const MCP_TOOLS: readonly McpTool[] = [
   removeShoppingItem,
   setFavourite,
   setExtraAmount,
+  deleteMeal,
+  restoreMeal,
 ] as McpTool[]
 
 export const MCP_SERVER_DESCRIPTION = "Wobblepot is the household's meal planner."
@@ -93,7 +97,7 @@ export function mcpServerInfo(origin: string): Implementation {
  */
 export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
   const server = new McpServer(mcpServerInfo(origin), {
-    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), update its shopping list, pantry and meal plan, and add and change recipes. The update tools work only when the user allowed this assistant to make changes.`,
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), update its shopping list, pantry and meal plan, and add, change and delete recipes. The update tools work only when the user allowed this assistant to make changes.`,
   })
 
   for (const tool of MCP_TOOLS) {

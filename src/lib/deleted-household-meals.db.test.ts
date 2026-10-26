@@ -90,7 +90,10 @@ describe('restoreHouseholdMeal', () => {
   it('brings back a recipe deleted within 30 days with its image', async () => {
     const { alder } = await world()
 
-    await restoreHouseholdMeal(alder, 'meal-recent', NOW)
+    expect(await restoreHouseholdMeal(alder, 'meal-recent', NOW)).toEqual({
+      id: 'meal-recent',
+      name: 'recent',
+    })
 
     const row = await prisma.meal.findUniqueOrThrow({ where: { id: 'meal-recent' } })
     expect(row).toMatchObject({ deletedAt: null, imageUrl: IMAGE, imageStatus: 'ready' })
