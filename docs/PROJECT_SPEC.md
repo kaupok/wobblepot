@@ -261,6 +261,8 @@ enum ProteinType {
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
 - `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
 
+**Food rules are household-level (HON-293, HON-296, HON-1322).** The diet, the allergens, the restrictions and the ingredients to avoid live on `HouseholdPreferences`, and every plan filter reads them there. A member carries a name, a display name and a portion size, and nothing else: the portion size scales the household's servings (`sumPortions`, `src/lib/meal-planning/servings.ts`). `MemberPreferences` still has food and macro columns from before February 2026. No screen or route writes or returns them; the account data export still includes the stored values (`src/lib/auth/export.ts`).
+
 **A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on Household → Meal preferences, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
 
 **Enums over strings:** Use Prisma enums for constrained values to prevent inconsistent data.
@@ -422,7 +424,7 @@ Domain constants live beside the code that uses them. The ones a reader is most 
 The main areas:
 
 - **Auth:** the Better Auth models (`User`, `Session`, `Account`, `Verification`) and `SignupCode` for invite-only sign-up
-- **Households:** `Household`, `HouseholdMember`, `HouseholdPreferences`, `MemberPreferences`, and `HouseholdInvite` (single-use, per member)
+- **Households:** `Household`, `HouseholdMember`, `HouseholdPreferences` (the food rules), `MemberPreferences` (display name and portion size), and `HouseholdInvite` (single-use, per member)
 - **Meals:** `Ingredient`, `Meal`, `MealComponent`, `FavoriteMeal`, plus `IngredientTranslation` and `MealTranslation` for Estonian
 - **Planning:** `MealPlan` (one per household) and `MealPlanEntry` (one per date and meal type)
 - **Inventory:** `PantryItem` and `CustomShoppingItem`
@@ -432,7 +434,7 @@ The main areas:
 
 **Source of truth:** `src/app/api/**/route.ts`. Each route's doc comment describes its contract.
 
-The main areas: `auth` (Better Auth, plus account deletion and export under `auth/user`), `households` (the current household under `households/me`: members, invites, preferences, own meals, AI usage), `invites` (joining), `meals` and `ingredients` (library, favourites, imagine, meal images), `recipes` (parse a recipe), `meal-plans` (generate; entries, swaps, preparation tips, per-plan shopping list), `entries` (entries by date range), `shopping-list`, `pantry`, and `members` (the signed-in member's own preferences). Operational routes: `health`, `status`, `cron`, `admin`, and the E2E-only `e2e-seed` / `e2e-support`.
+The main areas: `auth` (Better Auth, plus account deletion and export under `auth/user`), `households` (the current household under `households/me`: members, invites, preferences, own meals, AI usage), `invites` (joining), `meals` and `ingredients` (library, favourites, imagine, meal images), `recipes` (parse a recipe), `meal-plans` (generate; entries, swaps, preparation tips, per-plan shopping list), `entries` (entries by date range), `shopping-list`, and `pantry`. Operational routes: `health`, `status`, `cron`, `admin`, and the E2E-only `e2e-seed` / `e2e-support`.
 
 ### Frontend Pages
 
@@ -445,7 +447,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 ### Foundation (Complete)
 
 - Household creation on sign-up (via onboarding)
-- Household and member preferences CRUD
+- Household preferences CRUD, and a member's display name and portion size
 - Household invite links (create, join, manage)
 - Manual household members (for non-app users like kids)
 - Settings UI (household, member, invites)

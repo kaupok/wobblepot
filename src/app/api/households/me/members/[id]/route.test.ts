@@ -157,6 +157,34 @@ describe('PATCH /api/households/me/members/[id]', () => {
     })
   })
 
+  // Food rules are household-level (HON-1322): a stale client that still
+  // sends member food or macro fields saves the name and portion only.
+  it('drops member food and macro fields from the body', async () => {
+    mockUpdate.mockResolvedValue({ id: 'member-456' } as never)
+
+    await patch({
+      name: 'Kiddo',
+      preferences: {
+        displayName: 'K',
+        portionMultiplier: 0.75,
+        targetCalories: 1800,
+        targetProtein: 80,
+        targetCarbs: 200,
+        targetFat: 60,
+        dietaryType: 'vegan',
+        allergens: ['nuts'],
+        restrictions: ['low-salt'],
+        excludedIngredients: ['celery'],
+        excludedIngredientIds: ['ing-1'],
+      },
+    })
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.anything(), 'member-456', {
+      name: 'Kiddo',
+      preferences: { displayName: 'K', portionMultiplier: 0.75 },
+    })
+  })
+
   it('returns 400 for a body that is not JSON', async () => {
     expect(await answer(patch('not json'))).toEqual({
       status: 400,

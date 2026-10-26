@@ -920,9 +920,8 @@ export function createMealFormComponent(
 }
 
 /**
- * Default `MemberPreferences` shape — a regular adult with no dietary
- * restrictions. Override any field to build other personas (child, vegan,
- * allergens).
+ * Default `MemberPreferences` shape — a regular adult at 1× with no display
+ * name. Override a field to build other personas (a child at 0.5×).
  */
 export function createMemberPreferences(
   overrides: Partial<MemberPreferences> = {},
@@ -930,15 +929,6 @@ export function createMemberPreferences(
   return {
     displayName: null,
     portionMultiplier: 1.0,
-    targetCalories: null,
-    targetProtein: null,
-    targetCarbs: null,
-    targetFat: null,
-    dietaryType: null,
-    allergens: [],
-    restrictions: [],
-    excludedIngredients: [],
-    excludedIngredientIds: [],
     ...overrides,
   }
 }

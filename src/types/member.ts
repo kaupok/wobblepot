@@ -1,20 +1,10 @@
-export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
-
-export type Allergen =
-  'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
-
+/**
+ * What a member carries besides their name. Food rules are household-level
+ * (HON-1322); a member's portion size scales the household's servings.
+ */
 export interface MemberPreferences {
   displayName: string | null
   portionMultiplier: number
-  targetCalories: number | null
-  targetProtein: number | null
-  targetCarbs: number | null
-  targetFat: number | null
-  dietaryType: DietaryType | null
-  allergens: Allergen[]
-  restrictions: string[]
-  excludedIngredients: string[]
-  excludedIngredientIds: string[]
 }
 
 export interface MemberUser {

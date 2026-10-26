@@ -24,29 +24,6 @@ const updateMemberSchema = z.object({
         .nullable()
         .optional(),
       portionMultiplier: z.number().min(0.5).max(3.0).optional(),
-      targetCalories: z.number().int().min(500).max(5000).nullable().optional(),
-      targetProtein: z.number().int().min(0).max(500).nullable().optional(),
-      targetCarbs: z.number().int().min(0).max(500).nullable().optional(),
-      targetFat: z.number().int().min(0).max(500).nullable().optional(),
-      dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
-      allergens: z
-        .array(
-          z.enum([
-            'gluten',
-            'dairy',
-            'eggs',
-            'nuts',
-            'peanuts',
-            'soy',
-            'fish',
-            'shellfish',
-            'sesame',
-          ]),
-        )
-        .optional(),
-      restrictions: z.array(z.string()).optional(),
-      excludedIngredients: z.array(z.string()).optional(),
-      excludedIngredientIds: z.array(z.string()).optional(),
     })
     .optional(),
 })

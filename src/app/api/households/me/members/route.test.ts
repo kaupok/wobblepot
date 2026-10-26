@@ -149,7 +149,6 @@ describe('POST /api/households/me/members', () => {
   it.each([
     ['an empty name', { name: '' }],
     ['a portion size below 0.5', { name: 'Kid', preferences: { portionMultiplier: 0.25 } }],
-    ['an unknown allergen', { name: 'Kid', preferences: { allergens: ['celery'] } }],
   ])('returns 400 for %s', async (_label, body) => {
     const { status, body: json } = await answer(post(body))
 
@@ -159,18 +158,50 @@ describe('POST /api/households/me/members', () => {
   })
 
   it('adds the member to the caller household and returns it with 201', async () => {
-    const added = { id: 'member-new', name: 'Kid', role: 'member', user: null, invite: null }
-    mockAdd.mockResolvedValue(added as never)
-    const body = {
+    const added = {
+      id: 'member-new',
       name: 'Kid',
-      preferences: { displayName: 'K', portionMultiplier: 0.5, allergens: ['nuts'] },
+      role: 'member',
+      user: null,
+      invite: null,
+      preferences: { displayName: 'K', portionMultiplier: 0.5 },
     }
+    mockAdd.mockResolvedValue(added as never)
+    const body = { name: 'Kid', preferences: { displayName: 'K', portionMultiplier: 0.5 } }
 
     expect(await answer(post(body))).toEqual({ status: 201, body: added })
     expect(mockAdd).toHaveBeenCalledWith(
       expect.objectContaining({ householdId: 'household-123' }),
       body,
     )
+  })
+
+  // Food rules are household-level (HON-1322): a stale client that still
+  // sends member food or macro fields saves the name and portion only.
+  it('drops member food and macro fields from the body', async () => {
+    mockAdd.mockResolvedValue({ id: 'member-new' } as never)
+
+    await post({
+      name: 'Kid',
+      preferences: {
+        displayName: 'K',
+        portionMultiplier: 0.5,
+        targetCalories: 1800,
+        targetProtein: 80,
+        targetCarbs: 200,
+        targetFat: 60,
+        dietaryType: 'vegan',
+        allergens: ['nuts'],
+        restrictions: ['low-salt'],
+        excludedIngredients: ['celery'],
+        excludedIngredientIds: ['ing-1'],
+      },
+    })
+
+    expect(mockAdd).toHaveBeenCalledWith(expect.anything(), {
+      name: 'Kid',
+      preferences: { displayName: 'K', portionMultiplier: 0.5 },
+    })
   })
 
   // HON-720: onboarding creates up to 20 members plus the owner, and such a
