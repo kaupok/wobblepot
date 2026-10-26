@@ -27,4 +27,5 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
   remove_extra: { extraId: 'extra-1' },
   clear_meal: { date: '2026-10-15', mealType: 'dinner' },
+  set_meal_status: { date: '2026-10-15', mealType: 'dinner', status: 'cooked' },
 }

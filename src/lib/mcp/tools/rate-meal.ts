@@ -10,7 +10,7 @@ export const rateMeal = defineTool({
   name: 'rate_meal',
   title: 'Rate a cooked meal',
   description:
-    'Records what the household thought of a meal they cooked, by day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app, so only a meal marked as cooked can be rated. Ratings move the meal up or down in later swap suggestions.',
+    'Records what the household thought of a meal they cooked, by day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app, so only a meal marked as cooked can be rated: mark it cooked with set_meal_status first. Ratings move the meal up or down in later swap suggestions.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ...slotInput,
@@ -34,7 +34,7 @@ export const rateMeal = defineTool({
     // entry would still move the swap ranking, unseen.
     if (slot.status !== 'completed') {
       throw new ToolInputError(
-        `The ${mealType} on ${date} is not marked as cooked, so it cannot be rated yet. The household marks it cooked in Wobblepot first. Nothing was changed.`,
+        `The ${mealType} on ${date} is not marked as cooked, so it cannot be rated yet. Mark it cooked with set_meal_status first, then rate it. Nothing was changed.`,
       )
     }
 

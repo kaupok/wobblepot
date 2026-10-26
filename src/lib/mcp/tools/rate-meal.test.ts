@@ -107,6 +107,9 @@ describe('rate_meal', () => {
     expect(result.content[0]).toMatchObject({
       text: expect.stringContaining('not marked as cooked'),
     })
+    expect(result.content[0]).toMatchObject({
+      text: expect.stringContaining('Mark it cooked with set_meal_status'),
+    })
     expect(prisma.mealPlanEntry.updateManyAndReturn).not.toHaveBeenCalled()
   })
 
