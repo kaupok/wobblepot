@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Body } from '@/components/ui/typography'
 import { ChoiceChips } from '@/components/ui/choice-chips'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
@@ -66,7 +67,8 @@ export function FoodPreferencesForm({
   })
   const [dietaryType, setDietaryType] = useState<DietaryType | null>(saved.dietaryType)
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>(saved.allergensToAvoid)
-  const [restrictions, setRestrictions] = useState<string[]>(saved.restrictions)
+  // "Notes for the AI" is free text, one note per line (HON-1342).
+  const [restrictionsText, setRestrictionsText] = useState(saved.restrictions.join('\n'))
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
     saved.excludedIngredients,
   )
@@ -79,15 +81,23 @@ export function FoodPreferencesForm({
     return count ? tSettings('savedWithConflicts', { count }) : undefined
   }
 
-  const restrictionsRef = useRef<TagInputRef>(null)
   const excludedIngredientsRef = useRef<TagInputRef>(null)
 
-  const values: FoodValues = { dietaryType, allergensToAvoid, restrictions, excludedIngredients }
+  // One note per non-empty line, trimmed. Compared as the split array, not the
+  // raw text, so an untouched field is not dirty.
+  const values: FoodValues = {
+    dietaryType,
+    allergensToAvoid,
+    restrictions: restrictionsText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean),
+    excludedIngredients,
+  }
 
-  // Text typed into a tag input but not yet turned into a tag is still sent.
+  // Text typed into the tag input but not yet turned into a tag is still sent.
   const collectValues = (): FoodValues => ({
     ...values,
-    restrictions: restrictionsRef.current?.commitPendingValue() ?? restrictions,
     excludedIngredients:
       excludedIngredientsRef.current?.commitPendingValue() ?? excludedIngredients,
   })
@@ -134,14 +144,14 @@ export function FoodPreferencesForm({
           />
           <div className="flex flex-col gap-2">
             <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
-            <TagInput
-              ref={restrictionsRef}
+            <Textarea
               id="restrictions"
-              value={restrictions}
-              onChange={setRestrictions}
+              value={restrictionsText}
+              onChange={(e) => setRestrictionsText(e.target.value)}
               placeholder={tSettings('restrictionsPlaceholder')}
               disabled={disabled}
               aria-describedby="restrictions-help"
+              rows={3}
             />
             <Body id="restrictions-help" variant="muted">
               {tSettings('restrictionsHelp')}

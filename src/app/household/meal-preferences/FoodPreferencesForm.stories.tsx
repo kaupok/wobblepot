@@ -290,8 +290,46 @@ export const PhoneEstonian: Story = {
     const form = canvas.getByRole('form')
     await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
     const notes = canvas.getByLabelText('Märkmed AI-le (vabatahtlik)')
-    await expect(notes).toHaveAttribute('placeholder', 'nt mahe vürts, lastele vähem soola')
+    await expect(notes).toHaveAttribute(
+      'placeholder',
+      'nt lastele vähem soola. Eelista valgurikkaid toite.',
+    )
     await expect(notes).toHaveAccessibleDescription(/^AI järgib neid märkmeid/)
+  },
+}
+
+/**
+ * Long saved notes at phone width (HON-1342): each note is one line of the
+ * textarea, and a long sentence wraps inside the field, not past its border.
+ */
+export const LongNotesPhone: Story = {
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  args: {
+    preferences: {
+      ...meta.args.preferences,
+      restrictions: [
+        'Less salt for the kids, and nothing spicier than a mild paprika on weeknights',
+        'Favour high-protein dishes',
+      ],
+    },
+  },
+  decorators: [
+    (Story) => (
+      <div className="px-4">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const notes = canvas.getByLabelText('Notes for the AI (optional)')
+    await expect(notes).toHaveValue(
+      'Less salt for the kids, and nothing spicier than a mild paprika on weeknights\nFavour high-protein dishes',
+    )
+    await expect(notes.scrollWidth).toBeLessThanOrEqual(notes.clientWidth)
+    const form = canvas.getByRole('form')
+    await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
+    await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   },
 }
 
