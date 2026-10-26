@@ -13,7 +13,7 @@ This is a deliberate lightweight assessment, not a formal GDPR Art. 35 DPIA. Scr
 
 ## Processing under assessment
 
-Wobblepot plans family meals. The account-holding adult creates **household member profiles** — including children — containing names/labels, allergens, dietary restrictions, preferences, and macro targets. To generate meal plans, swaps, and preparation tips, this data is transmitted to **Anthropic, PBC** (US) as our processor (LLM inference). Full processor list, regions, and transfer safeguards: [`README.md`](./README.md); public disclosure at `/privacy/subprocessors`.
+Wobblepot plans family meals. The account-holding adult creates **household member profiles** — including children — containing names/labels and portion sizes, and sets the household's food rules: diet, allergens, dietary restrictions and ingredients to avoid. To generate meal plans, swaps, and preparation tips, this data is transmitted to **Anthropic, PBC** (US) as our processor (LLM inference). Full processor list, regions, and transfer safeguards: [`README.md`](./README.md); public disclosure at `/privacy/subprocessors`.
 
 A household member can also connect an AI assistant, such as Claude, to the read-only MCP server (HON-1150, HON-1151). The assistant then reads household data on the member's instruction; risk area 3 assesses this. A member can also make a read-only API key for a screen or script (HON-1220), which risk area 3 covers too.
 

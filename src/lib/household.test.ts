@@ -305,20 +305,17 @@ describe('listHouseholdMembers', () => {
     expect(member).toMatchObject({ id: 'member-1', name: 'Kid', invite: null, preferences: null })
   })
 
-  // Food rules are household-level (HON-1322); a row saved before February
-  // 2026 can still hold member food values, and the roster leaves them out.
+  // The roster leaves out the row's id, member link and timestamps.
   it('returns only the display name and portion size of the stored preferences', async () => {
     mockFindMany.mockResolvedValue([
       memberRow({
         preferences: {
+          id: 'pref-1',
+          memberId: 'member-1',
           displayName: 'K',
           portionMultiplier: 0.5,
-          targetCalories: 1800,
-          dietaryType: 'vegan',
-          allergens: ['nuts'],
-          restrictions: ['low-salt'],
-          excludedIngredients: ['celery'],
-          excludedIngredientIds: ['ing-1'],
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         },
       }),
     ] as never)

@@ -54,7 +54,7 @@ function ingredient(id: string, name: string, householdId: string | null = null)
  * custom ingredient, a meal, a deleted meal, a plan, pantry, a favourite,
  * custom shopping items, an invite and AI usage. Birch: Bo alone, with rows of
  * each kind that must never reach an Alder export. Global ingredients are
- * referenced from Alder's rows and exclusion lists, plus one nothing uses.
+ * referenced from Alder's rows and exclusion list, plus one nothing uses.
  */
 async function world() {
   for (const [id, name] of [
@@ -62,8 +62,6 @@ async function world() {
     ['g-rice', 'Rice'],
     ['g-egg', 'Egg'],
     ['g-mushroom', 'Mushroom'],
-    ['g-celery', 'Celery'],
-    ['g-olive', 'Olive'],
     ['g-unused', 'Saffron'],
   ]) {
     await ingredient(id!, name!)
@@ -112,7 +110,7 @@ async function world() {
             reminderLastSentAt: new Date('2026-10-04T16:00:00.000Z'),
             reminderToken: 'ann-stop-token',
             reminderConfirmToken: 'ann-confirm-token',
-            preferences: { create: { displayName: 'Ann', excludedIngredientIds: ['g-celery'] } },
+            preferences: { create: { displayName: 'Ann' } },
           },
           {
             id: 'm-ben',
@@ -123,7 +121,7 @@ async function world() {
             reminderConsentAt: new Date('2026-10-02T00:00:00.000Z'),
             reminderToken: 'ben-stop-token',
             reminderConfirmToken: 'ben-confirm-token',
-            preferences: { create: { displayName: 'Ben', excludedIngredientIds: ['g-olive'] } },
+            preferences: { create: { displayName: 'Ben' } },
           },
           {
             id: 'm-kid',
@@ -275,32 +273,22 @@ describe('exportUserData', () => {
     expect(alder.aiUsage).toHaveLength(1)
   })
 
-  // No screen or route sets member food rules since HON-1322, but the columns
-  // still hold what households saved before February 2026, and that is their data.
-  it('holds the member food and macro values a preferences row still stores', async () => {
+  // HON-1324 dropped the member food and macro columns, so a member's
+  // preferences are the display name and portion size alone.
+  it("holds only a member's display name and portion size as preferences", async () => {
     await world()
-    await prisma.memberPreferences.create({
-      data: {
-        memberId: 'm-kid',
-        targetCalories: 1800,
-        targetProtein: 80,
-        dietaryType: 'vegan',
-        allergens: ['nuts'],
-        restrictions: ['low-salt'],
-        excludedIngredients: ['celery'],
-      },
-    })
 
     const [alder] = (await exportOf('ann')).households
+    const ann = alder.members.find((m: { id: string }) => m.id === 'm-ann')
 
-    expect(alder.members.find((m: { id: string }) => m.id === 'm-kid').preferences).toMatchObject({
-      targetCalories: 1800,
-      targetProtein: 80,
-      dietaryType: 'vegan',
-      allergens: ['nuts'],
-      restrictions: ['low-salt'],
-      excludedIngredients: ['celery'],
-    })
+    expect(Object.keys(ann.preferences).sort()).toEqual([
+      'createdAt',
+      'displayName',
+      'id',
+      'memberId',
+      'portionMultiplier',
+      'updatedAt',
+    ])
   })
 
   it('holds nothing from another household', async () => {
@@ -438,11 +426,9 @@ describe('exportUserData', () => {
       const [alder] = (await exportOf('ann')).households
 
       expect(alder.referencedGlobalIngredients).toEqual([
-        { id: 'g-celery', name: 'Celery', defaultUnit: 'g' },
         { id: 'g-chicken', name: 'Chicken breast', defaultUnit: 'g' },
         { id: 'g-egg', name: 'Egg', defaultUnit: 'g' },
         { id: 'g-mushroom', name: 'Mushroom', defaultUnit: 'g' },
-        { id: 'g-olive', name: 'Olive', defaultUnit: 'g' },
         { id: 'g-rice', name: 'Rice', defaultUnit: 'g' },
       ])
     })
@@ -470,18 +456,6 @@ describe('exportUserData', () => {
         }),
       ])
       expect(ids(alder.referencedGlobalIngredients)).toContain('g-yoghurt')
-    })
-
-    it("does not reveal a redacted member's exclusions through referencedGlobalIngredients", async () => {
-      await world()
-
-      const [alder] = (await exportOf('ben')).households
-      const referenced = ids(alder.referencedGlobalIngredients)
-
-      // Ben's own and the household's exclusions resolve; Ann's are redacted.
-      expect(referenced).toContain('g-olive')
-      expect(referenced).toContain('g-mushroom')
-      expect(referenced).not.toContain('g-celery')
     })
 
     it('exports no ingredients for a household that references none', async () => {

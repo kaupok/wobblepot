@@ -205,15 +205,9 @@ export async function exportUserData(userId: string) {
           for (const item of customShoppingItems) {
             if (item.ingredientId) referencedIds.add(item.ingredientId)
           }
-          // Exclusion lists, read from the exported (possibly redacted) member
-          // rows so a redacted member's exclusions cannot surface here.
-          const exclusionLists = [
-            household.preferences?.excludedIngredientIds ?? [],
-            ...members.map(
-              (m) => ('preferences' in m && m.preferences?.excludedIngredientIds) || [],
-            ),
-          ]
-          for (const ids of exclusionLists) for (const id of ids) referencedIds.add(id)
+          for (const id of household.preferences?.excludedIngredientIds ?? []) {
+            referencedIds.add(id)
+          }
           const globalIds = [...referencedIds].filter((id) => !ownIngredientIds.has(id))
 
           const referencedGlobalIngredients =

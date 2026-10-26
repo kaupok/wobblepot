@@ -613,21 +613,12 @@ model HouseholdPreferences {
 }
 
 model MemberPreferences {
-  id                    String       @id @default(cuid())
-  memberId              String       @unique
-  displayName           String?
-  portionMultiplier     Float        @default(1.0)
-  targetCalories        Int?
-  targetProtein         Int?
-  targetCarbs           Int?
-  targetFat             Int?
-  dietaryType           DietaryType?
-  allergens             Allergen[]
-  restrictions          String[]
-  excludedIngredients   String[]
-  excludedIngredientIds String[]
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  id                String   @id @default(cuid())
+  memberId          String   @unique
+  displayName       String?
+  portionMultiplier Float    @default(1.0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   member HouseholdMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 

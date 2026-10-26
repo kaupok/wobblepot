@@ -245,7 +245,7 @@ This works because every environment applies migrations before it seeds. `prisma
 
 `prisma/migrations/20261007120000_merge_british_ingredient_twins` is the worked example (HON-1097). Three things it handles that the foreign keys do not show:
 
-- `household_preferences` and `member_preferences` hold ingredient ids in `"excludedIngredientIds"`, a plain array with no foreign key. Replace the old id there too. The household filters resolve the typed names at read time (HON-1321), so for a household the column is the data export's record.
+- `household_preferences` holds ingredient ids in `"excludedIngredientIds"`, a plain array with no foreign key. Replace the old id there too. The household filters resolve the typed names at read time (HON-1321), so the column is the data export's record. (`member_preferences` had the same column until HON-1324 dropped it.)
 - `meal_component` and `pantry_item` quantities are in the row's `defaultUnit`. When the two rows differ (`g` and `piece`), convert with `gramsPerPiece`.
 - The surviving row takes the union of both rows' `allergens`, so no household loses an allergen filter.
 
