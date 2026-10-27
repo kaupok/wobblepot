@@ -1,13 +1,13 @@
 {
   "task": "recipe",
   "model": "claude-sonnet-5-5",
-  "recordedAt": "2026-10-07",
-  "commit": "27cf478d",
+  "recordedAt": "2026-10-28",
+  "commit": "3e4f1b50",
   "runs": 3,
   "cases": {
     "recipe/en-canned-chickpea-curry": {
-      "promptHash": "633e87493a3321a8a547ec0d9453adb6fe4dd7f55a3dd3fca96a5d736c8b802a",
-      "requestHash": "34c1cbe7a88b1437e22f58039bea127035de4a28872cfda6ae06335d2a36703d",
+      "promptHash": "9864251b047c4124ca6af33c7fe1a2f9aed34345a484b3d9bdb36e9e37ac13b2",
+      "requestHash": "c02b8e704275abe9cee8bed9d571151eb4081bd389aefbc32df8fc7ec73aa97e",
       "calls": [
         {
           "caseId": "recipe/en-canned-chickpea-curry",
@@ -16,7 +16,261 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5237.57075,
+          "latencyMs": 5296.718499999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5110,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 842,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.01864,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Chickpea and spinach curry",
+            "description": "A quick and easy mild curry made with chickpeas, tomatoes, coconut milk and baby spinach, served with basmati rice.",
+            "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
+            "timeMinutes": 30,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "vegetable oil",
+                "quantity": 15,
+                "unit": "ml",
+                "originalText": "15 ml vegetable oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 onion, finely chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, crushed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mild curry paste",
+                "quantity": 30,
+                "unit": "g",
+                "originalText": "30 g mild curry paste",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "chickpeas",
+                "quantity": 800,
+                "unit": "g",
+                "originalText": "2 cans chickpeas, drained and rinsed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can chopped tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "coconut milk",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can coconut milk",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "baby spinach",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g baby spinach",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "basmati rice",
+                "quantity": 300,
+                "unit": "g",
+                "originalText": "300 g basmati rice",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 97
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-canned-chickpea-curry",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4817.510041000001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5110,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 842,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.01864,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Chickpea and spinach curry",
+            "description": "A quick and easy curry of chickpeas, tomatoes and coconut milk with wilted baby spinach, served with basmati rice.",
+            "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
+            "timeMinutes": 30,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "vegetable oil",
+                "quantity": 15,
+                "unit": "ml",
+                "originalText": "15 ml vegetable oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 onion, finely chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, crushed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mild curry paste",
+                "quantity": 30,
+                "unit": "g",
+                "originalText": "30 g mild curry paste",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "chickpeas",
+                "quantity": 800,
+                "unit": "g",
+                "originalText": "2 cans chickpeas, drained and rinsed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can chopped tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "coconut milk",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can coconut milk",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "baby spinach",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g baby spinach",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "basmati rice",
+                "quantity": 300,
+                "unit": "g",
+                "originalText": "300 g basmati rice",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 97
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-canned-chickpea-curry",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4471.348624999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -132,266 +386,15 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/en-canned-chickpea-curry",
-          "task": "recipe",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4988.859458000021,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5110,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 844,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.01866,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Chickpea and spinach curry",
-            "description": "A quick and easy mild curry of chickpeas, tomatoes and coconut milk with wilted baby spinach, served with basmati rice.",
-            "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
-            "timeMinutes": 30,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "vegetable oil",
-                "quantity": 15,
-                "unit": "ml",
-                "originalText": "15 ml vegetable oil",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "onion",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 onion, finely chopped",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 cloves garlic, crushed",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "mild curry paste",
-                "quantity": 30,
-                "unit": "g",
-                "originalText": "30 g mild curry paste",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "chickpeas",
-                "quantity": 800,
-                "unit": "g",
-                "originalText": "2 cans chickpeas, drained and rinsed",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "tinned chopped tomatoes",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can chopped tomatoes",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "coconut milk",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can coconut milk",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "baby spinach",
-                "quantity": 200,
-                "unit": "g",
-                "originalText": "200 g baby spinach",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "basmati rice",
-                "quantity": 300,
-                "unit": "g",
-                "originalText": "300 g basmati rice",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 98
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/en-canned-chickpea-curry",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 5419.751874999958,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5110,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 844,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.01866,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Chickpea and spinach curry",
-            "description": "A quick and easy mild curry of chickpeas, tomatoes and coconut milk with wilted baby spinach, served with basmati rice.",
-            "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
-            "timeMinutes": 30,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "vegetable oil",
-                "quantity": 15,
-                "unit": "ml",
-                "originalText": "15 ml vegetable oil",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "onion",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 onion, finely chopped",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 cloves garlic, crushed",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "mild curry paste",
-                "quantity": 30,
-                "unit": "g",
-                "originalText": "30 g mild curry paste",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "chickpeas",
-                "quantity": 800,
-                "unit": "g",
-                "originalText": "2 cans chickpeas, drained and rinsed",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "tinned chopped tomatoes",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can chopped tomatoes",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "coconut milk",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can coconut milk",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "baby spinach",
-                "quantity": 200,
-                "unit": "g",
-                "originalText": "200 g baby spinach",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "basmati rice",
-                "quantity": 300,
-                "unit": "g",
-                "originalText": "300 g basmati rice",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 98
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/en-carbonara": {
-      "promptHash": "1e733f32d6e4885349240994a80b9e40f0a3307dfb52c84fcd5529d6cd83a295",
-      "requestHash": "a6f151753db95cc9112c90c5fbe68e8975fc5edd39a1d3cdb21359e2b030ec13",
+      "promptHash": "647950dab6b560dc5b9418c2d388ed51dddc9012fc070fb370cda423faf73688",
+      "requestHash": "eab59e1e05f333727c4660703991f0f7580dd2e8c20e4c7a4d959edfc2b3a890",
       "calls": [
         {
           "caseId": "recipe/en-carbonara",
@@ -400,7 +403,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4862.684709,
+          "latencyMs": 5871.529083,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -408,16 +411,16 @@
             "inputTokens": 5136,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 767,
+            "outputTokens": 774,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.017942,
+          "costUsd": 0.018012,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Spaghetti carbonara",
-            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs and parmesan, finished with plenty of black pepper.",
+            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and plenty of black pepper, ready in 25 minutes.",
             "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
             "timeMinutes": 25,
             "servings": 4,
@@ -498,7 +501,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
@@ -508,7 +512,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4775.632416000008,
+          "latencyMs": 4757.029791000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -516,124 +520,16 @@
             "inputTokens": 5136,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 768,
+            "outputTokens": 773,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.017952,
+          "costUsd": 0.018002,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Spaghetti carbonara",
-            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs and parmesan, finished with plenty of black pepper.",
-            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
-            "timeMinutes": 25,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "spaghetti",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "400 g spaghetti",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "pancetta",
-                "quantity": 150,
-                "unit": "g",
-                "originalText": "150 g pancetta, diced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "eggs",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 eggs",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "parmesan cheese",
-                "quantity": 50,
-                "unit": "g",
-                "originalText": "50 g parmesan cheese, finely grated",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 cloves garlic, peeled",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "black pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "black pepper to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 98
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/en-carbonara",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4866.770040999982,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5136,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 767,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.017942,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Spaghetti carbonara",
-            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs and parmesan, finished with plenty of black pepper.",
+            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and black pepper to make a glossy, creamy sauce.",
             "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
             "timeMinutes": 25,
             "servings": 4,
@@ -714,14 +610,124 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-carbonara",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4552.037333,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5136,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 773,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.018002,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Spaghetti carbonara",
+            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and black pepper to make a glossy, creamy sauce.",
+            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
+            "timeMinutes": 25,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "400 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "pancetta",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g pancetta, diced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "egg",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 eggs",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "parmesan cheese",
+                "quantity": 50,
+                "unit": "g",
+                "originalText": "50 g parmesan cheese, finely grated",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, peeled",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "black pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "black pepper to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 98
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/en-messy-blog-chili": {
-      "promptHash": "5fe2f5e5b8fd11e71fecacfbd789537d5d9544990fddb0bac6e6037350628292",
-      "requestHash": "05624ec00488d6d0e4fe2dee56468e0208fcded964389c9e5e3286071a015aea",
+      "promptHash": "2b20f378a5fb347e3ecb5486b3882325322039da0a799486c4cebd65729f7e2b",
+      "requestHash": "f579db4091c08a6662a376efa2dc80dce434e2bdd846f6b0bf9d683706955c6f",
       "calls": [
         {
           "caseId": "recipe/en-messy-blog-chili",
@@ -730,7 +736,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5466.768833,
+          "latencyMs": 4920.257167000002,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -738,21 +744,20 @@
             "inputTokens": 5177,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 865,
+            "outputTokens": 856,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.019004,
+          "costUsd": 0.018914,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Grandma's Weeknight Chilli",
-            "description": "A family favourite beef chilli with kidney beans and tomatoes, perfect for a busy weeknight. Letting it rest before serving is the secret.",
-            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tinned chopped tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt, then let it rest for 10 minutes before serving.",
+            "description": "A classic family beef chilli with kidney beans, tomatoes and a touch of cayenne, perfect for a busy weeknight.",
+            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let the chilli rest for 10 minutes before serving.",
             "timeMinutes": 75,
             "servings": 6,
             "mealTypes": [
-              "lunch",
               "dinner"
             ],
             "kidFriendly": false,
@@ -846,7 +851,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 1,
+            "servingsMatch": null
           }
         },
         {
@@ -856,7 +862,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5577.215666000033,
+          "latencyMs": 8214.749040999995,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -864,17 +870,17 @@
             "inputTokens": 5177,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 860,
+            "outputTokens": 1450,
             "usageMissing": false
           },
-          "reasoningTokens": 0,
-          "costUsd": 0.018954,
+          "reasoningTokens": 586,
+          "costUsd": 0.024854,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Grandma's Weeknight Chilli",
-            "description": "A family favourite beef and kidney bean chilli that has been handed down since the 90s, perfect for a busy weeknight.",
-            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tinned chopped tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
+            "description": "A hearty family beef chilli with kidney beans and tomatoes, simmered until rich and rested before serving. Ideal for a weeknight dinner.",
+            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
             "timeMinutes": 75,
             "servings": 6,
             "mealTypes": [
@@ -965,14 +971,15 @@
                 "isDried": null
               }
             ],
-            "recipeConfidence": 97
+            "recipeConfidence": 96
           },
           "scores": {
             "recall": 1,
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 1
+            "stepCountDelta": 1,
+            "servingsMatch": null
           }
         },
         {
@@ -982,7 +989,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5447.860374999989,
+          "latencyMs": 4801.565291999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -990,23 +997,24 @@
             "inputTokens": 5177,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 857,
+            "outputTokens": 849,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.018924,
+          "costUsd": 0.018844,
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Grandma's Weeknight Chilli",
-            "description": "A family favourite beef chilli with kidney beans, tomatoes and a hint of cayenne, perfect for a quick weeknight dinner.",
-            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
+            "name": "Grandma's weeknight chilli",
+            "description": "A family favourite beef and kidney bean chilli that is simple to make and perfect for busy weeknights.",
+            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let the chilli rest for 10 minutes before serving.",
             "timeMinutes": 75,
             "servings": 6,
             "mealTypes": [
+              "lunch",
               "dinner"
             ],
-            "kidFriendly": true,
+            "kidFriendly": false,
             "ingredients": [
               {
                 "name": "beef mince",
@@ -1097,14 +1105,294 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 1
+            "stepCountDelta": 1,
+            "servingsMatch": null
+          }
+        }
+      ]
+    },
+    "recipe/en-no-servings-household-of-2": {
+      "promptHash": "24798300aa280a72c348f5e4e791be2bd587b578f71383276242a5c144a3a3d7",
+      "requestHash": "48cd9fc6b55b6ea53c64867c30996d4b4c95aadeca07ed8588165ba287eb0593",
+      "calls": [
+        {
+          "caseId": "recipe/en-no-servings-household-of-2",
+          "task": "recipe",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3290.109124999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 4971,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 498,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.014922,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Tomato pasta",
+            "description": "A simple spaghetti dish with a fresh garlic and tomato sauce.",
+            "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
+            "timeMinutes": null,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tomato",
+                "quantity": 4,
+                "unit": "piece",
+                "originalText": "4 ripe tomatoes, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": 30,
+                "unit": "ml",
+                "originalText": "30 ml olive oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 95
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/en-no-servings-household-of-2",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3281.215167000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 4971,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 498,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.014922,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Tomato pasta",
+            "description": "A simple spaghetti dish with a fresh tomato and garlic sauce.",
+            "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
+            "timeMinutes": null,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tomato",
+                "quantity": 4,
+                "unit": "piece",
+                "originalText": "4 ripe tomatoes, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": 30,
+                "unit": "ml",
+                "originalText": "30 ml olive oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 95
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/en-no-servings-household-of-2",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3139.600708999991,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 4971,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 498,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.014922,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Tomato pasta",
+            "description": "A simple spaghetti dish with a fresh tomato and garlic sauce.",
+            "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
+            "timeMinutes": null,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tomato",
+                "quantity": 4,
+                "unit": "piece",
+                "originalText": "4 ripe tomatoes, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": 30,
+                "unit": "ml",
+                "originalText": "30 ml olive oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 96
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": 1
           }
         }
       ]
     },
     "recipe/en-not-a-recipe-restaurant-review": {
-      "promptHash": "8d323439acd9b38e8fdd996a5ef6faf6e651ef3207b23e814b67cd53a4f6a85a",
-      "requestHash": "710414a875c2f6c241049730707afe4cb668a9426c1aa68a1b54752b17f02f0f",
+      "promptHash": "adfbd535fb65621670a4e93dc1f46c5938116e7db48de3d3606050037aeb5f7d",
+      "requestHash": "50813b9a0d4710beee778f93d9af587e7f38085cf39b2c77d1874f4481a10cab",
       "calls": [
         {
           "caseId": "recipe/en-not-a-recipe-restaurant-review",
@@ -1113,7 +1401,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2045.1243750000012,
+          "latencyMs": 2098.5670420000024,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1121,11 +1409,11 @@
             "inputTokens": 5025,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 96,
+            "outputTokens": 153,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.01101,
+          "costUsd": 0.01158,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1133,12 +1421,22 @@
             "description": null,
             "preparationNotes": null,
             "timeMinutes": null,
-            "servings": 4,
+            "servings": 3,
             "mealTypes": [
               "dinner"
             ],
             "kidFriendly": false,
-            "ingredients": [],
+            "ingredients": [
+              {
+                "name": "none",
+                "quantity": null,
+                "unit": null,
+                "originalText": "No ingredients listed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
             "recipeConfidence": 2
           },
           "scores": {
@@ -1146,7 +1444,8 @@
             "precision": null,
             "quantityUnitMatch": null,
             "confidenceAgrees": 1,
-            "stepCountDelta": null
+            "stepCountDelta": null,
+            "servingsMatch": null
           }
         },
         {
@@ -1156,7 +1455,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2144.643167000031,
+          "latencyMs": 2052.8841660000035,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1164,24 +1463,34 @@
             "inputTokens": 5025,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 95,
+            "outputTokens": 153,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.011,
+          "costUsd": 0.01158,
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Harbour Kitchen, Old Town review",
+            "name": "Harbour Kitchen, Old Town Review",
             "description": null,
             "preparationNotes": null,
             "timeMinutes": null,
-            "servings": 4,
+            "servings": 3,
             "mealTypes": [
               "dinner"
             ],
             "kidFriendly": false,
-            "ingredients": [],
+            "ingredients": [
+              {
+                "name": "none",
+                "quantity": null,
+                "unit": null,
+                "originalText": "No ingredients listed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
             "recipeConfidence": 2
           },
           "scores": {
@@ -1189,7 +1498,8 @@
             "precision": null,
             "quantityUnitMatch": null,
             "confidenceAgrees": 1,
-            "stepCountDelta": null
+            "stepCountDelta": null,
+            "servingsMatch": null
           }
         },
         {
@@ -1199,7 +1509,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2091.3619999999646,
+          "latencyMs": 2248.040166000006,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1207,11 +1517,11 @@
             "inputTokens": 5025,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 96,
+            "outputTokens": 153,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.01101,
+          "costUsd": 0.01158,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1219,12 +1529,22 @@
             "description": null,
             "preparationNotes": null,
             "timeMinutes": null,
-            "servings": 4,
+            "servings": 3,
             "mealTypes": [
               "dinner"
             ],
             "kidFriendly": false,
-            "ingredients": [],
+            "ingredients": [
+              {
+                "name": "none",
+                "quantity": null,
+                "unit": null,
+                "originalText": "No ingredients listed",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
             "recipeConfidence": 2
           },
           "scores": {
@@ -1232,14 +1552,15 @@
             "precision": null,
             "quantityUnitMatch": null,
             "confidenceAgrees": 1,
-            "stepCountDelta": null
+            "stepCountDelta": null,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/en-vague-greek-salad": {
-      "promptHash": "84861c08966e704ef13d0840646bb73a0ab55a93fe81109ad56ea896ed38426e",
-      "requestHash": "95916ef98186d1991170d20b9e0bd12da7dee24b72ee960dada2566463c2de19",
+      "promptHash": "0a927da5de7c26d58c42cc31977454a43cf6f382558cae86c08cee86dfc7718f",
+      "requestHash": "048ea23aeabbb11a47af5fc2823afbd57930adb7f9f312a0383396828a624cc7",
       "calls": [
         {
           "caseId": "recipe/en-vague-greek-salad",
@@ -1248,259 +1569,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4923.374374999999,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5049,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 804,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.018138,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Greek salad",
-            "description": "A fresh, simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, dressed with olive oil and dried oregano.",
-            "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
-            "timeMinutes": 15,
-            "servings": 2,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "tomato",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 ripe tomatoes, cut into wedges",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "cucumber",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 cucumber, sliced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "red onion",
-                "quantity": 0.5,
-                "unit": "piece",
-                "originalText": "1/2 red onion, thinly sliced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "feta",
-                "quantity": 200,
-                "unit": "g",
-                "originalText": "200 g feta",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "kalamata olives",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a handful of kalamata olives",
-                "isVague": true,
-                "vaguePhrase": "a handful",
-                "isDried": null
-              },
-              {
-                "name": "olive oil",
-                "quantity": null,
-                "unit": null,
-                "originalText": "extra virgin olive oil, a drizzle",
-                "isVague": true,
-                "vaguePhrase": "a drizzle",
-                "isDried": null
-              },
-              {
-                "name": "oregano",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a pinch of dried oregano",
-                "isVague": true,
-                "vaguePhrase": "a pinch",
-                "isDried": true
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "black pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "black pepper to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 97
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/en-vague-greek-salad",
-          "task": "recipe",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4505.373583999986,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5049,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 804,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.018138,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Greek salad",
-            "description": "A fresh, simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, dressed with olive oil and dried oregano.",
-            "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
-            "timeMinutes": 15,
-            "servings": 2,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "tomato",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 ripe tomatoes, cut into wedges",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "cucumber",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 cucumber, sliced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "red onion",
-                "quantity": 0.5,
-                "unit": "piece",
-                "originalText": "1/2 red onion, thinly sliced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "feta",
-                "quantity": 200,
-                "unit": "g",
-                "originalText": "200 g feta",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "kalamata olives",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a handful of kalamata olives",
-                "isVague": true,
-                "vaguePhrase": "a handful",
-                "isDried": null
-              },
-              {
-                "name": "olive oil",
-                "quantity": null,
-                "unit": null,
-                "originalText": "extra virgin olive oil, a drizzle",
-                "isVague": true,
-                "vaguePhrase": "a drizzle",
-                "isDried": null
-              },
-              {
-                "name": "oregano",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a pinch of dried oregano",
-                "isVague": true,
-                "vaguePhrase": "a pinch",
-                "isDried": true
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "black pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "black pepper to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 97
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/en-vague-greek-salad",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4509.021290999954,
+          "latencyMs": 4530.1889580000025,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1517,7 +1586,7 @@
           "errorMessage": null,
           "output": {
             "name": "Greek salad",
-            "description": "A fresh, simple salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, dressed with olive oil and dried oregano.",
+            "description": "A fresh, simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, finished with olive oil and oregano.",
             "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
             "timeMinutes": 15,
             "servings": 2,
@@ -1525,7 +1594,7 @@
               "lunch",
               "dinner"
             ],
-            "kidFriendly": false,
+            "kidFriendly": true,
             "ingredients": [
               {
                 "name": "tomato",
@@ -1616,14 +1685,269 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-vague-greek-salad",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4408.710458000001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5049,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 801,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.018108,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Greek salad",
+            "description": "A fresh and simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, finished with olive oil and oregano.",
+            "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
+            "timeMinutes": 15,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "tomato",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 ripe tomatoes, cut into wedges",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "cucumber",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 cucumber, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "red onion",
+                "quantity": 0.5,
+                "unit": "piece",
+                "originalText": "1/2 red onion, thinly sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "feta",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g feta",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kalamata olives",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a handful of kalamata olives",
+                "isVague": true,
+                "vaguePhrase": "a handful",
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": null,
+                "unit": null,
+                "originalText": "extra virgin olive oil, a drizzle",
+                "isVague": true,
+                "vaguePhrase": "a drizzle",
+                "isDried": null
+              },
+              {
+                "name": "oregano",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a pinch of dried oregano",
+                "isVague": true,
+                "vaguePhrase": "a pinch",
+                "isDried": true
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "black pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "black pepper to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 97
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-vague-greek-salad",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4362.323665999997,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5049,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 801,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.018108,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Greek salad",
+            "description": "A fresh and simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, finished with olive oil and oregano.",
+            "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
+            "timeMinutes": 15,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "tomato",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 ripe tomatoes, cut into wedges",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "cucumber",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 cucumber, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "red onion",
+                "quantity": 0.5,
+                "unit": "piece",
+                "originalText": "1/2 red onion, thinly sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "feta",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g feta",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kalamata olives",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a handful of kalamata olives",
+                "isVague": true,
+                "vaguePhrase": "a handful",
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": null,
+                "unit": null,
+                "originalText": "extra virgin olive oil, a drizzle",
+                "isVague": true,
+                "vaguePhrase": "a drizzle",
+                "isDried": null
+              },
+              {
+                "name": "oregano",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a pinch of dried oregano",
+                "isVague": true,
+                "vaguePhrase": "a pinch",
+                "isDried": true
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "black pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "black pepper to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 97
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/et-canned-oahautis": {
-      "promptHash": "3aa5f92a4784d7afa90c89b7c3a429ca578a0cd11bf348004a49f0d4b16df031",
-      "requestHash": "952fa3d93f391c12654e23b551b7ddcd9fbeee51f072e5310d21472119d93211",
+      "promptHash": "f92e8390cb1070c2251e0b6b93518ca7cec60af6db5703554b275df1467fbe31",
+      "requestHash": "bee738f5752afbd4722e4272d4183cf93edf02a9da7c8fa48b436163266af9e2",
       "calls": [
         {
           "caseId": "recipe/et-canned-oahautis",
@@ -1632,7 +1956,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4815.302040999999,
+          "latencyMs": 4899.435083000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1640,17 +1964,17 @@
             "inputTokens": 5984,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 695,
+            "outputTokens": 719,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.018918,
+          "costUsd": 0.019158,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Oa-tomatihautis",
-            "description": "Lihtne hautis punastest ubadest, tomatitest ja suitsupaprikast. Valmib umbes 25 minutiga.",
-            "preparationNotes": "1. Haki sibul ja küüslauk ning prae neid pannil pehmeks.\n2. Lisa oad, tomatid ja suitsupaprika ning hauta 15 minutit.\n3. Maitsesta soolaga ja puista peale hakitud petersell.",
+            "description": "Kiire hautis punastest ubadest, hakitud tomatitest ja suitsupaprikast. Valmib umbes 25 minutiga.",
+            "preparationNotes": "1. Haki sibul ja küüslauk.\n2. Prae sibulat ja küüslauku pannil pehmeks.\n3. Lisa oad, tomatid ja suitsupaprika.\n4. Hauta 15 minutit.\n5. Maitsesta soolaga.\n6. Puista peale hakitud petersell.",
             "timeMinutes": 25,
             "servings": 2,
             "mealTypes": [
@@ -1723,14 +2047,15 @@
                 "isDried": false
               }
             ],
-            "recipeConfidence": 95
+            "recipeConfidence": 93
           },
           "scores": {
             "recall": 1,
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 3,
+            "servingsMatch": null
           }
         },
         {
@@ -1740,7 +2065,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4431.703333000012,
+          "latencyMs": 5591.080499999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1748,17 +2073,17 @@
             "inputTokens": 5984,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 705,
+            "outputTokens": 722,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.019018,
+          "costUsd": 0.019188,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Oa-tomatihautis",
-            "description": "Kiire hautis punastest ubadest ja hakitud tomatitest, maitsestatud suitsupaprikaga. Valmib umbes 25 minutiga.",
-            "preparationNotes": "1. Haki sibul ja küüslauk ning prae neid pannil pehmeks.\n2. Lisa oad, tomatid ja suitsupaprika ning hauta 15 minutit.\n3. Maitsesta soolaga ja puista peale hakitud petersell.",
+            "description": "Lihtne hautis punastest ubadest, hakitud tomatitest, sibulast ja suitsupaprikast. Valmib 25 minutiga.",
+            "preparationNotes": "1. Haki sibul ja küüslauk.\n2. Prae sibulat ja küüslauku pannil pehmeks.\n3. Lisa oad, tomatid ja suitsupaprika.\n4. Hauta 15 minutit.\n5. Maitsesta soolaga.\n6. Puista peale hakitud petersell.",
             "timeMinutes": 25,
             "servings": 2,
             "mealTypes": [
@@ -1838,7 +2163,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 3,
+            "servingsMatch": null
           }
         },
         {
@@ -1848,7 +2174,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4535.730249999906,
+          "latencyMs": 4723.122583000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1856,17 +2182,17 @@
             "inputTokens": 5984,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 695,
+            "outputTokens": 725,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.018918,
+          "costUsd": 0.019218,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Oa-tomatihautis",
-            "description": "Lihtne hautis punastest ubadest, tomatitest ja suitsupaprikast. Valmib umbes 25 minutiga.",
-            "preparationNotes": "1. Haki sibul ja küüslauk ning prae neid pannil pehmeks.\n2. Lisa oad, tomatid ja suitsupaprika ning hauta 15 minutit.\n3. Maitsesta soolaga ja puista peale hakitud petersell.",
+            "description": "Lihtne hautis punastest ubadest, hakitud tomatitest, sibulast ja suitsupaprikast. Valmib umbes 25 minutiga.",
+            "preparationNotes": "1. Haki sibul ja küüslauk.\n2. Prae sibulat ja küüslauku pannil pehmeks.\n3. Lisa oad, tomatid ja suitsupaprika.\n4. Hauta 15 minutit.\n5. Maitsesta soolaga.\n6. Puista peale hakitud petersell.",
             "timeMinutes": 25,
             "servings": 2,
             "mealTypes": [
@@ -1939,21 +2265,22 @@
                 "isDried": false
               }
             ],
-            "recipeConfidence": 95
+            "recipeConfidence": 93
           },
           "scores": {
             "recall": 1,
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 3,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/et-from-en-pancakes": {
-      "promptHash": "2431c3d06897ab9702b936a0c1d28f8b5c3d4be46d619dbef7e840dcba76b37a",
-      "requestHash": "1adbeb6d63d0293dc14ec273c09b934c91ed4626894d6dc78391c8614933341f",
+      "promptHash": "674dc7f9edb5f251274a18b7df4e7b02bb0c3aaa6f8cb929dbda51b645342112",
+      "requestHash": "daba04eb9386fba49689cced315b4bac7301981cd04432595e9d979a21ee3c39",
       "calls": [
         {
           "caseId": "recipe/et-from-en-pancakes",
@@ -1962,7 +2289,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5897.3137910000005,
+          "latencyMs": 5435.685666999998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1970,17 +2297,17 @@
             "inputTokens": 5961,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 644,
+            "outputTokens": 633,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.018362,
+          "costUsd": 0.018252,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Lihtsad pannkoogid",
-            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Retseptist saab 12 pannkooki ehk neli portsjonit.",
-            "preparationNotes": "1. Vispelda jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Vispelda sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt määritud pannil, umbes 1 minut kummaltki poolt.",
+            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Tainast saab 12 pannkooki.",
+            "preparationNotes": "1. Vispelda jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Sega sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
@@ -2051,7 +2378,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
@@ -2061,7 +2389,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5589.6726250000065,
+          "latencyMs": 5455.457540999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2069,23 +2397,22 @@
             "inputTokens": 5961,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 645,
+            "outputTokens": 657,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.018372,
+          "costUsd": 0.018492,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Lihtsad pannkoogid",
-            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Retseptist saab 12 pannkooki, mis on piisav neljale.",
-            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt määritud pannil, umbes 1 minut kummaltki poolt.",
+            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Taigen puhkab veidi ja pannkoogid küpsevad kuumal pannil kiiresti.",
+            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit puhata.\n4. Küpseta õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
               "breakfast",
-              "lunch",
-              "dinner"
+              "lunch"
             ],
             "kidFriendly": true,
             "ingredients": [
@@ -2151,7 +2478,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
@@ -2161,7 +2489,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5719.040458000032,
+          "latencyMs": 5461.8276669999905,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2177,9 +2505,9 @@
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Kiired pannkoogid",
-            "description": "Õhukesed pannkoogid piima, munade ja jahuga. Sobivad nii hommikusöögiks kui magusaks lõunaks.",
-            "preparationNotes": "1. Vispelda jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, seejärel ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
+            "name": "Lihtsad pannkoogid",
+            "description": "Õhukesed pannkoogid piimast, jahust ja munadest. Sobivad hommikusöögiks, lõunaks või magustoiduks.",
+            "preparationNotes": "1. Vispelda jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Sega sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
@@ -2250,14 +2578,15 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/et-hakklihakaste": {
-      "promptHash": "175d7552963d413e19a39036699b9be1258ead9a028948e0331a7cdd86d584c6",
-      "requestHash": "977ef164d315e83f6d657b02296cff707ca2e34c3be9ad72f4caeea78f759f1b",
+      "promptHash": "62ad8f9d04ec59e48c192abcc3f32408db872de7dfdc09e6bfae83a8507f8421",
+      "requestHash": "ea05e6c7df99a16289a28941a3cfa489cbaa374b8b1aa5b0b17e8ff5e997c802",
       "calls": [
         {
           "caseId": "recipe/et-hakklihakaste",
@@ -2266,7 +2595,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5126.849290999999,
+          "latencyMs": 4879.929124999995,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2274,133 +2603,16 @@
             "inputTokens": 6038,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 789,
+            "outputTokens": 783,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.019966,
+          "costUsd": 0.019906,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Hakklihakaste",
-            "description": "Pruunistatud hakklihast, sibulast ja porgandist valmib hapukoorega kaste. Serveeri kartulitega.",
-            "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
-            "timeMinutes": 40,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "sea-veisehakkliha",
-                "quantity": 500,
-                "unit": "g",
-                "originalText": "500 g sea-veisehakkliha",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "sibul",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 sibul",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "porgand",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 porgandit",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "nisujahu",
-                "quantity": 30,
-                "unit": "g",
-                "originalText": "30 g nisujahu",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "vesi",
-                "quantity": 300,
-                "unit": "ml",
-                "originalText": "300 ml vett",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "hapukoor",
-                "quantity": 200,
-                "unit": "ml",
-                "originalText": "200 ml hapukoort",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "sool",
-                "quantity": null,
-                "unit": null,
-                "originalText": "soola maitse järgi",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "must pipar",
-                "quantity": null,
-                "unit": null,
-                "originalText": "pipart maitse järgi",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 95
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0
-          }
-        },
-        {
-          "caseId": "recipe/et-hakklihakaste",
-          "task": "recipe",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 5114.030999999959,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6038,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 806,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.020136,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Hakklihakaste",
-            "description": "Pehme hakklihakaste sea-veisehakkliha, sibula ja porgandiga, mis saab hapukoorest kreemja maitse. Sobib hästi kartulitega.",
+            "description": "Pehme hakklihakaste sibula, porgandi ja hapukoorega. Sobib hästi kartulitega.",
             "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2490,17 +2702,18 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
           "caseId": "recipe/et-hakklihakaste",
           "task": "recipe",
-          "run": 3,
+          "run": 2,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5172.883832999971,
+          "latencyMs": 4839.99495800001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2508,16 +2721,16 @@
             "inputTokens": 6038,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 791,
+            "outputTokens": 787,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.019986,
+          "costUsd": 0.019946,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Hakklihakaste",
-            "description": "Pruunistatud hakklihast, sibulast ja porgandist valmib hapukoorega kaste. Sobib hästi kartulitega.",
+            "description": "Pehme hakklihakaste sibula, porgandi ja hapukoorega. Sobib hästi kartulite kõrvale.",
             "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2607,14 +2820,133 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/et-hakklihakaste",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4631.853541999983,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6038,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 787,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.019946,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Hakklihakaste",
+            "description": "Pehme hakklihakaste sibula, porgandi ja hapukoorega. Sobib hästi kartulite kõrvale.",
+            "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
+            "timeMinutes": 40,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "sea-veisehakkliha",
+                "quantity": 500,
+                "unit": "g",
+                "originalText": "500 g sea-veisehakkliha",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sibul",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 sibul",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "porgand",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 porgandit",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "nisujahu",
+                "quantity": 30,
+                "unit": "g",
+                "originalText": "30 g nisujahu",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "vesi",
+                "quantity": 300,
+                "unit": "ml",
+                "originalText": "300 ml vett",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "hapukoor",
+                "quantity": 200,
+                "unit": "ml",
+                "originalText": "200 ml hapukoort",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sool",
+                "quantity": null,
+                "unit": null,
+                "originalText": "soola maitse järgi",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "must pipar",
+                "quantity": null,
+                "unit": null,
+                "originalText": "pipart maitse järgi",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 95
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
     },
     "recipe/et-korvitsasupp": {
-      "promptHash": "1941cb12fc9708fb6a650e9b7118d6d85478f197f60287d8a6fd71915ae6a126",
-      "requestHash": "57e2169ec8c86a5acf1b8608ea272d740e08525c9ad47f66aa556d0fff7211ca",
+      "promptHash": "b1781220d627a5530cf7e5d003bca104b310e63af2dd3a76ca2f12495b16f9dd",
+      "requestHash": "4486e1951cf41868608896aff1ac42dbb9309eef6ed509e004cbed8ccdca9779",
       "calls": [
         {
           "caseId": "recipe/et-korvitsasupp",
@@ -2623,7 +2955,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5346.820041999999,
+          "latencyMs": 5119.420083999998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2631,16 +2963,16 @@
             "inputTokens": 6055,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 814,
+            "outputTokens": 812,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.02025,
+          "costUsd": 0.02023,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Kõrvitsasupp",
-            "description": "Kreemjas kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
+            "description": "Sametine kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
             "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde vahukoor ning maitsesta soola ja pipraga.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2730,7 +3062,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
@@ -2740,7 +3073,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4692.149166999967,
+          "latencyMs": 5191.448000000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2748,17 +3081,17 @@
             "inputTokens": 6055,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 809,
+            "outputTokens": 822,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.0202,
+          "costUsd": 0.02033,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Kõrvitsasupp",
-            "description": "Pehme kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
-            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde koor ning maitsesta soola ja pipraga.",
+            "description": "Pehme ja kreemjas kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
+            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde vahukoor ning maitsesta soola ja pipraga.",
             "timeMinutes": 40,
             "servings": 4,
             "mealTypes": [
@@ -2786,7 +3119,7 @@
                 "isDried": null
               },
               {
-                "name": "küüslauk",
+                "name": "küüslauguküüs",
                 "quantity": 2,
                 "unit": "piece",
                 "originalText": "2 küüslauguküünt",
@@ -2847,7 +3180,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         },
         {
@@ -2857,7 +3191,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4771.580167000066,
+          "latencyMs": 5112.117874999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2865,17 +3199,17 @@
             "inputTokens": 6055,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 816,
+            "outputTokens": 812,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.02027,
+          "costUsd": 0.02023,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Kõrvitsasupp",
-            "description": "Pehme ja kreemjas kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
-            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde koor ning maitsesta soola ja pipraga.",
+            "description": "Sametine kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
+            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde vahukoor ning maitsesta soola ja pipraga.",
             "timeMinutes": 40,
             "servings": 4,
             "mealTypes": [
@@ -2964,7 +3298,8 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0
+            "stepCountDelta": 0,
+            "servingsMatch": null
           }
         }
       ]
