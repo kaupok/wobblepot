@@ -29,7 +29,7 @@
 24962 scripts/orchestrator-outcome-harness.sh
 7876 scripts/orchestrator.failure.test.ts
 15957 scripts/orchestrator.loop.test.ts
-11343 scripts/orchestrator.neon.test.ts
+11319 scripts/orchestrator.neon.test.ts
 13221 scripts/orchestrator.outcomes.test.ts
 7097 scripts/orchestrator.phase.test.ts
 44905 scripts/orchestrator.sh
