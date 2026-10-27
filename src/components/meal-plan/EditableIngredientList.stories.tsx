@@ -107,6 +107,37 @@ export const Undo: Story = {
   },
 }
 
+const added: EntryChange = {
+  id: 'change-2',
+  original: null,
+  replacement: { id: 'short-grain-rice', name: 'Short-grain rice' },
+  quantityPerServing: 80,
+  stale: false,
+}
+
+/** An added row says "Added" under its name, no badge, and Undo deletes the change (HON-1370). */
+export const UndoAdded: Story = {
+  args: {
+    components: [
+      createMealComponent({ ingredientId: 'potato', quantityPerServing: 200 }),
+      createMealComponent({ ingredientId: 'short-grain-rice', quantityPerServing: 80 }),
+    ],
+    changes: [added],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const label = canvas.getByText('Added')
+    await expect(label.parentElement).toBe(canvas.getByText('Short-grain rice').parentElement)
+    await expect(label).toHaveClass('text-muted-foreground')
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
+    await userEvent.click(canvas.getByRole('button', { name: 'Undo change: Short-grain rice' }))
+    await waitFor(() => expect(args.onChanged).toHaveBeenCalledTimes(1))
+    await expect(requests.map((r) => [r.method, new URL(r.url).pathname])).toEqual([
+      ['DELETE', '/api/meal-plans/plan-1/entries/entry-1/components/change-2'],
+    ])
+  },
+}
+
 /** A refusal toasts catalog copy, and nothing else changes. */
 export const Refused: Story = {
   // The page's `<Toaster />` lives in the root layout, so this story mounts its own.

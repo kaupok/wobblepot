@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { createMealComponent } from '@/stories/fixtures'
+import { createIngredient, createMealComponent } from '@/stories/fixtures'
 import { IngredientList } from './IngredientList'
 import type { EntryChange } from './types'
 
@@ -58,7 +58,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'A planned entry’s own ingredient changes (HON-1243): a replaced row names the original under it, a left-out row stays, struck through, an added row carries “Added”, and a change the recipe no longer fits says so. Each has Undo while the entry is planned; a cooked or skipped entry shows them read-only.',
+          'A planned entry’s own ingredient changes (HON-1243): a replaced row names the original under it, a left-out row stays, struck through, an added row names “Added” under it, and a change the recipe no longer fits says so. Each has Undo while the entry is planned; a cooked or skipped entry shows them read-only.',
       },
     },
   },
@@ -98,20 +98,85 @@ export const LeftOut: Story = {
   },
 }
 
+/**
+ * "Added" is a muted line under the name, as "Instead of …" is on a replaced
+ * row, not a badge beside it (HON-1370). Undo alone ends the row.
+ */
 export const Added: Story = {
   args: {
     components: [salmon, potato, lemon, rice],
-    changes: [added],
+    changes: [added, replaced],
     changeControls: controls(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     // 4 servings × 80 g.
     await expect(canvas.getByText('320g')).toBeVisible()
-    await expect(canvas.getByText('Added')).toBeVisible()
-    await expect(
-      canvas.getByRole('button', { name: 'Undo change: Short-grain rice' }),
-    ).toBeVisible()
+    const label = canvas.getByText('Added')
+    await expect(label).toBeVisible()
+    await expect(label.parentElement).toBe(canvas.getByText('Short-grain rice').parentElement)
+    await expect(label.className).toBe(canvas.getByText('Instead of Chicken thigh').className)
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
+    const undo = canvas.getByRole('button', { name: 'Undo change: Short-grain rice' })
+    await expect(undo).toBeVisible()
+    await expect(undo.closest('li')!.lastElementChild).toBe(undo)
+  },
+}
+
+const longAdded = createMealComponent({
+  ingredientId: 'long-added',
+  quantityPerServing: 50,
+  ingredient: createIngredient({
+    id: 'long-added',
+    name: 'Täisrasvakreekajogurtikaste',
+  }),
+})
+const longChanges: EntryChange[] = [
+  {
+    id: 'change-long-add',
+    original: null,
+    replacement: { id: 'long-added', name: 'Täisrasvakreekajogurtikaste' },
+    quantityPerServing: 50,
+    stale: false,
+  },
+  {
+    id: 'change-long-replace',
+    original: { id: 'chicken-thigh', name: 'Kanakintsufileetükikesed' },
+    replacement: { id: 'salmon-fillet', name: 'Salmon fillet' },
+    quantityPerServing: 140,
+    stale: false,
+  },
+  {
+    id: 'change-long-leave-out',
+    original: { id: 'garlic', name: 'Suitsuküüslauguküüntekarp' },
+    replacement: null,
+    quantityPerServing: null,
+    stale: false,
+  },
+]
+
+/**
+ * Names with no break point, as an Estonian compound word has, at the 390px
+ * default viewport: each wraps inside its own column, so no text runs under
+ * Undo in an added, replaced or left-out row (HON-1370).
+ */
+export const LongNamesWrap: Story = {
+  args: {
+    components: [salmon, potato, lemon, longAdded],
+    changes: longChanges,
+    changeControls: controls(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const undo of canvas.getAllByRole('button', { name: /^Undo change/ })) {
+      const row = undo.closest('li')!
+      // A range covers the text itself, so text that overflows its box counts.
+      const text = document.createRange()
+      text.selectNodeContents(row.firstElementChild!)
+      const u = undo.getBoundingClientRect()
+      await expect(text.getBoundingClientRect().right).toBeLessThanOrEqual(u.left)
+      await expect(u.right).toBeLessThanOrEqual(row.getBoundingClientRect().right + 0.5)
+    }
   },
 }
 

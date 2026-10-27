@@ -2,7 +2,6 @@
 
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -49,8 +48,9 @@ function UndoButton({
 
 /**
  * The control at the end of an ingredient row: the menu with Replace and Leave
- * out for an unchanged row, or the change's label and Undo for a changed one.
- * Without `controls` (a cooked or skipped entry) only the label shows.
+ * out for an unchanged row, or Undo for a changed one. The change itself reads
+ * as a muted line under the name, in `IngredientList` (HON-1370). Without
+ * `controls` (a cooked or skipped entry) the row has no control.
  */
 export function EntryChangeRowActions({
   component,
@@ -64,20 +64,9 @@ export function EntryChangeRowActions({
   const t = useTranslations('meal-plan.changes')
   const name = component.ingredient.name
 
-  if (change) {
-    return (
-      <div className="flex shrink-0 items-center gap-1">
-        {!change.original && (
-          <Badge variant="info" size="lg">
-            {t('added')}
-          </Badge>
-        )}
-        {controls && <UndoButton change={change} name={name} controls={controls} />}
-      </div>
-    )
-  }
-
   if (!controls) return null
+
+  if (change) return <UndoButton change={change} name={name} controls={controls} />
 
   return (
     <DropdownMenu modal={false}>
@@ -136,7 +125,7 @@ export function LeftOutRow({
       <div className="min-h-touch flex min-w-0 flex-1 items-center gap-3 py-1 text-base">
         <CheckboxColumn show={checkboxColumn} />
         <span className="text-muted-foreground w-24 shrink-0">{t('leftOut')}</span>
-        <span className="text-muted-foreground line-through">{name}</span>
+        <span className="text-muted-foreground min-w-0 wrap-break-word line-through">{name}</span>
       </div>
       {controls && <UndoButton change={change} name={name} controls={controls} />}
     </Li>
@@ -164,7 +153,7 @@ export function StaleChangeRow({
       <div className="min-h-touch flex min-w-0 flex-1 items-center gap-3 py-1 text-base">
         <CheckboxColumn show={checkboxColumn} />
         <span className="w-24 shrink-0" aria-hidden="true" />
-        <span className="text-muted-foreground flex flex-col">
+        <span className="text-muted-foreground flex min-w-0 flex-col wrap-break-word">
           <span>{name}</span>
           <span>{t('stale')}</span>
         </span>

@@ -257,11 +257,16 @@ export function IngredientList({
 
           const change = changeByIngredient.get(comp.ingredientId)
           const name = (
-            <span className="flex min-w-0 flex-col">
+            // A change reads as a muted line under the name, never a badge
+            // beside it, so the name keeps its column and wraps inside it
+            // (HON-1370).
+            <span className="flex min-w-0 flex-col wrap-break-word">
               <span>{comp.ingredient.name}</span>
-              {change?.original && (
+              {change && (
                 <span className="text-muted-foreground text-base">
-                  {tChanges('insteadOf', { name: change.original.name })}
+                  {change.original
+                    ? tChanges('insteadOf', { name: change.original.name })
+                    : tChanges('added')}
                 </span>
               )}
             </span>
