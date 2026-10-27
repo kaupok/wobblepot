@@ -781,7 +781,7 @@ describe('SignInForm', () => {
 
       await user.click(screen.getByRole('button', { name: /continue with google/i }))
 
-      expect(screen.getByRole('alert')).toHaveTextContent('Too many requests')
+      expect(await screen.findByRole('alert')).toHaveTextContent('Too many requests')
       await vi.waitFor(() => {
         expect(screen.getByRole('button', { name: /continue with google/i })).toHaveFocus()
       })
