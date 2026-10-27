@@ -44,7 +44,7 @@ CLAUDE.md says _how_ to code. The project spec says _what_ to build and _why_. T
 - `docs/AGENT_HISTORY.md`: the incident behind each rule. Read before changing or disputing one
 - `docs/SECURITY.md`, `compliance/`: CSP, MCP OAuth, Better Auth schema; DPAs, DPIA
 - `docs/AI_MODELS.md`, `docs/FEATURE_FLAGS.md`, `docs/RUNBOOKS/`, and setup guides for environment, email, MCP and browser review
-- `.claude/rules/`: rules that load only when you Read, Write, Edit or `cat` a matching file. `code.md` covers `src/**`
+- `.claude/rules/`: rules that load only when you Read, Write, Edit or `cat` a matching file. `code.md` (`src/**`); `ui.md` (styling, `@shadcn/lint`, typography, Storybook) and `client-data.md` (TanStack Query, forms) for `.tsx`; `auth.md` (protected routes) for `src/app`; `prisma.md` (adding models) for `prisma/` and `src/lib`
 
 ## Agent memory
 
@@ -59,18 +59,6 @@ Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is m
 ## Authentication Patterns
 
 **Better Auth**, email/password and Google sign-in (off without its env vars; sign-up passes the same invite and consent gates). It is also the OAuth 2.1 server for MCP clients (`mcp()` plugin, `/consent`, root `.well-known` routes; see docs/SECURITY.md). Server: `@/lib/auth`. Client: `@/lib/auth-client`. API: `/api/auth/[...all]`.
-
-**Protected routes:** check the session with `getSession()` from `@/lib/session` and redirect if null (`requireAccountMember` in `src/app/account/account-member.ts`). `src/proxy.ts` also redirects anonymous requests for `PROTECTED_PREFIXES` to `/sign-in?returnUrl=…`, so they never stream a 200 + skeleton first. It checks the cookie only, so the page owns the real check. `src/proxy.test.ts` fails on a top-level route in neither `PROTECTED_PREFIXES` nor `PUBLIC_ROUTES`.
-
-**Client:** `authClient.signIn.email()` with callbacks (`src/app/sign-in/SignInForm.tsx`). Sign out: `authClient.signOut()` + `router.push()` + `router.refresh()`. Templates are in `.claude/templates/`.
-
-## Data Fetching Patterns
-
-**Server Components (preferred):** fetch directly in async Server Components (`src/app/page.tsx`).
-
-**Client Components:** TanStack Query for all client-side data: `useQuery`, not `useEffect` + `fetch` + `useState`; `useMutation`, not manual `try/catch/finally`; loading and error state from the result. Invalidate with `invalidateQueries`, not `router.refresh()`. Optimistic updates use `onMutate`/`onError`/`onSettled`. Fetch with `apiFetch` (`src/lib/api.ts`).
-
-**Query keys:** `['meals']`, `['shopping-list', planId]`, `['meal', mealId]`, `['meal-plan', planId, 'entries']`, `['meals', { search: query }]`.
 
 ## Localization
 
@@ -88,31 +76,11 @@ The app ships in English and Estonian, and the locale is the household's. Model:
 
 Route-level `error.tsx` boundaries with Typography components; detailed errors in dev only (`src/app/error.tsx`). Map technical errors to translated messages that say what to do next (`getAuthErrorKey` in `src/lib/auth-errors.ts`, `useAuthErrorMessage` in `src/lib/auth-errors-client.tsx`).
 
-## Form Handling Patterns
-
-Native HTML forms with controlled inputs and `useState`, no form library. `onSubmit` with `e.preventDefault()`, inputs disabled during submission (`SignInForm`). Validation: HTML5 attributes, the submit handler, then the server.
-
-**Focus that falls to `<body>` sends the user to the top of the page**, and axe cannot see it. Two causes recur: a control `disabled` during a request loses focus, and a Radix `Dialog` opened from controlled state has no trigger to return focus to. The fixes and the test helper are in docs/DESIGN.md → Focus management.
-
 ## Code Standards
 
 - Exact dependency versions, no `^` or `~`. When `pnpm lockfile:check` fails, see docs/DEPLOYMENT.md → Lockfile gates; never add `pnpm.overrides`
 - Code files stay under 5,000 tokens (bytes / 4); a file in `scripts/file-size-allowlist.txt` may grow 5% past its cap. When one gets too big, split it by responsibility, never by deleting comments (`pnpm file-size:check`)
-- Tailwind with shadcn/ui; `tailwind-merge` for dynamic classes; no inline styles
-- A new `--spacing-*` token in `globals.css` also goes into `CUSTOM_SPACING_VALUES` in `src/lib/utils.ts` (docs/DESIGN.md → Spacing)
 - **Sentence case** for all UI text: "Sign in", not "Sign In". Single words ("Profile") are the exception
-
-`pnpm lint` enforces six `@shadcn/lint` rules on `src/**` (not tests or stories). Each message names the token or variant to use.
-
-- **`no-restyle`:** a page may _place_ a component (width, margin, flex/grid). What the component owns (padding, radius, colour, type, height) comes from a variant or size prop, so add one rather than a `className` override. Exceptions: the `contracts` in `eslint.config.mjs`, and `src/components/ui/**`.
-- **`no-arbitrary-values`** is off only for primitives `shadcn add` installed, listed in `eslint.config.mjs`.
-- **Every escape hatch carries a one-line reason** (`allow` entries, `eslint-disable` for `shadcn/*`). A tokenless value that several callsites need becomes an `@utility` in `globals.css`.
-
-## Typography Components
-
-`Heading` (levels plus an `as` prop for the tag), `Body` (variants plus `tone`), `Blockquote`, `Ul`/`Ol`/`Li`, `Code`, `Pre`; form errors use `FieldError`.
-
-**Core rule:** size and weight come from `variant`, colour from `tone`. Apply layout on a wrapper: `<div className="mt-4"><Heading>Title</Heading></div>`, never `<Heading className="mt-4">`. `shadcn/no-restyle` fails `pnpm lint` on a `text-*`, `font-*` or `m*-*` class on a type primitive. A list that sheds its prose margins takes `variant="plain"`. Guide: docs/TYPOGRAPHY.md.
 
 ## Environment Variables
 
@@ -120,11 +88,9 @@ Validated with Zod in `src/lib/env.ts`. Client: `clientEnv` (`NEXT_PUBLIC_*` onl
 
 ## Database Patterns
 
-**Prisma** on Neon Postgres. `import { prisma } from '@/lib/prisma'`, server-only.
+**Prisma** on Neon Postgres.
 
 **Persistence lives in `src/lib`.** Routes, pages and components call a `src/lib` function, not `@/lib/prisma`, so their tests mock that function and not Prisma. `pnpm prisma-boundary:check` names the file that breaks this; `scripts/prisma-import-allowlist.txt` only shrinks.
-
-**Adding models:** edit `prisma/schema.prisma` → `pnpm db:migrate` → commit schema and migration. Migration SQL uses the `@@map` table names (`"household_preferences"`, not `"HouseholdPreferences"`).
 
 **Migration immutability:** a migration on `main` is frozen, because staging and production stored its checksum. Fix forward with a new migration. CI enforces it; run it locally with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. The revert procedure and the allowlist are in docs/GIT_WORKFLOW.md → Migration Immutability.
 
@@ -139,10 +105,6 @@ Vitest with Testing Library, colocated, through accessibility queries. Detail: d
 - A test of a query is a `*.db.test.ts` with no `vi.mock`, run by `pnpm test:db` on PGlite. A route test mocks only its `src/lib` module.
 - **Definition of done:** update the E2E specs your change makes stale, and drive each changed screen on `pnpm review:local` with a `Driven:` line in the PR (docs/TESTING.md → E2E drift, Driven screens).
 - **Shared-primitive geometry:** before changing a size, padding or radius default on a `src/components/ui` primitive, a `@theme` token or a shared layout wrapper, run `/plan-issue` step 7b's greps against the old value; skeletons keep their own copy.
-
-## Storybook
-
-A component under `src/components` gets a colocated `.stories.tsx`, created or updated in the same change, covering its variants and key states. `pnpm stories:check` fails on a missing file; exceptions are in `scripts/check-colocated-stories.ts`. Every story passes the axe a11y gate (`pnpm test-storybook:ci`). Coverage, conventions, play functions and waivers: `.storybook/README.md`.
 
 ## Commit Message Conventions
 

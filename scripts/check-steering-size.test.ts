@@ -24,6 +24,8 @@ import { afterAll, describe, expect, it } from 'vitest'
  * workers that read no doc, and it is where per-area rules go now that
  * CLAUDE.md is at its cap (3,185 words and 235 lines against Claude Code's
  * 200-line target on 2026-10-23). It loads often, so its cap is lower.
+ * HON-1304 moved the per-area sections there, and a rule file without `paths`
+ * frontmatter loads in every session, which undoes the move.
  *
  * Raise a limit only on purpose, in a PR that says why.
  */
@@ -102,6 +104,12 @@ const STEERING_FILES: SteeringFile[] = [
   ...projectSkills().map(skillSteeringFile),
   ...ruleFiles(rulesDir).map(ruleSteeringFile),
 ]
+
+/** True when the text opens with YAML frontmatter that sets `paths`. */
+function hasPathsFrontmatter(text: string): boolean {
+  const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
+  return /^paths:/m.test(match?.[1] ?? '')
+}
 
 /** Words as `wc -w` counts them: runs of non-whitespace. */
 function countWords(text: string): number {
@@ -198,6 +206,24 @@ describe('sizeViolation', () => {
     expect(
       sizeViolation('word '.repeat(1000), ruleSteeringFile(path.join(rulesDir, 'code.md'))),
     ).toBeNull()
+  })
+})
+
+describe('hasPathsFrontmatter', () => {
+  it('accepts frontmatter with a paths list', () => {
+    expect(hasPathsFrontmatter('---\npaths:\n  - "src/**"\n---\n\n# Rules\n')).toBe(true)
+  })
+
+  it('rejects a rule with no frontmatter or frontmatter without paths', () => {
+    expect(hasPathsFrontmatter('# Rules\n\n- paths: not frontmatter\n')).toBe(false)
+    expect(hasPathsFrontmatter('---\ndescription: x\n---\n# Rules\n')).toBe(false)
+  })
+})
+
+describe.each(ruleFiles(rulesDir).map((file) => path.relative(repoRoot, file)))('%s', (file) => {
+  it('is path-scoped, so it loads only for a matching file', () => {
+    const text = fs.readFileSync(path.join(repoRoot, file), 'utf8')
+    expect(hasPathsFrontmatter(text), `${file} needs \`paths\` frontmatter`).toBe(true)
   })
 })
 

@@ -431,7 +431,7 @@ function CookQuestionPanel({
           {isPending && <span className="sr-only">{t('thinking')}</span>}
         </div>
         <div className="flex flex-col gap-3">
-          {/* A form, so Enter in the field sends (CLAUDE.md → Form Handling). */}
+          {/* A form, so Enter in the field sends (.claude/rules/client-data.md → Form Handling). */}
           <form
             className="flex items-center gap-2"
             onSubmit={(e) => {

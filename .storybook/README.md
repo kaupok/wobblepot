@@ -1,6 +1,6 @@
 # Storybook — conventions
 
-CLAUDE.md → Storybook holds the rule: a component under `src/components` gets a colocated `.stories.tsx`, kept current, and every story passes the a11y gate. This file is how.
+`.claude/rules/ui.md` → Storybook holds the rule: a component under `src/components` gets a colocated `.stories.tsx`, kept current, and every story passes the a11y gate. This file is how.
 
 ## What a story covers
 

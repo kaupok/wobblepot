@@ -90,7 +90,7 @@ Take a screenshot of the default story and the worst case at each width and comp
 
 ### 4. Name each break
 
-Each break below shows in a screenshot. The cause is almost always the one in the middle column. Fixes use Tailwind v4 utilities and the house rules: layout classes go on a wrapper, never on a type primitive (CLAUDE.md → Typography Components), and a component's own padding, height or radius changes through a variant, not a `className`.
+Each break below shows in a screenshot. The cause is almost always the one in the middle column. Fixes use Tailwind v4 utilities and the house rules: layout classes go on a wrapper, never on a type primitive (.claude/rules/ui.md → Typography Components), and a component's own padding, height or radius changes through a variant, not a `className`.
 
 | What you see                                                  | Cause                                                    | Fix                                                                                  |
 | ------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
