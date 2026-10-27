@@ -401,7 +401,7 @@
     "cookQuestion": {
       "askAboutStep": "Küsi sammu {n} kohta",
       "askAboutItem": "Küsi vahendi kohta: {item}",
-      "ask": "Küsi",
+      "askOwn": "Küsi oma küsimus",
       "chips": {
         "done": "Kuidas ma tean, et see on valmis?",
         "substitute": "Millega saan siin asendada?",

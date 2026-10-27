@@ -147,20 +147,29 @@ export const ServingChange: Story = {
   },
 }
 
+/** Choose an item in a row's ⋯ menu, portalled to the body (HON-1350). */
+async function pickAsk(button: HTMLElement, item: string): Promise<void> {
+  await userEvent.click(button)
+  await userEvent.click(await body().findByRole('menuitem', { name: item }))
+}
+
 /**
- * Ask about a step (HON-1339): the chip sends at once with the steps and the
- * servings on screen, and the answer shows under the step. A second question
- * on the same step carries the first and its answer (HON-980).
+ * Ask about a step (HON-1339): a ready-made question from the ⋯ menu sends at
+ * once with the steps and the servings on screen (HON-1350), and the answer
+ * shows under the step. A second question on the same step carries the first
+ * and its answer (HON-980).
  */
 export const AskAboutStep: Story = {
   play: async () => {
     const dialog = await findDialog()
     await within(dialog).findByText(steps.steps![0]!)
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about step 2' }))
-    const panel = within(dialog).getByRole('group', { name: 'Ask about step 2' })
-    await userEvent.click(
-      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
+    await pickAsk(
+      within(dialog).getByRole('button', { name: 'Ask about step 2' }),
+      'What can I substitute here?',
     )
+    const panel = within(dialog).getByRole('group', { name: 'Ask about step 2' })
+    // The menu hands focus to Close once its exit animation ends.
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus())
     await waitFor(() => expect(within(panel).getByText(ANSWER)).toBeVisible())
     await expect(asked[0]).toMatchObject({
       subject: { kind: 'step', index: 1 },
@@ -185,9 +194,13 @@ export const AskAboutEquipment: Story = {
   play: async () => {
     const dialog = await findDialog()
     await within(dialog).findByText(steps.steps![0]!)
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about Sheet pan' }))
+    await pickAsk(
+      within(dialog).getByRole('button', { name: 'Ask about Sheet pan' }),
+      'Ask your own question',
+    )
     const panel = within(dialog).getByRole('group', { name: 'Ask about Sheet pan' })
     await expect(panel).toBeVisible()
+    await waitFor(() => expect(within(panel).getByRole('textbox')).toHaveFocus())
   },
 }
 
@@ -210,11 +223,11 @@ export const AskRecipeGone: Story = {
   play: async () => {
     const dialog = await findDialog()
     await within(dialog).findByText(steps.steps![0]!)
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask about step 1' }))
-    const panel = within(dialog).getByRole('group', { name: 'Ask about step 1' })
-    await userEvent.click(
-      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
+    await pickAsk(
+      within(dialog).getByRole('button', { name: 'Ask about step 1' }),
+      'What can I substitute here?',
     )
+    const panel = within(dialog).getByRole('group', { name: 'Ask about step 1' })
     await waitFor(() => expect(within(panel).getByText(/no longer in My recipes/)).toBeVisible())
     await expect(within(panel).queryByText('Meal not found')).toBeNull()
     await expect(within(panel).queryByRole('button', { name: 'Retry' })).toBeNull()

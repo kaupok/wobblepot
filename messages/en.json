@@ -401,7 +401,7 @@
     "cookQuestion": {
       "askAboutStep": "Ask about step {n}",
       "askAboutItem": "Ask about {item}",
-      "ask": "Ask",
+      "askOwn": "Ask your own question",
       "chips": {
         "done": "How do I know it's done?",
         "substitute": "What can I substitute here?",

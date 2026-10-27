@@ -202,8 +202,13 @@ describe('MealDetailModal step progress (HON-933)', () => {
 })
 
 describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
-  // Ask renders only beside "Done cooking", on an entry somebody is cooking.
+  // The ⋯ menu renders only beside "Done cooking", on an entry somebody is cooking.
   const askPanel = (n: number) => screen.queryByRole('group', { name: `Ask about step ${n}` })
+  // Open step `n`'s panel through its ⋯ menu (HON-1350).
+  const openPanel = async (n: number) => {
+    await userEvent.click(screen.getByRole('button', { name: `Ask about step ${n}` }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Ask your own question' }))
+  }
 
   // jsdom has no scrollIntoView; the panel scrolls into view as it opens (HON-977).
   beforeEach(() => {
@@ -215,7 +220,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
 
   it('closes the panel when its step is ticked, and keeps focus on the toggle', async () => {
     renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
-    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    await openPanel(2)
     expect(askPanel(2)).toBeInTheDocument()
 
     await userEvent.click(step('Simmer for 25 minutes'))
@@ -234,7 +239,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
 
   it('leaves the panel open when another step is ticked', async () => {
     renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
-    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    await openPanel(2)
 
     await userEvent.click(step('Rinse the lentils'))
     expect(step('Rinse the lentils')).toHaveAttribute('aria-pressed', 'true')
@@ -244,7 +249,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
   it('keeps the panel when its step is un-ticked', async () => {
     renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
     await userEvent.click(step('Simmer for 25 minutes'))
-    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    await openPanel(2)
     await userEvent.click(step('Simmer for 25 minutes'))
     expect(step('Simmer for 25 minutes')).toHaveAttribute('aria-pressed', 'false')
     expect(askPanel(2)).toBeInTheDocument()

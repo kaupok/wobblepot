@@ -81,8 +81,8 @@ interface MealDetailProps {
   /** Makes each generated step a done / not-done toggle (HON-933) */
   onToggleStep?: (index: number) => void
   /**
-   * An Ask button beside each step toggle (HON-969) and each item in "You'll
-   * need" (HON-983); see `PreparationSteps` and `PreparationEquipment`
+   * A ⋯ menu to ask about each step (HON-969) and each item in "You'll need"
+   * (HON-983, HON-1350); see `PreparationSteps` and `PreparationEquipment`
    */
   cookQuestion?: CookQuestionControls
   /**
