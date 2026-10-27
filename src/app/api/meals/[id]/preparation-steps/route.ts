@@ -54,11 +54,13 @@ const bodySchema = z.object({
 })
 
 /**
- * A household recipe's steps for the My recipes cook view (HON-1338), at the
- * servings the view shows. Stored per meal and locale in
+ * The steps for the recipe cook view (HON-1338), at the servings the view
+ * shows: for one of the household's own recipes, or a library meal the meal
+ * picker shows (HON-1351). Stored per meal and locale in
  * `MealPreparationSteps`, so a second open at the same servings makes no AI
- * call. The same prompts as a planned entry's, without what only an entry
- * has: its ingredient changes, its "Adjust recipe" note, its serving override.
+ * call; a library meal's row is shared by every household. The same prompts
+ * as a planned entry's, without what only an entry has: its ingredient
+ * changes, its "Adjust recipe" note, its serving override.
  */
 async function handlePOST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
@@ -144,10 +146,11 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
     const timeout = AbortSignal.timeout(STEPS_AI_BUDGET_MS)
 
     // A household's own recipe lists what the household wrote, so its list is
-    // always the whole meal (HON-1245). With notes, the steps follow the
+    // always the whole meal (HON-1245). A library meal is the library's
+    // recipe, unchanged, with no notes. With notes, the steps follow the
     // method in them, and the ingredient list wins where the two differ
     // (HON-1259).
-    const base = { ...input, hasChanges: true }
+    const base = { ...input, hasChanges: !!meal.householdId }
     const stepsRequest = notes
       ? buildStepsFromNotesRequest({ ...base, preparationNotes: notes })
       : buildFullStepsRequest(base)

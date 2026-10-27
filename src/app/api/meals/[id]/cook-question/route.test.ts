@@ -14,7 +14,7 @@ vi.mock('@/lib/household', () => ({
 }))
 
 // The lib seam, with the real error class, request builder and freshness
-// check. Which meals the loader refuses (another household's, a library meal)
+// check. Which meals the loader refuses (another household's, a deleted one)
 // is tested against a database in `recipe-steps.db.test.ts`. The write is
 // mocked so the tests can assert the route never makes it.
 vi.mock('@/lib/meals/recipe-steps', async (importOriginal) => ({
@@ -141,6 +141,7 @@ type Recipe = Awaited<ReturnType<typeof loadRecipeForSteps>>
 function recipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     id: 'meal-1',
+    householdId: 'household-1',
     name: 'Pasta',
     timeMinutes: 20,
     preparationNotes: null,
@@ -226,8 +227,8 @@ describe('POST /api/meals/[id]/cook-question', () => {
     expect((await response.json()).code).toBe('no_household')
   })
 
-  // The loader is scoped to the household, so another household's recipe and
-  // a library meal (no household) both come back as `not_found`.
+  // The loader is scoped to what the household can see, so another
+  // household's recipe comes back as `not_found`.
   it('returns 404 meal_not_found when the household has no such recipe', async () => {
     mockLoadRecipe.mockRejectedValue(new RecipeStepsError('not_found'))
 
@@ -309,6 +310,26 @@ describe('POST /api/meals/[id]/cook-question', () => {
     expect(prompt).toContain('Spaghetti')
     expect(prompt).toContain('1. Boil the water.\n2. Cook the spaghetti.\n3. Drain it.')
     expect(prompt).toContain('The cook is on step 2: Cook the spaghetti.')
+    // The household's own list is the whole meal (HON-1245).
+    expect(prompt).toContain("The household changed this meal's ingredients")
+  })
+
+  it('answers about a step of a library meal, unchanged and without notes (HON-1351)', async () => {
+    mockLoadRecipe.mockResolvedValue(
+      recipe({ id: 'meal-porridge', householdId: null, preparationNotes: 'Stir often.' }),
+    )
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('About 10 minutes.')
+    const prompt = promptSent()
+    expect(prompt).toContain('The cook is on step 2: Cook the spaghetti.')
+    expect(prompt).not.toContain("The household changed this meal's ingredients")
+    expect(prompt).not.toContain('Stir often.')
+    expect(recordAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ householdId: 'household-1', feature: 'cook_question' }),
+    )
   })
 
   it('adds the stored Watch out and Tip at these servings, but not the stored steps', async () => {

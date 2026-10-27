@@ -61,7 +61,7 @@ import {
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
-import { assertUnderCap } from '@/lib/ai/usage'
+import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { fullStepsSchema, notesStepsSchema } from '@/lib/ai/preparation-steps'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -96,6 +96,7 @@ type Recipe = Awaited<ReturnType<typeof loadRecipeForSteps>>
 function recipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     id: 'meal-1',
+    householdId: 'household-1',
     name: 'Pasta',
     timeMinutes: 20,
     preparationNotes: null,
@@ -162,14 +163,14 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
     expect((await response.json()).code).toBe('no_household')
   })
 
-  it("returns 404 for a meal the loader refuses: another household's, or a library meal", async () => {
+  it("returns 404 for a meal the loader refuses, as another household's recipe", async () => {
     mockLoadRecipe.mockRejectedValue(new RecipeStepsError('not_found'))
 
-    const response = await callPost({ servings: 2 }, 'meal-library')
+    const response = await callPost({ servings: 2 }, 'meal-other')
 
     expect(response.status).toBe(404)
     expect((await response.json()).code).toBe('meal_not_found')
-    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-library', 'en')
+    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-other', 'en')
     expect(mockGenerateObject).not.toHaveBeenCalled()
   })
 
@@ -226,6 +227,8 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
     expect(request.prompt).toContain('Meal: Pasta')
     expect(request.prompt).toContain('Servings: 6')
     expect(request.prompt).toContain('- Pasta: 600g')
+    // The household's own list is the whole meal (HON-1245).
+    expect(request.prompt).toContain("The household changed this meal's ingredients")
     expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
       expect.objectContaining({ servings: 6 }),
       FRESH,
@@ -275,6 +278,50 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
     expect(request.schema).toBe(notesStepsSchema)
     expect(request.prompt).toContain('Bake for 20 minutes.')
     expect(request.prompt).toContain('- Pasta: 200g')
+  })
+
+  describe('a library meal (HON-1351)', () => {
+    const library = (overrides: Partial<Recipe> = {}) =>
+      recipe({ id: 'meal-porridge', householdId: null, name: 'Porridge', ...overrides })
+
+    it('writes its steps from the full prompt, unchanged and without notes, and stores them', async () => {
+      mockLoadRecipe.mockResolvedValue(library({ preparationNotes: 'Stir often.' }))
+
+      const response = await callPost({ servings: 2 }, 'meal-porridge')
+
+      expect(response.status).toBe(200)
+      expect((await response.json()).tips).toEqual(FRESH)
+      expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-porridge', 'en')
+      const request = mockGenerateObject.mock.calls[0]![0] as { prompt: string; schema: unknown }
+      expect(request.schema).toBe(fullStepsSchema)
+      expect(request.prompt).toContain('Meal: Porridge')
+      expect(request.prompt).not.toContain("The household changed this meal's ingredients")
+      expect(request.prompt).not.toContain('Stir often.')
+      expect(vi.mocked(recordAiUsage)).toHaveBeenCalledWith(
+        expect.objectContaining({ householdId: 'household-1' }),
+      )
+      expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
+        expect.objectContaining({ mealId: 'meal-porridge', locale: 'en', servings: 2 }),
+        FRESH,
+      )
+    })
+
+    it('serves a second call at the same locale and servings from the stored row', async () => {
+      mockLoadRecipe.mockResolvedValue(library())
+      await callPost({ servings: 2 }, 'meal-porridge')
+      const [row, steps] = mockSaveRecipeSteps.mock.calls[0]!
+      mockLoadRecipe.mockResolvedValue(
+        library({ preparationSteps: [{ inputHash: row.inputHash, steps: JSON.stringify(steps) }] }),
+      )
+      vi.clearAllMocks()
+
+      const response = await callPost({ servings: 2 }, 'meal-porridge')
+
+      expect((await response.json()).tips).toEqual(FRESH)
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+      expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
+    })
   })
 
   it('serves but does not store steps when the stored locale fell back to English', async () => {

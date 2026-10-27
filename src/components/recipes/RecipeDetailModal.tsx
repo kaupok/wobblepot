@@ -30,13 +30,14 @@ interface RecipeDetailModalProps {
 function noop() {}
 
 /**
- * The cook view for one of the household's own recipes, opened from My
- * recipes (HON-1338). The planned view's shell and body, without what belongs
- * to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict
- * badges and no ingredient changes. The serving count can change, but only on
- * screen: closing the view drops it, and nothing is saved. The steps are
- * written for the count on screen, and Ask asks about them at that count
- * (HON-1339).
+ * The cook view for a recipe outside the plan, opened from My recipes
+ * (HON-1338): one of the household's own recipes or a library meal, which the
+ * steps and Ask routes both accept (HON-1351). The planned view's shell and
+ * body, without what belongs to a plan entry: no note, no "Done cooking", no
+ * pantry ticks, no conflict badges and no ingredient changes. The serving
+ * count can change, but only on screen: closing the view drops it, and nothing
+ * is saved. The steps are written for the count on screen, and Ask asks about
+ * them at that count (HON-1339).
  */
 export function RecipeDetailModal({
   meal,

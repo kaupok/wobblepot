@@ -34,9 +34,10 @@ const bodySchema = z
   .refine(subjectInRange)
 
 /**
- * Ask in the My recipes cook view (HON-1339): a question about a step or a
- * "You'll need" item of one of the household's own recipes, with no plan
- * entry. The same prompt, guards and streamed answer as a planned entry's
+ * Ask in the recipe cook view (HON-1339): a question about a step or a
+ * "You'll need" item of one of the household's own recipes or a library meal
+ * the meal picker shows (HON-1351), with no plan entry. The same prompt,
+ * guards and streamed answer as a planned entry's
  * (`@/lib/ai/cook-question-route`), with the recipe as it is stored: no
  * ingredient changes, no "Adjust recipe" note, no serving override.
  */
@@ -80,7 +81,8 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
   }
 
   try {
-    // Another household's recipe, a library meal and a deleted one all throw.
+    // The household's own recipe or a library meal. Another household's
+    // recipe and a deleted meal throw.
     const meal = await loadRecipeForSteps(household.id, mealId, locale)
 
     const refused = await guardCookQuestion(household.id, session.user.id)
@@ -108,9 +110,11 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
         defaultUnit: comp.ingredient.defaultUnit,
         measuredByVolume: comp.ingredient.measuredByVolume,
       })),
-      // A household's own recipe lists the whole meal (HON-1245).
-      hasChanges: true,
-      preparationNotes: shownMeal.preparationNotes ?? null,
+      // A household's own recipe lists the whole meal (HON-1245). A library
+      // meal is the library's recipe, unchanged, with no household notes, as
+      // its steps were written (`recipeStepsRequest`).
+      hasChanges: !!meal.householdId,
+      preparationNotes: meal.householdId ? (shownMeal.preparationNotes ?? null) : null,
       steps,
       equipment,
       subject,
