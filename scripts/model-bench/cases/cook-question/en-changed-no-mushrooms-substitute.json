@@ -74,7 +74,8 @@
   "locale": "en",
   "expected": {
     "mentionsAny": ["yogurt", "yoghurt"],
-    "omitsAll": ["mushroom"]
+    "omitsAll": ["mushroom"],
+    "forbiddenClaims": ["household"]
   },
   "question": "What can I substitute here?",
   "hasChanges": true,

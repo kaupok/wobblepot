@@ -66,6 +66,8 @@
   "question": "Millega saan siin asendada? Mul pole hapukoort.",
   "locale": "et",
   "expected": {
-    "mentionsAny": ["jogurt"]
-  }
+    "mentionsAny": ["jogurt"],
+    "forbiddenClaims": ["leibkon"]
+  },
+  "source": "HON-1372"
 }
