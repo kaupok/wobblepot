@@ -1,7 +1,7 @@
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
-import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 
 export type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
 
@@ -101,16 +101,26 @@ export interface MealFormProps {
 }
 
 // The unit label beside a quantity: 'g' for grams, 'ml' for an ingredient a
-// cook measures by volume (1 g = 1 ml, HON-1054), and nothing for piece-counted
-// items (the number alone reads more naturally — "5 lemons" not "5 pcs
-// lemons"). Estonian translations live in the catalog under `enums.Unit.*` for
-// any future consumer that wants to render piece units explicitly.
-export function formatUnit(ingredient: {
-  defaultUnit: string
-  measuredByVolume?: boolean
-}): string {
+// cook measures by volume (1 g = 1 ml, HON-1054), and the catalog's piece label
+// ("pc" / "tk", `enums.Unit.piece`) for a piece-counted one, as the cook view
+// shows it (HON-956). Callers pass `useEnumLabel('Unit', 'piece')`.
+export function formatUnit(
+  ingredient: { defaultUnit: string; measuredByVolume?: boolean },
+  pieceLabel: string,
+): string {
   const unit = displayUnit(ingredient)
-  return unit === 'piece' ? '' : unit
+  return unit === 'piece' ? pieceLabel : unit
+}
+
+// A formatted amount with its unit: "5g", "200ml", "0.3 pc". The piece label is
+// a word, so it takes the cook view's no-break space.
+export function formatAmountWithUnit(
+  amount: string,
+  ingredient: { defaultUnit: string; measuredByVolume?: boolean },
+  pieceLabel: string,
+): string {
+  const unit = displayUnit(ingredient)
+  return unit === 'piece' ? withPieceUnit(amount, pieceLabel) : `${amount}${unit}`
 }
 
 const MAX_LISTED_NAMES = 3

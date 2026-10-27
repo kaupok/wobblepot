@@ -1,15 +1,15 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
-import { Info } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useVaguePhrase } from '@/lib/i18n/enum-label'
-import { type MealComponent, formatUnit } from './meal-form-types'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+import { type MealComponent, formatAmountWithUnit, formatUnit } from './meal-form-types'
 import type { Unit } from '@/generated/prisma/enums'
 
 interface ComponentListProps {
@@ -35,7 +35,9 @@ export function ComponentList({
 }: ComponentListProps) {
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.form.componentList')
+  const tCommon = useTranslations('common')
   const vaguePhrase = useVaguePhrase()
+  const pieceLabel = useEnumLabel('Unit', 'piece')
 
   if (components.length === 0) return null
 
@@ -43,7 +45,7 @@ export function ComponentList({
     <div className="flex flex-col gap-2">
       {components.map((comp, index) => {
         const isInvalidQuantity = !comp.isVague && comp.totalQuantity <= 0
-        const unitLabel = formatUnit(comp.ingredient)
+        const unitLabel = formatUnit(comp.ingredient, pieceLabel)
         const duplicateIndices = duplicateMap.get(comp.ingredientId)
         const isDuplicate = duplicateIndices && duplicateIndices.length > 1
         const otherIndices = isDuplicate ? duplicateIndices.filter((i) => i !== index) : []
@@ -62,10 +64,13 @@ export function ComponentList({
                   <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (
                   t('perServing', {
-                    quantity: formatQuantity(comp.totalQuantity / servings, locale, {
-                      maximumFractionDigits: 1,
-                    }),
-                    unit: unitLabel,
+                    quantity: formatAmountWithUnit(
+                      formatQuantity(comp.totalQuantity / servings, locale, {
+                        maximumFractionDigits: 1,
+                      }),
+                      comp.ingredient,
+                      pieceLabel,
+                    ),
                   })
                 )}
               </Body>
@@ -111,11 +116,11 @@ export function ComponentList({
                       disabled={disabled}
                       aria-label={t('totalQuantityAria', { name: comp.ingredient.name })}
                     />
-                    {unitLabel && (
-                      <span className="text-foreground bg-muted border-l px-2 py-1.5 text-sm">
-                        {unitLabel}
-                      </span>
-                    )}
+                    {/* From `sm` the controls sit at the row end, so a minimum width keeps
+                        the fields of "g", "ml" and "pc" rows in line. */}
+                    <span className="text-foreground bg-muted border-l px-2 py-1.5 text-center text-sm sm:min-w-10">
+                      {unitLabel}
+                    </span>
                   </div>
                   <Button
                     type="button"
@@ -131,11 +136,12 @@ export function ComponentList({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => onRemove(comp.ingredientId)}
                 disabled={disabled}
+                aria-label={tCommon('removeNamed', { name: comp.ingredient.name })}
               >
-                ×
+                <X className="size-4" />
               </Button>
             </div>
           </div>

@@ -69,6 +69,10 @@ export function IngredientSearch({
 
   const handleAdd = useCallback(
     (ingredient: IngredientResult) => {
+      // Keep focus in the field for the next search rather than letting it fall
+      // to <body> as a clicked option unmounts. Focus first: the field's
+      // onFocus re-opens the dropdown, and the dismissal below must win.
+      searchInputRef.current?.focus()
       onAddIngredient(withoutMatchedAs(ingredient))
       setSearchQuery('')
       setIsDropdownDismissed(true)
@@ -141,6 +145,8 @@ export function IngredientSearch({
                 type="button"
                 role="option"
                 aria-selected={activeIndex === index}
+                // Keep focus in the field: the option unmounts once it is picked.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleAdd(ingredient)}
                 disabled={disabled || isAdded}
                 className={cn(

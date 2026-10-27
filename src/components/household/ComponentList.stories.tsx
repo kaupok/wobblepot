@@ -110,9 +110,16 @@ export const Populated: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Three standard rows with quantity inputs and unit labels.',
+        story:
+          'Three standard rows with quantity inputs and unit labels. The lemon is counted in pieces, so it reads "pc", as in the cook view (HON-1361). Each remove button is named after its ingredient.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('0.5 pc per serving')).toBeInTheDocument()
+    await expect(canvas.getByText('pc', { exact: true })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Remove Lemon' })).toBeInTheDocument()
   },
 }
 
@@ -298,7 +305,8 @@ export const DesktopLayout: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'From `sm` up the controls sit beside each ingredient on one row (HON-834).',
+        story:
+          'From `sm` up the controls sit beside each ingredient on one row (HON-834). The quantity fields of gram and piece rows line up (HON-1361).',
       },
     },
   },
@@ -310,5 +318,9 @@ export const DesktopLayout: Story = {
         perServing.getBoundingClientRect().right,
       )
     }
+    const fieldLefts = within(canvasElement)
+      .getAllByLabelText(/^Total quantity for /)
+      .map((field) => field.getBoundingClientRect().left)
+    await expect(new Set(fieldLefts).size).toBe(1)
   },
 }

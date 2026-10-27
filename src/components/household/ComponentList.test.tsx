@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
@@ -82,5 +83,57 @@ describe('ComponentList per-serving formatting', () => {
       'et',
     )
     expect(screen.getByText('maitse järgi')).toBeInTheDocument()
+  })
+})
+
+// HON-1361
+describe('ComponentList row controls', () => {
+  const egg: MealComponent = {
+    ingredientId: 'egg',
+    ingredient: { id: 'egg', name: 'Egg', category: 'protein', defaultUnit: 'piece' },
+    totalQuantity: 1,
+    isVague: false,
+    originalPhrase: null,
+  }
+
+  function renderList(locale: 'en' | 'et', onRemove = vi.fn()) {
+    return renderInLocale(
+      <ComponentList
+        components={[component, egg]}
+        servings={3}
+        disabled={false}
+        duplicateMap={new Map()}
+        onRemove={onRemove}
+        onUpdateQuantity={vi.fn()}
+        onSetQuantity={vi.fn()}
+        onMarkAsVague={vi.fn()}
+      />,
+      locale,
+    )
+  }
+
+  it('names each remove button after its ingredient', async () => {
+    const onRemove = vi.fn()
+    renderList('en', onRemove)
+
+    expect(screen.queryByRole('button', { name: '×' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Egg' }))
+    expect(onRemove).toHaveBeenCalledWith('egg')
+  })
+
+  it('names the remove button from the Estonian catalog', () => {
+    renderList('et')
+
+    expect(screen.getByRole('button', { name: 'Eemalda „Chicken thigh"' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', 'pc', '0.3 pc per serving'],
+    ['et', 'tk', '0,3 tk portsjoni kohta'],
+  ] as const)('labels a piece ingredient in %s', (locale, unit, line) => {
+    renderList(locale)
+
+    expect(screen.getByText(unit, { exact: true })).toBeInTheDocument()
+    expect(screen.getByText(line)).toBeInTheDocument()
   })
 })

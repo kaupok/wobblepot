@@ -81,6 +81,27 @@ describe('IngredientRow per-serving formatting', () => {
 
 // HON-1263: the control that resolved an unmatched row unmounts with it, so the
 // matched row that replaces it takes focus on its quantity, not <body>.
+// HON-1361: a piece ingredient shows its unit as the cook view does (HON-956).
+describe('IngredientRow piece unit', () => {
+  const egg: MatchedIngredientData = {
+    ...matched,
+    ingredient: { id: 'egg', name: 'Egg', category: 'protein', defaultUnit: 'piece' },
+    totalQuantity: 1,
+  }
+
+  it.each([
+    ['en', 'pc', '0.3 pc per serving'],
+    ['et', 'tk', '0,3 tk portsjoni kohta'],
+  ] as const)('labels the field and the per-serving line in %s', (locale, unit, line) => {
+    renderInLocale(
+      <IngredientRow data={egg} servings={3} onUpdate={vi.fn()} onRemove={vi.fn()} />,
+      locale,
+    )
+    expect(screen.getByText(unit, { exact: true })).toBeInTheDocument()
+    expect(screen.getByText(line)).toBeInTheDocument()
+  })
+})
+
 describe('IngredientRow focus after resolve', () => {
   afterEach(() => {
     vi.restoreAllMocks()
