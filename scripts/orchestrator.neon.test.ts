@@ -416,7 +416,9 @@ describe('orchestrator.sh', () => {
       // The permanent branches are why the ceiling is below the cap.
       expect(r.out).toContain('main, staging and dev/kaupo hold the other 3')
       // A refusal that does not say what to run instead just moves the guessing.
-      expect(r.out).toContain('Run with --max-workers 7')
+      // 6, not 7: at 7 the cap is full and the next startup warns.
+      expect(r.out).toContain('Run with --max-workers 6')
+      expect(budget('6').out).not.toContain('WARN')
       // `peak + 1`, not `peak`: raising the plan to exactly `peak` lands on the
       // zero-spare WARN, which tells the operator to drop back to the ceiling
       // they just paid to escape. Asserted by starting at the recommended value.
@@ -425,13 +427,13 @@ describe('orchestrator.sh', () => {
     })
 
     it('names a raised cap rather than a workaround when no worker fits', () => {
-      // `cap - 3` is 0 here, so "run with --max-workers 0" would be the
-      // arithmetically correct and operationally useless answer.
+      // `cap - 3 - 1` is below 1 here, so "run with --max-workers 0" would be
+      // the arithmetically correct and operationally useless answer.
       const r = budget('1', '3')
 
       expect(r.exit).toBe(1)
       expect(r.out).toContain('No worker fits this cap')
-      expect(r.out).toContain('Raise NEON_BRANCH_CAP to at least 4')
+      expect(r.out).toContain('Raise NEON_BRANCH_CAP to at least 5')
       expect(r.out).not.toContain('--max-workers 0')
     })
 

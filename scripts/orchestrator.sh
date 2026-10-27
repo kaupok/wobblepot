@@ -3065,14 +3065,15 @@ check_branch_budget() {
 
   local peak fits
   peak=$(( MAX_WORKERS + NEON_PERMANENT_BRANCHES ))
-  # Largest ceiling the cap can fund.
-  fits=$(( NEON_BRANCH_CAP - NEON_PERMANENT_BRANCHES ))
+  # Largest ceiling the cap can fund with one spare left, so the suggestion
+  # below passes the next startup without the zero-spare WARN.
+  fits=$(( NEON_BRANCH_CAP - NEON_PERMANENT_BRANCHES - 1 ))
 
   if [ "$peak" -gt "$NEON_BRANCH_CAP" ]; then
     log ERROR "max_workers=$MAX_WORKERS needs $peak Neon branches (N + $NEON_PERMANENT_BRANCHES), but NEON_BRANCH_CAP is $NEON_BRANCH_CAP"
     log ERROR "  Each in-flight issue holds its worktree's branch; main, staging and dev/kaupo hold the other $NEON_PERMANENT_BRANCHES."
     if [ "$fits" -lt 1 ]; then
-      log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 1 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
+      log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 2 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
     else
       # `peak + 1`, not `peak`: at exactly `peak` the very next startup takes the
       # zero-spare WARN branch below and tells the operator to drop back to the
