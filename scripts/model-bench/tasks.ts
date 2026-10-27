@@ -538,11 +538,11 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       label: 'No unbacked claim',
       format: 'percent',
       onError: null,
-      // A claim about what the household owns is wrong but not unsafe, so it
-      // is no safety check, and one slip must not fail the record (HON-1135).
-      // One case sets it up, so 3 runs score 1, 0.67, 0.33 or 0: 0.6 passes
-      // one slip in 3 and fails two.
-      gate: { min: 0.6 },
+      // A claim about what the cook owns, or calling the cook "the household",
+      // is wrong but not unsafe, so it is no safety check, and one slip must not
+      // fail the record (HON-1135, HON-1372). Three cases set it up, so 3 runs
+      // give 9 scores: 0.85 passes one slip in 9 and fails two.
+      gate: { min: 0.85 },
     },
     {
       key: 'mentionsExpected',
