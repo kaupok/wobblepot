@@ -159,7 +159,8 @@ export const Generating: Story = {
     msw: { handlers: imaginePending },
     docs: {
       description: {
-        story: 'Request never resolves — three skeleton cards and the cancel button stay visible.',
+        story:
+          'Request never resolves — three skeleton cards and the cancel button stay visible. The pressed button and the prompt field are `aria-disabled`, not `disabled`, so focus stays on the button, and each card announces "Loading…" once (HON-1366).',
       },
     },
   },
@@ -168,6 +169,14 @@ export const Generating: Story = {
     await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByRole('button', { name: /^cancel$/i })
+
+    const button = canvas.getByRole('button', { name: /generating ideas/i })
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+    await expect(button).toBeEnabled()
+    await expect(button).toHaveFocus()
+    await expect(canvas.getByRole('textbox')).toHaveAttribute('aria-disabled', 'true')
+    await expect(canvas.getByRole('textbox')).toBeEnabled()
+    await expect(canvas.getAllByRole('status', { name: 'Loading…' })).toHaveLength(3)
   },
 }
 
@@ -188,6 +197,10 @@ export const WithResults: Story = {
 
     await canvas.findByText('Smoky red lentil stew')
     await canvas.findByText('Lentil ragù with orzo')
+
+    // A screen reader hears the result; focus stays on the button (HON-1366).
+    await expect(canvas.getByRole('status')).toHaveTextContent('3 meal ideas ready')
+    await expect(canvas.getByRole('button', { name: /imagine meals/i })).toHaveFocus()
 
     // The page title is the only h1, on the page background, and each result
     // card's name sits one level below it (HON-779).
@@ -365,8 +378,10 @@ export const ReviewTimeoutStillOpensDialog: Story = {
     const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
     await userEvent.click(firstSelect!)
 
-    // The dialog is portalled, so it lives outside `canvasElement`.
-    await body.findByRole('dialog')
+    // The dialog is portalled, so it lives outside `canvasElement`. It takes
+    // focus from the pressed Select (HON-1366).
+    const dialog = await body.findByRole('dialog')
+    await waitFor(() => expect(dialog).toHaveFocus())
     await expect(canvas.queryByText(/too long/i)).not.toBeInTheDocument()
   },
 }

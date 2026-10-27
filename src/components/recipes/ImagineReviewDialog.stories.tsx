@@ -277,6 +277,23 @@ export const WithLiquid: Story = {
 // Play stories — exercise parent-callback contracts under @storybook/addon-vitest.
 // Radix Dialog content lives outside `canvasElement`, so queries use `within(document.body)`.
 
+export const OpensWithFocusOnDialog: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The dialog takes focus itself on open, not the matched-ingredients disclosure, which is a secondary control (HON-1366).',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog')
+    await waitFor(() => expect(dialog).toHaveFocus())
+    await expect(body.getByRole('button', { name: /ingredients? matched/i })).not.toHaveFocus()
+  },
+}
+
 export const EscapeClosesDialog: Story = {
   play: async ({ args }) => {
     const body = within(document.body)

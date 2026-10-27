@@ -3,15 +3,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // the global mock always answers from English, which would pass whether or not
 // the leak is fixed.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
-import { NextIntlClientProvider } from 'next-intl'
-import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { ImagineClient } from './ImagineClient'
+import { generate, renderInLocale } from './ImagineClient.fixtures'
 import { loadImagineSession, saveImagineSession } from './imagine-session'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 
@@ -26,18 +24,6 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 /** The English prose `/api/meals/imagine` puts in `data.error` on a 504. */
 const SERVER_PROSE = 'Generating meal ideas took too long. Please try again.'
 
-function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
-  const messages = locale === 'en' ? enMessages : etMessages
-  const { wrapper: QueryWrapper } = createQueryWrapper()
-  return render(
-    <QueryWrapper>
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        {node}
-      </NextIntlClientProvider>
-    </QueryWrapper>,
-  )
-}
-
 function respondWith(body: Record<string, unknown>, status: number) {
   vi.stubGlobal(
     'fetch',
@@ -47,14 +33,6 @@ function respondWith(body: Record<string, unknown>, status: number) {
       json: () => Promise.resolve(body),
     }),
   )
-}
-
-async function generate(locale: 'en' | 'et') {
-  renderInLocale(<ImagineClient />, locale)
-  const textarea = screen.getByRole('textbox')
-  fireEvent.change(textarea, { target: { value: 'something with lentils' } })
-  const label = locale === 'en' ? /imagine meals/i : /mõtle toidud välja/i
-  fireEvent.click(screen.getByRole('button', { name: label }))
 }
 
 describe('ImagineClient error localization', () => {

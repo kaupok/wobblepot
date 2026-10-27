@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useId } from 'react'
+import { useState, useMemo, useCallback, useId, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ChevronDown, ChevronRight, Clock, Check } from 'lucide-react'
@@ -209,6 +209,7 @@ export function ImagineReviewDialog({
   const tRow = useTranslations('recipes.ingredientRow')
   const vaguePhrase = useVaguePhrase()
   const pieceLabel = useEnumLabel('Unit', 'piece')
+  const contentRef = useRef<HTMLDivElement>(null)
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
     initIngredientRows(meal.prefilledIngredients, tRow('unknownName')),
   )
@@ -344,7 +345,15 @@ export function ImagineReviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={contentRef}
         className="max-h-dialog overflow-y-auto sm:max-w-lg"
+        // Focus the dialog itself, not its first control: that is the matched
+        // ingredients disclosure, a secondary control. A screen reader
+        // announces the dialog by its title.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          contentRef.current?.focus()
+        }}
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader>
