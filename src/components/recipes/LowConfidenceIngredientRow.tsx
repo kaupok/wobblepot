@@ -11,10 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatUnit } from '@/components/household/meal-form-types'
+import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useVaguePhrase } from '@/lib/i18n/enum-label'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { QuantityControls } from './QuantityControls'
 import type { LowConfidenceIngredientData, IngredientRowData } from './IngredientRow'
 
@@ -44,11 +44,12 @@ export function LowConfidenceIngredientRow({
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.ingredientRow')
   const vaguePhrase = useVaguePhrase()
+  const pieceLabel = useEnumLabel('Unit', 'piece')
   const perServing = formatQuantity(data.totalQuantity / servings, locale, {
     maximumFractionDigits: 1,
   })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
-  const unitLabel = formatUnit(data.ingredient)
+  const unitLabel = formatUnit(data.ingredient, pieceLabel)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   const handleAlternativeSelect = (selectedId: string) => {
@@ -99,7 +100,9 @@ export function LowConfidenceIngredientRow({
                 ) : isInvalidQuantity ? (
                   <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (
-                  t('perServing', { quantity: perServing, unit: unitLabel })
+                  t('perServing', {
+                    quantity: formatAmountWithUnit(perServing, data.ingredient, pieceLabel),
+                  })
                 )}
               </Body>
               {isDuplicate && (

@@ -115,6 +115,8 @@ export const WithSelection: Story = {
 
 // Play story — exercises the parent-callback contract: type → wait for the
 // dropdown → click an option → expect onAddIngredient with the ingredient.
+// The click leaves the field cleared and focused, with the results closed,
+// as Enter does (HON-1361).
 
 export const SearchAndSelectInvokesCallback: Story = {
   play: async ({ args, canvasElement }) => {
@@ -130,6 +132,9 @@ export const SearchAndSelectInvokesCallback: Story = {
         expect.objectContaining({ id: 'chicken-thigh', name: 'Chicken thigh' }),
       ),
     )
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveFocus()
+    await expect(canvas.queryByRole('listbox')).not.toBeInTheDocument()
   },
 }
 

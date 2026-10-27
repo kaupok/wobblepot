@@ -20,7 +20,7 @@ import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
 import {
   buildFinalComponents,
-  formatUnit,
+  formatAmountWithUnit,
   mealComponentErrorMessage,
 } from '@/components/household/meal-form-types'
 import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
@@ -208,6 +208,7 @@ export function ImagineReviewDialog({
   const tDetail = useTranslations('meal-plan.detail')
   const tRow = useTranslations('recipes.ingredientRow')
   const vaguePhrase = useVaguePhrase()
+  const pieceLabel = useEnumLabel('Unit', 'piece')
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
     initIngredientRows(meal.prefilledIngredients, tRow('unknownName')),
   )
@@ -443,7 +444,6 @@ export function ImagineReviewDialog({
                     const perServing = formatQuantity(row.totalQuantity / meal.servings, locale, {
                       maximumFractionDigits: 1,
                     })
-                    const unitLabel = formatUnit(row.ingredient)
                     return (
                       <div key={index} className="flex items-center justify-between px-3 py-1">
                         <Body variant="small">{row.ingredient.name}</Body>
@@ -451,7 +451,13 @@ export function ImagineReviewDialog({
                           {row.isVague && row.originalPhrase ? (
                             <span className="italic">{vaguePhrase(row.originalPhrase)}</span>
                           ) : (
-                            tRow('perServing', { quantity: perServing, unit: unitLabel })
+                            tRow('perServing', {
+                              quantity: formatAmountWithUnit(
+                                perServing,
+                                row.ingredient,
+                                pieceLabel,
+                              ),
+                            })
                           )}
                         </Body>
                       </div>

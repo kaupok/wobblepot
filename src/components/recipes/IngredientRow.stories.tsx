@@ -184,9 +184,15 @@ export const PieceUnit: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Piece-unit ingredient renders the per-serving amount without a unit suffix.',
+        story:
+          'A piece ingredient reads "pc" beside its field and in the per-serving line, as in the cook view (HON-1361).',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('pc', { exact: true })).toBeInTheDocument()
+    await expect(canvas.getByText('0.5 pc per serving')).toBeInTheDocument()
   },
 }
 

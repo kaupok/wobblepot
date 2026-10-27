@@ -792,7 +792,7 @@
         "kidFriendlyLabel": "Kid-friendly"
       },
       "componentList": {
-        "perServing": "{quantity}{unit} per serving",
+        "perServing": "{quantity} per serving",
         "invalidQuantity": "Quantity must be greater than 0",
         "setQuantity": "Set quantity",
         "noQuantity": "No quantity",
@@ -809,7 +809,7 @@
     "ingredientRow": {
       "removeAria": "Remove ingredient",
       "invalidQuantity": "Quantity must be greater than 0",
-      "perServing": "{quantity}{unit} per serving",
+      "perServing": "{quantity} per serving",
       "duplicateRow": "{count, plural, one {Also used in row {rows}} other {Also used in rows {rows}}}",
       "originalLabel": "Original: {text}",
       "searchPlaceholder": "Search ingredients…",

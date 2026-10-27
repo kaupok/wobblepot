@@ -1,8 +1,9 @@
 import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { dropFocusToBody } from '@/test/focus'
 import { IngredientSearch } from './IngredientSearch'
 import type { IngredientResult } from './meal-form-types'
 
@@ -180,6 +181,56 @@ describe('IngredientSearch after a selection', () => {
 
     await user.keyboard('{Enter}')
     expect(onAddIngredient).toHaveBeenCalledTimes(1)
+  })
+})
+
+// HON-1361: a click adds the row and leaves the user in the field, as Enter does.
+describe('IngredientSearch after a click on a result', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('clears the field, keeps focus in it and closes the results', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient })
+
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'tom')
+    await vi.advanceTimersByTimeAsync(350)
+    const options = await screen.findAllByRole('option')
+
+    await user.click(options[0]!)
+
+    expect(onAddIngredient).toHaveBeenCalledWith(mockIngredients[0])
+    expect(input).toHaveValue('')
+    expect(input).toHaveFocus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  // Safari and touch do not focus a button on press, and a press that lands
+  // after focus left the field (here, dropped to <body>) still ends there.
+  it('returns focus to the field when it had left before the press', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderSearch()
+
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'tom')
+    await vi.advanceTimersByTimeAsync(350)
+    const options = await screen.findAllByRole('option')
+
+    dropFocusToBody()
+    fireEvent.click(options[0]!)
+
+    expect(input).toHaveFocus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
 

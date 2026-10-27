@@ -6,6 +6,7 @@ import etMessages from '../../../messages/et.json'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
   buildFinalComponents,
+  formatAmountWithUnit,
   formatUnit,
   mealComponentErrorMessage,
   type IngredientResult,
@@ -106,16 +107,29 @@ describe('mealComponentErrorMessage', () => {
 // the same, because 1 g = 1 ml (HON-1054).
 describe('formatUnit', () => {
   it('labels a gram ingredient g', () => {
-    expect(formatUnit({ defaultUnit: 'g' })).toBe('g')
-    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: false })).toBe('g')
+    expect(formatUnit({ defaultUnit: 'g' }, 'pc')).toBe('g')
+    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: false }, 'pc')).toBe('g')
   })
 
   it('labels a measured-by-volume ingredient ml', () => {
-    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: true })).toBe('ml')
+    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: true }, 'pc')).toBe('ml')
   })
 
-  it('leaves a piece ingredient unlabelled', () => {
-    expect(formatUnit({ defaultUnit: 'piece' })).toBe('')
-    expect(formatUnit({ defaultUnit: 'piece', measuredByVolume: true })).toBe('')
+  it('labels a piece ingredient with the piece label', () => {
+    expect(formatUnit({ defaultUnit: 'piece' }, 'pc')).toBe('pc')
+    expect(formatUnit({ defaultUnit: 'piece', measuredByVolume: true }, 'tk')).toBe('tk')
+  })
+})
+
+describe('formatAmountWithUnit', () => {
+  it('joins grams and millilitres with no space', () => {
+    expect(formatAmountWithUnit('5', { defaultUnit: 'g' }, 'pc')).toBe('5g')
+    expect(formatAmountWithUnit('200', { defaultUnit: 'g', measuredByVolume: true }, 'pc')).toBe(
+      '200ml',
+    )
+  })
+
+  it('joins a piece count and its label with a no-break space', () => {
+    expect(formatAmountWithUnit('0,3', { defaultUnit: 'piece' }, 'tk')).toBe('0,3\u00a0tk')
   })
 })

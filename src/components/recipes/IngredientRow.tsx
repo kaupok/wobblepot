@@ -5,10 +5,10 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Check, X, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { formatUnit } from '@/components/household/meal-form-types'
+import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useVaguePhrase } from '@/lib/i18n/enum-label'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { DEFAULT_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
@@ -88,6 +88,7 @@ export function IngredientRow({
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.ingredientRow')
   const vaguePhrase = useVaguePhrase()
+  const pieceLabel = useEnumLabel('Unit', 'piece')
   // A resolved row re-renders here as matched, and the control that resolved
   // it is gone, so focus moves to the new quantity input rather than <body>.
   // Where the list moves matched rows elsewhere (the Imagine review), this
@@ -173,7 +174,7 @@ export function IngredientRow({
     maximumFractionDigits: 1,
   })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
-  const unitLabel = formatUnit(data.ingredient)
+  const unitLabel = formatUnit(data.ingredient, pieceLabel)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (
@@ -192,7 +193,9 @@ export function IngredientRow({
             ) : isInvalidQuantity ? (
               <span className="text-destructive">{t('invalidQuantity')}</span>
             ) : (
-              t('perServing', { quantity: perServing, unit: unitLabel })
+              t('perServing', {
+                quantity: formatAmountWithUnit(perServing, data.ingredient, pieceLabel),
+              })
             )}
           </Body>
           {isDuplicate && (

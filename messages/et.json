@@ -792,7 +792,7 @@
         "kidFriendlyLabel": "Lastesõbralik"
       },
       "componentList": {
-        "perServing": "{quantity}{unit} portsjoni kohta",
+        "perServing": "{quantity} portsjoni kohta",
         "invalidQuantity": "Kogus peab olema suurem kui 0",
         "setQuantity": "Määra kogus",
         "noQuantity": "Kogus määramata",
@@ -809,7 +809,7 @@
     "ingredientRow": {
       "removeAria": "Eemalda koostisosa",
       "invalidQuantity": "Kogus peab olema suurem kui 0",
-      "perServing": "{quantity}{unit} portsjoni kohta",
+      "perServing": "{quantity} portsjoni kohta",
       "duplicateRow": "{count, plural, one {Kasutusel ka real {rows}} other {Kasutusel ka ridadel {rows}}}",
       "originalLabel": "Algne: {text}",
       "searchPlaceholder": "Otsi koostisosi…",
