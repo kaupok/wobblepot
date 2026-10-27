@@ -81,30 +81,31 @@ WORKER_FINISHING=()
 # ─── Configuration ───────────────────────────────────────────────────────────
 
 # Bounded by the Neon branch cap, not by local CPU. Each in-flight issue costs
-# TWO Neon branches: the worktree's `<prefix>--hon-<N>` (neon_branch_name in
-# worktree-claude.sh) and the Vercel-Neon integration's `preview/<git-branch>`,
-# created when the PR opens and held until it merges.
+# ONE Neon branch: the worktree's `<prefix>--hon-<N>` (neon_branch_name in
+# worktree-claude.sh). It cost two until HON-1348: the Vercel-Neon integration
+# also made a `preview/<git-branch>` for every PR. vercel.json now sets
+# git.deploymentEnabled so PR branches create no Vercel deployment, and the
+# integration has nothing to act on.
 #
-# Stranded runs cost the same two, indefinitely. record_stranded frees the
-# worker slot but deliberately preserves the worktree, the git branch and its
-# Neon branch ("nothing else reclaims them" — see its Linear comment below),
-# while the unmerged PR keeps its preview/* alive. Neither reaper collects
-# either: neon_gc_orphans skips a live worktree, and neon-cleanup.sh's sweep
-# needs the issue Done/Canceled while a stranded one sits In Review. Only
-# `wt cleanup <branch>` releases them.
+# Stranded runs cost theirs indefinitely. record_stranded frees the worker slot
+# but deliberately preserves the worktree, the git branch and its Neon branch
+# ("nothing else reclaims them" — see its Linear comment below). Neither reaper
+# collects it: neon_gc_orphans skips a live worktree, and neon-cleanup.sh's
+# sweep needs the issue Done/Canceled while a stranded one sits In Review. Only
+# `wt cleanup <branch>` releases it.
 #
 # So with S stranded runs and the three permanent branches (main, staging,
-# dev/kaupo), peak usage is `2N + 2S + 3`. The project is on Neon's free plan,
-# a 10-branch cap: N=3 fits at 9, but leaves room for only ONE stranded run
-# (11 > 10 — the same wall HON-609 hit). Watch `wt list` for stranded worktrees
-# and clean them up; they are the reason to keep a spare, not headroom to spend.
+# dev/kaupo), peak usage is `N + S + 3`. The project is on Neon's free plan, a
+# 10-branch cap: N=3 fits at 6 with 4 spare. Watch `wt list` for stranded
+# worktrees and clean them up; they are the reason to keep a spare, not headroom
+# to spend.
 #
 # Raising this without raising the plan makes `wt auto` die in worktree setup
 # with "branches limit exceeded", failing the issue back to Backlog +
 # `Needs attention` before Claude ever runs (HON-609, 2026-09-03). See HON-616.
 MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-3}"
 # The budget above, as something the script can check rather than only document.
-# check_branch_budget refuses to start when `2N + P` exceeds the cap, so a
+# check_branch_budget refuses to start when `N + P` exceeds the cap, so a
 # ceiling the plan cannot fund is rejected here instead of failing an arbitrary
 # issue an hour later (HON-616).
 #
@@ -290,9 +291,9 @@ while [[ $# -gt 0 ]]; do
       echo "  ORCHESTRATOR_WORKER_TIMEOUT Override --worker-timeout default"
       echo "  NEON_BRANCH_CAP             Neon branches the plan allows (default: 10)"
       echo ""
-      echo "Startup refuses to run when 2 x max-workers + 3 exceeds NEON_BRANCH_CAP:"
-      echo "each in-flight issue holds a worktree Neon branch AND the Vercel-Neon"
-      echo "integration's preview/* branch, plus main, staging and dev/kaupo."
+      echo "Startup refuses to run when max-workers + 3 exceeds NEON_BRANCH_CAP:"
+      echo "each in-flight issue holds its worktree's Neon branch, plus main,"
+      echo "staging and dev/kaupo."
       exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
@@ -2613,7 +2614,7 @@ requeue_to_queue() {
   # is no Claude output to quote, and the setup log is the one part of a worker
   # log that sanitize_log exists for. A one-line explanation is the whole story.
   local body
-  body=$(printf '## Returned to Queued — Neon branch cap\n\nThe worker could not be given a database branch: the Neon project was at its branch cap, and the orphan GC had nothing to reclaim. This says nothing about the issue, so it is back in Queued, unassigned and unlabelled, and will be picked up again once branches free up.\n\nIf this repeats, check `wt list` for stranded worktrees (`wt cleanup <branch>` releases both of their branches) and the `2N + 2S + 3` budget in docs/PARALLEL_WORKFLOW.md.%s' \
+  body=$(printf '## Returned to Queued — Neon branch cap\n\nThe worker could not be given a database branch: the Neon project was at its branch cap, and the orphan GC had nothing to reclaim. This says nothing about the issue, so it is back in Queued, unassigned and unlabelled, and will be picked up again once branches free up.\n\nIf this repeats, check `wt list` for stranded worktrees (`wt cleanup <branch>` releases their branches) and the `N + S + 3` budget in docs/PARALLEL_WORKFLOW.md.%s' \
     "$log_path_note")
 
   local vars
@@ -3016,11 +3017,10 @@ validate_state_ids() {
 # triaged into Backlog with a `Needs attention` label for a capacity problem it
 # had no part in.
 #
-# Peak usage is `2N + P`: each in-flight issue holds its worktree's Neon branch
-# AND the Vercel-Neon integration's `preview/<git-branch>`, plus the P permanent
-# branches. Stranded runs add `2S` on top (see the Configuration block), which is
-# what the spare branch at the shipped default is for — hence the WARN when the
-# ceiling fits with nothing left over.
+# Peak usage is `N + P`: each in-flight issue holds its worktree's Neon branch,
+# plus the P permanent branches. Stranded runs add `S` on top (see the
+# Configuration block), which is what the spare branches are for — hence the
+# WARN when the ceiling fits with nothing left over.
 #
 # Returns non-zero when the run must not start. Everything is printed through
 # log(), so the refusal is in orchestrator.log rather than only on a terminal
@@ -3064,22 +3064,21 @@ check_branch_budget() {
   fi
 
   local peak fits
-  peak=$(( 2 * MAX_WORKERS + NEON_PERMANENT_BRANCHES ))
-  # Largest ceiling the cap can fund. Integer division floors, which is the
-  # direction that keeps the suggestion inside the budget.
-  fits=$(( (NEON_BRANCH_CAP - NEON_PERMANENT_BRANCHES) / 2 ))
+  peak=$(( MAX_WORKERS + NEON_PERMANENT_BRANCHES ))
+  # Largest ceiling the cap can fund.
+  fits=$(( NEON_BRANCH_CAP - NEON_PERMANENT_BRANCHES ))
 
   if [ "$peak" -gt "$NEON_BRANCH_CAP" ]; then
-    log ERROR "max_workers=$MAX_WORKERS needs $peak Neon branches (2N + $NEON_PERMANENT_BRANCHES), but NEON_BRANCH_CAP is $NEON_BRANCH_CAP"
-    log ERROR "  Each in-flight issue holds TWO branches: the worktree's own, and the Vercel-Neon integration's preview/<git-branch> while its PR is open."
+    log ERROR "max_workers=$MAX_WORKERS needs $peak Neon branches (N + $NEON_PERMANENT_BRANCHES), but NEON_BRANCH_CAP is $NEON_BRANCH_CAP"
+    log ERROR "  Each in-flight issue holds its worktree's branch; main, staging and dev/kaupo hold the other $NEON_PERMANENT_BRANCHES."
     if [ "$fits" -lt 1 ]; then
-      log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 2 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
+      log ERROR "  No worker fits this cap. Raise NEON_BRANCH_CAP to at least $(( 1 + NEON_PERMANENT_BRANCHES )) (after raising the Neon plan)."
     else
-      # `peak + 2`, not `peak`: at exactly `peak` the very next startup takes the
+      # `peak + 1`, not `peak`: at exactly `peak` the very next startup takes the
       # zero-spare WARN branch below and tells the operator to drop back to the
-      # ceiling they just raised their plan to escape. The +2 is the same
+      # ceiling they just raised their plan to escape. The +1 is the same
       # stranded-run allowance that branch already names.
-      log ERROR "  Run with --max-workers $fits, or raise the Neon plan and set NEON_BRANCH_CAP to $(( peak + 2 )) or more."
+      log ERROR "  Run with --max-workers $fits, or raise the Neon plan and set NEON_BRANCH_CAP to $(( peak + 1 )) or more."
     fi
     return 1
   fi
@@ -3087,22 +3086,16 @@ check_branch_budget() {
   if [ "$peak" -eq "$NEON_BRANCH_CAP" ]; then
     log WARN "Neon branch budget: $peak of $NEON_BRANCH_CAP used at peak — no spare branch left"
     if [ "$MAX_WORKERS" -gt 1 ]; then
-      log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Consider --max-workers $(( MAX_WORKERS - 1 ))."
+      log WARN "  A stranded run holds its branch until 'wt cleanup <branch>', so the next one will hit the cap. Consider --max-workers $(( MAX_WORKERS - 1 ))."
     else
       # One worker is the floor, so the only move left is the plan. Never
       # suggest --max-workers 0: the validation above refuses it, and advice
       # this same function rejects is worse than no advice. The ERROR branch
       # was guarded against exactly this; this branch was not.
-      log WARN "  A stranded run holds its two branches until 'wt cleanup <branch>', so the next one will hit the cap. Raise NEON_BRANCH_CAP to $(( peak + 2 )) (after raising the Neon plan)."
+      log WARN "  A stranded run holds its branch until 'wt cleanup <branch>', so the next one will hit the cap. Raise NEON_BRANCH_CAP to $(( peak + 1 )) (after raising the Neon plan)."
     fi
   else
-    # "spare" is reported with the size of the thing it has to hold, because
-    # slack is only usable in pairs: the budget is `2N + 2S + 3`, so a single
-    # spare branch cannot absorb a stranded run (at the shipped default,
-    # 2*3 + 2*1 + 3 = 11 > 10). Keeping that case silent is deliberate — it is
-    # the configuration everyone runs — but the number must not read as
-    # headroom it is not.
-    log INFO "Neon branch budget: $peak of $NEON_BRANCH_CAP at peak (2 x $MAX_WORKERS + $NEON_PERMANENT_BRANCHES), $(( NEON_BRANCH_CAP - peak )) spare (a stranded run needs 2)"
+    log INFO "Neon branch budget: $peak of $NEON_BRANCH_CAP at peak ($MAX_WORKERS + $NEON_PERMANENT_BRANCHES), $(( NEON_BRANCH_CAP - peak )) spare"
   fi
   return 0
 }

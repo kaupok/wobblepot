@@ -143,7 +143,7 @@ neon_cap_in_force() {
 }
 
 # main, staging, dev/kaupo — the branches no run owns. Mirrors
-# NEON_PERMANENT_BRANCHES in orchestrator.sh; both feed the same `2N + P` budget.
+# NEON_PERMANENT_BRANCHES in orchestrator.sh; both feed the same `N + P` budget.
 NEON_PERMANENT_BRANCHES=3
 
 # Map a git branch name to a Neon branch name (deterministic, reversible).
@@ -340,11 +340,11 @@ neon_cap_budget_note() {
   # non-numeric operand as a variable name yielding 0 — printing a confident
   # "N=abc = 3 of 10" from a typo the orchestrator's own check would have refused.
   if [[ "$ORCHESTRATOR_WORKER_CEILING" =~ ^[0-9]+$ ]]; then
-    printf 'Budget: 2N + %s with N=%s workers = %s of %s branches at peak.' \
+    printf 'Budget: N + %s with N=%s workers = %s of %s branches at peak.' \
       "$NEON_PERMANENT_BRANCHES" "$ORCHESTRATOR_WORKER_CEILING" \
-      "$(( 2 * ORCHESTRATOR_WORKER_CEILING + NEON_PERMANENT_BRANCHES ))" "$(neon_cap_in_force)"
+      "$(( ORCHESTRATOR_WORKER_CEILING + NEON_PERMANENT_BRANCHES ))" "$(neon_cap_in_force)"
   else
-    printf 'Budget: 2N + %s branches for N concurrent workers, cap %s.' \
+    printf 'Budget: N + %s branches for N concurrent workers, cap %s.' \
       "$NEON_PERMANENT_BRANCHES" "$(neon_cap_in_force)"
   fi
 }
@@ -474,11 +474,11 @@ neon_create_branch_for_worktree() {
           after_count=$(neon_branch_count)
           echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
           echo "$(neon_cap_budget_note) Branches: $before_count before GC, $after_count after." >&2
-          echo "Each in-flight issue holds TWO: its worktree branch, and the Vercel-Neon" >&2
-          echo "integration's preview/<git-branch> for as long as its PR is open. The GC" >&2
-          echo "reaps preview/* only once its git ref is gone and no PR is open, and a" >&2
-          echo "stranded run holds both of its own until" >&2
-          echo "'wt cleanup <branch>' — check 'wt list' first, then lower --max-workers or" >&2
+          echo "Each in-flight issue holds its worktree branch. A stranded run holds its" >&2
+          echo "own until 'wt cleanup <branch>'. A preview/<git-branch> from a" >&2
+          echo "'vercel deploy' sits outside the budget, and the GC reaps it only once" >&2
+          echo "its git ref is gone and no PR is open." >&2
+          echo "Check 'wt list' first, then lower --max-workers or" >&2
           echo "raise the Neon plan (and NEON_BRANCH_CAP, currently $(neon_cap_in_force))." >&2
           echo "$create_out" >&2
           return 1

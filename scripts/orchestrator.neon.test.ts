@@ -386,73 +386,69 @@ describe('orchestrator.sh', () => {
     }
 
     it('is silent about problems at the shipped default', () => {
-      // N=3 on the Free tier's 10: 9 at peak, one spare. A gate that warns at
+      // N=3 on the Free tier's 10: 6 at peak, four spare. A gate that warns at
       // the configuration everyone runs is a gate everyone learns to ignore.
       const r = budget()
 
       expect(r.exit).toBe(0)
       expect(r.out).not.toContain('WARN')
       expect(r.out).not.toContain('ERROR')
-      // "spare" is reported with the size of the thing it has to hold: slack is
-      // only usable in pairs, so one spare branch cannot absorb a stranded run
-      // (2*3 + 2*1 + 3 = 11 > 10). Silent, but not misleading.
-      expect(r.out).toContain(
-        'Neon branch budget: 9 of 10 at peak (2 x 3 + 3), 1 spare (a stranded run needs 2)',
-      )
+      // One branch per worker since PR branches stopped getting a Vercel
+      // deployment, and with it the integration's preview/* (HON-1348).
+      expect(r.out).toContain('Neon branch budget: 6 of 10 at peak (3 + 3), 4 spare')
     })
 
     it('defaults NEON_BRANCH_CAP to the Free tier limit of 10', () => {
       // Read off the refusal, so the constant is under test as the value the
       // check actually enforces.
-      expect(budget('4').out).toContain('NEON_BRANCH_CAP is 10')
+      expect(budget('8').out).toContain('NEON_BRANCH_CAP is 10')
     })
 
     it.each([
-      ['4', 11],
-      ['5', 13],
-      ['8', 19],
+      ['8', 11],
+      ['9', 12],
+      ['12', 15],
     ])('refuses --max-workers %s, which needs %i branches', (workers, peak) => {
       const r = budget(workers)
 
       expect(r.exit).toBe(1)
-      expect(r.out).toContain(`max_workers=${workers} needs ${peak} Neon branches (2N + 3)`)
-      // The preview branch is the hidden second consumer, and the whole reason
-      // the ceiling is half what an operator would guess from the cap alone.
-      expect(r.out).toContain('preview/<git-branch>')
+      expect(r.out).toContain(`max_workers=${workers} needs ${peak} Neon branches (N + 3)`)
+      // The permanent branches are why the ceiling is below the cap.
+      expect(r.out).toContain('main, staging and dev/kaupo hold the other 3')
       // A refusal that does not say what to run instead just moves the guessing.
-      expect(r.out).toContain('Run with --max-workers 3')
-      // `peak + 2`, not `peak`: raising the plan to exactly `peak` lands on the
+      expect(r.out).toContain('Run with --max-workers 7')
+      // `peak + 1`, not `peak`: raising the plan to exactly `peak` lands on the
       // zero-spare WARN, which tells the operator to drop back to the ceiling
       // they just paid to escape. Asserted by starting at the recommended value.
-      expect(r.out).toContain(`set NEON_BRANCH_CAP to ${peak + 2} or more`)
-      expect(budget(workers, String(peak + 2)).out).not.toContain('WARN')
+      expect(r.out).toContain(`set NEON_BRANCH_CAP to ${peak + 1} or more`)
+      expect(budget(workers, String(peak + 1)).out).not.toContain('WARN')
     })
 
     it('names a raised cap rather than a workaround when no worker fits', () => {
-      // `(cap - 3) / 2` floors to 0 here, so "run with --max-workers 0" would be
-      // the arithmetically correct and operationally useless answer.
-      const r = budget('1', '4')
+      // `cap - 3` is 0 here, so "run with --max-workers 0" would be the
+      // arithmetically correct and operationally useless answer.
+      const r = budget('1', '3')
 
       expect(r.exit).toBe(1)
       expect(r.out).toContain('No worker fits this cap')
-      expect(r.out).toContain('Raise NEON_BRANCH_CAP to at least 5')
+      expect(r.out).toContain('Raise NEON_BRANCH_CAP to at least 4')
       expect(r.out).not.toContain('--max-workers 0')
     })
 
     it('warns but still starts when the ceiling fits with no spare', () => {
-      // The spare branch is what absorbs a stranded run, which holds both of its
-      // branches until `wt cleanup`. Fitting exactly is workable, not broken —
-      // so this warns rather than refusing.
-      const r = budget('3', '9')
+      // The spare branch is what absorbs a stranded run, which holds its branch
+      // until `wt cleanup`. Fitting exactly is workable, not broken — so this
+      // warns rather than refusing.
+      const r = budget('3', '6')
 
       expect(r.exit).toBe(0)
-      expect(r.out).toContain('9 of 9 used at peak — no spare branch left')
+      expect(r.out).toContain('6 of 6 used at peak — no spare branch left')
       expect(r.out).toContain('Consider --max-workers 2')
     })
 
     it('admits a higher ceiling once the cap is raised', () => {
       // The one knob that changes if the Neon plan is ever raised.
-      const r = budget('6', '16')
+      const r = budget('12', '16')
 
       expect(r.exit).toBe(0)
       expect(r.out).toContain('15 of 16 at peak')
@@ -463,7 +459,7 @@ describe('orchestrator.sh', () => {
         runHarnessEnv({ NEON_BRANCH_CAP: '25' }, 'branch-budget', '8', ''),
       )
 
-      expect(out).toContain('19 of 25 at peak')
+      expect(out).toContain('11 of 25 at peak')
       expect(out).toContain('EXIT:0')
     })
 
@@ -500,12 +496,12 @@ describe('orchestrator.sh', () => {
       // At MAX_WORKERS=1 the "consider one fewer" advice is `--max-workers 0`,
       // which the validation 25 lines above rejects outright. The ERROR branch
       // was guarded against exactly this; the WARN branch was not.
-      const r = budget('1', '5')
+      const r = budget('1', '4')
 
       expect(r.exit).toBe(0)
       expect(r.out).toContain('no spare branch left')
       expect(r.out).not.toContain('--max-workers 0')
-      expect(r.out).toContain('Raise NEON_BRANCH_CAP to 7')
+      expect(r.out).toContain('Raise NEON_BRANCH_CAP to 5')
     })
 
     it('does not enforce a branch budget on a checkout with no Neon', () => {
@@ -935,9 +931,9 @@ describe('orchestrator.sh', () => {
       // "branches limit exceeded" alone sent the next reader off to rediscover
       // the preview/* branch from scratch (HON-609). The stubbed `branches list`
       // returns an empty array, hence a count of 0.
-      const out = capMessage({ ORCHESTRATOR_MAX_WORKERS: '4' })
+      const out = capMessage({ ORCHESTRATOR_MAX_WORKERS: '8' })
 
-      expect(out).toContain('Budget: 2N + 3 with N=4 workers = 11 of 10 branches at peak.')
+      expect(out).toContain('Budget: N + 3 with N=8 workers = 11 of 10 branches at peak.')
       expect(out).toContain('Branches: 0 before GC, 0 after.')
       expect(out).toContain('NEON_BRANCH_CAP, currently 10')
     })
@@ -955,12 +951,12 @@ describe('orchestrator.sh', () => {
       // Unfixed this printed "19 of 10 branches at peak … currently 10" for a
       // run the startup gate cleared at 25.
       const out = capMessage({
-        ORCHESTRATOR_MAX_WORKERS: '8',
+        ORCHESTRATOR_MAX_WORKERS: '16',
         NEON_BRANCH_CAP: '25',
         HARNESS_ENV_FILE_CAP: '10',
       })
 
-      expect(out).toContain('Budget: 2N + 3 with N=8 workers = 19 of 25 branches at peak.')
+      expect(out).toContain('Budget: N + 3 with N=16 workers = 19 of 25 branches at peak.')
       expect(out).toContain('NEON_BRANCH_CAP, currently 25')
       expect(out).not.toContain('19 of 10')
     })
@@ -979,7 +975,7 @@ describe('orchestrator.sh', () => {
       // would be a plausible wrong number in the one message meant to explain.
       const out = capMessage()
 
-      expect(out).toContain('Budget: 2N + 3 branches for N concurrent workers, cap 10.')
+      expect(out).toContain('Budget: N + 3 branches for N concurrent workers, cap 10.')
       expect(out).not.toMatch(/with N=\d+ workers/)
     })
 
@@ -1023,8 +1019,11 @@ describe('orchestrator.sh', () => {
       expect(text).toContain('SAFE_BRANCH_REGEX')
     })
 
-    it('states that it is held for the life of the PR rather than leaked', () => {
-      expect(runbook()).toMatch(/not a leak|held for the life of the PR/i)
+    it('names what stops PR branches getting one, and what must not be deleted', () => {
+      const text = runbook()
+
+      expect(text).toContain('git.deploymentEnabled')
+      expect(text).toContain('A preview branch whose deployment is still live must not be deleted')
     })
   })
 })

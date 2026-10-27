@@ -16,9 +16,11 @@ Owner: [`.github/workflows/neon-cleanup.yml`](../../.github/workflows/neon-clean
 
 ## `preview/*` is not ours — but its orphans are reaped
 
-Every branch above is one the tooling created. `preview/<git-branch>` is not: the **Vercel–Neon integration** creates it with a PR's preview deployment. Nothing in this repo creates or renames it. (`is_protected_neon_branch` in `scripts/worktree-claude.sh` refuses the bare name `preview`, not the `preview/<git-branch>` shape — it is a backstop against provisioning over a reserved name.)
+Every branch above is one the tooling created. `preview/<git-branch>` is not: the **Vercel–Neon integration** creates it when Vercel creates a preview deployment. Nothing in this repo creates or renames it. (`is_protected_neon_branch` in `scripts/worktree-claude.sh` refuses the bare name `preview`, not the `preview/<git-branch>` shape — it is a backstop against provisioning over a reserved name.)
 
-**A live PR's preview branch is held for the life of the PR, and must never be deleted.** Deleting it pins the PR's Vercel env vars to an endpoint that no longer exists, which resurfaces as `P1001: Can't reach database server` in preview builds — the HON-492 failure. It also means **each in-flight issue costs two branches, not one** — its worktree branch and its preview branch — which is the arithmetic behind the `2N + 2S + 3` budget in [`docs/PARALLEL_WORKFLOW.md`](../PARALLEL_WORKFLOW.md) → Configuration and the startup check in `scripts/orchestrator.sh` (`check_branch_budget`).
+**PR branches no longer get one (HON-1348).** `vercel.json` sets `git.deploymentEnabled` so Vercel creates no deployment for a branch other than `main`, and the integration has nothing to act on. A `vercel deploy` from a branch still creates a deployment, and with it a `preview/<git-branch>`. Each in-flight issue therefore costs one branch, its worktree branch: the `N + S + 3` budget in [`docs/PARALLEL_WORKFLOW.md`](../PARALLEL_WORKFLOW.md) → Configuration and the startup check in `scripts/orchestrator.sh` (`check_branch_budget`).
+
+**A preview branch whose deployment is still live must not be deleted.** Deleting it pins that deployment's Vercel env vars to an endpoint that no longer exists, which resurfaces as `P1001: Can't reach database server` — the HON-492 failure.
 
 ### What the integration actually does (HON-852)
 
@@ -51,7 +53,13 @@ Consequence: a closed-unmerged PR whose git branch is **left on origin** keeps i
 
 ### Integration settings
 
-The root cause is in the Vercel project's Neon integration, which the agent cannot see: whether "create a branch for each preview deployment" is on, and whether the integration has its own "delete obsolete branches" option that is off. If a setting explains the re-creations, record it here — the sweep is still worth having for the closed-without-merge case.
+Checked on 2026-10-27 (HON-1348). The project uses Neon's own Vercel integration (Vercel integration slug `neon`), not a Vercel Marketplace storage resource. Its settings live in **Neon Console → Integrations → Vercel → Manage**, with Settings, Branches and Disconnect tabs.
+
+- **No setting turns preview branches off.** The integration creates `preview/<git-branch>` on every preview deployment Vercel creates. Branches → Automation workflows has only "Automatically delete obsolete Neon branches", which controls deletion, not creation. That is why the fix is `git.deploymentEnabled` in `vercel.json`, which stops the deployment itself.
+- **Do not uninstall the integration without a plan for its env vars.** It owns Production `DATABASE_URL_UNPOOLED` and Development `DATABASE_URL` / `DATABASE_URL_UNPOOLED` in Vercel. Production `DATABASE_URL` and both `staging` vars are set by hand. `src/lib/env.ts` requires `DATABASE_URL_UNPOOLED`, so a removal that deletes it breaks production.
+- Disconnect only stops Neon from setting env vars, by Neon's docs. It is not documented to stop branch creation.
+
+The sweep is still worth having for `vercel deploy` previews and the closed-without-merge case.
 
 ## Safety invariants
 
@@ -159,8 +167,9 @@ If a live branch was deleted by mistake (for example, if the regex or allowlist 
 - `scripts/neon-cleanup.sh` — all logic, including safety invariants
 - `scripts/maybe-migrate.sh` — pre-flight endpoint check (HON-492)
 - `.claude/skills/auto-implement/SKILL.md` — origin of `*--hon-*` branches
-- `docs/PARALLEL_WORKFLOW.md` → Configuration — the `2N + 2S + 3` branch budget and the `--max-workers` ceiling it bounds
+- `docs/PARALLEL_WORKFLOW.md` → Configuration — the `N + S + 3` branch budget and the `--max-workers` ceiling it bounds
 - HON-473 — database recovery runbook (PITR procedures)
 - HON-492 — incident + design that produced this runbook
 - HON-609 / HON-616 — the cap hit with nothing stale to collect; `preview/*` accounting and the startup budget check
 - HON-852 — the integration re-creating `preview/*` branches after merge, and the `preview/*` gate
+- HON-1348 — no deployment, so no `preview/*`, for PR branches; one branch per worker
