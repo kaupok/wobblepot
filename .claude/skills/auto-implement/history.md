@@ -131,7 +131,7 @@ This is also why `scripts/pr-comments.sh` does not pass `--jq` to its paginated 
 
 ## The pending-Vercel exemption (6.1, 7.2; HON-600)
 
-**Known residual risk of that exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build that is merely *queued* past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one, and the merge lands before it reports. The exemption is still the right trade — Vercel builds here take 38 s–1 min, and the alternative stranded three finished PRs in one night — but the durable fix is HON-584 (required status checks on `main`), which makes GitHub itself refuse the merge. Same caveat applies to the `smoke` label: `preview-smoke.yml` is `on: deployment_status` gated on `state == 'success'`, so its checks never register while Vercel is pending and a labelled PR can merge without them. Requiring them instead would re-strand exactly the PRs this fixes, and `staging-smoke` still runs post-merge.
+**Known residual risk of that exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build that is merely *queued* past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one, and the merge lands before it reports. The exemption is still the right trade — Vercel builds here take 38 s–1 min, and the alternative stranded three finished PRs in one night — but the durable fix is HON-584 (required status checks on `main`), which makes GitHub itself refuse the merge. Same caveat applies to the `smoke` label: `preview-smoke.yml` is `on: deployment_status` gated on `state == 'success'`, so its checks never register while Vercel is pending and a labelled PR can merge without them. Requiring them instead would re-strand exactly the PRs this fixes, and `staging-smoke` still runs post-merge. (Since PR #1396 PR branches do not build on Vercel and `preview-smoke.yml` is removed.)
 
 ## No docs-only exemption (6.1, 7.2; HON-584, HON-1184)
 
@@ -143,7 +143,7 @@ The reviewer reports acceptance-criteria gaps under a `**Spec:**` heading: Missi
 
 ## Merge gate (7.2, 7.3)
 
-7.2 stops on any failing check, Vercel included, because `ci.yml` runs no `next build` and a failed Vercel deploy is the only build gate (the pending exemption is above). 7.2 does not enter the CI-fix loop, because a push in Phase 7 would merge a commit no review round has seen.
+7.2 stops on any failing check, Vercel included. When this was written `ci.yml` ran no `next build`, so a failed Vercel deploy was the only build gate (the pending exemption is above); since PR #1396 PR branches do not build on Vercel and CI's E2E `next build` is the build gate. 7.2 does not enter the CI-fix loop, because a push in Phase 7 would merge a commit no review round has seen.
 
 `.claude/hooks/block-destructive.mts` blocks every `gh pr merge` without an inline `WOBBLEPOT_ALLOW_MERGE=1` (HON-727). The hook reads the command text, so an `export` in an earlier Bash call does not carry over. In a worktree, `gh pr merge --delete-branch` fails because `gh` tries to check out main, which the parent checkout holds; GitHub still deletes the remote branch.
 

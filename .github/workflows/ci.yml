@@ -535,7 +535,7 @@ jobs:
 
     # Postgres sidecar powers the E2E tier 1 (HON-455). Migrations + seed run
     # against this DB before Playwright. Doesn't catch Neon-specific quirks
-    # (pooling, cold starts) — preview-smoke covers those.
+    # (pooling, cold starts) — staging-smoke covers those.
     services:
       postgres:
         image: postgres:16

@@ -14,7 +14,7 @@ import { e2eBaseURL } from './utils/db-helpers'
 
 /**
  * Sign the seeded smoke user in, or skip locally when the fixture env is
- * absent. Remote tiers (PLAYWRIGHT_BASE_URL set — preview/staging smoke) fail
+ * absent. Remote tiers (PLAYWRIGHT_BASE_URL set — staging smoke) fail
  * loudly instead: a missing secret would otherwise turn the production-
  * promotion gate into a silently-green no-op.
  */

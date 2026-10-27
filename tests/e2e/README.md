@@ -1,15 +1,14 @@
 # End-to-end tests
 
-Playwright E2E specs for Honkadori. Three tiers run against different
+Playwright E2E specs for Honkadori. Two tiers run against different
 environments, all from the same `tests/e2e/*.spec.ts` files.
 
 ## Tiers
 
-| Tier              | When                                                                              | Target                           | Specs run                                 |
-| ----------------- | --------------------------------------------------------------------------------- | -------------------------------- | ----------------------------------------- |
-| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                                      | Docker Postgres sidecar          | All specs **except `@ai`**                |
-| **Preview-smoke** | Vercel preview deploy succeeds **and PR has `smoke` label** (`preview-smoke.yml`) | Vercel preview URL + Neon branch | `--grep=@smoke` (fixture-based, no `@ai`) |
-| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`)            | `https://wobblepot.dev`          | `--grep=@smoke` (fixture-based, no `@ai`) |
+| Tier              | When                                                                   | Target                  | Specs run                                 |
+| ----------------- | ---------------------------------------------------------------------- | ----------------------- | ----------------------------------------- |
+| **CI E2E**        | Every push / PR (`.github/workflows/ci.yml`)                           | Docker Postgres sidecar | All specs **except `@ai`**                |
+| **Staging-smoke** | Staging DB-migration workflow succeeds on `main` (`staging-smoke.yml`) | `https://wobblepot.dev` | `--grep=@smoke` (fixture-based, no `@ai`) |
 
 Staging-smoke failure blocks production promotion — see
 [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
@@ -19,7 +18,7 @@ Staging-smoke failure blocks production promotion — see
 Tier 1 runs on every push. Specs that call Claude (meal-plan generate,
 swap, pantry-deduction) cost real money per run — at this repo's PR
 velocity, running them on every push is a four-to-five-figure annual
-bill. They are also excluded from tiers 2 and 3 (HON-560): every current
+bill. They are also excluded from staging-smoke (HON-560): every current
 `@ai` spec creates its own account via `/api/e2e-seed`, which only exists
 where the rate-limit bypass is active (CI/test/dev) — preview and staging
 404 it by design. `@ai` specs run via `pnpm test:e2e:local --ai`.
@@ -29,14 +28,6 @@ production-promotion checklist** ([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.m
 § Production Deployment Process, step 3), because these specs are meal-plan
 generation's only coverage. HON-667 settled that shape — no Anthropic mock in
 E2E, no scheduled `@ai` run.
-
-### Running preview-smoke on a PR
-
-Preview-smoke is **label-gated**: add the `smoke` label to the PR and
-the next successful Vercel preview deploy triggers a smoke run against
-it. Remove + re-add the label (or push a new commit) to re-trigger. The
-workflow silently does nothing on unlabelled PRs — the "Smoke tests on
-Vercel preview" check only appears once a run is actually dispatched.
 
 ## Running locally
 
@@ -227,7 +218,7 @@ With neither available, `forgot-password.spec.ts` **skips**. That is
 deliberate: `RESEND_TEST_API_KEY` has to be minted by a human, and failing hard
 in the meantime would leave the production-promotion gate red on every merge —
 the exact failure HON-560 fixed. Provisioning the key is what turns this spec
-on for tiers 2 and 3.
+on for staging-smoke.
 
 ## Selector conventions
 
@@ -283,7 +274,7 @@ The header is load-bearing for the drift-prevention workflow. `/plan-issue` and 
 
 ## Seed fixture contract
 
-Preview-smoke and staging-smoke rely on fixtures the seed script plants when
+Staging-smoke relies on fixtures the seed script plants when
 `SEED_TEST_USERS=1` is set in the environment. These are consumed by specs
 that follow pattern (b) — notably those landing via HON-469 and HON-479.
 
@@ -303,7 +294,7 @@ path.
 
 ### Treat remote-tier artifacts as public
 
-A failing preview-smoke / staging-smoke run used to publish the fixture
+A failing staging-smoke run used to publish the fixture
 password in cleartext, as a 14-day artifact anyone with repo read access could
 download. GitHub's secret masking only covers log output; it does not reach
 inside artifact files. Both leaks below were confirmed by unzipping a real
@@ -341,27 +332,23 @@ independently if you ever want to. The test-user credentials are
 purely content — but see "Treat remote-tier artifacts as public" above before
 assuming they stay secret.
 
-| Secret                          | Used by                      | Can reuse staging?  | Notes                                                                                                                                                                                                                                                                                               |
-| ------------------------------- | ---------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET_CI`         | CI                           | Yes                 | Signs sessions in the CI runner. Sessions are DB-backed — a leaked secret can't forge a session without the matching DB row, so sharing is benign.                                                                                                                                                  |
-| `ANTHROPIC_API_KEY_CI`          | CI                           | Yes                 | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging.                                                                                                                                   |
-| `UPSTASH_REDIS_REST_URL_CI`     | CI                           | Yes                 | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                                                                                                                                                    |
-| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI                           | Yes                 | Paired with above.                                                                                                                                                                                                                                                                                  |
-| `SMOKE_TEST_EMAIL`              | CI / preview-smoke / staging | n/a                 | Stable seeded account. Pick any value — e.g. `smoke+ci@wobblepot.dev`.                                                                                                                                                                                                                              |
-| `SMOKE_TEST_PASSWORD`           | CI / preview-smoke / staging | n/a                 | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                                                                                                                                                           |
-| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / preview-smoke / staging | n/a                 | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                                                                                                                                                     |
-| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / preview-smoke / staging | n/a                 | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                                                                                                                                                          |
-| `RESEND_TEST_API_KEY`           | preview-smoke / staging      | No — mint a new one | **Not provisioned yet.** A _read-capable_ Resend API key on the same team the app sends from, used by the Playwright runner (never by the app) to fetch delivered mail. Until it exists, `forgot-password.spec.ts` skips on tiers 2/3. Distinct from `RESEND_API_KEY`, which is the app's send key. |
+| Secret                          | Used by      | Can reuse staging?  | Notes                                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | ------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET_CI`         | CI           | Yes                 | Signs sessions in the CI runner. Sessions are DB-backed — a leaked secret can't forge a session without the matching DB row, so sharing is benign.                                                                                                                                                      |
+| `ANTHROPIC_API_KEY_CI`          | CI           | Yes                 | Tier 1 skips `@ai` specs so runtime AI spend is effectively zero. The key is still needed for `pnpm build` to resolve lazy env references cleanly. Reuse staging.                                                                                                                                       |
+| `UPSTASH_REDIS_REST_URL_CI`     | CI           | Yes                 | Same Upstash DB as staging. Rate-limiter keys are dimensioned (ip/household/user) and CI runner IPs / fresh IDs don't collide with real traffic.                                                                                                                                                        |
+| `UPSTASH_REDIS_REST_TOKEN_CI`   | CI           | Yes                 | Paired with above.                                                                                                                                                                                                                                                                                      |
+| `SMOKE_TEST_EMAIL`              | CI / staging | n/a                 | Stable seeded account. Pick any value — e.g. `smoke+ci@wobblepot.dev`.                                                                                                                                                                                                                                  |
+| `SMOKE_TEST_PASSWORD`           | CI / staging | n/a                 | ≥ 12 chars (HON-464 minimum) and must not be in HIBP's breach list (auth.ts rejects known-breached passwords on sign-up).                                                                                                                                                                               |
+| `FORGOT_PASSWORD_TEST_EMAIL`    | CI / staging | n/a                 | Separate seeded account so reset-password specs don't affect the smoke account.                                                                                                                                                                                                                         |
+| `FORGOT_PASSWORD_TEST_PASSWORD` | CI / staging | n/a                 | Same constraints as `SMOKE_TEST_PASSWORD`.                                                                                                                                                                                                                                                              |
+| `RESEND_TEST_API_KEY`           | staging      | No — mint a new one | **Not provisioned yet.** A _read-capable_ Resend API key on the same team the app sends from, used by the Playwright runner (never by the app) to fetch delivered mail. Until it exists, `forgot-password.spec.ts` skips on staging-smoke. Distinct from `RESEND_API_KEY`, which is the app's send key. |
 
 Where each environment's seed actually runs (and therefore where the
 `SEED_TEST_USERS=1` + credential env vars must be set):
 
-- **Preview** — nothing seeds during the Vercel build: `scripts/maybe-migrate.sh`
-  runs `prisma migrate deploy` and nothing else. A preview Neon branch is a
-  copy-on-write fork of its parent, so the fixtures it has are the ones the
-  parent branch already held — i.e. whatever the staging seed below planted.
-  A fixture added to `seedTestUsers()` only reaches preview once the staging
-  seed has run and new preview branches fork from the updated parent.
+- **Preview** — PR branches no longer deploy on Vercel (PR #1396), so no
+  preview environment needs a seed.
 - **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
   `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
   sets `SEED_TEST_USERS=1` and passes the four credential secrets

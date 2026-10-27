@@ -1,6 +1,6 @@
 name: Staging smoke
 
-# Tier 3 of the HON-455 E2E setup. Runs after the staging DB-migration
+# The remote tier of the HON-455 E2E setup (the preview tier was removed). Runs after the staging DB-migration
 # workflow succeeds on main. Staging is auto-deployed by Vercel on push to
 # main, so we poll the staging URL until it responds before running the
 # @smoke-tagged specs. Failure blocks production promotion (see

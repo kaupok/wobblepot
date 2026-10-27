@@ -10,8 +10,7 @@ import { test, expect } from '@playwright/test'
  *
  * - **Local / tier 1** — skip. Not every contributor has the CI secrets in
  *   `.env`, and a hard failure there is noise, not signal.
- * - **Remote tiers** (`PLAYWRIGHT_BASE_URL` set — preview-smoke,
- *   staging-smoke) — fail loudly. A missing secret must never turn the
+ * - **Remote tiers** (`PLAYWRIGHT_BASE_URL` set — staging-smoke) — fail loudly. A missing secret must never turn the
  *   production-promotion gate into a silent green.
  *
  * This mirrors the inline logic in `tests/e2e/smoke.spec.ts`, extracted so the
