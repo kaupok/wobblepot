@@ -836,7 +836,7 @@ export const KeyboardTogglesStep: Story = {
     await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'true')
     await userEvent.keyboard('{Enter}')
     await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'false')
-    // Tab moves on to the step's Ask button (HON-969), then the next step.
+    // Tab moves on to the step's ⋯ button (HON-969, HON-1350), then the next step.
     await userEvent.tab()
     await expect(body().getByRole('button', { name: 'Ask about step 2' })).toHaveFocus()
     await userEvent.tab()
@@ -844,11 +844,18 @@ export const KeyboardTogglesStep: Story = {
   },
 }
 
+/** Choose an item in a row's ⋯ menu, portalled to the body (HON-1350). */
+async function pickAsk(button: HTMLElement, item: string): Promise<void> {
+  await userEvent.click(button)
+  await userEvent.click(await body().findByRole('menuitem', { name: item }))
+}
+
 /**
- * Ask about a step (HON-969): the chip sends at once, the answer shows under
- * the step below the question asked, and Edit puts the question back in the
- * field (HON-976). Close puts focus back on that step's Ask button, and the
- * question is gone on reopening or on another step's panel.
+ * Ask about a step (HON-969): a ready-made question from the ⋯ menu sends at
+ * once (HON-1350), the answer shows under the step below the question asked,
+ * and Edit puts the question back in the field (HON-976). Close puts focus
+ * back on that step's ⋯ button, and the question is gone on reopening or on
+ * another step's panel.
  */
 export const AskAboutStep: Story = {
   name: 'Planned: ask about a step',
@@ -866,15 +873,15 @@ export const AskAboutStep: Story = {
   },
   play: async () => {
     await findDialog()
-    const ask = body().getByRole('button', { name: 'Ask about step 2' })
-    await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-    await userEvent.click(ask)
+    const more = body().getByRole('button', { name: 'Ask about step 2' })
+    await expect(more.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     const panelFor = (n: number) => body().getByRole('group', { name: `Ask about step ${n}` })
-    const chip = (n: number) =>
-      within(panelFor(n)).getByRole('button', { name: 'What can I substitute here?' })
     const answer = 'Use the Greek yoghurt you have, stirred in off the heat.'
-    await userEvent.click(chip(2))
+    await pickAsk(more, 'What can I substitute here?')
     const line = await within(panelFor(2)).findByText('You asked: What can I substitute here?')
+    await waitFor(() =>
+      expect(within(panelFor(2)).getByRole('button', { name: 'Close' })).toHaveFocus(),
+    )
     await waitFor(() => expect(within(panelFor(2)).getByText(answer)).toBeVisible())
     // The question stays above the answer once it arrives.
     await expect(line).toBeVisible()
@@ -890,23 +897,24 @@ export const AskAboutStep: Story = {
 
     await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Close' }))
     await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
-    await expect(ask).toHaveFocus()
+    await expect(more).toHaveFocus()
 
-    // Reopened, the panel starts empty.
-    await userEvent.click(ask)
+    // Reopened, the panel starts empty, with the field focused.
+    await pickAsk(more, 'Ask your own question')
     await expect(within(panelFor(2)).queryByText(/^You asked:/)).toBeNull()
+    await waitFor(() => expect(within(panelFor(2)).getByRole('textbox')).toHaveFocus())
 
     // Another step's panel shows no question until one is sent there.
-    await userEvent.click(chip(2))
+    await pickAsk(more, 'What can I substitute here?')
     await within(panelFor(2)).findByText(answer)
-    await userEvent.click(body().getByRole('button', { name: 'Ask about step 3' }))
+    await pickAsk(body().getByRole('button', { name: 'Ask about step 3' }), 'Ask your own question')
     await expect(within(panelFor(3)).queryByText(/^You asked:/)).toBeNull()
   },
 }
 
 /**
- * The steps' Ask buttons and the ones in "You'll need" end on one edge, so
- * the two columns of Ask buttons read as one (HON-1022).
+ * The steps' ⋯ buttons and the ones in "You'll need" end on one edge, so
+ * the two columns of ⋯ buttons read as one (HON-1022).
  */
 async function assertAskColumnsAlign(): Promise<void> {
   await findDialog()
@@ -939,7 +947,7 @@ export const AskClosesWhenStepDone: Story = {
   play: async () => {
     await findDialog()
     const ask = body().getByRole('button', { name: 'Ask about step 2' })
-    await userEvent.click(ask)
+    await pickAsk(ask, 'Ask your own question')
     await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
     await expect(ask).toHaveAttribute('aria-expanded', 'true')
 
@@ -962,7 +970,7 @@ export const AskStaysWhenOtherStepDone: Story = {
   play: async () => {
     await findDialog()
     const ask = body().getByRole('button', { name: 'Ask about step 2' })
-    await userEvent.click(ask)
+    await pickAsk(ask, 'Ask your own question')
 
     await userEvent.click(stepButton(2))
     await expect(stepButton(2)).toHaveAttribute('aria-pressed', 'true')
@@ -1008,26 +1016,24 @@ const resultOf = (panel: HTMLElement) =>
   panel.querySelector<HTMLElement>('[data-slot="cook-question-result"]')!
 
 /**
- * The last step's Ask button sits on the bottom edge of the scroll region,
- * as a cook reaches it scrolling down. Opening it brings the chips and the
- * field into view. A chip's long answer arrives, and the answer with Close
- * scrolls into view, while focus stays on Close, where the chip handed it as
- * the chips gave way to the question (HON-1022).
+ * The last step's ⋯ button sits on the bottom edge of the scroll region,
+ * as a cook reaches it scrolling down. A ready-made question opens the panel
+ * and brings it into view. The long answer arrives, and the answer with Close
+ * scrolls into view, while focus stays on Close, where the menu handed it
+ * (HON-1022, HON-1350).
  */
 async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const last = longTips.steps!.length
   const ask = body().getByRole('button', { name: `Ask about step ${last}` })
   ask.scrollIntoView({ block: 'end' })
-  await userEvent.click(ask)
+  await pickAsk(ask, "I'm short on time")
 
   const panel = body().getByRole('group', { name: `Ask about step ${last}` })
   const field = within(panel).getByRole('textbox', { name: 'Your question' })
   await waitFor(() => expect(isInside(field, scroller)).toBe(true))
 
-  const chip = within(panel).getByRole('button', { name: "I'm short on time" })
-  await userEvent.click(chip)
   const close = within(panel).getByRole('button', { name: 'Close' })
-  await expect(close).toHaveFocus()
+  await waitFor(() => expect(close).toHaveFocus())
   await within(panel).findByText(longAnswer)
   await expect(resultOf(panel)).toContainElement(close)
   await waitFor(() => expect(isInside(resultOf(panel), scroller)).toBe(true))
@@ -1093,12 +1099,11 @@ export const AskPanelInViewDoesNotMove: Story = {
     ask.scrollIntoView({ block: 'center' })
     const scrollTop = scroller.scrollTop
 
-    await userEvent.click(ask)
+    await pickAsk(ask, "I'm short on time")
     const panel = body().getByRole('group', { name: 'Ask about step 2' })
     await expect(isInside(panel, scroller)).toBe(true)
     await expect(scroller.scrollTop).toBe(scrollTop)
 
-    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
     await within(panel).findByText('About 20 minutes more.')
     // The arrival's effect runs before the next frame; give it two.
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -1138,7 +1143,7 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     const scroller = within(dialog).getByTestId('cook-view-steps')
     const ask = within(dialog).getByRole('button', { name: 'Ask about step 2' })
     ask.scrollIntoView({ block: 'start' })
-    await userEvent.click(ask)
+    await pickAsk(ask, "I'm short on time")
     const panel = body().getByRole('group', { name: 'Ask about step 2' })
     const status = within(panel).getByRole('status')
     const nextStep = within(dialog).getByRole('button', { name: tips.steps![2]! })
@@ -1146,12 +1151,11 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     // does not read as the step moving.
     const offsetOf = (el: Element) => box(el).top - box(scroller).top + scroller.scrollTop
 
-    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
     await within(panel).findByText(longAnswer)
     const answeredHeight = box(status).height
     const answeredOffset = offsetOf(nextStep)
 
-    // The chips are gone once a question is out: the follow-up is typed (HON-1022).
+    // The follow-up is typed in the panel's field (HON-1022).
     await userEvent.type(
       within(panel).getByRole('textbox', { name: 'Your question' }),
       "How do I know it's done?{Enter}",
@@ -1199,8 +1203,8 @@ const streamedAnswerHandler = http.post(
 
 /**
  * The first words show before the rest is written, and the answer grows in
- * place. Send and the chips stay disabled until the stream closes, so a second
- * tap cannot bill a second call.
+ * place. Send stays disabled until the stream closes, so a second tap cannot
+ * bill a second call.
  */
 export const AskStreamsAnswer: Story = {
   name: 'Planned: ask streams the answer in',
@@ -1208,12 +1212,14 @@ export const AskStreamsAnswer: Story = {
   parameters: { msw: { handlers: { cookQuestion: [streamedAnswerHandler] } } },
   play: async () => {
     await findDialog()
-    await userEvent.click(body().getByRole('button', { name: 'Ask about step 2' }))
+    await pickAsk(
+      body().getByRole('button', { name: 'Ask about step 2' }),
+      "How do I know it's done?",
+    )
     const panel = body().getByRole('group', { name: 'Ask about step 2' })
     const status = within(panel).getByRole('status')
     const send = within(panel).getByRole('button', { name: 'Send' })
 
-    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
     await within(status).findByText('Cut into the thickest piece.')
     await expect(status).not.toHaveTextContent('Thinking…')
     await expect(status).toHaveAttribute('aria-busy', 'true')
@@ -1233,8 +1239,8 @@ export const AskStreamsAnswer: Story = {
 const cookQuestionBodies: unknown[] = []
 
 /**
- * Ask about an item in "You'll need" (HON-983): opening its panel closes an
- * open step panel, and a chip sends the item as the subject, with the
+ * Ask about an item in "You'll need" (HON-983): a ready-made question from
+ * its ⋯ menu closes an open step panel and sends the item as the subject, with the
  * equipment and the steps on screen.
  */
 export const AskAboutEquipment: Story = {
@@ -1265,18 +1271,17 @@ export const AskAboutEquipment: Story = {
       await expect(within(list).getByRole('button', { name: `Ask about ${item}` })).toBeVisible()
     }
 
-    await userEvent.click(body().getByRole('button', { name: 'Ask about step 2' }))
+    await pickAsk(body().getByRole('button', { name: 'Ask about step 2' }), 'Ask your own question')
     await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
 
     const knife = within(list).getByRole('button', { name: 'Ask about Sharp knife' })
-    await userEvent.click(knife)
+    await pickAsk(knife, 'What can I use instead?')
     await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
     await expect(body().getByRole('button', { name: 'Ask about step 2' })).toHaveAttribute(
       'aria-expanded',
       'false',
     )
     const panel = body().getByRole('group', { name: 'Ask about Sharp knife' })
-    await userEvent.click(within(panel).getByRole('button', { name: 'What can I use instead?' }))
     await within(panel).findByText(
       'A heavy chopping board and a serrated bread knife will do for step 2.',
     )
@@ -1293,7 +1298,7 @@ export const AskAboutEquipment: Story = {
   },
 }
 
-/** A completed entry gets no Ask buttons: nobody is cooking it. */
+/** A completed entry gets no ⋯ buttons for Ask: nobody is cooking it. */
 export const CompletedHasNoAsk: Story = {
   name: 'Completed: no Ask buttons',
   args: { meal: tintedMeal, status: 'completed', initialSteps: tips },

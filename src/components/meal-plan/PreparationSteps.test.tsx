@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   PreparationEquipment,
@@ -22,6 +22,12 @@ const sampleTips: PreparationStepsData = {
 const notesTrigger = () => screen.getByRole('button', { name: 'Your notes' })
 
 /** A step as the subject of a cook question (HON-983) */
+/** Open a row's ⋯ menu and choose one of its items (HON-1350). */
+async function pick(menuButton: HTMLElement, item: string) {
+  await userEvent.click(menuButton)
+  await userEvent.click(await screen.findByRole('menuitem', { name: item }))
+}
+
 function step(index: number): CookQuestionSubject {
   return { kind: 'step', index }
 }
@@ -300,7 +306,7 @@ describe('PreparationSteps progress', () => {
   })
 })
 
-// Each generated step gets an Ask button beside its toggle (HON-969).
+// Each generated step gets a ⋯ menu beside its toggle (HON-969, HON-1350).
 describe('PreparationSteps cook question', () => {
   // jsdom has no scrollIntoView; the panel calls it on open and on arrival.
   const scrollIntoView = vi.fn()
@@ -343,12 +349,13 @@ describe('PreparationSteps cook question', () => {
       />
     )
   }
-  const askButton = (n: number) => screen.getByRole('button', { name: `Ask about step ${n}` })
+  const menuButton = (n: number) => screen.getByRole('button', { name: `Ask about step ${n}` })
+  const openPanel = (n: number) => pick(menuButton(n), 'Ask your own question')
   const panel = (n: number) => screen.queryByRole('group', { name: `Ask about step ${n}` })
 
-  it('renders an Ask button per step only with cookQuestion', () => {
+  it('renders a ⋯ button per step only with cookQuestion', () => {
     const { unmount } = render(<Harness />)
-    expect(askButton(1)).toHaveAttribute('aria-expanded', 'false')
+    expect(menuButton(1)).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getAllByRole('button', { name: /^Ask about step/ })).toHaveLength(3)
     unmount()
 
@@ -364,42 +371,72 @@ describe('PreparationSteps cook question', () => {
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   })
 
-  it('labels the Ask button "Ask" for lg, keeps the step in its name, and sets no title', () => {
+  it('sizes the ⋯ button 44px or more, keeps the step in its name, and sets no title', () => {
     render(<Harness />)
-    const button = askButton(2)
-    expect(within(button).getByText('Ask')).toHaveClass('hidden', 'lg:inline')
+    const button = menuButton(2)
+    // `icon-lg`: 48px below `md`, 44px from it.
+    expect(button).toHaveClass('size-12', 'md:size-11')
+    expect(within(button).queryByText('Ask')).toBeNull()
     expect(button).not.toHaveAttribute('title')
   })
 
-  it('shows no Ask button on the static numbered list', () => {
+  it('shows no ⋯ button on the static numbered list', () => {
     render(<PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   })
 
-  it('opens a panel with three chips and a field, and one panel at a time', async () => {
+  it('lists the three ready-made questions, a separator, then "Ask your own question"', async () => {
     render(<Harness />)
-    await userEvent.click(askButton(1))
+    await userEvent.click(menuButton(1))
+    const menu = await screen.findByRole('menu')
 
-    const first = panel(1)!
-    expect(askButton(1)).toHaveAttribute('aria-expanded', 'true')
-    expect(within(first).getByRole('button', { name: "How do I know it's done?" })).toBeVisible()
-    expect(within(first).getByRole('button', { name: 'What can I substitute here?' })).toBeVisible()
-    expect(within(first).getByRole('button', { name: "I'm short on time" })).toBeVisible()
-    expect(within(first).getByRole('textbox', { name: 'Your question' })).toBeVisible()
-
-    await userEvent.click(askButton(2))
-    expect(panel(1)).toBeNull()
-    expect(panel(2)).not.toBeNull()
-    // Switching moves focus into the new panel's field.
-    expect(within(panel(2)!).getByRole('textbox')).toHaveFocus()
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      "How do I know it's done?",
+      'What can I substitute here?',
+      "I'm short on time",
+      'Ask your own question',
+    ])
+    const separator = within(menu).getByRole('separator')
+    expect(separator.previousElementSibling).toHaveTextContent("I'm short on time")
+    expect(separator.nextElementSibling).toHaveTextContent('Ask your own question')
   })
 
-  it('a chip sends its text, the steps and source chip', async () => {
+  it('"Ask your own question" opens a panel with the field focused and no chips, one at a time', async () => {
     const ask = vi.fn()
     render(<Harness controls={{ ask }} />)
-    await userEvent.click(askButton(2))
-    await userEvent.click(screen.getByRole('button', { name: 'What can I substitute here?' }))
+    await openPanel(1)
 
+    const first = panel(1)!
+    expect(menuButton(1)).toHaveAttribute('aria-expanded', 'true')
+    expect(menuButton(1)).toHaveAttribute('aria-controls', first.id)
+    const field = within(first).getByRole('textbox', { name: 'Your question' })
+    expect(field).toHaveAttribute('placeholder', 'Ask about this step')
+    await waitFor(() => expect(field).toHaveFocus())
+    expect(within(first).getByRole('button', { name: 'Send' })).toBeVisible()
+    expect(within(first).getByRole('button', { name: 'Close' })).toBeVisible()
+    expect(
+      within(first)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Send', 'Close'])
+    expect(ask).not.toHaveBeenCalled()
+
+    await openPanel(2)
+    expect(panel(1)).toBeNull()
+    await waitFor(() => expect(within(panel(2)!).getByRole('textbox')).toHaveFocus())
+  })
+
+  it('a ready-made question opens the panel and sends its text, the steps and source chip', async () => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask }} />)
+    await pick(menuButton(2), 'What can I substitute here?')
+
+    expect(panel(2)).not.toBeNull()
+    expect(ask).toHaveBeenCalledOnce()
     expect(ask).toHaveBeenCalledWith({
       subject: step(1),
       steps: sampleTips.steps,
@@ -412,7 +449,7 @@ describe('PreparationSteps cook question', () => {
   it('Enter in the field sends the typed question with source text', async () => {
     const ask = vi.fn()
     render(<Harness controls={{ ask }} />)
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     await userEvent.type(screen.getByRole('textbox'), '  No cream, what now?  {Enter}')
 
     expect(ask).toHaveBeenCalledOnce()
@@ -429,7 +466,7 @@ describe('PreparationSteps cook question', () => {
   it('Send does nothing while an answer is pending, and keeps focus', async () => {
     const ask = vi.fn()
     render(<Harness controls={{ ask, isPending: true }} />)
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     await userEvent.type(screen.getByRole('textbox'), 'Done yet?')
     const send = screen.getByRole('button', { name: 'Send' })
     await userEvent.click(send)
@@ -441,18 +478,7 @@ describe('PreparationSteps cook question', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Thinking…')
   })
 
-  it('a chip does nothing while an answer is pending', async () => {
-    const ask = vi.fn()
-    render(<Harness controls={{ ask, isPending: true }} />)
-    await userEvent.click(askButton(1))
-    const chip = screen.getByRole('button', { name: "I'm short on time" })
-    await userEvent.click(chip)
-
-    expect(chip).toHaveAttribute('aria-disabled', 'true')
-    expect(ask).not.toHaveBeenCalled()
-  })
-
-  it('Send does nothing while the answer streams in, and the chips are gone (HON-979)', async () => {
+  it('Send does nothing while the answer streams in (HON-979)', async () => {
     const ask = vi.fn()
     render(
       <Harness
@@ -463,20 +489,19 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     await userEvent.type(screen.getByRole('textbox'), 'Done yet?')
     const send = screen.getByRole('button', { name: 'Send' })
     await userEvent.click(send)
 
     expect(send).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.queryByRole('button', { name: "I'm short on time" })).toBeNull()
     expect(ask).not.toHaveBeenCalled()
   })
 
   it('marks the status busy while the answer streams, without "Thinking…"', async () => {
     const active = { subject: step(0), question: 'Q', answer: 'Use the ' }
     const { rerender } = render(<Harness controls={{ isStreaming: true, active }} />)
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     const status = within(panel(1)!).getByRole('status')
     expect(status).toHaveAttribute('aria-busy', 'true')
     expect(status).toHaveTextContent(/^Use the$/)
@@ -494,7 +519,7 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     const status = within(panel(1)!).getByRole('status')
     const words = within(status).getByText('Use the')
     const error = within(status).getByText('Could not answer.')
@@ -510,13 +535,13 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     expect(within(panel(1)!).getByRole('status')).toHaveTextContent('Use the yoghurt you have.')
   })
 
   it('shows no asked question without an active question', async () => {
     render(<Harness />)
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     expect(within(panel(1)!).queryByText(/^You asked:/)).toBeNull()
     expect(within(panel(1)!).queryByRole('button', { name: 'Edit' })).toBeNull()
   })
@@ -527,7 +552,7 @@ describe('PreparationSteps cook question', () => {
         controls={{ active: { subject: step(0), question: 'Done yet?', answer: 'Not yet.' } }}
       />,
     )
-    await userEvent.click(askButton(2))
+    await openPanel(2)
     expect(within(panel(2)!).queryByText(/^You asked:/)).toBeNull()
     expect(within(panel(2)!).queryByRole('button', { name: 'Edit' })).toBeNull()
   })
@@ -541,7 +566,7 @@ describe('PreparationSteps cook question', () => {
     ]
     for (const controls of states) {
       const { unmount } = render(<Harness controls={controls} />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const line = within(panel(1)!).getByText('You asked: No cream, what now?')
       const status = within(panel(1)!).getByRole('status')
       expect(status).not.toContainElement(line)
@@ -564,7 +589,7 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     const status = within(panel(1)!).getByRole('status')
     const stale = within(status).getByText('Use the yoghurt.')
     expect(stale).toHaveClass('text-muted-foreground')
@@ -587,7 +612,7 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(2))
+    await openPanel(2)
     const status = within(panel(2)!).getByRole('status')
     expect(status).toHaveTextContent(/^Thinking…$/)
     expect(within(panel(2)!).getByText("You asked: I'm short on time")).toBeInTheDocument()
@@ -603,7 +628,7 @@ describe('PreparationSteps cook question', () => {
         }}
       />,
     )
-    await userEvent.click(askButton(2))
+    await openPanel(2)
     const edit = within(panel(2)!).getByRole('button', { name: 'Edit' })
     expect(edit).toHaveAccessibleDescription('You asked: No cream, what now?')
     await userEvent.click(edit)
@@ -632,7 +657,7 @@ describe('PreparationSteps cook question', () => {
         controls={{ active: { subject: step(0), question: 'Done yet?', answer: 'Not yet.' } }}
       />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     const edit = screen.getByRole('button', { name: 'Edit' })
     await userEvent.click(edit)
     await userEvent.click(edit)
@@ -644,7 +669,7 @@ describe('PreparationSteps cook question', () => {
     const { unmount } = render(
       <Harness controls={{ error: { message: 'Took too long.', canRetry: true }, onRetry }} />,
     )
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     expect(screen.getByRole('status')).toHaveTextContent('Took too long.')
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(onRetry).toHaveBeenCalledOnce()
@@ -653,7 +678,7 @@ describe('PreparationSteps cook question', () => {
     unmount()
 
     render(<Harness controls={{ error: { message: 'Limit reached.', canRetry: false } }} />)
-    await userEvent.click(askButton(1))
+    await openPanel(1)
     expect(screen.getByRole('status')).toHaveTextContent('Limit reached.')
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
@@ -666,15 +691,14 @@ describe('PreparationSteps cook question', () => {
           i === 0 || els[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
       )
 
-    it('before a question: the chips, the field with Send, then Close', async () => {
+    it('before a question: the field with Send, then Close', async () => {
       render(<Harness />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const p = within(panel(1)!)
-      const chip = p.getByRole('button', { name: "How do I know it's done?" })
       const field = p.getByRole('textbox')
       const send = p.getByRole('button', { name: 'Send' })
       const close = p.getByRole('button', { name: 'Close' })
-      expect(inOrder(chip, field, send, close)).toBe(true)
+      expect(inOrder(field, send, close)).toBe(true)
       expect(field).toHaveAttribute('placeholder', 'Ask about this step')
     })
 
@@ -687,7 +711,7 @@ describe('PreparationSteps cook question', () => {
       ]
       for (const controls of states) {
         const { unmount } = render(<Harness controls={controls} />)
-        await userEvent.click(askButton(1))
+        await openPanel(1)
         const p = within(panel(1)!)
         const line = p.getByText('You asked: No cream, what now?')
         const edit = p.getByRole('button', { name: 'Edit' })
@@ -710,7 +734,7 @@ describe('PreparationSteps cook question', () => {
     it('shows "Thinking…" and Retry in the footer row, before Close', async () => {
       const active = { subject: step(0), question: 'Q', answer: null }
       const { unmount } = render(<Harness controls={{ active, isPending: true }} />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const close = screen.getByRole('button', { name: 'Close' })
       const thinking = within(close.parentElement!).getByText('Thinking…')
       expect(inOrder(thinking, close)).toBe(true)
@@ -719,7 +743,7 @@ describe('PreparationSteps cook question', () => {
       render(
         <Harness controls={{ active, error: { message: 'Took too long.', canRetry: true } }} />,
       )
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const retry = screen.getByRole('button', { name: 'Retry' })
       expect(retry.parentElement).toBe(screen.getByRole('button', { name: 'Close' }).parentElement)
     })
@@ -730,25 +754,21 @@ describe('PreparationSteps cook question', () => {
           controls={{ active: { subject: step(0), question: 'Q', answer: 'Use the yoghurt.' } }}
         />,
       )
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       expect(screen.getByText('You asked: Q')).toHaveClass('text-base', 'lg:text-lg')
       expect(screen.getByText('Use the yoghurt.')).toHaveClass('text-lg', 'lg:text-xl')
     })
 
-    it('gives the chips, the field and Send one size', async () => {
+    it('gives the field and Send one size', async () => {
       render(<Harness />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const p = within(panel(1)!)
-      expect(p.getByRole('button', { name: "I'm short on time" })).toHaveAttribute(
-        'data-size',
-        'lg',
-      )
       expect(p.getByRole('textbox')).toHaveAttribute('data-size', 'lg')
       expect(p.getByRole('button', { name: 'Send' })).toHaveAttribute('data-size', 'lg')
     })
 
-    it('a chip moves focus to Close as the chips give way to the question', async () => {
-      // The modal's side with a question that goes out when a chip sends it.
+    it('a ready-made question moves focus to Close, never the field', async () => {
+      // The modal's side with a question that goes out when the menu sends it.
       function Asking() {
         const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
         const [active, setActive] = useState<CookQuestionActive | null>(null)
@@ -778,57 +798,64 @@ describe('PreparationSteps cook question', () => {
         )
       }
       render(<Asking />)
-      await userEvent.click(askButton(2))
-      await userEvent.click(screen.getByRole('button', { name: 'What can I substitute here?' }))
+      await pick(menuButton(2), 'What can I substitute here?')
 
-      expect(screen.queryByRole('button', { name: 'What can I substitute here?' })).toBeNull()
-      expect(screen.getByText('You asked: What can I substitute here?')).toBeInTheDocument()
-      expect(document.body).not.toHaveFocus()
-      expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+      expect(
+        within(panel(2)!).getByText('You asked: What can I substitute here?'),
+      ).toBeInTheDocument()
+      const close = within(panel(2)!).getByRole('button', { name: 'Close' })
+      await waitFor(() => expect(close).toHaveFocus())
+      expect(within(panel(2)!).getByRole('textbox')).not.toHaveFocus()
 
-      // Closing discards the question, so the chips are back on the next open.
+      // Closing discards the question, and the panel never shows chips.
+      await userEvent.click(close)
+      await openPanel(2)
+      expect(within(panel(2)!).queryByText(/You asked/)).toBeNull()
+      expect(
+        within(panel(2)!)
+          .getAllByRole('button')
+          .map((b) => b.textContent),
+      ).toEqual(['Send', 'Close'])
+    })
+
+    it('fills the ⋯ button whose panel is open, and no other', async () => {
+      render(<Harness />)
+      await openPanel(2)
+      expect(menuButton(2)).toHaveClass('bg-secondary')
+      expect(menuButton(1)).not.toHaveClass('bg-secondary')
       await userEvent.click(screen.getByRole('button', { name: 'Close' }))
-      await userEvent.click(askButton(2))
-      expect(screen.getByRole('button', { name: 'What can I substitute here?' })).toBeVisible()
+      expect(menuButton(2)).not.toHaveClass('bg-secondary')
+      expect(menuButton(2)).toHaveAttribute('aria-expanded', 'false')
     })
 
-    it('fills the Ask button whose panel is open, and no other', async () => {
+    it('ends the steps’ ⋯ buttons and panel at the column’s right edge, as in “You’ll need”', async () => {
       render(<Harness />)
-      await userEvent.click(askButton(2))
-      expect(askButton(2)).toHaveClass('bg-secondary')
-      expect(askButton(1)).not.toHaveClass('bg-secondary')
-      await userEvent.click(askButton(2))
-      expect(askButton(2)).not.toHaveClass('bg-secondary')
-    })
-
-    it('ends the steps’ Ask buttons and panel at the column’s right edge, as in “You’ll need”', async () => {
-      render(<Harness />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       // The row bleeds left past the numerals, never right.
-      const list = askButton(1).closest('ol')!
+      const list = menuButton(1).closest('ol')!
       expect(list.parentElement).toHaveClass('-ml-3')
       expect(list.parentElement).not.toHaveClass('-mx-3')
       expect(panel(1)).not.toHaveClass('pr-3')
     })
   })
 
-  it('Close returns focus to that step’s Ask button', async () => {
+  it('Close returns focus to that step’s ⋯ button', async () => {
     render(<Harness />)
-    await userEvent.click(askButton(3))
+    await openPanel(3)
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))
 
     expect(panel(3)).toBeNull()
-    expect(askButton(3)).toHaveFocus()
+    expect(menuButton(3)).toHaveFocus()
   })
 
-  it('Escape in the field closes the panel and returns focus to the Ask button', async () => {
+  it('Escape in the field closes the panel and returns focus to the ⋯ button', async () => {
     render(<Harness />)
-    await userEvent.click(askButton(2))
+    await openPanel(2)
     await userEvent.click(screen.getByRole('textbox'))
     await userEvent.keyboard('{Escape}')
 
     expect(panel(2)).toBeNull()
-    expect(askButton(2)).toHaveFocus()
+    expect(menuButton(2)).toHaveFocus()
   })
 
   describe('keeps the panel and the answer in view (HON-977)', () => {
@@ -837,7 +864,7 @@ describe('PreparationSteps cook question', () => {
 
     it('scrolls the panel into view, nearest and smooth, when it opens', async () => {
       render(<Harness />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
 
       expect(scrollIntoView).toHaveBeenCalledOnce()
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
@@ -847,7 +874,7 @@ describe('PreparationSteps cook question', () => {
     it('scrolls the answer and Close into view when the answer arrives, and leaves focus', async () => {
       const active = { subject: step(0), question: "I'm short on time", answer: null }
       const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
       const close = screen.getByRole('button', { name: 'Close' })
       close.focus()
       // "Thinking…" does not scroll: only the open did.
@@ -864,7 +891,7 @@ describe('PreparationSteps cook question', () => {
     it('scrolls at the first words and when the stream closes, not at every chunk (HON-979)', async () => {
       const active = { subject: step(0), question: "I'm short on time", answer: null }
       const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
 
       const streaming = (answer: string) => (
         <Harness controls={{ active: { ...active, answer }, isStreaming: true }} />
@@ -880,7 +907,7 @@ describe('PreparationSteps cook question', () => {
 
     it('scrolls the error and Retry into view when the error arrives', async () => {
       const { rerender } = render(<Harness controls={{ isPending: true }} />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
 
       rerender(<Harness controls={{ error: { message: 'Took too long.', canRetry: true } }} />)
 
@@ -891,7 +918,7 @@ describe('PreparationSteps cook question', () => {
     it('snaps instead of scrolling smoothly under reduced motion', async () => {
       document.documentElement.setAttribute('data-reduced-motion', 'true')
       render(<Harness />)
-      await userEvent.click(askButton(1))
+      await openPanel(1)
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'auto' })
     })
@@ -939,10 +966,11 @@ describe('PreparationEquipment cook question (HON-983)', () => {
       </>
     )
   }
-  const askItem = (item: string) => screen.getByRole('button', { name: `Ask about ${item}` })
+  const menuItem = (item: string) => screen.getByRole('button', { name: `Ask about ${item}` })
+  const openItemPanel = (item: string) => pick(menuItem(item), 'Ask your own question')
   const itemPanel = (item: string) => screen.queryByRole('group', { name: `Ask about ${item}` })
 
-  it('ends each row in an Ask button named for the item, only with cookQuestion', () => {
+  it('ends each row in a ⋯ button named for the item, only with cookQuestion', () => {
     const { unmount } = render(<Harness />)
     const list = screen.getByRole('list', { name: "You'll need" })
     const items = within(list).getAllByRole('listitem')
@@ -952,14 +980,14 @@ describe('PreparationEquipment cook question (HON-983)', () => {
       'false',
     )
     expect(within(items[1]!).getByText('Cutting board')).toBeInTheDocument()
-    expect(within(askItem('Cutting board')).getByText('Ask')).toHaveClass('hidden', 'lg:inline')
+    expect(menuItem('Cutting board')).toHaveClass('size-12', 'md:size-11')
     unmount()
 
     render(<PreparationEquipment equipment={sampleTips.equipment} steps={sampleTips.steps} />)
     expect(screen.queryByRole('button', { name: /^Ask about/ })).toBeNull()
   })
 
-  it('shows no Ask button without steps to send', () => {
+  it('shows no ⋯ button without steps to send', () => {
     render(
       <PreparationEquipment
         equipment={sampleTips.equipment}
@@ -985,7 +1013,7 @@ describe('PreparationEquipment cook question (HON-983)', () => {
     ])
   })
 
-  it('shows no Ask button on a row the route cannot answer about', () => {
+  it('shows no ⋯ button on a row the route cannot answer about', () => {
     const equipment = ['  ', ...Array.from({ length: 20 }, (_, i) => `Pan ${i + 1}`)]
     render(
       <PreparationEquipment
@@ -1012,28 +1040,49 @@ describe('PreparationEquipment cook question (HON-983)', () => {
     expect(screen.queryByRole('button', { name: 'Ask about Pan 20' })).toBeNull()
   })
 
-  it('opens a panel under the row with the equipment chips and placeholder', async () => {
+  it('lists the item\'s three ready-made questions, a separator, then "Ask your own question"', async () => {
     render(<Harness />)
-    await userEvent.click(askItem('Cutting board'))
+    await userEvent.click(menuItem('Cutting board'))
+    const menu = await screen.findByRole('menu')
 
-    const panel = itemPanel('Cutting board')!
-    expect(askItem('Cutting board')).toHaveAttribute('aria-expanded', 'true')
-    expect(askItem('Cutting board').closest('li')).toContainElement(panel)
-    for (const chip of ['What can I use instead?', 'Does the size matter?', 'Can I skip it?']) {
-      expect(within(panel).getByRole('button', { name: chip })).toBeVisible()
-    }
-    expect(within(panel).queryByRole('button', { name: "How do I know it's done?" })).toBeNull()
-    expect(within(panel).getByRole('textbox', { name: 'Your question' })).toHaveAttribute(
-      'placeholder',
-      'Ask about this item',
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'What can I use instead?',
+      'Does the size matter?',
+      'Can I skip it?',
+      'Ask your own question',
+    ])
+    expect(within(menu).getByRole('separator').nextElementSibling).toHaveTextContent(
+      'Ask your own question',
     )
   })
 
-  it('a chip sends the item as the subject, with the steps and the equipment', async () => {
+  it('"Ask your own question" opens a panel under the row with the field and its placeholder', async () => {
     const ask = vi.fn()
     render(<Harness ask={ask} />)
-    await userEvent.click(askItem('Cutting board'))
-    await userEvent.click(screen.getByRole('button', { name: 'What can I use instead?' }))
+    await openItemPanel('Cutting board')
+
+    const panel = itemPanel('Cutting board')!
+    expect(menuItem('Cutting board')).toHaveAttribute('aria-expanded', 'true')
+    expect(menuItem('Cutting board').closest('li')).toContainElement(panel)
+    expect(
+      within(panel)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Send', 'Close'])
+    const field = within(panel).getByRole('textbox', { name: 'Your question' })
+    expect(field).toHaveAttribute('placeholder', 'Ask about this item')
+    await waitFor(() => expect(field).toHaveFocus())
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('a ready-made question sends the item as the subject, and focus goes to Close', async () => {
+    const ask = vi.fn()
+    render(<Harness ask={ask} />)
+    await pick(menuItem('Cutting board'), 'What can I use instead?')
 
     expect(ask).toHaveBeenCalledWith({
       subject: { kind: 'equipment', index: 1 },
@@ -1042,34 +1091,35 @@ describe('PreparationEquipment cook question (HON-983)', () => {
       question: 'What can I use instead?',
       source: 'chip',
     })
+    const close = within(itemPanel('Cutting board')!).getByRole('button', { name: 'Close' })
+    await waitFor(() => expect(close).toHaveFocus())
   })
 
   it('keeps one panel open across the steps and the equipment', async () => {
     render(<Harness />)
-    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    await pick(screen.getByRole('button', { name: 'Ask about step 2' }), 'Ask your own question')
     expect(screen.getByRole('group', { name: 'Ask about step 2' })).toBeInTheDocument()
 
-    await userEvent.click(askItem('Large pan'))
+    await openItemPanel('Large pan')
     expect(screen.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
-    // Switching moves focus into the new panel's field.
-    expect(within(itemPanel('Large pan')!).getByRole('textbox')).toHaveFocus()
+    await waitFor(() => expect(within(itemPanel('Large pan')!).getByRole('textbox')).toHaveFocus())
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 1' }))
+    await pick(screen.getByRole('button', { name: 'Ask about step 1' }), 'Ask your own question')
     expect(itemPanel('Large pan')).toBeNull()
     expect(screen.getByRole('group', { name: 'Ask about step 1' })).toBeInTheDocument()
   })
 
-  it('Close and Escape return focus to the item’s Ask button', async () => {
+  it('Close and Escape return focus to the item’s ⋯ button', async () => {
     render(<Harness />)
-    await userEvent.click(askItem('Large pan'))
+    await openItemPanel('Large pan')
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(itemPanel('Large pan')).toBeNull()
-    expect(askItem('Large pan')).toHaveFocus()
+    expect(menuItem('Large pan')).toHaveFocus()
 
-    await userEvent.click(askItem('Cutting board'))
+    await openItemPanel('Cutting board')
     await userEvent.click(screen.getByRole('textbox'))
     await userEvent.keyboard('{Escape}')
     expect(itemPanel('Cutting board')).toBeNull()
-    expect(askItem('Cutting board')).toHaveFocus()
+    expect(menuItem('Cutting board')).toHaveFocus()
   })
 })

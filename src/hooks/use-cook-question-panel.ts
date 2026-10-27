@@ -37,7 +37,7 @@ export function useCookQuestionPanel(target: UseCookQuestionOptions) {
   /**
    * Ticking the step whose panel is open closes the panel (HON-982): the cook
    * has moved on. Focus stays on the toggle, which is outside the panel, so
-   * it is not handed to the Ask button as Close does.
+   * it is not handed to the ⋯ button as Close does.
    */
   const closeForTickedStep = useCallback(
     (index: number) => {

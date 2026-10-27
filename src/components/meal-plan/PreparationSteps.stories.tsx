@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { mealHueStyle } from './MealImageCard'
 import {
   PreparationEquipment,
@@ -203,7 +203,7 @@ function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuesti
   }
 }
 
-const askButtonsArgs = {
+const askMenusArgs = {
   steps: fullTips,
   isLoading: false,
   error: null,
@@ -221,106 +221,104 @@ async function expectAskTooltip(n: number) {
   await expect(getComputedStyle(content).fontSize).toBe('16px')
 }
 
+/** The menu is portalled to the body; open it from the row's ⋯ button. */
+async function openAskMenu(button: HTMLElement) {
+  await userEvent.click(button)
+  return within(document.body).findByRole('menu')
+}
+
+/** Choose an item in the row's ⋯ menu (HON-1350). */
+async function pickFromAskMenu(button: HTMLElement, item: string) {
+  const menu = await openAskMenu(button)
+  await userEvent.click(within(menu).getByRole('menuitem', { name: item }))
+}
+
 /**
- * Each step with its Ask button beside the toggle; no panel open. On a phone
- * the button is the 44px icon alone, with a heavier stroke (HON-981), and
- * hovering it shows the tooltip.
+ * Each step with its ⋯ button beside the toggle; no panel open. It is the
+ * 44px `icon-lg` button at every width (HON-1350), and hovering it shows the
+ * tooltip.
  */
-export const WithAskButtons: Story = {
-  args: askButtonsArgs,
+export const WithAskMenus: Story = {
+  args: askMenusArgs,
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
-    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
-    await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-    await expect(ask.getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
-    await expect(within(ask).getByText('Ask')).not.toBeVisible()
-    await expect(ask.querySelector('svg')).toHaveAttribute('stroke-width', '2.25')
-    await expect(ask).not.toHaveAttribute('title')
+    const more = canvas.getByRole('button', { name: 'Ask about step 2' })
+    await expect(more.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect(more.getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
+    await expect(more).not.toHaveAttribute('title')
 
-    await userEvent.hover(ask)
+    await userEvent.hover(more)
     await expectAskTooltip(2)
-    await userEvent.unhover(ask)
+    await userEvent.unhover(more)
     await waitFor(() =>
       expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument(),
     )
 
-    await userEvent.click(ask)
+    await pickFromAskMenu(more, 'Ask your own question')
     await expect(args.cookQuestion!.onOpenSubject).toHaveBeenCalledWith({ kind: 'step', index: 1 })
   },
 }
 
-/** Tab to step 1's Ask button: the tooltip opens on keyboard focus too. */
-export const WithAskButtonsFocus: Story = {
-  name: 'With Ask buttons (keyboard focus)',
-  args: askButtonsArgs,
+/** Tab to step 1's ⋯ button: the tooltip opens on keyboard focus too. */
+export const WithAskMenusFocus: Story = {
+  name: 'With Ask menus (keyboard focus)',
+  args: askMenusArgs,
   play: async ({ canvasElement }) => {
-    const ask = within(canvasElement).getByRole('button', { name: 'Ask about step 1' })
-    // Step 1's toggle, then its Ask button.
+    const more = within(canvasElement).getByRole('button', { name: 'Ask about step 1' })
+    // Step 1's toggle, then its ⋯ button.
     await userEvent.tab()
     await userEvent.tab()
-    await expect(ask).toHaveFocus()
+    await expect(more).toHaveFocus()
     await expectAskTooltip(1)
   },
 }
 
-/**
- * From `lg` the row is wide enough for the visible label: each step ends in a
- * ghost button that reads "Ask" beside the icon (HON-981).
- */
-export const WithAskButtonsDesktop: Story = {
-  name: 'With Ask buttons (desktop)',
-  args: askButtonsArgs,
+/** From `lg` the ⋯ button stays the 44px square: no visible label (HON-1350). */
+export const WithAskMenusDesktop: Story = {
+  name: 'With Ask menus (desktop)',
+  args: askMenusArgs,
   globals: { viewport: { value: 'laptop', isRotated: false } },
   play: async ({ canvasElement }) => {
-    const ask = within(canvasElement).getByRole('button', { name: 'Ask about step 2' })
-    await expect(within(ask).getByText('Ask')).toBeVisible()
-    const box = ask.getBoundingClientRect()
-    await expect(box.width).toBeGreaterThan(box.height)
+    const more = within(canvasElement).getByRole('button', { name: 'Ask about step 2' })
+    const box = more.getBoundingClientRect()
+    await expect(box.width).toBe(box.height)
     await expect(box.height).toBeGreaterThanOrEqual(44)
   },
 }
 
 /**
- * The panel open under step 2: three chips, then the field and Send, then the
- * footer row with Close. The chips, the field and Send are one height, the
- * field's text is 16px, and Send, Close and the open Ask button, filled, end
- * on one edge (HON-1022).
+ * The panel open under step 2, as "Ask your own question" opens it: the
+ * field and Send, then the footer row with Close, and no chips (HON-1350).
+ * The field and Send are one height, the field's text is 16px, and Send,
+ * Close and the open ⋯ button, filled, end on one edge (HON-1022).
  */
 export const AskPanelOpen: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({ openSubject: STEP_2 }),
   },
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const panel = canvas.getByRole('group', { name: 'Ask about step 2' })
     const p = within(panel)
     const field = p.getByRole('textbox')
     const send = p.getByRole('button', { name: 'Send' })
     const close = p.getByRole('button', { name: 'Close' })
-    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    const more = canvas.getByRole('button', { name: 'Ask about step 2' })
     const height = (el: HTMLElement) => el.getBoundingClientRect().height
     const right = (el: HTMLElement) => Math.round(el.getBoundingClientRect().right)
-    for (const chip of p.getAllByRole('button', { name: /\?$|time$/ })) {
-      await expect(height(chip)).toBe(height(send))
-    }
+    await expect(p.getAllByRole('button')).toEqual([send, close])
     await expect(height(field)).toBe(height(send))
     await expect(getComputedStyle(field).fontSize).toBe('16px')
+    await expect(field).toHaveAttribute('placeholder', 'Ask about this step')
     await expect(right(close)).toBe(right(send))
-    await expect(right(ask)).toBe(right(send))
-    await expect(ask).toHaveClass('bg-secondary')
+    await expect(right(more)).toBe(right(send))
+    await expect(more).toHaveClass('bg-secondary')
+    await expect(more).toHaveAttribute('aria-expanded', 'true')
     await expect(canvas.getByRole('button', { name: 'Ask about step 1' })).not.toHaveClass(
       'bg-secondary',
     )
-    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
-    await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
-      subject: STEP_2,
-      steps: fullTips.steps,
-      equipment: fullTips.equipment,
-      question: "How do I know it's done?",
-      source: 'chip',
-    })
-    for (const button of within(panel).getAllByRole('button')) {
+    for (const button of p.getAllByRole('button')) {
       await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   },
@@ -328,7 +326,7 @@ export const AskPanelOpen: Story = {
 
 export const AskPending: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       isPending: true,
@@ -355,7 +353,7 @@ export const AskPending: Story = {
 
 export const AskAnswered: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       active: {
@@ -385,7 +383,7 @@ export const AskAnsweredDark: Story = {
  */
 export const AskPendingWithPrevious: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       isPending: true,
@@ -410,11 +408,11 @@ export const AskPendingWithPrevious: Story = {
 /**
  * The answer's first words have arrived and the rest is on its way (HON-979):
  * no "Thinking…", the status is busy so a screen reader waits for the whole
- * answer, and Send and the chips stay disabled until the stream closes.
+ * answer, and Send stays disabled until the stream closes.
  */
 export const AskStreaming: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       isStreaming: true,
@@ -435,8 +433,6 @@ export const AskStreaming: Story = {
       'aria-disabled',
       'true',
     )
-    // The chips gave way to the question once it went out (HON-1022).
-    await expect(within(panel).queryByRole('button', { name: "I'm short on time" })).toBeNull()
   },
 }
 
@@ -446,7 +442,7 @@ export const AskStreaming: Story = {
  */
 export const AskStreamBroke: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       active: {
@@ -471,7 +467,7 @@ export const AskStreamBroke: Story = {
 /** A timeout: catalog copy, and Retry because a second try can help. */
 export const AskError: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       active: { subject: STEP_2, question: "I'm short on time", answer: null },
@@ -489,7 +485,7 @@ export const AskError: Story = {
 /** The hourly limit: catalog copy, and no Retry, which would only hit it again. */
 export const AskRateLimited: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion({
       openSubject: STEP_2,
       active: { subject: STEP_2, question: "I'm short on time", answer: null },
@@ -505,11 +501,12 @@ export const AskRateLimited: Story = {
 }
 
 /**
- * The modal's side of the contract with state, so a chip's question shows: a
- * send sets the active question for that step, as `useCookQuestion` does.
+ * The modal's side of the contract with state, so a ready-made question
+ * shows: a send sets the active question for that step, as
+ * `useCookQuestion` does, and opening or closing a panel drops it.
  */
 function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
-  const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(STEP_2)
+  const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
   const [active, setActive] = useState<CookQuestionControls['active']>(null)
   const controls = args.cookQuestion!
   return (
@@ -518,8 +515,14 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
       cookQuestion={{
         ...controls,
         openSubject,
-        onOpenSubject: setOpenSubject,
-        onClose: () => setOpenSubject(null),
+        onOpenSubject: (subject) => {
+          setActive(null)
+          setOpenSubject(subject)
+        },
+        onClose: () => {
+          setActive(null)
+          setOpenSubject(null)
+        },
         active,
         isPending: active !== null,
         ask: (input) => {
@@ -532,25 +535,28 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
 }
 
 /**
- * HON-976: a chip's question shows above "Thinking…", and Edit puts it back
- * in the field with focus, without sending it again. The chip moves focus to
- * Close as the chips go (HON-1022).
+ * HON-976: a ready-made question from the ⋯ menu shows above "Thinking…",
+ * and Edit puts it back in the field with focus, without sending it again.
+ * The pick moves focus to Close (HON-1350).
  */
 export const AskEchoAndEdit: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion(),
   },
   render: (args) => <AskWithState {...args} />,
   play: async ({ canvasElement, args }) => {
-    const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
-    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
+    const canvas = within(canvasElement)
+    await pickFromAskMenu(
+      canvas.getByRole('button', { name: 'Ask about step 2' }),
+      "I'm short on time",
+    )
+    const panel = canvas.getByRole('group', { name: 'Ask about step 2' })
     await expect(within(panel).getByText("You asked: I'm short on time")).toBeVisible()
     await expect(within(panel).getByRole('status')).toHaveTextContent('Thinking…')
-    // The chip unmounted with the others; focus waits on Close, not the page
-    // and not the field, which would open a phone's keyboard (HON-1022).
-    await expect(within(panel).queryByRole('button', { name: "I'm short on time" })).toBeNull()
-    await expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus()
+    // Focus waits on Close, not the trigger and not the field, which would
+    // open a phone's keyboard.
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus())
 
     await userEvent.click(within(panel).getByRole('button', { name: 'Edit' }))
     const field = within(panel).getByRole('textbox', { name: 'Your question' })
@@ -561,20 +567,20 @@ export const AskEchoAndEdit: Story = {
 }
 
 /**
- * Closing a panel hands focus back to the step's Ask button. After a tap or a
- * click on Close, or a Safari tap on Ask itself, that focus opens no tooltip,
- * which would cover the step until the next tap; after Escape from the
- * keyboard it does, as Tab does (HON-981).
+ * "Ask your own question" focuses the field. Closing the panel hands focus
+ * back to the step's ⋯ button. After a tap or a click on Close that focus
+ * opens no tooltip, which would cover the step until the next tap; after
+ * Escape from the keyboard it does, as Tab does (HON-981).
  */
 export const AskCloseReturnsFocus: Story = {
   args: {
-    ...WithAskButtons.args,
+    ...WithAskMenus.args,
     cookQuestion: cookQuestion(),
   },
   render: (args) => <AskWithState {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    const more = canvas.getByRole('button', { name: 'Ask about step 2' })
     const panelOf = () => canvas.getByRole('group', { name: 'Ask about step 2' })
     // Give a wrongly opened tooltip its frame to mount before checking.
     const expectNoTooltip = async () => {
@@ -582,31 +588,26 @@ export const AskCloseReturnsFocus: Story = {
       await expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument()
     }
 
-    // A tap on Ask in Safari clicks it without focusing it, so closing the
-    // panel that way moves focus to it afresh.
-    fireEvent.click(ask)
-    await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
-    await expect(ask).toHaveFocus()
-    await expectNoTooltip()
-
-    await userEvent.click(ask)
+    await pickFromAskMenu(more, 'Ask your own question')
+    await waitFor(() => expect(within(panelOf()).getByRole('textbox')).toHaveFocus())
     await userEvent.click(within(panelOf()).getByRole('button', { name: 'Close' }))
-    await expect(ask).toHaveFocus()
+    await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(more).toHaveFocus()
     await expectNoTooltip()
 
-    await userEvent.click(ask)
+    await pickFromAskMenu(more, 'Ask your own question')
     const field = within(panelOf()).getByRole('textbox')
-    await userEvent.click(field)
+    await waitFor(() => expect(field).toHaveFocus())
     await userEvent.keyboard('{Escape}')
-    await expect(ask).toHaveFocus()
+    await expect(more).toHaveFocus()
     await expectAskTooltip(2)
   },
 }
 
 /**
- * "You'll need" with an Ask button at the end of each row (HON-983), named
- * for the item. The modal's side holds one open subject, so the play opens a
- * step's panel, then item 2's, and the step's closes.
+ * "You'll need" with a ⋯ menu at the end of each row (HON-983, HON-1350),
+ * named for the item. The modal's side holds one open subject, so the play
+ * opens a step's panel, then item 2's, and the step's closes.
  */
 function EquipmentAndStepsWithState(args: React.ComponentProps<typeof PreparationSteps>) {
   const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
@@ -628,22 +629,36 @@ function EquipmentAndStepsWithState(args: React.ComponentProps<typeof Preparatio
   )
 }
 
-export const EquipmentWithAskButtons: Story = {
-  args: { ...askButtonsArgs, cookQuestion: cookQuestion() },
+export const EquipmentWithAskMenus: Story = {
+  args: { ...askMenusArgs, cookQuestion: cookQuestion() },
   render: (args) => <EquipmentAndStepsWithState {...args} />,
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
     const list = canvas.getByRole('list', { name: "You'll need" })
     for (const item of fullTips.equipment!) {
-      const ask = within(list).getByRole('button', { name: `Ask about ${item}` })
-      await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      const more = within(list).getByRole('button', { name: `Ask about ${item}` })
+      await expect(more.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Ask about step 2' }))
+    await pickFromAskMenu(
+      canvas.getByRole('button', { name: 'Ask about step 2' }),
+      'Ask your own question',
+    )
     await expect(canvas.getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
 
     const knife = canvas.getByRole('button', { name: 'Ask about Sharp chef’s knife' })
-    await userEvent.click(knife)
+    const menu = await openAskMenu(knife)
+    await expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'What can I use instead?',
+      'Does the size matter?',
+      'Can I skip it?',
+      'Ask your own question',
+    ])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'What can I use instead?' }))
     await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
     await expect(knife).toHaveAttribute('aria-expanded', 'true')
     const panel = canvas.getByRole('group', { name: 'Ask about Sharp chef’s knife' })
@@ -651,7 +666,6 @@ export const EquipmentWithAskButtons: Story = {
       'placeholder',
       'Ask about this item',
     )
-    await userEvent.click(within(panel).getByRole('button', { name: 'What can I use instead?' }))
     await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
       subject: { kind: 'equipment', index: 1 },
       steps: fullTips.steps,
@@ -659,8 +673,10 @@ export const EquipmentWithAskButtons: Story = {
       question: 'What can I use instead?',
       source: 'chip',
     })
+    const close = within(panel).getByRole('button', { name: 'Close' })
+    await waitFor(() => expect(close).toHaveFocus())
 
-    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await userEvent.click(close)
     await expect(knife).toHaveFocus()
   },
 }

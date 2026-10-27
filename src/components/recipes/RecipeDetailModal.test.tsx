@@ -121,14 +121,22 @@ describe('RecipeDetailModal', () => {
     expect(within(dialog).queryByRole('button', { name: 'Add an ingredient' })).toBeNull()
   })
 
-  // Ask is the one cook-view tool the recipe mode shares (HON-1339).
-  it('has Ask on each step', async () => {
+  // Ask is the one cook-view tool the recipe mode shares (HON-1339), behind a
+  // ⋯ menu on each step (HON-1350).
+  it('has the ⋯ menu with the ready-made questions on each step', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderModal()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByText(STEPS.steps[0]!)
 
     expect(within(dialog).getByRole('button', { name: 'Ask about step 1' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Ask about step 2' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Ask about step 2' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual([
+      "How do I know it's done?",
+      'What can I substitute here?',
+      "I'm short on time",
+      'Ask your own question',
+    ])
   })
 
   it('holds Edit, a link to the edit page, in More actions', async () => {

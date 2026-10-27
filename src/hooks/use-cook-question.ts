@@ -31,6 +31,11 @@ export type UseCookQuestionOptions =
     }
   | { mealId: string; servings: number }
 
+/**
+ * How the question went out, for analytics. `chip` is a ready-made question,
+ * now picked from the row's ⋯ menu (HON-1350); the value stays so the events
+ * compare across the change.
+ */
 export type CookQuestionSource = 'chip' | 'text'
 
 export interface CookQuestionAskInput {
@@ -371,8 +376,8 @@ export function useCookQuestion(options: UseCookQuestionOptions) {
     /** Waiting for the first words; "Thinking…" shows. */
     isPending: inFlight && active.answer === null,
     /**
-     * The words are arriving. Send and the chips stay disabled until the
-     * stream closes, so a second tap cannot bill a second call (HON-969).
+     * The words are arriving. Send stays disabled until the stream closes,
+     * so a second tap cannot bill a second call (HON-969).
      */
     isStreaming: inFlight && active.answer !== null,
     /** The answered question still on screen while `active` waits; null otherwise. */
