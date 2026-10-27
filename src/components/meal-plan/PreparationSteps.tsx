@@ -199,8 +199,8 @@ interface StepToggleProps {
  * One step as a toggle (HON-933). The whole row is the target, at least 44px
  * tall, for a knuckle from across the counter. Done reads as the check and
  * the muted tone, never a strike-through: a struck line is hard to read when
- * you look back at it. The current step — the first one not done — sits on
- * the chip token so a glance finds your place.
+ * you look back at it. The current step — the first one not done — is
+ * marked by its row, which `ToggleSteps` puts on the chip token.
  *
  * The focus outline is the tint's text colour: the theme's grey ring all but
  * disappears on a meal tint.
@@ -212,10 +212,7 @@ function StepToggle({ step, index, done, current, onToggle }: StepToggleProps) {
       aria-pressed={done}
       data-current={current ? '' : undefined}
       onClick={() => onToggle(index)}
-      className={cn(
-        'focus-visible:outline-foreground flex min-h-11 min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
-        current && 'bg-secondary',
-      )}
+      className="focus-visible:outline-foreground flex min-h-11 min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <StepNumber n={index + 1} done={done} current={current} />
       <Body variant="step" tone={done ? 'muted' : 'default'}>
@@ -573,14 +570,20 @@ function ToggleSteps({
 
   return (
     // The row's left padding sits outside the text's column, so the numerals
-    // line up with the heading above as the static list does. The right edge
-    // stays the column's, so the ⋯ buttons end where the ones in "You'll
-    // need" do (HON-1022).
+    // line up with the heading above as the static list does. On the right
+    // only the background bleeds (`-mr-3 pr-3`), so the ⋯ buttons end where
+    // the ones in "You'll need" do (HON-1022) and sit inside the current
+    // step's chip (HON-1369).
     <div className="-ml-3">
       <Ol variant="steps">
         {steps.map((step, i) => (
           <Li key={i}>
-            <div className="flex items-start gap-1">
+            <div
+              className={cn(
+                '-mr-3 flex items-start gap-1 rounded-lg pr-3 transition-colors duration-150 ease-out motion-reduce:transition-none',
+                i === currentStep && 'bg-secondary',
+              )}
+            >
               <StepToggle
                 step={step}
                 index={i}
