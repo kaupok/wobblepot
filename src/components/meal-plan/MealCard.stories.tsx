@@ -88,8 +88,8 @@ export const PlannedWithImage: Story = {
     const title = canvas.getByRole('heading', { name: mealFixture.name }).getBoundingClientRect()
     const description = canvas.getByText(DESCRIPTION).getBoundingClientRect()
     await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
-    await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
-    await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+    await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
+    await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
     // Nothing runs across the width below the head, so the plate runs the
     // card's full height, inside its border, unfaded (HON-927).
     const cardBox = card.getBoundingClientRect()
@@ -914,7 +914,7 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   // The title still clears the opaque part, as in `PlannedWithImage`, and the
   // slip clears the title.
   const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
-  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
   await expect(overlaps(slipBox, title)).toBe(false)
 }
 
