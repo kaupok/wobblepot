@@ -282,12 +282,18 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
 
   describe('a library meal (HON-1351)', () => {
     const library = (overrides: Partial<Recipe> = {}) =>
-      recipe({ id: 'meal-porridge', householdId: null, name: 'Porridge', ...overrides })
+      recipe({
+        id: 'meal-porridge',
+        householdId: null,
+        name: 'Porridge',
+        servings: 4,
+        ...overrides,
+      })
 
     it('writes its steps from the full prompt, unchanged and without notes, and stores them', async () => {
       mockLoadRecipe.mockResolvedValue(library({ preparationNotes: 'Stir often.' }))
 
-      const response = await callPost({ servings: 2 }, 'meal-porridge')
+      const response = await callPost({ servings: 4 }, 'meal-porridge')
 
       expect(response.status).toBe(200)
       expect((await response.json()).tips).toEqual(FRESH)
@@ -301,25 +307,35 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
         expect.objectContaining({ householdId: 'household-1' }),
       )
       expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
-        expect.objectContaining({ mealId: 'meal-porridge', locale: 'en', servings: 2 }),
+        expect.objectContaining({ mealId: 'meal-porridge', locale: 'en', servings: 4 }),
         FRESH,
       )
     })
 
     it('serves a second call at the same locale and servings from the stored row', async () => {
       mockLoadRecipe.mockResolvedValue(library())
-      await callPost({ servings: 2 }, 'meal-porridge')
+      await callPost({ servings: 4 }, 'meal-porridge')
       const [row, steps] = mockSaveRecipeSteps.mock.calls[0]!
       mockLoadRecipe.mockResolvedValue(
         library({ preparationSteps: [{ inputHash: row.inputHash, steps: JSON.stringify(steps) }] }),
       )
       vi.clearAllMocks()
 
-      const response = await callPost({ servings: 2 }, 'meal-porridge')
+      const response = await callPost({ servings: 4 }, 'meal-porridge')
 
       expect((await response.json()).tips).toEqual(FRESH)
       expect(mockGenerateObject).not.toHaveBeenCalled()
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
+      expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
+    })
+
+    it("serves but does not store steps at a count other than the meal's own", async () => {
+      mockLoadRecipe.mockResolvedValue(library({ preparationSteps: storedAt(library(), 4) }))
+
+      const response = await callPost({ servings: 2.5 }, 'meal-porridge')
+
+      expect((await response.json()).tips).toEqual(FRESH)
+      expect(mockGenerateObject).toHaveBeenCalledTimes(1)
       expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
     })
   })
