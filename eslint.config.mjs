@@ -26,7 +26,7 @@ const UNCLASSIFIED_LAYOUT = [
 ]
 const LAYOUT = ['layout', ...UNCLASSIFIED_LAYOUT]
 
-// Margins on the type primitives. CLAUDE.md -> Typography Components places a
+// Margins on the type primitives. .claude/rules/ui.md -> Typography Components places a
 // `Heading`, `Body` or list with a wrapper element or a gap on the parent, never
 // a margin on the component (HON-778). tailwind-merge group ids rather than
 // globs, so negatives (`-mt-4`) are caught too; one shared list so the

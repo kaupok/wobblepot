@@ -154,7 +154,7 @@ claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/ser
 
 Serena and a Postgres MCP server were considered and declined on 2026-09-30 (HON-876); do not add either without reopening that decision.
 
-For database work, the commands are the `db:*` scripts in `package.json` (CLAUDE.md → Database Patterns has the workflow), a SQL prompt is in `docs/RUNBOOKS/translation-maintenance.md` → "Getting a SQL prompt", and `pnpm prisma migrate status` and recovery are in `docs/RUNBOOKS/database-recovery.md`.
+For database work, the commands are the `db:*` scripts in `package.json` (`.claude/rules/prisma.md` has the workflow), a SQL prompt is in `docs/RUNBOOKS/translation-maintenance.md` → "Getting a SQL prompt", and `pnpm prisma migrate status` and recovery are in `docs/RUNBOOKS/database-recovery.md`.
 
 ## Environment Variables
 

@@ -1,27 +1,27 @@
 # Agent rule history
 
-`CLAUDE.md` states each rule and the reason for it. The incident that produced the rule lives here, one entry per Linear issue, so it is not loaded into every session. Read this when you want to change or dispute a rule: the entry says what went wrong without it.
+`CLAUDE.md`, or a path-scoped file in `.claude/rules/`, states each rule and the reason for it. The incident that produced the rule lives here, one entry per Linear issue, so it is not loaded into every session. Read this when you want to change or dispute a rule: the entry says what went wrong without it.
 
-Entries are grouped by the `CLAUDE.md` section they belong to.
+Entries are grouped by the `CLAUDE.md` section they belong to, or by the `.claude/rules/` file that now holds the rule (HON-1304).
 
 ## Dependencies
 
 - **HON-588, HON-595 — lockfile pins.** HON-588 cleared three advisories by hand. `defu` was fixed by a lockfile dedupe rather than a spec change: `better-auth` still declares the vulnerable range, so `pnpm update` or a regenerated lockfile can silently undo it. `uuid` and the vitest toolchain were cleared by dependency bumps that a downgrade would equally undo. HON-588 rejected `pnpm.overrides` deliberately, because an override hides the underlying spec instead of detecting drift. HON-595 added the CI gates: `pnpm audit --audit-level critical` runs as the last step of the `ci` job, so a registry outage cannot mask other signals, and `pnpm lockfile:check` asserts the resolutions from `scripts/check-lockfile-pins.ts`.
 
-## Styling and typography
+## Styling and typography (`.claude/rules/ui.md`)
 
 - **HON-673, HON-674 — `@shadcn/lint`.** Adopted the six rules as `pnpm lint` errors on `src/**/*.{ts,tsx}`. `no-arbitrary-values` is off for registry primitives file by file, not by directory, so the hand-written primitives in `src/components/ui/` (`confirm-dialog`, `number-input`, `typography`) stay covered and a new one is covered by default.
 - **HON-675 — type primitives.** Removed typography and colour `className` overrides on the type primitives: `Body` gained the `paragraph` variant and the `tone` prop, and the primitives' `no-restyle` contracts allow only named text-state classes.
 - **HON-778 — margins on type primitives.** Every type primitive's contract denies `m*-*`, negatives included. `Ul` / `Ol` gained `variant="plain"` for lists that must shed their prose margins.
 
-## Database
+## Database (adding models: `.claude/rules/prisma.md`)
 
 - **HON-558 — editing an applied migration.** Prisma stores a checksum of each `migration.sql` at apply time. An applied migration was edited, and `prisma migrate dev` then demanded a full database reset. This is the origin of the immutability rule.
 - **HON-641, HON-649, HON-671 — enforcement.** HON-641 added the PR check. HON-649 and HON-671 added the check on every push to `main`, which compares the whole tree (`--tree`: each `migration.sql` against the bytes it was first merged with). An edit merged past a red or cancelled PR check therefore turns `main` red and keeps it red on every later push until it is reverted. This is detection only until HON-584 makes the checks required.
 - **Allowlist entries.** `scripts/migration-immutability-allowlist.txt` holds two repairs to migrations that had failed to apply (PRs #181 and #356).
 - **HON-727 — the PreToolUse hook.** `.claude/hooks/block-destructive.sh` → `block-destructive.mts` exits 2 with a reason on: `prisma migrate reset`; a `*reset*` package script; `db push --force-reset` / `--accept-data-loss`; `DROP TABLE|DATABASE|SCHEMA` / `TRUNCATE` sent to `psql` or `prisma db execute`; any `git push` whose destination is `main`; any force push; and `gh pr merge` without an inline `WOBBLEPOT_ALLOW_MERGE=1` prefix. It matches what would execute, so `grep "migrate reset"` or a commit message mentioning `gh pr merge` passes. Hooks fire under `--dangerously-skip-permissions`, which is why this covers headless workers.
 
-## Testing, Storybook and geometry
+## Testing, Storybook and geometry (Storybook: `.claude/rules/ui.md`)
 
 - **HON-518 — E2E drift.** Specs referencing removed routes and renamed copy accumulated unnoticed and had to be fixed in one batch. The per-spec `// ROUTES: … · COMPONENTS: …` headers and the "update specs in the same PR" rule came out of it.
 - **HON-612, HON-627 — shared-primitive geometry.** HON-612 raised the control height to 44px and desynced 12 route `loading.tsx` skeletons, which PR review, not planning, had to catch. HON-627 added the `/plan-issue` step 7b scan.
@@ -32,7 +32,7 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 - **HON-757 — story existence.** `pnpm stories:check` fails CI when a component under `src/components` has no colocated story. It cannot see whether the story is current.
 - **HON-446 — focus restore.** Focus restore on modal close is a Radix contract tied to the real trigger at the real callsite, so E2E owns that assertion and Storybook play functions do not make it.
 
-## Focus management
+## Focus management (`.claude/rules/client-data.md` → Form Handling Patterns)
 
 - **HON-803 — empty-slot meal selector.** A Radix `Dialog` opened from controlled state has no `DialogTrigger`, so closing it dropped focus to `<body>`. Fixed with an `onCloseAutoFocus` prop on `MealSelectorModal` and an `aria-disabled` button in `TimelineEmptySlot`.
 - **HON-833 — onboarding.** A submit button that is `disabled` while pending loses focus in Chromium. `CreateHouseholdForm` flags the refocus in the error path and focuses the button once loading ends.
@@ -87,3 +87,4 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 - **HON-1235 — every skill gets the cap.** The other skills grew the same way, and `/plan-issue` was at 3,690 words. `scripts/check-steering-size.test.ts` now caps every project `.claude/skills/*/SKILL.md` at 3,300 words. HON-1319 later deleted the three vendor skills it had excluded by name. `/plan-issue` moved its incidents into `.claude/skills/plan-issue/history.md` and its AI eval branches into `ai-eval.md`, to 3,096 words. Cut one skill per PR, so a regression names its cause.
 - **HON-1241 — code files get a size ratchet.** On 2026-10-18, 93 code files were over 5,000 tokens (bytes / 4), and `MealCard.stories.tsx` was about 20,000. A large file costs an agent context on every read, and an edit to it touches code the change is not about. A hard cap would block a small fix in any of the 93, so `scripts/check-file-size.ts` fails a new file over the limit and a listed file more than 5% over its cap, and the caps only go down. Prettier runs first, so packing lines cannot pass; the error forbids deleting comments, and `/branch-review` checks for it.
 - **HON-1303 — `.claude/rules/` is the third layer.** CLAUDE.md sat at 3,185 of 3,300 words and 235 lines against Claude Code's 200-line target, because it and SKILL.md were the only files every session loads. A path-scoped rule loads on Read, Write or Edit of a matching file, so per-area rules can leave CLAUDE.md without leaving the unattended worker's view; a fresh `claude -p` in the worktree quoted `code.md` after reading `src/lib/utils.ts` and loaded nothing after reading `docs/TESTING.md`. Rule files are capped at 1,000 words each.
+- **HON-1304 — per-area sections left CLAUDE.md.** Once headless `/auto-implement` workers (HON-1264, HON-1330) were seen loading `code.md` from their worktree, the per-area sections moved: styling, `@shadcn/lint`, Typography Components and Storybook to `ui.md`; Data Fetching and Form Handling to `client-data.md`; protected routes and client sign-in to `auth.md`; the `prisma` import and adding models to `prisma.md`. Safety and cross-area rules stayed, because root CLAUDE.md is re-injected after compaction and a scoped rule is not. CLAUDE.md went from 216 to 178 lines. A rule file must open with `paths` frontmatter, or it loads in every session.

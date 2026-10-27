@@ -200,7 +200,7 @@ Then implement following the plan steps (or issue description if `--no-plan`).
 Before signalling completion, confirm the definition of done:
 
 - **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
-- **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
+- **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (`.claude/rules/ui.md` → Storybook)
 - **Coupled callsites**: if you changed a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, every **Mirror** is edited — from the plan's `## Coupled callsites` section if it has one, otherwise by running `/plan-issue` step 7b's greps now. Keyed off the diff, not the plan, so it still fires under `--no-plan` and on plans written before that section existed (CLAUDE.md shared-primitive geometry rule)
 - **Follow-ups**: every step this issue needs that the PR does not ship has an issue ID, from the plan's `## Follow-ups` or filed in step 8
 - **Driven screens**: if the diff changes a screen, drive it in the browser — see [Drive changed screens](#drive-changed-screens) below

@@ -1,7 +1,7 @@
 /**
  * Colocated story check (HON-757)
  *
- * CLAUDE.md → Storybook requires every component under `src/components/**` to
+ * .claude/rules/ui.md → Storybook requires every component under `src/components/**` to
  * have a colocated `.stories.tsx`. Until this script, only the text enforced
  * that: `pnpm test-storybook:ci` runs the stories that exist, and nothing
  * noticed a component that had none. Agents write most components here, so the
@@ -15,7 +15,7 @@
  *
  * What it cannot check: whether a story covers every variant, or was updated
  * when its component changed. That stays with the PR reviewer, which is why
- * CLAUDE.md keeps the rule itself and only points here for enforcement.
+ * .claude/rules/ui.md keeps the rule itself and only points here for enforcement.
  *
  * Usage: pnpm stories:check [path/to/repo-root]
  *   The root defaults to this repo, resolved from this file's own location so
@@ -213,7 +213,7 @@ function main(): void {
     console.error(`  ✗ ${violation.message}`)
   }
   console.error(
-    '\nCLAUDE.md → Storybook: every component under src/components needs a colocated\n' +
+    '\n.claude/rules/ui.md → Storybook: every component under src/components needs a colocated\n' +
       '.stories.tsx covering its variants and states. Allowlist a component only when\n' +
       'it has nothing to render in isolation, or its parts are covered by their own\n' +
       'stories — and name them in the `why`.\n',

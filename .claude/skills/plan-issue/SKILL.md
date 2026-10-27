@@ -249,7 +249,7 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 ## Storybook stories
 
-[If any file under `src/components/**` is created or modified, list the colocated `.stories.tsx` files to create/update (CLAUDE.md Storybook rule). Otherwise write `none — no component changes`.]
+[If any file under `src/components/**` is created or modified, list the colocated `.stories.tsx` files to create/update (`.claude/rules/ui.md` → Storybook). Otherwise write `none — no component changes`.]
 
 ## Verification
 
