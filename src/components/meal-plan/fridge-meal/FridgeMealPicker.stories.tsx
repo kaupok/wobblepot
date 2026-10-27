@@ -10,6 +10,7 @@ import {
   pressEscape,
 } from '@/stories/a11y-helpers'
 import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+import { expectFocusRingRoom } from '@/stories/layout-helpers'
 import { FridgeMealPicker } from './FridgeMealPicker'
 
 const meta = {
@@ -137,6 +138,31 @@ export const NeedsAnItem: Story = {
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
     await expect(dialog.getByText('Add at least one item, then save.')).toBeInTheDocument()
     await expect(args.onSaved).not.toHaveBeenCalled()
+  },
+}
+
+/**
+ * Every field and button in the scroll area keeps room for its 3px focus ring,
+ * the top and bottom controls included, with no horizontal scroll (HON-1353).
+ */
+export const FocusRingRoom: Story = {
+  args: { entryId: 'entry-1', initialItems: fridgeItems },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    // The recent meals load last; wait so the scroll area has its full height.
+    await dialog.findByRole('button', { name: /^Add: Lentil soup/ })
+    const search = dialog.getByLabelText('Search the pantry')
+    let scrollArea = search.parentElement
+    while (scrollArea && getComputedStyle(scrollArea).overflowY !== 'auto') {
+      scrollArea = scrollArea.parentElement
+    }
+    if (!scrollArea) throw new Error('No scroll area around "Search the pantry"')
+    await expect(scrollArea.scrollHeight).toBeGreaterThan(scrollArea.clientHeight)
+    await expect(scrollArea.scrollWidth).toBeLessThanOrEqual(scrollArea.clientWidth)
+    const controls = Array.from(scrollArea.querySelectorAll<HTMLElement>('input, button'))
+    await expect(controls).toContain(dialog.getByLabelText('Something else'))
+    await expect(controls).toContain(dialog.getByRole('button', { name: 'Add' }))
+    for (const control of controls) expectFocusRingRoom(control, scrollArea)
   },
 }
 
