@@ -226,6 +226,15 @@ const recipe: TaskSpec<'recipe'> = {
       gate: { min: 1 },
     },
     { key: 'stepCountDelta', label: 'Step count delta', format: 'number', onError: null },
+    {
+      // Only cases with `expected.servings` score it: a recipe with no servings
+      // gets the household's size (HON-1363).
+      key: 'servingsMatch',
+      label: 'Servings match',
+      format: 'percent',
+      onError: null,
+      gate: { min: 1 },
+    },
   ],
   inapplicableMetrics(input) {
     // A not-a-recipe case expects no ingredients (HON-840).
@@ -235,9 +244,9 @@ const recipe: TaskSpec<'recipe'> = {
   },
   prepare({ input }) {
     // Trimmed, as `parseRecipeText` does before it builds the request.
-    // The bench has no household, so a recipe with no servings falls back to
-    // 4, the value its expected outputs were written for.
-    const request = buildRecipeRequest(input.text.trim(), 4, input.locale)
+    // A case without a household size falls back to 4, the value the cases
+    // recorded in the golden were written for, so their requests stay unchanged.
+    const request = buildRecipeRequest(input.text.trim(), input.defaultServings ?? 4, input.locale)
     return {
       ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),

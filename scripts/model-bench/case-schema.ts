@@ -87,6 +87,12 @@ export const PlanCaseSchema = z.strictObject({
 export const RecipeCaseSchema = z.strictObject({
   text: z.string().min(1),
   locale,
+  /**
+   * The household's member count, which the parser uses when the text gives
+   * no servings (HON-1363). Omitted, it is 4, the value the cases recorded in
+   * the golden were written for.
+   */
+  defaultServings: z.number().int().positive().optional(),
   expected: z
     .object({
       /**
@@ -107,6 +113,8 @@ export const RecipeCaseSchema = z.strictObject({
       ),
       lowConfidence: z.boolean(),
       stepCount: z.number().int().positive().optional(),
+      /** The servings the parse must return; scored only when set. */
+      servings: z.number().int().positive().optional(),
     })
     .superRefine((e, ctx) => {
       if (e.ingredients.length === 0 && !e.lowConfidence) {

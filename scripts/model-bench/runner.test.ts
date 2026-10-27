@@ -173,6 +173,7 @@ describe('runBenchmark', () => {
       quantityUnitMatch: null,
       confidenceAgrees: 0,
       stepCountDelta: null,
+      servingsMatch: null,
     })
     const carbonara = recipeCases.find((c) => c.id === 'recipe/en-carbonara')
     expect(errorScores(carbonara!)).toMatchObject({ recall: 0, precision: 0 })

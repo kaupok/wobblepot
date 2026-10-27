@@ -746,7 +746,7 @@
       "preparationNotesHelper": "Kuidas seda valmistada? Sammud, nõuanded või muud märkused.",
       "preparationNotesPlaceholder": "Näiteks: keeda pasta. Prae küüslauku oliiviõlis, lisa tomatid…",
       "sourceUrlLabel": "Algallika URL (vabatahtlik)",
-      "sourceUrlPlaceholder": "https://example.com/retsept",
+      "sourceUrlPlaceholder": "Näiteks: https://example.com/retsept",
       "sourceUrlClearAria": "Tühjenda algallika URL",
       "cancel": "Tühista",
       "saving": "Salvestan…",

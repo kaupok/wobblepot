@@ -137,7 +137,14 @@ describe('scoreRecipe', () => {
       quantityUnitMatch: 1,
       confidenceAgrees: 1,
       stepCountDelta: 0,
+      servingsMatch: null,
     })
+  })
+
+  it('checks the servings only when the case expects them (HON-1363)', () => {
+    const expectsTwo = { ...input, expected: { ...input.expected, servings: 2 } }
+    expect(scoreRecipe(expectsTwo, { ...perfect, servings: 2 }).servingsMatch).toBe(1)
+    expect(scoreRecipe(expectsTwo, { ...perfect, servings: 4 }).servingsMatch).toBe(0)
   })
 
   it('accepts a plural English name the prompt never asked to singularise', () => {
@@ -204,6 +211,7 @@ describe('scoreRecipe', () => {
         quantityUnitMatch: null,
         confidenceAgrees: 1,
         stepCountDelta: null,
+        servingsMatch: null,
       })
     })
 

@@ -746,7 +746,7 @@
       "preparationNotesHelper": "How do you make this recipe? Steps, tips, or other notes.",
       "preparationNotesPlaceholder": "For example: Boil the pasta. Fry the garlic in olive oil, add the tomatoes…",
       "sourceUrlLabel": "Source URL (optional)",
-      "sourceUrlPlaceholder": "https://example.com/recipe",
+      "sourceUrlPlaceholder": "For example: https://example.com/recipe",
       "sourceUrlClearAria": "Clear source URL",
       "cancel": "Cancel",
       "saving": "Saving…",
