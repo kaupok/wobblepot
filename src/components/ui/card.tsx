@@ -24,6 +24,11 @@ import { cn } from '@/lib/utils'
 // so a border would be a second one (docs/DESIGN.md → A card on a coloured
 // surface has no border). With `interactive` the ring alone is the edge: the
 // hover edge is then 1px, and the focus ring is unchanged.
+//
+// `surface="chip"` is a card inside a meal tint, where `--card` is the tint
+// itself: it takes the tint's chip colour at half strength instead, so the
+// card shows against the tint without a border or a grey (the cook view's
+// question panel, HON-1371). src/lib/meal-tint.test.ts measures its text.
 const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl', {
   variants: {
     bordered: {
@@ -34,6 +39,10 @@ const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl'
       default: 'gap-6 py-6',
       sm: 'gap-2 py-2',
     },
+    surface: {
+      default: '',
+      chip: 'bg-secondary/50',
+    },
     interactive: {
       true: 'group/card cursor-pointer transition-[border-color,box-shadow] duration-150 ease-out hover:border-border hover:ring-1 hover:ring-border has-[[data-slot=card-target]:focus-visible]:border-ring has-[[data-slot=card-target]:focus-visible]:ring-[3px] has-[[data-slot=card-target]:focus-visible]:ring-ring/50',
       false: '',
@@ -42,6 +51,7 @@ const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl'
   defaultVariants: {
     bordered: true,
     size: 'default',
+    surface: 'default',
     interactive: false,
   },
 })
@@ -50,6 +60,7 @@ function Card({
   className,
   bordered,
   size,
+  surface,
   interactive,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
@@ -57,7 +68,7 @@ function Card({
     <div
       data-slot="card"
       data-size={size ?? 'default'}
-      className={cn(cardVariants({ bordered, size, interactive }), className)}
+      className={cn(cardVariants({ bordered, size, surface, interactive }), className)}
       {...props}
     />
   )

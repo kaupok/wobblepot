@@ -54,11 +54,15 @@ export const AskPending: Story = {
     // The question stays on screen above "Thinking…" (HON-976).
     await expect(canvas.getByText("You asked: How do I know it's done?")).toBeVisible()
     await expect(canvas.getByRole('status')).toHaveTextContent('Thinking…')
-    // "Thinking…" shares the footer row and leaves Close at Send's edge (HON-1022).
-    const right = (el: HTMLElement) => Math.round(el.getBoundingClientRect().right)
-    await expect(right(canvas.getByRole('button', { name: 'Close' }))).toBe(
-      right(canvas.getByRole('button', { name: 'Send' })),
-    )
+    // "Thinking…" holds the pencil's place in the card's top row, before ×,
+    // so the wait adds no line (HON-978, HON-1371).
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const thinking = within(card).getByText('Thinking…', { selector: 'p' })
+    const close = canvas.getByRole('button', { name: 'Close' })
+    const box = (el: Element) => el.getBoundingClientRect()
+    await expect(box(thinking).right).toBeLessThanOrEqual(box(close).left)
+    await expect(box(thinking).bottom).toBeLessThanOrEqual(box(close).bottom)
+    await expect(box(thinking).top).toBeGreaterThanOrEqual(box(close).top)
     await expect(canvas.getByRole('textbox')).toHaveAttribute('placeholder', 'Ask a follow-up')
     await expect(canvas.getByRole('button', { name: 'Send' })).toHaveAttribute(
       'aria-disabled',
@@ -82,8 +86,31 @@ export const AskAnswered: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('You asked: What can I substitute here?')).toBeVisible()
-    await expect(canvas.getByRole('button', { name: 'Edit' })).toBeVisible()
+    const asked = canvas.getByText('You asked: What can I substitute here?')
+    await expect(asked).toBeVisible()
+    // The question, the pencil and the × in the card's top row (HON-1371).
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const edit = canvas.getByRole('button', { name: 'Edit question' })
+    const close = canvas.getByRole('button', { name: 'Close' })
+    const box = (el: Element) => el.getBoundingClientRect()
+    await expect(edit).toBeVisible()
+    await expect(box(close).top).toBe(box(edit).top)
+    await expect(Math.round(box(card).right - box(close).right)).toBe(12)
+    // The answer and the follow-up row sit inside the card, the answer one
+    // size below the step text, and the card ends before the next step.
+    const answer = canvas.getByText(/^No garlic\?/)
+    await expect(card).toContainElement(answer)
+    await expect(card).toContainElement(canvas.getByRole('button', { name: 'Send' }))
+    await expect(parseFloat(getComputedStyle(answer).fontSize)).toBeLessThan(
+      parseFloat(getComputedStyle(canvas.getByText(/^Pat chicken/)).fontSize),
+    )
+    await expect(getComputedStyle(card).borderTopWidth).toBe('0px')
+    const nextStep = canvas.getByRole('button', { name: /^Toss with olive oil/ })
+    await expect(box(nextStep).top).toBeGreaterThan(box(card).bottom)
+    for (const button of [edit, close]) {
+      await expect(box(button).height).toBeGreaterThanOrEqual(44)
+      await expect(box(button).width).toBeGreaterThanOrEqual(44)
+    }
   },
 }
 
@@ -219,7 +246,8 @@ export const AskRateLimited: Story = {
 /**
  * The modal's side of the contract with state, so a ready-made question
  * shows: a send sets the active question for that step, as
- * `useCookQuestion` does, and opening or closing a panel drops it.
+ * `useCookQuestion` does, its answer arrives 300ms later, and opening or
+ * closing a panel drops it.
  */
 function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
   const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
@@ -240,10 +268,17 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
           setOpenSubject(null)
         },
         active,
-        isPending: active !== null,
+        isPending: active !== null && active.answer === null,
         ask: (input) => {
           controls.ask(input)
           setActive({ subject: input.subject, question: input.question, answer: null })
+          setTimeout(
+            () =>
+              setActive(
+                (current) => current && { ...current, answer: 'Roast at 240°C and check at 25.' },
+              ),
+            300,
+          )
         },
       }}
     />
@@ -251,9 +286,10 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
 }
 
 /**
- * HON-976: a ready-made question from the ⋯ menu shows above "Thinking…",
- * and Edit puts it back in the field with focus, without sending it again.
- * The pick moves focus to Close (HON-1350).
+ * HON-976: a ready-made question from the ⋯ menu shows beside "Thinking…",
+ * and once the answer is in, the pencil Edit puts it back in the field with
+ * focus, without sending it again. The pick moves focus to the × Close
+ * (HON-1350, HON-1371).
  */
 export const AskEchoAndEdit: Story = {
   args: {
@@ -274,7 +310,9 @@ export const AskEchoAndEdit: Story = {
     // open a phone's keyboard.
     await waitFor(() => expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus())
 
-    await userEvent.click(within(panel).getByRole('button', { name: 'Edit' }))
+    // The pencil comes back once the answer is in.
+    await within(panel).findByText('Roast at 240°C and check at 25.')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Edit question' }))
     const field = within(panel).getByRole('textbox', { name: 'Your question' })
     await expect(field).toHaveValue("I'm short on time")
     await expect(field).toHaveFocus()

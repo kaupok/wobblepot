@@ -419,7 +419,7 @@
       "send": "Saada",
       "thinking": "Mõtlen…",
       "youAsked": "Küsisid: {question}",
-      "edit": "Muuda",
+      "editQuestion": "Muuda küsimust",
       "retry": "Proovi uuesti",
       "close": "Sulge",
       "errors": {

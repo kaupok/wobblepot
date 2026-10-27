@@ -419,7 +419,7 @@
       "send": "Send",
       "thinking": "Thinking…",
       "youAsked": "You asked: {question}",
-      "edit": "Edit",
+      "editQuestion": "Edit question",
       "retry": "Retry",
       "close": "Close",
       "errors": {

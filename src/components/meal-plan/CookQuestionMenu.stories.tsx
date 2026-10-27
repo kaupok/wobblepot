@@ -32,12 +32,13 @@ export const Closed: Story = {
   },
 }
 
-/** The row's panel is open: the button is expanded and takes the `secondary` fill. */
+/** The row's panel is open: the button is expanded and stays ghost (HON-1371). */
 export const PanelOpen: Story = {
   args: { open: true },
   play: async ({ canvasElement }) => {
     const more = within(canvasElement).getByRole('button', { name: 'Ask about step 2' })
-    await expect(more).toHaveClass('bg-secondary')
+    await expect(more).toHaveAttribute('data-variant', 'ghost')
+    await expect(more).not.toHaveClass('bg-secondary')
     await expect(more).toHaveAttribute('aria-expanded', 'true')
     await expect(more).toHaveAttribute('aria-controls', 'panel-2')
   },

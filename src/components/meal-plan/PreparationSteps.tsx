@@ -1,22 +1,19 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type RefObject } from 'react'
+import { useId, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check } from 'lucide-react'
 import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn, prefersReducedMotion } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
-import type {
-  CookQuestionActive,
-  CookQuestionAskInput,
-  CookQuestionError,
-} from '@/hooks/use-cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { COOK_QUESTION_EQUIPMENT_MAX_ITEMS } from '@/lib/ai/cook-question-limits'
 import { CookQuestionMenu, type CookQuestionMenuProps } from './CookQuestionMenu'
+import { CookQuestionPanel, type CookQuestionControls } from './CookQuestionPanel'
+
+export type { CookQuestionControls }
 import { PreparationNotes } from './PreparationNotes'
 
 // The cook view's preparation guide (docs/DESIGN.md → "Cook view", HON-932),
@@ -119,30 +116,6 @@ interface PreparationStepsProps {
   cookQuestion?: CookQuestionControls
 }
 
-/**
- * The cook-question state, owned by the modal through `useCookQuestionPanel`,
- * so this component stays presentational.
- */
-export interface CookQuestionControls {
-  /**
-   * The step or the item in "You'll need" whose panel is open: one at a time
-   * across both sections (HON-983)
-   */
-  openSubject: CookQuestionSubject | null
-  onOpenSubject: (subject: CookQuestionSubject) => void
-  onClose: () => void
-  ask: (input: CookQuestionAskInput) => void
-  active: CookQuestionActive | null
-  /** The answered question still on screen while `active` waits (HON-978) */
-  previous: CookQuestionActive | null
-  /** Waiting for the first words of the answer */
-  isPending: boolean
-  /** The answer's words are arriving; true until the stream closes (HON-979) */
-  isStreaming: boolean
-  error: CookQuestionError | null
-  onRetry: () => void
-}
-
 /** A sub-section of the steps area: Watch out, Tip. Same level as Steps. */
 function StepsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -219,255 +192,6 @@ function StepToggle({ step, index, done, current, onToggle }: StepToggleProps) {
         {step}
       </Body>
     </button>
-  )
-}
-
-/**
- * Scroll `el` into its nearest scrollable ancestor: the dialog's one column
- * below `lg`, the steps column from `lg`. "Nearest" leaves an element that is
- * already in view where it is. Focus does not move.
- */
-function scrollIntoViewNearest(el: HTMLElement | null) {
-  el?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
-}
-
-interface CookQuestionPanelProps {
-  id: string
-  /** The step or the item in "You'll need" this panel asks about */
-  subject: CookQuestionSubject
-  steps: string[]
-  equipment: string[]
-  controls: CookQuestionControls
-  /** The panel's field and Close, which the ⋯ menu focuses after a pick */
-  inputRef: RefObject<HTMLInputElement | null>
-  closeRef: RefObject<HTMLButtonElement | null>
-  /**
-   * Close the panel and return focus to its ⋯ button. `byPointer` is true
-   * when a tap or a click on Close did it, not a key.
-   */
-  onClose: (byPointer?: boolean) => void
-}
-
-/**
- * The question panel under one step (HON-969), or under one item in "You'll
- * need" with its own placeholder (HON-983). The row's ⋯ menu opens it with a
- * ready-made question already sent, or with the field alone (HON-1350). It
- * reads top to bottom in the order things happen (HON-1022). Before a
- * question: a field with Send, and a footer row with Close. Once a question
- * is sent the panel reads: the question asked, with Edit after it (HON-976);
- * the answer or the error; a field for a
- * follow-up; the footer row with "Thinking…" or Retry at its start and Close
- * at its end, so Close never moves. The answer streams in, and a stream that
- * breaks keeps its words with the error under them (HON-979). A second
- * question keeps the first one's answer, muted, until its own answer takes
- * that place, so the steps below do not jump (HON-978).
- * It sits straight on the tint, indented to the row's text, with no card or
- * border of its own (docs/DESIGN.md → cook view). It scrolls into view when it
- * opens, and the answer with Close does when it arrives (HON-977), so a step
- * low in the view never answers below the fold.
- */
-function CookQuestionPanel({
-  id,
-  subject,
-  steps,
-  equipment,
-  controls,
-  inputRef,
-  closeRef,
-  onClose,
-}: CookQuestionPanelProps) {
-  const t = useTranslations('meal-plan.cookQuestion')
-  const [text, setText] = useState('')
-  const panelRef = useRef<HTMLDivElement>(null)
-  const resultRef = useRef<HTMLDivElement>(null)
-  // Counts Edit presses: the field gets focus once the question is in it, with
-  // the caret after the text, ready to change the end of it. A count, not a
-  // flag on `text`, so a second Edit with the text unchanged still focuses.
-  const [editCount, setEditCount] = useState(0)
-  const questionId = useId()
-  const { ask, active, previous, isPending, isStreaming, error, onRetry } = controls
-  // Until the stream closes: a second question while the answer is on its way
-  // would bill a second AI call, because the route runs on after the browser
-  // aborts the first.
-  const busy = isPending || isStreaming
-  const isStep = subject.kind === 'step'
-  const own = active && sameSubject(active.subject, subject) ? active : null
-  // A question went out from this panel: the question, its answer and a
-  // follow-up field show. Closing the panel discards the question (HON-978).
-  const sent = own !== null || error !== null
-  // The last answer, kept on screen under its own question while the next one
-  // is on its way, so the panel does not shrink to one line (HON-978).
-  const stale = own && isPending && sameSubject(previous?.subject, subject) ? previous : null
-  const asked = stale ? stale.question : own ? own.question : null
-  const answer = own ? own.answer : null
-  // One slot for the stale answer or the answer, so each replaces the last in
-  // place. The error goes under it: alone, or under the words that arrived
-  // before the stream broke (HON-979).
-  const shown = isPending ? stale?.answer : answer
-  const shownError = isPending ? null : error?.message
-  const hasAnswer = Boolean(answer)
-
-  // Opened under a step low in the view, the question and field show at once.
-  useEffect(() => {
-    scrollIntoViewNearest(panelRef.current)
-  }, [])
-
-  // The answer or the error, with the field and Close under it, once the wait
-  // is over. Not "Thinking…": the field the cook may be typing in stays where
-  // it is. At the first words and again when the stream closes, not at every
-  // chunk.
-  useEffect(() => {
-    if (!isPending && (hasAnswer || error)) scrollIntoViewNearest(resultRef.current)
-  }, [isPending, isStreaming, hasAnswer, error])
-
-  useEffect(() => {
-    const input = inputRef.current
-    if (editCount === 0 || !input) return
-    input.focus()
-    input.setSelectionRange(input.value.length, input.value.length)
-  }, [editCount, inputRef])
-
-  const send = (question: string, source: CookQuestionAskInput['source']) =>
-    ask({ subject, steps, equipment, question, source })
-
-  return (
-    <div
-      ref={panelRef}
-      id={id}
-      role="group"
-      aria-label={
-        isStep
-          ? t('askAboutStep', { n: subject.index + 1 })
-          : t('askAboutItem', { item: equipment[subject.index] ?? '' })
-      }
-      // A step's panel is indented to the step text, past the numeral; an
-      // item's text starts at the list's edge, so its panel does too. Both end
-      // at the ⋯ buttons' edge.
-      className={cn('flex flex-col gap-3 pt-1 pb-2', isStep && 'pl-15 lg:pl-16')}
-    >
-      {/* What was asked, so a ready-made question's answer has its question
-          and a typed one can be changed and sent again (HON-976). Outside the
-          status region: the cook just asked it, so announcing it again adds
-          nothing. Edit follows the question's text, not the row's far end. */}
-      {asked && (
-        <div className="flex flex-wrap items-center gap-x-1">
-          <div className="min-w-0">
-            <Body variant="step-small" tone="muted" id={questionId}>
-              {t('youAsked', { question: asked })}
-            </Body>
-          </div>
-          <Button
-            variant="ghost"
-            size="lg"
-            aria-describedby={questionId}
-            onClick={() => {
-              setText(asked)
-              setEditCount((n) => n + 1)
-            }}
-          >
-            {t('edit')}
-          </Button>
-        </div>
-      )}
-      {/* One box for the answer and everything under it, so one scroll brings
-          the answer and Close into view (HON-977). */}
-      <div ref={resultRef} data-slot="cook-question-result" className="flex flex-col">
-        {/* Mounted from the start, as a live region must be; it takes space
-            only once it holds an answer or an error. Busy while the words
-            arrive, so a screen reader reads the finished answer once rather
-            than every chunk (HON-979). */}
-        <div role="status" aria-busy={isStreaming}>
-          {/* Rendered only with something in it, so before a question the
-              field sits at the panel's top. A new box rather than a
-              class toggled on the region, which reduced motion's
-              all-property transition would lag by a frame. */}
-          {(shown || shownError) && (
-            <div className="flex flex-col gap-3 pb-3">
-              {shown && (
-                <Body variant="step" tone={isPending ? 'muted' : 'default'}>
-                  {shown}
-                </Body>
-              )}
-              {shownError && <Body variant="step">{shownError}</Body>}
-            </div>
-          )}
-          {/* Read out here; shown in the footer row, where it adds no line
-              under the old answer (HON-978). */}
-          {isPending && <span className="sr-only">{t('thinking')}</span>}
-        </div>
-        <div className="flex flex-col gap-3">
-          {/* A form, so Enter in the field sends (.claude/rules/client-data.md → Form Handling). */}
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              // `aria-disabled`, not `disabled`, keeps focus on Send while the
-              // answer is on its way (docs/DESIGN.md → Focus management).
-              if (busy) return
-              const question = text.trim()
-              if (!question) return
-              send(question, 'text')
-              setText('')
-            }}
-          >
-            {/* `lg`, as Send is, so the two line up and the text is 16px at
-                every width. */}
-            <Input
-              ref={inputRef}
-              size="lg"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                // The dialog leaves Escape in a text field to the field.
-                if (e.key === 'Escape') onClose()
-              }}
-              aria-label={t('questionLabel')}
-              placeholder={t(
-                sent ? 'followUpPlaceholder' : isStep ? 'placeholder' : 'equipmentPlaceholder',
-              )}
-              maxLength={300}
-              enterKeyHint="send"
-            />
-            <Button type="submit" size="lg" aria-disabled={busy}>
-              {t('send')}
-            </Button>
-          </form>
-          {/* The footer row: the wait or Retry at the start, Close at the end,
-              under Send, in every state. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {isPending && (
-              <Body variant="step" tone="muted" aria-hidden>
-                {t('thinking')}
-              </Body>
-            )}
-            {!isPending && error?.canRetry && (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  // Retry unmounts itself as the error clears, and focus would
-                  // fall to the page. Close stays, so focus goes there first.
-                  closeRef.current?.focus()
-                  onRetry()
-                }}
-              >
-                {t('retry')}
-              </Button>
-            )}
-            <Button
-              ref={closeRef}
-              variant="ghost"
-              size="lg"
-              className="ml-auto"
-              // `detail` counts clicks; Enter and Space on a button leave it 0.
-              onClick={(e) => onClose(e.detail > 0)}
-            >
-              {t('close')}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 

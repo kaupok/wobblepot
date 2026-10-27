@@ -118,10 +118,11 @@ export const WithAskMenusDesktop: Story = {
 }
 
 /**
- * The panel open under step 2, as "Ask your own question" opens it: the
- * field and Send, then the footer row with Close, and no chips (HON-1350).
- * The field and Send are one height, the field's text is 16px, and Send,
- * Close and the open ⋯ button, filled, end on one edge (HON-1022).
+ * The panel open under step 2, as "Ask your own question" opens it: one
+ * borderless card, the × Close alone in its top row, then the field and
+ * Send, and no chips (HON-1350, HON-1371). The field and Send are one height, the
+ * field's text is 16px, and × ends on the ⋯ buttons' edge. The open ⋯
+ * button stays ghost; `aria-expanded` and the card under it mark it.
  */
 export const AskPanelOpen: Story = {
   args: {
@@ -138,17 +139,27 @@ export const AskPanelOpen: Story = {
     const more = canvas.getByRole('button', { name: 'Ask about step 2' })
     const height = (el: HTMLElement) => el.getBoundingClientRect().height
     const right = (el: HTMLElement) => Math.round(el.getBoundingClientRect().right)
-    await expect(p.getAllByRole('button')).toEqual([send, close])
+    const card = panel.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(p.getAllByRole('button')).toEqual([close, send])
     await expect(height(field)).toBe(height(send))
     await expect(getComputedStyle(field).fontSize).toBe('16px')
     await expect(field).toHaveAttribute('placeholder', 'Ask about this step')
-    await expect(right(close)).toBe(right(send))
-    await expect(right(more)).toBe(right(send))
-    await expect(more).toHaveClass('bg-secondary')
-    await expect(more).toHaveAttribute('aria-expanded', 'true')
-    await expect(canvas.getByRole('button', { name: 'Ask about step 1' })).not.toHaveClass(
-      'bg-secondary',
+    // × has the top row to itself, at the card's top-right, over the field.
+    await expect(close.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      field.getBoundingClientRect().top,
     )
+    await expect(Math.round(right(card) - right(close))).toBe(12)
+    // The card bleeds by its padding, so × ends on the ⋯ buttons' edge.
+    await expect(right(close)).toBe(right(more))
+    // ...and the field starts where the step text does.
+    const stepText = canvas.getByText(/^Pat chicken thighs dry/)
+    await expect(Math.round(field.getBoundingClientRect().left)).toBe(
+      Math.round(stepText.getBoundingClientRect().left),
+    )
+    await expect(getComputedStyle(card).borderTopWidth).toBe('0px')
+    await expect(getComputedStyle(card).borderTopLeftRadius).not.toBe('0px')
+    await expect(more).toHaveAttribute('data-variant', 'ghost')
+    await expect(more).toHaveAttribute('aria-expanded', 'true')
     for (const button of p.getAllByRole('button')) {
       await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
@@ -242,7 +253,11 @@ export const EquipmentWithAskMenusDesktop: Story = {
   play: async ({ canvasElement }) => expectCurrentRow(canvasElement),
 }
 
-/** An item's panel answered: no numeral to indent past, so it starts at the item text. */
+/**
+ * An item's panel answered: no numeral to indent past, so its text starts at
+ * the item text, and the card bleeds by its padding, as the steps' current
+ * chip does (HON-1371).
+ */
 export const EquipmentAskAnswered: Story = {
   args: { steps: null, isLoading: false, error: null },
   render: () => (
@@ -264,7 +279,10 @@ export const EquipmentAskAnswered: Story = {
     const canvas = within(canvasElement)
     const panel = canvas.getByRole('group', { name: 'Ask about Sheet pan' })
     const item = canvas.getByText('Sheet pan')
-    await expect(panel.getBoundingClientRect().left).toBe(item.getBoundingClientRect().left)
-    await expect(within(panel).getByText('You asked: What can I use instead?')).toBeVisible()
+    const asked = within(panel).getByText('You asked: What can I use instead?')
+    const left = (el: Element) => Math.round(el.getBoundingClientRect().left)
+    await expect(asked).toBeVisible()
+    await expect(left(asked)).toBe(left(item))
+    await expect(left(item) - left(panel.querySelector('[data-slot="card"]')!)).toBe(12)
   },
 }
