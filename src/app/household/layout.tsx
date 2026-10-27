@@ -14,7 +14,7 @@ export default async function HouseholdLayout({ children }: { children: React.Re
     <div className="w-full px-4 py-8">
       {/* A form page with a short list on top: one narrow column, so the
           page keeps one right edge (HON-767, HON-1020). */}
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <Heading variant="h4" as="h1">
           {t('pageTitle')}
         </Heading>

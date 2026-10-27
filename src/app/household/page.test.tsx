@@ -133,8 +133,8 @@ describe('HouseholdMembersPage', () => {
   })
 
   // The list is short and sits in the form column every tab shares, so the
-  // page keeps one right edge (HON-1020).
-  it('renders the title, the tabs, then the member list, in one max-w-2xl column', async () => {
+  // page keeps one right edge (HON-1020). The column is centred (HON-1368).
+  it('renders the title, the tabs, then the member list, in one centred max-w-2xl column', async () => {
     await mockSignedIn()
 
     await renderPage()
@@ -144,7 +144,7 @@ describe('HouseholdMembersPage', () => {
     const memberList = screen.getByTestId('member-list')
     expect(title.parentElement).toBe(memberList.parentElement)
     expect(Array.from(title.parentElement!.children)).toEqual([title, tabs, memberList])
-    expect(memberList.parentElement).toHaveClass('max-w-2xl')
+    expect(memberList.parentElement).toHaveClass('max-w-2xl', 'mx-auto')
   })
 
   it('renders no settings form and no Leave household', async () => {
