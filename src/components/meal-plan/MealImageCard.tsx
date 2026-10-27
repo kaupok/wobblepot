@@ -213,16 +213,16 @@ export function mealImageTitleWidth(trailingActions = false): string {
  * any width, so a second badge wraps rather than running under the slip
  * (HON-974): the servings override after the pantry badge, and on a short
  * card, which the slip spans top to bottom, the first row's protein and
- * own-recipe badges. A single badge
- * wider than that overflows the cap rather than wrapping; the slip's left
- * edge is set to clear the widest one.
+ * own-recipe badges.
  *
  * On a tinted card the row also stops where the image box starts, as the title
  * does (`TITLE_WIDTH`): the left fade is short, so a badge past it would sit on
  * the opaque plate (HON-1358). A neutral card without an overlay is uncapped.
+ * A badge wider than the row (a long conflict in Estonian on a phone) wraps
+ * its text inside the row rather than overflowing it.
  */
 export const MEAL_IMAGE_BADGE_ROW_WIDTH =
-  'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8'
+  'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 *:data-[slot=badge]:max-w-full *:data-[slot=badge]:whitespace-normal *:data-[slot=badge]:[&>svg]:shrink-0'
 
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no

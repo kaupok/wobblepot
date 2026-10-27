@@ -94,9 +94,8 @@ async function assertInsideCards(canvasElement: HTMLElement, selector: string) {
 
 /**
  * On a card with an image, every badge ends inside the image's short left fade
- * (its first 10%), so none sits on the opaque plate (HON-1358). A single badge
- * wider than its capped row overflows it (`MEAL_IMAGE_BADGE_ROW_WIDTH`), so
- * the check skips it.
+ * (its first 10%), so none sits on the opaque plate (HON-1358). A badge wider
+ * than its capped row wraps its text inside it (`MEAL_IMAGE_BADGE_ROW_WIDTH`).
  */
 async function assertBadgesOnTint(canvasElement: HTMLElement) {
   for (const card of canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]')) {
@@ -104,9 +103,9 @@ async function assertBadgesOnTint(canvasElement: HTMLElement) {
     if (!image) continue
     const box = image.getBoundingClientRect()
     for (const badge of card.querySelectorAll<HTMLElement>('[data-slot="badge"]')) {
-      const edges = badge.getBoundingClientRect()
-      if (edges.width > badge.parentElement!.getBoundingClientRect().width) continue
-      await expect(edges.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
+      await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+        box.left + box.width * 0.1,
+      )
     }
   }
 }
