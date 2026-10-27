@@ -54,3 +54,31 @@ export function expectWithinHorizontally(el: HTMLElement, container: HTMLElement
   expect(box.left, `"${el.textContent}" overflows left`).toBeGreaterThanOrEqual(bounds.left - 0.5)
   expect(box.right, `"${el.textContent}" overflows right`).toBeLessThanOrEqual(bounds.right + 0.5)
 }
+
+/**
+ * Asserts a scroll container leaves room for the element's focus ring on all
+ * four sides (HON-1353). An `overflow` box clips at its padding edge, and the
+ * `Input` and `Button` ring is drawn outside the border. Measured in the
+ * container's scroll coordinates, so a control scrolled out of view still
+ * counts its distance to the scroll content's top or bottom.
+ */
+export function expectFocusRingRoom(el: HTMLElement, container: HTMLElement, ring = 3): void {
+  const box = el.getBoundingClientRect()
+  const bounds = container.getBoundingClientRect()
+  const left = bounds.left + container.clientLeft
+  const top = bounds.top + container.clientTop - container.scrollTop
+  const name =
+    el.getAttribute('aria-label') ||
+    (el instanceof HTMLInputElement && el.labels?.[0]?.textContent) ||
+    el.textContent
+  expect(box.left - left, `"${name}" ring clips left`).toBeGreaterThanOrEqual(ring - 0.5)
+  expect(
+    left + container.clientWidth - box.right,
+    `"${name}" ring clips right`,
+  ).toBeGreaterThanOrEqual(ring - 0.5)
+  expect(box.top - top, `"${name}" ring clips top`).toBeGreaterThanOrEqual(ring - 0.5)
+  expect(
+    top + container.scrollHeight - box.bottom,
+    `"${name}" ring clips bottom`,
+  ).toBeGreaterThanOrEqual(ring - 0.5)
+}

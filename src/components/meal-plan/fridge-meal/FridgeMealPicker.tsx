@@ -223,7 +223,9 @@ function PickerForm({
 
   return (
     <>
-      <div className="flex max-h-96 flex-col gap-5 overflow-y-auto">
+      {/* The 4px pad, pulled back by an equal margin, keeps the 3px focus ring
+          of an edge control inside the box `overflow` clips (HON-1353). */}
+      <div className="-m-1 flex max-h-96 flex-col gap-5 overflow-y-auto p-1">
         <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-chosen`}>
           <Heading variant="caption" as="h3" id={`${searchId}-chosen`}>
             {t('chosenHeading')}
