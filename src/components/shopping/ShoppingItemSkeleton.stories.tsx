@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { createCustomItem, createShoppingItem } from '@/stories/fixtures'
-import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import { CustomShoppingItem } from './CustomShoppingItem'
 import { ShoppingItem } from './ShoppingItem'
@@ -34,15 +33,11 @@ const meta = {
       },
     },
   },
-  // The rows live on the shopping note's sheet, ruled rather than boxed (HON-1016).
+  // The loading list has no note sheet, so the rows sit on the page (HON-1349).
   decorators: [
     (Story) => (
       <div className="max-w-md">
-        <Card data-surface="note">
-          <CardContent>
-            <Story />
-          </CardContent>
-        </Card>
+        <Story />
       </div>
     ),
   ],
