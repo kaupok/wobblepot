@@ -1,6 +1,6 @@
 import { VAGUE_PHRASES } from '@/lib/vague-quantities'
 import { localeInstruction, britishEnglish, estonianVoiceForRecipeParse } from './prompts'
-import { RecipeExtractionSchema } from './recipe-schema'
+import { buildRecipeExtractionSchema } from './recipe-schema'
 import type { EncodedImage } from '@/lib/image-attachments-server'
 
 /**
@@ -11,9 +11,13 @@ import type { EncodedImage } from '@/lib/image-attachments-server'
  * household comes out English, and English input in an Estonian household
  * comes out Estonian). Ingredient names stay lowercase singular base form for
  * matcher reliability; `@/lib/i18n/content#translateIngredient` handles display.
+ *
+ * `defaultServings` is the household's member count: a recipe that does not
+ * say how many it serves gets it, as the blank recipe form does (HON-1363).
  */
 export function buildRecipeExtractionPrompt(
   recipeText: string,
+  defaultServings: number,
   locale?: string,
   fromPhotos = false,
 ): string {
@@ -103,7 +107,7 @@ If your calculated quantities exceed these by 5x+, you likely made a conversion 
 
 4. Determine meal types based on the recipe content (breakfast items like eggs/pancakes, lunch/dinner for mains)
 5. Mark as kid-friendly if: no spicy ingredients, familiar foods, mild flavors
-6. If servings aren't specified, default to 4
+6. If servings aren't specified, default to ${defaultServings}
 7. If cooking time isn't specified, leave it as null
 
 PREPARATION NOTES (IMPORTANT — always attempt extraction):
@@ -152,11 +156,17 @@ function photoSection(recipeText: string): string {
  * With images it is one user message: an image part per photo, then the
  * prompt as one text part, the shape `buildImagineRequest` sends.
  */
-export function buildRecipeRequest(recipeText: string, locale?: string, images?: EncodedImage[]) {
+export function buildRecipeRequest(
+  recipeText: string,
+  defaultServings: number,
+  locale?: string,
+  images?: EncodedImage[],
+) {
+  const schema = buildRecipeExtractionSchema(defaultServings)
   if (!images?.length) {
     return {
-      schema: RecipeExtractionSchema,
-      prompt: buildRecipeExtractionPrompt(recipeText, locale),
+      schema,
+      prompt: buildRecipeExtractionPrompt(recipeText, defaultServings, locale),
     }
   }
 
@@ -167,10 +177,13 @@ export function buildRecipeRequest(recipeText: string, locale?: string, images?:
     image: Buffer.from(img.base64, 'base64'),
     mediaType: img.mimeType,
   }))
-  content.push({ type: 'text', text: buildRecipeExtractionPrompt(recipeText, locale, true) })
+  content.push({
+    type: 'text',
+    text: buildRecipeExtractionPrompt(recipeText, defaultServings, locale, true),
+  })
 
   return {
-    schema: RecipeExtractionSchema,
+    schema,
     messages: [{ role: 'user' as const, content }],
   }
 }

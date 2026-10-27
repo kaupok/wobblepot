@@ -44,6 +44,7 @@ const meta = {
   title: 'Feature/RecipeImportClient',
   component: RecipeImportClient,
   tags: ['autodocs'],
+  args: { defaultServings: 3 },
   parameters: {
     layout: 'fullscreen',
     docs: {

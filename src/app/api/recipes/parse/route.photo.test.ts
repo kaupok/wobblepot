@@ -101,7 +101,7 @@ describe('POST /api/recipes/parse with photos (HON-1274)', () => {
       session: { id: 's-1' },
     } as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue({
-      household: { id: 'household-42', locale: 'et' },
+      household: { id: 'household-42', locale: 'et', _count: { members: 3 } },
     } as never)
     vi.mocked(assertUnderCap).mockResolvedValue(undefined)
     vi.mocked(checkRateLimit).mockResolvedValue({
@@ -124,7 +124,7 @@ describe('POST /api/recipes/parse with photos (HON-1274)', () => {
     const [text, sourceUrl, , matchOptions, , images] = mockParseAndMatchRecipe.mock.calls[0]!
     expect(text).toBe('')
     expect(sourceUrl).toBeUndefined()
-    expect(matchOptions).toEqual({ householdId: 'household-42', locale: 'et' })
+    expect(matchOptions).toEqual({ householdId: 'household-42', locale: 'et', defaultServings: 3 })
     expect(images).toEqual([
       { base64: Buffer.from('jpeg-bytes').toString('base64'), mimeType: 'image/jpeg' },
     ])

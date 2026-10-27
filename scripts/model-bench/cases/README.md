@@ -51,6 +51,8 @@ There is none. Every plan is scored on structure, first-try validity, validity a
 
 `quantity` and `unit` are what the recipe states, or `null` for "to taste". `lowConfidence` is `true` only for text the app should reject as not a recipe, such as a restaurant review. That is the one case where `ingredients` may be empty. `stepCount` is optional and only reported, never scored.
 
+`defaultServings` is the household's member count, which the parser uses when the text gives no servings (HON-1363). Omitted, it is 3. `expected.servings` is optional; when set, `servingsMatch` checks that the parse returns exactly that number.
+
 ### imagine
 
 The household's allergens and dietary type are covered by the shared lists in `src/lib/ai/forbidden-foods.ts`, which the production guard uses too. Do not repeat them. `forbiddenKeywords` is for what those lists cannot know:
