@@ -20,7 +20,7 @@ const keepRemoteTraces =
 const localPort = process.env.E2E_LOCAL_PORT
 const localBaseURL = localPort ? `http://localhost:${localPort}` : undefined
 
-// When PLAYWRIGHT_BASE_URL is set (preview-smoke / staging-smoke tiers), skip
+// When PLAYWRIGHT_BASE_URL is set (staging-smoke tier), skip
 // the local webServer and run against the remote URL. Otherwise start a server:
 // `pnpm build && pnpm start` in CI (matches prod build), `pnpm dev` locally.
 const webServer = remoteBaseURL
@@ -68,8 +68,8 @@ export default defineConfig({
   // 30s budget (HON-569). Cap local parallelism to 2 to bound that
   // contention; override with `--workers=N`. Remote tiers (PLAYWRIGHT_BASE_URL)
   // hit a real deployment, not a single-process dev server: from a laptop they
-  // keep Playwright's default, and in GitHub Actions (preview-smoke,
-  // staging-smoke) they keep 1 worker.
+  // keep Playwright's default, and in GitHub Actions (staging-smoke)
+  // they keep 1 worker.
   workers: remoteBaseURL ? (isCI ? 1 : undefined) : 2,
   // Specs that sign in as a seeded fixture share the one "Smoke Test
   // Household", so two of them at once can see each other's rows. In CI they

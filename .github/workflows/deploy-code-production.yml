@@ -197,11 +197,9 @@ jobs:
         # deploy has already shipped by here, so a red run beside a green deploy
         # step is the honest signal that the bookkeeping did not complete.
         #
-        # Posting `inactive` on `Production` cannot trigger another workflow.
-        # `preview-smoke.yml` gates on `deployment_status.state == 'success' &&
-        # deployment.environment == 'Preview'`, so it fails both clauses, and
-        # `staging-smoke.yml` listens to `workflow_run` and cannot see
-        # deployment events at all. Confirmed empirically: 15 such posts on
+        # Posting `inactive` on `Production` cannot trigger another workflow:
+        # no workflow listens to `deployment_status`, and `staging-smoke.yml`
+        # listens to `workflow_run` and cannot see deployment events at all. Confirmed empirically: 15 such posts on
         # 2026-09-03 triggered zero runs.
         if: success() && steps.gh_deployment.outputs.deployment_id != ''
         env:

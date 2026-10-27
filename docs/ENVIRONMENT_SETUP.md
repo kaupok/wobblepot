@@ -194,8 +194,8 @@ which on preview and staging is only possible through Resend's read endpoints
 
 - **Scope:** read access to the same Resend team the app sends from. A
   send-only key will not work; a full-access key works but is more than needed.
-- **Where it goes:** GitHub Actions secrets, consumed by the preview-smoke and
-  staging-smoke workflows. It is a _test-runner_ variable — do **not** add it to
+- **Where it goes:** GitHub Actions secrets, consumed by the
+  staging-smoke workflow. It is a _test-runner_ variable — do **not** add it to
   Vercel.
 - **When it is unset:** tier 1 CI and `pnpm test:e2e:local` fall back to the
   test-only `/api/e2e-support` back-channel and still run the full flow; the

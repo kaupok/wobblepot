@@ -3861,7 +3861,7 @@ async function seedIngredientTranslationsEt() {
 // ============================================
 //
 // Seeds a stable smoke-test account and a forgot-password account used by the
-// preview-smoke and staging-smoke Playwright tiers. Gated behind the
+// staging-smoke Playwright tier. Gated behind the
 // SEED_TEST_USERS env var so these never land in a production DB. The
 // contract is documented in tests/e2e/README.md.
 //

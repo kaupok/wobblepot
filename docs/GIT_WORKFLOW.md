@@ -136,7 +136,7 @@ It matches what would execute, so a `grep` or a commit message that mentions one
 
 - A pull request is required, with 0 approving reviews, so a solo or unattended merge works.
 - **The status check `Lint, Type Check & Test` is required** (HON-584). It is the aggregate job in `ci.yml` that waits for the four CI jobs and runs on every PR, docs-only ones included, so it always reports. A red or pending check makes `gh pr merge` fail with "not mergeable", which is what stops an unattended merge. `strict` is off, so a PR need not be up to date with `main` before it merges.
-- The other checks stay advisory: `Vercel env-var drift audit` is skipped on forked PRs, the preview smoke checks run only on PRs with the `smoke` label, and the Vercel deploy status is a third-party status. A required check that never reports blocks a PR for good, so none of these is safe to require.
+- The other checks stay advisory: `Vercel env-var drift audit` is skipped on forked PRs, and the Vercel deploy status is a third-party status that a PR branch no longer reports at all (see DEPLOYMENT.md → Vercel Configuration). A required check that never reports blocks a PR for good, so none of these is safe to require.
 - Force pushes and deletion of `main` are blocked.
 - `enforce_admins` is off, so a repository admin can bypass these rules. **Override procedure:** a human who must merge past a known-bad check runs `gh pr merge --admin --squash --delete-branch` from a terminal and says why in the PR. `/merge` and `/auto-implement` never pass `--admin`; the unattended path has no override, by design.
 - Linear history, signed commits and conversation resolution are not required.

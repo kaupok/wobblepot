@@ -85,11 +85,7 @@ definitions. Summary for deployment decisions:
    spec **except `@ai`** (`ci.yml` runs `--grep-invert=@ai`). A failure turns
    the PR check red; it does not block the merge until HON-584 makes the check
    required.
-2. **Preview-smoke** (`.github/workflows/preview-smoke.yml`) — runs on Vercel
-   preview `deployment_status: success` against the real preview URL +
-   per-PR Neon branch, **only when the PR carries the `smoke` label**.
-   Executes `@smoke`-tagged specs. Status check appears on the PR.
-3. **Staging-smoke** (`.github/workflows/staging-smoke.yml`) — runs after the
+2. **Staging-smoke** (`.github/workflows/staging-smoke.yml`) — runs after the
    staging DB-migration workflow succeeds on `main`, every six hours on a
    schedule, and on manual dispatch. Executes `@smoke`-tagged
    specs against `https://wobblepot.dev`. **Failure blocks production
@@ -193,7 +189,7 @@ releases newer (HON-602).
 **Ignored Build Step** is configured with:
 
 ```bash
-if [ "$VERCEL_ENV" = "production" ]; then exit 0; else exit 1; fi
+if [ "$VERCEL_ENV" = "production" ] || [ "$VERCEL_GIT_COMMIT_REF" != "main" ]; then exit 0; else exit 1; fi
 ```
 
 **Vercel Ignored Build Step logic:**
@@ -205,9 +201,16 @@ The command answers "Should I ignore this build?" (not standard shell success/fa
 
 This allows:
 
-- ✅ Preview deployments (PRs) - Auto-deploy
 - ✅ Staging environment - Auto-deploy from main
+- ❌ Preview deployments (PR branches) - No build
 - ❌ Production environment - Manual deploy only
+
+**Why PR branches get no preview.** Build CPU minutes were about 70% of the
+Vercel bill (October 2026: $37 of $50), and PR previews were about 70% of those
+minutes: every push built one, and the Neon integration redeployed each branch's
+first push. Nothing used them. Screens are driven on `pnpm review:local`,
+and the label-gated preview-smoke workflow ran on 0 of 432 PRs that month, so
+it was removed. To get a preview for one branch, run `vercel deploy` from it.
 
 ### Email deliverability
 

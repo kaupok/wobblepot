@@ -13,7 +13,7 @@
  * Base URL for direct (non-`page`) HTTP — invite seeding, consent cookies.
  *
  * Resolution order:
- * 1. `PLAYWRIGHT_BASE_URL` — remote tiers (preview/staging smoke).
+ * 1. `PLAYWRIGHT_BASE_URL` — remote tiers (staging smoke).
  * 2. `E2E_LOCAL_PORT` — the isolated local runner (`pnpm test:e2e:local`)
  *    serves on a dedicated port (3100), not 3000. Without this, raw `fetch`
  *    here would hit :3000 (nothing listening) while `page.*` correctly uses
