@@ -272,7 +272,7 @@ describe('e2e-local.sh', () => {
       const { stderr } = run(['serve', '--db', 'env'])
 
       expect(stderr).toContain('persist after this server stops')
-      expect(stderr).toContain('docs/CHROME_TESTING.md')
+      expect(stderr).toContain('docs/BROWSER_TESTING.md')
     })
   })
 

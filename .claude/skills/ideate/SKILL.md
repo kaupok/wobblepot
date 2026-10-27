@@ -13,7 +13,7 @@ Take a rough idea and shape it into actionable Linear issues through interactive
 
 ### Browser availability
 
-If the session lists browser tools, you can browse the live app during ideation for visual context. Pick the browser by `docs/CHROME_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension, then the Playwright MCP. "When to browse" below says when it helps.
+If the session lists browser tools, you can browse the live app during ideation for visual context. Pick the browser by `docs/BROWSER_TESTING.md` → Which browser: the T3 Code sidebar browser (`mcp__t3-code__preview_*`) first, then the Chrome extension, then the Playwright MCP. "When to browse" below says when it helps.
 
 If no browser is listed, proceed without one.
 
@@ -190,7 +190,7 @@ When a browser is available, use it to bring visual context into the conversatio
 
 ### App page map
 
-Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
+Page map: see `docs/BROWSER_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`) — landing on their targets is expected behaviour, not a bug.
 
 ### How to browse during ideation
 

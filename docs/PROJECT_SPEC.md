@@ -438,7 +438,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 
 ### Frontend Pages
 
-**Source of truth:** `src/app/**/page.tsx`. The page map, including which routes are redirect stubs, is in [`docs/CHROME_TESTING.md` → Page map](./CHROME_TESTING.md#page-map). Which routes need a session is decided in `src/proxy.ts` (`PROTECTED_PREFIXES`, `PUBLIC_ROUTES`).
+**Source of truth:** `src/app/**/page.tsx`. The page map, including which routes are redirect stubs, is in [`docs/BROWSER_TESTING.md` → Page map](./BROWSER_TESTING.md#page-map). Which routes need a session is decided in `src/proxy.ts` (`PROTECTED_PREFIXES`, `PUBLIC_ROUTES`).
 
 ---
 

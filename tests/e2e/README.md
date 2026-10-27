@@ -201,7 +201,7 @@ Use the typed client in `tests/e2e/utils/e2e-support.ts` rather than raw
 
 The same routes power `pnpm review:local`, the local server a browser review
 uses to walk sign-up and onboarding — see
-[`docs/CHROME_TESTING.md` → Reviewing sign-up and onboarding](../../docs/CHROME_TESTING.md#reviewing-sign-up-and-onboarding).
+[`docs/BROWSER_TESTING.md` → Reviewing sign-up and onboarding](../../docs/BROWSER_TESTING.md#reviewing-sign-up-and-onboarding).
 
 ## Reading email in specs
 

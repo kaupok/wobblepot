@@ -1,6 +1,6 @@
 # Browser review
 
-The reference for reviewing the app in a real browser, by hand or with an agent. It complements the Playwright E2E suite with interactive, exploratory testing. `/chrome-review`, `/ideate` and `/implement-issue` → Drive changed screens read it. An agent has three browsers:
+The reference for reviewing the app in a real browser, by hand or with an agent. It complements the Playwright E2E suite with interactive, exploratory testing. `/browser-review`, `/ideate` and `/implement-issue` → Drive changed screens read it. An agent has three browsers:
 
 - **T3 Code sidebar browser:** the `mcp__t3-code__preview_*` tools. The first choice, because the user sees the tab the agent drives.
 - **Claude in Chrome extension:** the `mcp__claude-in-chrome__*` tools, in your own Chrome window.
@@ -19,7 +19,7 @@ Check the tools listed in the session, in this order:
 1. If `mcp__t3-code__preview_*` tools are listed, use them. The tab is bound to the thread and the user sees it in the sidebar.
 2. Else if `mcp__claude-in-chrome__*` tools are listed, use them.
 3. Else if the Playwright MCP (`mcp__playwright__browser_*`) is loaded, use it.
-4. Else say so and continue without browsing. `/chrome-review` stops, because it has no other purpose. `/implement-issue` writes a "Not verified" line.
+4. Else say so and continue without browsing. `/browser-review` stops, because it has no other purpose. `/implement-issue` writes a "Not verified" line.
 
 `/implement-issue` → Drive changed screens skips the Chrome extension (step 2), because it uploads a screenshot file and the Chrome extension cannot save one.
 
@@ -56,13 +56,13 @@ The same step in the two tool sets that `/implement-issue` uses. The Chrome exte
 
 ## Comparison
 
-| Aspect      | T3 Code sidebar                      | Chrome extension         | Playwright MCP                       |
-| ----------- | ------------------------------------ | ------------------------ | ------------------------------------ |
-| Purpose     | Review with the user watching        | Dev-time exploration     | Driving screens with nobody watching |
-| Runs in     | The T3 Code sidebar                  | Your Chrome window       | A headless browser                   |
-| Who sees it | The user and the agent, live         | The user and the agent   | The agent only                       |
-| Auth state  | The sidebar profile's cookies        | Your logged-in session   | A fresh session per run              |
-| Best for    | `/ideate`, `/chrome-review`, driving | Sessions outside T3 Code | `wt auto` workers, headless runs     |
+| Aspect      | T3 Code sidebar                       | Chrome extension         | Playwright MCP                       |
+| ----------- | ------------------------------------- | ------------------------ | ------------------------------------ |
+| Purpose     | Review with the user watching         | Dev-time exploration     | Driving screens with nobody watching |
+| Runs in     | The T3 Code sidebar                   | Your Chrome window       | A headless browser                   |
+| Who sees it | The user and the agent, live          | The user and the agent   | The agent only                       |
+| Auth state  | The sidebar profile's cookies         | Your logged-in session   | A fresh session per run              |
+| Best for    | `/ideate`, `/browser-review`, driving | Sessions outside T3 Code | `wt auto` workers, headless runs     |
 
 The Playwright E2E suite (`pnpm test:e2e`) is a separate thing: automated regression with isolated test accounts. See `tests/e2e/README.md`.
 
@@ -99,7 +99,7 @@ These prompts work with any of the three browsers.
 
 ## Page map
 
-Regenerated from `find src/app -name page.tsx` on 2026-09-29. Route groups such as `(legal)` are stripped from the paths; `/api/*` route handlers are excluded.
+Regenerated from `find src/app -name page.tsx` on 2026-10-27. Route groups such as `(legal)` are stripped from the paths; `/api/*` route handlers are excluded.
 
 **Access** is derived from each page's server code:
 
@@ -107,38 +107,46 @@ Regenerated from `find src/app -name page.tsx` on 2026-09-29. Route groups such 
 - **Auth** — calls `auth.api.getSession()` and redirects to `/sign-in` when signed out. Most Auth pages also require a household: without one they redirect to `/onboarding` (and `/onboarding` itself redirects to `/` once you have one).
 - **Admin** — requires `isAdmin(session)`, and never redirects to `/sign-in`, so the route does not advertise itself. Signed out, the proxy serves a 404; signed in as a non-admin, you get the not-found page with a 200 status, because the proxy cannot see who is an admin.
 
-To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/chrome-review`, `/ideate`) point here instead of carrying their own copy.
+To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/browser-review`, `/ideate`) point here instead of carrying their own copy.
 
-| Route                         | Access        | Purpose                                                                                            |
-| ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------- |
-| `/`                           | Public / Auth | Marketing landing page when signed out; Today dashboard (meals, shopping, catch-up) when signed in |
-| `/sign-in`                    | Public        | Sign in (redirects to `/` or `/onboarding` if already signed in)                                   |
-| `/sign-up`                    | Public        | Sign up with a private-beta invite code (redirects to `/` or `/onboarding` if already signed in)   |
-| `/forgot-password`            | Public        | Request a password reset email                                                                     |
-| `/reset-password`             | Public        | Set a new password from the emailed reset link                                                     |
-| `/invite/[code]`              | Public        | Join a household via invite link (signed out → Create account or Sign in; unknown code → 404)      |
-| `/past-meals`                 | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice         |
-| `/onboarding`                 | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                  |
-| `/recipes`                    | Auth          | My recipes — meal library browser                                                                  |
-| `/recipes/create`             | Auth          | Create a recipe manually                                                                           |
-| `/recipes/imagine`            | Auth          | Imagine a meal — AI recipe generation                                                              |
-| `/recipes/import`             | Auth          | Import a recipe from a URL (AI extraction)                                                         |
-| `/recipes/[id]/edit`          | Auth          | Edit an existing recipe                                                                            |
-| `/shopping`                   | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right              |
-| `/pantry`                     | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
-| `/household`                  | Auth          | Household → Members: the member list and per-member invite links                                   |
-| `/household/meal-preferences` | Auth          | Household → Meal preferences: food preferences, meals to plan                                      |
-| `/household/settings`         | Auth          | Household → Settings: name, timezone, language, then Leave household                               |
-| `/account`                    | Auth          | My account → Profile: name, email and its verification, password                                   |
-| `/account/reminders`          | Auth          | My account → Reminders: the viewer's own weekly planning reminder email                            |
-| `/account/connections`        | Auth          | My account → Connections: AI assistants, read-only API keys                                        |
-| `/account/data`               | Auth          | My account → Your data: export, and account danger zone (delete)                                   |
-| `/admin/signup-codes`         | Admin         | Manage private-beta signup codes                                                                   |
-| `/status`                     | Public        | Service status page — probes database, auth, and AI pipeline                                       |
-| `/bot`                        | Public        | About Wobblepot-Bot — crawler user-agent disclosure for site owners                                |
-| `/privacy`                    | Public        | Privacy policy                                                                                     |
-| `/privacy/subprocessors`      | Public        | Subprocessor directory (vendor list for the privacy policy)                                        |
-| `/terms`                      | Public        | Terms of service                                                                                   |
+| Route                         | Access        | Purpose                                                                                                                        |
+| ----------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `/`                           | Public / Auth | Marketing landing page when signed out; Today dashboard (meals, shopping, catch-up) when signed in                             |
+| `/sign-in`                    | Public        | Sign in (redirects to `/` or `/onboarding` if already signed in)                                                               |
+| `/sign-up`                    | Public        | Sign up with a private-beta invite code (redirects to `/` or `/onboarding` if already signed in)                               |
+| `/forgot-password`            | Public        | Request a password reset email                                                                                                 |
+| `/reset-password`             | Public        | Set a new password from the emailed reset link                                                                                 |
+| `/invite/[code]`              | Public        | Join a household via invite link (signed out → Create account or Sign in; unknown code → 404)                                  |
+| `/request-invite`             | Public        | Leave an email for the waitlist when sign-up needs an invite code (redirects to `/sign-up` when `invite_code_required` is off) |
+| `/request-invite/confirm`     | Public        | Double opt-in link from the waitlist email; a token over 7 days old reads as expired                                           |
+| `/meal-plans/[slug]`          | Public        | A sample week of meals, English for every visitor (unknown slug → 404)                                                         |
+| `/reminders/confirm`          | Public        | Confirm link in the weekly reminder email; opening it changes nothing, its button confirms                                     |
+| `/reminders/stop`             | Public        | Stop link in the weekly reminder email; opening it changes nothing, its button stops                                           |
+| `/consent`                    | Auth          | OAuth consent step for an MCP client: Allow or Deny (signed out → `/sign-in` with the query kept)                              |
+| `/past-meals`                 | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice                                     |
+| `/onboarding`                 | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                                              |
+| `/recipes`                    | Auth          | My recipes — meal library browser                                                                                              |
+| `/recipes/create`             | Auth          | Create a recipe manually                                                                                                       |
+| `/recipes/imagine`            | Auth          | Imagine a meal — AI recipe generation                                                                                          |
+| `/recipes/import`             | Auth          | Import a recipe from a URL (AI extraction)                                                                                     |
+| `/recipes/[id]/edit`          | Auth          | Edit an existing recipe                                                                                                        |
+| `/shopping`                   | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right                                          |
+| `/pantry`                     | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`                               |
+| `/household`                  | Auth          | Household → Members: the member list and per-member invite links                                                               |
+| `/household/meal-preferences` | Auth          | Household → Meal preferences: food preferences, meals to plan                                                                  |
+| `/household/ingredients`      | Auth          | Household → Ingredients: the ingredients the household added from a recipe, with Edit and Delete                               |
+| `/household/settings`         | Auth          | Household → Settings: name, timezone, language, then Leave household                                                           |
+| `/account`                    | Auth          | My account → Profile: name, email and its verification, password                                                               |
+| `/account/reminders`          | Auth          | My account → Reminders: the viewer's own weekly planning reminder email                                                        |
+| `/account/connections`        | Auth          | My account → Connections: AI assistants, read-only API keys                                                                    |
+| `/account/data`               | Auth          | My account → Your data: export, and account danger zone (delete)                                                               |
+| `/admin/signup-codes`         | Admin         | Manage private-beta signup codes                                                                                               |
+| `/admin/waitlist`             | Admin         | Confirmed waitlist requests                                                                                                    |
+| `/status`                     | Public        | Service status page — probes database, auth, and AI pipeline                                                                   |
+| `/bot`                        | Public        | About Wobblepot-Bot — crawler user-agent disclosure for site owners                                                            |
+| `/privacy`                    | Public        | Privacy policy                                                                                                                 |
+| `/privacy/subprocessors`      | Public        | Subprocessor directory (vendor list for the privacy policy)                                                                    |
+| `/terms`                      | Public        | Terms of service                                                                                                               |
 
 ### Redirect stubs — don't file bugs for these
 

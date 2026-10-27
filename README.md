@@ -104,7 +104,7 @@ pnpm db:studio                              # Prisma Studio
 | [docs/DESIGN.md](docs/DESIGN.md)                       | Design guide: type scale, tokens, composition, reject list   |
 | [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Typography component guide                                   |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration for the agent                       |
-| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with the Chrome extension                    |
+| [docs/BROWSER_TESTING.md](docs/BROWSER_TESTING.md)     | Browser review: which browser, page map, sign-up review      |
 
 ## Security
 

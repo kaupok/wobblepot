@@ -25,7 +25,7 @@
 #
 # Review server (`serve`) — the same isolated environment, but instead of
 # running Playwright it leaves `next dev` up for a browser review of sign-up
-# and onboarding (HON-851). See docs/CHROME_TESTING.md → "Reviewing sign-up
+# and onboarding (HON-851). See docs/BROWSER_TESTING.md → "Reviewing sign-up
 # and onboarding".
 #   pnpm review:local                            # ephemeral Neon branch, migrations, no seed
 #   pnpm review:local --seed                     # also run `pnpm db:seed` on the branch
@@ -437,7 +437,7 @@ cmd_serve() {
     # Migrating the .env database stays the person's call. Seeding it runs only
     # on request, and only once the schema check above has passed.
     if [ "$seed" = "1" ]; then run_seed; fi
-    warn "--db env: accounts you create are written to the database in .env and persist after this server stops. Clean them up: docs/CHROME_TESTING.md → \"Reviewing sign-up and onboarding\" → Cleanup."
+    warn "--db env: accounts you create are written to the database in .env and persist after this server stops. Clean them up: docs/BROWSER_TESTING.md → \"Reviewing sign-up and onboarding\" → Cleanup."
   fi
 
   info "Starting the review server on ${url}…"
