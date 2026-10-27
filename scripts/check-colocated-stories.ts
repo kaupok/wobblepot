@@ -15,7 +15,7 @@
  *
  * What it cannot check: whether a story covers every variant, or was updated
  * when its component changed. That stays with the PR reviewer, which is why
- * CLAUDE.md keeps the rule itself and only points here for enforcement.
+ * .claude/rules/ui.md keeps the rule itself and only points here for enforcement.
  *
  * Usage: pnpm stories:check [path/to/repo-root]
  *   The root defaults to this repo, resolved from this file's own location so

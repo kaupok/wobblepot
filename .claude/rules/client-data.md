@@ -1,7 +1,7 @@
 ---
 paths:
   - "src/app/**/*.tsx"
-  - "src/components/**/*.tsx"
+  - "src/components/**/*.{ts,tsx}"
   - "src/hooks/**"
 ---
 
