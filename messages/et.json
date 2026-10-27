@@ -472,6 +472,7 @@
       "replace": "Asenda",
       "leaveOut": "Jäta välja",
       "addIngredient": "Lisa koostisosa",
+      "add": "Lisa",
       "undo": "Võta tagasi",
       "undoAria": "Võta muudatus tagasi: {name}",
       "insteadOf": "Algne: {name}",

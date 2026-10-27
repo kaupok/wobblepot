@@ -72,7 +72,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Leave out posts the original alone, and focus lands on "Add an ingredient". */
+/** Leave out posts the original alone, and focus lands on "Add an ingredient" on the heading line. */
 export const LeaveOut: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
