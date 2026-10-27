@@ -1,7 +1,7 @@
 /**
  * The browser rule that the review skills point to (HON-1242).
  *
- * docs/CHROME_TESTING.md → Which browser states once which browser an agent uses:
+ * docs/BROWSER_TESTING.md → Which browser states once which browser an agent uses:
  * the T3 Code sidebar first, then the Chrome extension, then the Playwright MCP.
  * Three skills point to it instead of carrying a copy. All of it is prose, so an
  * unrelated edit can drop the rule or a pointer and nothing fails. Before this
@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => fs.readFileSync(path.join(repoRoot, rel), 'utf8')
 
-const doc = read('docs/CHROME_TESTING.md')
+const doc = read('docs/BROWSER_TESTING.md')
 
 /** The body of one `## ` section, up to the next `## ` heading. */
 function section(source: string, heading: string): string {
@@ -31,7 +31,7 @@ const T3 = 'mcp__t3-code__preview_'
 const CHROME = 'mcp__claude-in-chrome__'
 const PLAYWRIGHT = 'mcp__playwright__browser_'
 
-describe('docs/CHROME_TESTING.md', () => {
+describe('docs/BROWSER_TESTING.md', () => {
   it('is titled for all three browsers', () => {
     expect(doc.split('\n')[0]).toBe('# Browser review')
   })
@@ -80,20 +80,20 @@ describe('docs/CHROME_TESTING.md', () => {
 describe('the skills point to the rule', () => {
   it.each([
     '.claude/skills/ideate/SKILL.md',
-    '.claude/skills/chrome-review/SKILL.md',
+    '.claude/skills/browser-review/SKILL.md',
     '.claude/skills/implement-issue/SKILL.md',
   ])('%s names the T3 Code sidebar first and points to Which browser', (rel) => {
     const skill = read(rel)
-    expect(skill).toContain('`docs/CHROME_TESTING.md` → Which browser')
+    expect(skill).toContain('`docs/BROWSER_TESTING.md` → Which browser')
     const t3 = skill.indexOf('T3 Code sidebar')
     expect(t3).toBeGreaterThan(-1)
     const chrome = skill.indexOf('Chrome extension')
     if (chrome !== -1) expect(t3).toBeLessThan(chrome)
   })
 
-  // The acceptance criterion: /chrome-review runs with only the sidebar browser.
-  it('/chrome-review stops only when none of the three browsers is listed', () => {
-    const step1 = read('.claude/skills/chrome-review/SKILL.md').split('### Step 2')[0]
+  // The acceptance criterion: /browser-review runs with only the sidebar browser.
+  it('/browser-review stops only when none of the three browsers is listed', () => {
+    const step1 = read('.claude/skills/browser-review/SKILL.md').split('### Step 2')[0]
     expect(step1).toContain(T3)
     expect(step1).toContain(CHROME)
     expect(step1).toContain(PLAYWRIGHT)
@@ -103,7 +103,7 @@ describe('the skills point to the rule', () => {
   it('no skill or doc offers `claude --chrome` as the only way to browse', () => {
     const files = [
       'CLAUDE.md',
-      'docs/CHROME_TESTING.md',
+      'docs/BROWSER_TESTING.md',
       ...fs
         .readdirSync(path.join(repoRoot, '.claude/skills'))
         .map((name) => `.claude/skills/${name}/SKILL.md`)

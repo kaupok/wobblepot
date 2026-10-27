@@ -3,7 +3,7 @@
  *
  * docs/DESIGN.md is the guidance half of a loop: read before UI is built, checked
  * against after. The checking half lives in three review surfaces — /branch-review,
- * scripts/pr-review.sh, and /chrome-review — and all three of them are prose, so
+ * scripts/pr-review.sh, and /browser-review — and all three of them are prose, so
  * nothing but a reader stops a rule from being dropped in an unrelated edit.
  *
  * Two things are worth executing rather than reading:
@@ -28,7 +28,7 @@ import { describe, expect, it } from 'vitest'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const prReview = path.join(repoRoot, 'scripts/pr-review.sh')
 const branchReviewSkill = path.join(repoRoot, '.claude/skills/branch-review/SKILL.md')
-const chromeReviewSkill = path.join(repoRoot, '.claude/skills/chrome-review/SKILL.md')
+const browserReviewSkill = path.join(repoRoot, '.claude/skills/browser-review/SKILL.md')
 const designGuide = path.join(repoRoot, 'docs/DESIGN.md')
 
 const read = (file: string) => fs.readFileSync(file, 'utf8')
@@ -208,7 +208,7 @@ describe('design-guide gate', () => {
       expect(
         classify([
           'docs/DESIGN.md',
-          '.claude/skills/chrome-review/SKILL.md',
+          '.claude/skills/browser-review/SKILL.md',
           'scripts/pr-review.sh',
           'scripts/design-gate.test.ts',
         ]),
@@ -338,8 +338,8 @@ describe('design-guide gate', () => {
       )
     })
 
-    it('/chrome-review reads the guide and names the item it matches', () => {
-      const source = read(chromeReviewSkill)
+    it('/browser-review reads the guide and names the item it matches', () => {
+      const source = read(browserReviewSkill)
       expect(source).toContain('Read docs/DESIGN.md')
       expect(source).toMatch(/Name the item when you present it/)
     })
@@ -348,7 +348,7 @@ describe('design-guide gate', () => {
     // proposed reject-list line, not a dropped observation.
     it('both skills route an unnamed repeated pattern back into the reject list', () => {
       expect(read(branchReviewSkill)).toMatch(/proposing it as a new reject-list entry/)
-      expect(read(chromeReviewSkill)).toMatch(/a one-line addition to the \*\*Reject list\*\*/)
+      expect(read(browserReviewSkill)).toMatch(/a one-line addition to the \*\*Reject list\*\*/)
     })
   })
 

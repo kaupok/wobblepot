@@ -70,7 +70,7 @@ The stories stay after the skill ends. They are the regression test for the next
 
 ### 3. Look at it
 
-Start Storybook with `run_in_background: true` (`pnpm storybook`, port 6006). Wait in the foreground until it answers (`curl -sf http://localhost:6006 >/dev/null`). Pick the browser by `docs/CHROME_TESTING.md` → Which browser. Open each story alone at `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`, so the Storybook chrome takes no width. Story IDs are in `http://localhost:6006/index.json`. If the T3 Code sidebar times out on a snapshot, go to the next browser on the list. The Playwright MCP saves screenshots only inside the worktree; `.playwright-mcp/` is git-ignored.
+Start Storybook with `run_in_background: true` (`pnpm storybook`, port 6006). Wait in the foreground until it answers (`curl -sf http://localhost:6006 >/dev/null`). Pick the browser by `docs/BROWSER_TESTING.md` → Which browser. Open each story alone at `http://localhost:6006/iframe.html?id=<story-id>&viewMode=story`, so the Storybook chrome takes no width. Story IDs are in `http://localhost:6006/index.json`. If the T3 Code sidebar times out on a snapshot, go to the next browser on the list. The Playwright MCP saves screenshots only inside the worktree; `.playwright-mcp/` is git-ignored.
 
 For each story, check it:
 
