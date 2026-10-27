@@ -119,7 +119,7 @@ export const Added: Story = {
     await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
     const undo = canvas.getByRole('button', { name: 'Undo change: Short-grain rice' })
     await expect(undo).toBeVisible()
-    await expect(undo.parentElement!.lastElementChild).toBe(undo)
+    await expect(undo.closest('li')!.lastElementChild).toBe(undo)
   },
 }
 
