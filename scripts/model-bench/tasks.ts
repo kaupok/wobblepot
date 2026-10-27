@@ -235,7 +235,9 @@ const recipe: TaskSpec<'recipe'> = {
   },
   prepare({ input }) {
     // Trimmed, as `parseRecipeText` does before it builds the request.
-    const request = buildRecipeRequest(input.text.trim(), input.locale)
+    // The bench has no household, so a recipe with no servings falls back to
+    // 4, the value its expected outputs were written for.
+    const request = buildRecipeRequest(input.text.trim(), 4, input.locale)
     return {
       ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),

@@ -679,8 +679,8 @@
     },
     "import": {
       "title": "Lisa retsept",
-      "description": "Kleebi retsept, lisa link või foto retseptist ja me loeme koostisosad välja. Kirjuta juurde, mitmele inimesele see on, muidu arvestame neljaga.",
-      "placeholder": "Kleebi retsept või URL siia…\n\nNäited:\nhttps://example.com/kanapraad\n\nVõi kleebi retsepti tekst otse:\nKanapraad (4 portsjonit)\n- 500g kanafilee\n- 2 sl sojakastet\n- 1 punane paprika",
+      "description": "Kleebi retsept, lisa link või foto retseptist ja me loeme koostisosad välja. Kirjuta juurde, mitmele inimesele see on, muidu arvestame sinu leibkonna suurusega ({count}).",
+      "placeholder": "Kleebi retsept või link\nNäiteks: https://…",
       "textAria": "Retsepti tekst või URL",
       "attachAria": "Lisa foto retseptist",
       "removeImageAria": "Eemalda „{filename}\"",
@@ -737,14 +737,14 @@
       "descriptionCreate": "Lisa uus retsept oma leibkonna kogusse",
       "originalTextLabel": "Algne retsepti tekst",
       "ingredientsHeading": "Koostisosad",
-      "ingredientsHelper": "Sisesta kogu retsepti jaoks vajalik kogus ({count, plural, one {# portsjon} other {# portsjonit}}). Arvutame ühe portsjoni koguse automaatselt.",
+      "ingredientsHelper": "Kogused kogu retseptile ({count, plural, one {# portsjon} other {# portsjonit}}).",
       "noIngredients": "Koostisosi pole veel lisatud. Kasuta ülaltoodud otsingut.",
       "nutritionApproximate": "Ligikaudne — {count, plural, one {# koostisosa pole arvestatud} other {# koostisosa pole arvestatud}}",
       "toVerifyBadge": "{count} kontrollida",
       "unmatchedBadge": "{count} sobitamata",
       "preparationNotesLabel": "Valmistusjuhised (vabatahtlik)",
       "preparationNotesHelper": "Kuidas seda valmistada? Sammud, nõuanded või muud märkused.",
-      "preparationNotesPlaceholder": "nt sammud, küpsetamise nõuanded",
+      "preparationNotesPlaceholder": "Näiteks: keeda pasta. Prae küüslauku oliiviõlis, lisa tomatid…",
       "sourceUrlLabel": "Algallika URL (vabatahtlik)",
       "sourceUrlPlaceholder": "https://example.com/retsept",
       "sourceUrlClearAria": "Tühjenda algallika URL",
@@ -779,16 +779,16 @@
       "basic": {
         "heading": "Põhiandmed",
         "nameLabel": "Retsepti nimi",
-        "namePlaceholder": "nt kanapraad",
+        "namePlaceholder": "Näiteks: kanapraad",
         "descriptionLabel": "Kirjeldus (vabatahtlik)",
-        "descriptionPlaceholder": "Lühike retsepti kirjeldus…",
+        "descriptionPlaceholder": "Näiteks: kiire argiõhtune pasta värskete tomatitega",
         "servingsLabel": "Retsept on (portsjonit)"
       },
       "details": {
         "heading": "Lisaandmed",
         "suitableForLabel": "Sobib",
         "timeMinutesLabel": "Valmistusaeg minutites (vabatahtlik)",
-        "timeMinutesPlaceholder": "nt 30",
+        "timeMinutesPlaceholder": "Näiteks: 30",
         "kidFriendlyLabel": "Lastesõbralik"
       },
       "componentList": {

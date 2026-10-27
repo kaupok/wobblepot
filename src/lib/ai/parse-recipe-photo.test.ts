@@ -35,10 +35,17 @@ vi.mock('./match-ingredients', () => ({
 import { generateObject } from 'ai'
 import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import { buildRecipeRequest } from './recipe-prompt'
+import { z } from 'zod'
 
 const mockGenerateObject = vi.mocked(generateObject)
 
 const photo = { base64: Buffer.from('jpeg-bytes').toString('base64'), mimeType: 'image/jpeg' }
+
+// Each build makes a new Zod schema, and two instances never deep-equal, so
+// compare the JSON Schema the provider receives instead.
+function withJsonSchema(request: object) {
+  return { ...request, schema: z.toJSONSchema((request as { schema: z.ZodType }).schema) }
+}
 
 describe('parseRecipeText with photos', () => {
   beforeEach(() => {
@@ -47,14 +54,14 @@ describe('parseRecipeText with photos', () => {
   })
 
   it('does not throw text_too_short for photos with empty text', async () => {
-    await expect(parseRecipeText('', 'en', undefined, undefined, [photo])).rejects.toThrow(
+    await expect(parseRecipeText('', 4, 'en', undefined, undefined, [photo])).rejects.toThrow(
       'stop after the call',
     )
     expect(mockGenerateObject).toHaveBeenCalledTimes(1)
   })
 
   it('still throws text_too_short for empty text with an empty photo list', async () => {
-    await expect(parseRecipeText('', 'en', undefined, undefined, [])).rejects.toMatchObject({
+    await expect(parseRecipeText('', 4, 'en', undefined, undefined, [])).rejects.toMatchObject({
       code: 'text_too_short',
     })
     expect(mockGenerateObject).not.toHaveBeenCalled()
@@ -63,14 +70,16 @@ describe('parseRecipeText with photos', () => {
   it('sends the image request buildRecipeRequest builds, with the trimmed text', async () => {
     const abortSignal = AbortSignal.timeout(35_000)
     await expect(
-      parseRecipeText('  serves 6 \n', 'et', undefined, abortSignal, [photo]),
+      parseRecipeText('  serves 6 \n', 4, 'et', undefined, abortSignal, [photo]),
     ).rejects.toThrow('stop after the call')
 
-    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-      ...buildRecipeRequest('serves 6', 'et', [photo]),
-      model: 'mock-model',
-      abortSignal,
-    })
+    expect(withJsonSchema(mockGenerateObject.mock.calls[0]![0])).toEqual(
+      withJsonSchema({
+        ...buildRecipeRequest('serves 6', 4, 'et', [photo]),
+        model: 'mock-model',
+        abortSignal,
+      }),
+    )
   })
 })
 
@@ -109,7 +118,7 @@ describe('parseAndMatchRecipe with photos', () => {
       '',
       undefined,
       undefined,
-      { locale: 'en' },
+      { defaultServings: 4, locale: 'en' },
       undefined,
       [photo],
     )

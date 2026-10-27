@@ -234,7 +234,13 @@ async function handlePOST(request: Request) {
           feature: 'recipe_parse',
           ...usage,
         }),
-      { householdId: membership.household.id, locale: parserLocale },
+      {
+        householdId: membership.household.id,
+        locale: parserLocale,
+        // A recipe that does not say how many it serves gets the household's
+        // size, the same start the blank recipe form uses (HON-1363).
+        defaultServings: membership.household._count.members,
+      },
       // Started here, after any URL fetch above, so the budget covers AI time
       // only. `sourceUrl` is set exactly when that fetch ran, so it is also
       // the test for which budget applies.
