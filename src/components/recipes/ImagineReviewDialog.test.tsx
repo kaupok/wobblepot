@@ -1,63 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { NextIntlClientProvider } from 'next-intl'
-import type { ReactNode } from 'react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import {
-  ImagineReviewDialog,
-  computeReviewNutrition,
-  type ReviewMealData,
-} from './ImagineReviewDialog'
+import { ImagineReviewDialog, computeReviewNutrition } from './ImagineReviewDialog'
+import { buildMeal, renderInLocale } from './ImagineReviewDialog.fixtures'
 import type { IngredientRowData } from './IngredientRow'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 import { DEFAULT_GRAMS_PER_PIECE } from '@/lib/ai/recipe-quantities'
-import { createQueryWrapper } from '@/test/query-wrapper'
-
-function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
-  const messages = locale === 'en' ? enMessages : etMessages
-  // Unmatched rows search ingredients via TanStack Query.
-  const { wrapper: QueryWrapper } = createQueryWrapper()
-  return render(
-    <QueryWrapper>
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        {node}
-      </NextIntlClientProvider>
-    </QueryWrapper>,
-  )
-}
-
-function buildMeal(overrides: Partial<ReviewMealData> = {}): ReviewMealData {
-  return {
-    name: 'Test meal',
-    description: null,
-    preparationNotes: null,
-    sourceUrl: null,
-    timeMinutes: null,
-    servings: 4,
-    mealTypes: ['dinner'],
-    kidFriendly: false,
-    prefilledIngredients: [
-      {
-        type: 'matched',
-        ingredient: {
-          id: 'chicken-thigh',
-          name: 'Chicken thigh',
-          category: 'protein',
-          defaultUnit: 'g',
-          gramsPerPiece: null,
-          calories: 200,
-          protein: 25,
-          carbs: 0,
-          fat: 10,
-        },
-        convertedQuantity: 600,
-      },
-    ],
-    ...overrides,
-  }
-}
 
 describe('ImagineReviewDialog locale formatting', () => {
   describe('macros', () => {

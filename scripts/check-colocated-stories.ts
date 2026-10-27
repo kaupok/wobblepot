@@ -101,11 +101,12 @@ export function listComponents(repoRoot: string): string[] {
   return components.sort()
 }
 
-/** A `.tsx` file that is not a test, a story, or a barrel. */
+/** A `.tsx` file that is not a test, a test fixture, a story, or a barrel. */
 export function isComponentFile(name: string): boolean {
   return (
     name.endsWith('.tsx') &&
     !name.endsWith('.test.tsx') &&
+    !name.endsWith('.fixtures.tsx') &&
     !name.endsWith('.stories.tsx') &&
     name !== 'index.tsx'
   )

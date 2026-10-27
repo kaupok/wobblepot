@@ -653,6 +653,7 @@
       "generating": "Mõtlen ideid…",
       "cancel": "Tühista",
       "fineTuning": "Lihvin retsepti…",
+      "ideasReady": "{count, plural, one {# toiduidee valmis} other {# toiduideed valmis}}",
       "select": "Vali",
       "savedToast": "Retsept lisati sinu raamatukokku",
       "saved": "Salvestatud",

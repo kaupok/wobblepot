@@ -40,32 +40,34 @@ import { FieldError } from '@/components/FieldError'
 
 const recipeHref = (mealId: string) => `/recipes/${mealId}/edit`
 
+// `Skeleton` renders `role="status"` on every bar, so all but the name bar are
+// `aria-hidden`: each card announces "Loading" once, not 15 times.
 function SkeletonCard() {
   return (
     <Card size="sm" className="flex h-full flex-col">
       <CardContent className="flex-1 p-4 pb-2">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-5 w-full" />
-          <Skeleton className="h-5 w-2/3" />
+          <Skeleton aria-hidden className="h-5 w-full" />
+          <Skeleton aria-hidden className="h-5 w-2/3" />
           <div className="mt-1 flex gap-2">
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
           </div>
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-5 w-32" />
+          <Skeleton aria-hidden className="h-5 w-24" />
+          <Skeleton aria-hidden className="h-5 w-32" />
           <div className="mt-1 flex flex-col gap-1">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-20" />
+            <Skeleton aria-hidden className="h-4 w-28" />
+            <Skeleton aria-hidden className="h-4 w-24" />
+            <Skeleton aria-hidden className="h-4 w-32" />
+            <Skeleton aria-hidden className="h-4 w-20" />
           </div>
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Skeleton className="h-touch w-full md:h-10" />
+        <Skeleton aria-hidden className="h-touch w-full md:h-10" />
       </CardFooter>
     </Card>
   )
@@ -265,6 +267,9 @@ export function ImagineClient() {
   }
 
   const handleGenerate = () => {
+    // The prompt field and this button stay focusable while busy
+    // (`aria-disabled`), so Enter and clicks still reach here.
+    if (isGenerating || reviewingMealId !== null) return
     if (!prompt.trim() && images.length === 0) {
       setError(t('errors.promptOrPhotoRequired'))
       return
@@ -316,7 +321,9 @@ export function ImagineClient() {
               aria-label={t('promptAria')}
               rows={3}
               className="min-w-0 flex-1 resize-none"
-              disabled={isGenerating}
+              // Not `disabled`: Chromium would drop focus to <body> on Enter.
+              readOnly={isGenerating}
+              aria-disabled={isGenerating || undefined}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -330,9 +337,10 @@ export function ImagineClient() {
         <div className="flex flex-col gap-3">
           <Button
             onClick={handleGenerate}
-            disabled={
-              isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
-            }
+            // Busy is `aria-disabled`, so a pressed button keeps focus; an empty
+            // prompt is `disabled`, since focus is in the field when it empties.
+            aria-disabled={isGenerating || reviewingMealId !== null || undefined}
+            disabled={!prompt.trim() && images.length === 0}
             className="w-full md:w-auto md:self-start"
           >
             {isGenerating ? (
@@ -357,6 +365,11 @@ export function ImagineClient() {
               {t('cancel')}
             </Button>
           )}
+          {/* Mounted before the ideas arrive, so the count is announced. Focus
+              stays where the user left it. */}
+          <div role="status" className="sr-only">
+            {imagine.isSuccess && meals ? t('ideasReady', { count: meals.length }) : null}
+          </div>
         </div>
 
         {/* Results: skeleton cards while loading, real cards when done */}
@@ -390,8 +403,13 @@ export function ImagineClient() {
                           <Button
                             ref={cardActionRef(meal.id)}
                             className="w-full"
-                            onClick={() => review.mutate(meal)}
-                            disabled={reviewingMealId !== null}
+                            onClick={() => {
+                              if (reviewingMealId !== null) return
+                              review.mutate(meal)
+                            }}
+                            // Not `disabled`: the pressed Select keeps focus
+                            // until the review dialog takes it.
+                            aria-disabled={reviewingMealId !== null || undefined}
                           >
                             {reviewingMealId === meal.id ? (
                               <>

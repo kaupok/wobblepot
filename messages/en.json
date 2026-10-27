@@ -653,6 +653,7 @@
       "generating": "Generating ideas…",
       "cancel": "Cancel",
       "fineTuning": "Fine-tuning recipe…",
+      "ideasReady": "{count, plural, one {# meal idea ready} other {# meal ideas ready}}",
       "select": "Select",
       "savedToast": "Recipe saved to your library",
       "saved": "Saved",
