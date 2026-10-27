@@ -244,9 +244,10 @@ const recipe: TaskSpec<'recipe'> = {
   },
   prepare({ input }) {
     // Trimmed, as `parseRecipeText` does before it builds the request.
-    // A case without a household size falls back to 4, the value the cases
-    // recorded in the golden were written for, so their requests stay unchanged.
-    const request = buildRecipeRequest(input.text.trim(), input.defaultServings ?? 4, input.locale)
+    // A case without a household size gets 3, a typical household and not
+    // the old fixed 4, so every case sends the household-size wording the
+    // route sends (HON-1363).
+    const request = buildRecipeRequest(input.text.trim(), input.defaultServings ?? 3, input.locale)
     return {
       ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),

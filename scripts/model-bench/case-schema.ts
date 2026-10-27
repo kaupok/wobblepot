@@ -89,8 +89,7 @@ export const RecipeCaseSchema = z.strictObject({
   locale,
   /**
    * The household's member count, which the parser uses when the text gives
-   * no servings (HON-1363). Omitted, it is 4, the value the cases recorded in
-   * the golden were written for.
+   * no servings (HON-1363). Omitted, it is 3.
    */
   defaultServings: z.number().int().positive().optional(),
   expected: z

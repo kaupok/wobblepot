@@ -800,7 +800,7 @@
         "totalQuantityAria": "„{name}\" üldkogus"
       },
       "ingredientSearch": {
-        "placeholder": "Otsi koostisosi…",
+        "placeholder": "Näiteks: tomat",
         "aria": "Otsi lisatavaid koostisosi",
         "noResults": "Koostisosi ei leitud",
         "added": "Lisatud"

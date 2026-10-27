@@ -800,7 +800,7 @@
         "totalQuantityAria": "Total quantity for {name}"
       },
       "ingredientSearch": {
-        "placeholder": "Search to add ingredients…",
+        "placeholder": "For example: tomato",
         "aria": "Search ingredients to add",
         "noResults": "No ingredients found",
         "added": "Added"
