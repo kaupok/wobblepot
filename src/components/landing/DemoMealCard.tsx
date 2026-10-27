@@ -4,7 +4,11 @@ import type { MouseEvent } from 'react'
 import { CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
-import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
+import {
+  MEAL_IMAGE_BADGE_ROW_WIDTH,
+  MealImageCard,
+  mealImageTitleWidth,
+} from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { cn } from '@/lib/utils'
@@ -70,7 +74,7 @@ export function DemoMealCard({ entry, onOpen, description = true }: DemoMealCard
       head={
         <CardHeader className="px-4 pt-1 pb-1">
           <div className="flex min-h-8 items-center">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}>
               <MealTypeBadge mealType={entry.mealType} />
               {entry.meal.kidFriendly && (
                 <span data-card-click-ignore className="contents">

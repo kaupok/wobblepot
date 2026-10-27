@@ -4,7 +4,11 @@ import { useTranslations } from 'next-intl'
 import { CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
-import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
+import {
+  MEAL_IMAGE_BADGE_ROW_WIDTH,
+  MealImageCard,
+  mealImageTitleWidth,
+} from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
@@ -85,7 +89,7 @@ export function ShowcaseMealCard({ meal: key, description = true }: ShowcaseMeal
       head={
         <CardHeader className="px-4 pt-1 pb-1">
           <div className="flex min-h-8 items-center">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={`flex flex-wrap items-center gap-1.5 ${MEAL_IMAGE_BADGE_ROW_WIDTH}`}>
               <MealTypeBadge mealType={meal.mealType} />
               <KidFriendlyBadge compact />
               <ProteinBadge proteinType={meal.proteinType} />

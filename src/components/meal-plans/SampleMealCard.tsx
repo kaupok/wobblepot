@@ -6,7 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { CardContent, CardHeader } from '@/components/ui/card'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
-import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
+import {
+  MEAL_IMAGE_BADGE_ROW_WIDTH,
+  MealImageCard,
+  mealImageTitleWidth,
+} from '@/components/meal-plan/MealImageCard'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { cn } from '@/lib/utils'
 import type { SampleDay } from '@/lib/meal-plans/build-sample-week'
@@ -32,7 +36,9 @@ export function SampleMealCard({ day }: { day: SampleDay }) {
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             <div className="flex min-h-8 items-center">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
+              >
                 <Badge variant="secondary">{day.dayName}</Badge>
                 {meal.kidFriendly && <KidFriendlyBadge compact />}
                 <ProteinBadge proteinType={meal.primaryProteinType} />

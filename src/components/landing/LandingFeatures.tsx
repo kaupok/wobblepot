@@ -12,6 +12,7 @@ import { LandingConnect } from '@/components/landing/LandingConnect'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import {
+  MEAL_IMAGE_BADGE_ROW_WIDTH,
   MealImageCard,
   mealHueStyle,
   mealImageTitleWidth,
@@ -343,7 +344,9 @@ function ImagineVignette() {
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             <div className="flex min-h-8 items-center">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
+              >
                 <MealTypeBadge mealType={BUTTER_CHICKEN.mealType} />
                 <KidFriendlyBadge compact />
                 <ProteinBadge proteinType={BUTTER_CHICKEN.proteinType} />
