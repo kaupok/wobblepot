@@ -16,8 +16,8 @@ import type { EntryChange, MealComponent } from './types'
 
 /**
  * The parts of `IngredientList` that show and edit a planned entry's own
- * ingredient changes (HON-1243): the trailing control of each row, and the
- * rows a change brings back (left out, stale) or offers (add one).
+ * ingredient changes (HON-1243): the trailing control of each row, the rows
+ * a change brings back (left out, stale), and the button that adds one.
  */
 
 function UndoButton({
@@ -174,27 +174,33 @@ export function StaleChangeRow({
   )
 }
 
-/** The last row of an editable list: add an ingredient to this entry only. */
-export function AddIngredientRow({
+/**
+ * The action at the right end of an editable list's Ingredients heading line
+ * (HON-1357): add an ingredient to this entry only. The visible "Add" sits
+ * inside the accessible name, so speech input finds it (WCAG 2.5.3).
+ */
+export function AddIngredientButton({
   controls,
   buttonRef,
+  className,
 }: {
   controls: IngredientChangeControls
   buttonRef?: React.Ref<HTMLButtonElement>
+  className?: string
 }) {
   const t = useTranslations('meal-plan.changes')
   return (
-    <Li>
-      <Button
-        ref={buttonRef}
-        variant="ghost"
-        size="lg"
-        onClick={controls.onAdd}
-        aria-disabled={controls.disabled}
-      >
-        <Plus aria-hidden="true" />
-        {t('addIngredient')}
-      </Button>
-    </Li>
+    <Button
+      ref={buttonRef}
+      variant="ghost"
+      size="lg"
+      className={className}
+      onClick={controls.onAdd}
+      aria-disabled={controls.disabled}
+      aria-label={t('addIngredient')}
+    >
+      <Plus aria-hidden="true" />
+      {t('add')}
+    </Button>
   )
 }

@@ -472,6 +472,7 @@
       "replace": "Replace",
       "leaveOut": "Leave out",
       "addIngredient": "Add an ingredient",
+      "add": "Add",
       "undo": "Undo",
       "undoAria": "Undo change: {name}",
       "insteadOf": "Instead of {name}",

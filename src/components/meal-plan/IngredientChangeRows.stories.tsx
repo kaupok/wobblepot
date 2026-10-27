@@ -124,7 +124,7 @@ export const Stale: Story = {
   },
 }
 
-/** Each unchanged row's menu offers Replace and Leave out, and the list ends on "Add an ingredient". */
+/** Each unchanged row's menu offers Replace and Leave out, and "Add an ingredient" calls `onAdd`. */
 export const RowMenu: Story = {
   args: { changes: [], changeControls: controls() },
   play: async ({ canvasElement, args }) => {
@@ -134,6 +134,43 @@ export const RowMenu: Story = {
     await userEvent.click(await body.findByRole('menuitem', { name: 'Leave out' }))
     await expect(args.changeControls!.onLeaveOut).toHaveBeenCalledWith(potato)
     await userEvent.click(canvas.getByRole('button', { name: 'Add an ingredient' }))
+    await expect(args.changeControls!.onAdd).toHaveBeenCalledTimes(1)
+  },
+}
+
+/**
+ * "Add" ends the Ingredients heading line, after the to-buy status, and is
+ * named "Add an ingredient" (HON-1357). At the 390px default viewport the
+ * heading, the status and the button share one line; the list holds no button.
+ */
+export const AddOnHeadingLine: Story = {
+  args: {
+    changes: [],
+    changeControls: controls(),
+    availability: {
+      isReady: false,
+      missingCount: 7,
+      missingIngredients: ['Salmon fillet', 'Potato', 'Lemon', 'Dill', 'Leek', 'Cream', 'Butter'],
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const button = canvas.getByRole('button', { name: 'Add an ingredient' })
+    await expect(button).toHaveTextContent(/^Add$/)
+    const heading = canvas.getByRole('heading', { name: 'Ingredients' })
+    const line = heading.parentElement!.parentElement!
+    await expect(button.parentElement).toBe(line)
+    await expect(canvas.getByText('7 to buy')).toBeVisible()
+    // One line: the button is centred on the heading and ends at the line's
+    // right edge.
+    const h = heading.getBoundingClientRect()
+    const b = button.getBoundingClientRect()
+    await expect(Math.abs(b.top + b.height / 2 - (h.top + h.height / 2))).toBeLessThanOrEqual(1)
+    await expect(Math.round(b.right)).toBe(Math.round(line.getBoundingClientRect().right))
+    await expect(
+      within(canvas.getByRole('list')).queryByRole('button', { name: /^Add/ }),
+    ).toBeNull()
+    await userEvent.click(button)
     await expect(args.changeControls!.onAdd).toHaveBeenCalledTimes(1)
   },
 }

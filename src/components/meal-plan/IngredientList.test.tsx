@@ -200,3 +200,35 @@ describe('IngredientList vegetables in pieces', () => {
     expect(screen.getByText(/Onion \(¾ pc, 83g\)/)).toBeInTheDocument()
   })
 })
+
+// An editable entry's add action ends the Ingredients heading line, not the
+// list (HON-1357). It reads "Add" and is named "Add an ingredient".
+describe('IngredientList add button', () => {
+  const controls = { onReplace: vi.fn(), onLeaveOut: vi.fn(), onAdd: vi.fn(), onUndo: vi.fn() }
+
+  it('sits on the heading line, after the heading, outside the list', () => {
+    renderInLocale(<IngredientList components={[chicken]} servings={2} changeControls={controls} />)
+    const button = screen.getByRole('button', { name: 'Add an ingredient' })
+    expect(button.textContent).toBe('Add')
+    // The heading sits in a baseline group with the status; the line holds
+    // that group, then the button.
+    const headingLine = screen.getByRole('heading', { name: 'Ingredients' }).parentElement!
+      .parentElement!
+    expect(button.parentElement).toBe(headingLine)
+    expect(headingLine.lastElementChild).toBe(button)
+    expect(within(screen.getByRole('list')).queryByRole('button', { name: /^Add/ })).toBeNull()
+  })
+
+  it('names the Estonian button "Lisa koostisosa" around the visible "Lisa"', () => {
+    renderInLocale(
+      <IngredientList components={[chicken]} servings={2} changeControls={controls} />,
+      'et',
+    )
+    expect(screen.getByRole('button', { name: 'Lisa koostisosa' }).textContent).toBe('Lisa')
+  })
+
+  it('shows no button without change controls', () => {
+    renderInLocale(<IngredientList components={[chicken]} servings={2} />)
+    expect(screen.queryByRole('button', { name: 'Add an ingredient' })).toBeNull()
+  })
+})

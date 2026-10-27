@@ -7,7 +7,7 @@ import {
   EntryChangeRowActions,
   LeftOutRow,
   StaleChangeRow,
-  AddIngredientRow,
+  AddIngredientButton,
 } from './IngredientChangeRows'
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -203,11 +203,24 @@ export function IngredientList({
           "Cook view", HON-932), then the pantry's verdict as text on its
           baseline: "Ingredients 1 to buy" (HON-1025). Serves is in the badge
           row above, with the meal's other facts. */}
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <Heading variant="h4" as="h3" className="whitespace-nowrap">
-          {tDetail('ingredientsTitle')}
-        </Heading>
-        {availability && <AvailabilityStatus availability={availability} />}
+      {/* The list's action ends its title row (HON-1357): the heading and
+          the status share a baseline inside their own group, the row centres
+          the button on that group, and on a wrap `ml-auto` holds the button
+          to the right edge, under the status, never over it. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <Heading variant="h4" as="h3" className="whitespace-nowrap">
+            {tDetail('ingredientsTitle')}
+          </Heading>
+          {availability && <AvailabilityStatus availability={availability} />}
+        </div>
+        {changeControls && (
+          <AddIngredientButton
+            controls={changeControls}
+            buttonRef={changeControls.addButtonRef}
+            className="ml-auto"
+          />
+        )}
       </div>
       {/* Rows are read from a counter and tapped with a knuckle (HON-932):
           18px, at least 44px tall, quantity first in a fixed-width column so
@@ -305,9 +318,6 @@ export function IngredientList({
             checkboxColumn={hasCheckboxes}
           />
         ))}
-        {changeControls && (
-          <AddIngredientRow controls={changeControls} buttonRef={changeControls.addButtonRef} />
-        )}
       </Ul>
       {staplesLine && <Body variant="paragraph">{staplesLine}</Body>}
     </div>
