@@ -59,8 +59,8 @@ PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
   # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-  # no `next build`, so Vercel is the only build gate.
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks. PR branches no longer
+  # build on Vercel (an ignored build reports success); CI's E2E `next build` is the build gate.
   CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
     --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1

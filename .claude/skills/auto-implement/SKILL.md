@@ -490,7 +490,7 @@ CLOSED → stop: "PR is closed. Cannot merge." Not mergeable → stop: "PR canno
 
 ### 7.2 Wait for CI
 
-Re-run the 6.1 poll until terminal, then the 6.1 verification block in the same turn. `CI_TIMEOUT` → stop. No output → 7.3. **Any line → stop, do NOT merge**, a failed Vercel check (the only build gate) included. No CI-fix loop: a push here would merge an unreviewed commit. `no checks reported` → `recovery.md`.
+Re-run the 6.1 poll until terminal, then the 6.1 verification block in the same turn. `CI_TIMEOUT` → stop. No output → 7.3. **Any line → stop, do NOT merge**, a failed Vercel check included. No CI-fix loop: a push here would merge an unreviewed commit. `no checks reported` → `recovery.md`.
 
 ### 7.3 Merge the PR
 

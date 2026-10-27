@@ -1498,8 +1498,8 @@ pr_ci_state() {
   local buckets
   # Same cwd pinning as pr_for_branch — without it gh cannot find the repo.
   # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-  # no `next build`, so Vercel is the only build gate.
+  # it can stick after the deploy is Ready (HON-600). A fail still blocks. PR branches no longer
+  # build on Vercel (an ignored build reports success); CI's E2E `next build` is the build gate.
   buckets=$( ( cd "$REPO_ROOT" && gh pr checks "$pr_number" --json bucket,workflow \
     --jq '.[] | select(.workflow != "" or .bucket != "pending") | .bucket' ) 2>/dev/null ) || {
     echo "unknown"; return

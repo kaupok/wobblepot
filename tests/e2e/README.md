@@ -274,7 +274,7 @@ The header is load-bearing for the drift-prevention workflow. `/plan-issue` and 
 
 ## Seed fixture contract
 
-Preview-smoke and staging-smoke rely on fixtures the seed script plants when
+Staging-smoke relies on fixtures the seed script plants when
 `SEED_TEST_USERS=1` is set in the environment. These are consumed by specs
 that follow pattern (b) — notably those landing via HON-469 and HON-479.
 
@@ -347,12 +347,8 @@ assuming they stay secret.
 Where each environment's seed actually runs (and therefore where the
 `SEED_TEST_USERS=1` + credential env vars must be set):
 
-- **Preview** — nothing seeds during the Vercel build: `scripts/maybe-migrate.sh`
-  runs `prisma migrate deploy` and nothing else. A preview Neon branch is a
-  copy-on-write fork of its parent, so the fixtures it has are the ones the
-  parent branch already held — i.e. whatever the staging seed below planted.
-  A fixture added to `seedTestUsers()` only reaches preview once the staging
-  seed has run and new preview branches fork from the updated parent.
+- **Preview** — PR branches no longer deploy on Vercel (PR #1396), so no
+  preview environment needs a seed.
 - **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
   `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
   sets `SEED_TEST_USERS=1` and passes the four credential secrets

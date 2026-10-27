@@ -81,8 +81,8 @@ When the notification arrives, verify in the foreground. With `--json`, `gh pr c
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
 # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-# no `next build`, so Vercel is the only build gate.
+# it can stick after the deploy is Ready (HON-600). A fail still blocks. PR branches no longer
+# build on Vercel (an ignored build reports success); CI's E2E `next build` is the build gate.
 gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
   --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
 ```
