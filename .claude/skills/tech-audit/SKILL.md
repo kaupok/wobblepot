@@ -130,13 +130,13 @@ There is no `(public)` route group in this project — the only group is `(legal
 
 This list mirrors the page routes in `PUBLIC_ROUTES` (`src/proxy.ts`), except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Where the two differ otherwise, `PUBLIC_ROUTES` is current, because `src/proxy.test.ts` enforces it.
 
-Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/household/invites` (→ `/household`) — they never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
+Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`) — it never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
 
 For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser` — or `load-inventory`, the shared loader in `src/app/shopping/load-inventory.ts` that runs the session check for `/shopping` and `/pantry`:
 
 ```bash
 find src/app -name 'page.tsx' \
-  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|request-invite|reminders|\(legal\)|bot|status|meal-plan|household/invites)/' \
+  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|request-invite|reminders|\(legal\)|bot|status|meal-plan)/' \
   | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
 ```
 

@@ -190,7 +190,7 @@ When a browser is available, use it to bring visual context into the conversatio
 
 ### App page map
 
-Page map: see `docs/BROWSER_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
+Page map: see `docs/BROWSER_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`) — landing on their targets is expected behaviour, not a bug.
 
 ### How to browse during ideation
 
