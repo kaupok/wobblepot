@@ -1,6 +1,7 @@
 ---
 paths:
   - "src/app/**"
+  - "src/components/**/*.tsx"
   - "src/proxy.ts"
   - "src/lib/auth*.ts"
   - "src/lib/session.ts"
