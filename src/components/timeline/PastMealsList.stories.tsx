@@ -65,6 +65,7 @@ const entries = [
         label: 'Wolt',
         name: null,
         sourceDate: null,
+        servings: null,
       },
     ],
   }),

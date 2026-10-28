@@ -24,7 +24,7 @@ import {
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -83,9 +83,13 @@ async function handlePOST(
     // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
     // a household of 2 would otherwise get timings and pan sizes for a third
     // of the food the card, pantry and shopping list all agree on (HON-614).
-    // Without an override it is the members' portions summed (HON-1040).
+    // Without an override it is the members' portions summed (HON-1040). The
+    // leftover lunches it feeds count too, because the dinner is cooked for
+    // them (HON-1394). A lunch changed after the write leaves tips priced at
+    // the old total, which the read below then refuses, so a change to a link
+    // needs no invalidation of its own.
     const servingsWhenPriced = sumPortions(household.members)
-    const effectiveServings = getEffectiveServings(entry, servingsWhenPriced)
+    const effectiveServings = getCookServings(entry, servingsWhenPriced)
 
     // Return cached tips if available, valid JSON and priced at these servings.
     // Tips priced at other servings are regenerated, which also catches tips
@@ -238,7 +242,7 @@ async function handlePOST(
     // the cache is guarded.
     //
     // The household's servings are a further priced-from input, because
-    // `getEffectiveServings` above falls back to them whenever the entry
+    // `getCookServings` above falls back to them whenever the entry
     // carries no `servingOverride` — the default state of an entry. They are
     // the members' portions summed, so a member joining or leaving and a
     // portion change both move them (HON-1040). They cannot join the write's

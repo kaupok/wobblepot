@@ -10,7 +10,11 @@ import {
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
-import { loadRecentMeals, RECENT_MEALS_DAYS } from '@/lib/meal-plans/recent-meals'
+import {
+  findLeftoverSourceProblem,
+  type LeftoverSourceProblem,
+  RECENT_MEALS_DAYS,
+} from '@/lib/meal-plans/recent-meals'
 import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
 import { fridgeItemOutputSchema, toFridgeItemOutput } from '@/lib/api/v1/meal-plan'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
@@ -24,12 +28,12 @@ import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 export const planFridgeMeal = defineTool({
   name: 'plan_fridge_meal',
   title: 'Plan a fridge meal',
-  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), the leftovers of a recipe meal cooked in the last ${RECENT_MEALS_DAYS} days ({ sourceEntryId }: that meal's entryId from get_meal_plan), or free text ({ label }). On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is any past day, today, or up to ${MAX_DAYS_AHEAD} days ahead. A past day logs the meal as cooked, because the household ate it. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
+  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), leftovers of an earlier recipe meal ({ sourceEntryId, servings }: that meal's entryId from get_meal_plan), or free text ({ label }). The leftovers' meal is in an earlier slot, up to ${RECENT_MEALS_DAYS} days before this one, and not skipped. It may still be planned, such as tonight's dinner for tomorrow's lunch: then servings is required, and that dinner's shopping amounts grow by those servings. For a cooked meal, servings is optional and changes nothing. On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is any past day, today, or up to ${MAX_DAYS_AHEAD} days ahead. A past day logs the meal as cooked, because the household ate it. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
     items: fridgeItemsSchema.describe(
-      'The items, in the order to show them. Each has exactly one of ingredientId, sourceEntryId or label.',
+      'The items, in the order to show them. Each has exactly one of ingredientId, sourceEntryId or label. A leftover item may add servings: 0.5 to 20, in steps of 0.5.',
     ),
   }),
   outputSchema: z.object({
@@ -50,7 +54,8 @@ export const planFridgeMeal = defineTool({
         `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day up to ${lastDay}. Nothing was changed.`,
       )
     }
-    // A past day logs a meal the household ate, as `plan_meal` does (HON-1382).
+    // A past day logs a meal the household ate, as `plan_meal` does (HON-1382),
+    // saved as already charged (HON-1391).
     const status = date < today ? 'completed' : 'planned'
 
     const day = parseLocalDate(date)
@@ -61,21 +66,19 @@ export const planFridgeMeal = defineTool({
     if (entry?.status === 'completed') {
       throw new ToolInputError(cookedMessage(mealType, date))
     }
-    // Leftovers are what the app's picker offers: a recipe meal the household
-    // cooked in the last `RECENT_MEALS_DAYS` (`loadRecentMeals`). `toItemRows` accepts
-    // any entry of the household, because Edit items and Undo send stored
-    // items back, so the check is here. The slot's own entry is never in the
-    // list, because a cooked slot is refused above.
-    const sourceEntryIds = items.flatMap((item) =>
-      'sourceEntryId' in item ? [item.sourceEntryId] : [],
+    // `toItemRows` accepts any entry of the household, because Edit items and
+    // Undo send stored items back, so the source rule runs here. The slot's own
+    // entry never passes it: a source must be in an earlier slot. The slot's
+    // stored links pass unchanged, so its items can be sent back as read.
+    const refused = await findLeftoverSourceProblem(
+      household.id,
+      { date, mealType, entryId: entry?.id },
+      items,
     )
-    if (sourceEntryIds.length > 0) {
-      const recent = new Set((await loadRecentMeals(household)).map((meal) => meal.entryId))
-      if (!sourceEntryIds.every((id) => recent.has(id))) {
-        throw new ToolInputError(
-          `Each sourceEntryId must be the entryId of a recipe meal this household cooked in the last ${RECENT_MEALS_DAYS} days (kind recipe, isCooked: true in get_meal_plan). Nothing was changed.`,
-        )
-      }
+    if (refused) {
+      throw new ToolInputError(
+        `sourceEntryId ${refused.sourceEntryId}: ${SOURCE_PROBLEM_MESSAGES[refused.problem]} Nothing was changed.`,
+      )
     }
 
     // An entry with no meal, no note and no items is a picker placeholder,
@@ -86,14 +89,20 @@ export const planFridgeMeal = defineTool({
     try {
       if (isEmpty) {
         const planId = await findOrCreateMealPlan(household.id)
-        await createEntry(household.id, planId, { date: day, mealType, fridgeItems: items, status })
+        await createEntry(household.id, planId, {
+          date: day,
+          mealType,
+          fridgeItems: items,
+          status,
+          pantryDeducted: status === 'completed',
+        })
       } else {
         await setFridgeItems(household.id, entry.planId, entry.id, items, status)
       }
     } catch (error) {
       if (error instanceof FridgeItemNotFoundError) {
         throw new ToolInputError(
-          "An ingredientId or sourceEntryId is not one this household can use. Use get_pantry for ingredient ids and get_meal_plan for a cooked meal's entryId. Nothing was changed.",
+          "An ingredientId or sourceEntryId is not one this household can use. Use get_pantry for ingredient ids and get_meal_plan for a meal's entryId. Nothing was changed.",
         )
       }
       if (error instanceof SetFridgeItemsError && error.reason === 'completed') {
@@ -127,4 +136,15 @@ export const planFridgeMeal = defineTool({
 
 function cookedMessage(mealType: string, date: string): string {
   return `The ${mealType} on ${date} is cooked, so it cannot be changed. Nothing was changed.`
+}
+
+const SOURCE_PROBLEM_MESSAGES: Record<LeftoverSourceProblem, string> = {
+  notFound: 'no meal of this household has this entryId. Use get_meal_plan for it.',
+  notRecipe:
+    'leftovers come from a recipe meal (kind recipe in get_meal_plan), not a fridge meal or an empty slot.',
+  skipped: 'that meal is skipped, so there are no leftovers. Plan it again first.',
+  notBefore: 'leftovers come from a meal in an earlier slot than this one.',
+  tooOld: `leftovers come from a meal no more than ${RECENT_MEALS_DAYS} days before this one.`,
+  servingsRequired:
+    'that meal is not cooked yet, so give servings: how much of it this meal takes. The meal is then cooked and bought for those servings too.',
 }

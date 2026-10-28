@@ -498,6 +498,33 @@ describe('PreparationSteps cook question', () => {
     expect(ask).not.toHaveBeenCalled()
   })
 
+  // The route keeps generating an answer the browser aborts, so a second pick
+  // would bill a second call (HON-1360). Another row's questions stay enabled.
+  it.each([
+    ['pending', { isPending: true, active: { subject: step(0), question: 'Q', answer: null } }],
+    [
+      'streaming',
+      { isStreaming: true, active: { subject: step(0), question: 'Q', answer: 'Use ' } },
+    ],
+  ] as const)("disables the row's ready-made questions while its answer is %s", async (_, busy) => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask, ...busy }} />)
+    await userEvent.click(menuButton(1))
+    const menu = await screen.findByRole('menu')
+    const item = (name: string) => within(menu).getByRole('menuitem', { name })
+    const ready = ["How do I know it's done?", 'What can I substitute here?', "I'm short on time"]
+
+    for (const name of ready) expect(item(name)).toHaveAttribute('aria-disabled', 'true')
+    expect(item('Ask your own question')).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(item("How do I know it's done?"), { pointerEventsCheck: 0 })
+    expect(ask).not.toHaveBeenCalled()
+
+    await userEvent.keyboard('{Escape}')
+    await pick(menuButton(2), 'What can I substitute here?')
+    expect(ask).toHaveBeenCalledOnce()
+    expect(ask).toHaveBeenCalledWith(expect.objectContaining({ subject: step(1) }))
+  })
+
   it('marks the status busy while the answer streams, without "Thinking…"', async () => {
     const active = { subject: step(0), question: 'Q', answer: 'Use the ' }
     const { rerender } = render(<Harness controls={{ isStreaming: true, active }} />)

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
 import {
   ingredientTranslationsInclude,
@@ -92,6 +92,12 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           ...mealTranslationsInclude(locale),
         },
       },
+      // The leftover lunches this entry feeds (HON-1394), for its cook servings.
+      leftoverItems: {
+        where: cookServingsSelect.leftoverItems.where,
+        orderBy: [{ entry: { date: 'asc' } }, { entry: { mealType: 'asc' } }],
+        select: { servings: true, entry: { select: { date: true, mealType: true } } },
+      },
       // A fridge meal's items (HON-1277), with what each shows by.
       items: {
         orderBy: { position: 'asc' },
@@ -100,6 +106,9 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           sourceEntry: {
             select: {
               date: true,
+              mealType: true,
+              status: true,
+              kind: true,
               meal: {
                 select: {
                   name: true,
@@ -145,6 +154,10 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       entry.meal && entry.status === 'planned' && conflictPreferences
         ? findPreferenceConflicts({ ...entry.meal, components }, conflictPreferences)
         : []
+    // Only a recipe meal is cooked for its leftover lunches: a dinner made a
+    // fridge meal keeps the lunch's item, which then adds nothing (HON-1394).
+    const leftovers = entry.kind === 'meal' && entry.meal ? entry.leftoverItems : []
+    const cookServings = getCookServings({ ...entry, leftoverItems: leftovers }, householdServings)
 
     return {
       id: entry.id,
@@ -173,13 +186,28 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
               imageHue: item.sourceEntry.meal.imageHue,
             }
           : null,
+        // What a leftover item takes from its source (HON-1394); Edit items and
+        // Undo send it back.
+        servings: item.servings,
+        sourceMealType: item.sourceEntry?.mealType ?? null,
+        // Cooked leftovers exist whatever the entry became since; a skipped
+        // source, or one that is no longer a recipe meal, will not make any.
+        sourceState: !item.sourceEntry
+          ? null
+          : item.sourceEntry.status === 'completed'
+            ? ('completed' as const)
+            : item.sourceEntry.status === 'skipped' ||
+                item.sourceEntry.kind !== 'meal' ||
+                !item.sourceEntry.meal
+              ? ('gone' as const)
+              : ('planned' as const),
       })),
       rating: entry.rating,
       // Tips priced at other servings are dropped here as the tips route drops
       // them, so the cook view asks for fresh ones instead of showing these.
       preparationTips: entry.preparationTips
         ? parseCachedPreparationSteps(entry.preparationTips, {
-            servings: getEffectiveServings(entry, householdServings),
+            servings: cookServings,
             legacyServings: entry.servingOverride ?? household._count.members,
           })
         : null,
@@ -187,6 +215,13 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       noteX: entry.noteX,
       noteY: entry.noteY,
       servingOverride: entry.servingOverride,
+      // Own servings plus the leftover lunches, or the count it was cooked at.
+      cookServings,
+      leftoversFor: leftovers.map((item) => ({
+        date: toDateString(item.entry.date),
+        mealType: item.entry.mealType,
+        servings: item.servings,
+      })),
       pantryDeducted: entry.pantryDeductedAt !== null,
       conflicts,
       adjustmentNote: entry.adjustmentNote,

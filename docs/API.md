@@ -51,22 +51,26 @@ The meals planned by date and meal type, and each day's extras.
       "mealId": "cm…",
       "mealName": "Chicken soup",
       "servings": 4,
+      "cookServings": 6.5,
+      "leftoversFor": [{ "date": "2026-10-15", "mealType": "lunch", "servings": 2.5 }],
       "isCooked": false,
       "isSkipped": false
     },
     {
       "entryId": "cm…",
       "date": "2026-10-15",
-      "mealType": "dinner",
+      "mealType": "lunch",
       "kind": "fridge",
       "items": [
-        { "name": "Frozen peas", "source": "pantry" },
-        { "name": "Chicken soup", "source": "leftover" },
-        { "name": "Meatballs", "source": "text" }
+        { "name": "Frozen peas", "source": "pantry", "sourceEntryId": null, "servings": null },
+        { "name": "Chicken soup", "source": "leftover", "sourceEntryId": "cm…", "servings": 2.5 },
+        { "name": "Meatballs", "source": "text", "sourceEntryId": null, "servings": null }
       ],
       "mealId": null,
       "mealName": null,
       "servings": 4,
+      "cookServings": 4,
+      "leftoversFor": [],
       "isCooked": false,
       "isSkipped": false
     }
@@ -94,7 +98,9 @@ The meals planned by date and meal type, and each day's extras.
 
 `mealType` is `breakfast`, `lunch` or `dinner`. `mealId` and `mealName` are `null` for an entry with no meal. Dish names are in the household's language.
 
-`kind` is `recipe` for a meal from a recipe, or `fridge` for a fridge meal: a planned meal made of what is at home, with no recipe (HON-1281). A fridge meal lists its `items` in order; `items` is empty for `recipe`. An item's `source` is `pantry` (an ingredient, named in the household's language), `leftover` (what is left of an earlier cooked meal, named by that meal; `null` when the meal was deleted since) or `text` (the household's own words).
+`kind` is `recipe` for a meal from a recipe, or `fridge` for a fridge meal: a planned meal made of what is at home, with no recipe (HON-1281). A fridge meal lists its `items` in order; `items` is empty for `recipe`. An item's `source` is `pantry` (an ingredient, named in the household's language), `leftover` (what is left of an earlier meal, cooked or planned, named by that meal; `null` when the meal was deleted since) or `text` (the household's own words). A leftover item carries its meal's `sourceEntryId` and the `servings` it takes (`null` when none was set); both are `null` on the other items.
+
+`servings` is the meal's own servings: the household's, or the entry's override. `cookServings` is what the meal is cooked and bought for: `servings` plus the servings of every fridge meal that is not skipped and takes its leftovers, listed in `leftoversFor` (HON-1394). Once the meal is cooked, `cookServings` is the count it was cooked at, so a later change to a lunch does not move it. A fridge meal's `cookServings` is its `servings`, and its `leftoversFor` is empty.
 
 `extras` are the snacks, drinks and other items added to a day, outside its meals (HON-1311). `kind` is `ingredient` for a catalogue ingredient, with its name in the household's language, or `text` for free text. `quantity` is in `unit` (`g`, `ml` or `piece`); both are `null` when the extra has no amount, and always for `text`.
 

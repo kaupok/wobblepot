@@ -6,7 +6,7 @@ import {
   listHouseholdIngredients,
   updateHouseholdIngredient,
 } from '@/lib/ingredients/manage'
-import { createHouseholdMeal } from '@/lib/household-meals'
+import { createHouseholdMeal, deleteHouseholdMeal } from '@/lib/household-meals'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1264).
@@ -54,6 +54,14 @@ const mealWith = (householdId: string, ingredientId: string, name = 'Lovage soup
     components: [{ ingredientId, totalQuantity: 400 }],
   })
 
+/** A meal plan entry that uses the meal, as a past plan keeps it after the recipe is deleted. */
+async function planEntryFor(householdId: string, mealId: string) {
+  const plan = await prisma.mealPlan.create({ data: { householdId } })
+  await prisma.mealPlanEntry.create({
+    data: { planId: plan.id, mealId, date: new Date('2026-10-20'), mealType: 'dinner' },
+  })
+}
+
 describe('listHouseholdIngredients', () => {
   it("lists the household's rows by name, and no global or other household's row", async () => {
     const { alder, birch } = await world()
@@ -81,6 +89,39 @@ describe('listHouseholdIngredients', () => {
     })
   })
 })
+
+// HON-1386: 75 g mince (26 g protein / 100 g) and 400 g beans (8.7 g) over 3
+// servings derive Legumes; the household chose Beef.
+async function beefAndBeans() {
+  const { alder } = await world()
+  const mince = {
+    ...lovage,
+    name: 'Mince',
+    category: 'protein',
+    proteinType: 'beef',
+    protein: 26,
+  } as const
+  const minceRow = await createHouseholdIngredient(alder, 'en', mince)
+  const beans = await createHouseholdIngredient(alder, 'en', {
+    ...lovage,
+    name: 'Kidney beans',
+    category: 'legume',
+    proteinType: 'legume',
+    protein: 8.7,
+  })
+  const meal = await createHouseholdMeal(alder, {
+    name: 'Mince and beans',
+    kidFriendly: true,
+    suitableFor: ['dinner'],
+    servings: 3,
+    components: [
+      { ingredientId: minceRow.id, totalQuantity: 75 },
+      { ingredientId: beans.id, totalQuantity: 400 },
+    ],
+    proteinTypeOverride: 'beef',
+  })
+  return { alder, mince, minceRow, meal }
+}
 
 describe('updateHouseholdIngredient', () => {
   it('saves the normalised values', async () => {
@@ -207,8 +248,41 @@ describe('updateHouseholdIngredient', () => {
 
     expect(result).toEqual({
       status: 'unit_locked',
-      uses: { meals: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
     })
+  })
+
+  it('keeps the unit locked while a deleted recipe uses the row, so a restore stays valid', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    const result = await updateHouseholdIngredient(alder, 'en', row.id, {
+      ...lovage,
+      defaultUnit: 'piece',
+      gramsPerPiece: 20,
+    })
+
+    expect(result).toMatchObject({ status: 'unit_locked' })
+  })
+
+  it('allows a unit change once a deleted recipe is past the restore window', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await prisma.meal.update({
+      where: { id: meal.id },
+      data: { deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    })
+
+    const result = await updateHouseholdIngredient(alder, 'en', row.id, {
+      ...lovage,
+      defaultUnit: 'piece',
+      gramsPerPiece: 20,
+    })
+
+    expect(result).toMatchObject({ status: 'updated' })
   })
 
   it('allows a unit change on a row nothing uses', async () => {
@@ -288,39 +362,6 @@ describe('updateHouseholdIngredient', () => {
     expect(await vegetarian()).not.toContain(meal.id)
   })
 
-  // HON-1386: 75 g mince (26 g protein / 100 g) and 400 g beans (8.7 g) over 3
-  // servings derive Legumes; the household chose Beef.
-  async function beefAndBeans() {
-    const { alder } = await world()
-    const mince = {
-      ...lovage,
-      name: 'Mince',
-      category: 'protein',
-      proteinType: 'beef',
-      protein: 26,
-    } as const
-    const minceRow = await createHouseholdIngredient(alder, 'en', mince)
-    const beans = await createHouseholdIngredient(alder, 'en', {
-      ...lovage,
-      name: 'Kidney beans',
-      category: 'legume',
-      proteinType: 'legume',
-      protein: 8.7,
-    })
-    const meal = await createHouseholdMeal(alder, {
-      name: 'Mince and beans',
-      kidFriendly: true,
-      suitableFor: ['dinner'],
-      servings: 3,
-      components: [
-        { ingredientId: minceRow.id, totalQuantity: 75 },
-        { ingredientId: beans.id, totalQuantity: 400 },
-      ],
-      proteinTypeOverride: 'beef',
-    })
-    return { alder, mince, minceRow, meal }
-  }
-
   it("clears the chosen main protein when the ingredient's protein type moves away from it", async () => {
     const { alder, mince, minceRow, meal } = await beefAndBeans()
 
@@ -359,9 +400,60 @@ describe('deleteHouseholdIngredient', () => {
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
       status: 'in_use',
-      uses: { meals: 1, pantry: 1, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 1, shoppingList: 0, mealPlan: 0, extras: 0 },
     })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
+  })
+
+  it('deletes a row only a deleted recipe with no plan entry uses, with its component', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({ status: 'deleted' })
+    expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).toBeNull()
+    expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(0)
+  })
+
+  it("clears a deleted recipe's protein and chosen main protein with the component", async () => {
+    const { alder, minceRow, meal } = await beefAndBeans()
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, minceRow.id)).toEqual({ status: 'deleted' })
+
+    const saved = await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+    expect(saved.proteinTypeOverride).toBeNull()
+    expect(saved.primaryProteinType).toBe('legume')
+  })
+
+  it('refuses a row a deleted recipe in the meal plan uses, counted apart from recipes', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await planEntryFor(alder, meal.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
+      status: 'in_use',
+      uses: { meals: 0, deletedMealsInPlan: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+    })
+    expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
+    expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(1)
+  })
+
+  it("refuses a row a live recipe uses, and keeps a deleted recipe's component too", async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    await mealWith(alder, row.id)
+    const gone = await mealWith(alder, row.id, 'Lovage pie')
+    await deleteHouseholdMeal(alder, gone.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
+      status: 'in_use',
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+    })
+    expect(await prisma.mealComponent.count({ where: { mealId: gone.id } })).toBe(1)
   })
 
   it("returns not_found for another household's row and for a global row", async () => {

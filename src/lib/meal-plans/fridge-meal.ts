@@ -69,6 +69,7 @@ export async function toItemRows(householdId: string, items: FridgeItemInput[]) 
   return items.map((item, position) => ({
     ingredientId: 'ingredientId' in item ? item.ingredientId : null,
     sourceEntryId: 'sourceEntryId' in item ? item.sourceEntryId : null,
+    servings: 'sourceEntryId' in item ? (item.servings ?? null) : null,
     label: 'label' in item ? item.label : null,
     position,
   }))
@@ -106,8 +107,11 @@ export async function setFridgeItems(
       data: {
         kind: 'fridge',
         // A skip was for the meal that left, as on a recipe swap (HON-1125).
-        // An MCP log of a past meal passes `completed` (HON-1382).
+        // An MCP log of a past meal passes `completed` (HON-1382). It is saved
+        // as already charged, so a later planned → cooked never charges the
+        // pantry for it (HON-1391).
         status,
+        ...(status === MealPlanEntryStatus.completed && { pantryDeductedAt: new Date() }),
         mealId: null,
         preparationTips: null,
         servingOverride: null,

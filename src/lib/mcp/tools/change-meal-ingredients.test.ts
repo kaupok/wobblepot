@@ -104,6 +104,8 @@ function entry(changes: ReturnType<typeof change>[] = [], recipe = TROUT, status
     planId: 'plan-a',
     status,
     servingOverride: 4,
+    cookedServings: null,
+    leftoverItems: [],
     meal: { id: 'meal-trout', name: 'Trout', translations: [], components: recipe },
     changes,
     components: applyEntryChanges(recipe, changes),
@@ -119,6 +121,8 @@ function slot(overrides: Record<string, unknown> = {}) {
     status: 'planned',
     rating: null,
     servingOverride: 4,
+    cookedServings: null,
+    leftoverItems: [],
     meal: { id: 'meal-trout', name: 'Trout', timeMinutes: 30, primaryProteinType: null },
     ...overrides,
   }

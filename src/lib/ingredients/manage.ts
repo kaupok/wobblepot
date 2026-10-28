@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { resolveProteinType } from '@/lib/meal-planning/protein'
+import { restoreWindowStart } from '@/lib/deleted-household-meals'
 import { findExisting, ingredientData, normaliseIngredientName } from './create'
 import type { HouseholdIngredient, IngredientUses } from './household-ingredient'
 import type { NewIngredientInput } from './new-ingredient'
@@ -30,11 +31,15 @@ const ROW_SELECT = {
   fiber: true,
 } as const satisfies Prisma.IngredientSelect
 
-/** Every relation that holds the row's id, so a delete would fail or cascade. */
+/**
+ * Every relation that holds the row's id, so a delete would fail or cascade.
+ * `components` counts live recipes only: a deleted recipe's components are
+ * counted apart, by `deletedMealComponents` (HON-1325).
+ */
 const USES_COUNT = {
   _count: {
     select: {
-      components: true,
+      components: { where: { meal: { deletedAt: null } } },
       pantryItems: true,
       customShoppingItems: true,
       fridgeMealItems: true,
@@ -47,9 +52,20 @@ const USES_COUNT = {
 
 type UsesCount = { _count: Record<keyof (typeof USES_COUNT)['_count']['select'], number> }
 
-function toUses({ _count: c }: UsesCount): IngredientUses {
+/**
+ * The row's components on deleted recipes that a meal plan entry still uses
+ * (`inPlan`), or that none does. A recipe holds an ingredient once, so a
+ * component count is a recipe count.
+ */
+function deletedMealComponents(id: string, inPlan: boolean): Prisma.MealComponentWhereInput {
+  const planEntries = inPlan ? { some: {} } : { none: {} }
+  return { ingredientId: id, meal: { deletedAt: { not: null }, planEntries } }
+}
+
+function toUses({ _count: c }: UsesCount, deletedMealsInPlan: number): IngredientUses {
   return {
     meals: c.components,
+    deletedMealsInPlan,
     pantry: c.pantryItems,
     shoppingList: c.customShoppingItems,
     mealPlan: c.fridgeMealItems + c.replacedInEntries + c.usedInEntryChanges,
@@ -104,9 +120,17 @@ export async function updateHouseholdIngredient(
     return { status: 'name_taken' }
   }
 
-  const uses = toUses(current)
-  if (input.defaultUnit !== current.defaultUnit && isInUse(uses)) {
-    return { status: 'unit_locked', uses }
+  if (input.defaultUnit !== current.defaultUnit) {
+    // A recipe deleted inside the restore window still locks the unit,
+    // because a restore brings its quantities back in the old unit.
+    const [deletedMealsInPlan, restorableMeals] = await Promise.all([
+      prisma.mealComponent.count({ where: deletedMealComponents(id, true) }),
+      prisma.mealComponent.count({
+        where: { ingredientId: id, meal: { deletedAt: { gte: restoreWindowStart(new Date()) } } },
+      }),
+    ])
+    const uses = toUses(current, deletedMealsInPlan)
+    if (isInUse(uses) || restorableMeals > 0) return { status: 'unit_locked', uses }
   }
 
   const ingredient = await prisma.$transaction(async (tx) => {
@@ -115,20 +139,23 @@ export async function updateHouseholdIngredient(
       data: ingredientData(input),
       select: ROW_SELECT,
     })
-    await rederiveMealProteinTypes(tx, id)
+    await rederiveMealProteinTypes(tx, { components: { some: { ingredientId: id } } })
     return saved
   })
   return { status: 'updated', ingredient }
 }
 
 /**
- * Re-resolves the protein of every meal that uses the ingredient. A chosen
- * main protein survives a protein-grams edit, and is cleared when the
- * ingredient's type moves away from it (HON-1386).
+ * Re-resolves the protein of every meal that `where` finds. A chosen main
+ * protein survives a protein-grams edit, and is cleared when the ingredient's
+ * type moves away from it (HON-1386).
  */
-async function rederiveMealProteinTypes(tx: Prisma.TransactionClient, ingredientId: string) {
+async function rederiveMealProteinTypes(
+  tx: Prisma.TransactionClient,
+  where: Prisma.MealWhereInput,
+) {
   const meals = await tx.meal.findMany({
-    where: { components: { some: { ingredientId } } },
+    where,
     select: {
       id: true,
       primaryProteinType: true,
@@ -162,6 +189,12 @@ export type DeleteIngredientResult =
  * Deletes a household row nothing uses. The count and the delete share one
  * transaction, and several relations cascade, so a use is never deleted with
  * the row.
+ *
+ * A deleted recipe that no meal plan entry uses loses its component with the
+ * row, so it cannot hold the row forever (HON-1325). Its protein is resolved
+ * again, so a restore brings back no protein it lost. One a plan entry still
+ * uses refuses the delete, because the entry's shopping list and nutrition
+ * read its components.
  */
 export async function deleteHouseholdIngredient(
   householdId: string,
@@ -174,9 +207,18 @@ export async function deleteHouseholdIngredient(
     })
     if (!row) return { status: 'not_found' }
 
-    const uses = toUses(row)
+    const deletedMealsInPlan = await tx.mealComponent.count({
+      where: deletedMealComponents(id, true),
+    })
+    const uses = toUses(row, deletedMealsInPlan)
     if (isInUse(uses)) return { status: 'in_use', uses }
 
+    const orphaned = deletedMealComponents(id, false)
+    const mealIds = (
+      await tx.mealComponent.findMany({ where: orphaned, select: { mealId: true } })
+    ).map((component) => component.mealId)
+    await tx.mealComponent.deleteMany({ where: orphaned })
+    await rederiveMealProteinTypes(tx, { id: { in: mealIds } })
     await tx.ingredient.delete({ where: { id } })
     return { status: 'deleted' }
   })

@@ -389,6 +389,26 @@ export const WithServingControl: Story = {
   },
 }
 
+/**
+ * A dinner that feeds Tuesday's lunch (HON-1395): the control edits the
+ * dinner's own 3 servings, and the amounts are for the 5.5 it is cooked at.
+ */
+export const WithLeftoverLunch: Story = {
+  args: {
+    householdServings: 3,
+    servings: 3,
+    leftovers: [{ date: '2026-10-13', mealType: 'lunch', servings: 2.5 }],
+    onServingsChange: fn(async () => true),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeVisible()
+    await expect(
+      canvas.getByText('Ingredients for 5.5 servings · 2.5 for lunch: Tuesday'),
+    ).toBeVisible()
+  },
+}
+
 export const Completed: Story = {
   args: {
     status: 'completed',

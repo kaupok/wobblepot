@@ -16,7 +16,10 @@ stop_drain_snapshot() {
 }
 
 # The snapshot lines whose PID still runs `claude`. Checks the command, not only
-# the PID, so a PID the system gave to a new process does not count.
+# the PID, so a PID the system gave to a new process does not count. The PID is
+# the `wt auto` shell (`worktree-claude.sh auto`), which matches, and `claude`
+# runs as its child so the shell can continue it after a network drop
+# (HON-1413).
 stop_drain_orphans() {
   local issue pid cmd
   while IFS=$'\t' read -r issue pid; do
@@ -67,7 +70,7 @@ stop_drain_verdict() {
 
   while IFS=$'\t' read -r issue pid; do
     [ -z "$issue" ] && continue
-    echo "  FAIL $issue: its worker (PID $pid) still runs. Stop it: kill $pid"
+    echo "  FAIL $issue: its worker (PID $pid) still runs. Stop it: pkill -P $pid; kill $pid"
     failed=$((failed + 1))
   done <<< "$orphans"
 

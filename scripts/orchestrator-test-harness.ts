@@ -70,13 +70,13 @@ export function shellFunctionBody(source: string, name: string): string {
   return source.slice(start, end)
 }
 
-/** The `exec env … claude` command in a function body, its `\` continuations joined. */
+/** The `env … claude` command in a function body, its `\` continuations joined. */
 export function launchLine(body: string): string {
   const line = body
     .replace(/\\\n\s*/g, '')
     .split('\n')
-    .find((l) => /^\s*exec env /.test(l))
-  expect(line, 'no `exec env` launch line').toBeDefined()
+    .find((l) => /^\s*(exec )?env -u /.test(l))
+  expect(line, 'no `env -u` launch line').toBeDefined()
   return line!.trim()
 }
 

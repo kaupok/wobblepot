@@ -44,7 +44,14 @@ export const InUse: Story = {
             {
               error: 'Ingredient in use',
               code: 'in_use',
-              uses: { meals: 2, pantry: 1, shoppingList: 1, mealPlan: 3, extras: 1 },
+              uses: {
+                meals: 2,
+                deletedMealsInPlan: 0,
+                pantry: 1,
+                shoppingList: 1,
+                mealPlan: 3,
+                extras: 1,
+              },
             },
             { status: 409 },
           ),
@@ -74,6 +81,43 @@ export const InUseEstonian: Story = {
     await expect(
       await body.findByText(
         'lovage on veel kasutusel, seega ei saa seda kustutada: 2 retsepti, sahvris, 1 ostunimekirja rida, 3 söögiplaani kirjet, 1 lisa. Eemalda see enne sealt.',
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+/** A deleted recipe a meal plan entry still uses (HON-1325): named apart, never as "1 recipe". */
+export const InUseByDeletedRecipe: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.delete('/api/ingredients/:id', () =>
+          HttpResponse.json(
+            {
+              error: 'Ingredient in use',
+              code: 'in_use',
+              uses: {
+                meals: 0,
+                deletedMealsInPlan: 1,
+                pantry: 0,
+                shoppingList: 0,
+                mealPlan: 0,
+                extras: 0,
+              },
+            },
+            { status: 409 },
+          ),
+        ),
+      ],
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: 'Delete' }))
+
+    await expect(
+      await body.findByText(
+        'lovage is still in use, so you cannot delete it: 1 deleted recipe still in your meal plan. Remove it from those first.',
       ),
     ).toBeInTheDocument()
   },

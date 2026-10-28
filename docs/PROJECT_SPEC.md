@@ -61,22 +61,22 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 
 ## Domain Glossary
 
-| Term                | Definition                                                                                           |
-| ------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Plan**            | The household's single `MealPlan`. It has no dates of its own; its entries cover any days.           |
-| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across days.                  |
-| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                |
-| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                |
-| **Slot**            | A date + mealType position.                                                                          |
-| **Fridge meal**     | An entry with no meal: items from the pantry, a recent meal's leftovers, or free text (`kind`).      |
-| **Extra**           | A snack or drink on a day, outside its meals: an ingredient with an optional amount, or free text.   |
-| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                          |
-| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                |
-| **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.    |
-| **Pool**            | Candidates filtered by protein type (fish, legume, any).                                             |
-| **Staple**          | Pantry item always assumed in stock; never on shopping list.                                         |
-| **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).       |
-| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`). |
+| Term                | Definition                                                                                                                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plan**            | The household's single `MealPlan`. It has no dates of its own; its entries cover any days.                                                                                        |
+| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across days.                                                                                               |
+| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                                                                                             |
+| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                                                                                             |
+| **Slot**            | A date + mealType position.                                                                                                                                                       |
+| **Fridge meal**     | An entry with no meal: items from the pantry, an earlier meal's leftovers, or free text (`kind`). A leftover item may point at a dinner still planned, with the servings it takes |
+| **Extra**           | A snack or drink on a day, outside its meals: an ingredient with an optional amount, or free text.                                                                                |
+| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                                                                                                       |
+| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                                                                                             |
+| **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.                                                                                 |
+| **Pool**            | Candidates filtered by protein type (fish, legume, any).                                                                                                                          |
+| **Staple**          | Pantry item always assumed in stock; never on shopping list.                                                                                                                      |
+| **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).                                                                                    |
+| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`).                                                                              |
 
 ### Quantity Units
 
@@ -111,13 +111,13 @@ Allergens are asked in onboarding. The other preferences (dietary type, restrict
 
 ### Planning
 
-A household has one plan, and the Today page (`/`) shows it as a timeline from today through the next 14 days (`src/app/page.tsx`, `src/components/timeline/`). Past days have their own page, Past meals (`/past-meals`, `src/app/past-meals/page.tsx`): the last 7 days, newest first, and "Show the week before" adds 7 days per press, back to the week the household was created. Each past day lists its recipe and fridge meals as rows to mark cooked or skipped, and each expected meal type with no entry as a row with Add. Add logs what the household ate, a recipe or a fridge meal, saved as cooked with no pantry change; the recipe list puts the meals cooked most in the last 30 days first, and the fridge meal picker offers its free-text labels of the last 30 days as chips (HON-1383). A row that is not cooked also has Remove; a wrong log is fixed with Undo, then Remove. The account menu's dot counts only planned recipe meals of the last 7 days, never an empty slot.
+A household has one plan, and the Today page (`/`) shows it as a timeline from today through the next 14 days (`src/app/page.tsx`, `src/components/timeline/`). Past days have their own page, Past meals (`/past-meals`, `src/app/past-meals/page.tsx`): the last 7 days, newest first, and "Show the week before" adds 7 days per press, back to the week the household was created. Each past day lists its recipe and fridge meals as rows to mark cooked or skipped, and each expected meal type with no entry as a row with Add. Add logs what the household ate, a recipe or a fridge meal, saved as cooked with no pantry change and marked as already charged, so Undo then Cooked never charges the pantry for it (HON-1391); the recipe list puts the meals cooked most in the last 30 days first, and the fridge meal picker offers its free-text labels of the last 30 days as chips (HON-1383). A row that is not cooked also has Remove; a wrong log is fixed with Undo, then Remove. The account menu's dot counts only planned recipe meals of the last 7 days, never an empty slot.
 
 1. First plan: `FirstTimeSetup` asks for a start date and a number of days (`getDaysCountOptions` in `src/lib/meal-planning/day-picker.ts`), then calls `POST /api/meal-plans/generate` with `mode: 'generate'`
 2. Later: from the first upcoming day with nothing planned, `FillDaysAction` offers to fill a number of days, calling the same route with `mode: 'fill-empty'`. Only empty slots are filled (`src/lib/ai/fill-plan.ts`)
 3. Review the days, optionally swap meals (see Meal Swap)
 4. Day by day: mark meals completed or skipped
-5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`)
+5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`). A meal logged on a past day, in the app or through the assistant, is saved with the marker set, so it is never charged
 6. Any upcoming day: "+ Extra" adds a snack, a drink or another item outside the meals (see Pantry & Shopping List → Extras)
 
 Generation takes any start date, and `endDate` is exclusive. There is no week boundary and no plan per week; see Meal Plan Rules.
@@ -308,6 +308,7 @@ enum ProteinType {
 - **Dates live on entries:** `MealPlanEntry` has `@@unique([planId, date, mealType])`, so a slot holds at most one entry
 - **Generation range:** `POST /api/meal-plans/generate` takes `startDate` and an exclusive `endDate`, any day of the week, up to `MAX_DAYS` days (`src/app/api/meal-plans/generate/route.ts`). Ranges may overlap earlier generations; regeneration replaces what it may (see Edge Cases)
 - **Meal editing:** Ranked alternatives, or search the library and My recipes (see Meal Swap)
+- **Leftover lunches (HON-1394):** a fridge meal's leftover item can point at an earlier recipe meal, planned or cooked, not skipped, up to 3 days before the fridge meal's own day. It carries `servings` (0.5 to 20, in steps of 0.5), required when the source is still planned. The source's **cook servings** are its own servings (`getEffectiveServings`) plus the servings of every leftover item from a fridge meal that is not skipped (`getCookServings`). The shopping list, the pantry's needed amounts, the pantry deduction and the AI prompts scale by cook servings; the servings control and `set_meal_servings` edit own servings only. Completion stores the cook servings (`MealPlanEntry.cookedServings`), so a lunch changed later leaves what the pantry was charged for. Cached tips priced at another total are regenerated on the next read. A swapped dinner keeps its lunches; a cleared dinner turns their items into free text. Only the MCP `plan_fridge_meal` can link a planned dinner so far; the app's picker offers cooked meals only
 
 ### Pantry & Shopping List
 

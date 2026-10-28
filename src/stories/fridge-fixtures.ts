@@ -35,6 +35,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Mash',
     sourceDate: MASH_DATE,
+    servings: null,
   },
   {
     id: 'item-veg',
@@ -43,6 +44,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Cauliflower and broccoli mix',
     sourceDate: null,
+    servings: null,
   },
   {
     id: 'item-cucumber',
@@ -51,6 +53,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Cucumber',
     sourceDate: null,
+    servings: null,
   },
   {
     id: 'item-meatballs',
@@ -59,5 +62,25 @@ export const fridgeItems: FridgeMealItem[] = [
     label: 'store meatballs',
     name: null,
     sourceDate: null,
+    servings: null,
   },
 ]
+
+/**
+ * Tomorrow's lunch from tonight's dinner (HON-1395): Tuesday's roast, still
+ * planned, gives this lunch 2.5 servings.
+ */
+export const plannedLeftoverItem: FridgeMealItem = {
+  id: 'item-roast',
+  ingredientId: null,
+  sourceEntryId: 'entry-roast',
+  label: null,
+  name: 'Roast chicken',
+  sourceDate: MASH_DATE,
+  servings: 2.5,
+  sourceMealType: 'dinner',
+  sourceState: 'planned',
+}
+
+/** The same lunch once the roast is skipped: there will be no leftovers. */
+export const skippedLeftoverItem: FridgeMealItem = { ...plannedLeftoverItem, sourceState: 'gone' }

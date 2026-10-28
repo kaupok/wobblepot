@@ -85,6 +85,7 @@ const freeTextItem = (label: string): (typeof fridgeItems)[number] => ({
   label,
   name: null,
   sourceDate: null,
+  servings: null,
 })
 
 const saves = () => requests.filter((r) => r.method !== 'GET')

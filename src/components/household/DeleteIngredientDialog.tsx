@@ -21,7 +21,14 @@ interface DeleteIngredientDialogProps {
   onCloseAutoFocus?: (event: Event) => void
 }
 
-const USE_KEYS = ['meals', 'pantry', 'shoppingList', 'mealPlan', 'extras'] as const
+const USE_KEYS = [
+  'meals',
+  'deletedMealsInPlan',
+  'pantry',
+  'shoppingList',
+  'mealPlan',
+  'extras',
+] as const
 
 /**
  * Delete on the Ingredients tab (HON-1264). The route refuses a row that

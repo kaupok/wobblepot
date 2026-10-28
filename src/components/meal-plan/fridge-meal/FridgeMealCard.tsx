@@ -6,7 +6,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Check, MoreHorizontal, Pencil, StickyNote as StickyNoteIcon, Undo2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CardHeader } from '@/components/ui/card'
+import { Callout } from '@/components/ui/callout'
+import { CardContent, CardHeader } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,7 @@ import { useEntryStatus } from '../use-entry-status'
 import type { FridgeMealItem, MealStatus, PantryItemFull } from '../types'
 import { FridgeCompleteDialog } from './FridgeCompleteDialog'
 import { FridgeMealPicker } from './FridgeMealPicker'
-import { toFridgeItemInput, useFridgeItemText } from './use-fridge-item-text'
+import { toFridgeItemInput, useFridgeItemText, useLeftoverSourceText } from './use-fridge-item-text'
 
 interface FridgeMealCardProps {
   entryId: string
@@ -80,8 +81,10 @@ export function FridgeMealCard({
   const t = useTranslations('meal-plan.fridge')
   const tCard = useTranslations('meal-plan.card')
   const itemText = useFridgeItemText()
+  const leftoverSourceText = useLeftoverSourceText()
   const nameId = useId()
   const sidesId = useId()
+  const sourceId = useId()
   const [note, setNote] = useState<string | null>(initialNote)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
@@ -120,6 +123,16 @@ export function FridgeMealCard({
       : items.map(itemText).join(', '),
     locale,
   )
+  // A leftover the assistant planned says which meal feeds it and how much,
+  // so the household cooks enough (HON-1395).
+  const sourceLines = leftovers.flatMap((item) => leftoverSourceText(item) ?? [])
+  // The leftovers' meal was skipped or changed, so they will not exist. Only
+  // while this meal is still to eat: the household must plan something else.
+  const isLeftoverGone =
+    status !== 'completed' && leftovers.some((item) => item.sourceState === 'gone')
+  const nameLabelIds = [nameId, sourceLines.length > 0 && sourceId, sides.length > 0 && sidesId]
+    .filter(Boolean)
+    .join(' ')
   // The title and the items, so two fridge cards on one page name their actions
   // apart. Separators, not prepositions (docs/LOCALIZATION.md).
   const cardName = t('cardName', { title: t('title'), items: items.map(itemText).join(', ') })
@@ -278,7 +291,7 @@ export function FridgeMealCard({
                       ref={nameButtonRef}
                       type="button"
                       data-slot="card-target"
-                      aria-labelledby={sides.length > 0 ? `${nameId} ${sidesId}` : nameId}
+                      aria-labelledby={nameLabelIds}
                       className="absolute inset-0 cursor-pointer outline-none"
                       onClick={() => openPicker(nameButtonRef)}
                     />
@@ -288,6 +301,15 @@ export function FridgeMealCard({
                   </span>
                 </Heading>
               </div>
+              {sourceLines.length > 0 && (
+                <div id={sourceId}>
+                  {sourceLines.map((line) => (
+                    <Body key={line} variant="paragraph" tone="muted">
+                      {line}
+                    </Body>
+                  ))}
+                </div>
+              )}
               {sides.length > 0 && (
                 <Body variant="paragraph" tone="muted" id={sidesId}>
                   {t('withItems', { items: sides.map(itemText).join(', ') })}
@@ -333,7 +355,13 @@ export function FridgeMealCard({
               )
         }
         overlayWide={isNoteEditing}
-      />
+      >
+        {isLeftoverGone && (
+          <CardContent className="px-4 pb-2">
+            <Callout tone="warning">{t('sourceGone')}</Callout>
+          </CardContent>
+        )}
+      </MealImageCard>
       <FridgeMealPicker
         open={isPickerOpen}
         onOpenChange={setIsPickerOpen}

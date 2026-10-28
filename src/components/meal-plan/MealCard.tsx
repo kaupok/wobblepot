@@ -30,9 +30,11 @@ import { MyRecipeIcon } from './MyRecipeIcon'
 import { ProteinBadge } from './ProteinBadge'
 import { ConflictBadges } from './ConflictBadge'
 import { ChangedBadge } from './ChangedBadge'
+import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './use-leftover-lunches'
 import type {
   EntryChange,
   EntryRating,
+  LeftoverLunch,
   MealData,
   MealStatus,
   PantryIngredient,
@@ -67,6 +69,10 @@ interface MealCardProps {
   noteX?: number | null
   noteY?: number | null
   servingOverride?: number | null
+  /** See `PlanEntry.cookServings`. */
+  cookServings?: number
+  /** See `PlanEntry.leftoversFor`. */
+  leftoversFor?: LeftoverLunch[]
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
   /** The entry's cached preparation tips — see `PlanEntry.preparationTips`. */
@@ -102,6 +108,8 @@ export function MealCard({
   noteX = null,
   noteY = null,
   servingOverride: initialServingOverride,
+  cookServings,
+  leftoversFor,
   pantryDeducted = false,
   preparationTips = null,
   conflicts = [],
@@ -127,6 +135,8 @@ export function MealCard({
 
   const effectiveServings = servingOverride ?? householdServings
   const hasServingOverride = servingOverride !== null && servingOverride !== householdServings
+  // A dinner is cooked, charged and shown for its leftover lunches (HON-1395).
+  const leftoverText = useLeftoverLunchText()
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
   // The meal name opens the cook view, and is where focus comes back to once
@@ -151,7 +161,7 @@ export function MealCard({
     meal,
     initialStatus,
     pantryDeducted,
-    servings: effectiveServings,
+    servings: getShownCookServings(effectiveServings, sharedLeftovers(leftoversFor)),
     pantryItems,
     source: 'meal_card',
     // The server dropped the entry's cached tips on the way out of
@@ -159,6 +169,11 @@ export function MealCard({
     onLeaveCompleted: () => detailModalRef.current?.dropSteps(),
     onCompleted: () => setShowRatingPrompt(true),
   })
+  // Skipped cooks nothing; `cookServings` is stored only if loaded completed.
+  const leftovers = status === 'skipped' ? [] : sharedLeftovers(leftoversFor)
+  const cookedServings =
+    status === 'completed' && initialStatus === 'completed' ? cookServings : undefined
+  const shownServings = getShownCookServings(effectiveServings, leftovers, cookedServings)
 
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
@@ -651,8 +666,14 @@ export function MealCard({
               {shouldShowAvailability && availability && (
                 <AvailabilityIndicator availability={availability} />
               )}
-              {hasServingOverride && (
-                <Badge variant="secondary">{tCard('servings', { count: effectiveServings })}</Badge>
+              {(hasServingOverride || leftovers.length > 0) && (
+                // One line: cut short, not wrapped.
+                <Badge variant="secondary" className="max-w-full">
+                  <span className="truncate">
+                    {tCard('servings', { count: shownServings })}
+                    {leftovers.length > 0 && ` · ${leftoverText(leftovers)}`}
+                  </span>
+                </Badge>
               )}
               {/* The status in words, so it reads without the thumbs or the
                   missing availability badge (HON-1125). */}
@@ -737,6 +758,8 @@ export function MealCard({
         onNoteChange={handleNoteChange}
         servingOverride={servingOverride}
         onServingOverrideChange={setServingOverride}
+        cookedServings={cookedServings}
+        leftovers={leftovers}
         initialSteps={preparationTips}
         conflicts={status === 'planned' ? conflicts : undefined}
         changes={changes}
@@ -769,7 +792,7 @@ export function MealCard({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdServings={effectiveServings}
+        householdServings={shownServings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

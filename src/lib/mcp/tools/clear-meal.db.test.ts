@@ -166,9 +166,9 @@ describe('clear_meal', () => {
       kind: 'fridge',
       meal: null,
       items: [
-        { name: 'glimmer peas', source: 'pantry' },
-        { name: 'Glimmer stew', source: 'leftover' },
-        { name: 'Meatballs', source: 'text' },
+        { name: 'glimmer peas', source: 'pantry', sourceEntryId: null, servings: null },
+        { name: 'Glimmer stew', source: 'leftover', sourceEntryId: 'entry-cooked', servings: null },
+        { name: 'Meatballs', source: 'text', sourceEntryId: null, servings: null },
       ],
     })
     expect(clearMeal.outputSchema.safeParse(result).success).toBe(true)

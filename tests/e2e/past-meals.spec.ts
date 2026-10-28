@@ -208,10 +208,12 @@ test('a past meal is marked cooked from its row in one click, charged once, and 
 })
 
 // Add on an empty past slot logs what the household ate (HON-1383): one POST
-// with `status: 'completed'`, no pantry dialog and no pantry charge. The row
-// then shows Cooked, the thumbs and Undo. Undo, then Remove, leaves the slot
-// empty with Add again. The smoke household expects dinner on every day.
-test('a dinner is logged in an empty past slot, then removed', async ({ page }) => {
+// with `status: 'completed'`, no pantry dialog and no pantry charge. The log
+// is saved as already charged (HON-1391), so Undo then Cooked asks for no
+// deduction and opens no dialog. The row shows Cooked, the thumbs and Undo.
+// Undo, then Remove, leaves the slot empty with Add again. The smoke household
+// expects dinner on every day.
+test('a dinner is logged in an empty past slot, cooked again, then removed', async ({ page }) => {
   await signInAsSmoke(page)
 
   const date = daysFromNow(LOG_DAY_OFFSET)
@@ -266,7 +268,27 @@ test('a dinner is logged in an empty past slot, then removed', async ({ page }) 
         const entry = (await listEntries(page)).entries.find((e) => e.id === entryId)
         return entry && { status: entry.status, charged: entry.pantryDeducted }
       })
-      .toEqual({ status: 'completed', charged: false })
+      .toEqual({ status: 'completed', charged: true })
+
+    // Undo, then Cooked: the log is already charged, so no dialog opens and the
+    // PATCH asks for no deduction. Undo has landed once focus is on Cooked, so
+    // the PATCH caught below is Cooked's.
+    await undo.click()
+    const cooked = day.getByRole('button', { name: 'Cooked' })
+    await expect(cooked).toBeFocused()
+    const [patch] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === 'PATCH' &&
+          new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries/${entryId}` &&
+          r.request().postDataJSON()?.status === 'completed',
+      ),
+      cooked.click(),
+    ])
+    expect(patch.ok()).toBe(true)
+    expect(patch.request().postDataJSON()).toEqual({ status: 'completed', deductPantry: false })
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(undo).toBeFocused()
 
     // A wrong log: Undo, then Remove, and the slot is empty with Add again.
     await undo.click()

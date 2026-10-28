@@ -21,11 +21,13 @@ export interface HouseholdIngredient {
 
 /**
  * What still holds a household ingredient, by the name the delete refusal
- * shows. `mealPlan` sums the fridge items and the swapped components of plan
- * entries.
+ * shows. `meals` counts live recipes, and `deletedMealsInPlan` the deleted
+ * recipes a meal plan entry still uses. `mealPlan` sums the fridge items and
+ * the swapped components of plan entries.
  */
 export interface IngredientUses {
   meals: number
+  deletedMealsInPlan: number
   pantry: number
   shoppingList: number
   mealPlan: number
