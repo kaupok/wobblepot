@@ -45,6 +45,9 @@ export async function loadFrequentMeals(
       status: MealPlanEntryStatus.completed,
       kind: 'meal',
       mealId: { not: null },
+      // A deleted recipe cannot be logged (`createEntry` refuses it), so it
+      // takes none of the places.
+      meal: { deletedAt: null },
     },
     _count: { _all: true },
     _max: { date: true },

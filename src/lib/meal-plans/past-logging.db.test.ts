@@ -85,6 +85,18 @@ describe('loadFrequentMeals', () => {
     expect(ids).toEqual(['meal-soup'])
   })
 
+  it('leaves out a deleted recipe, however often it was cooked', async () => {
+    const { alder, entry } = await world()
+    await entry('2026-10-30', { mealId: 'meal-pie' })
+    await entry('2026-10-29', { mealId: 'meal-pie' })
+    await entry('2026-10-28', { mealId: 'meal-soup' })
+    await prisma.meal.update({ where: { id: 'meal-pie' }, data: { deletedAt: new Date() } })
+
+    const ids = (await loadFrequentMeals(alder, NOW)).map((m) => m.id)
+
+    expect(ids).toEqual(['meal-soup'])
+  })
+
   it("names the meal in the household's language", async () => {
     const { alder, entry } = await world()
     await entry('2026-10-30', { mealId: 'meal-pasta' })
