@@ -46,7 +46,8 @@ interface UseRecipeStepsOptions {
 }
 
 /**
- * A household recipe's steps in the My recipes cook view (HON-1338), from
+ * A recipe's steps in the recipe cook view (HON-1338), for the household's
+ * own recipe or a library meal (HON-1351), from
  * `POST /api/meals/{id}/preparation-steps`. A query, keyed by the servings, so
  * a serving change asks again by itself and a count already seen this session
  * shows at once. The route stores the steps, so a later visit at the same count

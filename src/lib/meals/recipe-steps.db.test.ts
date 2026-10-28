@@ -8,6 +8,7 @@ import {
   saveRecipeSteps,
   type RecipeStepsRefusal,
 } from '@/lib/meals/recipe-steps'
+import { stepsInputHash } from '@/lib/landing/steps-input-hash'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and read or changed through the lib functions (HON-1338).
@@ -16,7 +17,7 @@ const STEPS = { steps: ['Boil the pasta.'], pitfalls: ['Salt the water.'] }
 
 /**
  * Alder owns a pasta recipe with an Estonian translation and a deleted soup.
- * Birch owns a stew. Porridge is a library meal.
+ * Birch owns a stew. Porridge is a library meal, gruel a deleted one.
  */
 async function world() {
   await prisma.ingredient.create({
@@ -48,7 +49,14 @@ async function world() {
     data: { id: 'meal-soup', name: 'Soup', householdId: alder.id, deletedAt: new Date() },
   })
   await prisma.meal.create({ data: { id: 'meal-stew', name: 'Stew', householdId: birch.id } })
-  await prisma.meal.create({ data: { id: 'meal-porridge', name: 'Porridge' } })
+  await prisma.meal.create({
+    data: {
+      id: 'meal-porridge',
+      name: 'Porridge',
+      components: { create: { ingredientId: 'ing-pasta', quantityPerServing: 80 } },
+    },
+  })
+  await prisma.meal.create({ data: { id: 'meal-gruel', name: 'Gruel', deletedAt: new Date() } })
   return { alder: alder.id }
 }
 
@@ -83,12 +91,23 @@ describe('loadRecipeForSteps', () => {
     expect(meal.components.map((c) => c.quantityPerServing)).toEqual([100])
   })
 
-  it("refuses another household's recipe, a library meal and a deleted recipe", async () => {
+  it('loads a library meal with its components (HON-1351)', async () => {
+    const { alder } = await world()
+
+    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en')
+
+    expect(meal.name).toBe('Porridge')
+    expect(meal.householdId).toBeNull()
+    expect(meal.components.map((c) => c.quantityPerServing)).toEqual([80])
+  })
+
+  it("refuses another household's recipe, a deleted meal and an unknown id", async () => {
     const { alder } = await world()
 
     expect(await refusalOf(loadRecipeForSteps(alder, 'meal-stew', 'en'))).toBe('not_found')
-    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-porridge', 'en'))).toBe('not_found')
     expect(await refusalOf(loadRecipeForSteps(alder, 'meal-soup', 'en'))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-gruel', 'en'))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-nothing', 'en'))).toBe('not_found')
   })
 
   it('names the meal and its ingredients in the locale', async () => {
@@ -99,6 +118,35 @@ describe('loadRecipeForSteps', () => {
 
     expect(input.mealName).toBe('Pasta eesti keeles')
     expect(input.components.map((c) => c.name)).toEqual(['Pasta (et)'])
+  })
+})
+
+describe('recipeStepsRequest', () => {
+  it("follows the household's own notes", async () => {
+    const { alder } = await world()
+    await prisma.meal.update({
+      where: { id: 'meal-pasta' },
+      data: { preparationNotes: 'Bake for 20 minutes.' },
+    })
+
+    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en')
+
+    expect(recipeStepsRequest(meal, 'en', 2).notes).toBe('Bake for 20 minutes.')
+  })
+
+  it('gives a library meal no notes, so the full prompt writes its steps (HON-1351)', async () => {
+    const { alder } = await world()
+    await prisma.meal.update({
+      where: { id: 'meal-porridge' },
+      data: { preparationNotes: 'Stir often.' },
+    })
+
+    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en')
+    const { input, notes, inputHash } = recipeStepsRequest(meal, 'en', 2)
+
+    expect(notes).toBeNull()
+    // The hash `pnpm steps:library` and the landing demo check for the row.
+    expect(inputHash).toBe(stepsInputHash(input))
   })
 })
 

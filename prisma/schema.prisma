@@ -728,11 +728,12 @@ model Meal {
 }
 
 // Preparation steps for a meal at one serving count, one row per locale.
-// Two writers, on disjoint meals:
+// Two kinds of row:
 // - A library meal, at its own `servings`: written by the deploy workflows
 //   (and by hand) with `pnpm steps:library` for the signed-out demo on the
 //   home page and the public sample weeks, which must never call the AI
-//   themselves.
+//   themselves. The recipe cook view reads it too, and writes it only at those
+//   servings, so households never overwrite each other's row (HON-1351).
 // - A household's own recipe, at the servings its My recipes cook view shows:
 //   written by `POST /api/meals/[id]/preparation-steps` (HON-1338). Those
 //   servings are the household's portions summed, so they can be a fraction
