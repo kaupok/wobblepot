@@ -219,6 +219,36 @@ describe('plan_meal', () => {
       expect(await entryCount(household.id)).toBe(1)
     })
 
+    // A log records what the household ate, as the Past meals page does, so
+    // neither the meal type nor the diet blocks it (HON-1443).
+    it('for a dinner-only recipe eaten at lunch', async () => {
+      const household = await world()
+
+      const result = await call(household, { date: day(-1), mealType: 'lunch', mealId: 'stew' })
+
+      expect(result).toMatchObject({ status: 'cooked', mealType: 'lunch' })
+      const [entry] = await prisma.mealPlanEntry.findMany({ where: { planId: 'plan-alder' } })
+      expect(entry).toMatchObject({ mealId: 'stew', mealType: 'lunch', status: 'completed' })
+    })
+
+    it("for a meal outside the household's diet", async () => {
+      const household = await world()
+
+      const result = await call(household, { date: day(-1), mealType: 'dinner', mealId: 'satay' })
+
+      expect(result).toMatchObject({ status: 'cooked', meal: { id: 'satay' } })
+      const [entry] = await prisma.mealPlanEntry.findMany({ where: { planId: 'plan-alder' } })
+      expect(entry).toMatchObject({ mealId: 'satay', status: 'completed' })
+    })
+
+    it.each(['birch-pie', 'gone', 'no-such-meal'])('refuses the meal id %s', async (mealId) => {
+      const household = await world()
+
+      expect(await refusal(household, { date: day(-1), mealType: 'dinner', mealId })).toBe(
+        'No meal with this id. Use list_meals to find the meal. Nothing was changed.',
+      )
+    })
+
     it('refuses a past slot that has a meal, pointing to swap_meal', async () => {
       const household = await world()
       const date = day(-2)

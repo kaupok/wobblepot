@@ -14,7 +14,7 @@ import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 export const planMeal = defineTool({
   name: 'plan_meal',
   title: 'Plan a meal',
-  description: `Puts one meal the user chose in an empty slot: a day and meal type with no meal yet. Use it to plan from the household's rotation: list_meals with source own or favourites gives the ids. The meal must suit the meal type and fit the household's diet, allergens and avoided ingredients. A meal planned recently is allowed; lastPlannedOn says when it was last planned, so you can mention the repeat. The day is any past day, today, or up to ${MAX_DAYS_AHEAD} days ahead. A past day logs the meal as cooked, because the household ate it, and does not change the pantry. To change a slot that has a meal, use swap_meal.`,
+  description: `Puts one meal the user chose in an empty slot: a day and meal type with no meal yet. Use it to plan from the household's rotation: list_meals with source own or favourites gives the ids. For today or a later day, the meal must suit the meal type and fit the household's diet, allergens and avoided ingredients. A meal planned recently is allowed; lastPlannedOn says when it was last planned, so you can mention the repeat. The day is any past day, today, or up to ${MAX_DAYS_AHEAD} days ahead. A past day logs the meal as cooked, because the household ate it, and does not change the pantry; it takes any meal the household can see, whatever its meal type or diet. To change a slot that has a meal, use swap_meal.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
