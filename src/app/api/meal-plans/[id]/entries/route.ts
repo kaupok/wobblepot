@@ -46,6 +46,10 @@ const createEntrySchema = z
     rating: z.enum(['up', 'down']).nullable().optional(),
     pantryDeducted: z.boolean().optional(),
     pick: z.literal('suggested').optional(),
+    // Undo after Clear (HON-1396): the entry's own items come back, so the
+    // leftover source rule, which a source changed since may now fail, is not
+    // run on them.
+    restore: z.literal(true).optional(),
   })
   // The note's place is one point, set together, and only beside a note
   // (HON-975).
@@ -177,7 +181,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const { date, pick, ...fields } = parsed.data
+  const { date, pick, restore, ...fields } = parsed.data
 
   // A log of a meal already eaten is for a past day only, in the household's
   // day (HON-1383). Today's meal is marked cooked from its card, which runs
@@ -221,13 +225,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     // The source rule (HON-1394): the picker lists only sources it allows, so
     // a refusal means the list went stale. The client tells it apart by `code`.
-    const refused = fields.fridgeItems
-      ? await findLeftoverSourceProblem(
-          household.id,
-          { date, mealType: fields.mealType },
-          fields.fridgeItems,
-        )
-      : null
+    const refused =
+      fields.fridgeItems && !restore
+        ? await findLeftoverSourceProblem(
+            household.id,
+            { date, mealType: fields.mealType },
+            fields.fridgeItems,
+          )
+        : null
     if (refused) {
       return NextResponse.json(
         { error: 'Leftover source refused', code: 'leftover_source', ...refused },

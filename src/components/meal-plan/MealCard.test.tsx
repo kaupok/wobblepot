@@ -179,6 +179,7 @@ describe('MealCard Clear and Undo', () => {
         status: 'skipped',
         rating: 'down',
         pantryDeducted: true,
+        restore: true,
       }),
     )
     expect(toast.error).not.toHaveBeenCalled()

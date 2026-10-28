@@ -545,6 +545,26 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       expect(mockCreateEntry).not.toHaveBeenCalled()
     })
 
+    // Undo after Clear sends the entry's own items back. A source changed
+    // since, such as a cooked dinner set back to planned with the item's
+    // servings unset, must not refuse it (HON-1396).
+    it('does not run the source rule on a restore, and does not pass the flag on', async () => {
+      mockCreateEntry.mockResolvedValue({ ...created, mealId: null })
+      const leftovers = [{ sourceEntryId: 'entry-dinner' }]
+
+      const { status } = await answer(
+        post({ date: '2099-01-28', mealType: 'lunch', fridgeItems: leftovers, restore: true }),
+      )
+
+      expect(status).toBe(200)
+      expect(findLeftoverSourceProblem).not.toHaveBeenCalled()
+      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
+        date: new Date(2099, 0, 28),
+        mealType: 'lunch',
+        fridgeItems: leftovers,
+      })
+    })
+
     it('answers 404 for an item the household may not see, unreported', async () => {
       mockCreateEntry.mockRejectedValue(new FridgeItemNotFoundError())
 

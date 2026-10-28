@@ -143,6 +143,7 @@ describe('PastFridgeRow', () => {
       note: null,
       noteX: null,
       noteY: null,
+      restore: true,
     })
   })
 })

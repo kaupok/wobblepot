@@ -77,7 +77,9 @@ export function useClearEntry({ planId, entryId, name, onCleared }: UseClearEntr
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entry),
+          // `restore`: the items are ones the household already had, so the
+          // leftover source rule does not judge them again (HON-1396).
+          body: JSON.stringify({ ...entry, restore: true }),
         },
         tCard('undoFailed'),
       ),
