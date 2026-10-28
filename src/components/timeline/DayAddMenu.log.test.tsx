@@ -115,6 +115,9 @@ describe('DayAddMenu log mode', () => {
         body: { date: '2026-04-14', mealType: 'dinner', mealId: 'meal-soup', status: 'completed' },
       },
     ])
+    // The library is not filtered by meal type: the meal was already eaten.
+    const libraryUrls = requests.filter((r) => r.url.startsWith('/api/meals')).map((r) => r.url)
+    expect(libraryUrls).toEqual(['/api/meals?limit=20&offset=0&source=custom'])
     expect(refresh).toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => expect(addButton()).toHaveFocus())

@@ -90,10 +90,11 @@ function PickerBody({ planId, date, mealType, frequentMeals, onSaved, onClose }:
   const search = useDebouncedValue(query.trim())
 
   const libraryQuery = useQuery({
-    queryKey: ['log-meal-picker', mealType, search],
+    // No `mealType`: the household already ate the meal, so a dinner recipe
+    // eaten at lunch is logged as lunch. `createEntry` does not check the slot.
+    queryKey: ['log-meal-picker', search],
     queryFn: () => {
       const params = new URLSearchParams({
-        mealType,
         limit: String(LIBRARY_PAGE_SIZE),
         offset: '0',
       })
