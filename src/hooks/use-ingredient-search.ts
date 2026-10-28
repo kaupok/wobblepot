@@ -62,7 +62,7 @@ export function useIngredientSearch(query: string) {
   // the previous query's cached dropdown underneath the new input.
   const search = trimmed !== '' && trimmed.startsWith(debounced) ? debounced : ''
 
-  return useQuery({
+  const result = useQuery({
     queryKey: ['ingredients', { search }],
     queryFn: () =>
       apiFetch<{ ingredients: IngredientResult[] }>(
@@ -71,4 +71,7 @@ export function useIngredientSearch(query: string) {
     enabled: search.length > 0,
     select: (data) => data.ingredients,
   })
+  // False while the results are for a shorter prefix the user has typed past,
+  // so a caller does not act on them as if they matched the field (HON-1362).
+  return { ...result, isCurrent: search === trimmed }
 }

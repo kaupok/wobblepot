@@ -256,6 +256,29 @@ describe('IngredientSearch Enter on the top result', () => {
     expect(onAddIngredient).not.toHaveBeenCalled()
   })
 
+  // Results for "to" stay on screen while the debounce catches up with "tom";
+  // a quick Enter must not add from them (PR #1415 review).
+  it('adds nothing on Enter while the results are for a shorter query', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient })
+
+    const input = await typeAndWait(user, 'to')
+    await user.type(input, 'm')
+    expect(screen.getAllByRole('option')).toHaveLength(2)
+    expect(input).not.toHaveAttribute('aria-activedescendant')
+
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).not.toHaveBeenCalled()
+
+    // Once the results for "tom" arrive, the top one is the default again.
+    await vi.advanceTimersByTimeAsync(350)
+    await waitFor(() => expect(input).toHaveAttribute('aria-activedescendant'))
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).toHaveBeenCalledExactlyOnceWith(mockIngredients[0])
+  })
+
   it('uses the field ref a caller passes, so the caller can focus it', async () => {
     const inputRef = { current: null as HTMLInputElement | null }
     renderSearch({ inputRef })

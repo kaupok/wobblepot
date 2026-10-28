@@ -43,11 +43,20 @@ export function IngredientSearch({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
 
-  const { data: searchResults = [], isLoading: isSearching } = useIngredientSearch(searchQuery)
+  const {
+    data: searchResults = [],
+    isLoading: isSearching,
+    isCurrent,
+  } = useIngredientSearch(searchQuery)
   const showDropdown = !isDropdownDismissed && searchResults.length > 0
-  const firstAddableIndex = searchResults.findIndex((r) => !existingIngredientIds.includes(r.id))
-  // Fall back to the first addable result when nothing is highlighted, or when
-  // the result set shrank under a stale highlight.
+  // The first addable result is the default, but only once the results match
+  // what the user typed: results for a shorter prefix stay on screen while the
+  // debounce catches up, and Enter must not add from them.
+  const firstAddableIndex = isCurrent
+    ? searchResults.findIndex((r) => !existingIngredientIds.includes(r.id))
+    : -1
+  // Fall back to that default when nothing is highlighted, or when the result
+  // set shrank under a stale highlight.
   const activeIndex =
     highlightedIndex >= 0 && highlightedIndex < searchResults.length
       ? highlightedIndex
