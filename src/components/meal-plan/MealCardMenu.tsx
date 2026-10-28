@@ -146,11 +146,18 @@ export function MealCardMenu({
                 {tCard('skipped')}
               </DropdownMenuItem>
               {/* Shown when it cannot run too, with the reason, so the household
-                learns what to change (HON-1396). */}
+                learns what to change (HON-1396). `unavailable`, not `disabled`,
+                so a keyboard user can arrow to it and hear the reason (HON-1426). */}
               {leftoverLunch && (
                 <DropdownMenuItem
-                  onSelect={() => setIsCookForLunchOpen(true)}
-                  disabled={leftoverLunch.state === 'unavailable'}
+                  unavailable={leftoverLunch.state === 'unavailable'}
+                  onSelect={(event) => {
+                    if (leftoverLunch.state === 'unavailable') {
+                      event.preventDefault()
+                      return
+                    }
+                    setIsCookForLunchOpen(true)
+                  }}
                 >
                   <Refrigerator aria-hidden="true" />
                   <div className="flex flex-col gap-1">
