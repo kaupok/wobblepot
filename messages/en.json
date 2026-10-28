@@ -537,6 +537,8 @@
       "useInSteps": "Use in the steps",
       "noteLabel": "The steps follow your request: {note}",
       "clearNote": "Clear request",
+      "close": "Close",
+      "closeLabel": "Close Adjust recipe",
       "review": {
         "title": "Suggested changes",
         "description": "Tick the changes to make. Only this meal changes. The recipe stays as it is.",

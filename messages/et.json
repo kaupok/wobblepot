@@ -537,6 +537,8 @@
       "useInSteps": "Arvesta sammudes",
       "noteLabel": "Sammud arvestavad sinu sooviga: {note}",
       "clearNote": "Eemalda soov",
+      "close": "Sulge",
+      "closeLabel": "Sulge retsepti kohandamine",
       "review": {
         "title": "Pakutud muudatused",
         "description": "Märgi muudatused, mida teha. Muutub ainult see toidukord. Retsept jääb samaks.",

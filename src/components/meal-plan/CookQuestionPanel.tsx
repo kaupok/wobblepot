@@ -7,7 +7,7 @@ import { Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { cn, prefersReducedMotion } from '@/lib/utils'
+import { cn, scrollIntoViewNearest } from '@/lib/utils'
 import type {
   CookQuestionActive,
   CookQuestionAskInput,
@@ -37,15 +37,6 @@ export interface CookQuestionControls {
   isStreaming: boolean
   error: CookQuestionError | null
   onRetry: () => void
-}
-
-/**
- * Scroll `el` into its nearest scrollable ancestor: the dialog's one column
- * below `lg`, the steps column from `lg`. "Nearest" leaves an element that is
- * already in view where it is. Focus does not move.
- */
-function scrollIntoViewNearest(el: HTMLElement | null) {
-  el?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
 }
 
 export interface CookQuestionPanelProps {

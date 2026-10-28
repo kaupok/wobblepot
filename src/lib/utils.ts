@@ -116,6 +116,15 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/**
+ * Scroll `el` into its nearest scrollable ancestor, a snap under reduced
+ * motion. "Nearest" leaves an element that is already in view where it is.
+ * Focus does not move.
+ */
+export function scrollIntoViewNearest(el: HTMLElement | null) {
+  el?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+}
+
 const DEFAULT_REDIRECT = '/'
 
 /**

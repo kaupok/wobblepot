@@ -13,7 +13,7 @@ import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
-import { AdjustRecipe } from './AdjustRecipe'
+import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
 import { PromoteEntry } from './PromoteEntry'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
@@ -104,6 +104,8 @@ interface MealDetailProps {
     editable: boolean
     /** A change landed and the server dropped the entry's cached steps. */
     onChanged: () => void
+    /** "Adjust recipe", opened from the ⋯ menu (HON-1356); see `AdjustRecipe`. */
+    adjust: Pick<AdjustRecipeProps, 'open' | 'onClose' | 'fieldRef'>
   }
 }
 
@@ -294,7 +296,8 @@ export function MealDetail({
               <IngredientList {...ingredientListProps} />
             )}
             {/* Free-text changes to this entry's ingredients (HON-1244), under
-                the per-row controls they write the same changes as. */}
+                the per-row controls they write the same changes as. Only on
+                request from the ⋯ menu; closed, the stored request alone. */}
             {ingredientChanges?.editable && (
               <AdjustRecipe
                 planId={ingredientChanges.planId}
@@ -303,6 +306,7 @@ export function MealDetail({
                 adjustmentNote={ingredientChanges.adjustmentNote ?? null}
                 components={meal.components}
                 onChanged={ingredientChanges.onChanged}
+                {...ingredientChanges.adjust}
               />
             )}
             {/* Keeps the changes for good (HON-1245): a new recipe from a
