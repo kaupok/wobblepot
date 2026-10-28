@@ -620,7 +620,7 @@ linear_api() {
     msg=$(echo "$response" | jq -r '.errors[0].message // "Unknown error"')
     log ERROR "Linear API error: $msg"
     # A deleted issue: its deferred writes are dropped, not retried (HON-1452).
-    ! grep -qiE 'entity not found|could not find referenced' <<<"$msg" || LINEAR_ENTITY_GONE=true
+    ! grep -qiE 'entity not found|could not find referenced' <<<"$msg" || : > "$LINEAR_GONE_FLAG"
     return 1
   fi
 
@@ -1854,7 +1854,7 @@ strand_worker() {
   local recreated=false
   restore_strand_worktree "$branch" && recreated=true
   LINEAR_WRITES_FAILED=""
-  LINEAR_ENTITY_GONE=false
+  rm -f "$LINEAR_GONE_FLAG"
   local stranded_args=("$issue_uuid" "$issue_id" "$branch" "$log_file" \
     "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code" \
     "$recreated")

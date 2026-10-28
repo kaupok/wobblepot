@@ -56,28 +56,40 @@ describe('deferred outcomes end (HON-1452)', () => {
       expect(out).not.toContain('COMMENT:')
     })
 
-    it('is dropped at once when Linear says the issue does not exist', () => {
-      const out = polls({ ...failing, HARNESS_LINEAR_GONE: '2' }, 'OPEN', 'OPEN', 'OPEN')
+    // The label read calls linear_api inside $(…), so only the comment step
+    // would see a flag kept in a variable.
+    it.each([
+      ['comment', failing],
+      ['label', { HARNESS_RETRIED: '1', HARNESS_LABEL_FAILS: '1' }],
+    ])('drops a %s write at once when Linear says the issue does not exist', (step, env) => {
+      const out = polls({ ...env, HARNESS_LINEAR_GONE: '2' }, 'OPEN', 'OPEN', 'OPEN')
 
-      expect(count(out, /ERROR \[DEFERRED\] HON-999: Linear says the issue does not exist/g)).toBe(
-        1,
-      )
+      expect(out).toContain(`POLL:1:1:[{"issue":"HON-999","kind":"linear"}]`)
+      expect(
+        count(
+          out,
+          new RegExp(
+            `ERROR \\[DEFERRED\\] HON-999: Linear says the issue does not exist — dropping its Linear writes \\(${step}\\)`,
+            'g',
+          ),
+        ),
+      ).toBe(1)
       expect(out).toContain('POLL:2:0:[]')
       expect(out).not.toContain('still fail after')
     })
 
     it.each([
-      ['Entity not found: Issue', 'true'],
-      ['Could not find referenced Issue.', 'true'],
-      ['Rate limit exceeded', 'false'],
-    ])('reads the GraphQL error "%s" as a deleted issue: %s', (message, gone) => {
+      ['Entity not found: Issue', 'GONE:true:true'],
+      ['Could not find referenced Issue.', 'GONE:true:true'],
+      ['Rate limit exceeded', 'GONE:false:false'],
+    ])('reads the GraphQL error "%s" as %s', (message, gone) => {
       const out = execFileSync('bash', [deferredHarness, 'linear-error', message], {
         encoding: 'utf8',
         timeout: 30_000,
         env: harnessEnv(),
       })
 
-      expect(out).toContain(`LINEAR_ENTITY_GONE:${gone}`)
+      expect(out).toContain(gone)
     })
   })
 

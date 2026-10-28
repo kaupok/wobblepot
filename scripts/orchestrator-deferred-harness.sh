@@ -52,7 +52,9 @@
 #
 #   linear-error <message>
 #     The REAL linear_api against a curl that answers a GraphQL error with
-#     <message>. Prints LINEAR_ENTITY_GONE.
+#     <message>, once directly and once inside $(…), as the label and queue
+#     reads call it. Prints GONE:<direct>:<subshell>, each true when
+#     LINEAR_GONE_FLAG exists after the call.
 #
 #   slots
 #     Seeds DEFERRED with one network, one probe and one linear entry and prints
@@ -101,9 +103,12 @@ case "$MODE" in
   linear-error)
     MSG="${ARGS[0]}"
     curl() { jq -n --arg m "$MSG" '{errors: [{message: $m}]}'; }
-    LINEAR_ENTITY_GONE=false
+    gone() { if [ -f "$LINEAR_GONE_FLAG" ]; then echo true; else echo false; fi; rm -f "$LINEAR_GONE_FLAG"; }
+    rm -f "$LINEAR_GONE_FLAG"
     linear_api '{ viewer { id } }' > /dev/null 2>&1 || true
-    echo "LINEAR_ENTITY_GONE:$LINEAR_ENTITY_GONE"
+    direct=$(gone)
+    out=$(linear_api '{ viewer { id } }' 2>/dev/null) || true
+    echo "GONE:$direct:$(gone)"
     exit 0
     ;;
 
@@ -160,7 +165,7 @@ case "$MODE" in
     echo '[]' > "$LANDED"
     linear_api() {
       if [[ "$1" != *viewer* && ",${HARNESS_LINEAR_GONE:-}," == *",$POLL,"* ]]; then
-        LINEAR_ENTITY_GONE=true
+        : > "$LINEAR_GONE_FLAG"
         return 1
       fi
       case "$1" in
@@ -186,6 +191,8 @@ case "$MODE" in
     notify() { :; }
     LABEL_CALLS=0
     try_add_label() {
+      # Inside $(…), as the real label read: a deleted issue must still drop.
+      labels=$(linear_api '{ issue { labels } }') || { LINEAR_WRITES_FAILED+=" label"; return 0; }
       LABEL_CALLS=$((LABEL_CALLS + 1))
       if [ "$LABEL_CALLS" -le "${HARNESS_LABEL_FAILS:-0}" ]; then
         LINEAR_WRITES_FAILED+=" label"

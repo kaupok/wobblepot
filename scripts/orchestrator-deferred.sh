@@ -63,9 +63,12 @@ LINEAR_WRITES_FAILED=""
 # true during settle_deferred_at_exit: a write that still fails is logged for
 # a human instead of deferred again.
 DEFER_FINAL=false
-# Set by linear_api when Linear says the entity does not exist: the issue was
-# deleted, so a retry can never land. Cleared with LINEAR_WRITES_FAILED.
-LINEAR_ENTITY_GONE=false
+# Created by linear_api when Linear says the entity does not exist: the issue
+# was deleted, so a retry can never land. A file, because the label and queue
+# reads call linear_api inside $(…), whose variables die with the subshell.
+# Removed where LINEAR_WRITES_FAILED is cleared. $$ is this process in a
+# subshell too, and a reload execs in the same process.
+LINEAR_GONE_FLAG="${TMPDIR:-/tmp}/orchestrator-linear-gone.$$"
 
 # The marker HON-1413's wt_auto_network_drop (worktree-auto-run.sh) matches, in
 # the same scope: the last lines of the log. A worker that quotes the marker in
@@ -203,26 +206,21 @@ network_respawn() {
 # post whose curl timed out after Linear took it is on the issue (HON-1452).
 # A failed lookup counts as a failed comment: posting blind risks the duplicate.
 post_stranded_comment() {
-  local issue_uuid="$1" issue_id="$2" body="$3" tmp
+  local issue_uuid="$1" issue_id="$2" body="$3" comments
   STRANDED_MARKER="${REPLAY_COMMENT_MARKER:-$(date +%s)-$$-$RANDOM}"
   body+=$'\n\n'"<!-- orchestrator-run:$STRANDED_MARKER -->"
   if [ -n "$REPLAY_COMMENT_MARKER" ]; then
-    # A file, not $(…): linear_api must set LINEAR_ENTITY_GONE in this shell.
-    tmp=$(mktemp "${TMPDIR:-/tmp}/orchestrator-comments.XXXXXXXX")
-    if ! linear_api 'query($id: String!) { issue(id: $id) { comments(first: 250) { nodes { body } } } }' \
-         "$(jq -n --arg id "$issue_uuid" '{id: $id}')" > "$tmp" 2>/dev/null; then
-      rm -f "$tmp"
+    if ! comments=$(linear_api 'query($id: String!) { issue(id: $id) { comments(first: 250) { nodes { body } } } }' \
+         "$(jq -n --arg id "$issue_uuid" '{id: $id}')" 2>/dev/null); then
       log WARN "Could not read the comments of $issue_id"
       LINEAR_WRITES_FAILED+=" comment"
       return 0
     fi
     if jq -e --arg m "orchestrator-run:$STRANDED_MARKER" \
-         'any(.data.issue.comments.nodes[]?; .body | contains($m))' "$tmp" > /dev/null 2>&1; then
-      rm -f "$tmp"
+         'any(.data.issue.comments.nodes[]?; .body | contains($m))' <<<"$comments" > /dev/null 2>&1; then
       log INFO "$issue_id already has the stranded comment — not posting it again"
       return 0
     fi
-    rm -f "$tmp"
   fi
   linear_api \
     'mutation($issueId: String!, $body: String!) {
@@ -248,7 +246,8 @@ defer_linear_writes() {
     log ERROR "[DEFERRED] $2: Linear writes still fail at exit ($steps) — make them by hand"
     return 0
   fi
-  if [ "$LINEAR_ENTITY_GONE" = true ]; then
+  if [ -f "$LINEAR_GONE_FLAG" ]; then
+    rm -f "$LINEAR_GONE_FLAG"
     log ERROR "[DEFERRED] $2: Linear says the issue does not exist — dropping its Linear writes ($steps)"
     return 0
   fi
@@ -272,7 +271,7 @@ replay_deferred() {
     # Twelve arguments; a trailing empty one is lost in the split.
     while [ ${#args[@]} -lt 12 ]; do args+=(""); done
     LINEAR_WRITES_FAILED=""
-    LINEAR_ENTITY_GONE=false
+    rm -f "$LINEAR_GONE_FLAG"
     # An entry from older code has neither: its age starts now, with no marker.
     REPLAY_LINEAR_AT="${fields[15]:-$(date +%s)}"
     REPLAY_COMMENT_MARKER="${fields[16]:-}"
