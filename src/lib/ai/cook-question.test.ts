@@ -57,8 +57,29 @@ describe('buildCookQuestionPrompt', () => {
       expect(prompt).toContain('PANTRY (ingredients the household has in stock; names only):')
       expect(prompt).not.toContain('what the household has;')
       expect(section(prompt, 'Rules:')).toContain(
-        'Only call an ingredient available if it is in the pantry.\n- The pantry lists ingredients only. Never claim the household has or lacks a tool or appliance.',
+        'Only call an ingredient available if it is in the pantry.\n- The pantry lists ingredients only. Never claim the cook has or lacks a tool or appliance.',
       )
+    }
+  })
+
+  it('writes to the cook as "you" and never names the household in the answer', () => {
+    // "Swap the yoghurt for double cream, which the household has in the
+    // pantry": the model copied the word from the rules (HON-1372).
+    for (const prompt of [
+      buildCookQuestionPrompt(input()),
+      buildCookQuestionPrompt(input({ subject: { kind: 'equipment', index: 0 } })),
+    ]) {
+      const rules = section(prompt, 'Rules:')
+      expect(rules).toContain(
+        '- When you suggest a substitute, prefer an ingredient from the pantry above, and say that they have it: "which you have in the pantry".',
+      )
+      expect(rules).toContain(
+        '- Write to the cook as "you". Never write "the household" in the answer: the household is the cook.',
+      )
+      // The voice rule is the only line that names the household.
+      expect(rules.split('\n').filter((line) => /household/i.test(line))).toEqual([
+        '- Write to the cook as "you". Never write "the household" in the answer: the household is the cook.',
+      ])
     }
   })
 
@@ -156,10 +177,10 @@ describe('buildCookQuestionPrompt', () => {
         'say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.',
       )
       expect(rules).toContain('- Do not suggest buying anything.')
-      // The app records no equipment, so an answer must not say what the household
+      // The app records no equipment, so an answer must not say what the cook
       // owns. The equipment list is the recipe's, so the rule must not except it (HON-1135).
       expect(rules).toContain(
-        '- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.',
+        '- You do not know which tools the cook owns. Do not say what they have or lack; suggest the substitute and let the cook decide.',
       )
     })
 
@@ -175,7 +196,7 @@ describe('buildCookQuestionPrompt', () => {
       expect(rules).toContain('- Answer only about this meal and step 3.')
       expect(rules).not.toContain('piece of equipment')
       expect(rules).not.toContain('buying')
-      expect(rules).not.toContain('which tools the household owns')
+      expect(rules).not.toContain('which tools the cook owns')
     })
 
     it('calls the earlier question one about the item', () => {
