@@ -170,6 +170,34 @@ describe('deferred outcomes at exit (HON-1447)', () => {
     })
   })
 
+  // A probe entry (no network marker) with gh back at exit and Linear maybe
+  // still down: handle_failure would delete the worktree, log a Backlog move
+  // that failed, and report no failed write (HON-1447 review).
+  describe('a 0-commit probe-deferred run', () => {
+    it.each(['error', 'timeout'] as const)(
+      'strands on the %s path at exit, with no triage',
+      (reason) => {
+        const out = stripTimestamps(
+          execFileSync('bash', [deferredHarness, 'polls', reason, '0', 'ERROR'], {
+            encoding: 'utf8',
+            timeout: 30_000,
+            env: harnessEnv({
+              HARNESS_SHUTTING_DOWN: 'true',
+              HARNESS_EXIT: 'settle',
+              HARNESS_EXIT_PR: 'NONE',
+            }),
+          }),
+        )
+
+        expect(out).toContain('POLL:1:1:[{"issue":"HON-999","kind":"probe"}]')
+        expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+        expect(out).not.toContain('HANDLE_FAILURE')
+        expect(out).not.toContain('CLEANUP:')
+        expect(out).toContain('EXIT:0:2')
+      },
+    )
+  })
+
   describe('wiring', () => {
     const source = fs.readFileSync(path.join(scriptsDir, 'orchestrator.sh'), 'utf8')
 

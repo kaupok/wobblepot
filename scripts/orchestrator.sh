@@ -2038,7 +2038,8 @@ handle_timeout() {
   #   probe failed       → one rate-limited `gh pr list` would otherwise
   #                        reproduce the exact HON-583 symptom on a worker that
   #                        was killed watching a green PR.
-  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ]; then
+  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ] &&
+     [ "$DEFER_FINAL" != true ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
     return 0
   fi
@@ -2098,9 +2099,10 @@ handle_error_exit() {
   fi
   defer_outcome error "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code" "$duration_secs" \
     && return 0
-  # At exit a network crash strands: triage cleanup would delete its unsaved work (HON-1447).
+  # At exit a replay strands: Linear may be down, and handle_failure deletes the
+  # worktree and reports no failed write (HON-1447). Same in handle_timeout.
   if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] &&
-     ! { [ "$DEFER_FINAL" = true ] && [ "$NETWORK_CRASH" = true ]; }; then
+     [ "$DEFER_FINAL" != true ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi
