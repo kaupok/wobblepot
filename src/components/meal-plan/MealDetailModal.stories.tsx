@@ -890,7 +890,7 @@ export const AskAboutStep: Story = {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
 
-    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Edit' }))
+    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Edit question' }))
     const field = within(panelFor(2)).getByRole('textbox', { name: 'Your question' })
     await expect(field).toHaveValue('What can I substitute here?')
     await expect(field).toHaveFocus()
@@ -1018,9 +1018,9 @@ const resultOf = (panel: HTMLElement) =>
 /**
  * The last step's ⋯ button sits on the bottom edge of the scroll region,
  * as a cook reaches it scrolling down. A ready-made question opens the panel
- * and brings it into view. The long answer arrives, and the answer with Close
- * scrolls into view, while focus stays on Close, where the menu handed it
- * (HON-1022, HON-1350).
+ * and brings it into view. The long answer arrives, and the answer with the
+ * follow-up field scrolls into view, while focus stays on the × Close, where
+ * the menu handed it (HON-1022, HON-1350, HON-1371).
  */
 async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const last = longTips.steps!.length
@@ -1035,7 +1035,7 @@ async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const close = within(panel).getByRole('button', { name: 'Close' })
   await waitFor(() => expect(close).toHaveFocus())
   await within(panel).findByText(longAnswer)
-  await expect(resultOf(panel)).toContainElement(close)
+  await expect(resultOf(panel)).toContainElement(field)
   await waitFor(() => expect(isInside(resultOf(panel), scroller)).toBe(true))
   // The answer arriving moved nothing but the scroll.
   await expect(close).toHaveFocus()

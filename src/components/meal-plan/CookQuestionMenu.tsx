@@ -37,7 +37,7 @@ export interface CookQuestionMenuProps {
   onAsk: (question: string) => void
   /** Open the row's panel with only the field */
   onAskOwn: () => void
-  /** Focus the open panel's Close or its field */
+  /** Focus the open panel's × Close or its field */
   onFocusPanel: (target: CookQuestionFocusTarget) => void
 }
 
@@ -46,9 +46,9 @@ export interface CookQuestionMenuProps {
  * the three ready-made questions, then "Ask your own question". The tooltip
  * names the step or the item on hover and on keyboard focus, and the
  * `aria-label` is the same text, so the rows' buttons tell apart. With the
- * row's panel open the button is expanded and takes the current step's
- * `secondary` surface, so the open row is plain to see (HON-1022); Close is
- * in the panel.
+ * row's panel open the button is expanded but stays ghost: the panel's card
+ * under the row is the visible sign, and a filled button beside it was the
+ * heaviest thing on the row (HON-1371). Close is in the panel.
  */
 export function CookQuestionMenu({
   ref,
@@ -82,7 +82,7 @@ export function CookQuestionMenu({
           <DropdownMenuTrigger asChild>
             <Button
               ref={ref}
-              variant={open ? 'secondary' : 'ghost'}
+              variant="ghost"
               size="icon-lg"
               aria-label={label}
               // The menu sets its own state while it is open; the panel's
