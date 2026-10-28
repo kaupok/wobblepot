@@ -27,7 +27,7 @@ function ingredient(name: string): IngredientResult {
   }
 }
 
-function component(name: string, totalQuantity: number): MealComponent {
+function component(name: string, totalQuantity: number | null): MealComponent {
   return { ingredientId: name.toLowerCase(), ingredient: ingredient(name), totalQuantity }
 }
 
@@ -55,6 +55,21 @@ describe('buildFinalComponents', () => {
       [component('Rice', 0), component('Leek', 100), component('Egg', -1)],
     )
     expect(result).toEqual({ error: { code: 'invalid_quantity', names: ['Rice', 'Egg'] } })
+  })
+
+  // HON-1362: a new row starts empty, so an amount nobody typed is never saved.
+  it('names a component whose quantity is still empty', () => {
+    const result = buildFinalComponents(false, [], [component('Leek', 100), component('Egg', null)])
+    expect(result).toEqual({ error: { code: 'invalid_quantity', names: ['Egg'] } })
+  })
+
+  it('saves an empty "No quantity" row as 0', () => {
+    const vague = { ...component('Salt', null), isVague: true, originalPhrase: 'to taste' }
+    expect(buildFinalComponents(false, [], [vague])).toEqual({
+      components: [
+        { ingredientId: 'salt', totalQuantity: 0, isVague: true, originalPhrase: 'to taste' },
+      ],
+    })
   })
 
   it('names unresolved import rows before anything else', () => {

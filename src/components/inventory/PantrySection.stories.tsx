@@ -1,6 +1,8 @@
 import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { http, HttpResponse } from 'msw'
+import { toast, Toaster } from 'sonner'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { createPantryItemData } from '@/stories/fixtures'
 import { PantrySection } from './PantrySection'
@@ -67,7 +69,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0, with a "Have it" that sets it back to "have some"), each with a star toggle and a confirm-gated remove. Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0, with a "Have it" that sets it back to "have some"), each with a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -75,6 +77,7 @@ const meta = {
     items: [...staples, ...onHand],
     onItemsChange: fn(),
     onPantryItemRemoved: fn(),
+    onPantryItemRestored: fn(),
   },
   render: (args) => <StatefulPantrySection {...args} />,
   decorators: [
@@ -212,5 +215,72 @@ export const RanOutEstonian: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { level: 3, name: 'Otsas 2' })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Olemas: Avocado' })).toBeVisible()
+  },
+}
+
+/** Answers the Undo's POST with the posted row, named from the story's items. */
+const restoreHandler = http.post('/api/pantry', async ({ request }) => {
+  const body = (await request.json()) as {
+    ingredientId: string
+    quantity: number | null
+    isStaple: boolean
+  }
+  const removed = [...staples, ...onHand].find((item) => item.ingredient.id === body.ingredientId)
+  return HttpResponse.json(
+    {
+      ...removed,
+      id: `restored-${body.ingredientId}`,
+      quantity: body.quantity,
+      isStaple: body.isStaple,
+    },
+    { status: 201 },
+  )
+})
+
+/**
+ * Remove three rows with no dialog, then Undo the second: only Lemon comes
+ * back, and focus is on its Remove, never the page body.
+ */
+export const RemoveAndUndo: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        restoreHandler,
+        http.delete('/api/pantry/:id', () => new HttpResponse(null, { status: 204 })),
+      ],
+    },
+  },
+  // Sonner's toasts are global: earlier stories' toasts would show here too.
+  beforeEach: () => {
+    toast.dismiss()
+  },
+  render: (args) => (
+    <>
+      <StatefulPantrySection {...args} />
+      {/* The app's toaster sits in the root layout, not in the section. */}
+      <Toaster />
+    </>
+  ),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const page = within(document.body)
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Remove Garlic' }))
+    await expect(canvas.queryByRole('alertdialog')).not.toBeInTheDocument()
+    // Focus moves to the next row's Remove, so the next click needs no aim.
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Remove Lemon' })).toHaveFocus())
+    await userEvent.click(canvas.getByRole('button', { name: 'Remove Lemon' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Remove Salt' }))
+    await waitFor(() => expect(args.onPantryItemRemoved).toHaveBeenCalledTimes(3))
+    await expect(canvas.queryByText('Garlic')).not.toBeInTheDocument()
+
+    const lemonToast = (await page.findByText('Lemon removed from pantry')).closest('li')
+    if (!lemonToast) throw new Error('expected the Lemon toast')
+    await userEvent.click(within(lemonToast).getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Remove Lemon' })).toHaveFocus())
+    await expect(canvas.queryByText('Garlic')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Salt')).not.toBeInTheDocument()
+    await expect(args.onPantryItemRestored).toHaveBeenCalledWith('lemon')
   },
 }

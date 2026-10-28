@@ -321,14 +321,15 @@ describe('useMealForm', () => {
       expect(toast.error).toHaveBeenCalled()
     })
 
-    it('defaults a new piece-unit ingredient to 1 and a gram ingredient to 100', () => {
+    // HON-1362: no default the user did not type; the field shows it as a placeholder.
+    it('adds a new ingredient with an empty quantity', () => {
       const { result } = renderForm(validMeal)
 
       act(() => result.current.addIngredient(ingredient('egg', 'Egg', 'piece')))
       act(() => result.current.addIngredient(ingredient('onion', 'Onion')))
 
-      expect(result.current.components[1]?.totalQuantity).toBe(1)
-      expect(result.current.components[2]?.totalQuantity).toBe(100)
+      expect(result.current.components[1]?.totalQuantity).toBeNull()
+      expect(result.current.components[2]?.totalQuantity).toBeNull()
     })
 
     it('marks a component as vague and clears it again on a quantity edit', () => {
