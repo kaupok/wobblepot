@@ -432,6 +432,31 @@ describe('change_meal_ingredients', () => {
     )
   })
 
+  it('refuses changes that touch more than ten ingredients in all, which the resolver would cut', async () => {
+    const result = await call([
+      {
+        action: 'replace',
+        ingredients: ['a', 'b', 'c', 'd', 'e'],
+        with: 'rice',
+        quantity: 1,
+        unit: 'g',
+      },
+      {
+        action: 'replace',
+        ingredients: ['f', 'g', 'h', 'i', 'j'],
+        with: 'rice',
+        quantity: 1,
+        unit: 'g',
+      },
+      { action: 'leave_out', ingredient: 'k' },
+    ])
+
+    expect(replaceEntryChanges).not.toHaveBeenCalled()
+    expect(errorText(result)).toBe(
+      'These changes touch 11 ingredients; at most 10 can change in one call. Split them into two calls. Nothing was changed.',
+    )
+  })
+
   it('refuses a replace of more than five ingredients', () => {
     expect(() =>
       changeMealIngredients.inputSchema.parse({

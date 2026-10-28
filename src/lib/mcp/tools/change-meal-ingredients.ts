@@ -86,7 +86,9 @@ export const changeMealIngredients = defineTool({
       )
       .min(1)
       .max(MAX_ADJUST_CHANGES)
-      .describe('The changes, all applied together or none.'),
+      .describe(
+        `The changes, all applied together or none. At most ${MAX_ADJUST_CHANGES} ingredients in all: a replace counts each ingredient it names.`,
+      ),
   }),
   outputSchema: z.object({
     outcome: z
@@ -170,6 +172,13 @@ export const changeMealIngredients = defineTool({
       } else if (item.action === 'add') {
         add('add', { ...replaceRow(null, item.ingredient, item, servings), op: 'add' }, item)
       }
+    }
+    // The resolver takes at most MAX_ADJUST_CHANGES rows and drops the rest,
+    // and a replace of N ingredients is N rows.
+    if (rows.length > MAX_ADJUST_CHANGES) {
+      throw new ToolInputError(
+        `These changes touch ${rows.length} ingredients; at most ${MAX_ADJUST_CHANGES} can change in one call. Split them into two calls. Nothing was changed.`,
+      )
     }
 
     const resolved = await resolveProposals(
