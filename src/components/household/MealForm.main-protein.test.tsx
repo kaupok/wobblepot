@@ -237,4 +237,42 @@ describe('MealForm main protein', () => {
       await screen.findByText('This recipe has no ingredient with that protein'),
     ).toBeInTheDocument()
   })
+
+  it('counts an alternative picked on an imported row', async () => {
+    renderForm({
+      name: 'Imported chili',
+      kidFriendly: false,
+      suitableFor: ['dinner'],
+      servings: 3,
+      prefilledIngredients: [
+        { type: 'matched', ingredient: beans, convertedQuantity: 400 },
+        {
+          type: 'low-confidence',
+          extractedName: 'mince',
+          originalText: '75 g mince',
+          ingredient: { ...buckwheat, id: 'veal', name: 'Veal mince', proteinType: null },
+          alternatives: [
+            {
+              id: mince.id,
+              name: mince.name,
+              category: mince.category,
+              defaultUnit: mince.defaultUnit,
+              gramsPerPiece: null,
+              protein: mince.protein,
+              proteinType: mince.proteinType,
+              similarity: 0.6,
+            },
+          ],
+          convertedQuantity: 75,
+        },
+      ],
+    })
+    expect(select()).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Verify ingredient match' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Beef mince' }))
+
+    expect(select()).toHaveTextContent('Legumes (automatic)')
+    expect(await options()).toEqual(['Legumes (automatic)', 'Beef', 'Legumes'])
+  })
 })

@@ -17,6 +17,10 @@ export interface IngredientAlternative {
   category: IngredientCategory
   defaultUnit: Unit
   measuredByVolume?: boolean
+  /** Copied onto the row when picked, for the "Main protein" choice (HON-1386). */
+  gramsPerPiece?: number | null
+  protein?: number
+  proteinType?: ProteinType | null
   similarity: number
 }
 

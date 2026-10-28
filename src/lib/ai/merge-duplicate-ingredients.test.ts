@@ -72,6 +72,9 @@ describe('mergeDuplicateIngredients', () => {
         category: 'fat' as const,
         defaultUnit: 'g' as const,
         measuredByVolume: false,
+        gramsPerPiece: null,
+        protein: 0,
+        proteinType: null,
         similarity: 0.58,
       },
     ]
@@ -99,6 +102,9 @@ describe('mergeDuplicateIngredients', () => {
         category: 'fat' as const,
         defaultUnit: 'g' as const,
         measuredByVolume: false,
+        gramsPerPiece: null,
+        protein: 0,
+        proteinType: null,
         similarity: 0.58,
       },
     ]
