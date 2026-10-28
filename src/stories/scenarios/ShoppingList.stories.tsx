@@ -9,7 +9,7 @@ import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
-import { ShoppingEmptyState } from '@/components/inventory/ShoppingEmptyState'
+import { ShoppingSection } from '@/components/inventory/ShoppingSection'
 import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
 import {
@@ -231,7 +231,7 @@ const meta = {
   },
   // Every scenario renders the 7-day window, so clearing the key keeps the
   // picker showing that regardless of what a ShoppingListHeader or
-  // ShoppingEmptyState story persisted. The reconcile that would act on the key
+  // ShoppingSection story persisted. The reconcile that would act on the key
   // lives in `InventoryPage`, which these scenarios do not mount.
   beforeEach: () => {
     localStorage.removeItem(WINDOW_STORAGE_KEY)
@@ -292,14 +292,23 @@ export const Empty: Story = {
     docs: {
       description: {
         story:
-          'Both empty states the screen can land on, stacked for comparison: `no-plan` (nothing to derive a list from, so one primary CTA, and no header — a wider window cannot conjure a plan) and `nothing-needed` (a plan exists but the pantry covers it, so it gets the shared header and the window picker sits on the title row instead). Each follows the empty-state copy formula — one `Body variant="muted"` line, at most one primary button, no illustration.',
+          'Both empty lists the screen can land on, stacked for comparison: `no-plan` (no plan yet) and `nothing-needed` (a plan exists but the pantry covers it). Each keeps the shared header, the note sheet and its Add field, so the household can always add an item, and one `Body variant="muted"` line under the field says why the list is empty. No button: the plan is generated on Today (HON-1354). This is the real `ShoppingSection`, since the empty sheet has no rows to fix.',
       },
     },
   },
   render: () => (
-    <div className="flex flex-col gap-6">
-      <ShoppingEmptyState variant="no-plan" />
-      <ShoppingEmptyState variant="nothing-needed" windowDays={7} />
+    <div className="flex flex-col gap-12">
+      {(['no-plan', 'nothing-needed'] as const).map((emptyVariant) => (
+        <ShoppingSection
+          key={emptyVariant}
+          emptyVariant={emptyVariant}
+          windowDays={7}
+          startDate="2026-04-17"
+          endDate="2026-04-23"
+          groups={[]}
+          initialPurchasedIds={new Set()}
+        />
+      ))}
     </div>
   ),
   play: async ({ canvasElement }) => {
@@ -313,7 +322,7 @@ export const PopulatedDark: Story = {
   globals: { theme: 'dark' },
 }
 
-/** `Empty` in the dark theme: no sheet, the CTA and muted lines on the page background (HON-1016). */
+/** `Empty` in the dark theme: the note's dark sheet with the Add field and the muted line (HON-1354). */
 export const EmptyDark: Story = {
   ...Empty,
   globals: { theme: 'dark' },

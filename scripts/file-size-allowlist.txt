@@ -57,8 +57,8 @@
 7220 src/app/sign-up/page.test.tsx
 6305 src/components/header-chrome.stories.tsx
 6081 src/components/household/MealForm.test.tsx
-6108 src/components/inventory/ShoppingSection.test.tsx
-6131 src/components/inventory/ShoppingSection.tsx
+5350 src/components/inventory/ShoppingSection.test.tsx
+5833 src/components/inventory/ShoppingSection.tsx
 20528 src/components/meal-plan/MealCard.stories.tsx
 9024 src/components/meal-plan/MealCard.test.tsx
 7969 src/components/meal-plan/MealCard.tsx

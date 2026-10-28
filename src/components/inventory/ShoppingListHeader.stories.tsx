@@ -77,7 +77,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The header both `/shopping` branches share, on the page background: the column title with the populated list's summary on its baseline, then one row of controls — the 7/14-day window picker first, followed by whatever the branch owns. Putting the picker here is the point: before HON-624 it lived only in the `nothing-needed` empty state, so widening to 14 days surfaced items, swapped in `ShoppingSection`, and took the only control that could narrow it back off the screen.",
+          "The shopping list's header, on the page background: the column title with the list's summary on its baseline, then one row of controls — the 7/14-day window picker first, followed by the list's own controls. An empty list renders it too (HON-1354). Putting the picker here is the point: before HON-624 it lived only in the `nothing-needed` empty state, so widening to 14 days surfaced items, swapped in `ShoppingSection`, and took the only control that could narrow it back off the screen.",
       },
     },
   },
@@ -97,7 +97,7 @@ export const EmptyState: Story = {
     docs: {
       description: {
         story:
-          'The shape `ShoppingEmptyState` renders for its two list-shaped variants: title, then the picker alone on the controls row.',
+          'The header with no summary and no list controls: title, then the picker alone on the controls row. No screen renders this shape since HON-1354 (an empty list keeps its sort select); it pins the picker in the first render.',
       },
     },
   },
@@ -153,7 +153,7 @@ export const WindowPickerSwitchesWindow: Story = {
     docs: {
       description: {
         story:
-          'Behavioural contract of the picker on the empty state: choosing "Next 14 days" persists the preference under `shopping-list-window-days` and routes to `/shopping?days=14`. The persistence is what makes the choice survive the navigation — the new page reads it back on mount.',
+          'Behavioural contract of the picker: choosing "Next 14 days" persists the preference under `shopping-list-window-days` and routes to `/shopping?days=14`. The persistence is what makes the choice survive the navigation — the new page reads it back on mount.',
       },
     },
   },

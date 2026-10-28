@@ -7,11 +7,11 @@ import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { ShoppingSection } from './ShoppingSection'
 import { SORT_STORAGE_KEY } from './shopping-sort'
+import { defaultProps, makeGroup, makeItem, renderSection } from './ShoppingSection.fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { track } from '@/lib/analytics'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import type { IngredientCategory } from '@/generated/prisma/enums'
 
 // Mock fetch globally
 vi.stubGlobal('fetch', vi.fn())
@@ -46,54 +46,6 @@ beforeEach(() => {
   Element.prototype.releasePointerCapture = vi.fn()
   Element.prototype.scrollIntoView = vi.fn()
 })
-
-function makeItem(
-  name: string,
-  ingredientId: string,
-  purchased = false,
-): {
-  ingredientId: string
-  name: string
-  displayQuantity: string
-  purchased: boolean
-  neededByDate: string
-  neededByRelative: string
-  neededByAbsolute: string
-} {
-  return {
-    ingredientId,
-    name,
-    displayQuantity: '100 g',
-    purchased,
-    neededByDate: '2026-02-18',
-    neededByRelative: 'Wed',
-    neededByAbsolute: 'Feb 18',
-  }
-}
-
-function makeGroup(
-  category: IngredientCategory,
-  label: string,
-  items: ReturnType<typeof makeItem>[],
-): { category: IngredientCategory; categoryLabel: string; items: ReturnType<typeof makeItem>[] } {
-  return { category, categoryLabel: label, items }
-}
-
-const defaultProps = {
-  windowDays: 7,
-  startDate: '2026-02-16',
-  endDate: '2026-02-23',
-  groups: [
-    makeGroup('vegetable', 'Vegetable', [makeItem('Carrot', 'v1'), makeItem('Asparagus', 'v2')]),
-    makeGroup('protein', 'Protein', [makeItem('Beef', 'p1')]),
-  ],
-  initialPurchasedIds: new Set<string>(),
-}
-
-function renderSection(overrides: Partial<Parameters<typeof ShoppingSection>[0]> = {}) {
-  const { wrapper } = createQueryWrapper()
-  return render(<ShoppingSection {...defaultProps} {...overrides} />, { wrapper })
-}
 
 beforeEach(() => {
   localStorage.clear()
@@ -591,64 +543,6 @@ describe('ShoppingSection header summary', () => {
     const fragment = screen.getByText('· 1 purchased')
     expect(fragment.tagName).toBe('SPAN')
     expect(fragment).toHaveClass('whitespace-nowrap')
-  })
-})
-
-/**
- * The list sits on one note sheet, the paper of Today's `UrgentShopping`; the
- * title and controls stay on the page above it (HON-1016).
- */
-describe('ShoppingSection note sheet', () => {
-  it('holds the Add field and every group, and nothing of the header', () => {
-    renderSection()
-
-    const sheet = screen.getByTestId('shopping-sheet')
-    expect(sheet).toHaveAttribute('data-surface', 'note')
-    expect(
-      within(sheet).getByRole('textbox', { name: 'Add custom item to shopping list' }),
-    ).toBeInTheDocument()
-    expect(within(sheet).getByText('Carrot')).toBeInTheDocument()
-    expect(within(sheet).getByText('Beef')).toBeInTheDocument()
-
-    expect(within(sheet).queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
-    expect(within(sheet).queryByRole('combobox')).not.toBeInTheDocument()
-    expect(within(sheet).queryByText('3 items')).not.toBeInTheDocument()
-  })
-
-  // A bordered group inside the bordered sheet is a card inside a card.
-  it.each(['urgency', 'category', 'alphabetical'] as const)(
-    'rules the rows in %s mode rather than boxing them',
-    (mode) => {
-      localStorage.setItem(SORT_STORAGE_KEY, mode)
-      renderSection({
-        initialCustomItems: [
-          {
-            id: 'c1',
-            name: 'Napkins',
-            checked: false,
-            ingredientId: null,
-            ingredientCategory: null,
-            createdAt: '2026-02-16T00:00:00.000Z',
-          },
-        ],
-      })
-
-      const groups = screen
-        .getByTestId('shopping-sheet')
-        .querySelectorAll('[data-slot="row-group"]')
-      expect(groups.length).toBeGreaterThan(0)
-      for (const group of groups) {
-        expect(group).toHaveAttribute('data-variant', 'ruled')
-        expect(group).not.toHaveClass('border')
-      }
-    },
-  )
-
-  it('draws no sheet once everything is purchased', () => {
-    renderSection({ initialPurchasedIds: new Set(['v1', 'v2', 'p1']) })
-
-    expect(screen.queryByTestId('shopping-sheet')).not.toBeInTheDocument()
-    expect(document.querySelector('[data-surface]')).toBeNull()
   })
 })
 
