@@ -1,12 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLink'
 
-// Mirrors `ImagineClient`: same container and `max-w-4xl` column (the results
-// grid needs the width), top-aligned, no bordered wrapper (HON-779).
+// Mirrors `ImagineClient`: same container and a column that fills the page width
+// (the results grid needs it, HON-1367), top-aligned, no bordered wrapper (HON-779).
 export default function ImagineRecipeLoading() {
   return (
     <div className="w-full px-4 py-8">
-      <div className="flex max-w-4xl flex-col gap-6">
+      <div className="flex flex-col gap-6">
         {/* Back arrow and title, then description */}
         <div className="flex flex-col gap-1">
           <div className="flex h-8 items-center gap-2">

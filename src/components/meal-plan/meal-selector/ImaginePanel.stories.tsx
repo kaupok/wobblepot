@@ -216,7 +216,7 @@ export const WithResults: Story = {
 
 /**
  * From `md` "Imagine meals" stays the panel's one filled action but is as wide
- * as its label, and each result's Select is `outline` and label-wide (HON-943).
+ * as its label, and each result's "Review and save" is `outline` and label-wide (HON-943).
  */
 export const WithResultsDesktop: Story = {
   globals: { viewport: { value: 'laptop', isRotated: false } },
@@ -232,7 +232,7 @@ export const WithResultsDesktop: Story = {
     await expect(imagine).not.toHaveAttribute('data-variant', 'outline')
     await expect(imagine.getBoundingClientRect().width).toBeLessThan(textbox.width / 2)
 
-    const selects = canvas.getAllByRole('button', { name: /^select$/i })
+    const selects = canvas.getAllByRole('button', { name: /^review and save$/i })
     await expect(selects).toHaveLength(3)
     for (const button of selects) {
       const card = button.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect()
@@ -308,7 +308,7 @@ export const SelectReviewsThenOpensDialog: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByText('Smoky red lentil stew')
 
-    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^review and save$/i })
     await userEvent.click(firstSelect!)
 
     // The dialog is portalled, so it lives outside `canvasElement`.
@@ -335,7 +335,7 @@ export const SelectDegradesWhenReviewTimesOut: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByText('Smoky red lentil stew')
 
-    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^review and save$/i })
     await userEvent.click(firstSelect!)
 
     await body.findByRole('dialog')

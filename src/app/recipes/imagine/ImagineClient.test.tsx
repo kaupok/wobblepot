@@ -270,7 +270,7 @@ describe('ImagineClient Edit details stash', () => {
     respondWith({ error: 'Review failed' }, 500)
     renderInLocale(<ImagineClient />, 'en')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Select' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and save' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Edit details' }))
 
     expect(JSON.parse(sessionStorage.getItem('prefilled-meal')!)).toMatchObject({
@@ -351,7 +351,7 @@ describe('ImagineClient saved ideas (HON-1270)', () => {
     renderInLocale(<ImagineClient />, 'en')
 
     const card = await waitFor(() => cardOf('Chickpea curry'))
-    fireEvent.click(within(card).getByRole('button', { name: 'Select' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Review and save' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Save recipe' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     return card
@@ -374,21 +374,23 @@ describe('ImagineClient saved ideas (HON-1270)', () => {
     expect(within(card).getByText('Saved')).toBeInTheDocument()
     const link = within(card).getByRole('link', { name: 'Open recipe' })
     expect(link).toHaveAttribute('href', '/recipes/meal-123/edit')
-    expect(within(card).queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument()
     expect(
-      within(cardOf('Lentil soup')).getByRole('button', { name: 'Select' }),
+      within(cardOf('Lentil soup')).getByRole('button', { name: 'Review and save' }),
     ).toBeInTheDocument()
-    expect(within(cardOf('Bean chili')).getByRole('button', { name: 'Select' })).toBeInTheDocument()
+    expect(
+      within(cardOf('Bean chili')).getByRole('button', { name: 'Review and save' }),
+    ).toBeInTheDocument()
     await waitFor(() => expect(link).toHaveFocus())
   })
 
-  it('returns focus to Select when the dialog closes without a save', async () => {
+  it('returns focus to "Review and save" when the dialog closes without a save', async () => {
     saveImagineSession({ prompt: 'something with lentils', meals: ideas })
     stubReviewAndSave()
     renderInLocale(<ImagineClient />, 'en')
 
     const card = await waitFor(() => cardOf('Chickpea curry'))
-    const select = within(card).getByRole('button', { name: 'Select' })
+    const select = within(card).getByRole('button', { name: 'Review and save' })
     fireEvent.click(select)
     fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' })
 
@@ -430,10 +432,10 @@ describe('ImagineClient saved ideas (HON-1270)', () => {
       'href',
       '/recipes/meal-123/edit',
     )
-    expect(within(card).queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument()
   })
 
-  it('shows Select on every card of a new run', async () => {
+  it('shows "Review and save" on every card of a new run', async () => {
     saveImagineSession({
       prompt: 'something with lentils',
       meals: ideas,
@@ -448,11 +450,119 @@ describe('ImagineClient saved ideas (HON-1270)', () => {
       { success: true, meals: [imaginedMeal('im-1', 'Pea soup'), imaginedMeal('im-2', 'Dal')] },
       200,
     )
-    fireEvent.click(screen.getByRole('button', { name: /imagine meals/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Imagine again' }))
 
     expect(await screen.findByText('Pea soup')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Select' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Review and save' })).toHaveLength(2)
     expect(screen.queryByRole('link', { name: 'Open recipe' })).not.toBeInTheDocument()
     expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+})
+
+// HON-1367: the card showed the model's estimate and the dialog the numbers
+// recomputed from the reviewed rows, so the two disagreed on screen.
+describe('ImagineClient card nutrition and button weight', () => {
+  // 360 g / 4 servings = 90 g per serving at 350 kcal, 24 g protein, 60 g
+  // carbs, 1.5 g fat per 100 g → 315 kcal, 22 g, 54 g, 1 g.
+  const idea = {
+    id: 'im-1',
+    name: 'Lentil soup',
+    description: null,
+    timeMinutes: 25,
+    servings: 4,
+    suitableFor: ['dinner'],
+    kidFriendly: false,
+    primaryProteinType: 'legume',
+    components: [],
+    nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+    ingredients: [
+      {
+        type: 'matched',
+        extractedName: 'red lentils',
+        extractedQuantity: 360,
+        extractedUnit: 'g',
+        originalText: '360 g red lentils',
+        ingredient: {
+          id: 'ing-lentil',
+          name: 'Red lentils',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          calories: 350,
+          protein: 24,
+          carbs: 60,
+          fat: 1.5,
+        },
+        convertedQuantity: 360,
+        isVague: false,
+      },
+    ],
+    allMatched: true,
+  } as unknown as ImaginedMealResponse
+
+  const card = () =>
+    screen
+      .getByRole('heading', { name: 'Lentil soup' })
+      .closest('[data-slot="card"]') as HTMLElement
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    saveImagineSession({ prompt: 'something with lentils', meals: [idea] })
+    // The review degrades to the unreviewed meal on a failure; its rows are
+    // what the dialog sums.
+    respondWith({ error: 'Review failed' }, 500)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('shows the dialog\'s nutrition on the card after "Review and save"', async () => {
+    renderInLocale(<ImagineClient />, 'en')
+    // Taken before the dialog opens: the modal hides the page from role queries.
+    const ideaCard = await waitFor(() => card())
+    expect(within(ideaCard).getByText('480 kcal')).toBeInTheDocument()
+
+    fireEvent.click(within(ideaCard).getByRole('button', { name: 'Review and save' }))
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).getByText('315 kcal')).toBeInTheDocument()
+    expect(within(ideaCard).getByText('315 kcal')).toBeInTheDocument()
+    expect(within(ideaCard).queryByText('480 kcal')).not.toBeInTheDocument()
+    expect(loadImagineSession()?.meals[0]?.nutrition).toEqual({
+      calories: 315,
+      protein: 21.6,
+      carbs: 54,
+      fat: 1.35,
+    })
+  })
+
+  it('leaves no filled button on the page once ideas show', async () => {
+    renderInLocale(<ImagineClient />, 'en')
+    await waitFor(() => expect(card()).toBeInTheDocument())
+
+    expect(screen.getByRole('button', { name: 'Imagine again' })).toHaveAttribute(
+      'data-variant',
+      'outline',
+    )
+    expect(within(card()).getByRole('button', { name: 'Review and save' })).toHaveAttribute(
+      'data-variant',
+      'outline',
+    )
+    // eslint-disable-next-line testing-library/no-node-access -- every button, whatever its role name
+    const filled = [...document.querySelectorAll('[data-slot="button"]')].filter(
+      (button) => (button.getAttribute('data-variant') ?? 'default') === 'default',
+    )
+    expect(filled).toEqual([])
+  })
+
+  it('reads "Imagine meals", filled, before any ideas show', () => {
+    sessionStorage.clear()
+    renderInLocale(<ImagineClient />, 'en')
+
+    const button = screen.getByRole('button', { name: 'Imagine meals' })
+    expect(button.getAttribute('data-variant') ?? 'default').toBe('default')
   })
 })

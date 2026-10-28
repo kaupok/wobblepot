@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // the global mock always answers from English, which would pass whether or not
 // the leak is fixed.
 vi.unmock('next-intl')
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
@@ -222,5 +222,83 @@ describe('ImaginePanel Back button', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to library' }))
 
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+})
+
+// HON-1367: the card showed the model's estimate and the review dialog the
+// numbers summed from the reviewed rows, so the two disagreed on screen.
+describe('ImaginePanel card nutrition', () => {
+  // 360 g / 4 servings = 90 g per serving at 350 kcal per 100 g → 315 kcal.
+  const idea = {
+    id: 'im-1',
+    name: 'Lentil soup',
+    description: null,
+    timeMinutes: 25,
+    servings: 4,
+    suitableFor: ['dinner'],
+    kidFriendly: false,
+    primaryProteinType: 'legume',
+    components: [],
+    nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+    ingredients: [
+      {
+        type: 'matched',
+        extractedName: 'red lentils',
+        extractedQuantity: 360,
+        extractedUnit: 'g',
+        originalText: '360 g red lentils',
+        ingredient: {
+          id: 'ing-lentil',
+          name: 'Red lentils',
+          category: 'protein',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          calories: 350,
+          protein: 24,
+          carbs: 60,
+          fat: 1.5,
+        },
+        convertedQuantity: 360,
+        isVague: false,
+      },
+    ],
+    allMatched: true,
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    // The review degrades to the unreviewed meal on a failure; its rows are
+    // what the dialog sums.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url === '/api/meals/imagine'
+            ? { ok: true, status: 200, json: () => Promise.resolve({ meals: [idea] }) }
+            : { ok: false, status: 500, text: () => Promise.resolve('{"error":"Review failed"}') },
+        ),
+      ),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('shows the dialog’s nutrition on the card after "Review and save"', async () => {
+    generate('en')
+    // Taken before the dialog opens: the modal hides the page from role queries.
+    const heading = await screen.findByRole('heading', { name: 'Lentil soup' })
+    // eslint-disable-next-line testing-library/no-node-access -- the card root has no role
+    const card = heading.closest('[data-slot="card"]') as HTMLElement
+    expect(within(card).getByText('480 kcal')).toBeInTheDocument()
+
+    fireEvent.click(within(card).getByRole('button', { name: 'Review and save' }))
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).getByText('315 kcal')).toBeInTheDocument()
+    expect(within(card).getByText('315 kcal')).toBeInTheDocument()
+    expect(within(card).queryByText('480 kcal')).not.toBeInTheDocument()
   })
 })

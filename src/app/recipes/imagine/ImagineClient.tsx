@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { downscaleImage } from '@/lib/downscale-image'
@@ -82,13 +83,13 @@ export function ImagineClient() {
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
   // Imagined meal ID → saved recipe ID. A saved idea shows "Open recipe" in
-  // place of Select, so it cannot be reviewed and saved a second time (HON-1270).
+  // place of "Review and save", so it cannot be reviewed and saved a second time (HON-1270).
   const [savedMealIds, setSavedMealIds] = useState<Record<string, string>>({})
   const abortControllerRef = useRef<AbortController | null>(null)
   // `ReviewMealData` carries no ID, so the imagined meal behind the open
   // dialog is kept here, set when its review lands.
   const reviewSourceIdRef = useRef<string | null>(null)
-  // Each card's action (Select, or "Open recipe" once saved), by imagined meal
+  // Each card's action ("Review and save", or "Open recipe" once saved), by imagined meal
   // ID: where focus goes when the review dialog closes.
   const cardActionRefs = useRef(new Map<string, HTMLElement>())
 
@@ -130,6 +131,12 @@ export function ImagineClient() {
     mutationFn: reviewImaginedMeal,
     onSuccess: (finalMeal, meal) => {
       reviewSourceIdRef.current = meal.id
+      // The card takes the dialog's numbers, so the two agree (HON-1367).
+      if (meals) {
+        const next = meals.map((m) => (m.id === meal.id ? withReviewNutrition(m, finalMeal) : m))
+        setMeals(next)
+        saveImagineSession({ prompt, meals: next, savedMealIds })
+      }
       setReviewMeal(convertToPrefilledData(finalMeal))
     },
   })
@@ -156,8 +163,8 @@ export function ImagineClient() {
     })
   }
 
-  // Back to the card the dialog was opened from: its Select after a cancel, or
-  // its "Open recipe" link after a save, which replaced Select on that card.
+  // Back to the card the dialog was opened from: its "Review and save" after a cancel, or
+  // its "Open recipe" link after a save, which replaced it on that card.
   const handleReviewCloseAutoFocus = (event: Event) => {
     const sourceId = reviewSourceIdRef.current
     const target = sourceId ? cardActionRefs.current.get(sourceId) : undefined
@@ -289,10 +296,10 @@ export function ImagineClient() {
 
   return (
     <div className="w-full px-4 py-8">
-      {/* Top-aligned, no page-level Card (HON-779). The column is `max-w-4xl`
-          rather than a form's `max-w-2xl` because the results grid needs the
-          width; the result cards stay cards, each is the item itself. */}
-      <div className="flex max-w-4xl flex-col gap-6">
+      {/* Top-aligned, no page-level Card (HON-779). The column fills the page
+          width, as a list does, not a form's `max-w-2xl`: the results grid
+          needs it (HON-1367). The result cards stay cards, each is the item itself. */}
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <BackToRecipesLink />
@@ -341,6 +348,8 @@ export function ImagineClient() {
             // prompt is `disabled`, since focus is in the field when it empties.
             aria-disabled={isGenerating || reviewingMealId !== null || undefined}
             disabled={!prompt.trim() && images.length === 0}
+            // Once ideas show, each card's action leads, so this steps back.
+            variant={meals ? 'outline' : 'default'}
             className="w-full md:w-auto md:self-start"
           >
             {isGenerating ? (
@@ -351,7 +360,7 @@ export function ImagineClient() {
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {t('generate')}
+                {meals ? t('generateAgain') : t('generate')}
               </>
             )}
           </Button>
@@ -402,12 +411,15 @@ export function ImagineClient() {
                         ) : (
                           <Button
                             ref={cardActionRef(meal.id)}
+                            // Outline: three filled buttons in a row would compete
+                            // with the review dialog's one primary Save.
+                            variant="outline"
                             className="w-full"
                             onClick={() => {
                               if (reviewingMealId !== null) return
                               review.mutate(meal)
                             }}
-                            // Not `disabled`: the pressed Select keeps focus
+                            // Not `disabled`: the pressed button keeps focus
                             // until the review dialog takes it.
                             aria-disabled={reviewingMealId !== null || undefined}
                           >
