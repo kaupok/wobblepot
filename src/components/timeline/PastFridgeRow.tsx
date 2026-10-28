@@ -120,6 +120,7 @@ export function PastFridgeRow({
       date,
       mealType,
       fridgeItems: items.map(toFridgeItemInput),
+      status,
       note,
       noteX: note ? noteX : null,
       noteY: note ? noteY : null,

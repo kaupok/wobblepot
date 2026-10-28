@@ -9,6 +9,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
+import { toast } from 'sonner'
 import { PastFridgeRow } from './PastFridgeRow'
 
 const fetchMock = vi.fn()
@@ -125,5 +126,22 @@ describe('PastFridgeRow', () => {
       '/api/meal-plans/plan-1/entries/entry-1',
       expect.objectContaining({ method: 'DELETE' }),
     )
+
+    // Undo in the toast posts the meal back as it was: skipped, not planned.
+    const [, options] = vi.mocked(toast).mock.calls[0]!
+    respond(200, { id: 'restored' })
+    ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const [url, init] = fetchMock.mock.calls[1]!
+    expect(url).toBe('/api/meal-plans/plan-1/entries')
+    expect(JSON.parse(init.body)).toEqual({
+      date: '2026-04-13',
+      mealType: 'dinner',
+      fridgeItems: [{ label: 'Wolt' }],
+      status: 'skipped',
+      note: null,
+      noteX: null,
+      noteY: null,
+    })
   })
 })
