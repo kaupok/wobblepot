@@ -24,6 +24,8 @@ function libraryMeal(id: string, name: string) {
     primaryProteinType: 'poultry',
     suitableFor: ['dinner'],
     isCustom: false,
+    lastCookedOn: null,
+    nextPlannedOn: null,
     components: [],
     nutrition: { calories: 400, protein: 20, carbs: 40, fat: 12 },
   }
@@ -205,7 +207,10 @@ describe('useMealAlternatives', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false))
       // Search wins over browse when both could apply.
       expect(result.current.isMyRecipesBrowseMode).toBe(false)
-      expect(new URL(lastUrl(), 'https://example.test').searchParams.get('source')).toBe('custom')
+      const params = new URL(lastUrl(), 'https://example.test').searchParams
+      expect(params.get('source')).toBe('custom')
+      // A search keeps its relevance order (HON-1388).
+      expect(params.get('order')).toBeNull()
     })
 
     it('appends the next page at an offset past the loaded results', async () => {
@@ -400,6 +405,33 @@ describe('useMealAlternatives', () => {
       const params = new URL(lastUrl(), 'https://example.test').searchParams
       expect(params.get('source')).toBe('custom')
       expect(params.get('search')).toBeNull()
+    })
+
+    // HON-1388: "what have we not had lately?" leads the list.
+    it('asks for the longest since cooked first and keeps each recipe history', async () => {
+      mockApiFetch.mockResolvedValueOnce({
+        meals: [
+          {
+            ...libraryMeal('c1', 'Stew'),
+            isCustom: true,
+            lastCookedOn: '2026-10-16',
+            nextPlannedOn: '2026-10-31',
+          },
+        ],
+        hasMore: false,
+        total: 1,
+      })
+
+      const { result } = render({ myRecipesOnly: true })
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false))
+      expect(new URL(lastUrl(), 'https://example.test').searchParams.get('order')).toBe(
+        'longestSinceCooked',
+      )
+      expect(result.current.displayedMeals[0]).toMatchObject({
+        lastCookedOn: '2026-10-16',
+        nextPlannedOn: '2026-10-31',
+      })
     })
   })
 })

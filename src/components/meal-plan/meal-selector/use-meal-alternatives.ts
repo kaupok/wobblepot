@@ -21,6 +21,8 @@ interface LibraryMeal extends MealImageFields {
   isCustom: boolean
   components: MealComponent[]
   nutrition: NutritionData
+  lastCookedOn: string | null
+  nextPlannedOn: string | null
 }
 
 interface MealsSearchResponse {
@@ -46,6 +48,8 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     primaryProteinType: meal.primaryProteinType,
     suitableFor: meal.suitableFor,
     isCustom: meal.isCustom,
+    lastCookedOn: meal.lastCookedOn,
+    nextPlannedOn: meal.nextPlannedOn,
     components: meal.components,
     nutrition: meal.nutrition,
     imageUrl: meal.imageUrl,
@@ -185,6 +189,8 @@ export function useMealAlternatives({
       const params = new URLSearchParams()
       params.set('mealType', mealType)
       params.set('source', 'custom')
+      // "What have we not had lately?" first; a search keeps its relevance order (HON-1388).
+      params.set('order', 'longestSinceCooked')
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(pageParam))
       return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)

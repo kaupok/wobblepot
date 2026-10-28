@@ -28,6 +28,9 @@ const RESULT = {
       primaryProteinType: 'none',
       isFavorite: true,
       isCustom: false,
+      lastCookedOn: null,
+      cookedLast28Days: 0,
+      nextPlannedOn: '2026-10-31',
     },
     {
       id: 'meal-2',
@@ -36,6 +39,9 @@ const RESULT = {
       primaryProteinType: 'beef',
       isFavorite: false,
       isCustom: true,
+      lastCookedOn: '2026-10-16',
+      cookedLast28Days: 2,
+      nextPlannedOn: null,
     },
   ],
 } as unknown as LoadMealsResult
@@ -63,6 +69,9 @@ describe('list_meals', () => {
           proteinType: 'none',
           isFavorite: true,
           isOwnRecipe: false,
+          lastCookedOn: null,
+          cookedLast28Days: 0,
+          nextPlannedOn: '2026-10-31',
         },
         {
           id: 'meal-2',
@@ -71,6 +80,9 @@ describe('list_meals', () => {
           proteinType: 'beef',
           isFavorite: false,
           isOwnRecipe: true,
+          lastCookedOn: '2026-10-16',
+          cookedLast28Days: 2,
+          nextPlannedOn: null,
         },
       ],
     })
@@ -99,6 +111,22 @@ describe('list_meals', () => {
       limit: 20,
       source: loadSource,
     })
+  })
+
+  it('passes order longestSinceCooked with source own to the shared meal query', async () => {
+    await call({ source: 'own', order: 'longestSinceCooked' })
+
+    expect(vi.mocked(loadMeals).mock.calls[0]![1]).toEqual({
+      search: undefined,
+      mealType: undefined,
+      limit: 20,
+      order: 'longestSinceCooked',
+      source: 'custom',
+    })
+  })
+
+  it('refuses an order it does not know', () => {
+    expect(listMeals.inputSchema.safeParse({ order: 'random' }).success).toBe(false)
   })
 
   it('passes no source when the input has none, so every meal is listed as before', async () => {

@@ -302,7 +302,14 @@
       "select": "Select",
       "selecting": "Selecting…",
       "ratedUp": "You've rated this thumbs up",
-      "ratedDown": "You've rated this thumbs down"
+      "ratedDown": "You've rated this thumbs down",
+      "cookedToday": "Cooked today",
+      "cookedYesterday": "Cooked yesterday",
+      "cookedDaysAgo": "Cooked {count, plural, one {# day} other {# days}} ago",
+      "cookedWeeksAgo": "Cooked {count, plural, one {# week} other {# weeks}} ago",
+      "cookedMonthsAgo": "Cooked {count, plural, one {# month} other {# months}} ago",
+      "notCookedYet": "Not cooked yet",
+      "plannedOn": "Planned: {date}"
     },
     "selector": {
       "swapTitle": "Choose a different meal",

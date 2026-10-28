@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { misoSalmonAlternative } from '@/stories/fixtures'
+import { toDateString } from '@/lib/meal-planning/dates'
 import { AlternativeCard } from './AlternativeCard'
 import type { PantryIngredient } from './types'
 
@@ -245,5 +246,37 @@ export const RatedDown: Story = {
   args: { meal: { ...mealFixture, ratingSignal: 'disliked' } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText("You've rated this thumbs down")).toBeVisible()
+  },
+}
+
+/** `YYYY-MM-DD`, `days` from the browser's today, which the card counts from. */
+function dayFromToday(days: number) {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return toDateString(date)
+}
+
+/** One of the household's own recipes in My recipes: when it last had it (HON-1388). */
+export const CookedDaysAgo: Story = {
+  args: {
+    meal: { ...mealFixture, isCustom: true, lastCookedOn: dayFromToday(-12), nextPlannedOn: null },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Cooked 12 days ago')).toBeVisible()
+  },
+}
+
+/** Never cooked, but already planned: My recipes lists it last. */
+export const NotCookedYetPlanned: Story = {
+  args: {
+    meal: {
+      ...mealFixture,
+      isCustom: true,
+      lastCookedOn: null,
+      nextPlannedOn: dayFromToday(3),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText(/^Not cooked yet · Planned: /)).toBeVisible()
   },
 }

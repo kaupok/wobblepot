@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       kidFriendly: kidFriendlyParam === 'true' ? true : kidFriendlyParam === 'false' ? false : null,
       search: searchParams.get('search'),
       source: searchParams.get('source') as MealSource | null,
+      order: searchParams.get('order') === 'longestSinceCooked' ? 'longestSinceCooked' : null,
       limit:
         parseInt(searchParams.get('limit') || String(MEALS_DEFAULT_LIMIT), 10) ||
         MEALS_DEFAULT_LIMIT,
