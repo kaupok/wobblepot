@@ -74,13 +74,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // This route has never returned `replacedQuantity`; only the MCP tool reads it.
-    const results = outcome.results.map(({ ingredientId, pantryItem }) => ({
-      ingredientId,
-      pantryItem,
-    }))
-
-    return NextResponse.json({ success: true, results }, { status: 200 })
+    // `replacedQuantity` goes back on an undo as `restoreQuantity` (HON-1438).
+    return NextResponse.json({ success: true, results: outcome.results }, { status: 200 })
   } catch (error) {
     if (error instanceof ShoppingPlanError) {
       const { status, error: message } = REFUSALS[error.reason]

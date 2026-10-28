@@ -5,10 +5,15 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { ShoppingPlanError, type ShoppingPlanRefusal } from '@/lib/shopping/load-shopping-list'
-import { unpurchasePlanIngredient, UNPURCHASE_WINDOW_DAYS } from '@/lib/shopping/purchase'
+import {
+  restoreQuantitySchema,
+  unpurchasePlanIngredient,
+  UNPURCHASE_WINDOW_DAYS,
+} from '@/lib/shopping/purchase'
 
 const unpurchaseSchema = z.object({
   ingredientId: z.string().min(1),
+  restoreQuantity: restoreQuantitySchema.optional(),
 })
 
 const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
@@ -51,9 +56,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    const { ingredientId } = parsed.data
+    const { ingredientId, restoreQuantity } = parsed.data
 
-    const outcome = await unpurchasePlanIngredient(household.id, planId, ingredientId)
+    const outcome = await unpurchasePlanIngredient(household.id, planId, ingredientId, {
+      restoreQuantity,
+    })
     switch (outcome) {
       case 'not_in_pantry':
         return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
@@ -65,9 +72,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           },
           { status: 400 },
         )
-      // A staple stays in the pantry at 0 ("ran out") instead (HON-1398).
+      // A staple stays in the pantry at 0 ("ran out") instead (HON-1398), and
+      // `restoreQuantity` keeps the row at that quantity (HON-1438).
       case 'removed':
       case 'ran_out':
+      case 'restored':
         return NextResponse.json({ success: true, ingredientId, action: outcome }, { status: 200 })
     }
   } catch (error) {

@@ -162,7 +162,7 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('purchases a single ingredientId and leaves replacedQuantity out of the response', async () => {
+  it('purchases a single ingredientId and returns replacedQuantity for the undo (HON-1438)', async () => {
     mockPurchase.mockResolvedValue({
       status: 'purchased',
       results: [{ ingredientId: 'ing-rice', replacedQuantity: 300, pantryItem: ricePantryItem }],
@@ -170,7 +170,10 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
 
     expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
       status: 200,
-      body: { success: true, results: [{ ingredientId: 'ing-rice', pantryItem: ricePantryItem }] },
+      body: {
+        success: true,
+        results: [{ ingredientId: 'ing-rice', replacedQuantity: 300, pantryItem: ricePantryItem }],
+      },
     })
     expect(mockPurchase).toHaveBeenCalledWith(household, 'plan-123', ['ing-rice'])
   })
@@ -190,9 +193,9 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
       body: {
         success: true,
         results: [
-          { ingredientId: 'ing-milk', pantryItem: milkPantryItem },
-          { ingredientId: 'ing-rice', pantryItem: ricePantryItem },
-          { ingredientId: 'ing-milk', pantryItem: milkPantryItem },
+          { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
+          { ingredientId: 'ing-rice', replacedQuantity: null, pantryItem: ricePantryItem },
+          { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
         ],
       },
     })

@@ -94,11 +94,13 @@ export function InventoryPage({
   )
 
   // Undo takes the row out of the pantry; a staple stays, back at 0 ("ran
-  // out"), as `unpurchaseIngredient` leaves it (HON-1398).
-  const handleItemUnpurchased = useCallback((ingredientId: string) => {
+  // out"), as `unpurchaseIngredient` leaves it (HON-1398). A row that had an
+  // amount before the tick stays at that amount (HON-1438).
+  const handleItemUnpurchased = useCallback((ingredientId: string, restoredQuantity?: number) => {
     setPantryItems((prev) =>
       prev.flatMap((item) => {
         if (item.ingredient.id !== ingredientId) return [item]
+        if (restoredQuantity !== undefined) return [{ ...item, quantity: restoredQuantity }]
         return item.isStaple ? [{ ...item, quantity: 0 }] : []
       }),
     )

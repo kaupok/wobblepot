@@ -1,9 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InventoryPage } from './InventoryPage'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
 
 const routerPush = vi.fn()
 const routerReplace = vi.fn()
@@ -29,29 +28,6 @@ beforeEach(() => {
   routerReplace.mockClear()
   routerRefresh.mockClear()
 })
-
-/** What `loadInventory` hands over for a list with nothing on it. */
-const EMPTY_SHOPPING_DATA = {
-  windowDays: 7,
-  startDate: '2026-02-16',
-  endDate: '2026-02-23',
-  groups: [],
-  initialPurchasedIds: new Set<string>(),
-  customItems: [],
-}
-
-function renderPage(overrides: Partial<Parameters<typeof InventoryPage>[0]> = {}) {
-  const { wrapper } = createQueryWrapper()
-  return render(
-    <InventoryPage
-      view="shopping"
-      pantryItems={[]}
-      shoppingData={EMPTY_SHOPPING_DATA}
-      {...overrides}
-    />,
-    { wrapper },
-  )
-}
 
 /**
  * The window reconcile lives here rather than in `ShoppingListHeader` because
