@@ -269,23 +269,37 @@ describe('wt stop', () => {
 
   // The status file holds the PID `wt auto` was started with: the shell, with
   // claude as its child so it can continue the session after a network drop
-  // (HON-1413). The kill the check prints must reach that child, or the shell
-  // exits and leaves claude running unseen.
-  it('names a kill that reaches the claude child of the wt auto shell', () => {
-    const shell = spawn('bash', ['-c', 'sleep 30 & wait'], { stdio: 'ignore' })
+  // (HON-1413). The kill the check prints must reach claude, or the shell
+  // exits and leaves claude running unseen. So this runs the real launch, with
+  // a `claude` stub that records its PID and then waits.
+  it('names a kill that reaches the claude the wt auto shell started', () => {
+    const dir = tmpDir()
+    fs.writeFileSync(
+      path.join(dir, 'claude'),
+      `#!/bin/bash\necho $$ > "${dir}/pid"\nexec sleep 30\n`,
+    )
+    fs.chmodSync(path.join(dir, 'claude'), 0o755)
+    const shell = spawn(
+      'bash',
+      [
+        '-c',
+        `source "${path.join(scriptsDir, 'worktree-auto-run.sh')}"; CLAUDE_MODEL_ARGS=(); CLAUDE_MCP_ARGS=(); run_auto_claude p HON-7`,
+      ],
+      { stdio: 'ignore', env: { ...process.env, PATH: `${dir}:${process.env.PATH}` } },
+    )
     children.push(shell)
+    for (let i = 0; i < 50 && !fs.existsSync(path.join(dir, 'pid')); i++) {
+      spawnSync('sleep', ['0.1'])
+    }
+    const claude = Number(fs.readFileSync(path.join(dir, 'pid'), 'utf8'))
+    strays.push(claude)
+
     const out = verdict(`HON-7\t${shell.pid}`, `HON-7\t${shell.pid}`, 'HON-7\tQueued\t').out
     const kill = out.match(/Stop it: (.*)$/m)?.[1]
     expect(kill).toBe(`pkill -P ${shell.pid}; kill ${shell.pid}`)
-    // Give bash time to start its child.
-    spawnSync('sleep', ['0.3'])
-    const child = Number(spawnSync('pgrep', ['-P', String(shell.pid)], { encoding: 'utf8' }).stdout)
-    expect(child).toBeGreaterThan(0)
-    strays.push(child)
-
     spawnSync('bash', ['-c', kill!])
     spawnSync('sleep', ['0.3'])
 
-    expect(spawnSync('kill', ['-0', String(child)]).status).not.toBe(0)
+    expect(spawnSync('kill', ['-0', String(claude)]).status).not.toBe(0)
   })
 })

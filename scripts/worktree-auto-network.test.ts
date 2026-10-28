@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 /**
  * Drives `run_auto_claude` (scripts/worktree-auto-run.sh, HON-1413), the
  * `claude` run at the end of `wt auto`, with `claude` and `curl` stubs on PATH.
- * A network drop must continue the same session with `claude --continue`, at
- * most 3 times; any other failure exits as before.
+ * A network drop must resume the same session with `claude --resume`, at most
+ * 3 times; any other failure exits as before.
  */
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
@@ -31,6 +31,8 @@ echo "working on it"
 echo "$line" >&2
 exit 1
 `
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
 
 const CURL_STUB = `#!/usr/bin/env bash
 echo "curl $*" >> "$STUB_DIR/curl-calls"
@@ -82,11 +84,16 @@ function run(claudeRuns: string[], env: Record<string, string> = {}, issue = 'HO
     fs.existsSync(path.join(stubDir, file))
       ? fs.readFileSync(path.join(stubDir, file), 'utf8').trim().split('\n')
       : []
+  // Each run gets its own session ID; <sid> stands for it in the calls.
+  const raw = read('calls')
+  const sids = new Set(raw.flatMap((c) => c.match(UUID) ?? []))
+  const calls = raw.map((c) => c.replace(UUID, '<sid>'))
   return {
     status: result.status,
     out: result.stdout,
-    calls: read('calls'),
-    continues: read('calls').filter((c) => c.startsWith('claude --continue ')),
+    calls,
+    sids,
+    resumes: calls.filter((c) => c.startsWith('claude --resume <sid> ')),
     curls: read('curl-calls'),
   }
 }
@@ -96,9 +103,13 @@ describe('run_auto_claude', () => {
     const r = run([NETWORK_ERROR, 'ok'])
 
     expect(r.status).toBe(0)
-    expect(r.continues).toEqual([
-      'claude --continue --dangerously-skip-permissions --model m --strict-mcp-config -- The network dropped and stopped this session. Continue /auto-implement HON-1 from where you stopped. | key=unset retry=unset',
+    expect(r.resumes).toEqual([
+      'claude --resume <sid> --dangerously-skip-permissions --model m --strict-mcp-config -- The network dropped and stopped this session. Continue /auto-implement HON-1 from where you stopped. | key=unset retry=unset',
     ])
+    // The resume names the first call's session, not the newest one in the
+    // directory, which can be the PR reviewer's.
+    expect(r.calls[0]).toMatch(/^claude --session-id <sid> /)
+    expect(r.sids.size).toBe(1)
     expect(r.out).toContain('[wt auto] Network drop — waiting for the Claude API\n')
     expect(r.out).toContain('[wt auto] Network back — continuing the session (resume 1/3)\n')
     // The run's own output still reaches the worker log.
@@ -106,12 +117,12 @@ describe('run_auto_claude', () => {
     expect(r.curls).toEqual(['curl -sS -o /dev/null --max-time 10 https://api.anthropic.com'])
   })
 
-  it('runs the first call with the original prompt and no --continue', () => {
+  it('runs the first call with its own session ID and the original prompt', () => {
     const r = run(['ok'])
 
     expect(r.status).toBe(0)
     expect(r.calls).toEqual([
-      'claude --dangerously-skip-permissions --model m --strict-mcp-config -- /auto-implement HON-1 | key=unset retry=unset',
+      'claude --session-id <sid> --dangerously-skip-permissions --model m --strict-mcp-config -- /auto-implement HON-1 | key=unset retry=unset',
     ])
     expect(r.out).not.toContain('[wt auto]')
   })
@@ -120,7 +131,7 @@ describe('run_auto_claude', () => {
     const r = run(['Error: prompt is too long', 'ok'])
 
     expect(r.status).toBe(1)
-    expect(r.continues).toEqual([])
+    expect(r.resumes).toEqual([])
     expect(r.curls).toEqual([])
     expect(r.out).not.toContain('[wt auto]')
   })
@@ -129,17 +140,18 @@ describe('run_auto_claude', () => {
     const r = run([NETWORK_ERROR, NETWORK_ERROR, NETWORK_ERROR, NETWORK_ERROR, 'ok'])
 
     expect(r.status).toBe(1)
-    expect(r.continues).toHaveLength(3)
+    expect(r.resumes).toHaveLength(3)
     expect(r.calls).toHaveLength(4)
+    expect(r.sids.size).toBe(1)
     expect(r.out).toContain('(resume 3/3)')
     expect(r.out).not.toContain('(resume 4/3)')
   })
 
-  it('exits 1 without --continue when the API does not answer within WT_AUTO_NETWORK_WAIT', () => {
+  it('exits 1 without a resume when the API does not answer within WT_AUTO_NETWORK_WAIT', () => {
     const r = run([NETWORK_ERROR, 'ok'], { STUB_CURL_FAILS: '1', WT_AUTO_NETWORK_WAIT: '1' })
 
     expect(r.status).toBe(1)
-    expect(r.continues).toEqual([])
+    expect(r.resumes).toEqual([])
     expect(r.curls.length).toBeGreaterThanOrEqual(1)
     expect(r.out).toContain('[wt auto] Network drop — waiting for the Claude API')
     expect(r.out).not.toContain('Network back')
@@ -149,13 +161,13 @@ describe('run_auto_claude', () => {
     const r = run(['API Error: Connection error. (ECONNRESET)', 'ok'])
 
     expect(r.status).toBe(0)
-    expect(r.continues).toHaveLength(1)
+    expect(r.resumes).toHaveLength(1)
   })
 
   it('leaves the issue out of the resume prompt when wt auto runs discovery', () => {
     const r = run([NETWORK_ERROR, 'ok'], {}, '')
 
-    expect(r.continues[0]).toContain(
+    expect(r.resumes[0]).toContain(
       '-- The network dropped and stopped this session. Continue /auto-implement from where you stopped.',
     )
   })

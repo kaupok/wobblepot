@@ -582,7 +582,12 @@ describe('orchestrator.sh', () => {
       )
     /** The REAL cmd_auto against a `claude` stub: what the worker CLI receives. */
     const wtAuto = (args: string[], env: Record<string, string> = {}) =>
-      runHarnessEnv(env, 'wt-auto', String(args.length), ...args)
+      runHarnessEnv(env, 'wt-auto', String(args.length), ...args).replace(
+        // The worker's own session ID, so a resume after a network drop takes
+        // this session (HON-1413).
+        /--session-id [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /g,
+        '--session-id <sid> ',
+      )
     const triageInput = (env: Record<string, string>) =>
       stripTimestamps(runHarnessEnv(env, 'failure', 'BACKLOG', '0', 'false')).match(
         /^TRIAGE_INPUT:.*$/m,
@@ -621,7 +626,7 @@ describe('orchestrator.sh', () => {
       const out = wtAuto(['HON-991'])
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -631,7 +636,7 @@ describe('orchestrator.sh', () => {
 
     it('passes --effort to the worker when CLAUDE_AUTO_EFFORT is set', () => {
       expect(wtAuto(['HON-991'], { CLAUDE_AUTO_EFFORT: 'xhigh' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -644,7 +649,7 @@ describe('orchestrator.sh', () => {
       })
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model small-x --effort low ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model small-x --effort low ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -652,7 +657,7 @@ describe('orchestrator.sh', () => {
 
     it("reads wt auto --effort '' as no --effort flag", () => {
       expect(wtAuto(['--effort', '', 'HON-991'], { CLAUDE_AUTO_EFFORT: 'max' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
