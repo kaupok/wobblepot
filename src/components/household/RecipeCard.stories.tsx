@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { Heart } from 'lucide-react'
+import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { Button } from '@/components/ui/button'
 import { householdMealList } from '@/stories/fixtures'
@@ -17,7 +18,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'One recipe on My recipes (`MealList`). A click on the name, the image or anywhere that is not a control calls `onOpen`, which opens the recipe’s cook view (HON-1338). The name is the keyboard target; the title-row controls (`titleActions`) keep their own actions.',
+          'One recipe on My recipes (`MealList`). A click on the name, the image or anywhere that is not a control calls `onOpen`, which opens the recipe’s cook view (HON-1338). The name is the keyboard target; the title-row controls (`titleActions`) keep their own actions. A recipe whose image is being drawn shows a plain `bg-muted` box in the image slot and re-reads `GET /api/meals/:id/image` every 5 s for at most 90 s, then shows the image with its tint (HON-1364).',
       },
     },
   },
@@ -75,5 +76,49 @@ export const ControlDoesNotOpen: Story = {
   play: async ({ args, canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Add to favourites' }))
     await expect(args.onOpen).not.toHaveBeenCalled()
+  },
+}
+
+/**
+ * A just-saved recipe whose image is still being drawn: a plain box holds the
+ * image's slot, with no icon or animation (HON-1364).
+ */
+export const Generating: Story = {
+  args: { meal: { ...meal, imageStatus: 'generating', imageUrl: null, imageHue: null } },
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/meals/:id/image', () => HttpResponse.json({ status: 'generating' })),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const box = within(canvasElement).getByTestId('meal-card-image-generating')
+    await expect(box).toHaveClass('bg-muted')
+    await expect(box).toBeEmptyDOMElement()
+    await expect(canvasElement.querySelector('img')).toBeNull()
+  },
+}
+
+/** The image is ready at the first re-read: the box gives way to the image and its tint. */
+export const GeneratingThenReady: Story = {
+  args: { meal: { ...meal, imageStatus: 'generating', imageUrl: null, imageHue: null } },
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/meals/:id/image', () =>
+          HttpResponse.json({ status: 'ready', imageUrl: mealIllustration.src, imageHue: 52 }),
+        ),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => {
+      if (!canvasElement.querySelector('img')) throw new Error('The card renders no image yet')
+    })
+    await expect(
+      within(canvasElement).queryByTestId('meal-card-image-generating'),
+    ).not.toBeInTheDocument()
+    await expect(canvasElement.querySelector('[data-meal-surface=""]')).not.toBeNull()
   },
 }

@@ -7,6 +7,23 @@ import { GET, POST } from './route'
 // the seam and asserts what the route owns: the session, the household, query
 // and body validation, and the status and body each answer maps to (HON-1210).
 
+// `after()` callbacks are collected and run by the test, so a case can assert
+// on the response before any of the work has happened, as in production.
+const afterCallbacks: Array<() => unknown> = []
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn((callback: () => unknown) => {
+    afterCallbacks.push(callback)
+  }),
+}))
+
+// The image claim and draw live in `@/lib/meal-images/start`, tested in
+// `start.test.ts`; the route owns when they run (HON-1364).
+vi.mock('@/lib/meal-images/start', () => ({
+  claimSavedMealImage: vi.fn(),
+  drawSavedMealImage: vi.fn(),
+}))
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
@@ -30,11 +47,14 @@ vi.mock('@/lib/household-meals', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { createHouseholdMeal, HouseholdMealError, listHouseholdMeals } from '@/lib/household-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
+const mockClaimImage = vi.mocked(claimSavedMealImage)
+const mockDrawImage = vi.mocked(drawSavedMealImage)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockList = vi.mocked(listHouseholdMeals)
@@ -81,6 +101,8 @@ const validBody = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  afterCallbacks.length = 0
+  mockClaimImage.mockResolvedValue(null)
   mockGetSession.mockResolvedValue(mockSession)
   mockGetMembership.mockResolvedValue(mockMembership)
 })
@@ -271,6 +293,52 @@ describe('POST /api/households/me/meals', () => {
         { ingredientId: 'ing-1', totalQuantity: 300, isVague: false },
         { ingredientId: 'ing-2', totalQuantity: 0, isVague: true, originalPhrase: 'a pinch' },
       ],
+    })
+  })
+
+  describe('the image (HON-1364)', () => {
+    const imageClaim = { meal: { id: 'meal-new' }, claim: { mealId: 'meal-new' } } as never
+
+    it('claims the new recipe’s image and draws it only after the response', async () => {
+      mockCreate.mockResolvedValue({ id: 'meal-new', name: 'New meal' } as never)
+      mockClaimImage.mockResolvedValue(imageClaim)
+
+      const response = await post(validBody)
+
+      expect(response.status).toBe(201)
+      expect(mockClaimImage).toHaveBeenCalledExactlyOnceWith(
+        'household-123',
+        'meal-new',
+        '/api/households/me/meals',
+      )
+      expect(afterCallbacks).toHaveLength(1)
+      expect(mockDrawImage).not.toHaveBeenCalled()
+
+      await afterCallbacks[0]!()
+
+      expect(mockDrawImage).toHaveBeenCalledExactlyOnceWith(imageClaim, {
+        householdId: 'household-123',
+        userId: 'user-123',
+        route: '/api/households/me/meals',
+      })
+    })
+
+    it('schedules no draw when the claim is not won', async () => {
+      mockCreate.mockResolvedValue({ id: 'meal-new', name: 'New meal' } as never)
+
+      const response = await post(validBody)
+
+      expect(response.status).toBe(201)
+      expect(afterCallbacks).toHaveLength(0)
+    })
+
+    it('claims nothing when the recipe was not created', async () => {
+      mockCreate.mockRejectedValue(new HouseholdMealError('ingredientsNotFound', ['ing-2']))
+
+      await post(validBody)
+
+      expect(mockClaimImage).not.toHaveBeenCalled()
+      expect(afterCallbacks).toHaveLength(0)
     })
   })
 

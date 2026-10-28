@@ -5,6 +5,7 @@ import { CardContent } from '@/components/ui/card'
 import { CARD_CLICK_IGNORE } from '@/components/meal-plan/card-click'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { MealImageCard } from '@/components/meal-plan/MealImageCard'
+import { useRecipeCardImage } from '@/hooks/use-recipe-card-image'
 import type { MealData } from './MealList'
 
 interface RecipeCardProps {
@@ -20,8 +21,12 @@ interface RecipeCardProps {
  * that is not a control opens the cook view, as on the planner card
  * (HON-1010). The name is the keyboard target and the accessible name, so the
  * card itself takes no role, tab stop or keys.
+ *
+ * A recipe whose image is still being drawn shows a plain box where the image
+ * goes, and the image once it is ready, without a reload (HON-1364).
  */
-export function RecipeCard({ meal, titleActions, onOpen }: RecipeCardProps) {
+export function RecipeCard({ meal: payloadMeal, titleActions, onOpen }: RecipeCardProps) {
+  const meal = useRecipeCardImage(payloadMeal)
   const nameButtonRef = useRef<HTMLButtonElement>(null)
 
   // The view hands focus back to whatever had it as it opened. Give it the
@@ -55,6 +60,7 @@ export function RecipeCard({ meal, titleActions, onOpen }: RecipeCardProps) {
     <MealImageCard
       meal={meal}
       layout="bottom"
+      reserveWhileGenerating
       // `sm`: the content's own `p-4` is the card's padding; the default
       // `py-6` on top of it doubled the space above the first row.
       size="sm"

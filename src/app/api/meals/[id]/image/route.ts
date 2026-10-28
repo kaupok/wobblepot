@@ -5,35 +5,19 @@ import { getHouseholdMembership } from '@/lib/household'
 import { serverEnv } from '@/lib/env'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
-import {
-  AiCostCapExceededError,
-  assertUnderCap,
-  recordAiUsage,
-  respondCapExceeded,
-} from '@/lib/ai/usage'
+import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { captureApiError } from '@/lib/errors'
 import { withRequestId } from '@/lib/request-id'
-import { extractHue } from '@/lib/meal-images/colour'
 import {
-  generateMealImage,
-  isQuotaExhausted,
-  isRateLimited,
-  MealImageUnavailableError,
-} from '@/lib/meal-images/generate'
-import {
-  attachMealImage,
   claimMealImage,
   loadMealForImage,
-  markMealImageFailed,
   MEAL_IMAGE_CLAIM_STALE_MS,
   MEAL_IMAGE_MAX_ATTEMPTS,
   readMealImage,
-  releaseMealImageClaim,
 } from '@/lib/meal-images/persist'
 import { presentMealImage } from '@/lib/meal-images/present'
-import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
+import { drawClaimedMealImage } from '@/lib/meal-images/start'
 
 /**
  * POST /api/meals/[id]/image — lazily generate a meal's hero illustration
@@ -59,47 +43,17 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  *   so one household's AI cap is never charged for them.
  *
  * Every query, the claim and the writes guarded on it live in
- * `@/lib/meal-images/persist` (HON-1211).
+ * `@/lib/meal-images/persist` (HON-1211); the draw after the claim is
+ * `drawClaimedMealImage`, which saving a recipe shares (HON-1364).
  */
 
 const ROUTE = '/api/meals/[id]/image'
-
-/**
- * Wall-clock budget for all AI time in this request, in ms: two images and
- * two judge calls in the worst case (~43 s measured), and `generateMealImage`
- * only starts the second image when the budget still has room for it. The
- * remaining 10 s under `maxDuration` covers the Blob upload and the DB writes
- * after it, which is what keeps the 504 below reachable (HON-694, HON-699).
- */
-const AI_BUDGET_MS = 50_000
-
-/**
- * A provider 429 is waited out at most once here, for at most 15 s: longer,
- * and the image after it no longer fits `AI_BUDGET_MS` (HON-742). A 429 that
- * outlasts it releases the claim instead of failing the meal.
- */
-const RATE_LIMIT_RETRIES = 1
-const RATE_LIMIT_MAX_WAIT_MS = 15_000
 
 type ImageBody =
   | { status: 'ready'; imageUrl: string; imageHue: number | null }
   | { status: 'none' | 'generating' | 'failed'; error?: string }
 
 const respond = (body: ImageBody, status = 200) => NextResponse.json(body, { status })
-
-/**
- * The meal's card hue from the image bytes (HON-744). A failure is logged and
- * stored as null, never raised: an image that was generated and paid for must
- * not be thrown away over its colour.
- */
-async function hueOf(bytes: Uint8Array, mealId: string): Promise<number | null> {
-  try {
-    return (await extractHue(bytes)).hue
-  } catch (error) {
-    captureApiError(error, { route: ROUTE, operation: 'meal-image-hue', mealId })
-    return null
-  }
-}
 
 async function handlePOST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
@@ -119,188 +73,127 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   const { household } = membership
   const { id: mealId } = await params
 
-  const meal = await loadMealForImage(household.id, mealId)
-
-  if (!meal) {
-    return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
-  }
-
-  const presented = presentMealImage(meal)
-  if (presented.imageStatus === 'ready' && presented.imageUrl) {
-    return respond({ status: 'ready', imageUrl: presented.imageUrl, imageHue: presented.imageHue })
-  }
-
-  // Global meals are drawn once by the operator batch, never on a household's cap.
-  if (meal.householdId === null) {
-    const status = meal.imageStatus === 'ready' ? 'none' : meal.imageStatus
-    // Same 202 as a household meal mid-generation, so a client polls both alike.
-    return respond({ status }, status === 'generating' ? 202 : 200)
-  }
-
-  if (meal.imageStatus === 'failed' && meal.imageAttempts >= MEAL_IMAGE_MAX_ATTEMPTS) {
-    return respond({ status: 'failed' })
-  }
-
-  // Polls while another request generates must not spend rate-limit tokens.
-  // The guarded claim below is what actually settles a race; this only skips
-  // the obvious case early.
-  const now = new Date()
-  const staleBefore = new Date(now.getTime() - MEAL_IMAGE_CLAIM_STALE_MS)
-  if (
-    meal.imageStatus === 'generating' &&
-    meal.imageClaimedAt !== null &&
-    meal.imageClaimedAt >= staleBefore
-  ) {
-    return respond({ status: 'generating' }, 202)
-  }
-
-  if (!serverEnv.OPENAI_API_KEY) {
-    return NextResponse.json({ error: 'Meal images are not available' }, { status: 503 })
-  }
-
-  const rateLimitResult = await checkRateLimit(household.id, 'meal-image')
-  if (!rateLimitResult.allowed) {
-    return NextResponse.json(
-      {
-        error: 'Rate limit exceeded',
-        message: `Maximum ${rateLimitResult.limit} meal image requests per hour`,
-        resetAt: rateLimitResult.resetAt.toISOString(),
-      },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
-      },
-    )
-  }
-
-  // Kill-switch, placed as in `/api/meal-plans/generate`. Only a request that
-  // would generate gets here: a ready image, a global meal and an in-flight
-  // claim have all been answered above, so existing images are still served.
-  const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
-  if (!aiEnabled) {
-    return respond({ status: 'failed', error: 'AI generation is temporarily disabled' }, 503)
-  }
-
   try {
-    await assertUnderCap(household.id)
-  } catch (error) {
-    if (error instanceof AiCostCapExceededError) {
-      return respondCapExceeded(error)
+    const meal = await loadMealForImage(household.id, mealId)
+
+    if (!meal) {
+      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
     }
-    throw error
-  }
 
-  // Claim before generating, so two households opening the same meal never
-  // both pay. Usually a null claim means another request won it. Rarely the
-  // meal was edited since the read above; 202 is still right, because the
-  // client polls the GET, reads the edit's `none`, and POSTs again
-  // (`useMealImage`).
-  const claim = await claimMealImage(meal, now)
-  if (!claim) {
-    return respond({ status: 'generating' }, 202)
-  }
+    const presented = presentMealImage(meal)
+    if (presented.imageStatus === 'ready' && presented.imageUrl) {
+      return respond({
+        status: 'ready',
+        imageUrl: presented.imageUrl,
+        imageHue: presented.imageHue,
+      })
+    }
 
-  let uploadedUrl: string | null = null
+    // Global meals are drawn once by the operator batch, never on a household's cap.
+    if (meal.householdId === null) {
+      const status = meal.imageStatus === 'ready' ? 'none' : meal.imageStatus
+      // Same 202 as a household meal mid-generation, so a client polls both alike.
+      return respond({ status }, status === 'generating' ? 202 : 200)
+    }
 
-  try {
-    const image = await generateMealImage(
-      {
-        name: meal.name,
-        description: meal.description,
-        preparationNotes: meal.preparationNotes,
-        components: meal.components.map((c) => ({
-          name: c.ingredient.name,
-          quantity: c.quantityPerServing,
-          unit: c.ingredient.defaultUnit,
-          gramsPerPiece: c.ingredient.gramsPerPiece,
-          densityGPerMl: c.ingredient.densityGPerMl,
-        })),
-      },
-      {
-        abortSignal: AbortSignal.timeout(AI_BUDGET_MS),
-        budgetMs: AI_BUDGET_MS,
-        rateLimitRetries: RATE_LIMIT_RETRIES,
-        maxRateLimitWaitMs: RATE_LIMIT_MAX_WAIT_MS,
-        mealId: meal.id,
-        onUsage: (usage) =>
-          recordAiUsage({ householdId: household.id, feature: 'meal_image', ...usage }),
-      },
-    )
+    if (meal.imageStatus === 'failed' && meal.imageAttempts >= MEAL_IMAGE_MAX_ATTEMPTS) {
+      return respond({ status: 'failed' })
+    }
 
-    uploadedUrl = await putMealImage(meal.id, Buffer.from(image.bytes), image.mediaType)
-    const imageHue = await hueOf(image.bytes, meal.id)
+    // Polls while another request generates must not spend rate-limit tokens.
+    // The guarded claim below is what actually settles a race; this only skips
+    // the obvious case early.
+    const now = new Date()
+    const staleBefore = new Date(now.getTime() - MEAL_IMAGE_CLAIM_STALE_MS)
+    if (
+      meal.imageStatus === 'generating' &&
+      meal.imageClaimedAt !== null &&
+      meal.imageClaimedAt >= staleBefore
+    ) {
+      return respond({ status: 'generating' }, 202)
+    }
 
-    const attached = await attachMealImage(claim, {
-      url: uploadedUrl,
-      hue: imageHue,
-      vessel: image.vessel,
+    if (!serverEnv.OPENAI_API_KEY) {
+      return NextResponse.json({ error: 'Meal images are not available' }, { status: 503 })
+    }
+
+    const rateLimitResult = await checkRateLimit(household.id, 'meal-image')
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Maximum ${rateLimitResult.limit} meal image requests per hour`,
+          resetAt: rateLimitResult.resetAt.toISOString(),
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
+        },
+      )
+    }
+
+    // Kill-switch, placed as in `/api/meal-plans/generate`. Only a request that
+    // would generate gets here: a ready image, a global meal and an in-flight
+    // claim have all been answered above, so existing images are still served.
+    const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+    if (!aiEnabled) {
+      return respond({ status: 'failed', error: 'AI generation is temporarily disabled' }, 503)
+    }
+
+    try {
+      await assertUnderCap(household.id)
+    } catch (error) {
+      if (error instanceof AiCostCapExceededError) {
+        return respondCapExceeded(error)
+      }
+      throw error
+    }
+
+    // Claim before generating, so two households opening the same meal never
+    // both pay. Usually a null claim means another request won it. Rarely the
+    // meal was edited since the read above; 202 is still right, because the
+    // client polls the GET, reads the edit's `none`, and POSTs again
+    // (`useMealImage`).
+    const claim = await claimMealImage(meal, now)
+    if (!claim) {
+      return respond({ status: 'generating' }, 202)
+    }
+
+    const outcome = await drawClaimedMealImage(meal, claim, {
+      householdId: household.id,
+      userId: session.user.id,
+      route: ROUTE,
     })
 
-    if (!attached) {
-      // The meal was edited (or the claim taken over) while we generated: this
-      // image shows the old ingredients, so it must never be attached.
-      await discardMealImage(uploadedUrl, ROUTE)
+    if (outcome.kind === 'ready') {
+      return respond({ status: 'ready', imageUrl: outcome.imageUrl, imageHue: outcome.imageHue })
+    }
+
+    if (outcome.kind === 'lost') {
       return respond({ status: 'none' })
     }
 
-    // The image this one replaced — a stale-version redraw, or a stale claim
-    // over one. Deleted only now it is detached, as `clearMealImage` orders it;
-    // until then the row still points at it, so a failure orphans nothing.
-    if (meal.imageUrl && meal.imageUrl !== uploadedUrl) {
-      await discardMealImage(meal.imageUrl, ROUTE)
-    }
-
-    return respond({ status: 'ready', imageUrl: uploadedUrl, imageHue })
-  } catch (error) {
-    captureApiError(error, {
-      route: ROUTE,
-      userId: session.user.id,
-      feature: 'meal_image',
-      householdId: household.id,
-    })
-
-    // Only reached before the image was attached, so an uploaded blob is an orphan.
-    await discardMealImage(uploadedUrl, ROUTE)
-
-    const statusCode = aiErrorStatusCode(error)
-    const rateLimited = isRateLimited(error)
-    const unavailable = error instanceof MealImageUnavailableError || isQuotaExhausted(error)
-    // A 429, an exhausted quota or a missing key says nothing about this meal,
-    // and retrying later succeeds — counting it would lock the meal out after
-    // three busy moments. Everything else counts: it was probably billed, or
-    // will fail again.
-    // A rate limit goes further and releases the claim, so the next open
-    // simply asks again once the provider's per-minute window clears
-    // (HON-742).
-    const transient = statusCode === 429 || unavailable
-
-    try {
-      if (rateLimited) {
-        await releaseMealImageClaim(claim)
-      } else {
-        await markMealImageFailed(claim, { countAttempt: !transient })
-      }
-    } catch (writeError) {
-      // The stale-claim takeover recovers the row; the original error is the one to map.
-      captureApiError(writeError, { route: ROUTE, operation: 'meal-image-mark-failed' })
-    }
-
     // Same two-name check as the other AI routes (HON-694).
-    if (isAiBudgetTimeout(error)) {
+    if (isAiBudgetTimeout(outcome.error)) {
       return respond({ status: 'failed', error: 'Generating the image took too long.' }, 504)
     }
 
-    if (unavailable) {
+    if (outcome.unavailable) {
       return respond({ status: 'failed', error: 'Meal images are not available' }, 503)
     }
 
-    if (rateLimited) {
+    if (outcome.rateLimited) {
       return respond({ status: 'none', error: 'Image service is busy.' }, 429)
     }
-    if (statusCode !== undefined && statusCode >= 500) {
+    if (outcome.statusCode !== undefined && outcome.statusCode >= 500) {
       return respond({ status: 'failed', error: 'Image service unavailable.' }, 502)
     }
 
+    return respond({ status: 'failed', error: "Couldn't generate the image." }, 500)
+  } catch (error) {
+    // Only the reads and gates before the claim get here: `drawClaimedMealImage`
+    // logs and maps its own failures, and never throws.
+    captureApiError(error, { route: ROUTE, userId: session.user.id, householdId: household.id })
     return respond({ status: 'failed', error: "Couldn't generate the image." }, 500)
   }
 }
@@ -358,8 +251,8 @@ export const GET = withRequestId(handleGET)
 /**
  * Platform execution ceiling for this route, in seconds.
  *
- * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
- * lets the function run that long — otherwise the request is killed first and
+ * Stated explicitly because `AI_BUDGET_MS` (`@/lib/meal-images/start`) is
+ * only meaningful if the platform lets the function run that long — otherwise the request is killed first and
  * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
  * so this cannot fail to deploy (HON-693). It is also what makes
  * `MEAL_IMAGE_CLAIM_STALE_MS` safe: no live request can hold a claim for 3 minutes.

@@ -31,7 +31,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating. With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `head` (the planner card) the image runs from the card's top edge to the bottom of the head, and the children are the full-width rows below it, on the plain tint (HON-927). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
+          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating, except a `bottom` card with `reserveWhileGenerating` (My recipes), which holds the image's 3:2 slot with a plain `bg-muted` box (HON-1364). With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `head` (the planner card) the image runs from the card's top edge to the bottom of the head, and the children are the full-width rows below it, on the plain tint (HON-927). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
       },
     },
   },
@@ -140,6 +140,22 @@ export const Generating: Story = {
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByRole('img')).not.toBeInTheDocument()
     await expect(within(canvasElement).queryByTestId('meal-card-image')).not.toBeInTheDocument()
+  },
+}
+
+// My recipes holds the bottom image's slot with a plain box while it is drawn (HON-1364).
+export const GeneratingReserved: Story = {
+  args: {
+    meal: createMealCardBaseData({ imageStatus: 'generating' }),
+    layout: 'bottom',
+    reserveWhileGenerating: true,
+    className: 'max-w-sm',
+  },
+  play: async ({ canvasElement }) => {
+    const box = within(canvasElement).getByTestId('meal-card-image-generating')
+    await expect(box).toHaveClass('bg-muted', 'aspect-3/2')
+    await expect(box).toBeEmptyDOMElement()
+    await expect(within(canvasElement).queryByRole('img')).not.toBeInTheDocument()
   },
 }
 

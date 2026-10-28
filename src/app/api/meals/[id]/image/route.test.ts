@@ -254,6 +254,25 @@ describe('POST /api/meals/[id]/image', () => {
     expect(mockLoadMeal).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-1')
   })
 
+  it('answers the { error } shape at 500 when a read before the claim throws', async () => {
+    const error = new Error('connection lost')
+    mockLoadMeal.mockRejectedValue(error)
+
+    const response = await post()
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({
+      status: 'failed',
+      error: "Couldn't generate the image.",
+    })
+    expect(captureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/meals/[id]/image',
+      userId: 'user-123',
+      householdId: HOUSEHOLD_ID,
+    })
+    expect(mockClaim).not.toHaveBeenCalled()
+  })
+
   it('returns a ready image without generating or spending a rate-limit token', async () => {
     seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 120, imagePromptVersion: 'v4' })
 
