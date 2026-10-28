@@ -110,7 +110,14 @@ export const DeleteAUsedRow: Story = {
             {
               error: 'Ingredient in use',
               code: 'in_use',
-              uses: { meals: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+              uses: {
+                meals: 1,
+                deletedMealsInPlan: 0,
+                pantry: 0,
+                shoppingList: 0,
+                mealPlan: 0,
+                extras: 0,
+              },
             },
             { status: 409 },
           ),
