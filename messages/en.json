@@ -274,7 +274,9 @@
       "usedItAll": "Used it all",
       "usedItAllLabel": "Used it all: {name}",
       "completeConfirm": "Done",
-      "completing": "Saving…"
+      "completing": "Saving…",
+      "recentLabelsHeading": "Used lately",
+      "recentLabelsAllChosen": "All of them are in this meal."
     },
     "noteEditor": {
       "placeholder": "Add a note…",
@@ -614,13 +616,30 @@
   },
   "pastMeals": {
     "title": "Past meals",
-    "description": "The last 7 days. Mark each meal as cooked or skipped.",
-    "empty": "Nothing was planned in the last 7 days.",
+    "description": "Mark each meal as cooked or skipped, or add what you ate.",
+    "empty": "Nothing here yet. A day shows here once it has passed.",
     "backToPlan": "Back to the meal plan",
     "row": {
       "cooked": "Cooked",
       "skipped": "Skipped",
-      "undo": "Undo: {mealName}"
+      "undo": "Undo: {mealName}",
+      "remove": "Remove"
+    },
+    "showWeekBefore": "Show the week before",
+    "log": {
+      "title": "Choose a recipe",
+      "description": "{day}: {mealType}. Saved as cooked. The pantry does not change.",
+      "search": "Search recipes",
+      "searchPlaceholder": "For example: soup",
+      "frequentHeading": "Cooked often lately",
+      "myRecipesHeading": "My recipes",
+      "resultsHeading": "Recipes",
+      "loading": "Loading…",
+      "loadFailed": "Couldn't load recipes. Please try again.",
+      "noRecipes": "No recipes yet. Search for one above.",
+      "noMatch": "No recipe matches \"{query}\".",
+      "saveFailed": "Couldn't save the meal. Please try again.",
+      "cancel": "Cancel"
     }
   },
   "recipes": {

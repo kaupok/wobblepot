@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST, DELETE } from './route'
 
 // The plan, slot and meal checks and every query live in
@@ -296,11 +296,85 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     })
 
     it.each([
-      ['a completed entry', { status: 'completed' }],
+      ['a completed entry on a day still to come', { status: 'completed' }],
       ['a note position without a note', { note: null }],
       ['half a note position', { noteY: null }],
     ])('refuses %s', async (_label, override) => {
       const { status } = await answer(post({ ...restoreBody, ...override }))
+
+      expect(status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('logging a past meal (HON-1383)', () => {
+    // 10:00 in Tallinn on 10 March 2026, so the household's today is the 10th.
+    const NOW = new Date('2026-03-10T08:00:00.000Z')
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(NOW)
+      mockCreateEntry.mockResolvedValue({ ...created, status: 'completed' })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('creates a completed recipe meal on a day before today', async () => {
+      const { status } = await answer(
+        post({ date: '2026-03-09', mealType: 'dinner', mealId: 'meal-1', status: 'completed' }),
+      )
+
+      expect(status).toBe(200)
+      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
+        date: new Date(2026, 2, 9),
+        mealType: 'dinner',
+        mealId: 'meal-1',
+        status: 'completed',
+      })
+    })
+
+    it('creates a completed fridge meal on a day before today', async () => {
+      const fridgeItems = [{ label: 'Wolt' }]
+      const { status } = await answer(
+        post({ date: '2026-03-08', mealType: 'dinner', fridgeItems, status: 'completed' }),
+      )
+
+      expect(status).toBe(200)
+      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
+        date: new Date(2026, 2, 8),
+        mealType: 'dinner',
+        fridgeItems,
+        status: 'completed',
+      })
+    })
+
+    it.each([
+      ['today', '2026-03-10'],
+      ['tomorrow', '2026-03-11'],
+    ])('refuses a completed entry for %s', async (_label, date) => {
+      const { status } = await answer(
+        post({ date, mealType: 'dinner', mealId: 'meal-1', status: 'completed' }),
+      )
+
+      expect(status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['pick', { pick: 'suggested', mealId: undefined }],
+      ['pantryDeducted', { pantryDeducted: true }],
+    ])('refuses a completed entry with %s', async (_label, override) => {
+      const { status } = await answer(
+        post({
+          date: '2026-03-09',
+          mealType: 'dinner',
+          mealId: 'meal-1',
+          status: 'completed',
+          ...override,
+        }),
+      )
 
       expect(status).toBe(400)
       expect(mockCreateEntry).not.toHaveBeenCalled()

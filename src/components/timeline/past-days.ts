@@ -1,45 +1,58 @@
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import type { PlanEntry, TimelineDay } from '@/components/meal-plan/types'
+import type { ExpectedMealTypes, PlanEntry, TimelineDay } from '@/components/meal-plan/types'
+import { daySlots } from './day-slots'
 
-const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
+interface PastDaysRange {
+  /** The first day, `YYYY-MM-DD`, inclusive. */
+  startDate: string
+  /** The household's today, `YYYY-MM-DD`: the range ends the day before. */
+  todayDate: string
+  expectedMealTypes: ExpectedMealTypes
+  locale: Locale
+}
 
 /**
- * The past days that have entries, newest first: yesterday leads because it is
- * the day most likely to still need marking. Entries before `todayDate` only;
- * the caller decides how far back to load.
+ * Every past day in `[startDate, todayDate)`, newest first: yesterday leads
+ * because it is the day most likely to still need marking. A day lists its
+ * recipe and fridge meals as rows and its expected meal types with no entry
+ * as empty slots, where the household logs what it ate (HON-1383). A day
+ * with neither is left out. A note-only entry fills its slot, as on Today,
+ * but is no row: it has nothing to mark.
  */
 export function buildPastDays(
   entries: PlanEntry[],
-  todayDate: string,
-  locale: Locale,
+  { startDate, todayDate, expectedMealTypes, locale }: PastDaysRange,
 ): TimelineDay[] {
   const entriesByDate = new Map<string, PlanEntry[]>()
   for (const entry of entries) {
-    if (entry.date >= todayDate) continue
     const existing = entriesByDate.get(entry.date) ?? []
     existing.push(entry)
     entriesByDate.set(entry.date, existing)
   }
 
-  return [...entriesByDate.keys()]
-    .sort((a, b) => b.localeCompare(a))
-    .map((dateStr) => {
-      const date = parseLocalDate(dateStr)
-      return {
-        date: dateStr,
-        // The weekday is the name; the date is a detail, so the card dims it.
-        label: formatDayLong(date, locale),
-        dateLabel: formatAbsoluteDate(date, locale),
-        isToday: false,
-        isTomorrow: false,
-        entries: (entriesByDate.get(dateStr) ?? []).sort(
-          (a, b) => (mealTypeOrder[a.mealType] ?? 3) - (mealTypeOrder[b.mealType] ?? 3),
-        ),
-        emptySlots: [],
-        // Past meals show no extras: an extra is for a day still to come (HON-1309).
-        extras: [],
-      }
+  const days: TimelineDay[] = []
+  const first = parseLocalDate(startDate)
+  const current = parseLocalDate(todayDate)
+  current.setDate(current.getDate() - 1)
+  for (; current >= first; current.setDate(current.getDate() - 1)) {
+    const dateStr = toDateString(current)
+    const slots = daySlots(current, entriesByDate.get(dateStr) ?? [], expectedMealTypes)
+    const rows = slots.entries.filter((e) => e.meal !== null || e.kind === 'fridge')
+    if (rows.length === 0 && slots.emptySlots.length === 0) continue
+    days.push({
+      date: dateStr,
+      // The weekday is the name; the date is a detail, so the card dims it.
+      label: formatDayLong(current, locale),
+      dateLabel: formatAbsoluteDate(current, locale),
+      isToday: false,
+      isTomorrow: false,
+      entries: rows,
+      emptySlots: slots.emptySlots,
+      // Past meals show no extras: an extra is for a day still to come (HON-1309).
+      extras: [],
     })
+  }
+  return days
 }

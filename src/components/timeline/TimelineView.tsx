@@ -6,8 +6,9 @@ import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
+import { daySlots } from './day-slots'
 import { Heading } from '@/components/ui/typography'
-import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
 import type { Locale } from '@/lib/i18n/locales'
@@ -46,8 +47,6 @@ interface TimelineViewProps {
   /** The window's day extras (HON-1309). They take no slot and never start a fill. */
   extras?: DayExtraView[]
 }
-
-const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
 
 /** One empty list for every render, so the day memo does not rebuild on a default. */
 const NO_EXTRAS: DayExtraView[] = []
@@ -140,23 +139,11 @@ export function TimelineView({
         tDates('tomorrow'),
       )
 
-      // Get expected meal types for this day
-      const expectedTypes: MealType[] = isWeekday(current)
-        ? expectedMealTypes.weekdayMealTypes
-        : expectedMealTypes.weekendMealTypes
-
-      // Get existing entries for this day. An entry with no meal and no note is
-      // a picker placeholder whose discard never ran (the tab closed with the
-      // picker open), so its slot is empty (HON-1251). A note with no meal
-      // stays: the slip is the household's writing (HON-975), and so does a
-      // fridge meal, which has items instead of a meal (HON-1277).
-      const dayEntries = (entriesByDate.get(dateStr) ?? [])
-        .filter((e) => e.meal !== null || e.note !== null || e.kind === 'fridge')
-        .sort((a, b) => (mealTypeOrder[a.mealType] ?? 3) - (mealTypeOrder[b.mealType] ?? 3))
-
-      // Compute empty slots (expected types without existing entries)
-      const existingTypes = new Set(dayEntries.map((e) => e.mealType))
-      const emptySlots = expectedTypes.filter((mt) => !existingTypes.has(mt))
+      const { entries: dayEntries, emptySlots } = daySlots(
+        current,
+        entriesByDate.get(dateStr) ?? [],
+        expectedMealTypes,
+      )
 
       if (dayEntries.length === 0 && fillStart === null) {
         fillStart = dateStr

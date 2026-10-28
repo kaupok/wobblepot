@@ -8,7 +8,7 @@ import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
 import type { ComponentProps } from 'react'
-import type { ExpectedMealTypes } from '@/components/meal-plan/types'
+import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
 
 type TimelineShoppingItem = ComponentProps<typeof TimelineView>['shoppingItems'][number]
 
@@ -78,20 +78,7 @@ export async function TodayTimeline({
     })),
   )
 
-  // Expected meal types come off the membership row, which already eager-loads
-  // `preferences` — no request to /api/households/me/preferences (HON-676).
-  // A household with no `household_preferences` row has `preferences: null`
-  // and keeps the dinner-only defaults (HON-672).
-  const expectedMealTypes: ExpectedMealTypes = {
-    weekdayMealTypes: ['dinner'],
-    weekendMealTypes: ['dinner'],
-  }
-  if (household.preferences?.weekdayMealTypes.length) {
-    expectedMealTypes.weekdayMealTypes = household.preferences.weekdayMealTypes
-  }
-  if (household.preferences?.weekendMealTypes.length) {
-    expectedMealTypes.weekendMealTypes = household.preferences.weekendMealTypes
-  }
+  const expectedMealTypes = getExpectedMealTypes(household.preferences)
 
   return (
     <TimelineView

@@ -25,6 +25,7 @@ import {
   EmptySlotController,
   type EmptySlotHandle,
   type EmptySlotPending,
+  type LogMode,
 } from './EmptySlotController'
 import { AddExtra } from './day-extras/AddExtra'
 
@@ -56,7 +57,18 @@ interface DayAddMenuProps {
   onSlotFocused?: () => void
   /** "Pick for me" placed a meal, or a fridge meal was saved (HON-1248). */
   onPicked?: () => void
+  /**
+   * Set on Past meals (HON-1383): a log of a meal already eaten. The menu
+   * offers a recipe or a fridge meal only, saved as cooked; Pick for me,
+   * Generate and Extra are for a day still to come.
+   */
+  log?: Omit<LogMode, 'dayLabel'>
+  /** The id of the text that says which slot the button fills, for `aria-describedby`. */
+  describedBy?: string
 }
+
+/** The routes a log offers: the household names what it ate. */
+const LOG_ROUTES = MEAL_ROUTES.filter(({ choice }) => choice === 'library' || choice === 'fridge')
 
 /**
  * The day heading's one add control (HON-1335): a "+ Add" menu with the routes
@@ -80,6 +92,8 @@ export function DayAddMenu({
   focusSlot,
   onSlotFocused,
   onPicked,
+  log,
+  describedBy,
 }: DayAddMenuProps) {
   const tCard = useTranslations('meal-plan.card')
   const tExtras = useTranslations('meal-plan.extras')
@@ -127,6 +141,7 @@ export function DayAddMenu({
     return <AddExtra date={date} dayLabel={dayLabel} buttonRef={buttonRef} />
   }
 
+  const routes = log ? LOG_ROUTES : MEAL_ROUTES
   // The only empty slot shows flat; two or more each get a submenu (HON-1341).
   const onlySlot = emptySlots.length === 1 ? emptySlots[0] : undefined
 
@@ -153,14 +168,17 @@ export function DayAddMenu({
         onOpenChange={(next) => setOpen(next && !isPending)}
       >
         <DropdownMenuTrigger asChild>
+          {/* On a Past meals row, Add sits beside the rows' Cooked and Skipped,
+              so it takes their size and the touch floor (HON-1383). */}
           <Button
             ref={buttonRef}
-            variant="ghost"
-            size="sm"
+            variant={log ? 'outline' : 'ghost'}
+            size={log ? 'default' : 'sm'}
             // Not `disabled`: a disabled button drops focus and cannot take it
             // back when the selector closes (HON-803).
             aria-disabled={isPending || undefined}
             aria-label={accessibleName}
+            aria-describedby={describedBy}
           >
             <Plus aria-hidden="true" />
             {buttonText}
@@ -176,25 +194,34 @@ export function DayAddMenu({
           }}
         >
           {onlySlot ? (
-            <SlotGroup mealType={onlySlot} onChoose={(choice) => choose(onlySlot, choice)} />
+            <SlotGroup
+              mealType={onlySlot}
+              routes={routes}
+              onChoose={(choice) => choose(onlySlot, choice)}
+            />
           ) : (
             emptySlots.map((mealType) => (
               <SlotSubmenu
                 key={mealType}
                 mealType={mealType}
+                routes={routes}
                 onChoose={(choice) => choose(mealType, choice)}
               />
             ))
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => {
-              isOpeningExtraRef.current = true
-            }}
-          >
-            <Plus aria-hidden="true" />
-            {tExtras('button')}
-          </DropdownMenuItem>
+          {!log && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  isOpeningExtraRef.current = true
+                }}
+              >
+                <Plus aria-hidden="true" />
+                {tExtras('button')}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {emptySlots.map((mealType) => (
@@ -217,26 +244,34 @@ export function DayAddMenu({
           returnFocusRef={buttonRef}
           onPendingChange={handlePendingChange}
           onPicked={onPicked}
+          log={log && { ...log, dayLabel }}
         />
       ))}
-      <AddExtra
-        date={date}
-        dayLabel={dayLabel}
-        controlled={{ open: isExtraOpen, onOpenChange: setIsExtraOpen, returnFocusRef: buttonRef }}
-      />
+      {!log && (
+        <AddExtra
+          date={date}
+          dayLabel={dayLabel}
+          controlled={{
+            open: isExtraOpen,
+            onOpenChange: setIsExtraOpen,
+            returnFocusRef: buttonRef,
+          }}
+        />
+      )}
     </>
   )
 }
 
 interface SlotRoutesProps {
   mealType: MealType
+  routes: typeof MEAL_ROUTES
   onChoose: (choice: AddMealChoice) => void
 }
 
-/** The four routes to a meal, in the Swap group's order and words. */
-function SlotRoutes({ onChoose }: Pick<SlotRoutesProps, 'onChoose'>) {
+/** The routes to a meal, in the Swap group's order and words. */
+function SlotRoutes({ routes, onChoose }: Pick<SlotRoutesProps, 'routes' | 'onChoose'>) {
   const tCard = useTranslations('meal-plan.card')
-  return MEAL_ROUTES.map(({ choice, label, Icon }) => (
+  return routes.map(({ choice, label, Icon }) => (
     <DropdownMenuItem key={choice} onSelect={() => onChoose(choice)}>
       <Icon aria-hidden="true" />
       {tCard(label)}
@@ -245,20 +280,20 @@ function SlotRoutes({ onChoose }: Pick<SlotRoutesProps, 'onChoose'>) {
 }
 
 /** The only empty slot's routes, flat under its meal type. */
-function SlotGroup({ mealType, onChoose }: SlotRoutesProps) {
+function SlotGroup({ mealType, routes, onChoose }: SlotRoutesProps) {
   const mealTypeLabel = useEnumLabel('MealType', mealType)
   const labelId = useId()
 
   return (
     <DropdownMenuGroup aria-labelledby={labelId}>
       <DropdownMenuLabel id={labelId}>{mealTypeLabel}</DropdownMenuLabel>
-      <SlotRoutes onChoose={onChoose} />
+      <SlotRoutes routes={routes} onChoose={onChoose} />
     </DropdownMenuGroup>
   )
 }
 
 /** One of several empty slots: its meal type, opening a submenu of its routes. */
-function SlotSubmenu({ mealType, onChoose }: SlotRoutesProps) {
+function SlotSubmenu({ mealType, routes, onChoose }: SlotRoutesProps) {
   const mealTypeLabel = useEnumLabel('MealType', mealType)
 
   return (
@@ -267,7 +302,7 @@ function SlotSubmenu({ mealType, onChoose }: SlotRoutesProps) {
       {/* Portalled, so the parent menu's scroll box cannot clip it. */}
       <DropdownMenuPortal>
         <DropdownMenuSubContent>
-          <SlotRoutes onChoose={onChoose} />
+          <SlotRoutes routes={routes} onChoose={onChoose} />
         </DropdownMenuSubContent>
       </DropdownMenuPortal>
     </DropdownMenuSub>

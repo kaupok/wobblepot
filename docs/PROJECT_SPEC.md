@@ -111,7 +111,7 @@ Allergens are asked in onboarding. The other preferences (dietary type, restrict
 
 ### Planning
 
-A household has one plan, and the Today page (`/`) shows it as a timeline: the past 7 days, collapsed above today, and the next 14 days (`src/app/page.tsx`, `src/components/timeline/`).
+A household has one plan, and the Today page (`/`) shows it as a timeline from today through the next 14 days (`src/app/page.tsx`, `src/components/timeline/`). Past days have their own page, Past meals (`/past-meals`, `src/app/past-meals/page.tsx`): the last 7 days, newest first, and "Show the week before" adds 7 days per press, back to the week the household was created. Each past day lists its recipe and fridge meals as rows to mark cooked or skipped, and each expected meal type with no entry as a row with Add. Add logs what the household ate, a recipe or a fridge meal, saved as cooked with no pantry change; the recipe list puts the meals cooked most in the last 30 days first, and the fridge meal picker offers its free-text labels of the last 30 days as chips (HON-1383). A row that is not cooked also has Remove; a wrong log is fixed with Undo, then Remove. The account menu's dot counts only planned recipe meals of the last 7 days, never an empty slot.
 
 1. First plan: `FirstTimeSetup` asks for a start date and a number of days (`getDaysCountOptions` in `src/lib/meal-planning/day-picker.ts`), then calls `POST /api/meal-plans/generate` with `mode: 'generate'`
 2. Later: from the first upcoming day with nothing planned, `FillDaysAction` offers to fill a number of days, calling the same route with `mode: 'fill-empty'`. Only empty slots are filled (`src/lib/ai/fill-plan.ts`)
@@ -395,7 +395,7 @@ enum ProteinType {
 - Monetization/subscriptions
 - Multi-household switcher
 - Email-based invites
-- Plan history/archive: the Today timeline shows only the last 7 days
+- Plan history beyond Past meals: no search, export or statistics over past entries. Past meals reaches back a week at a time to the household's first week (HON-1383)
 - Real-time multi-user sync
 - Other MCP tools that call the AI (plan generation, imagining a meal). The household's AI cost cap is the budget they would run under, as `adjust_meal` does (HON-1246). MCP tools that change members or preferences
 
@@ -537,7 +537,7 @@ _Ideas for later. Some may be pulled into MLP iteration if they feel essential. 
 - Offline support
 - Multi-household support
 - Email-based invites
-- Plan history/archive beyond the last 7 days
+- Plan history beyond Past meals' week-at-a-time list (search, export, statistics)
 - Real-time multi-user sync
 - Restriction templates (auto-expand "nut allergy" → specific nuts)
 - Configurable time budget per household
