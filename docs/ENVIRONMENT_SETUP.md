@@ -75,13 +75,13 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 
 Variables read by scripts rather than the app, so not in the schema. They are documented in `.env.example`:
 
-| Variable                                                                    | Read by                                                                                                                                |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `LINEAR_API_KEY`                                                            | `scripts/orchestrator.sh`, `scripts/worktree-claude.sh`, `scripts/neon-cleanup.sh`                                                     |
-| `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH`, `NEON_USER_PREFIX` | Per-worktree database branching and the local E2E runner. See [Neon Database Branching](#neon-database-branching-optional).            |
-| `RESEND_TEST_API_KEY`                                                       | The Playwright runner, to read delivered reset emails on the remote tiers.                                                             |
-| `NEON_BRANCH_CAP`                                                           | `scripts/orchestrator.sh`. How many Neon branches the plan allows (default 10); startup refuses when `2 × max-workers + 3` exceeds it. |
-| `POSTHOG_CAPTURE_LOCAL`                                                     | `src/lib/release.ts`, an escape hatch to force server-side capture from a dev machine. Leave unset.                                    |
+| Variable                                                                    | Read by                                                                                                                            |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `LINEAR_API_KEY`                                                            | `scripts/orchestrator.sh`, `scripts/worktree-claude.sh`, `scripts/neon-cleanup.sh`                                                 |
+| `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH`, `NEON_USER_PREFIX` | Per-worktree database branching and the local E2E runner. See [Neon Database Branching](#neon-database-branching-optional).        |
+| `RESEND_TEST_API_KEY`                                                       | The Playwright runner, to read delivered reset emails on the remote tiers.                                                         |
+| `NEON_BRANCH_CAP`                                                           | `scripts/orchestrator.sh`. How many Neon branches the plan allows (default 10); startup refuses when `max-workers + 3` exceeds it. |
+| `POSTHOG_CAPTURE_LOCAL`                                                     | `src/lib/release.ts`, an escape hatch to force server-side capture from a dev machine. Leave unset.                                |
 
 ## Special Characters in Values
 

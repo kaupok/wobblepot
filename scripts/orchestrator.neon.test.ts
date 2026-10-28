@@ -386,7 +386,7 @@ describe('orchestrator.sh', () => {
     }
 
     it('is silent about problems at the shipped default', () => {
-      // N=3 on the Free tier's 10: 6 at peak, four spare. A gate that warns at
+      // N=5 on the Free tier's 10: 8 at peak, two spare. A gate that warns at
       // the configuration everyone runs is a gate everyone learns to ignore.
       const r = budget()
 
@@ -395,7 +395,7 @@ describe('orchestrator.sh', () => {
       expect(r.out).not.toContain('ERROR')
       // One branch per worker since PR branches stopped getting a Vercel
       // deployment, and with it the integration's preview/* (HON-1348).
-      expect(r.out).toContain('Neon branch budget: 6 of 10 at peak (3 + 3), 4 spare')
+      expect(r.out).toContain('Neon branch budget: 8 of 10 at peak (5 + 3), 2 spare')
     })
 
     it('defaults NEON_BRANCH_CAP to the Free tier limit of 10', () => {
