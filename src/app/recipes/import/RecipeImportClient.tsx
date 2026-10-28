@@ -283,7 +283,7 @@ export function RecipeImportClient({ defaultServings }: RecipeImportClientProps)
   return (
     <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no bordered page wrapper (HON-779). */}
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <BackToRecipesLink />

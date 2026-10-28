@@ -48,6 +48,18 @@ describe('RecipeImportClient heading', () => {
   )
 })
 
+describe('RecipeImportClient column', () => {
+  // A narrow form column, centred in the page so a wide screen is balanced
+  // (HON-1368). The route skeleton mirrors it.
+  it('puts the title in a centred max-w-2xl column', () => {
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
+    const column = screen
+      .getByRole('heading', { level: 1, name: 'Add recipe' })
+      .closest('.max-w-2xl')
+    expect(column).toHaveClass('mx-auto')
+  })
+})
+
 describe('RecipeImportClient progress steps', () => {
   beforeEach(() => {
     vi.useFakeTimers()

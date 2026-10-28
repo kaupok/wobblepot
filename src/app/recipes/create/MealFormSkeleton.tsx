@@ -5,7 +5,7 @@ import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLin
  * The create and edit pages' placeholder: the route `loading.tsx` files and the
  * clients' own pending states render this, so the page never moves between
  * route loading, client pending and the loaded `MealForm` (HON-779). Same
- * container and `max-w-2xl` column as the pages, top-aligned, no bordered
+ * container and centred `max-w-2xl` column as the pages, top-aligned, no bordered
  * wrapper. Bar heights match each rendered line box: title `h-7` in the back
  * arrow's `h-8` row (HON-822), description and section headings as `/account`,
  * controls `h-touch md:h-10`.
@@ -13,7 +13,7 @@ import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLin
 export function MealFormSkeleton() {
   return (
     <div className="w-full px-4 py-8">
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
         {/* Back arrow and title, then description */}
         <div className="flex flex-col gap-1">
           <div className="flex h-8 items-center gap-2">
