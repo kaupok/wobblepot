@@ -50,6 +50,10 @@ export interface AllowlistEntry {
 
 export const ALLOWLIST: AllowlistEntry[] = [
   {
+    path: 'src/components/inventory/PantryItemRow.tsx',
+    why: 'The pantry row, split out of PantrySection for the file-size cap (HON-1399). Its states are stories of the section that renders it: PantrySection.stories.tsx (Populated, RanOut, RanOutEstonian, StapleRanOut, MarkRanOut, RemoveAndUndo), and PantryItemRowSkeleton.stories.tsx → AgainstLiveRow measures it.',
+  },
+  {
     path: 'src/components/meal-plan/CookQuestionPanel.tsx',
     why: 'The question panel under a cook-view step or a row of "You\'ll need", split out of PreparationSteps for the file-size cap (HON-1371). It renders only inside a row, opened from that row\'s ⋯ menu, so its states are stories of PreparationSteps: PreparationSteps.ask.stories.tsx (AskPanelOpen, EquipmentAskAnswered) and PreparationSteps.answers.stories.tsx (AskPending, AskAnswered, AskAnsweredDark, AskPendingWithPrevious, AskStreaming, AskStreamBroke, AskError, AskRateLimited, AskEchoAndEdit, AskCloseReturnsFocus).',
   },

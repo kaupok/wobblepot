@@ -17,8 +17,8 @@ import { Skeleton } from '@/components/ui/skeleton'
  * caption and all four are 16px too tall, which is the cost of the bet. The
  * story pins that 16px rather than leaving it to prose.
  *
- * Colocated with `PantrySection.tsx` because that is where the row it copies
- * lives — `components/pantry/PantryItem.tsx` looks like the counterpart but has
+ * Colocated with `PantryItemRow.tsx` (rendered by `PantrySection`), the row it
+ * copies — `components/pantry/PantryItem.tsx` looks like the counterpart but has
  * no callsite on this screen or any other.
  *
  * Only the name bar keeps `Skeleton`'s `role="status"` — the rest are

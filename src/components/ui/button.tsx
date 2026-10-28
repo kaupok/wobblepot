@@ -44,6 +44,13 @@ const buttonVariants = cva(
       size: {
         default: 'h-touch md:h-10 px-4 py-2 has-[>svg]:px-3',
         sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
+        // `sm` in a card row whose action a phone must reach (the pantry's
+        // "Ran out" and "Have it", HON-1399): the 32px box keeps the row's
+        // rhythm, and the `::after` reaches 6px above and below it, so the
+        // target is 44px. Only vertically, so it never overlaps the icon
+        // button beside it.
+        'sm-touch':
+          'relative h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 after:absolute after:inset-x-0 after:-inset-y-1.5',
         lg: 'h-12 md:h-11 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-touch md:size-10',
         'icon-sm': 'size-8',

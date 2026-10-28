@@ -118,6 +118,8 @@
     "ranOutSection": "Otsas",
     "haveIt": "Olemas",
     "ariaHaveIt": "Olemas: {name}",
+    "ranOut": "Otsas",
+    "ariaRanOut": "Otsas: {name}",
     "ariaToggleStaple": "Märgi põhitooteks",
     "ariaUnstaple": "Eemalda põhitoodete hulgast",
     "ariaRemove": "Eemalda „{name}\"",

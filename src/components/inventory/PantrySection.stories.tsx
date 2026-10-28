@@ -69,13 +69,14 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0, with a "Have it" that sets it back to "have some"), each with a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row not at 0 has a "Ran out" that sets it to 0; a row at 0 has a "Have it" that sets it back to "have some". A staple at 0 stays under Staples and says "Ran out" under its name. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
   args: {
     items: [...staples, ...onHand],
     onItemsChange: fn(),
+    onPantryQuantityChanged: fn(),
     onPantryItemRemoved: fn(),
     onPantryItemRestored: fn(),
   },
@@ -207,7 +208,7 @@ export const RanOutEstonian: Story = {
     docs: {
       description: {
         story:
-          'The Ran out group in Estonian: "Otsas" over the rows, "Olemas" on each button. Checks that the longer labels fit the row.',
+          'The Ran out group in Estonian: "Otsas" over the rows, "Olemas" on each button, "Otsas" on the other rows. Checks that the longer labels fit the row.',
       },
     },
   },
@@ -215,6 +216,84 @@ export const RanOutEstonian: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { level: 3, name: 'Otsas 2' })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Olemas: Avocado' })).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Otsas: Garlic' })).toBeVisible()
+  },
+}
+
+/** Answers "Ran out" and "Have it" as the route does. */
+const patchHandler = http.patch('/api/pantry/:id', () => HttpResponse.json({ ok: true }))
+
+export const StapleRanOut: Story = {
+  args: {
+    items: [
+      createPantryItemData({
+        ingredient: ingredient('eggs', 'Eggs', 'protein', 'piece'),
+        isStaple: true,
+        quantity: 0,
+      }),
+      ...staples,
+      ...onHand,
+    ],
+  },
+  parameters: {
+    msw: { handlers: [patchHandler] },
+    docs: {
+      description: {
+        story:
+          'A staple at 0 stays under Staples, says "Ran out" under its name, and has "Have it". "Have it" sets it back to "have some" and focuses the row\'s "Ran out", so a second tap undoes a slip. Both buttons are 32px, and their `::after` reaches 6px above and below, so the target is 44px on a phone while the row keeps its height.',
+      },
+    },
+  },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByRole('heading', { level: 3, name: /^Staples.* 3$/ }),
+    ).toBeInTheDocument()
+    await expect(canvas.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
+    const haveIt = canvas.getByRole('button', { name: 'Have it: Eggs' })
+    const box = haveIt.getBoundingClientRect()
+    await expect(Math.round(box.height)).toBe(32)
+    const after = getComputedStyle(haveIt, '::after')
+    await expect(after.position).toBe('absolute')
+    await expect(after.top).toBe('-6px')
+    await expect(after.bottom).toBe('-6px')
+
+    await userEvent.click(haveIt)
+
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Ran out: Eggs' })).toHaveFocus())
+    await expect(canvas.queryByRole('button', { name: 'Have it: Eggs' })).not.toBeInTheDocument()
+    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
+  },
+}
+
+export const MarkRanOut: Story = {
+  parameters: {
+    msw: { handlers: [patchHandler] },
+    docs: {
+      description: {
+        story:
+          '"Ran out" on an On hand row moves it to the Ran out group and focuses its "Have it" there. On a staple it keeps the row under Staples.',
+      },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole('button', { name: /^Have it/ })).not.toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Ran out: Garlic' }))
+
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: 'Have it: Garlic' })).toHaveFocus(),
+    )
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 2' })).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Ran out: Salt' }))
+
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Have it: Salt' })).toHaveFocus())
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
+    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(2))
   },
 }
 

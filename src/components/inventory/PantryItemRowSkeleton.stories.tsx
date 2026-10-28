@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { createPantryItemData } from '@/stories/fixtures'
 import { RowGroup } from '@/components/ui/row-group'
-import { PantryItemRow } from './PantrySection'
+import { PantryItemRow } from './PantryItemRow'
 import { PantryItemRowSkeleton } from './PantryItemRowSkeleton'
 
 /** Rounded so sub-pixel noise can't fail the comparison; 1px of drift still does. */

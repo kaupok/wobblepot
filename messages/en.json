@@ -118,6 +118,8 @@
     "ranOutSection": "Ran out",
     "haveIt": "Have it",
     "ariaHaveIt": "Have it: {name}",
+    "ranOut": "Ran out",
+    "ariaRanOut": "Ran out: {name}",
     "ariaToggleStaple": "Mark as staple",
     "ariaUnstaple": "Remove from staples",
     "ariaRemove": "Remove {name}",

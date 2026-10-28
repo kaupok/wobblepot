@@ -3,23 +3,27 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useRef } from 'react'
 import { useMutation, useMutationState } from '@tanstack/react-query'
-import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { RowGroup } from '@/components/ui/row-group'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
-import { cn } from '@/lib/utils'
 import { apiFetch, ApiError } from '@/lib/api'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { GroupHeading } from './GroupHeading'
+import { PantryItemRow } from './PantryItemRow'
 
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
+const RAN_OUT_KEY = ['pantry', 'ran-out'] as const
+// "Ran out" and "Have it" share one queue, so a quick second tap that undoes
+// the first lands after it on the server. Each `onMutate` still runs at once;
+// only the request waits.
+const QUANTITY_SCOPE = { id: 'pantry-quantity' }
 
 const haveItSelector = (id: string) => `[data-have-it="${id}"]`
+const ranOutSelector = (id: string) => `[data-ran-out="${id}"]`
 const stapleSelector = (id: string) => `[data-staple="${id}"]`
 const removeSelector = (id: string) => `[data-remove="${id}"]`
 // The add search is the section's only input.
@@ -43,8 +47,9 @@ interface PantrySectionProps {
   /** The toast's Undo put a removed row back, so the shopping list reverts. */
   onPantryItemRestored?: (ingredientId: string) => void
   /**
-   * A row's quantity changed on the server ("Have it"). The shopping list
-   * buys a row at 0 and skips one at null, so the parent re-reads it.
+   * A row's quantity changed on the server ("Ran out", "Have it"). The
+   * shopping list buys a row at 0 and skips one at null, so the parent
+   * re-reads it.
    */
   onPantryQuantityChanged?: () => void
 }
@@ -67,7 +72,7 @@ export function PantrySection({
   const onHand = items.filter((item) => !item.isStaple && item.quantity !== 0)
   const ranOut = items.filter((item) => !item.isStaple && item.quantity === 0)
 
-  // "Have it", Remove and Undo each unmount or mount the row in focus, so focus
+  // "Ran out", "Have it", Remove and Undo each unmount or mount the row in focus, so focus
   // would fall to `<body>` (docs/DESIGN.md → Focus management). The mutation
   // names the control to focus once the change has rendered.
   const sectionRef = useRef<HTMLElement>(null)
@@ -106,35 +111,96 @@ export function PantrySection({
     },
   })
 
-  // "Have it" sets the quantity to null, "have some", so the row moves back to
-  // On hand. Focus goes to the next ran-out row's "Have it", so a household can
-  // clear several in a row, or to the moved row's star when none is left.
-  const haveItMutation = useMutation({
-    mutationKey: HAVE_IT_KEY,
-    mutationFn: (id: string) =>
+  // "Ran out" sets the quantity to 0. An ordinary row moves to Ran out; a
+  // staple stays in Staples, because staples are always stocked. Either way
+  // the button becomes the row's "Have it", which takes focus, so a second
+  // tap undoes a slip. The undo sends back the quantity the row had, so a
+  // counted row keeps its count rather than dropping to null, "have some".
+  // Kept for this visit only: after a reload "Have it" sends null. "Have it"
+  // takes its entry out when tapped, not when its request lands, because
+  // requests queue behind each other and a newer "Ran out" may have written
+  // the entry since.
+  const quantityBeforeRanOut = useRef(new Map<string, number | null>())
+  const ranOutMutation = useMutation({
+    mutationKey: RAN_OUT_KEY,
+    scope: QUANTITY_SCOPE,
+    mutationFn: (item: PantryItemData) =>
       apiFetch(
-        `/api/pantry/${id}`,
+        `/api/pantry/${item.id}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity: null }),
+          body: JSON.stringify({ quantity: 0 }),
         },
         tPantry('errors.updateFailed'),
       ),
-    onMutate: (id) => {
-      const index = ranOut.findIndex((item) => item.id === id)
-      const next = ranOut[index + 1] ?? ranOut[index - 1]
-      focusAfterRender.current = next ? haveItSelector(next.id) : stapleSelector(id)
+    onMutate: ({ id, quantity }) => {
+      quantityBeforeRanOut.current.set(id, quantity)
+      focusAfterRender.current = haveItSelector(id)
       onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity: null } : item)),
+        prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item)),
       )
     },
     onSuccess: () => onPantryQuantityChanged?.(),
-    onError: (_error, id) => {
-      // The row goes back to Ran out. If focus is still on its star in On hand,
-      // that star unmounts, so follow the row to its "Have it".
-      const star = sectionRef.current?.querySelector(stapleSelector(id))
-      if (star && star === document.activeElement) focusAfterRender.current = haveItSelector(id)
+    // A failed "Ran out" leaves its entry: the row is back above 0, so no
+    // "Have it" reads it before the next "Ran out" writes it again.
+    onError: (_error, { id, quantity }) => {
+      // The row's "Have it" unmounts as "Ran out" comes back, so follow it.
+      const haveIt = sectionRef.current?.querySelector(haveItSelector(id))
+      if (haveIt && haveIt === document.activeElement) {
+        focusAfterRender.current = ranOutSelector(id)
+      }
+      onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
+      toast.error(tPantry('errors.updateFailed'))
+    },
+  })
+
+  // "Have it" sets the quantity to null, "have some", or back to the count
+  // "Ran out" took from the row this visit. A staple stays where it
+  // is, so focus goes to its own "Ran out". An ordinary row moves back to On
+  // hand: focus goes to the next ran-out row's "Have it", so a household can
+  // clear several in a row, or to the moved row's star when none is left.
+  const haveItMutation = useMutation({
+    mutationKey: HAVE_IT_KEY,
+    scope: QUANTITY_SCOPE,
+    // The variables are the row as it will be, with the quantity to restore.
+    mutationFn: (item: PantryItemData) =>
+      apiFetch(
+        `/api/pantry/${item.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: item.quantity }),
+        },
+        tPantry('errors.updateFailed'),
+      ),
+    onMutate: ({ id, isStaple, quantity }) => {
+      if (isStaple) {
+        focusAfterRender.current = ranOutSelector(id)
+      } else {
+        const index = ranOut.findIndex((item) => item.id === id)
+        const next = ranOut[index + 1] ?? ranOut[index - 1]
+        focusAfterRender.current = next ? haveItSelector(next.id) : stapleSelector(id)
+      }
+      onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
+    },
+    onSuccess: () => onPantryQuantityChanged?.(),
+    onError: (_error, { id, quantity }) => {
+      // The row goes back to 0, so the next "Have it" restores the same count,
+      // unless a newer "Ran out" has written one since.
+      if (!quantityBeforeRanOut.current.has(id)) quantityBeforeRanOut.current.set(id, quantity)
+      // If focus is still on its star in On hand,
+      // that star unmounts; if it is on its "Ran out", that button turns back
+      // into "Have it". Either way, follow the row to its "Have it".
+      const active = document.activeElement
+      const section = sectionRef.current
+      if (
+        active &&
+        (active === section?.querySelector(stapleSelector(id)) ||
+          active === section?.querySelector(ranOutSelector(id)))
+      ) {
+        focusAfterRender.current = haveItSelector(id)
+      }
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item)),
       )
@@ -225,7 +291,13 @@ export function PantrySection({
 
   const handleRemove = (item: PantryItemData) => removeMutation.mutate(item)
 
-  const handleHaveIt = (id: string) => haveItMutation.mutate(id)
+  const handleHaveIt = (item: PantryItemData) => {
+    const quantity = quantityBeforeRanOut.current.get(item.id) ?? null
+    quantityBeforeRanOut.current.delete(item.id)
+    haveItMutation.mutate({ ...item, quantity })
+  }
+
+  const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
   const handleItemAdded = (newItem: PantryItemData) => {
     // Into its sorted place, as a purchase lands, rather than at the end (HON-920)
@@ -258,6 +330,8 @@ export function PantrySection({
                 item={item}
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
+                onRanOut={handleRanOut}
+                onHaveIt={handleHaveIt}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}
@@ -275,6 +349,8 @@ export function PantrySection({
                 item={item}
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
+                onRanOut={handleRanOut}
+                onHaveIt={handleHaveIt}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}
@@ -292,6 +368,7 @@ export function PantrySection({
                 item={item}
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
+                onRanOut={handleRanOut}
                 onHaveIt={handleHaveIt}
                 isToggling={togglingIds.includes(item.id)}
               />
@@ -322,100 +399,5 @@ export function PantrySection({
       </div>
       {content}
     </section>
-  )
-}
-
-interface PantryItemRowProps {
-  item: PantryItemData
-  onToggleStaple: (id: string, currentIsStaple: boolean) => void
-  onRemove: (item: PantryItemData) => void
-  /** Marks a ran-out row as at home again. Only the Ran out group passes it. */
-  onHaveIt?: (id: string) => void
-  isToggling?: boolean
-}
-
-/**
- * The pantry row `/shopping` actually renders. Exported so
- * `PantryItemRowSkeleton` can be measured against it — the placeholder is a
- * copy of this box, and a copy nothing points at is how HON-628 happened.
- * (`components/pantry/PantryItem.tsx` is a near-duplicate with no callsite of
- * its own; only its `PantryItemData` type is used.)
- */
-export function PantryItemRow({
-  item,
-  onToggleStaple,
-  onRemove,
-  onHaveIt,
-  isToggling = false,
-}: PantryItemRowProps) {
-  const tPantry = useTranslations('pantry')
-
-  const handleToggle = () => onToggleStaple(item.id, item.isStaple)
-
-  return (
-    // No entrance when a ticked shopping item lands here: it happens many
-    // times a session, and the row appearing is the change (docs/DESIGN.md →
-    // Reject list).
-    <div className="flex items-center justify-between p-3">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={handleToggle}
-          disabled={isToggling}
-          data-staple={item.id}
-          aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
-        >
-          <Star
-            className={cn(
-              'size-4',
-              item.isStaple
-                ? 'fill-warning text-warning'
-                : 'text-muted-foreground hover:text-warning',
-            )}
-          />
-        </Button>
-        <div className="flex flex-col">
-          <Body>{item.ingredient.name}</Body>
-          {item.neededQuantity !== undefined &&
-            item.neededQuantity > 0 &&
-            item.neededDisplayQuantity &&
-            item.windowDays !== undefined && (
-              <Body variant="caption">
-                {/* A vague quantity's display is the phrase itself, so it would
-                    read "to taste needed in…" — drop it instead (HON-783). */}
-                {item.isVague
-                  ? tPantry('neededInWindowVague', { days: item.windowDays })
-                  : tPantry('neededInWindow', {
-                      quantity: item.neededDisplayQuantity,
-                      days: item.windowDays,
-                    })}
-              </Body>
-            )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {onHaveIt && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onHaveIt(item.id)}
-            data-have-it={item.id}
-            aria-label={tPantry('ariaHaveIt', { name: item.ingredient.name })}
-          >
-            {tPantry('haveIt')}
-          </Button>
-        )}
-        <Button
-          variant="quiet-destructive"
-          size="icon-sm"
-          onClick={() => onRemove(item)}
-          data-remove={item.id}
-          aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-    </div>
   )
 }
