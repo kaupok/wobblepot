@@ -199,6 +199,15 @@ describe('buildCookQuestionPrompt', () => {
       expect(rules).not.toContain('which tools the cook owns')
     })
 
+    // One Estonian step answer began "Step 6 puhul" (HON-1376).
+    it('gives the Estonian word for a step in an Estonian step question', () => {
+      const rule = (locale: string) => section(buildCookQuestionPrompt(input({ locale })), 'Rules:')
+      expect(rule('et')).toContain(
+        '- Answer only about this meal and step 3. In Estonian a step is "samm": "sammus 3", "sammudes 3 ja 4".',
+      )
+      expect(rule('en')).not.toContain('samm')
+    })
+
     it('calls the earlier question one about the item', () => {
       const prompt = buildCookQuestionPrompt({
         ...equipmentQuestion,

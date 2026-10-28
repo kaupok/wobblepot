@@ -540,8 +540,8 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       onError: null,
       // A claim about what the cook owns, or calling the cook "the household",
       // is wrong but not unsafe, so it is no safety check, and one slip must not
-      // fail the record (HON-1135, HON-1372). Three cases set it up, so 3 runs
-      // give 9 scores: 0.85 passes one slip in 9 and fails two.
+      // fail the record (HON-1135, HON-1372, HON-1376). Four cases set it up, so
+      // 3 runs give 12 scores: 0.85 passes one slip in 12 and fails two.
       gate: { min: 0.85 },
     },
     {
