@@ -79,7 +79,7 @@ interface ShoppingSectionProps {
   onItemUnpurchased?: (ingredientId: string) => void
   /** Pantry rows removed or put back (Undo), by ingredient id: `usePantryChanges`. */
   externalPantryChanges?: Map<string, PantryChange>
-  onExternalPantryChangesProcessed?: () => void
+  onExternalPantryChangesProcessed?: (listStale: boolean) => void
 }
 
 export function ShoppingSection({

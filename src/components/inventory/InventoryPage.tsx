@@ -98,30 +98,31 @@ export function InventoryPage({
   }, [])
 
   // Tell the shopping list a pantry row went or came back (Undo), so it unticks
-  // or re-ticks the item, then recompute the list: the item may now be needed.
-  const recordPantryChange = useCallback(
-    (ingredientId: string, change: PantryChange) => {
-      setPantryChanges((prev) => new Map(prev).set(ingredientId, change))
+  // or re-ticks the item. A removal also recomputes the list: the item may now
+  // be needed. An Undo leaves that to `handlePantryChangesProcessed`.
+  const handlePantryItemRemoved = useCallback(
+    (ingredientId: string) => {
+      setPantryChanges((prev) => new Map(prev).set(ingredientId, 'removed'))
       router.refresh()
     },
     [router],
   )
-  const handlePantryItemRemoved = useCallback(
-    (ingredientId: string) => recordPantryChange(ingredientId, 'removed'),
-    [recordPantryChange],
-  )
-  const handlePantryItemRestored = useCallback(
-    (ingredientId: string) => recordPantryChange(ingredientId, 'restored'),
-    [recordPantryChange],
-  )
+  const handlePantryItemRestored = useCallback((ingredientId: string) => {
+    setPantryChanges((prev) => new Map(prev).set(ingredientId, 'restored'))
+  }, [])
 
   // "Have it" takes a ran-out row off the list: recompute it, as a removal does.
   const handlePantryQuantityChanged = useCallback(() => router.refresh(), [router])
 
-  const handlePantryChangesProcessed = useCallback(() => {
-    // Clear the map after ShoppingSection has processed it
-    setPantryChanges(new Map())
-  }, [])
+  const handlePantryChangesProcessed = useCallback(
+    (listStale: boolean) => {
+      // Clear the map after ShoppingSection has processed it
+      setPantryChanges(new Map())
+      // An Undo the list could not re-tick: the row may cover a need again.
+      if (listStale) router.refresh()
+    },
+    [router],
+  )
 
   // The page shell every in-app page uses (docs/DESIGN.md → Composition
   // rules, "No page-level Card"); the two columns sit on the background with
