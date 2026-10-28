@@ -302,7 +302,14 @@
       "select": "Vali",
       "selecting": "Valin…",
       "ratedUp": "Sinu hinnang: pöial üles",
-      "ratedDown": "Sinu hinnang: pöial alla"
+      "ratedDown": "Sinu hinnang: pöial alla",
+      "cookedToday": "Tehtud täna",
+      "cookedYesterday": "Tehtud eile",
+      "cookedDaysAgo": "Tehtud {count, plural, one {# päev} other {# päeva}} tagasi",
+      "cookedWeeksAgo": "Tehtud {count, plural, one {# nädal} other {# nädalat}} tagasi",
+      "cookedMonthsAgo": "Tehtud {count, plural, one {# kuu} other {# kuud}} tagasi",
+      "notCookedYet": "Pole veel tehtud",
+      "plannedOn": "Plaanis: {date}"
     },
     "selector": {
       "swapTitle": "Vali teine toit",

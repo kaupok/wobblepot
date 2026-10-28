@@ -47,6 +47,7 @@ export const PanelOpen: Story = {
 /**
  * A step's menu: three ready-made questions, a separator, then "Ask your own
  * question". A ready-made question goes to `onAsk` and asks for Close's focus.
+ * Each item is 16px text in a row of 44px or more (HON-1359).
  */
 export const StepMenu: Story = {
   play: async ({ canvasElement, args }) => {
@@ -62,6 +63,11 @@ export const StepMenu: Story = {
       "I'm short on time",
       'Ask your own question',
     ])
+    for (const item of within(menu).getAllByRole('menuitem')) {
+      // `offsetHeight`, not the rect: the menu scales in from 95%.
+      await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+      await expect(getComputedStyle(item).fontSize).toBe('16px')
+    }
     await userEvent.click(within(menu).getByRole('menuitem', { name: "I'm short on time" }))
     await expect(args.onAsk).toHaveBeenCalledWith("I'm short on time")
     await waitFor(() => expect(args.onFocusPanel).toHaveBeenCalledWith('close'))
@@ -86,6 +92,11 @@ export const EquipmentMenu: Story = {
       'Can I skip it?',
       'Ask your own question',
     ])
+    for (const item of within(menu).getAllByRole('menuitem')) {
+      // `offsetHeight`, not the rect: the menu scales in from 95%.
+      await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+      await expect(getComputedStyle(item).fontSize).toBe('16px')
+    }
   },
 }
 
