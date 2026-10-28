@@ -183,9 +183,10 @@ function overlayStyle({ scatter, position }: NotePlacement): CSSProperties {
 /**
  * The widest the title may be on a tinted card: it wraps before it reaches the
  * image. Fractions of the card's content row, matched to where `IMAGE_BOX`
- * starts — change the two together. The image's left fade is short (10%): no
- * text needs it, so it only softens the box's edge and the plate shows at full
- * strength (HON-1358).
+ * starts — change the two together. The image's left fade is short (10%): the
+ * title never reaches it, so it only softens the box's edge and the plate shows
+ * at full strength (HON-1358). An uncapped badge row can run onto the plate
+ * (HON-1380).
  *
  * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
  * card whose image fails to load drops it, and its title gets the full row
@@ -213,16 +214,11 @@ export function mealImageTitleWidth(trailingActions = false): string {
  * any width, so a second badge wraps rather than running under the slip
  * (HON-974): the servings override after the pantry badge, and on a short
  * card, which the slip spans top to bottom, the first row's protein and
- * own-recipe badges.
- *
- * On a tinted card the row also stops where the image box starts, as the title
- * does (`TITLE_WIDTH`): the left fade is short, so a badge past it would sit on
- * the opaque plate (HON-1358). A neutral card without an overlay is uncapped.
- * A badge wider than the row (a long conflict in Estonian on a phone) wraps
- * its text inside the row rather than overflowing it.
+ * own-recipe badges. A single badge
+ * wider than that overflows the cap rather than wrapping; the slip's left
+ * edge is set to clear the widest one. Without an overlay the row is uncapped.
  */
-export const MEAL_IMAGE_BADGE_ROW_WIDTH =
-  'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 *:data-[slot=badge]:max-w-full *:data-[slot=badge]:whitespace-normal *:data-[slot=badge]:[&>svg]:shrink-0'
+export const MEAL_IMAGE_BADGE_ROW_WIDTH = 'group-data-meal-overlay/meal-image:max-w-1/2'
 
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no

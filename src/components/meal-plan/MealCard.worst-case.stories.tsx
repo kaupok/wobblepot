@@ -42,10 +42,9 @@ const meta = {
   },
   play: async ({ canvasElement }) => {
     await waitFor(() =>
-      expect(canvasElement.querySelectorAll('[data-slot="card"]')).toHaveLength(5),
+      expect(canvasElement.querySelectorAll('[data-slot="card"]')).toHaveLength(4),
     )
     await assertInsideCards(canvasElement, '[data-slot="sticky-note"]')
-    await assertBadgesOnTint(canvasElement)
     await assertInsideCards(canvasElement, '[data-slot="dropdown-menu-trigger"]')
     // Text grows and the card does not: a badge wider than the card once
     // pushed the menu off it.
@@ -92,24 +91,6 @@ async function assertInsideCards(canvasElement: HTMLElement, selector: string) {
   }
 }
 
-/**
- * On a card with an image, every badge ends inside the image's short left fade
- * (its first 10%), so none sits on the opaque plate (HON-1358). A badge wider
- * than its capped row wraps its text inside it (`MEAL_IMAGE_BADGE_ROW_WIDTH`).
- */
-async function assertBadgesOnTint(canvasElement: HTMLElement) {
-  for (const card of canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]')) {
-    const image = card.querySelector<HTMLElement>('[data-testid="meal-card-image"]')
-    if (!image) continue
-    const box = image.getBoundingClientRect()
-    for (const badge of card.querySelectorAll<HTMLElement>('[data-slot="badge"]')) {
-      await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
-        box.left + box.width * 0.1,
-      )
-    }
-  }
-}
-
 const image = { imageStatus: 'ready' as const, imageUrl: mealIllustration.src, imageHue: 52 }
 
 function WorstCaseColumn({ width }: { width: keyof typeof CARD_WIDTH }) {
@@ -144,34 +125,6 @@ function WorstCaseColumn({ width }: { width: keyof typeof CARD_WIDTH }) {
         ]}
         servingOverride={12}
         note={LONG_NOTE}
-      />
-      {/* Every first-row badge on a tinted card with no note, so nothing
-          but the image box caps the badge rows. */}
-      <MealCard
-        {...meta.args}
-        entryId="entry-badges"
-        meal={createMeal({
-          id: 'meal-badges',
-          name: 'Kanapada',
-          description: null,
-          isCustom: true,
-          primaryProteinType: 'poultry',
-          ...image,
-        })}
-        conflicts={[
-          { kind: 'allergen', constraint: 'nuts' },
-          { kind: 'excluded', constraint: 'onion' },
-        ]}
-        changes={[
-          {
-            id: 'change-2',
-            original: { id: 'onion', name: 'onion' },
-            replacement: null,
-            quantityPerServing: null,
-            stale: false,
-          },
-        ]}
-        servingOverride={6}
       />
       {/* An unbreakable compound name on the neutral card, the longest slot
           and protein labels, and a pasted link as the note. */}
