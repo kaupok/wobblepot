@@ -90,6 +90,39 @@ describe('listHouseholdIngredients', () => {
   })
 })
 
+// HON-1386: 75 g mince (26 g protein / 100 g) and 400 g beans (8.7 g) over 3
+// servings derive Legumes; the household chose Beef.
+async function beefAndBeans() {
+  const { alder } = await world()
+  const mince = {
+    ...lovage,
+    name: 'Mince',
+    category: 'protein',
+    proteinType: 'beef',
+    protein: 26,
+  } as const
+  const minceRow = await createHouseholdIngredient(alder, 'en', mince)
+  const beans = await createHouseholdIngredient(alder, 'en', {
+    ...lovage,
+    name: 'Kidney beans',
+    category: 'legume',
+    proteinType: 'legume',
+    protein: 8.7,
+  })
+  const meal = await createHouseholdMeal(alder, {
+    name: 'Mince and beans',
+    kidFriendly: true,
+    suitableFor: ['dinner'],
+    servings: 3,
+    components: [
+      { ingredientId: minceRow.id, totalQuantity: 75 },
+      { ingredientId: beans.id, totalQuantity: 400 },
+    ],
+    proteinTypeOverride: 'beef',
+  })
+  return { alder, mince, minceRow, meal }
+}
+
 describe('updateHouseholdIngredient', () => {
   it('saves the normalised values', async () => {
     const { alder } = await world()
@@ -329,39 +362,6 @@ describe('updateHouseholdIngredient', () => {
     expect(await vegetarian()).not.toContain(meal.id)
   })
 
-  // HON-1386: 75 g mince (26 g protein / 100 g) and 400 g beans (8.7 g) over 3
-  // servings derive Legumes; the household chose Beef.
-  async function beefAndBeans() {
-    const { alder } = await world()
-    const mince = {
-      ...lovage,
-      name: 'Mince',
-      category: 'protein',
-      proteinType: 'beef',
-      protein: 26,
-    } as const
-    const minceRow = await createHouseholdIngredient(alder, 'en', mince)
-    const beans = await createHouseholdIngredient(alder, 'en', {
-      ...lovage,
-      name: 'Kidney beans',
-      category: 'legume',
-      proteinType: 'legume',
-      protein: 8.7,
-    })
-    const meal = await createHouseholdMeal(alder, {
-      name: 'Mince and beans',
-      kidFriendly: true,
-      suitableFor: ['dinner'],
-      servings: 3,
-      components: [
-        { ingredientId: minceRow.id, totalQuantity: 75 },
-        { ingredientId: beans.id, totalQuantity: 400 },
-      ],
-      proteinTypeOverride: 'beef',
-    })
-    return { alder, mince, minceRow, meal }
-  }
-
   it("clears the chosen main protein when the ingredient's protein type moves away from it", async () => {
     const { alder, mince, minceRow, meal } = await beefAndBeans()
 
@@ -414,6 +414,17 @@ describe('deleteHouseholdIngredient', () => {
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({ status: 'deleted' })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).toBeNull()
     expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(0)
+  })
+
+  it("clears a deleted recipe's protein and chosen main protein with the component", async () => {
+    const { alder, minceRow, meal } = await beefAndBeans()
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, minceRow.id)).toEqual({ status: 'deleted' })
+
+    const saved = await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+    expect(saved.proteinTypeOverride).toBeNull()
+    expect(saved.primaryProteinType).toBe('legume')
   })
 
   it('refuses a row a deleted recipe in the meal plan uses, counted apart from recipes', async () => {

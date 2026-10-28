@@ -139,20 +139,23 @@ export async function updateHouseholdIngredient(
       data: ingredientData(input),
       select: ROW_SELECT,
     })
-    await rederiveMealProteinTypes(tx, id)
+    await rederiveMealProteinTypes(tx, { components: { some: { ingredientId: id } } })
     return saved
   })
   return { status: 'updated', ingredient }
 }
 
 /**
- * Re-resolves the protein of every meal that uses the ingredient. A chosen
- * main protein survives a protein-grams edit, and is cleared when the
- * ingredient's type moves away from it (HON-1386).
+ * Re-resolves the protein of every meal that `where` finds. A chosen main
+ * protein survives a protein-grams edit, and is cleared when the ingredient's
+ * type moves away from it (HON-1386).
  */
-async function rederiveMealProteinTypes(tx: Prisma.TransactionClient, ingredientId: string) {
+async function rederiveMealProteinTypes(
+  tx: Prisma.TransactionClient,
+  where: Prisma.MealWhereInput,
+) {
   const meals = await tx.meal.findMany({
-    where: { components: { some: { ingredientId } } },
+    where,
     select: {
       id: true,
       primaryProteinType: true,
@@ -188,7 +191,8 @@ export type DeleteIngredientResult =
  * the row.
  *
  * A deleted recipe that no meal plan entry uses loses its component with the
- * row, so it cannot hold the row forever (HON-1325). One a plan entry still
+ * row, so it cannot hold the row forever (HON-1325). Its protein is resolved
+ * again, so a restore brings back no protein it lost. One a plan entry still
  * uses refuses the delete, because the entry's shopping list and nutrition
  * read its components.
  */
@@ -209,7 +213,12 @@ export async function deleteHouseholdIngredient(
     const uses = toUses(row, deletedMealsInPlan)
     if (isInUse(uses)) return { status: 'in_use', uses }
 
-    await tx.mealComponent.deleteMany({ where: deletedMealComponents(id, false) })
+    const orphaned = deletedMealComponents(id, false)
+    const mealIds = (
+      await tx.mealComponent.findMany({ where: orphaned, select: { mealId: true } })
+    ).map((component) => component.mealId)
+    await tx.mealComponent.deleteMany({ where: orphaned })
+    await rederiveMealProteinTypes(tx, { id: { in: mealIds } })
     await tx.ingredient.delete({ where: { id } })
     return { status: 'deleted' }
   })
