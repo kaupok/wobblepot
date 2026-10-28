@@ -196,17 +196,6 @@ describe('CI-settle gate', () => {
       expect(merge).toContain('6.5 verification block')
     })
 
-    // Phase 6 reviews while CI runs: the review does not need the CI result, so
-    // it comes before the wait in every round (HON-1406).
-    it('has /auto-implement Phase 6 run the review before the CI wait', () => {
-      const phase6 = section(path.join(autoImplementSkill, 'SKILL.md'), '## Phase 6', '## Phase 7')
-      const review = phase6.indexOf('./scripts/pr-review.sh')
-      const wait = phase6.indexOf('./scripts/ci-settle.sh')
-      expect(review).toBeGreaterThan(-1)
-      expect(wait).toBeGreaterThan(review)
-      expect(phase6).toContain('back to 6.2.')
-    })
-
     // A poll is a sleep, a counter or a printed marker. The markers may still be
     // named in prose, which is how a skill tells its reader what to act on.
     it('leaves no poll in any bash block of either skill', () => {

@@ -161,7 +161,7 @@ The reviewer reports acceptance-criteria gaps under a `**Spec:**` heading: Missi
 
 ## Linear summary file list (7.4; HON-587)
 
-`gh pr view --json files` is capped at 100 files and left that way on purpose: the list in the 7.4 summary is cosmetic, and truncating a changelog is not a merge gate. After the squash merge HEAD may no longer resolve the PR, so 7.4 uses the literal PR number from 6.2.
+`gh pr view --json files` is capped at 100 files and left that way on purpose: the list in the 7.4 summary is cosmetic, and truncating a changelog is not a merge gate. After the squash merge HEAD may no longer resolve the PR, so 7.4 uses the literal PR number from 6.1.
 
 ## What the HON-1230 cut dropped
 

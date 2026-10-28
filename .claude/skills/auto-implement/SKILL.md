@@ -447,7 +447,7 @@ git push
 After a push at `ROUND` ≥ 3, re-run the 6.5 wait and verification; a failure → `recovery.md` → CI-fix loop. Rule A's next round waits in its own 6.5. With nothing pushed, CI has settled. Then decide, first match wins:
 
 - **Any round, a correctness or safety finding unresolved** → 6.7. Defer is for scope, not defects.
-- **A. `ROUND` < 3, pushed**, a CI fix included → `[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing`, back to 6.2.
+- **A. `ROUND` < 3, pushed** (review fixes, CI fixes, or both) → `[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing`, back to 6.2.
 - **B. `ROUND` < 3, nothing changed** (all deferred, or a body-only edit) → no re-review of an identical diff: 6.8, Phase 7.
 - **C. `ROUND` ≥ 3** → no 4th review. All resolved (fixed, or dropped with a note) → 6.8, Phase 7.
 
@@ -504,7 +504,7 @@ Non-zero exit → stop with the `gh` error: `[auto-implement] ✗ Error: Merge f
 
 ### 7.4 Post summary to Linear
 
-Use the literal PR number from 6.2:
+Use the literal PR number from 6.1:
 
 ```bash
 gh pr view <PR_NUMBER> --json number,title,url,commits,files
