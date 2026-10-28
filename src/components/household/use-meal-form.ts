@@ -153,7 +153,10 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
   const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
-  const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
+  // Display maths only: a blank or "0" counts as 1 serving so the per-serving
+  // numbers stay finite. Save validates the typed value on its own.
+  const parsedServings = parseLocalizedNumber(servings, { integer: true })
+  const servingsNum = parsedServings !== null && parsedServings > 0 ? parsedServings : 1
   const mainProtein = useMainProtein({
     initial: meal?.proteinTypeOverride,
     isImportMode,
@@ -211,7 +214,6 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
 
   // Compute live nutrition summary from current ingredients
   const nutritionSummary = useMemo(() => {
-    const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
     const nutrition = { calories: 0, protein: 0, carbs: 0, fat: 0 }
     let matchedCount = 0
     let unmatchedCount = 0
@@ -258,13 +260,18 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           hasVague = true
           continue
         }
+        // No amount typed yet: leave it out, and say the total is approximate.
+        if (comp.totalQuantity === null) {
+          unmatchedCount++
+          continue
+        }
         matchedCount++
-        addNutrition(comp.ingredient, comp.totalQuantity ?? 0)
+        addNutrition(comp.ingredient, comp.totalQuantity)
       }
     }
 
     return { nutrition, matchedCount, unmatchedCount, hasVague }
-  }, [isImportMode, ingredientRows, components, servings])
+  }, [isImportMode, ingredientRows, components, servingsNum])
 
   const handleMealTypeToggle = (mealType: MealTypeValue, checked: boolean) => {
     if (checked) {

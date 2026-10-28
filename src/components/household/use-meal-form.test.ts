@@ -459,5 +459,60 @@ describe('useMealForm', () => {
 
       expect(result.current.servingsNum).toBe(1)
     })
+
+    // HON-1446: a row with no amount typed yet is not a 0 g ingredient.
+    it('shows no summary while the only ingredient has no amount', () => {
+      const { result } = renderForm({ ...validMeal, components: [] })
+
+      act(() => result.current.addIngredient({ ...ingredient('tomato', 'Tomato'), calories: 100 }))
+
+      expect(result.current.nutritionSummary.matchedCount).toBe(0)
+      expect(result.current.nutritionSummary.unmatchedCount).toBe(1)
+      expect(result.current.nutritionSummary.nutrition.calories).toBe(0)
+    })
+
+    it('counts only the rows with an amount, and marks the total approximate', () => {
+      const { result } = renderForm({
+        ...validMeal,
+        servings: 2,
+        components: [
+          {
+            ingredientId: 'tomato',
+            quantityPerServing: 100, // → 200 g total across 2 servings
+            ingredient: { ...ingredient('tomato', 'Tomato'), calories: 100, protein: 10 },
+          },
+        ],
+      })
+
+      act(() =>
+        result.current.addIngredient({ ...ingredient('onion', 'Onion'), calories: 40, protein: 1 }),
+      )
+
+      // 200 g across 2 servings → 100 g per serving → the per-100 g values.
+      expect(result.current.nutritionSummary.nutrition.calories).toBe(100)
+      expect(result.current.nutritionSummary.nutrition.protein).toBe(10)
+      expect(result.current.nutritionSummary.matchedCount).toBe(1)
+      expect(result.current.nutritionSummary.unmatchedCount).toBe(1)
+    })
+
+    it('treats 0 servings as 1 for display maths, so per-serving numbers stay finite', () => {
+      const { result } = renderForm({
+        ...validMeal,
+        servings: 2,
+        components: [
+          {
+            ingredientId: 'tomato',
+            quantityPerServing: 100, // → 200 g total
+            ingredient: { ...ingredient('tomato', 'Tomato'), calories: 100 },
+          },
+        ],
+      })
+
+      act(() => result.current.setServings('0'))
+
+      expect(result.current.servingsNum).toBe(1)
+      // 200 g in 1 serving → 2 × the per-100 g value.
+      expect(result.current.nutritionSummary.nutrition.calories).toBe(200)
+    })
   })
 })
