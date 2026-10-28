@@ -16,7 +16,7 @@ Review for current phase and relevant context.
 
 ### 1.2 List unassigned Queued issues
 
-List **`Queued` only**. Queued is the unattended queue: an issue lands there only when a human has decided an agent can finish it alone. Todo means a human intends to do the work, and Backlog is unrefined or unprioritised, so neither is ever listed here — `/next-issue` is where Backlog and Todo candidates get surfaced to a human (HON-854).
+List **`Queued` only**. Queued is the unattended queue: an issue lands there only when an agent can finish it alone (CLAUDE.md → File and queue by default). Todo means a human intends to do the work, and Backlog is unrefined or unprioritised, so neither is ever listed here — `/next-issue` is where Backlog and Todo candidates get surfaced to a human (HON-854).
 
 Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle, and an assigned Queued issue has been taken by a human.
 

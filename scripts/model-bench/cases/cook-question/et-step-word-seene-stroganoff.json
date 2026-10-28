@@ -1,0 +1,76 @@
+{
+  "mealName": "Seene stroganoff",
+  "servings": 4,
+  "timeMinutes": 35,
+  "components": [
+    {
+      "name": "Šampinjonid",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Sibul",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Kookospiim",
+      "quantityPerServing": 100,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "Paprikapulber",
+      "quantityPerServing": 1,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Riis",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Keeda riis pakendi juhise järgi.",
+    "Lõika seened viiludeks ja sibul peeneks.",
+    "Kuumuta õli suurel pannil keskmisel tulel.",
+    "Prae sibulat 3 minutit, kuni see on klaasjas.",
+    "Lisa seened ja prae 8 minutit, kuni vedelik on aurustunud. Sega juurde paprikapulber.",
+    "Vala peale kookospiim ja hauta tasasel tulel 5 minutit, kuni kaste pakseneb.",
+    "Serveeri kaste riisiga."
+  ],
+  "equipment": ["Suur pann", "Kastrul"],
+  "subject": {
+    "kind": "step",
+    "index": 5
+  },
+  "pitfalls": [],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Vahukoor",
+      "isStaple": false
+    },
+    {
+      "name": "Sool",
+      "isStaple": true
+    },
+    {
+      "name": "Päevalilleõli",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Millega saan siin asendada?",
+  "locale": "et",
+  "expected": {
+    "mentionsAny": ["vahukoor"],
+    "forbiddenClaims": ["step", "leibkon"]
+  },
+  "source": "HON-1376"
+}

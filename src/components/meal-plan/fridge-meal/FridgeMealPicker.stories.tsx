@@ -52,6 +52,26 @@ export const Empty: Story = {
   },
 }
 
+/**
+ * A log on Past meals (HON-1383): the household's own words of the last 30
+ * days are one-tap chips, so "Wolt" stays one label. A chip in the meal
+ * leaves the list, and focus moves to the field, not the body.
+ */
+export const RecentLabels: Story = {
+  args: { recentLabels: ['Wolt', 'pelmeenid'], logPast: true },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    const labels = within(dialog.getByRole('region', { name: 'Used lately' }))
+
+    await userEvent.click(labels.getByRole('button', { name: 'Add: Wolt' }))
+
+    const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
+    await expect(chosen.getByText('Wolt')).toBeInTheDocument()
+    await expect(labels.queryByRole('button', { name: 'Add: Wolt' })).not.toBeInTheDocument()
+    await expect(dialog.getByRole('searchbox', { name: 'What are you having?' })).toHaveFocus()
+  },
+}
+
 /** Editing a fridge meal with one item of each source. */
 export const MixedItems: Story = {
   args: { entryId: 'entry-1', initialItems: fridgeItems },

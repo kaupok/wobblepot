@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
@@ -77,6 +77,16 @@ function renderDialog(proposals: AdjustProposal[], onApply = vi.fn(async () => t
 const apply = () => screen.getByRole('button', { name: 'Apply' })
 
 describe('AdjustReviewDialog', () => {
+  // jsdom has no scrollIntoView; the ingredient search scrolls its results
+  // into view (HON-1378).
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+  })
+
   it('shows each change ticked, in catalog copy, with the reason', () => {
     renderDialog([replaceCream, removeMushroom])
 

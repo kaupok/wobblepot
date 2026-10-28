@@ -6,7 +6,7 @@ When the plan splits the work into sequential batches (dependency refreshes, mig
 
 - Commit each batch as soon as its fast gate passes (`pnpm lint && pnpm type-check && pnpm test`, plus `pnpm build` when the plan calls for it), following the Phase 5.1/5.2 staging and message conventions.
 - Push after the first batch commit (`git push -u origin $(git branch --show-current)`) and after each subsequent one. Phase 5 then skips straight to PR creation (5.3) for what is already pushed.
-- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed. Such a run outlives Bash's 600 s foreground cap, so start it with `run_in_background: true` as one self-contained command that writes its terminal marker to a file, then **wait on that file in the same turn** with foreground wait-chunks — the Phase 6.1 pattern, applied to a marker file instead of `gh pr checks`:
+- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed. Such a run outlives Bash's 600 s foreground cap, so start it with `run_in_background: true` as one self-contained command that writes its terminal marker to a file, then **wait on that file in the same turn** with foreground wait-chunks — the Phase 6.5 CI-wait pattern, applied to a marker file instead of `gh pr checks`:
 
   ```bash
   # Start (run_in_background: true) — the marker file is the only handoff.

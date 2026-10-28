@@ -66,6 +66,16 @@ interface FridgeMealPickerProps {
   onSaved: () => void
   /** Opened from state, so the caller returns focus to its opener (docs/DESIGN.md → Focus management). */
   onCloseAutoFocus?: (event: Event) => void
+  /**
+   * The household's own words from its fridge meals of the last 30 days, as
+   * one-tap chips, so "Wolt" stays one label (HON-1383).
+   */
+  recentLabels?: string[]
+  /**
+   * A log on Past meals: the meal was already eaten, so the new entry is saved
+   * as cooked, with no pantry change (HON-1383).
+   */
+  logPast?: boolean
 }
 
 /**
@@ -122,6 +132,8 @@ function PickerForm({
   pantryItems,
   onSaved,
   onClose,
+  recentLabels = [],
+  logPast = false,
 }: PickerFormProps) {
   const t = useTranslations('meal-plan.fridge')
   const tCard = useTranslations('meal-plan.card')
@@ -174,6 +186,12 @@ function PickerForm({
   const exactPantry = needle
     ? atHome.find((p) => p.ingredient.name.toLocaleLowerCase() === needle)
     : undefined
+  const chosenLabels = new Set(items.flatMap((i) => (i.label ? [i.label.toLocaleLowerCase()] : [])))
+  const shownLabels = recentLabels.filter(
+    (label) =>
+      !chosenLabels.has(label.toLocaleLowerCase()) &&
+      (!needle || label.toLocaleLowerCase().includes(needle)),
+  )
 
   function add(item: FridgeItemShown) {
     if (isFull) return
@@ -220,7 +238,12 @@ function PickerForm({
         : apiFetch(`/api/meal-plans/${planId}/entries`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date, mealType, fridgeItems }),
+            body: JSON.stringify({
+              date,
+              mealType,
+              fridgeItems,
+              ...(logPast ? { status: 'completed' } : {}),
+            }),
           })
     },
     onSuccess: () => {
@@ -328,6 +351,32 @@ function PickerForm({
             </div>
           )}
         </form>
+
+        {/* The household's own words of the last 30 days (HON-1383), so
+            "Wolt" stays one label. */}
+        {shownLabels.length > 0 && (
+          <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-labels`}>
+            <Heading variant="section" as="h3" id={`${searchId}-labels`}>
+              {t('recentLabelsHeading')}
+            </Heading>
+            <ChoiceList
+              choices={shownLabels.map((label) => ({
+                key: label,
+                text: label,
+                item: {
+                  ingredientId: null,
+                  sourceEntryId: null,
+                  label,
+                  name: null,
+                  sourceDate: null,
+                },
+              }))}
+              disabled={isFull}
+              onAdd={(item) => addFromField(() => add(item))}
+              addLabel={(name) => t('add', { name })}
+            />
+          </section>
+        )}
 
         {/* Leftovers first: a meal already cooked is the likeliest fridge
             meal. A section with nothing to offer is left out. */}

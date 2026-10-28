@@ -115,6 +115,7 @@ export function CookQuestionMenu({
         {READY_QUESTION_KEYS[kind].map((key) => (
           <DropdownMenuItem
             key={key}
+            size="lg"
             onSelect={() => {
               picked.current = 'close'
               onAsk(t(key))
@@ -125,6 +126,7 @@ export function CookQuestionMenu({
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
+          size="lg"
           onSelect={() => {
             picked.current = 'field'
             onAskOwn()

@@ -3,7 +3,7 @@
  *
  * The poll has two implementations that must agree: `pr_ci_state()` in
  * orchestrator.sh (covered in orchestrator.phase.test.ts) and scripts/ci-settle.sh,
- * which /auto-implement Phase 6.1 (re-run by 7.2) and /merge Step 2 call. Each skill
+ * which /auto-implement Phase 6.5 (re-run by 7.2) and /merge Step 2 call. Each skill
  * also carries a one-line verification that reads the settled state. The poll used
  * to be a bash block in the skill markdown, and this file extracted it to run it;
  * HON-1190 moved it into the script, so the test executes the script and checks
@@ -92,7 +92,7 @@ describe('CI-settle gate', () => {
       expect(prCiState()).toContain(EXEMPTION)
     })
 
-    // Each skill keeps one runnable line that reads the settled state: the 6.1
+    // Each skill keeps one runnable line that reads the settled state: the 6.5
     // verification (which 7.2 re-runs) and /merge Step 2's. A site that misses the
     // filter is a site that strands PRs.
     it('appears once in /auto-implement and once in /merge, in the verification', () => {
@@ -116,8 +116,8 @@ describe('CI-settle gate', () => {
 
         expect(calls.length, `${name} has no gh pr checks`).toBeGreaterThan(0)
         for (const line of calls) {
-          // The call is split across two lines: the `gh` line names the fields,
-          // the `--jq` line carries the filter. Assert on the fields here.
+          // The `gh` line names the fields; a local `jq` applies the filter.
+          // Assert on the fields here.
           expect(line, `${name}: ${line.trim()}`).toContain('workflow')
         }
       }
@@ -175,9 +175,9 @@ describe('CI-settle gate', () => {
       return text.slice(start, end)
     }
 
-    it('calls scripts/ci-settle.sh from /auto-implement 6.1 and /merge Step 2', () => {
+    it('calls scripts/ci-settle.sh from /auto-implement 6.5 and /merge Step 2', () => {
       const waits = [
-        section(path.join(autoImplementSkill, 'SKILL.md'), '### 6.1 Wait for CI', '### 6.2'),
+        section(path.join(autoImplementSkill, 'SKILL.md'), '### 6.5 Wait for CI', '### 6.6'),
         section(path.join(mergeSkill, 'SKILL.md'), '### Step 2: Wait for CI', '### Step 2.5'),
       ]
       for (const wait of waits) {
@@ -185,15 +185,15 @@ describe('CI-settle gate', () => {
       }
     })
 
-    // 7.2 re-runs 6.1 by reference rather than carrying its own copy (HON-787).
-    it('has /auto-implement 7.2 re-run 6.1', () => {
+    // 7.2 re-runs 6.5 by reference rather than carrying its own copy (HON-787).
+    it('has /auto-implement 7.2 re-run 6.5', () => {
       const merge = section(
         path.join(autoImplementSkill, 'SKILL.md'),
         '### 7.2 Wait for CI',
         '### 7.3',
       )
-      expect(merge).toContain('Re-run the 6.1 poll')
-      expect(merge).toContain('6.1 verification block')
+      expect(merge).toContain('Re-run the 6.5 poll')
+      expect(merge).toContain('6.5 verification block')
     })
 
     // A poll is a sleep, a counter or a printed marker. The markers may still be
@@ -226,8 +226,10 @@ describe('CI-settle gate', () => {
   })
 
   // The poll itself, executed. `gh` and `sleep` are stubbed on PATH: `gh`
-  // replays a fixture through the script's own jq expression (so the jq is what
-  // is under test), and `sleep` is a no-op (so 16 polls × 30 s runs instantly).
+  // replays a fixture that the script's own jq expression then filters (so the
+  // jq is what is under test), and `sleep` is a no-op (so 16 polls × 30 s runs
+  // instantly). `gh pr view` prints nothing, so the head check never matches and
+  // every case here runs the two-poll rule; ci-settle-head.test.ts covers the rest.
   describe('scripts/ci-settle.sh', () => {
     let stubBin: string
     let callLog: string
@@ -240,7 +242,7 @@ describe('CI-settle gate', () => {
       stubBin = fs.mkdtempSync(path.join(os.tmpdir(), 'hon600-bin-'))
       callLog = path.join(stubBin, 'checks-calls')
 
-      // Applies the caller's --jq to $STUB_CHECKS exactly as gh would, and
+      // Prints $STUB_CHECKS through the caller's --jq, if any, as gh would, and
       // records each `pr checks` call so a test can assert which poll settled.
       fs.writeFileSync(
         path.join(stubBin, 'gh'),
@@ -251,7 +253,7 @@ describe('CI-settle gate', () => {
           `    echo call >> ${JSON.stringify(callLog)}`,
           '    jq_expr=""',
           '    while [ $# -gt 0 ]; do [ "$1" = "--jq" ] && jq_expr="$2"; shift; done',
-          '    printf \'%s\' "$STUB_CHECKS" | jq -r "$jq_expr"',
+          '    printf \'%s\' "$STUB_CHECKS" | jq -r "${jq_expr:-.}"',
           '    ;;',
           'esac',
           '',

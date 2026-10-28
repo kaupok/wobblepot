@@ -760,7 +760,7 @@ export const StepsCached: Story = {
 
 /**
  * "Adjust recipe" opens under the ingredients only from the ⋯ menu; a stored
- * request shows without it (HON-1356). Both targets are 44px.
+ * request shows without it (HON-1356). Both targets are 44px; the item is 16px.
  */
 export const AdjustFromMenu: Story = {
   name: 'Planned: Adjust recipe from the ⋯ menu',
@@ -776,6 +776,7 @@ export const AdjustFromMenu: Story = {
     const item = await body().findByRole('menuitem', { name: 'Adjust recipe' })
     // `offsetHeight`, not the rect: the menu scales in from 95%.
     await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+    await expect(getComputedStyle(item).fontSize).toBe('16px')
     await userEvent.click(item)
     await waitFor(() => expect(field()).toHaveFocus())
     await waitFor(() =>
@@ -1182,15 +1183,23 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     // does not read as the step moving.
     const offsetOf = (el: Element) => box(el).top - box(scroller).top + scroller.scrollTop
 
+    // The menu hands focus to Close as it closes. Typed before then, the
+    // rest of the keys would land on Close and shut the panel (HON-1381).
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus())
     await within(panel).findByText(longAnswer)
+    // The answer shows before its stream closes, and the panel drops a submit
+    // until then (HON-1381), so wait for Send to take one.
+    const send = within(panel).getByRole('button', { name: 'Send' })
+    await waitFor(() => expect(send).toHaveAttribute('aria-disabled', 'false'))
+    await expect(status).toHaveAttribute('aria-busy', 'false')
     const answeredHeight = box(status).height
     const answeredOffset = offsetOf(nextStep)
 
     // The follow-up is typed in the panel's field (HON-1022).
-    await userEvent.type(
-      within(panel).getByRole('textbox', { name: 'Your question' }),
-      "How do I know it's done?{Enter}",
-    )
+    const field = within(panel).getByRole('textbox', { name: 'Your question' })
+    await userEvent.type(field, "How do I know it's done?{Enter}")
+    // Only a submit the panel took clears the field.
+    await waitFor(() => expect(field).toHaveValue(''))
     await within(status).findByText('Thinking…')
     // The old answer stays, muted, under its own question.
     await expect(within(status).getByText(longAnswer)).toHaveClass('text-muted-foreground')

@@ -115,6 +115,7 @@ test.describe('MCP server', () => {
         swap_meal: false,
         rate_meal: false,
         adjust_meal: false,
+        change_meal_ingredients: false,
         create_meal: false,
         update_meal: false,
         plan_meal: false,

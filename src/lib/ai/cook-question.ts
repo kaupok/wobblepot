@@ -129,14 +129,15 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
   const focusLine = isStep
     ? `The cook is on step ${stepNumber}: ${steps[subject.index]}`
     : `The cook is asking about this piece of equipment: ${item}`
-  const scopeRule = isStep
-    ? `Answer only about this meal and step ${stepNumber}.`
-    : 'Answer only about this meal and this piece of equipment.'
-  // The rule names steps in English; one Estonian answer wrote "steppides"
-  // for "sammudes" under it (HON-1003).
+  // The prompt names steps in English. One Estonian answer wrote "steppides"
+  // for "sammudes" under the equipment rule (HON-1003), and one step answer
+  // began "Step 6 puhul" (HON-1376).
   const stepWord = isEstonian(locale)
     ? ' In Estonian a step is "samm": "sammus 3", "sammudes 3 ja 4".'
     : ''
+  const scopeRule = isStep
+    ? `Answer only about this meal and step ${stepNumber}.${stepWord}`
+    : 'Answer only about this meal and this piece of equipment.'
   const equipmentRules = isStep
     ? ''
     : `

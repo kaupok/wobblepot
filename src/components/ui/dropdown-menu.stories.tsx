@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { CheckCircle2, MoreHorizontal, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { expect, within } from 'storybook/test'
 import { Button } from './button'
 import {
   DropdownMenu,
@@ -43,9 +44,16 @@ const openDropdownA11y = {
   config: { rules: [{ id: 'aria-hidden-focus', enabled: false }] },
 }
 
+/** The default item: 16px text in a row under 44px. */
 export const Open: Story = {
   args: { defaultOpen: true },
   parameters: { a11y: openDropdownA11y },
+  play: async () => {
+    const item = await within(document.body).findByRole('menuitem', { name: 'Regenerate' })
+    // `offsetHeight`, not the rect: the menu scales in from 95%.
+    await expect(item.offsetHeight).toBeLessThan(44)
+    await expect(getComputedStyle(item).fontSize).toBe('16px')
+  },
   render: (args) => (
     <DropdownMenu {...args}>
       <DropdownMenuTrigger asChild>
@@ -85,6 +93,32 @@ export const Open: Story = {
       </DropdownMenuContent>
     </DropdownMenu>
   ),
+}
+
+/** `size="lg"`: 16px text in a row of 44px or more, for the cook view's ⋯ menus (HON-1359). */
+export const LargeItems: Story = {
+  args: { defaultOpen: true },
+  parameters: { a11y: openDropdownA11y },
+  render: (args) => (
+    <DropdownMenu {...args}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" aria-label="Step actions">
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem size="lg">Replace</DropdownMenuItem>
+        <DropdownMenuItem size="lg">Leave out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ),
+  play: async () => {
+    const menu = await within(document.body).findByRole('menu')
+    for (const item of within(menu).getAllByRole('menuitem')) {
+      await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+      await expect(getComputedStyle(item).fontSize).toBe('16px')
+    }
+  },
 }
 
 export const WithCheckboxItems: Story = {

@@ -287,6 +287,7 @@ describe('FridgeMealCard', () => {
           { ingredientId: 'cucumber' },
           { label: 'store meatballs' },
         ],
+        status: 'planned',
         note: 'Heat the mash first',
         noteX: null,
         noteY: null,

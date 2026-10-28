@@ -13,7 +13,7 @@ git log --oneline origin/main..HEAD                       # commits it already m
 gh pr list --head "$(git branch --show-current)" --state open --json number,url
 ```
 
-- **Open PR for this branch** → run Phase 0, then 2.1 (the `In Review` exception there applies), skip 2.2–5, and resume at **6.1**. `ROUND` counts the PR's existing `<!-- claude-review -->` markers, so earlier rounds still count toward the cap.
+- **Open PR for this branch** → run Phase 0, then 2.1 (the `In Review` exception there applies), skip 2.2–5, and resume at **6.1**, the start of Phase 6: review first, then the 6.5 CI wait. `ROUND` counts the PR's existing `<!-- claude-review -->` markers, so earlier rounds still count toward the cap.
 - **Commits, no PR** → run Phases 0–2.1 as normal, then look for the plan comment the previous attempt posted in 2.8 (`list_comments`). If there is one, reuse it instead of re-planning and do not post a second; continue Phase 3 from the first step the commits do not cover.
 - **No commits** → run the full cycle.
 
@@ -76,19 +76,19 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
 
    A blocker with `statusType` `duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule (and logs `[SKIP] HON-XX blocked by HON-YY (Duplicate)` each poll), so the unattended path agrees.
 
-## No checks reported (6.1, 7.2)
+## No checks reported (6.5, 7.2)
 
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → stop, do not merge. `ci.yml` runs on every PR, docs-only ones included, and `Lint, Type Check & Test` is a required check (HON-584), so no PR is exempt: an empty check list means CI did not report, and GitHub would refuse the merge anyway. In practice the 6.1 poll does not settle without that job's row, so this branch is defensive. Report it and stop; do not enter the CI-fix loop, because there is no failure to fix.
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → stop, do not merge. `ci.yml` runs on every PR, docs-only ones included, and `Lint, Type Check & Test` is a required check (HON-584), so no PR is exempt: an empty check list means CI did not report, and GitHub would refuse the merge anyway. In practice the 6.5 poll does not settle without that job's row, so this branch is defensive. Report it and stop; do not enter the CI-fix loop, because there is no failure to fix.
 
-## CI-fix loop (6.1)
+## CI-fix loop (6.5, 6.6)
 
-If CI fails, attempt to fix (max 2 attempts):
+A CI failure is fixed in the round's one 6.5 fix pass, beside the Address Now items. **At most 2 CI-fix attempts per run, across all rounds**: each push that fixes a CI failure is one attempt.
+
+- **`ROUND` < 3** → fix it in 6.5. 6.6 commits and pushes, and rule A sends the push to one more review, because 7.2 must not merge a commit that no review saw. That round's 6.5 waits on CI again. A clean review with red CI takes this path too.
+- **`ROUND` ≥ 3** → fix it in 6.5. 6.6 pushes and waits on CI with no 4th review, as rule C allows. If CI fails again, loop here:
 
 ```
-ci_attempts = 0
-max_ci_attempts = 2
-
-while CI failing and ci_attempts < max_ci_attempts:
+while CI failing and ci_attempts < 2:
     ci_attempts += 1
     [auto-implement] CI fix attempt {ci_attempts}/2
 
@@ -97,16 +97,20 @@ while CI failing and ci_attempts < max_ci_attempts:
     - Stage specific changed files by name and commit:
       git add [changed files] && git commit -m "fix: Address CI failures"
     - Push: git push
-    - Wait: re-run the SKILL.md 6.1 foreground wait-chunk + verification, re-issuing on `CI_WAITING`
-
-If still failing after 2 attempts:
-    [auto-implement] ✗ Error: CI checks failing after fix attempts
-    Stop here with failure details
+    - Wait: re-run the SKILL.md 6.5 foreground wait-chunk + verification, re-issuing on `CI_WAITING`
 ```
+
+CI still failing after 2 attempts, on either path:
+
+```
+[auto-implement] ✗ Error: CI checks failing after fix attempts
+```
+
+Stop here with the failure details.
 
 ## Stale review lock (6.3)
 
-**`ROUND` must be greater than `ROUND_BEFORE`. If it is not, stop — never loop.** The cap rests entirely on the invariant that each `pr-review.sh` run adds exactly one marker, and that invariant *can* break: when a stale `/tmp/claude-review-${PR_NUMBER}.lock` is present (left by a killed run — see the timeout warning in `SKILL.md` 6.3), the script finds the previous round's marker, prints "Review already posted by another instance" and **exits 0 without reviewing**. The count then never moves, 6.4's "no summary at all" guard cannot fire because the previous round's summary is still on the PR, and 6.6 branch A re-enters 6.3 forever — reinstating the unbounded loop this cap exists to close. Requiring a strict increase is what makes each iteration consume budget, and therefore makes the loop provably terminate.
+**`ROUND` must be greater than `ROUND_BEFORE`. If it is not, stop — never loop.** The cap rests entirely on the invariant that each `pr-review.sh` run adds exactly one marker, and that invariant *can* break: when a stale `/tmp/claude-review-${PR_NUMBER}.lock` is present (left by a killed run — see the timeout warning in `SKILL.md` 6.3), the script finds the previous round's marker, prints "Review already posted by another instance" and **exits 0 without reviewing**. The count then never moves, 6.4's "no summary at all" guard cannot fire because the previous round's summary is still on the PR, and 6.6 branch A re-enters 6.2 forever — reinstating the unbounded loop this cap exists to close. Requiring a strict increase is what makes each iteration consume budget, and therefore makes the loop provably terminate.
 
 ```
 [auto-implement] ✗ Error: Review round did not post a new review (marker count stayed at ${ROUND_BEFORE}).

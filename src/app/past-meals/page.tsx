@@ -1,22 +1,33 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import { getPastMealsRange } from '@/lib/meal-planning/past-meals'
+import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
+import { toDateString } from '@/lib/meal-planning/dates'
+import { loadFrequentMeals, loadRecentFridgeLabels } from '@/lib/meal-plans/past-logging'
 import { PastMealsList } from '@/components/timeline'
+import { buildPastDays } from '@/components/timeline/past-days'
+import type { Locale } from '@/lib/i18n/locales'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 
 /**
- * The past seven days, newest first, where the household marks meals cooked or
- * skipped. Moved off Today so reviewing them never pushes Today off screen
- * (HON-1007); a dot on the account menu says when some need marking (HON-1028).
+ * The past days, newest first, where the household marks meals cooked or
+ * skipped, and logs what it ate in an empty slot (HON-1383). Moved off Today
+ * so reviewing them never pushes Today off screen (HON-1007); a dot on the
+ * account menu says when some need marking (HON-1028). `?weeks=N` reaches N
+ * weeks back, set by "Show the week before".
  */
-export default async function PastMealsPage() {
+export default async function PastMealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ weeks?: string }>
+}) {
   const session = await getSession()
 
   if (!session) {
@@ -25,9 +36,11 @@ export default async function PastMealsPage() {
 
   // Overlap the translations with the membership read: `getTranslations`
   // resolves the locale through the same cached membership row.
-  const [membership, t] = await Promise.all([
+  const [membership, t, locale, { weeks }] = await Promise.all([
     getHouseholdMembership(session.user.id),
     getTranslations('pastMeals'),
+    getLocale(),
+    searchParams,
   ])
 
   if (!membership) {
@@ -37,17 +50,26 @@ export default async function PastMealsPage() {
   const { household } = membership
 
   // The household's day, as on Today, so "yesterday" is theirs and not the
-  // server's. The same range the account menu's dot counts.
-  const { todayDate, startDate, endDate } = getPastMealsRange(household.timezone)
+  // server's. The first week is the range the account menu's dot counts; "Show
+  // the week before" stops at the week the household was created in.
+  const range = getPastMealsRange(household.timezone, {
+    weeks: Number(weeks ?? 1),
+    createdAt: household.createdAt,
+  })
 
-  const [{ entries, planId }, pantry] = await Promise.all([
+  const [{ entries, planId }, pantry, frequentMeals, recentLabels] = await Promise.all([
     // `endDate` is exclusive, so today is not included.
-    loadPlanEntries(household, { startDate, endDate }),
+    loadPlanEntries(household, { startDate: range.startDate, endDate: range.endDate }),
     loadPantry(household, { days: null }),
+    loadFrequentMeals(household),
+    loadRecentFridgeLabels(household),
   ])
-  // A slot with only a note has nothing to mark, so it is not a row. Filtered
-  // here so the empty state and the list agree on what counts (HON-1018).
-  const mealEntries = entries.filter((entry) => entry.meal)
+  const days = buildPastDays(entries, {
+    startDate: toDateString(range.startDate),
+    todayDate: range.todayDate,
+    expectedMealTypes: getExpectedMealTypes(household.preferences),
+    locale: locale as Locale,
+  })
 
   return (
     <div className="w-full px-4 py-8">
@@ -61,7 +83,9 @@ export default async function PastMealsPage() {
           <Body variant="muted">{t('description')}</Body>
         </div>
 
-        {mealEntries.length === 0 || !planId ? (
+        {/* No day in range has a row or an empty slot, or the household has
+            no plan to log into yet. */}
+        {days.length === 0 || !planId ? (
           <div className="flex flex-col items-start gap-4">
             <Body variant="muted">{t('empty')}</Body>
             <Button asChild>
@@ -70,11 +94,13 @@ export default async function PastMealsPage() {
           </div>
         ) : (
           <PastMealsList
-            entries={mealEntries}
+            days={days}
             planId={planId}
             householdServings={sumPortions(household.members)}
             pantryItems={pantry.items}
-            todayDate={todayDate}
+            log={{ frequentMeals, recentLabels }}
+            weeks={range.weeks}
+            hasEarlierWeek={range.hasEarlierWeek}
           />
         )}
       </div>

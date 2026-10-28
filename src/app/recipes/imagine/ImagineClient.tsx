@@ -92,6 +92,8 @@ export function ImagineClient() {
   // Each card's action ("Review and save", or "Open recipe" once saved), by imagined meal
   // ID: where focus goes when the review dialog closes.
   const cardActionRefs = useRef(new Map<string, HTMLElement>())
+  // Cancel unmounts as the run stops, so it hands focus back here (HON-1373).
+  const promptRef = useRef<HTMLTextAreaElement>(null)
 
   const {
     images,
@@ -271,6 +273,7 @@ export function ImagineClient() {
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     imagine.reset()
+    promptRef.current?.focus()
   }
 
   const handleGenerate = () => {
@@ -319,6 +322,7 @@ export function ImagineClient() {
             removeImageLabel={(filename) => t('removeImageAria', { filename })}
           >
             <Textarea
+              ref={promptRef}
               value={prompt}
               onChange={(e) => {
                 setPrompt(e.target.value)

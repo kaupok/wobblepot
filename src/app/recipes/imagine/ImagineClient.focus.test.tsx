@@ -113,6 +113,35 @@ describe('ImagineClient focus and announcements (HON-1366)', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  // Cancel unmounts as the run stops, so focus would fall to <body> (HON-1373).
+  it.each([
+    [
+      'a click',
+      (user: ReturnType<typeof userEvent.setup>, cancel: HTMLElement) => user.click(cancel),
+    ],
+    [
+      'the keyboard',
+      async (user: ReturnType<typeof userEvent.setup>, cancel: HTMLElement) => {
+        cancel.focus()
+        await user.keyboard('{Enter}')
+      },
+    ],
+  ])('moves focus to the prompt field after Cancel by %s', async (_, press) => {
+    deferFetch()
+    const user = userEvent.setup()
+    renderInLocale(<ImagineClient />, 'en')
+
+    const prompt = screen.getByRole('textbox', { name: /describe/i })
+    await user.type(prompt, 'something with lentils')
+    await user.click(screen.getByRole('button', { name: 'Imagine meals' }))
+
+    await press(user, screen.getByRole('button', { name: /^cancel$/i }))
+
+    expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
+    expect(prompt).toHaveFocus()
+    expect(prompt).not.toHaveAttribute('aria-disabled')
+  })
+
   it('announces "Loading…" once per loading card', async () => {
     deferFetch()
     await generate('en')

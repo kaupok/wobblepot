@@ -11,6 +11,11 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   swap_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
   rate_meal: { date: '2026-10-15', mealType: 'dinner', rating: 'up' },
   adjust_meal: { date: '2026-10-15', mealType: 'dinner', instruction: 'No cream' },
+  change_meal_ingredients: {
+    date: '2026-10-15',
+    mealType: 'dinner',
+    changes: [{ action: 'leave_out', ingredient: 'cream' }],
+  },
   create_meal: {
     name: 'Lasagne',
     suitableFor: ['dinner'],

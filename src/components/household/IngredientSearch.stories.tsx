@@ -198,3 +198,47 @@ export const EnterAddsTopResult: Story = {
     await expect(input).toHaveValue('')
   },
 }
+
+export const PhoneNearScreenBottom: Story = {
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  decorators: [
+    (Story) => (
+      <>
+        {/* Pushes the field to the screen bottom, as on /recipes/create. */}
+        <div aria-hidden className="h-[calc(100vh-8rem)]" />
+        <Story />
+        {/* The rest of the form below the field, so the page can scroll. */}
+        <div aria-hidden className="h-[50vh]" />
+        {/* Stands in for the fixed bottom tab bar (bottom-tab-bar.tsx). */}
+        <div
+          aria-hidden
+          data-testid="tab-bar"
+          className="bg-background fixed inset-x-0 bottom-0 z-50 h-16 border-t"
+        />
+      </>
+    ),
+  ],
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'On a phone, a field near the screen bottom opens its results under the tab bar. The list scrolls the page up, so the highlighted result sits fully above the bar (HON-1378).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole('combobox'), 'chick')
+
+    const option = await canvas.findByRole('option', { name: /chicken thigh/i }, { timeout: 3000 })
+    await expect(option).toHaveAttribute('aria-selected', 'true')
+    const tabBar = canvas.getByTestId('tab-bar')
+    await waitFor(
+      () =>
+        expect(option.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+          tabBar.getBoundingClientRect().top,
+        ),
+      { timeout: 3000 },
+    )
+  },
+}

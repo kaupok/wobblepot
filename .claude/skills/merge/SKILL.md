@@ -62,7 +62,7 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 
 ### Step 2: Wait for CI Checks
 
-Before merging, ensure all CI checks have passed. CI takes 12–45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it runs each chunk of the poll with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; it waits through `/auto-implement` 6.1, which runs the same script in foreground chunks.
+Before merging, ensure all CI checks have passed. PR CI takes about 4–5 min, but `ci.yml` times out at 45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it runs each chunk of the poll with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; it waits through `/auto-implement` 6.5, which runs the same script in foreground chunks.
 
 ```bash
 # Run with run_in_background: true — emits one completion notification per chunk.
@@ -70,11 +70,11 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 ./scripts/ci-settle.sh "$PR_NUMBER"
 ```
 
-`scripts/ci-settle.sh` polls for about 8 minutes and prints one marker on its last line. Its header says when it settles: the `Lint, Type Check & Test` row is present, nothing is pending, and two polls in a row agree. A pending Vercel status is exempt (HON-600). Act on the marker:
+`scripts/ci-settle.sh` polls for about 8 minutes and prints one marker on its last line. Its header says when it settles: the `Lint, Type Check & Test` row is present, nothing is pending, and two polls in a row agree, or that job finished 60 s or more ago on a PR head that equals the local `HEAD`. A pending Vercel status is exempt (HON-600). Act on the marker:
 
 - `CI_WAITING` — run the same command again, in the background. The chunk count carries across calls, so 6 chunks (about 48 min) cover ci.yml's 45 min timeout.
 - `CI_TIMEOUT` — report and stop. Do not merge.
-- `CI_SETTLED` — verify below. If checks already passed, it settles on its second poll (about 60 s including the initial sleep). Pass or fail is decided by the verification, not by the poll.
+- `CI_SETTLED` — verify below. If checks finished over 60 s ago and the PR head is the local `HEAD`, it settles on its first poll, in seconds; otherwise on its second poll, about 30 s later. Pass or fail is decided by the verification, not by the poll.
 
 When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
