@@ -169,7 +169,11 @@ describe('plan_fridge_meal', () => {
 
       expect(result).toMatchObject({ outcome: 'planned', status: 'cooked', date })
       const [entry] = await dinnerOn(date)
-      expect(entry).toMatchObject({ kind: 'fridge', status: 'completed', pantryDeductedAt: null })
+      expect(entry).toMatchObject({
+        kind: 'fridge',
+        status: 'completed',
+        pantryDeductedAt: expect.any(Date),
+      })
       expect(await pantryQuantities(household.id)).toEqual([['ing-peas', 200]])
 
       const plan = await getMealPlan.run(household, { from: date, to: date }, CALLER)
@@ -200,7 +204,7 @@ describe('plan_fridge_meal', () => {
         kind: 'fridge',
         mealId: null,
         status: 'completed',
-        pantryDeductedAt: null,
+        pantryDeductedAt: expect.any(Date),
       })
     })
 

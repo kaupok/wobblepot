@@ -138,7 +138,7 @@ describe('swap_meal on a past slot', () => {
     expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
       mealId: 'trout',
       status: 'completed',
-      pantryDeductedAt: null,
+      pantryDeductedAt: expect.any(Date),
     })
     expect(await pantryQuantities(household.id)).toEqual([['ing-trout', 400]])
 

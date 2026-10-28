@@ -25,8 +25,9 @@ const notePositionAxis = z.number().min(0).max(1).nullable().optional()
 // entry back (HON-1123). A completed entry offers no Clear, so a restore
 // never sends `completed`. The one completed create is a log on Past meals
 // (HON-1383): a meal the household already ate, on a day before its today.
-// The pantry is never charged for it, so it carries no `pantryDeducted`, and
-// the POST refuses `completed` for today or a later day. `pick` is "Pick for
+// The pantry is never charged for it: the server saves it as already charged
+// (HON-1391), so the client sends no `pantryDeducted`, and the POST refuses
+// `completed` for today or a later day. `pick` is "Pick for
 // me": the server places the slot's top suggestion itself, so it names no
 // meal (HON-1248). `fridgeItems` makes a fridge meal, which has no meal
 // either (HON-1277).
@@ -226,7 +227,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             { date, mealType: fields.mealType },
             resolveHouseholdLocale(household),
           )
-        : await createEntry(household.id, planId, { ...fields, date: parseLocalDate(date) }),
+        : await createEntry(household.id, planId, {
+            ...fields,
+            date: parseLocalDate(date),
+            // A log is saved as already charged, so Undo then Cooked never
+            // charges the pantry for it (HON-1391).
+            ...(fields.status === 'completed' && { pantryDeducted: true }),
+          }),
     )
   } catch (error) {
     // The client tells this apart by `code`, and offers the picker instead.

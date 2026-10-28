@@ -321,7 +321,9 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       vi.useRealTimers()
     })
 
-    it('creates a completed recipe meal on a day before today', async () => {
+    // A log is saved as already charged, so Undo then Cooked never charges
+    // the pantry for it (HON-1391).
+    it('creates a completed recipe meal on a day before today, already charged', async () => {
       const { status } = await answer(
         post({ date: '2026-03-09', mealType: 'dinner', mealId: 'meal-1', status: 'completed' }),
       )
@@ -332,10 +334,11 @@ describe('POST /api/meal-plans/[id]/entries', () => {
         mealType: 'dinner',
         mealId: 'meal-1',
         status: 'completed',
+        pantryDeducted: true,
       })
     })
 
-    it('creates a completed fridge meal on a day before today', async () => {
+    it('creates a completed fridge meal on a day before today, already charged', async () => {
       const fridgeItems = [{ label: 'Wolt' }]
       const { status } = await answer(
         post({ date: '2026-03-08', mealType: 'dinner', fridgeItems, status: 'completed' }),
@@ -347,6 +350,7 @@ describe('POST /api/meal-plans/[id]/entries', () => {
         mealType: 'dinner',
         fridgeItems,
         status: 'completed',
+        pantryDeducted: true,
       })
     })
 
