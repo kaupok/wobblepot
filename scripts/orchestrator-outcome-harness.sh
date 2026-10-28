@@ -1973,6 +1973,7 @@ EOF
     # <A3>, when set, is a script run before every poll after the first, with the
     # poll number as its argument — how a test lands a new origin/main commit
     # between polls of ONE process, which is where the once-per-SHA state lives.
+    # HARNESS_CHECKOUT_SUCCESS_AT=<n> runs the REAL record_success before poll n.
     REPO_ROOT="$A1"
     POLLS="${A2:-1}"
     CHECKOUT_CHECK_INTERVAL="${HARNESS_CHECKOUT_INTERVAL:-0}"
@@ -1984,6 +1985,10 @@ EOF
     [ "${HARNESS_CHECKOUT_ONCE:-}" = "1" ] && RUN_ONCE=true
     for ((poll = 1; poll <= POLLS; poll++)); do
       if [ "$poll" -gt 1 ] && [ -n "$A3" ]; then bash "$A3" "$poll"; fi
+      if [ "$poll" = "${HARNESS_CHECKOUT_SUCCESS_AT:-}" ]; then
+        notify() { :; }; cleanup_worker_worktree() { :; }
+        record_success HON-1 test-branch done 1 1m
+      fi
       check_checkout_behind
       write_status_file
       echo "POLL:$poll:$(jq -c '.checkout' "$STATUS_FILE")"

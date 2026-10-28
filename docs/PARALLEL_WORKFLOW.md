@@ -51,8 +51,8 @@ wt stop
 │                                         │
 │  If committed main changed on disk:     │
 │  stop claiming, reload once idle        │
-│  Every 10 min: warn if the checkout is  │
-│  behind origin/main for its own code    │
+│  Every 10 min: pull origin/main into    │
+│  the checkout, or warn why it cannot    │
 └─────────────────────────────────────────┘
 ```
 
@@ -295,7 +295,7 @@ The poll loop sleeps via `interruptible_sleep` (a backgrounded `sleep` plus `wai
 
 ### Updating the orchestrator
 
-A merged orchestrator change takes effect once the main checkout the orchestrator runs from has been pulled and its running workers have finished. It does not need a restart (HON-861).
+A merged orchestrator change takes effect once the orchestrator has pulled the main checkout it runs from and its running workers have finished. It needs no restart (HON-861) and no human pull (HON-1427).
 
 - **Reload.** Every poll, the orchestrator compares a checksum of `scripts/orchestrator.sh` (and of any file it sources, listed in `ORCHESTRATOR_CODE_FILES`) with the one it started on. It only acts on a change that is committed on `main`: tracked, unmodified and checked out on `main`. The main checkout is also your working copy, so a half-finished edit or another branch checked out there never goes live unattended. It logs one `INFO … is not committed on main; not reloading it` instead, and keeps claiming.
 - **Drain, then exec.** A committed change that passes `bash -n` is loaded in two steps:
@@ -304,9 +304,17 @@ A merged orchestrator change takes effect once the main checkout the orchestrato
 - **State carries over.** The circuit breaker (failure count and pause), the gated and cap-cooldown suppressions, the run's start time and the last behind-`origin/main` WARN are handed to the new image, so a reload changes code, not state. After a reload, an environment check that fails (typically a Linear blip) is retried every poll interval rather than ending the process.
 - **Node version.** `wt` and the orchestrator put the `.nvmrc` Node first on PATH at start-up, with `.claude/hooks/repo-node-bin.sh`, and every worker runs that hook again when `worktree-claude.sh` starts. So workers use the `.nvmrc` Node, and an nvm update that replaces the Node 22 folder needs no restart (HON-1307). When no Node matches `.nvmrc`, `wt start` prints the hook's warning, exits non-zero and starts no orchestrator, because every worker would fail `pnpm install`. The other `wt` commands print the warning and go on.
 - **What never reloads.** A change that fails `bash -n` is not loaded: the orchestrator logs one `WARN … fails bash -n` for that version and keeps running (and claiming) on the old code. `--once` runs never reload.
-- **Behind `origin/main`.** Nothing pulls the checkout for you, because it is also your working directory. At most every 10 minutes, whether or not workers are running, the orchestrator fetches `origin/main` into a ref of its own, `refs/orchestrator/origin-main`. It never updates `origin/main` itself, which the workers fetch into the same `.git`. Every poll it counts the commits that the checkout lacks to the files in `CHECKOUT_CODE_PATHS`: `scripts/orchestrator.sh`, `scripts/worktree-claude.sh`, every script either of them sources (`models.sh`, `orchestrator-deferred.sh`, `worktree-auto-run.sh`, `wt-stop-check.sh`, `e2e-branch-liveness.sh`), and `.claude/hooks/repo-node-bin.sh`. Those are the only files that run from it, since workers run everything else from their own fresh worktrees. `scripts/checkout-code-paths.test.ts` fails when a sourced script is missing from the list (HON-1416). The fetch runs with SSH in `BatchMode`, so an unloaded key fails the fetch instead of prompting. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. Because the counts are recomputed every poll, the notice clears on the next poll after you pull. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
+- **Behind `origin/main`.** At most every 10 minutes, and on the poll after a worker's `[OUTCOME] … SUCCESS` (its PR usually just merged), whether or not workers are running, the orchestrator fetches `origin/main` into a ref of its own, `refs/orchestrator/origin-main`. It never updates `origin/main` itself, which the workers fetch into the same `.git`. Every poll it counts the commits that the checkout lacks to the files in `CHECKOUT_CODE_PATHS`: `scripts/orchestrator.sh`, `scripts/worktree-claude.sh`, every script either of them sources (`models.sh`, `orchestrator-deferred.sh`, `worktree-auto-run.sh`, `wt-stop-check.sh`, `e2e-branch-liveness.sh`), and `.claude/hooks/repo-node-bin.sh`. Those are the only files that run from it, since workers run everything else from their own fresh worktrees. `scripts/checkout-code-paths.test.ts` fails when a sourced script is missing from the list (HON-1416). The fetch runs with SSH in `BatchMode`, so an unloaded key fails the fetch instead of prompting. When the checkout is behind by any commit (docs and skills too, which sessions in the checkout read), the orchestrator fast-forwards it to `refs/orchestrator/origin-main` with `git merge --ff-only` and logs `INFO Fast-forwarded the checkout to <sha> (<n> commit(s), <m> to orchestrator code)`. The reload above then drains and execs as usual. Running workers are safe: git writes each changed file as a new inode, so a running `bash` reads its old script to the end, and workers spawned after the pull get the new `worktree-claude.sh`.
+- **When it does not pull.** The checkout is for reading and planning only (CLAUDE.md → "Change files only in a worktree"), so each reason below is a session's work in progress, and the pull waits for it:
+  - the checkout is on a branch other than `main`, or has a detached `HEAD`;
+  - a tracked file has changes (`git status --untracked-files=no`);
+  - `main` has local commits;
+  - a merge, rebase, cherry-pick, revert or bisect is in progress;
+  - `git merge --ff-only` fails, for example because it would overwrite an untracked file.
 
-So after an orchestrator PR merges, `git pull` on `main` in the main checkout is the whole procedure.
+  When that leaves it behind on orchestrator code, it logs one `WARN Checkout is behind origin/main … Not pulled: <reason>. Clear that, …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. The pull is retried every poll from the local ref, so once you clear the reason, the next poll pulls and the notice clears. Until then, the workers the orchestrator spawns also run the old code, because `worktree-claude.sh` runs from the same checkout.
+
+So after an orchestrator PR merges, there is nothing to do, unless the log names a reason the checkout was not pulled.
 
 ### Design: Dumb Dispatcher, Smart Workers
 
