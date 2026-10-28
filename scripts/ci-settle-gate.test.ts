@@ -3,7 +3,7 @@
  *
  * The poll has two implementations that must agree: `pr_ci_state()` in
  * orchestrator.sh (covered in orchestrator.phase.test.ts) and scripts/ci-settle.sh,
- * which /auto-implement Phase 6.1 (re-run by 7.2) and /merge Step 2 call. Each skill
+ * which /auto-implement Phase 6.5 (re-run by 7.2) and /merge Step 2 call. Each skill
  * also carries a one-line verification that reads the settled state. The poll used
  * to be a bash block in the skill markdown, and this file extracted it to run it;
  * HON-1190 moved it into the script, so the test executes the script and checks
@@ -92,7 +92,7 @@ describe('CI-settle gate', () => {
       expect(prCiState()).toContain(EXEMPTION)
     })
 
-    // Each skill keeps one runnable line that reads the settled state: the 6.1
+    // Each skill keeps one runnable line that reads the settled state: the 6.5
     // verification (which 7.2 re-runs) and /merge Step 2's. A site that misses the
     // filter is a site that strands PRs.
     it('appears once in /auto-implement and once in /merge, in the verification', () => {
@@ -175,9 +175,9 @@ describe('CI-settle gate', () => {
       return text.slice(start, end)
     }
 
-    it('calls scripts/ci-settle.sh from /auto-implement 6.1 and /merge Step 2', () => {
+    it('calls scripts/ci-settle.sh from /auto-implement 6.5 and /merge Step 2', () => {
       const waits = [
-        section(path.join(autoImplementSkill, 'SKILL.md'), '### 6.1 Wait for CI', '### 6.2'),
+        section(path.join(autoImplementSkill, 'SKILL.md'), '### 6.5 Wait for CI', '### 6.6'),
         section(path.join(mergeSkill, 'SKILL.md'), '### Step 2: Wait for CI', '### Step 2.5'),
       ]
       for (const wait of waits) {
@@ -185,15 +185,26 @@ describe('CI-settle gate', () => {
       }
     })
 
-    // 7.2 re-runs 6.1 by reference rather than carrying its own copy (HON-787).
-    it('has /auto-implement 7.2 re-run 6.1', () => {
+    // 7.2 re-runs 6.5 by reference rather than carrying its own copy (HON-787).
+    it('has /auto-implement 7.2 re-run 6.5', () => {
       const merge = section(
         path.join(autoImplementSkill, 'SKILL.md'),
         '### 7.2 Wait for CI',
         '### 7.3',
       )
-      expect(merge).toContain('Re-run the 6.1 poll')
-      expect(merge).toContain('6.1 verification block')
+      expect(merge).toContain('Re-run the 6.5 poll')
+      expect(merge).toContain('6.5 verification block')
+    })
+
+    // Phase 6 reviews while CI runs: the review does not need the CI result, so
+    // it comes before the wait in every round (HON-1406).
+    it('has /auto-implement Phase 6 run the review before the CI wait', () => {
+      const phase6 = section(path.join(autoImplementSkill, 'SKILL.md'), '## Phase 6', '## Phase 7')
+      const review = phase6.indexOf('./scripts/pr-review.sh')
+      const wait = phase6.indexOf('./scripts/ci-settle.sh')
+      expect(review).toBeGreaterThan(-1)
+      expect(wait).toBeGreaterThan(review)
+      expect(phase6).toContain('back to 6.2.')
     })
 
     // A poll is a sleep, a counter or a printed marker. The markers may still be

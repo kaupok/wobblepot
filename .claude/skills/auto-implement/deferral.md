@@ -147,4 +147,4 @@ When neither 4.4 nor 6.4 deferred anything, this step is a no-op — a clean PR 
 **Then leave by the door you came in.** 6.8 has two exits, and taking the wrong one is how a hand-off turns into an unwanted merge:
 
 - **Entered from 6.7** — go **back to 6.7**: post the hand-off comment with the filed IDs, print 6.7's markers, and stop. **Do not continue to Phase 7.** That path is holding the PR open because a correctness or safety finding is unresolved; merging it here would also skip `strand_worker`'s label and worktree preservation.
-- **Entered from any other path** (6.4 clean-review, 6.6 branch B, 6.6 branch C resolved) — continue to Phase 7 and merge.
+- **Entered from any other path** (6.6 branch B, a clean review included; 6.6 branch C resolved) — continue to Phase 7 and merge.

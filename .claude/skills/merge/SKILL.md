@@ -62,7 +62,7 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 
 ### Step 2: Wait for CI Checks
 
-Before merging, ensure all CI checks have passed. CI takes 12–45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it runs each chunk of the poll with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; it waits through `/auto-implement` 6.1, which runs the same script in foreground chunks.
+Before merging, ensure all CI checks have passed. PR CI takes about 4–5 min, but `ci.yml` times out at 45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it runs each chunk of the poll with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; it waits through `/auto-implement` 6.5, which runs the same script in foreground chunks.
 
 ```bash
 # Run with run_in_background: true — emits one completion notification per chunk.
