@@ -71,7 +71,7 @@ beforeEach(() => {
   fs.mkdirSync(path.join(root, 'scripts'))
   fs.mkdirSync(stubDir)
   fs.mkdirSync(bin)
-  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh']) {
+  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh', 'e2e-branch-liveness.sh']) {
     fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
   }
   writeToolchain()
@@ -282,7 +282,9 @@ describe('e2e-local.sh', () => {
       const log = calls()
 
       expect(status).toBe(0)
-      expect(stdout).toMatch(/REVIEW-READY http:\/\/localhost:3200 db=e2e-local-\S+/)
+      expect(stdout).toMatch(
+        /REVIEW-READY http:\/\/localhost:3200 db=e2e-local-[a-z0-9]+-\d{8}-\d{6}-\d+\s/,
+      )
       expect(log).toContain('pnpm prisma migrate deploy')
       expect(log).not.toContain('db:seed')
       expect(log).toMatch(/branches delete e2e-local-/)
@@ -348,6 +350,16 @@ describe('e2e-local.sh', () => {
   })
 
   describe('run (test:e2e:local) is unchanged', () => {
+    // HON-1415: the run's pid is gone once it exits, so the old name would
+    // read as dead to the next GC on this host.
+    it('renames a --keep branch out of the pid rule instead of deleting it', () => {
+      const { status } = run(['--keep'])
+
+      expect(status).toBe(0)
+      expect(calls()).toMatch(/branches rename e2e-local-(\S+) e2e-local-kept-\1 /)
+      expect(calls()).not.toContain('branches delete')
+    })
+
     it('uses port 3100, keeps its run-only exports and seeds', () => {
       const { status } = run([])
       const log = calls()

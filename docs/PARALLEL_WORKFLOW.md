@@ -127,6 +127,14 @@ On Neon's free plan (10 branches): the default N=5 fits at 8 with 2 spare, one f
 
 **A local review server takes a spare too.** `pnpm review:local` in its default branch mode holds one `e2e-local-*` branch for as long as it runs (it is deleted when the server stops). When no slot is free, `pnpm review:local --db env` reviews against the database in `.env` and takes no branch (`docs/BROWSER_TESTING.md` → "Reviewing sign-up and onboarding"). `pnpm test:e2e:local` costs the same one branch for the length of the suite.
 
+**A dead review server's branch is freed by one rule (HON-1415).** Each run names its branch `e2e-local-<host>-<date>-<time>-<pid>`. `<host>` is 6 characters of `hostname -s` (lower-case, `[a-z0-9]` only) and a 6-digit machine id, made once in `~/.config/wobblepot/e2e-host-id`. A hostname alone is not unique: two Macs called `MacBook-Pro` would each delete the other's live branch. A run that dies without its cleanup (a crash, a closed terminal) leaves the branch. `scripts/e2e-branch-liveness.sh` decides when it is dead, with the gate `E2E_GC_MIN_AGE_HOURS` (default 2):
+
+- On this host: dead when no process `<pid>` runs `e2e-local.sh`, at any age. A pid that another program now holds counts as dead. A `ps` that cannot run keeps the branch.
+- The old name with no host tag: dead when `created_at` is at least the gate's hours ago. Not `updated_at`, because Neon moves it on compute activity, so a dead branch looks young.
+- Another host's run, or a `--keep` branch: dead when both `created_at` and `updated_at` are at least the gate's hours ago. No pid can be checked here, so a review server in use on another machine stays. `--keep` renames its branch `e2e-local-kept-…` on exit, because its pid is gone.
+
+A timestamp that does not parse keeps the branch. `pnpm test:e2e:local gc` deletes every dead branch, and so does `wt auto`'s orphan sweep on a cap error, so a dead review server cannot block a worker. On 2026-10-28 one dead `e2e-local-*` branch held the 10th slot, and two workers died four times on the cap before the circuit breaker paused spawning.
+
 No reaper reclaims a stranded run's branch on its own. `neon_gc_orphans` skips any branch whose git worktree is still live — which a stranded run's is — and `neon-cleanup.sh`'s sweep requires the Linear issue to be Done or Canceled, while a stranded one sits in In Review. The budget above is the only thing protecting you.
 
 **`preview/*` branches can still appear, outside the budget.** A `vercel deploy` from a branch creates a deployment, so the integration still gives it a `preview/<git-branch>`. Before HON-1348 the integration also re-created `preview/*` branches hours after their PR merged, with no deployment behind them (HON-852); whether that stops along with PR deployments is not yet known. The `preview/*` gate reaps a preview branch once its git ref is gone from `origin` and no open PR has it: the daily sweep after 24h, `neon_gc_orphans` at once when the cap is hit. If the cap is hit with no stranded run, list the project's branches (`neonctl branches list`) and look for a `preview/*`.
@@ -434,7 +442,7 @@ When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets 
 
 **Branch cap handling:**
 
-When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists, and orphaned `preview/*` branches — see the reaper table below) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
+When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists, dead `e2e-local-*` branches, and orphaned `preview/*` branches — see the reaper table below) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
 
 A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text, then tests `already exists` / `duplicate` first, and reaches a `cap` verdict only when the word `branch` and one of `limit` / `quota` / `cap` / `exceed` / `maximum` appear on the **same line**. All three parts matter, because the keyword test is bare substring matching:
 
@@ -449,16 +457,17 @@ GC is scoped so it can't touch hand-managed branches. Eligible:
 - **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `henritamm/hon-51-slug` → Neon `henritamm--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
 - **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
 - **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
+- **`e2e-local-*`** — `pnpm review:local` and `pnpm test:e2e:local` branches, only when dead by the rule in [Branch budget](#branch-budget). `wt` sweep only; they never have a worktree.
 
 Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`.
 
 Each of the three reapers gates differently — the shared name filter is not itself a safety gate:
 
-| Reaper                              | Runs when                                                   | Gates on                                                                                                                        |
-| ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `neon_gc_orphans` (`wt`)            | The Neon branch cap is hit, as a self-heal before one retry | Name shape, no live git worktree, and `is_protected_neon_branch` (`main` / `staging` / `production` / `preview`) — nothing else |
-| `neon-cleanup.sh delete-for-branch` | A PR is merged                                              | Name shape, `default`/`protected` flags, `ALLOWLIST_NAMES`. **No** Linear-status or age gate — the merge is the signal          |
-| `neon-cleanup.sh sweep`             | Daily cron / manual dispatch                                | All of the above **plus** the linked Linear issue being Done/Canceled and age > 24h                                             |
+| Reaper                              | Runs when                                                   | Gates on                                                                                                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `neon_gc_orphans` (`wt`)            | The Neon branch cap is hit, as a self-heal before one retry | Name shape, no live git worktree (for `e2e-local-*`: the dead rule instead), and `is_protected_neon_branch` (`main` / `staging` / `production` / `preview`) — nothing else |
+| `neon-cleanup.sh delete-for-branch` | A PR is merged                                              | Name shape, `default`/`protected` flags, `ALLOWLIST_NAMES`. **No** Linear-status or age gate — the merge is the signal                                                     |
+| `neon-cleanup.sh sweep`             | Daily cron / manual dispatch                                | All of the above **plus** the linked Linear issue being Done/Canceled and age > 24h                                                                                        |
 
 `preview/<ref>` branches — the Vercel–Neon integration's, not ours — go through a separate gate in `neon_gc_orphans` and `sweep` (never `delete-for-branch`): `<ref>` is gone from `origin`, no open PR has it as its head, the branch is not `default`/`protected`/allowlisted, and (sweep only) it is older than 24h. Any `git` or `gh` failure keeps the branch. The integration re-creates these after a PR has merged (HON-852); see [`docs/RUNBOOKS/neon-branch-gc.md`](./RUNBOOKS/neon-branch-gc.md) → "`preview/*` is not ours".
 
