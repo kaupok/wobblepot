@@ -24,7 +24,8 @@ export interface IngredientAlternative {
 export interface MealComponent {
   ingredientId: string
   ingredient: IngredientResult
-  totalQuantity: number
+  /** `null` until the user types an amount: a new row starts empty (HON-1362). */
+  totalQuantity: number | null
   isVague?: boolean
   originalPhrase?: string | null
 }
@@ -123,6 +124,17 @@ export function formatAmountWithUnit(
   return unit === 'piece' ? withPieceUnit(amount, pieceLabel) : `${amount}${unit}`
 }
 
+// The amount a new ingredient row suggests: one piece, or 100 g / ml.
+export function suggestedQuantity(ingredient: { defaultUnit: string }): number {
+  return ingredient.defaultUnit === 'piece' ? 1 : 100
+}
+
+// A row the user must still give an amount: not "No quantity", and empty or
+// not above zero. Saving rejects it with `invalid_quantity`.
+export function isMissingQuantity(c: MealComponent): boolean {
+  return !c.isVague && (c.totalQuantity ?? 0) <= 0
+}
+
 const MAX_LISTED_NAMES = 3
 
 export type MealComponentErrorCode =
@@ -207,7 +219,7 @@ export function buildFinalComponents(
   } else {
     finalComponents = components.map((c) => ({
       ingredientId: c.ingredientId,
-      totalQuantity: c.isVague ? 0 : c.totalQuantity,
+      totalQuantity: c.isVague ? 0 : (c.totalQuantity ?? 0),
       isVague: c.isVague ?? false,
       originalPhrase: c.originalPhrase ?? null,
     }))
@@ -227,7 +239,7 @@ export function buildFinalComponents(
       return { error: { code: 'invalid_quantity', names } }
     }
   } else {
-    const invalidComps = components.filter((c) => !c.isVague && c.totalQuantity <= 0)
+    const invalidComps = components.filter(isMissingQuantity)
     if (invalidComps.length > 0) {
       const names = invalidComps.map((c) => c.ingredient.name)
       return { error: { code: 'invalid_quantity', names } }

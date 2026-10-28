@@ -160,6 +160,14 @@
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* The same band as a scroll margin, so a field scrolled into view with
+   `block: 'nearest'` stops above the tab bar, not under it. The recipe form's
+   quantity and search fields (HON-1362). Pair with `md:scroll-mb-0`, as the bar
+   is phone-only. */
+@utility scroll-mb-above-tab-bar {
+  scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Tallest a dialog body may grow before it scrolls internally. Shared by every
    modal so they all stop at the same place. */
 @utility max-h-dialog {

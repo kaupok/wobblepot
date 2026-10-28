@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useId } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { Search, Plus, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
@@ -20,27 +20,47 @@ interface IngredientSearchProps {
   disabled: boolean
   existingIngredientIds: string[]
   onAddIngredient: (ingredient: IngredientResult) => void
+  /** The search field, so a caller can send focus back to it for the next ingredient. */
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export function IngredientSearch({
   disabled,
   existingIngredientIds,
   onAddIngredient,
+  inputRef,
 }: IngredientSearchProps) {
   const t = useTranslations('recipes.form.ingredientSearch')
   const [searchQuery, setSearchQuery] = useState('')
   // The dropdown opens as soon as results exist; this only tracks whether the
   // user dismissed it (Escape, click outside, or after picking a result).
   const [isDropdownDismissed, setIsDropdownDismissed] = useState(false)
+  // -1 until the user moves with the arrow keys; the first result is then
+  // highlighted, so Enter adds it (HON-1362).
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const ownInputRef = useRef<HTMLInputElement>(null)
+  const searchInputRef = inputRef ?? ownInputRef
   const dropdownRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
 
-  const { data: searchResults = [], isLoading: isSearching } = useIngredientSearch(searchQuery)
+  const {
+    data: searchResults = [],
+    isLoading: isSearching,
+    isCurrent,
+  } = useIngredientSearch(searchQuery)
   const showDropdown = !isDropdownDismissed && searchResults.length > 0
-  // Guard against a result set that shrank under a stale highlight.
-  const activeIndex = highlightedIndex < searchResults.length ? highlightedIndex : -1
+  // The first addable result is the default, but only once the results match
+  // what the user typed: results for a shorter prefix stay on screen while the
+  // debounce catches up, and Enter must not add from them.
+  const firstAddableIndex = isCurrent
+    ? searchResults.findIndex((r) => !existingIngredientIds.includes(r.id))
+    : -1
+  // Fall back to that default when nothing is highlighted, or when the result
+  // set shrank under a stale highlight.
+  const activeIndex =
+    highlightedIndex >= 0 && highlightedIndex < searchResults.length
+      ? highlightedIndex
+      : firstAddableIndex
 
   const getOptionId = (index: number) => `${listboxId}-option-${index}`
 
@@ -59,7 +79,7 @@ export function IngredientSearch({
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [searchInputRef])
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
@@ -67,34 +87,30 @@ export function IngredientSearch({
     setHighlightedIndex(-1)
   }
 
-  const handleAdd = useCallback(
-    (ingredient: IngredientResult) => {
-      // Keep focus in the field for the next search rather than letting it fall
-      // to <body> as a clicked option unmounts. Focus first: the field's
-      // onFocus re-opens the dropdown, and the dismissal below must win.
-      searchInputRef.current?.focus()
-      onAddIngredient(withoutMatchedAs(ingredient))
-      setSearchQuery('')
-      setIsDropdownDismissed(true)
-      setHighlightedIndex(-1)
-    },
-    [onAddIngredient],
-  )
+  const handleAdd = (ingredient: IngredientResult) => {
+    // Keep focus in the field for the next search rather than letting it fall
+    // to <body> as a clicked option unmounts. Focus first: the field's
+    // onFocus re-opens the dropdown, and the dismissal below must win.
+    searchInputRef.current?.focus()
+    onAddIngredient(withoutMatchedAs(ingredient))
+    setSearchQuery('')
+    setIsDropdownDismissed(true)
+    setHighlightedIndex(-1)
+  }
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setHighlightedIndex((prev) => Math.min(prev + 1, searchResults.length - 1))
+      setHighlightedIndex(Math.min(activeIndex + 1, searchResults.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setHighlightedIndex((prev) => Math.max(prev - 1, -1))
+      setHighlightedIndex(Math.max(activeIndex - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const selectedResult = searchResults[activeIndex]
-      if (activeIndex >= 0 && selectedResult) {
+      // Only a result the user can see: after Escape the list is gone.
+      const selectedResult = showDropdown ? searchResults[activeIndex] : undefined
+      if (selectedResult && !existingIngredientIds.includes(selectedResult.id)) {
         handleAdd(selectedResult)
-      } else if (searchResults.length === 1 && searchResults[0]) {
-        handleAdd(searchResults[0])
       }
     } else if (e.key === 'Escape') {
       setIsDropdownDismissed(true)
@@ -114,7 +130,8 @@ export function IngredientSearch({
           onKeyDown={handleSearchKeyDown}
           placeholder={t('placeholder')}
           aria-label={t('aria')}
-          className="pr-9 pl-9"
+          // Kept clear of the phone tab bar when the form sends focus back here.
+          className="scroll-mb-above-tab-bar pr-9 pl-9 md:scroll-mb-0"
           disabled={disabled}
           role="combobox"
           aria-expanded={showDropdown}

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { createIngredientResult, createMealFormComponent } from '@/stories/fixtures'
 import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { ComponentList } from './ComponentList'
@@ -82,6 +82,8 @@ const meta = {
     onUpdateQuantity: fn(),
     onSetQuantity: fn(),
     onMarkAsVague: fn(),
+    onQuantityEnter: fn(),
+    flaggedEmptyIds: new Set(),
   },
 } satisfies Meta<typeof ComponentList>
 
@@ -207,6 +209,61 @@ export const WithInvalidQuantity: Story = {
           'Row with quantity ≤ 0 — destructive border + inline error renders so the validation failure is obvious.',
       },
     },
+  },
+}
+
+const componentsWithEmptyQuantity = [
+  createMealFormComponent({
+    ingredient: createIngredientResult({ id: 'chicken-thigh' }),
+    totalQuantity: 600,
+  }),
+  createMealFormComponent({
+    ingredient: createIngredientResult({ id: 'potato' }),
+    totalQuantity: null,
+  }),
+]
+
+export const NewEmptyRow: Story = {
+  args: { components: componentsWithEmptyQuantity },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A row just added from the search: the quantity is empty and the usual amount shows as the placeholder, so no amount is saved that the user did not type. Enter in the field asks the form to focus the search, and does not submit (HON-1362).',
+      },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const field = canvas.getByLabelText('Total quantity for Potato')
+    await expect(field).toHaveValue('')
+    await expect(field).toHaveAttribute('placeholder', '100')
+    await expect(field).not.toHaveAttribute('aria-invalid')
+    await expect(canvas.queryByText('Quantity must be greater than 0')).not.toBeInTheDocument()
+
+    await userEvent.type(field, '300{Enter}')
+    await expect(args.onUpdateQuantity).toHaveBeenLastCalledWith('potato', 300)
+    await expect(args.onQuantityEnter).toHaveBeenCalledTimes(1)
+  },
+}
+
+export const EmptyQuantityAfterSave: Story = {
+  args: { components: componentsWithEmptyQuantity, flaggedEmptyIds: new Set(['potato']) },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'After a save attempt, the empty row shows the same error as a quantity of 0 (HON-1362).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByLabelText('Total quantity for Potato')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    await expect(canvas.getByText('Quantity must be greater than 0')).toBeInTheDocument()
   },
 }
 
