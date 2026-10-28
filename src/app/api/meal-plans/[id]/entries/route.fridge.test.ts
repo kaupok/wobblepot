@@ -129,10 +129,39 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       expect(mockCreateEntry).not.toHaveBeenCalled()
     })
 
+    // A new fridge meal with a source older than the window is refused; only
+    // a restore passes it (HON-1451).
+    it('refuses a new fridge meal whose source is too old', async () => {
+      const leftovers = [{ sourceEntryId: 'entry-dinner' }]
+      vi.mocked(findLeftoverSourceProblem).mockResolvedValueOnce({
+        sourceEntryId: 'entry-dinner',
+        problem: 'tooOld',
+      })
+
+      expect(
+        await answer(post({ date: '2099-01-28', mealType: 'lunch', fridgeItems: leftovers })),
+      ).toEqual({
+        status: 400,
+        body: {
+          error: 'Leftover source refused',
+          code: 'leftover_source',
+          sourceEntryId: 'entry-dinner',
+          problem: 'tooOld',
+        },
+      })
+      expect(findLeftoverSourceProblem).toHaveBeenCalledWith(
+        'household-123',
+        { date: '2099-01-28', mealType: 'lunch' },
+        leftovers,
+        undefined,
+      )
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
     // Undo after Clear sends the entry's own items back. A source changed
     // since, such as a cooked dinner set back to planned with the item's
-    // servings unset, must not refuse it; a source the rule never allowed
-    // still does (HON-1396).
+    // servings unset, or one the window moved past (HON-1451), must not
+    // refuse it; a source the rule never allowed still does (HON-1396).
     it('runs the source rule on a restore, passing what a changed source causes', async () => {
       mockCreateEntry.mockResolvedValue({ ...created, mealId: null })
       const leftovers = [{ sourceEntryId: 'entry-dinner' }]
@@ -146,7 +175,7 @@ describe('POST /api/meal-plans/[id]/entries', () => {
         'household-123',
         { date: '2099-01-28', mealType: 'lunch' },
         leftovers,
-        new Set(['skipped', 'notRecipe', 'servingsRequired']),
+        new Set(['skipped', 'notRecipe', 'servingsRequired', 'tooOld']),
       )
       // The flag is the route's, not an entry field.
       expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {

@@ -95,14 +95,17 @@ export type LeftoverSourceProblem =
   'notFound' | 'notRecipe' | 'skipped' | 'notBefore' | 'tooOld' | 'servingsRequired'
 
 /**
- * The problems a change to the source after the link can cause: a dinner
- * skipped, made a fridge meal, or set back from cooked to planned. Undo after
- * Clear sends the lunch's own items back, so it passes these (HON-1396).
+ * The problems a change after the link can cause: a dinner skipped, made a
+ * fridge meal, or set back from cooked to planned, or a window rule that moved
+ * past a lunch saved under the old one. Undo after Clear sends the lunch's own
+ * items back, which the window was checked against when first saved, so it
+ * passes these (HON-1396, HON-1451).
  */
 export const CHANGED_SOURCE_PROBLEMS: ReadonlySet<LeftoverSourceProblem> = new Set([
   'skipped',
   'notRecipe',
   'servingsRequired',
+  'tooOld',
 ])
 
 /** Slot order within a day, so the same-day breakfast comes before the lunch. */
