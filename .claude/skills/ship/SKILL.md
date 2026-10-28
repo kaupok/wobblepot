@@ -55,11 +55,13 @@ Stop and ask when:
 
 - **An orchestrator worker runs this issue or branch** (the `jq` line above lists it). Two agents on one branch race each other's pushes. The user can wait for the worker or `wt stop` it.
 - **The issue has another assignee.**
-- **The issue is closed** (`statusType` is `completed`, `canceled` or `duplicate`) with no merged PR, or in `triage`. Claiming it in Step 5 would reopen work the user closed.
+- **The issue is closed** (`statusType` is `completed`, `canceled` or `duplicate`) with no merged PR, or in `triage`. Claiming it would reopen work the user closed.
 - **A `blockedBy` issue is still open.** `get_issue` each one, because the relation carries no status. Work on top of an unmerged blocker builds on code that is not on `main`.
 - **The PR is closed and not merged.** Ask whether to reopen it or start a new PR.
 
 A merged PR → Step 7 only. A `Gated` or `Stranded` label does not stop you: this run is the human taking it over.
+
+**Claim the issue now**, before the worktree: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is. The orchestrator skips an assigned issue, so the claim closes the gap in which a worker could pick it up. Then re-run the `jq` line: a worker that claimed it first is listed, and you stop.
 
 ## Step 4: Get into a worktree
 
@@ -67,7 +69,7 @@ Main checkout (the two `rev-parse` lines match) → call `EnterWorktree` before 
 
 ## Step 5: Enter the cycle at the right point
 
-Find the first row that matches, top to bottom, and start there. **No issue yet → file it first (below), whatever the row**, so the work is tracked and the merge closes something. Then claim the issue: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is.
+Find the first row that matches, top to bottom, and start there. **No issue yet → file it first (below), whatever the row**, so the work is tracked and the merge closes something.
 
 | State                                                    | Start at                                                                                                    |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -76,7 +78,7 @@ Find the first row that matches, top to bottom, and start there. **No issue yet 
 | PR open                                                  | 6.1: wait for CI, then the CI-fix loop, review rounds and Phase 7                                           |
 | Commits or uncommitted changes, no PR                    | Phase 4 (review and fix), then Phase 5                                                                      |
 | Issue with a `# Plan:` comment, no code                  | Phase 3                                                                                                     |
-| Issue with no plan                                       | 2.3 (2.1 and 2.2 are done by Steps 3 and 5)                                                                 |
+| Issue with no plan                                       | 2.3 (Step 3 did 2.1 and 2.2)                                                                                |
 | An idea, no code                                         | 2.3                                                                                                         |
 
 **File the issue** by CLAUDE.md → Issue titles and → Writing for Agents. Take the problem, the decisions and the acceptance criteria from this thread; for work already done, describe what it does and why. Create it as `In Progress`, assigned to `me`, never `Queued`: the orchestrator claims a Queued issue within a minute and would race this thread. Put `Closes HON-XX` in the PR body, so Linear links a branch that does not carry the ID; an open PR gets it with `gh pr edit --body-file`.
