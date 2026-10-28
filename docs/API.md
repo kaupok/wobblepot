@@ -106,7 +106,7 @@ The meals planned by date and meal type, and each day's extras.
 
 ### `GET /api/v1/shopping-list`
 
-What to buy for the planned meals, plus the items the household added by hand.
+What to buy for the planned meals, plus the staples the household marked ran out and the items it added by hand.
 
 | Query  | Value       | Default |
 | ------ | ----------- | ------- |
@@ -124,14 +124,15 @@ What to buy for the planned meals, plus the items the household added by hand.
       "displayQuantity": "300g",
       "category": "vegetable",
       "neededBy": "2026-10-15",
-      "purchased": false
+      "purchased": false,
+      "restock": false
     }
   ],
   "customItems": [{ "id": "cm…", "name": "Candles", "checked": false, "neededBy": null }]
 }
 ```
 
-An item with `purchased: true` is already in the pantry. A custom item's `neededBy` is the earliest day, from today on, of a free-text day extra that put it on the list; it is `null` for an item typed by hand.
+An item with `purchased: true` is already in the pantry. An item with `restock: true` is a staple the household marked ran out (HON-1398): its `neededBy` is today, and when no planned meal or extra needs it, it has no amount (`quantity` 0, `displayQuantity` empty). A custom item's `neededBy` is the earliest day, from today on, of a free-text day extra that put it on the list; it is `null` for an item typed by hand.
 
 ## Errors
 

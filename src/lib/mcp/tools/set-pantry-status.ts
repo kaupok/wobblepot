@@ -29,7 +29,7 @@ export const setPantryStatus = defineTool({
   name: 'set_pantry_status',
   title: 'Set pantry status',
   description:
-    'Records whether the household has an ingredient at home. have_some: it is in the pantry, amount unknown. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. A staple stays a staple. Wobblepot does not track amounts, so an amount the user mentions is not stored.',
+    'Records whether the household has an ingredient at home. have_some: it is in the pantry, amount unknown. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. A staple stays a staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. Wobblepot does not track amounts, so an amount the user mentions is not stored.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientId: z

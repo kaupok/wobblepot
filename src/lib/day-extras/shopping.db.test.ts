@@ -115,10 +115,11 @@ describe('an ingredient extra on the shopping list', () => {
     ])
   })
 
-  it('adds no line when the pantry item is a staple', async () => {
+  // A staple at 0 (ran out) does get a line (HON-1398): load-shopping-list.restock.db.test.ts.
+  it('adds no line when the pantry item is a staple the household has', async () => {
     const alder = await world()
     await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-wine', isStaple: true, quantity: 0 },
+      data: { householdId: alder.id, ingredientId: 'ing-wine', isStaple: true, quantity: null },
     })
     await createDayExtra(alder, { date: SATURDAY, ingredientId: 'ing-wine', quantity: 750 })
     // Olive oil is not in the pantry, so its line shows the extras do reach the list.

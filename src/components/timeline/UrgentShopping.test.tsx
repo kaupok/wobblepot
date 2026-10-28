@@ -112,6 +112,27 @@ describe('UrgentShopping', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
+  it('shows a ran-out staple with no amount as its name and "Ran out" in Today', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <UrgentShopping
+          items={[
+            item('Apple'),
+            { ...item('Greek yoghurt'), displayQuantity: '', restock: true },
+            { ...item('Eggs'), displayQuantity: '300g', restock: true },
+          ]}
+          todayDate={TODAY}
+        />
+      </NextIntlClientProvider>,
+    )
+
+    expect(
+      within(screen.getByRole('list', { name: 'Today' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Apple1 pc', 'Eggs300gRan out', 'Greek yoghurtRan out'])
+  })
+
   it('shows only the label for the one day that has items', () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>

@@ -64,13 +64,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
     }
 
-    if (outcome === 'staple') {
-      return NextResponse.json(
-        { error: 'Cannot unpurchase staple items', reason: 'staple' },
-        { status: 400 },
-      )
-    }
-
     if (outcome === 'too_old') {
       return NextResponse.json(
         {
@@ -85,7 +78,8 @@ export async function POST(request: Request) {
       {
         success: true,
         ingredientId,
-        action: 'removed',
+        // A staple stays in the pantry at 0 ("ran out") instead (HON-1398).
+        action: outcome,
       },
       { status: 200 },
     )

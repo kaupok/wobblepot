@@ -27,6 +27,11 @@ export const shoppingListOutputSchema = z.object({
       category: z.string(),
       neededBy: z.iso.date(),
       purchased: z.boolean(),
+      restock: z
+        .boolean()
+        .describe(
+          'true when the item is a staple the household marked ran out; such a line can have no amount (quantity 0, displayQuantity empty).',
+        ),
     }),
   ),
   // `neededBy` is the earliest day of a linked free-text extra from today on
@@ -58,6 +63,7 @@ export async function readShoppingList(
         category: group.category,
         neededBy: item.neededByDate,
         purchased: item.purchased,
+        restock: item.restock,
       })),
     ),
     customItems: list.customItems.map((item) => ({

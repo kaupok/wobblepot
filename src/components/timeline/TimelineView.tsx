@@ -31,6 +31,7 @@ interface ShoppingItem {
   neededByRelative: string
   purchased: boolean
   urgency: UrgencyBucket
+  restock?: boolean
 }
 
 interface TimelineViewProps {

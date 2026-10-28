@@ -105,7 +105,7 @@ export const Populated: Story = {
     const canvas = within(canvasElement)
     const title = canvas.getByRole('heading', { level: 2, name: 'Your pantry' })
     await expect(title.parentElement).toHaveTextContent(/^Your pantry5 items$/)
-    expect(canvas.getByText(/^Staples/)).toBeInTheDocument()
+    expect(canvas.getByRole('heading', { name: /^Staples/ })).toBeInTheDocument()
     expect(canvas.getByText('On hand')).toBeInTheDocument()
 
     const [firstStar] = canvas.getAllByRole('button', { name: /mark as staple/i })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -27,6 +28,11 @@ export interface ShoppingItemData {
    * `warning` token, matching the Today card (HON-762).
    */
   dueToday?: boolean
+  /**
+   * A staple the household marked ran out (HON-1398). The row shows a "Ran
+   * out" tag; with an empty `displayQuantity` the tag stands in for the amount.
+   */
+  restock?: boolean
 }
 
 interface ShoppingItemProps {
@@ -87,16 +93,19 @@ export function ShoppingItem({
           >
             {item.name}
           </Body>
-          <Body
-            variant="muted"
-            className={cn(
-              'transition-colors',
-              item.purchased && 'line-through',
-              item.isVague && 'italic',
-            )}
-          >
-            {item.displayQuantity}
-          </Body>
+          {item.displayQuantity && (
+            <Body
+              variant="muted"
+              className={cn(
+                'transition-colors',
+                item.purchased && 'line-through',
+                item.isVague && 'italic',
+              )}
+            >
+              {item.displayQuantity}
+            </Body>
+          )}
+          {item.restock && <Badge variant="warning">{tShopping('ranOut')}</Badge>}
         </div>
       </div>
       {showDue && (

@@ -423,6 +423,59 @@ describe('InventoryPage view', () => {
 
   // A ran-out row is on the list for the full amount and a null row is not,
   // so "Have it" re-reads the list beside the pantry (HON-1288).
+  // Undo keeps a staple in the pantry, back at ran out (HON-1398), so its row
+  // stays; an ordinary item's row goes.
+  it('keeps a staple in the pantry column when its purchase is undone', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ success: true, ingredientId: 'yoghurt', action: 'ran_out' }),
+    )
+
+    renderPage({
+      view: 'shopping',
+      windowDays: 7,
+      pantryItems: [
+        {
+          id: 'pantry-yoghurt',
+          ingredient: { id: 'yoghurt', name: 'Greek yoghurt', category: 'dairy', defaultUnit: 'g' },
+          quantity: null,
+          isStaple: true,
+          updatedAt: '2026-02-16T00:00:00.000Z',
+        },
+      ],
+      shoppingData: {
+        ...EMPTY_SHOPPING_DATA,
+        groups: [
+          {
+            category: 'dairy',
+            items: [
+              {
+                ingredientId: 'yoghurt',
+                name: 'Greek yoghurt',
+                displayQuantity: '',
+                purchased: true,
+                neededByDate: '2026-02-16',
+                neededByRelative: 'Today',
+                neededByAbsolute: 'Feb 16',
+                restock: true,
+              },
+            ],
+          },
+        ],
+        initialPurchasedIds: new Set(['yoghurt']),
+      },
+    })
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Greek yoghurt as not purchased' }))
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('checkbox', { name: 'Mark Greek yoghurt as purchased' }),
+      ).toBeVisible(),
+    )
+    expect(within(screen.getByTestId('pantry-column')).getByText('Greek yoghurt')).toBeVisible()
+  })
+
   it('refreshes the shopping list after "Have it" on a ran-out row', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValueOnce(Response.json({ ok: true }))

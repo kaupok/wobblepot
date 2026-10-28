@@ -76,6 +76,7 @@ describe('loadShoppingList', () => {
               // 150 g × 4 on the 16th and × 2 on the 18th; the 14th is past.
               quantity: 900,
               unit: 'g',
+              restock: false,
               displayUnit: 'g',
               displayQuantity: '900g',
               pantryDisplayQuantity: '900g',
@@ -98,6 +99,7 @@ describe('loadShoppingList', () => {
               name: 'oat milk',
               quantity: 1500,
               unit: 'g',
+              restock: false,
               displayUnit: 'ml',
               displayQuantity: '1.5l',
               pantryDisplayQuantity: '1.5l',
@@ -120,6 +122,7 @@ describe('loadShoppingList', () => {
               name: 'basmati rice',
               quantity: 1500,
               unit: 'g',
+              restock: false,
               displayUnit: 'g',
               displayQuantity: '1.5kg',
               pantryDisplayQuantity: '1.5kg',
@@ -142,6 +145,7 @@ describe('loadShoppingList', () => {
               name: 'sea salt',
               quantity: 4,
               unit: 'g',
+              restock: false,
               displayUnit: 'g',
               displayQuantity: 'to taste',
               pantryDisplayQuantity: 'to taste',
@@ -158,6 +162,7 @@ describe('loadShoppingList', () => {
               name: 'black pepper',
               quantity: 6,
               unit: 'g',
+              restock: false,
               displayUnit: 'g',
               // Vague with no phrase shows the amount, so it is not vague
               // here (HON-783).
@@ -210,7 +215,8 @@ describe('loadShoppingList', () => {
 
   it.each([
     ['"have some"', { quantity: null }],
-    ['a staple', { quantity: 0, isStaple: true }],
+    // A staple at 0 (ran out) stays on the list (HON-1398): load-shopping-list.restock.db.test.ts.
+    ['a staple', { quantity: null, isStaple: true }],
   ])('drops chicken marked %s in the pantry', async (_label, pantry) => {
     const { alder } = await world()
     await prisma.pantryItem.create({
