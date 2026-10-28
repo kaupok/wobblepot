@@ -355,26 +355,47 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // reconcile would have replaced it back to `?days=7` by now.
       await expect(page).toHaveURL(/[?&]days=14\b/)
 
-      // A staple the household marked ran out goes on the list with no planned
-      // meal (HON-1398). The pantry has no "Ran out" button yet, so the API
-      // creates it: an ingredient no meal here uses, as a staple at 0.
+      // A staple the household marks ran out goes on the list with no planned
+      // meal (HON-1398), from one tap in the pantry beside it (HON-1399). The
+      // API adds an ingredient no meal here uses, as an ordinary row; the
+      // household stars it, then taps "Ran out".
       const staple = await findReplacement(
         page.request,
         new Set([...meal!.components.map((c) => c.ingredientId), replacement.id]),
       )
       const stapleResponse = await page.request.post('/api/pantry', {
-        data: { ingredientId: staple.id, quantity: 0, isStaple: true },
+        data: { ingredientId: staple.id, quantity: null },
       })
-      expect(stapleResponse.status(), 'Creating the ran-out staple failed').toBe(201)
+      expect(stapleResponse.status(), 'Adding the pantry row failed').toBe(201)
       createdPantryIds.push(staple.id)
-      expect(
-        (await shoppingItems(page.request)).find((item) => item.ingredientId === staple.id),
-      ).toMatchObject({ quantity: 0, restock: true })
       await page.reload()
+      const ranOutButton = page.getByRole('button', { name: `Ran out: ${staple.name}` })
+      // The innermost element holding both the row's "Ran out" and a star is the row.
+      const pantryStapleRow = page
+        .locator('div', { has: ranOutButton })
+        .filter({ has: page.getByRole('button', { name: 'Mark as staple' }) })
+        .last()
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes('/api/pantry/') && r.request().method() === 'PATCH',
+        ),
+        pantryStapleRow.getByRole('button', { name: 'Mark as staple' }).click(),
+      ])
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes('/api/pantry/') && r.request().method() === 'PATCH',
+        ),
+        ranOutButton.click(),
+      ])
+      await expect(page.getByRole('button', { name: `Have it: ${staple.name}` })).toBeFocused()
+      // No reload: the list beside the pantry re-reads on its own.
       const stapleRow = page.locator('label', {
         has: page.getByRole('checkbox', { name: `Mark ${staple.name} as purchased` }),
       })
       await expect(stapleRow).toContainText('Ran out')
+      expect(
+        (await shoppingItems(page.request)).find((item) => item.ingredientId === staple.id),
+      ).toMatchObject({ quantity: 0, restock: true })
 
       // Completing the entry charges the replacement, never the original
       // (HON-1243). Stock both: the replacement afresh, the original only when
