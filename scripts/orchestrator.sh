@@ -2098,7 +2098,9 @@ handle_error_exit() {
   fi
   defer_outcome error "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code" "$duration_secs" \
     && return 0
-  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; then
+  # At exit a network crash strands: triage cleanup would delete its unsaved work (HON-1447).
+  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] &&
+     ! { [ "$DEFER_FINAL" = true ] && [ "$NETWORK_CRASH" = true ]; }; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi

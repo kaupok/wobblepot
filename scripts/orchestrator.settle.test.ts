@@ -153,6 +153,21 @@ describe('deferred outcomes at exit (HON-1447)', () => {
       expect(out).toContain('[OUTCOME] HON-999 STRANDED 0s 3-commits phase=pr-review pr=none')
       expect(out).toContain('EXIT:0:1')
     })
+    // A network crash before the first commit, gh back at exit: the triage
+    // cleanup would force-remove the worktree with its uncommitted work, and
+    // send an issue that is fine to Backlog with Failed.
+    it('strands a 0-commit network crash at exit and keeps its worktree', () => {
+      const out = exitAfterDefer(
+        { ...NETWORK, HARNESS_RUN_ONCE: 'true', HARNESS_EXIT: 'settle', HARNESS_EXIT_PR: 'NONE' },
+        0,
+      )
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED 0s 0-commits phase=pr-review pr=none')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).toContain('RESTORE_QUEUED:HON-999')
+      expect(out).toContain('EXIT:0:1')
+    })
   })
 
   describe('wiring', () => {
