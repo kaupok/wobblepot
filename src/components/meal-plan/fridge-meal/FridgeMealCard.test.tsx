@@ -81,16 +81,16 @@ async function menuItems(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('FridgeMealCard', () => {
-  it('shows the title and every item, and no rating, tips or cook-question controls', () => {
+  it('names the meal by its leftovers, with the other items under them, and shows no rating, tips or cook-question controls', () => {
     renderCard({ status: 'completed' })
 
-    expect(screen.getByRole('heading', { name: 'Fridge meal' })).toBeInTheDocument()
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Mash, from Tuesday',
-      'Cauliflower and broccoli mix',
-      'Cucumber',
-      'store meatballs',
-    ])
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Mash$/)
+    expect(
+      screen.getByText('+ Cauliflower and broccoli mix, Cucumber, store meatballs'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Leftovers')).toBeInTheDocument()
+    expect(screen.queryByText('From the fridge')).not.toBeInTheDocument()
+    expect(screen.getByText('Eaten')).toBeInTheDocument()
     expect(screen.queryByText('How was it?')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /thumbs|rate/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /tips|cook|steps|ask/i })).not.toBeInTheDocument()
@@ -145,8 +145,75 @@ describe('FridgeMealCard', () => {
       'More actions: Fridge meal: Cucumber, store meatballs',
       'More actions: Fridge meal: Mash, from Tuesday',
     ])
-    // The visible title stays the same.
-    expect(screen.getAllByRole('heading', { name: 'Fridge meal' })).toHaveLength(2)
+    // The items are the name, with the first letter in capitals; leftovers
+    // name the card by their meal alone.
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'Cucumber, store meatballs',
+      'Mash',
+    ])
+    expect(screen.getAllByText(/^(From the fridge|Leftovers)$/).map((b) => b.textContent)).toEqual([
+      'From the fridge',
+      'Leftovers',
+    ])
+  })
+
+  it('names the button over the name by the leftovers and the items under them', () => {
+    renderCard()
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Mash + Cauliflower and broccoli mix, Cucumber, store meatballs',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('capitalises free text that starts the name', () => {
+    renderCard({ items: fridgeItems.slice(3) })
+
+    expect(screen.getByRole('heading', { name: 'Store meatballs' })).toBeInTheDocument()
+  })
+
+  it('says a planned fridge meal needs nothing bought', () => {
+    renderCard()
+
+    expect(screen.getByText('Nothing to buy')).toBeInTheDocument()
+  })
+
+  // The fixed fridge tint, so the card is not the plain card an empty slot looks like.
+  it('takes the fridge tint when no item is leftovers with a picture', () => {
+    renderCard()
+
+    expect(document.querySelector('[data-meal-surface]')).toHaveAttribute(
+      'data-meal-surface',
+      'fridge',
+    )
+  })
+
+  it("takes the leftovers' meal's picture when it has one", () => {
+    const withImage = fridgeItems.map((item) =>
+      item.sourceEntryId
+        ? {
+            ...item,
+            image: {
+              imageUrl: 'https://example.com/mash.png',
+              imageStatus: 'ready' as const,
+              imageHue: 40,
+            },
+          }
+        : item,
+    )
+    renderCard({ items: withImage })
+
+    expect(document.querySelector('[data-meal-surface]')).toHaveAttribute('data-meal-surface', '')
+    expect(screen.getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/^Mash/))
+  })
+
+  it('opens the items from a click on the card', async () => {
+    const { user } = renderCard()
+
+    await user.click(screen.getByText('Nothing to buy'))
+
+    expect(await screen.findByRole('dialog', { name: 'Fridge meal' })).toBeInTheDocument()
   })
 
   it('completes with no dialog when no item is from the pantry', async () => {
@@ -168,10 +235,10 @@ describe('FridgeMealCard', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('offers Eaten, Edit items and Clear on a planned fridge meal', async () => {
+  it('offers Note, Eaten, Edit items and Clear on a planned fridge meal', async () => {
     const { user } = renderCard()
 
-    expect(await menuItems(user)).toEqual(['Eaten', 'Edit items', 'Clear'])
+    expect(await menuItems(user)).toEqual(['Note', 'Eaten', 'Edit items', 'Clear'])
   })
 
   it('reverts a completed fridge meal and offers no edit or clear on it', async () => {

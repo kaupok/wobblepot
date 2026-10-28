@@ -142,6 +142,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: 'Frozen peas',
               sourceDate: null,
+              image: null,
             },
             {
               id: 'item-2',
@@ -150,6 +151,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: 'Mashed potatoes',
               sourceDate: '2026-10-10',
+              image: null,
             },
             {
               id: 'item-3',
@@ -158,6 +160,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: null,
               sourceDate: '2026-10-11',
+              image: null,
             },
             {
               id: 'item-4',
@@ -166,6 +169,7 @@ describe('get_meal_plan', () => {
               label: 'Meatballs',
               name: null,
               sourceDate: null,
+              image: null,
             },
           ],
         }),

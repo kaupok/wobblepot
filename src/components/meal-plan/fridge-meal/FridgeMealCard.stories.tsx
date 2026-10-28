@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { FridgeMealCard } from './FridgeMealCard'
 
 const meta = {
@@ -52,11 +53,38 @@ const itemNames = (menu: ReturnType<typeof within>) =>
 export const Planned: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { name: 'Fridge meal' })).toBeInTheDocument()
-    await expect(canvas.getByText('Mash, from Tuesday')).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent(/^Mash$/)
+    await expect(
+      canvas.getByText('+ Cauliflower and broccoli mix, Cucumber, store meatballs'),
+    ).toBeInTheDocument()
+    await expect(canvas.getByText('Leftovers')).toBeInTheDocument()
+    await expect(canvas.getByText('Nothing to buy')).toBeInTheDocument()
     const menu = await openMenu(canvasElement)
-    await expect(itemNames(menu)).toEqual(['Eaten', 'Edit items', 'Clear'])
+    await expect(itemNames(menu)).toEqual(['Note', 'Eaten', 'Edit items', 'Clear'])
   },
+}
+
+/** Leftovers with a picture: the card takes that meal's image and tint. */
+export const LeftoversWithImage: Story = {
+  args: {
+    items: fridgeItems.map((item) =>
+      item.sourceEntryId
+        ? {
+            ...item,
+            image: {
+              imageUrl: mealIllustration.src,
+              imageStatus: 'ready' as const,
+              imageHue: 40,
+            },
+          }
+        : item,
+    ),
+  },
+}
+
+/** Free text only, no leftovers: the fixed fridge tint. */
+export const FreeTextOnly: Story = {
+  args: { items: fridgeItems.filter((item) => item.label !== null) },
 }
 
 export const WithNote: Story = {

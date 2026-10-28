@@ -27,6 +27,23 @@ import { toFridgeItemInput, useFridgeItemText, type FridgeItemShown } from './us
 /** Pantry matches shown at once, so a full pantry does not push the rest away. */
 const PANTRY_MATCHES_SHOWN = 8
 
+/**
+ * Categories that season or bind a meal rather than make one. The pantry
+ * section leaves them out until the household searches for one.
+ */
+const NOT_A_MEAL = new Set(['spice', 'herb', 'condiment', 'fat', 'sauce', 'paste'])
+
+/** A pantry row as a picker item. */
+function pantryChoice(p: PantryItemFull): FridgeItemShown {
+  return {
+    ingredientId: p.ingredientId,
+    sourceEntryId: null,
+    label: null,
+    name: p.ingredient.name,
+    sourceDate: null,
+  }
+}
+
 /** The leftovers the picker offers. Fetched each time it opens. */
 export const recentMealsQueryKey = ['recent-meals'] as const
 
@@ -110,13 +127,11 @@ function PickerForm({
   const tCard = useTranslations('meal-plan.card')
   const itemText = useFridgeItemText()
   const searchId = useId()
-  const freeTextId = useId()
   // A chip add unmounts the chip, so focus moves here instead of to `<body>`
   // (docs/DESIGN.md → Focus management).
   const searchRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<Draft[]>(() => initialItems.map(toDraft))
   const [query, setQuery] = useState('')
-  const [freeText, setFreeText] = useState('')
   const [showNeedsItem, setShowNeedsItem] = useState(false)
 
   const recentQuery = useQuery({
@@ -130,18 +145,35 @@ function PickerForm({
   const chosenSourceIds = new Set(items.flatMap((i) => (i.sourceEntryId ? [i.sourceEntryId] : [])))
   const isFull = items.length >= FRIDGE_ITEMS_MAX
 
+  const needle = query.trim().toLocaleLowerCase()
   // Quantity 0 is "ran out": not at home.
-  const atHome = useMemo(() => pantryItems.filter((p) => p.quantity !== 0), [pantryItems])
-  const pantryMatches = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase()
-    return [...atHome]
-      .filter((p) => !needle || p.ingredient.name.toLocaleLowerCase().includes(needle))
-      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-  }, [atHome, query])
+  const atHome = useMemo(
+    () =>
+      pantryItems
+        .filter((p) => p.quantity !== 0)
+        .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name)),
+    [pantryItems],
+  )
+  // Without a query the pantry offers food, not what goes into food: a staple
+  // or a seasoning is never a meal on its own. A search still finds them.
+  const pantryMatches = atHome.filter((p) =>
+    needle
+      ? p.ingredient.name.toLocaleLowerCase().includes(needle)
+      : !p.isStaple && !NOT_A_MEAL.has(p.ingredient.category),
+  )
   const shownPantry = pantryMatches
     .filter((p) => !chosenIngredientIds.has(p.ingredientId))
     .slice(0, PANTRY_MATCHES_SHOWN)
-  const recentMeals = (recentQuery.data?.meals ?? []).filter((m) => !chosenSourceIds.has(m.entryId))
+  const recentMeals = (recentQuery.data?.meals ?? []).filter(
+    (m) =>
+      !chosenSourceIds.has(m.entryId) &&
+      (!needle || m.mealName.toLocaleLowerCase().includes(needle)),
+  )
+  // The words are offered as an item unless they name a pantry item exactly,
+  // which the chip adds instead (a free-text copy would lose the pantry tick).
+  const exactPantry = needle
+    ? atHome.find((p) => p.ingredient.name.toLocaleLowerCase() === needle)
+    : undefined
 
   function add(item: FridgeItemShown) {
     if (isFull) return
@@ -149,32 +181,31 @@ function PickerForm({
     setItems((current) => [...current, toDraft(item)])
   }
 
-  /** The household's own words, as "Something else" and the no-match button add them. */
+  /** The household's own words, as the `Add "…"` button and Enter add them. */
   function addLabel(text: string) {
     const label = text.trim().slice(0, FRIDGE_ITEM_LABEL_MAX)
     if (!label) return
     add({ ingredientId: null, sourceEntryId: null, label, name: null, sourceDate: null })
   }
 
-  function addFreeText(event: FormEvent) {
-    event.preventDefault()
-    if (isFull) return
-    addLabel(freeText)
-    setFreeText('')
-  }
-
-  /** A pantry chip or the no-match button: the search has done its job. */
-  function addFromSearch(addIt: () => void) {
+  /** Any add: the field has done its job, so it empties and keeps focus. */
+  function addFromField(addIt: () => void) {
     if (isFull) return
     addIt()
     setQuery('')
     searchRef.current?.focus()
   }
 
-  function addLeftover(item: FridgeItemShown) {
-    if (isFull) return
-    add(item)
-    searchRef.current?.focus()
+  // Enter adds what was typed: the pantry item it names, or the words.
+  function submitField(event: FormEvent) {
+    event.preventDefault()
+    if (!needle) return
+    if (exactPantry && !chosenIngredientIds.has(exactPantry.ingredientId)) {
+      addFromField(() => add(pantryChoice(exactPantry)))
+      return
+    }
+    if (exactPantry) return
+    addFromField(() => addLabel(query))
   }
 
   const saveMutation = useMutation({
@@ -227,7 +258,7 @@ function PickerForm({
           of an edge control inside the box `overflow` clips (HON-1353). */}
       <div className="-m-1 flex max-h-96 flex-col gap-5 overflow-y-auto p-1">
         <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-chosen`}>
-          <Heading variant="caption" as="h3" id={`${searchId}-chosen`}>
+          <Heading variant="section" as="h3" id={`${searchId}-chosen`}>
             {t('chosenHeading')}
           </Heading>
           {items.length === 0 ? (
@@ -266,108 +297,84 @@ function PickerForm({
           )}
         </section>
 
-        <section className="flex flex-col gap-2">
-          <Label htmlFor={searchId}>{t('pantrySearch')}</Label>
+        {/* One field for everything: it filters the leftovers and the pantry
+            below it, and Enter or `Add "…"` takes the words as they are. */}
+        <form className="flex flex-col gap-2" onSubmit={submitField}>
+          <Label htmlFor={searchId}>{t('addField')}</Label>
           <Input
             ref={searchRef}
             id={searchId}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('pantrySearchPlaceholder')}
+            placeholder={t('addFieldPlaceholder')}
             autoComplete="off"
           />
-          {atHome.length === 0 ? (
-            <Body variant="muted">{t('pantryEmpty')}</Body>
-          ) : shownPantry.length === 0 ? (
-            // A match that is already in the meal is not "no match": offering
-            // the words then would add a free-text copy of a pantry item.
-            query.trim() &&
-            pantryMatches.length === 0 && (
-              <>
-                <Body variant="muted">{t('pantryNoMatch', { query: query.trim() })}</Body>
-                <div>
-                  {/* A long query truncates rather than widen the dialog. */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="max-w-full"
-                    aria-disabled={isFull || undefined}
-                    onClick={() => addFromSearch(() => addLabel(query))}
-                  >
-                    <Plus aria-hidden="true" />
-                    <span className="truncate">
-                      {t('addQuery', { query: query.trim().slice(0, FRIDGE_ITEM_LABEL_MAX) })}
-                    </span>
-                  </Button>
-                </div>
-              </>
-            )
-          ) : (
+          {needle && !exactPantry && (
+            <div>
+              {/* A long query truncates rather than widen the dialog. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="max-w-full"
+                aria-disabled={isFull || undefined}
+                onClick={() => addFromField(() => addLabel(query))}
+              >
+                <Plus aria-hidden="true" />
+                <span className="truncate">
+                  {t('addQuery', { query: query.trim().slice(0, FRIDGE_ITEM_LABEL_MAX) })}
+                </span>
+              </Button>
+            </div>
+          )}
+        </form>
+
+        {/* Leftovers first: a meal already cooked is the likeliest fridge
+            meal. A section with nothing to offer is left out. */}
+        {recentQuery.isError ? (
+          <Body variant="muted">{t('recentFailed')}</Body>
+        ) : (
+          recentMeals.length > 0 && (
+            <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-recent`}>
+              <Heading variant="section" as="h3" id={`${searchId}-recent`}>
+                {t('recentHeading')}
+              </Heading>
+              <ChoiceList
+                choices={recentMeals.map((meal) => {
+                  const item: FridgeItemShown = {
+                    ingredientId: null,
+                    sourceEntryId: meal.entryId,
+                    label: null,
+                    name: meal.mealName,
+                    sourceDate: meal.date,
+                  }
+                  return { key: meal.entryId, text: itemText(item), item }
+                })}
+                disabled={isFull}
+                onAdd={(item) => addFromField(() => add(item))}
+                addLabel={(name) => t('add', { name })}
+              />
+            </section>
+          )
+        )}
+
+        {shownPantry.length > 0 && (
+          <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-pantry`}>
+            <Heading variant="section" as="h3" id={`${searchId}-pantry`}>
+              {t('pantryHeading')}
+            </Heading>
             <ChoiceList
               choices={shownPantry.map((p) => ({
                 key: p.ingredientId,
                 text: p.ingredient.name,
-                item: {
-                  ingredientId: p.ingredientId,
-                  sourceEntryId: null,
-                  label: null,
-                  name: p.ingredient.name,
-                  sourceDate: null,
-                },
+                item: pantryChoice(p),
               }))}
               disabled={isFull}
-              onAdd={(item) => addFromSearch(() => add(item))}
+              onAdd={(item) => addFromField(() => add(item))}
               addLabel={(name) => t('add', { name })}
             />
-          )}
-        </section>
-
-        <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-recent`}>
-          <Heading variant="caption" as="h3" id={`${searchId}-recent`}>
-            {t('recentHeading')}
-          </Heading>
-          {recentQuery.isPending ? (
-            <Body variant="muted">{t('recentLoading')}</Body>
-          ) : recentQuery.isError ? (
-            <Body variant="muted">{t('recentFailed')}</Body>
-          ) : recentMeals.length === 0 ? (
-            <Body variant="muted">{t('recentEmpty')}</Body>
-          ) : (
-            <ChoiceList
-              choices={recentMeals.map((meal) => {
-                const item: FridgeItemShown = {
-                  ingredientId: null,
-                  sourceEntryId: meal.entryId,
-                  label: null,
-                  name: meal.mealName,
-                  sourceDate: meal.date,
-                }
-                return { key: meal.entryId, text: itemText(item), item }
-              })}
-              disabled={isFull}
-              onAdd={addLeftover}
-              addLabel={(name) => t('add', { name })}
-            />
-          )}
-        </section>
-
-        <form className="flex flex-col gap-2" onSubmit={addFreeText}>
-          <Label htmlFor={freeTextId}>{t('freeTextLabel')}</Label>
-          <div className="flex gap-2">
-            <Input
-              id={freeTextId}
-              value={freeText}
-              onChange={(e) => setFreeText(e.target.value)}
-              placeholder={t('freeTextPlaceholder')}
-              maxLength={FRIDGE_ITEM_LABEL_MAX}
-              autoComplete="off"
-            />
-            <Button type="submit" variant="outline" aria-disabled={isFull || undefined}>
-              {t('addFreeText')}
-            </Button>
-          </div>
-        </form>
+          </section>
+        )}
       </div>
 
       <DialogFooter>

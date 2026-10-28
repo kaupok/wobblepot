@@ -123,6 +123,8 @@ export interface FridgeMealItem {
   name: string | null
   /** The source meal's day, `YYYY-MM-DD`; null unless `sourceEntryId` is set. */
   sourceDate: string | null
+  /** The source meal's image, for leftovers; absent or null otherwise. */
+  image?: MealImageFields | null
 }
 
 /**
