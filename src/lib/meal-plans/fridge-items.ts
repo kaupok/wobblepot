@@ -31,6 +31,28 @@ export const fridgeItemSchema = z.union([
   z.object({ label: z.string().trim().min(1).max(FRIDGE_ITEM_LABEL_MAX) }).strict(),
 ])
 
-export const fridgeItemsSchema = z.array(fridgeItemSchema).min(1).max(FRIDGE_ITEMS_MAX)
+/**
+ * A dinner appears once on a lunch (HON-1441): a repeat would add its servings
+ * twice, so the dinner cooks and buys for both. The app's picker never offers a
+ * chosen source again; this refuses an assistant or a stale client that sends one.
+ */
+export const fridgeItemsSchema = z
+  .array(fridgeItemSchema)
+  .min(1)
+  .max(FRIDGE_ITEMS_MAX)
+  .superRefine((items, ctx) => {
+    const seen = new Set<string>()
+    items.forEach((item, index) => {
+      if (!('sourceEntryId' in item)) return
+      if (seen.has(item.sourceEntryId)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Each dinner can appear once on a lunch. Send each sourceEntryId once.',
+          path: [index],
+        })
+      }
+      seen.add(item.sourceEntryId)
+    })
+  })
 
 export type FridgeItemInput = z.infer<typeof fridgeItemSchema>

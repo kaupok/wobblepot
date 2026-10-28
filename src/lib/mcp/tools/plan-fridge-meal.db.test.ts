@@ -2,7 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
-import { READ_SCOPES } from '@/test/mcp'
+import { createMcpHandler } from '@modelcontextprotocol/server'
+import {
+  mcpRequest,
+  READ_SCOPES,
+  readMcpBody,
+  WRITE_SCOPES,
+  type McpToolResultBody,
+} from '@/test/mcp'
+import { buildMcpServer } from '@/lib/mcp/server'
 import { planFridgeMeal } from './plan-fridge-meal'
 import { getMealPlan } from './get-meal-plan'
 import {
@@ -239,6 +247,42 @@ describe('plan_fridge_meal', () => {
       )
       const [entry] = await dinnerOn(date)
       expect(entry).toMatchObject({ kind: 'meal', mealId: 'stew', status: 'completed', items: [] })
+    })
+
+    it('for the same dinner twice on one lunch, as an input error from the server', async () => {
+      const household = await world()
+      const date = day(1)
+      const handler = createMcpHandler(
+        () =>
+          buildMcpServer({ ...CALLER, household, scopes: WRITE_SCOPES }, 'https://wobblepot.test'),
+        { legacy: 'stateless' },
+      )
+
+      const response = await handler.fetch(
+        mcpRequest('tools/call', {
+          name: 'plan_fridge_meal',
+          arguments: {
+            date,
+            mealType: 'dinner',
+            items: [
+              { sourceEntryId: 'entry-cooked' },
+              { sourceEntryId: 'entry-cooked', servings: 2 },
+            ],
+          },
+        }),
+      )
+      const { result } = await readMcpBody<McpToolResultBody>(response)
+
+      expect(result?.isError).toBe(true)
+      expect(result?.content).toEqual([
+        {
+          type: 'text',
+          text: expect.stringContaining(
+            'Each dinner can appear once on a lunch. Send each sourceEntryId once.',
+          ),
+        },
+      ])
+      expect(await dinnerOn(date)).toEqual([])
     })
 
     it.each([
