@@ -3,18 +3,16 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useRef } from 'react'
 import { useMutation, useMutationState } from '@tanstack/react-query'
-import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { RowGroup } from '@/components/ui/row-group'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
-import { cn } from '@/lib/utils'
 import { apiFetch, ApiError } from '@/lib/api'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { GroupHeading } from './GroupHeading'
+import { PantryItemRow } from './PantryItemRow'
 
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
@@ -118,7 +116,10 @@ export function PantrySection({
   // the button becomes the row's "Have it", which takes focus, so a second
   // tap undoes a slip. The undo sends back the quantity the row had, so a
   // counted row keeps its count rather than dropping to null, "have some".
-  // Kept for this visit only: after a reload "Have it" sends null.
+  // Kept for this visit only: after a reload "Have it" sends null. "Have it"
+  // takes its entry out when tapped, not when its request lands, because
+  // requests queue behind each other and a newer "Ran out" may have written
+  // the entry since.
   const quantityBeforeRanOut = useRef(new Map<string, number | null>())
   const ranOutMutation = useMutation({
     mutationKey: RAN_OUT_KEY,
@@ -141,8 +142,9 @@ export function PantrySection({
       )
     },
     onSuccess: () => onPantryQuantityChanged?.(),
+    // A failed "Ran out" leaves its entry: the row is back above 0, so no
+    // "Have it" reads it before the next "Ran out" writes it again.
     onError: (_error, { id, quantity }) => {
-      quantityBeforeRanOut.current.delete(id)
       // The row's "Have it" unmounts as "Ran out" comes back, so follow it.
       const haveIt = sectionRef.current?.querySelector(haveItSelector(id))
       if (haveIt && haveIt === document.activeElement) {
@@ -182,12 +184,12 @@ export function PantrySection({
       }
       onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     },
-    onSuccess: (_data, { id }) => {
-      quantityBeforeRanOut.current.delete(id)
-      onPantryQuantityChanged?.()
-    },
-    onError: (_error, { id }) => {
-      // The row goes back to 0. If focus is still on its star in On hand,
+    onSuccess: () => onPantryQuantityChanged?.(),
+    onError: (_error, { id, quantity }) => {
+      // The row goes back to 0, so the next "Have it" restores the same count,
+      // unless a newer "Ran out" has written one since.
+      if (!quantityBeforeRanOut.current.has(id)) quantityBeforeRanOut.current.set(id, quantity)
+      // If focus is still on its star in On hand,
       // that star unmounts; if it is on its "Ran out", that button turns back
       // into "Have it". Either way, follow the row to its "Have it".
       const active = document.activeElement
@@ -289,8 +291,11 @@ export function PantrySection({
 
   const handleRemove = (item: PantryItemData) => removeMutation.mutate(item)
 
-  const handleHaveIt = (item: PantryItemData) =>
-    haveItMutation.mutate({ ...item, quantity: quantityBeforeRanOut.current.get(item.id) ?? null })
+  const handleHaveIt = (item: PantryItemData) => {
+    const quantity = quantityBeforeRanOut.current.get(item.id) ?? null
+    quantityBeforeRanOut.current.delete(item.id)
+    haveItMutation.mutate({ ...item, quantity })
+  }
 
   const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
@@ -394,119 +399,5 @@ export function PantrySection({
       </div>
       {content}
     </section>
-  )
-}
-
-interface PantryItemRowProps {
-  item: PantryItemData
-  onToggleStaple: (id: string, currentIsStaple: boolean) => void
-  onRemove: (item: PantryItemData) => void
-  /** Marks a row at 0 as at home again. Shown only on a row at 0. */
-  onHaveIt?: (item: PantryItemData) => void
-  /** Marks a row as ran out. Shown on every row not at 0. */
-  onRanOut?: (item: PantryItemData) => void
-  isToggling?: boolean
-}
-
-/**
- * The pantry row `/shopping` actually renders. Exported so
- * `PantryItemRowSkeleton` can be measured against it — the placeholder is a
- * copy of this box, and a copy nothing points at is how HON-628 happened.
- * (`components/pantry/PantryItem.tsx` is a near-duplicate with no callsite of
- * its own; only its `PantryItemData` type is used.)
- */
-export function PantryItemRow({
-  item,
-  onToggleStaple,
-  onRemove,
-  onHaveIt,
-  onRanOut,
-  isToggling = false,
-}: PantryItemRowProps) {
-  const tPantry = useTranslations('pantry')
-  const isRanOut = item.quantity === 0
-
-  const handleToggle = () => onToggleStaple(item.id, item.isStaple)
-
-  return (
-    // No entrance when a ticked shopping item lands here: it happens many
-    // times a session, and the row appearing is the change (docs/DESIGN.md →
-    // Reject list).
-    <div className="flex items-center justify-between p-3">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={handleToggle}
-          disabled={isToggling}
-          data-staple={item.id}
-          aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
-        >
-          <Star
-            className={cn(
-              'size-4',
-              item.isStaple
-                ? 'fill-warning text-warning'
-                : 'text-muted-foreground hover:text-warning',
-            )}
-          />
-        </Button>
-        <div className="flex flex-col">
-          <Body>{item.ingredient.name}</Body>
-          {/* A staple at 0 stays in Staples, so the row says it ran out; an
-              ordinary row says it by its group. */}
-          {isRanOut && item.isStaple && <Body variant="caption">{tPantry('ranOut')}</Body>}
-          {item.neededQuantity !== undefined &&
-            item.neededQuantity > 0 &&
-            item.neededDisplayQuantity &&
-            item.windowDays !== undefined && (
-              <Body variant="caption">
-                {/* A vague quantity's display is the phrase itself, so it would
-                    read "to taste needed in…" — drop it instead (HON-783). */}
-                {item.isVague
-                  ? tPantry('neededInWindowVague', { days: item.windowDays })
-                  : tPantry('neededInWindow', {
-                      quantity: item.neededDisplayQuantity,
-                      days: item.windowDays,
-                    })}
-              </Body>
-            )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {/* "Ran out" and "Have it" swap in one slot, at one size. */}
-        {isRanOut && onHaveIt && (
-          <Button
-            variant="outline"
-            size="sm-touch"
-            onClick={() => onHaveIt(item)}
-            data-have-it={item.id}
-            aria-label={tPantry('ariaHaveIt', { name: item.ingredient.name })}
-          >
-            {tPantry('haveIt')}
-          </Button>
-        )}
-        {!isRanOut && onRanOut && (
-          <Button
-            variant="outline"
-            size="sm-touch"
-            onClick={() => onRanOut(item)}
-            data-ran-out={item.id}
-            aria-label={tPantry('ariaRanOut', { name: item.ingredient.name })}
-          >
-            {tPantry('ranOut')}
-          </Button>
-        )}
-        <Button
-          variant="quiet-destructive"
-          size="icon-sm"
-          onClick={() => onRemove(item)}
-          data-remove={item.id}
-          aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-    </div>
   )
 }

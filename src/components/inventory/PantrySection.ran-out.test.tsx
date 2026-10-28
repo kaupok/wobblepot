@@ -308,4 +308,32 @@ describe('PantrySection marking a row ran out', () => {
       '{"quantity":null}',
     ])
   })
+
+  it('keeps the count a newer "Ran out" saved while an older "Have it" was queued', async () => {
+    let landFirst: (response: Response) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(new Promise<Response>((resolve) => (landFirst = resolve)))
+      .mockImplementation(() => Promise.resolve(Response.json({ ok: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    renderStateful([makeItem({ quantity: 2 })])
+
+    // Three taps inside the first request's time: they queue behind it.
+    fireEvent.click(screen.getByRole('button', { name: 'Ran out: Butter' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Butter' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ran out: Butter' }))
+    await act(async () => landFirst(Response.json({ ok: true })))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await act(async () => {})
+
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Butter' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    expect(fetchMock.mock.calls.map(([, init]) => init.body)).toEqual([
+      '{"quantity":0}',
+      '{"quantity":2}',
+      '{"quantity":0}',
+      '{"quantity":2}',
+    ])
+  })
 })
