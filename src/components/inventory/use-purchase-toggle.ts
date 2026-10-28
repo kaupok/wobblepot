@@ -20,6 +20,8 @@ interface PurchaseToggleVariables {
 /** What `/api/shopping-list/purchase` and `/unpurchase` answer with. */
 interface PurchaseToggleResponse {
   success?: boolean
+  /** The unpurchase outcome (`UnpurchaseOutcome`). */
+  action?: string
   results?: Array<{ pantryItem?: PantryItemData; replacedQuantity?: number | null }>
 }
 
@@ -81,7 +83,10 @@ export function usePurchaseToggle({
     onSuccess: (data, { ingredientId, purchased, restoreQuantity }) => {
       if (purchased) {
         const replacedQuantity = data.results?.[0]?.replacedQuantity
+        // Every tick sets its own entry, so an older one cannot outlive a row
+        // the household removed in between.
         if (replacedQuantity) replacedQuantities.current.set(ingredientId, replacedQuantity)
+        else replacedQuantities.current.delete(ingredientId)
       } else if (data.success) {
         replacedQuantities.current.delete(ingredientId)
       }
@@ -106,7 +111,9 @@ export function usePurchaseToggle({
         }
         onItemPurchased(enhancedPantryItem)
       } else if (!purchased && onItemUnpurchased && data.success) {
-        onItemUnpurchased(ingredientId, restoreQuantity)
+        // `has_quantity`: the household set an amount after the tick, so the
+        // server kept the row as it is, and so does the pantry column.
+        if (data.action !== 'has_quantity') onItemUnpurchased(ingredientId, restoreQuantity)
       }
     },
     onError: (_error, { ingredientId, purchased }) => {

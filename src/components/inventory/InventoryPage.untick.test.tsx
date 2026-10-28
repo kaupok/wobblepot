@@ -122,4 +122,67 @@ describe('InventoryPage tick then untick', () => {
     const pantryColumn = within(screen.getByTestId('pantry-column'))
     await waitFor(() => expect(pantryColumn.queryByText('Butter')).not.toBeInTheDocument())
   })
+
+  const butterAt200 = {
+    id: 'pantry-butter',
+    ingredient: butter,
+    quantity: 200,
+    isStaple: false,
+    updatedAt: '2026-02-10T00:00:00.000Z',
+  }
+
+  function lastFetchBody() {
+    const [url, init] = vi.mocked(fetch).mock.calls.at(-1)!
+    expect(url).toBe('/api/shopping-list/unpurchase')
+    return JSON.parse(init!.body as string)
+  }
+
+  // A Remove in the pantry column unticks the item without the untick, so the
+  // amount the first tick replaced must not reach a later untick.
+  it('sends no amount after a tick that replaced none, when the row was removed in between', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(purchaseAnswer(200))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(purchaseAnswer(null))
+      .mockResolvedValueOnce(
+        Response.json({ success: true, ingredientId: 'butter', action: 'removed' }),
+      )
+    renderButterList([butterAt200])
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as purchased' }))
+    await screen.findByRole('checkbox', { name: 'Mark Butter as not purchased' })
+    await user.click(screen.getByRole('button', { name: 'Remove Butter' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Mark Butter as not purchased' }))
+    await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' })
+
+    expect(lastFetchBody()).toEqual({ ingredientId: 'butter' })
+  })
+
+  it('keeps an amount the household entered after the tick', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(purchaseAnswer(200))
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValueOnce(
+        Response.json({ success: true, ingredientId: 'butter', action: 'has_quantity' }),
+      )
+    renderButterList([butterAt200])
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as purchased' }))
+    const pantryColumn = within(screen.getByTestId('pantry-column'))
+    await user.click(await pantryColumn.findByRole('button', { name: 'Add amount: Butter' }))
+    await user.type(screen.getByRole('textbox', { name: 'How much do you have?' }), '150')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await pantryColumn.findByRole('button', { name: 'Amount: Butter, 150\u00a0g' })
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as not purchased' }))
+    await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' })
+
+    expect(lastFetchBody()).toEqual({ ingredientId: 'butter', restoreQuantity: 200 })
+    expect(
+      pantryColumn.getByRole('button', { name: 'Amount: Butter, 150\u00a0g' }),
+    ).toBeInTheDocument()
+  })
 })

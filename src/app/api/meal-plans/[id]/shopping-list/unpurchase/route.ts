@@ -77,6 +77,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       case 'removed':
       case 'ran_out':
       case 'restored':
+      // Only with `restoreQuantity`: the household set an amount after the
+      // purchase, so the row stays as it is.
+      case 'has_quantity':
         return NextResponse.json({ success: true, ingredientId, action: outcome }, { status: 200 })
     }
   } catch (error) {

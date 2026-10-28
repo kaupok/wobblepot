@@ -137,6 +137,15 @@ describe('POST /api/meal-plans/[id]/shopping-list/unpurchase', () => {
     })
   })
 
+  it('answers 200 with has_quantity when the household set an amount after the purchase', async () => {
+    mockUnpurchase.mockResolvedValue('has_quantity')
+
+    expect(await answer(post({ ingredientId: 'ing-rice', restoreQuantity: 200 }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'has_quantity' },
+    })
+  })
+
   it.each([0, -200, '200'])(
     'returns 400 naming restoreQuantity for %j',
     async (restoreQuantity) => {

@@ -82,7 +82,8 @@ export async function POST(request: Request) {
         success: true,
         ingredientId,
         // A staple stays in the pantry at 0 ("ran out") instead (HON-1398), and
-        // `restoreQuantity` keeps the row at that quantity (HON-1438).
+        // `restoreQuantity` keeps the row at that quantity, or as it is when
+        // the household set one after the purchase: `has_quantity` (HON-1438).
         action: outcome,
       },
       { status: 200 },

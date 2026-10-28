@@ -1,104 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { ShoppingPlanError, type ShoppingPlanRefusal } from '@/lib/shopping/load-shopping-list'
 import {
   purchaseIngredients,
   purchasePlanIngredients,
   unpurchaseIngredient,
   unpurchasePlanIngredient,
 } from '@/lib/shopping/purchase'
+import { daysAgo, DAY_MS, pantryRow, refusalOf, world } from './purchase.fixtures'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma, changed through `./purchase`, and read back with Prisma
 // (HON-1208). The route tests cover only how the routes map these answers.
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function daysAgo(days: number) {
-  return new Date(Date.now() - days * DAY_MS)
-}
-
-/**
- * Two global ingredients: rice, with an Estonian name, and milk. Alder is an
- * English household with a plan and its own ingredient, a home-made stock.
- * Birch is a second household with a plan and its own ingredient, a chutney.
- */
-async function world() {
-  await prisma.ingredient.create({
-    data: {
-      id: 'ing-rice',
-      name: 'rice',
-      category: 'carb',
-      defaultUnit: 'g',
-      calories: 130,
-      protein: 3,
-      carbs: 28,
-      fat: 0,
-      translations: { create: { locale: 'et', name: 'riis' } },
-    },
-  })
-  await prisma.ingredient.create({
-    data: {
-      id: 'ing-milk',
-      name: 'milk',
-      category: 'dairy',
-      defaultUnit: 'g',
-      calories: 60,
-      protein: 3,
-      carbs: 5,
-      fat: 3,
-    },
-  })
-  const alder = await prisma.household.create({
-    data: { name: 'Alder', mealPlans: { create: { id: 'plan-alder' } } },
-  })
-  const birch = await prisma.household.create({
-    data: { name: 'Birch', mealPlans: { create: { id: 'plan-birch' } } },
-  })
-  await prisma.ingredient.create({
-    data: {
-      id: 'ing-alder-stock',
-      name: 'home-made stock',
-      householdId: alder.id,
-      category: 'condiment',
-      defaultUnit: 'g',
-      calories: 10,
-      protein: 1,
-      carbs: 1,
-      fat: 0,
-    },
-  })
-  await prisma.ingredient.create({
-    data: {
-      id: 'ing-birch-chutney',
-      name: 'chutney',
-      householdId: birch.id,
-      category: 'condiment',
-      defaultUnit: 'g',
-      calories: 200,
-      protein: 1,
-      carbs: 45,
-      fat: 0,
-    },
-  })
-  return { alder, birch }
-}
-
-async function pantryRow(householdId: string, ingredientId: string) {
-  return prisma.pantryItem.findUnique({
-    where: { householdId_ingredientId: { householdId, ingredientId } },
-    select: { quantity: true, isStaple: true },
-  })
-}
-
-async function refusalOf(promise: Promise<unknown>): Promise<ShoppingPlanRefusal> {
-  const error = await promise.then(
-    () => null,
-    (caught: unknown) => caught,
-  )
-  if (!(error instanceof ShoppingPlanError)) throw new Error(`Expected a refusal, got ${error}`)
-  return error.reason
-}
 
 describe('purchaseIngredients', () => {
   it('puts a new ingredient in the pantry as "have some", not a staple', async () => {
@@ -375,98 +287,6 @@ describe('unpurchaseIngredient', () => {
 
     expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('not_in_pantry')
     expect(await pantryRow(birch.id, 'ing-rice')).toEqual({ quantity: null, isStaple: false })
-  })
-})
-
-describe('purchase then unpurchase', () => {
-  it('puts the ingredient in the pantry and takes it back out', async () => {
-    const { alder } = await world()
-
-    await purchaseIngredients(alder, ['ing-rice'])
-    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: null, isStaple: false })
-
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
-    expect(await pantryRow(alder.id, 'ing-rice')).toBeNull()
-  })
-
-  // HON-1233: an empty upsert update left `updatedAt` alone, so the undo
-  // answered too_old.
-  it('renews the 7-day window of an old "have some" row, so the undo still works', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-rice', updatedAt: daysAgo(10) },
-    })
-    const before = Date.now()
-
-    const outcome = await purchaseIngredients(alder, ['ing-rice'])
-
-    expect(outcome.status).toBe('purchased')
-    if (outcome.status !== 'purchased') return
-    expect(Date.parse(outcome.results[0]!.pantryItem.updatedAt)).toBeGreaterThanOrEqual(before)
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
-  })
-
-  // HON-1438: the app's untick deleted the row and the 200 g the household
-  // entered.
-  it('puts back the quantity the purchase replaced, with restoreQuantity', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-rice', quantity: 200 },
-    })
-
-    const outcome = await purchaseIngredients(alder, ['ing-rice'])
-    expect(outcome.status).toBe('purchased')
-    if (outcome.status !== 'purchased') return
-    expect(outcome.results[0]!.replacedQuantity).toBe(200)
-    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: null, isStaple: false })
-
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice', { restoreQuantity: 200 })).toBe(
-      'restored',
-    )
-    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: 200, isStaple: false })
-  })
-
-  it('puts back the quantity of a staple, not 0, with restoreQuantity', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-rice', quantity: 200, isStaple: true },
-    })
-
-    await purchaseIngredients(alder, ['ing-rice'])
-
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice', { restoreQuantity: 200 })).toBe(
-      'restored',
-    )
-    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: 200, isStaple: true })
-  })
-
-  it('still removes the row, and sets a staple to 0, without restoreQuantity', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.createMany({
-      data: [
-        { householdId: alder.id, ingredientId: 'ing-rice', quantity: 200 },
-        { householdId: alder.id, ingredientId: 'ing-milk', quantity: 200, isStaple: true },
-      ],
-    })
-
-    await purchaseIngredients(alder, ['ing-rice', 'ing-milk'])
-
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
-    expect(await pantryRow(alder.id, 'ing-rice')).toBeNull()
-    expect(await unpurchaseIngredient(alder.id, 'ing-milk')).toBe('ran_out')
-    expect(await pantryRow(alder.id, 'ing-milk')).toEqual({ quantity: 0, isStaple: true })
-  })
-
-  it('keeps a row older than 7 days as it is, even with restoreQuantity', async () => {
-    const { alder } = await world()
-    await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-rice', updatedAt: daysAgo(8) },
-    })
-
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice', { restoreQuantity: 200 })).toBe(
-      'too_old',
-    )
-    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: null, isStaple: false })
   })
 })
 
