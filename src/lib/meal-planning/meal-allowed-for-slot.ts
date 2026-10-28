@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { visibleMealWhere } from '@/lib/meals/load-meals'
 import type { SlotSuggestionHousehold } from '@/lib/meal-planning/slot-suggestions'
 import type { MealType } from '@/generated/prisma/enums'
 
@@ -24,11 +25,7 @@ export async function isMealAllowedForSlot(
   mealType: MealType,
 ): Promise<MealSlotFit> {
   const meal = await prisma.meal.findFirst({
-    where: {
-      id: mealId,
-      deletedAt: null,
-      OR: [{ householdId: null }, { householdId: household.id }],
-    },
+    where: { id: mealId, ...visibleMealWhere(household.id) },
     select: { suitableFor: true },
   })
   if (!meal) return 'notFound'
@@ -48,4 +45,17 @@ export async function isMealAllowedForSlot(
     mealId,
   })
   return pool.length > 0 ? 'allowed' : 'ruledOut'
+}
+
+/**
+ * Whether the household can see the meal: shared or its own, and not deleted.
+ * A past day logs what the household ate, so it checks only this, as the app's
+ * `createEntry` does (HON-1443).
+ */
+export async function isMealVisible(householdId: string, mealId: string): Promise<boolean> {
+  const meal = await prisma.meal.findFirst({
+    where: { id: mealId, ...visibleMealWhere(householdId) },
+    select: { id: true },
+  })
+  return meal !== null
 }

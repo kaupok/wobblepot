@@ -162,19 +162,60 @@ describe('swap_meal on a past slot', () => {
     })
   })
 
-  it('refuses a meal that is not a dinner', async () => {
+  // A log records what the household ate, as the Past meals page does, so
+  // neither the meal type nor the diet blocks it (HON-1443).
+  it('logs a dinner-only recipe eaten at lunch', async () => {
+    const household = await world()
+    const date = day(-1)
+    const entry = await prisma.mealPlanEntry.create({
+      data: {
+        planId: 'plan-alder',
+        date: parseLocalDate(date),
+        mealType: 'lunch',
+        mealId: 'salad',
+      },
+    })
+
+    const result = await call(household, { date, mealType: 'lunch', mealId: 'stew' })
+
+    expect(result).toMatchObject({ outcome: 'swapped', meal: { id: 'stew' } })
+    expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
+      mealId: 'stew',
+      mealType: 'lunch',
+      status: 'completed',
+    })
+  })
+
+  it("logs a meal outside the household's diet", async () => {
     const household = await world()
     const date = day(-1)
     const entry = await dinner(date, 'stew')
 
-    expect(await refusal(household, { date, mealType: 'dinner', mealId: 'salad' })).toBe(
-      'This meal is not a dinner, so it cannot be logged for dinner. Nothing was changed.',
-    )
+    const result = await call(household, { date, mealType: 'dinner', mealId: 'satay' })
+
+    expect(result).toMatchObject({ outcome: 'swapped', meal: { id: 'satay' } })
     expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
-      mealId: 'stew',
-      status: 'planned',
+      mealId: 'satay',
+      status: 'completed',
     })
   })
+
+  it.each(['birch-pie', 'missing'])(
+    'refuses the meal id %s, and changes nothing',
+    async (mealId) => {
+      const household = await world()
+      const date = day(-1)
+      const entry = await dinner(date, 'stew')
+
+      expect(await refusal(household, { date, mealType: 'dinner', mealId })).toBe(
+        'No meal with this id. Use list_meals to find the meal. Nothing was changed.',
+      )
+      expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
+        mealId: 'stew',
+        status: 'planned',
+      })
+    },
+  )
 })
 
 describe('swap_meal on a slot from today on', () => {
