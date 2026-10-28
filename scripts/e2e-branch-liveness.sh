@@ -23,9 +23,11 @@
 E2E_LOCAL_BRANCH_PREFIX="e2e-local"
 
 # Portable ISO-8601 → unix epoch (BSD date on macOS, GNU date on Linux); 0 when
-# it does not parse.
+# it does not parse. The shape is checked first, because GNU date reads "" as
+# today's midnight and takes free text such as "yesterday".
 e2e_iso_to_epoch() {
   local ts="${1%.*Z}"; ts="${ts%Z}"
+  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] || { echo 0; return; }
   date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' "$ts" +%s 2>/dev/null || echo 0
 }
 

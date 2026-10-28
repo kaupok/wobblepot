@@ -150,6 +150,16 @@ describe('e2e_local_branch_dead', () => {
       expect(dead(name, 'not a date')).toBe(false)
       expect(dead(name, '')).toBe(false)
     })
+
+    // GNU date (CI's Linux) reads "" as today's midnight and takes free text,
+    // where BSD date on macOS fails. This stub answers every -d like GNU does.
+    it('keeps it on GNU date too, when created_at is empty or free text', () => {
+      const gnuDate = '#!/bin/sh\ncase "$*" in *-d*) echo 1 ;; *) /bin/date "$@" ;; esac\n'
+      fs.writeFileSync(path.join(stubDir, 'date'), gnuDate, { mode: 0o755 })
+
+      expect(dead(name, '')).toBe(false)
+      expect(dead(name, 'yesterday')).toBe(false)
+    })
   })
 })
 
