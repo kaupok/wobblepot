@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations` and falls through to the real `useLocale`.
 vi.unmock('next-intl')
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'

@@ -688,7 +688,6 @@ export const CompletedServingsReadOnly: Story = {
 }
 
 export const Estonian: Story = {
-  name: 'Estonian',
   args: { meal: tintedMeal },
   globals: { locale: 'et', viewport: PHONE },
   play: async () => {

@@ -43,7 +43,7 @@ function call(household: ReturnType<typeof mcpHousehold>, extraId: string) {
 
 describe('remove_extra', () => {
   it("deletes the household's extra and takes its unticked shopping item off the list", async () => {
-    const { alder, birch } = await world()
+    const { alder } = await world()
 
     const result = await call(alder.household, alder.extraId)
 

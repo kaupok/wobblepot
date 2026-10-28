@@ -33,7 +33,7 @@
 13221 scripts/orchestrator.outcomes.test.ts
 7097 scripts/orchestrator.phase.test.ts
 44905 scripts/orchestrator.sh
-17499 scripts/orchestrator.watch.test.ts
+14995 scripts/orchestrator.watch.test.ts
 10017 scripts/pr-review.sh
 5623 scripts/refit-meal-images.ts
 5063 scripts/review-checklist-gate.test.ts
@@ -50,7 +50,7 @@
 6657 src/app/api/meals/[id]/image/route.test.ts
 6959 src/app/api/meals/imagine/route.test.ts
 5368 src/app/api/recipes/parse/route.test.ts
-7474 src/app/globals.css
+7106 src/app/globals.css
 8824 src/app/onboarding/OnboardingFlow.test.tsx
 7732 src/app/page.test.tsx
 7600 src/app/sign-in/SignInForm.test.tsx
@@ -66,7 +66,7 @@
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
 5441 src/components/meal-plan/MealImageCard.stories.tsx
 5457 src/components/meal-plan/MealImageCard.test.tsx
-5414 src/components/meal-plan/MealImageCard.tsx
+5202 src/components/meal-plan/MealImageCard.tsx
 6024 src/components/meal-plan/MealSelectorModal.stories.tsx
 5482 src/components/PostHogProvider.test.tsx
 6237 src/hooks/use-cook-question.test.ts
