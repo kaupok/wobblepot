@@ -390,7 +390,7 @@ export function MealDetailModal({
                   }}
                 >
                   <DropdownMenuItem
-                    className="min-h-11"
+                    size="lg"
                     onSelect={() => {
                       noteRequestedRef.current = true
                       noteOpenerRef.current = 'menu'
@@ -401,7 +401,7 @@ export function MealDetailModal({
                     {note ? tNote('editNote') : tNote('addNote')}
                   </DropdownMenuItem>
                   {adjustEditable && (
-                    <DropdownMenuItem className="min-h-11" onSelect={adjust.request}>
+                    <DropdownMenuItem size="lg" onSelect={adjust.request}>
                       <Sparkles aria-hidden="true" />
                       {tAdjust('label')}
                     </DropdownMenuItem>
