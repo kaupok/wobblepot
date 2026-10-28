@@ -101,6 +101,19 @@ describe('e2e-local.sh gc', () => {
     expect(stderr).toContain("GC: keeping 'e2e-local-buildbox-20261028-010000-4242'")
   })
 
+  it("keeps another host's review server that Neon saw active a minute ago", () => {
+    const { deleted } = gc([
+      {
+        id: 'br-1',
+        name: 'e2e-local-otherbox-20261028-090000-4242',
+        created_at: hoursAgo(5),
+        updated_at: hoursAgo(0.02),
+      },
+    ])
+
+    expect(deleted).toEqual([])
+  })
+
   it("keeps another host's branch while it is younger than E2E_GC_MIN_AGE_HOURS", () => {
     const { deleted } = gc([
       { id: 'br-1', name: 'e2e-local-otherbox-20261028-150000-4242', created_at: hoursAgo(1) },

@@ -127,12 +127,13 @@ On Neon's free plan (10 branches): the default N=5 fits at 8 with 2 spare, one f
 
 **A local review server takes a spare too.** `pnpm review:local` in its default branch mode holds one `e2e-local-*` branch for as long as it runs (it is deleted when the server stops). When no slot is free, `pnpm review:local --db env` reviews against the database in `.env` and takes no branch (`docs/BROWSER_TESTING.md` → "Reviewing sign-up and onboarding"). `pnpm test:e2e:local` costs the same one branch for the length of the suite.
 
-**A dead review server's branch is freed by one rule (HON-1415).** Each run names its branch `e2e-local-<host>-<date>-<time>-<pid>`, with `<host>` from `hostname -s`. A run that dies without its cleanup (a crash, a closed terminal) leaves the branch. `scripts/e2e-branch-liveness.sh` decides when it is dead:
+**A dead review server's branch is freed by one rule (HON-1415).** Each run names its branch `e2e-local-<host>-<date>-<time>-<pid>`. `<host>` is `hostname -s`, lower-case, `[a-z0-9]` only; a name over 12 characters keeps 6 and adds 6 digits of its checksum, so `Kaupos-MacBook-Pro` and `Kaupos-MacBook-Air` get different tags. A run that dies without its cleanup (a crash, a closed terminal) leaves the branch. `scripts/e2e-branch-liveness.sh` decides when it is dead, with the gate `E2E_GC_MIN_AGE_HOURS` (default 2):
 
 - On this host: dead when no process `<pid>` runs `e2e-local.sh`, at any age. A pid that another program now holds counts as dead.
-- On another host, or with the old name that has no host tag: dead when `created_at` is at least `E2E_GC_MIN_AGE_HOURS` (default 2) ago. Not `updated_at`, because Neon moves it on compute activity, so a dead branch looks young.
+- The old name with no host tag: dead when `created_at` is at least the gate's hours ago. Not `updated_at`, because Neon moves it on compute activity, so a dead branch looks young.
+- Another host's run, or a `--keep` branch: dead when both `created_at` and `updated_at` are at least the gate's hours ago. No pid can be checked here, so a review server in use on another machine stays. `--keep` renames its branch `e2e-local-kept-…` on exit, because its pid is gone.
 
-A live run's branch on this host stays at any age. `pnpm test:e2e:local gc` deletes every dead branch, and so does `wt auto`'s orphan sweep on a cap error, so a dead review server cannot block a worker. On 2026-10-28 one dead `e2e-local-*` branch held the 10th slot, and two workers died four times on the cap before the circuit breaker paused spawning.
+A timestamp that does not parse keeps the branch. `pnpm test:e2e:local gc` deletes every dead branch, and so does `wt auto`'s orphan sweep on a cap error, so a dead review server cannot block a worker. On 2026-10-28 one dead `e2e-local-*` branch held the 10th slot, and two workers died four times on the cap before the circuit breaker paused spawning.
 
 No reaper reclaims a stranded run's branch on its own. `neon_gc_orphans` skips any branch whose git worktree is still live — which a stranded run's is — and `neon-cleanup.sh`'s sweep requires the Linear issue to be Done or Canceled, while a stranded one sits in In Review. The budget above is the only thing protecting you.
 

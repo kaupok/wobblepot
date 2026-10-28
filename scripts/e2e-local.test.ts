@@ -350,6 +350,16 @@ describe('e2e-local.sh', () => {
   })
 
   describe('run (test:e2e:local) is unchanged', () => {
+    // HON-1415: the run's pid is gone once it exits, so the old name would
+    // read as dead to the next GC on this host.
+    it('renames a --keep branch out of the pid rule instead of deleting it', () => {
+      const { status } = run(['--keep'])
+
+      expect(status).toBe(0)
+      expect(calls()).toMatch(/branches rename e2e-local-(\S+) e2e-local-kept-\1 /)
+      expect(calls()).not.toContain('branches delete')
+    })
+
     it('uses port 3100, keeps its run-only exports and seeds', () => {
       const { status } = run([])
       const log = calls()

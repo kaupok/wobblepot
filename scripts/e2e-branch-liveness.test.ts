@@ -51,23 +51,37 @@ function runs(pid: number, command: string) {
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
 
 /** True when the rule calls the branch dead, at the default 2 h gate. */
-function dead(name: string, createdAt: string, gate = '2'): boolean {
-  const r = sh('if e2e_local_branch_dead "$1" "$2" "$3"; then echo dead; else echo alive; fi', [
+function dead(name: string, createdAt: string, updatedAt = createdAt, gate = '2'): boolean {
+  const r = sh('if e2e_local_branch_dead "$@"; then echo dead; else echo alive; fi', [
     name,
     createdAt,
+    updatedAt,
     gate,
   ])
   expect(r.status, r.stderr).toBe(0)
   return r.stdout.trim() === 'dead'
 }
 
+const tag = (host: string) => sh('e2e_local_host_tag', [], host).stdout.trim()
+
 describe('e2e_local_host_tag', () => {
-  it('lower-cases, keeps only [a-z0-9] and cuts to 12 characters', () => {
-    expect(sh('e2e_local_host_tag', [], 'MyMac-2.Local_Box').stdout.trim()).toBe('mymac2localb')
+  it('lower-cases and keeps only [a-z0-9]', () => {
+    expect(tag('MyMac-2')).toBe('mymac2')
+  })
+
+  it('keeps 6 characters of a longer name and adds 6 digits of its checksum', () => {
+    expect(tag('MyMac-2.Local_Box')).toBe('mymac2891209')
+  })
+
+  // A plain 12-character cut gave both `kauposmacboo`, so each Mac read the
+  // other's live branch as its own and deleted it.
+  it('tells apart two names that differ only after the 12th character', () => {
+    expect(tag('Kaupos-MacBook-Pro')).toBe('kaupos358228')
+    expect(tag('Kaupos-MacBook-Air')).toBe('kaupos741621')
   })
 
   it('falls back to "host" when nothing is left', () => {
-    expect(sh('e2e_local_host_tag', [], '---').stdout.trim()).toBe('host')
+    expect(tag('---')).toBe('host')
   })
 })
 
@@ -99,23 +113,37 @@ describe('e2e_local_branch_dead', () => {
       expect(dead(name, hoursAgo(1))).toBe(false)
     })
 
-    it('calls it dead past the gate, even when the same pid runs e2e-local.sh here', () => {
+    it('keeps a long-running review server that Neon saw active within the gate', () => {
+      expect(dead(name, hoursAgo(5), hoursAgo(0.02))).toBe(false)
+    })
+
+    it('calls it dead once old and idle, even when the same pid runs e2e-local.sh here', () => {
       runs(58645, 'bash scripts/e2e-local.sh serve')
 
-      expect(dead(name, hoursAgo(3))).toBe(true)
+      expect(dead(name, hoursAgo(5), hoursAgo(3))).toBe(true)
+    })
+  })
+
+  describe('a --keep branch', () => {
+    const name = 'e2e-local-kept-mymac2-20261028-114144-58645'
+
+    it('stays after its run exits until it is old and idle', () => {
+      expect(dead(name, hoursAgo(0.5))).toBe(false)
+      expect(dead(name, hoursAgo(5), hoursAgo(0.02))).toBe(false)
+      expect(dead(name, hoursAgo(5), hoursAgo(3))).toBe(true)
     })
   })
 
   describe('old format, no host tag', () => {
     const name = 'e2e-local-20261028-114144-58645'
 
-    it('goes by age alone', () => {
-      expect(dead(name, hoursAgo(1))).toBe(false)
-      expect(dead(name, hoursAgo(3))).toBe(true)
+    it('goes by created_at alone', () => {
+      expect(dead(name, hoursAgo(1), hoursAgo(5))).toBe(false)
+      expect(dead(name, hoursAgo(3), hoursAgo(0.02))).toBe(true)
     })
 
     it('honours a different gate', () => {
-      expect(dead(name, hoursAgo(3), '5')).toBe(false)
+      expect(dead(name, hoursAgo(3), hoursAgo(3), '5')).toBe(false)
     })
 
     it('keeps a branch whose created_at does not parse', () => {
@@ -135,6 +163,7 @@ describe('e2e_local_dead_branch_names', () => {
           updated_at: hoursAgo(0.02),
         },
         { name: 'e2e-local-20261028-114144-2', created_at: hoursAgo(1), updated_at: hoursAgo(5) },
+        { name: 'e2e-local-20261028-114144-3', updated_at: hoursAgo(5) },
         { name: 'auto--hon-1', created_at: hoursAgo(9) },
       ],
     })
@@ -142,5 +171,6 @@ describe('e2e_local_dead_branch_names', () => {
 
     expect(r.stdout.split('\n').filter(Boolean)).toEqual(['e2e-local-20261028-114144-1'])
     expect(r.stderr).toContain("GC: keeping 'e2e-local-20261028-114144-2'")
+    expect(r.stderr).toContain("GC: keeping 'e2e-local-20261028-114144-3'")
   })
 })

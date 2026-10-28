@@ -19,11 +19,10 @@
 #   pnpm test:e2e:local -- --headed --debug      # forward args after `--` to playwright
 #   pnpm test:e2e:local gc                        # delete orphaned e2e-local-* branches (crash recovery)
 #
-# Each run makes the branch e2e-local-<host>-<date>-<time>-<pid> (<host> from
-# `hostname -s`). `gc` deletes a dead one: on this host, when <pid> no longer
-# runs e2e-local.sh, at any age; another host's or an old-format name, by
-# created_at age (E2E_GC_MIN_AGE_HOURS, default 2). A live run's branch stays.
-# `wt auto`'s cap sweep uses the same rule (scripts/e2e-branch-liveness.sh).
+# Each run makes the branch e2e-local-<host>-<date>-<time>-<pid>. `gc` and
+# `wt auto`'s cap sweep delete a dead one (scripts/e2e-branch-liveness.sh): on
+# this host when <pid> no longer runs e2e-local.sh, at any age; otherwise by age
+# (E2E_GC_MIN_AGE_HOURS, default 2). A live run's branch on this host stays.
 #
 # Recognised flags: --ai, --keep, gc. A `.spec.ts` path or `--grep` is treated
 # as an explicit target (so @ai is NOT excluded). Anything after a literal `--`,
@@ -221,6 +220,17 @@ kill_tree() {
   kill -TERM "$pid" 2>/dev/null || true
 }
 
+# A --keep branch outlives its pid, so it is renamed out of the pid rule.
+keep_branch() {
+  local kept="${BRANCH_PREFIX}-kept-${BRANCH#"$BRANCH_PREFIX"-}"
+  if neon branches rename "$BRANCH" "$kept" --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1; then
+    BRANCH="$kept"
+  else
+    warn "could not rename '$BRANCH' to '$kept': the next GC here deletes it."
+  fi
+  warn "--keep set: leaving branch '$BRANCH' alive for debugging."
+}
+
 on_exit() {
   local rc=$?
   trap - EXIT INT TERM
@@ -231,9 +241,9 @@ on_exit() {
   if [ -z "$BRANCH" ]; then
     :
   elif [ "$KEEP" = "1" ]; then
-    warn "--keep set: leaving branch '$BRANCH' alive for debugging."
+    keep_branch
     log "  DATABASE_URL=$POOLED"
-    log "  Delete it later with: pnpm test:e2e:local gc   (or via the Neon dashboard)"
+    log "  GC deletes it once ${GC_MIN_AGE_HOURS}h old and idle, or use the Neon dashboard"
   else
     delete_branch "$BRANCH"
   fi

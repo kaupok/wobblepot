@@ -45,9 +45,10 @@ pnpm test:e2e:local gc                        # delete orphaned e2e-local-* bran
 ```
 
 `gc` deletes a dead `e2e-local-<host>-<date>-<time>-<pid>` branch: on this
-host when `<pid>` no longer runs `e2e-local.sh`, otherwise by `created_at` age
-(`E2E_GC_MIN_AGE_HOURS`, default 2). See `docs/PARALLEL_WORKFLOW.md` → Branch
-budget.
+host when `<pid>` no longer runs `e2e-local.sh`, otherwise by age
+(`E2E_GC_MIN_AGE_HOURS`, default 2). A `--keep` branch becomes
+`e2e-local-kept-…` and stays until it is old and idle. See
+`docs/PARALLEL_WORKFLOW.md` → Branch budget.
 
 The wrapper (`scripts/e2e-local.sh`) forks an ephemeral branch off
 `NEON_PARENT_BRANCH` (default `staging`), applies migrations, seeds it, and
