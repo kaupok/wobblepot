@@ -19,6 +19,10 @@ import { GroupHeading } from './GroupHeading'
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
 const RAN_OUT_KEY = ['pantry', 'ran-out'] as const
+// "Ran out" and "Have it" share one queue, so a quick second tap that undoes
+// the first lands after it on the server. Each `onMutate` still runs at once;
+// only the request waits.
+const QUANTITY_SCOPE = { id: 'pantry-quantity' }
 
 const haveItSelector = (id: string) => `[data-have-it="${id}"]`
 const ranOutSelector = (id: string) => `[data-ran-out="${id}"]`
@@ -118,6 +122,7 @@ export function PantrySection({
   const quantityBeforeRanOut = useRef(new Map<string, number | null>())
   const ranOutMutation = useMutation({
     mutationKey: RAN_OUT_KEY,
+    scope: QUANTITY_SCOPE,
     mutationFn: (item: PantryItemData) =>
       apiFetch(
         `/api/pantry/${item.id}`,
@@ -155,6 +160,7 @@ export function PantrySection({
   // clear several in a row, or to the moved row's star when none is left.
   const haveItMutation = useMutation({
     mutationKey: HAVE_IT_KEY,
+    scope: QUANTITY_SCOPE,
     // The variables are the row as it will be, with the quantity to restore.
     mutationFn: (item: PantryItemData) =>
       apiFetch(

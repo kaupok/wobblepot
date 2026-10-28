@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { groupOf, makeItem, renderSection, renderStateful } from './PantrySection.fixtures'
 
@@ -282,5 +282,30 @@ describe('PantrySection marking a row ran out', () => {
       headers: { 'Content-Type': 'application/json' },
       body: '{"quantity":2}',
     })
+  })
+
+  it('sends "Have it" only after the "Ran out" it undoes has landed', async () => {
+    let landRanOut: (response: Response) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(new Promise<Response>((resolve) => (landRanOut = resolve)))
+      .mockResolvedValue(Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderStateful([bread])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ran out: Bread' }))
+    // The row moves at once, before the request answers.
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Bread' }))
+    expect(groupOf('Bread')).toBe('On hand 1')
+    await act(async () => {})
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => landRanOut(Response.json({ ok: true })))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(fetchMock.mock.calls.map(([, init]) => init.body)).toEqual([
+      '{"quantity":0}',
+      '{"quantity":null}',
+    ])
   })
 })
