@@ -144,6 +144,7 @@ Present the proposed issue(s) to the user before creating them. For each issue, 
 
 **Dependencies:** [blockedBy / blocks / relatedTo if any]
 **Priority:** [Urgent / High / Medium / Low / None]
+**State:** [Queued: an unattended worker picks it up / Todo: a human-only step / Backlog: `[DRAFT]`, spec not ready]
 ```
 
 If there are multiple issues, also show the proposed relationships (order, dependencies, parent/child).

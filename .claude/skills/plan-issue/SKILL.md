@@ -285,7 +285,7 @@ If the user wants changes, revise the plan and ask again.
 
 ### 10. File follow-ups, then post plan to Linear
 
-**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. Under `--auto` no one approves the plan, but a human queued or approved the parent, so the follow-ups still take the state "A follow-up is an issue" below gives them. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
+**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. Under `--auto` no one approves the plan, but the parent was queued or approved, so the follow-ups still take the state "A follow-up is an issue" below gives them. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
 
 ```
 mcp__linear-server__save_issue({
@@ -371,7 +371,7 @@ Then end the skill: implementation starts only when the user runs `/implement-is
 
 A step the work needs but this PR does not ship (a golden re-record, a backfill, a manual check) becomes a Linear issue before the parent issue closes. A note on the parent, a "Not verified" line or a hand-off comment does not count, because nobody reads a Done issue again. This section is the rule for every skill that files one (`/implement-issue`, `/create-pr`, `/merge`, `/auto-implement`, `/diagnose`); step 10 has the `save_issue` call they reuse.
 
-- **State:** Queued if an agent can finish it alone, Todo if a human must act. Filing it Queued is not a new queueing decision, because a human queued or approved the parent.
+- **State:** Queued if an agent can finish it alone, Todo if a human must act. Filing it Queued is not a new queueing decision, because the parent was queued or approved and the follow-up finishes its work.
 - **Link it to the parent in the same `save_issue` call:** `blockedBy` when it needs the parent's change on `main` first, so no worker picks it up early; `relatedTo` otherwise.
 - **Mark its origin**, because an issue with no prefix reads as human-written in a list view: `addLabels: ["Follow-up"]`, and a first description line `Follow-up to HON-NNN, filed by /merge.` that names the parent and the skill (and phase) that filed it, so the origin survives if the label is removed. HON-1052 is the reference example.
 - **Who files it:** this skill and `/auto-implement` file plan-time follow-ups before they post the plan, and the plan's `## Follow-ups` section lists the IDs. A follow-up found later is filed before the skill that found it ends. The PR body and the `/merge` summary list IDs, never free text.

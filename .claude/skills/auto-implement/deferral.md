@@ -70,7 +70,7 @@ Reference other issues as plain text (`HON-NNN`), never as hand-copied `<issue i
 
 **What is a follow-up, and what is not.** A follow-up is a step that a doc rule or the parent's acceptance criteria require, and that this PR does not ship: re-record a golden after a prompt change (`docs/AI_MODELS.md` → Record the golden), run a backfill after a migration. The cycle produces it on purpose, as part of finishing the parent. A review finding is never a follow-up, even when the fix happens after merge. If the block cannot name the rule or criterion in its `why:` line, it is a finding: file it as one.
 
-The distinction matters because the two get different gates. `[AUTO DRAFT]` exists to keep work the cycle *noticed* out of unattended pickup until a human judges it, and that gate stays. A follow-up is not new work the cycle invented: a human queued the parent, and the follow-up is the rest of it. So it takes no prefix and gets the state that rule gives it, which may be Queued. A follow-up that only says "fix this later" is a finding with the wrong tag, and filing it Queued would let the cycle implement its own findings unreviewed.
+The distinction matters because the two get different gates. `[AUTO DRAFT]` exists to keep work the cycle *noticed* out of unattended pickup until a human judges it, and that gate stays. A follow-up is not new work the cycle invented: the parent was queued, and the follow-up is the rest of it. So it takes no prefix and gets the state that rule gives it, which may be Queued. A follow-up that only says "fix this later" is a finding with the wrong tag, and filing it Queued would let the cycle implement its own findings unreviewed.
 
 **Where it comes from, and when it is filed:**
 
