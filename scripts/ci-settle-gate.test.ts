@@ -116,8 +116,8 @@ describe('CI-settle gate', () => {
 
         expect(calls.length, `${name} has no gh pr checks`).toBeGreaterThan(0)
         for (const line of calls) {
-          // The call is split across two lines: the `gh` line names the fields,
-          // the `--jq` line carries the filter. Assert on the fields here.
+          // The `gh` line names the fields; a local `jq` applies the filter.
+          // Assert on the fields here.
           expect(line, `${name}: ${line.trim()}`).toContain('workflow')
         }
       }
@@ -226,8 +226,10 @@ describe('CI-settle gate', () => {
   })
 
   // The poll itself, executed. `gh` and `sleep` are stubbed on PATH: `gh`
-  // replays a fixture through the script's own jq expression (so the jq is what
-  // is under test), and `sleep` is a no-op (so 16 polls × 30 s runs instantly).
+  // replays a fixture that the script's own jq expression then filters (so the
+  // jq is what is under test), and `sleep` is a no-op (so 16 polls × 30 s runs
+  // instantly). `gh pr view` prints nothing, so the head check never matches and
+  // every case here runs the two-poll rule; ci-settle-head.test.ts covers the rest.
   describe('scripts/ci-settle.sh', () => {
     let stubBin: string
     let callLog: string
@@ -240,7 +242,7 @@ describe('CI-settle gate', () => {
       stubBin = fs.mkdtempSync(path.join(os.tmpdir(), 'hon600-bin-'))
       callLog = path.join(stubBin, 'checks-calls')
 
-      // Applies the caller's --jq to $STUB_CHECKS exactly as gh would, and
+      // Prints $STUB_CHECKS through the caller's --jq, if any, as gh would, and
       // records each `pr checks` call so a test can assert which poll settled.
       fs.writeFileSync(
         path.join(stubBin, 'gh'),
@@ -251,7 +253,7 @@ describe('CI-settle gate', () => {
           `    echo call >> ${JSON.stringify(callLog)}`,
           '    jq_expr=""',
           '    while [ $# -gt 0 ]; do [ "$1" = "--jq" ] && jq_expr="$2"; shift; done',
-          '    printf \'%s\' "$STUB_CHECKS" | jq -r "$jq_expr"',
+          '    printf \'%s\' "$STUB_CHECKS" | jq -r "${jq_expr:-.}"',
           '    ;;',
           'esac',
           '',
