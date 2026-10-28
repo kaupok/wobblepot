@@ -87,11 +87,12 @@ const normalize = (name: string) =>
  * The merged components the model's name fits: the one with the same name,
  * ignoring case and punctuation, or else every component whose name holds the
  * model's name or is held by it ("mushrooms" for "mushroom").
+ * `change_meal_ingredients` finds the change to restore by the same rule.
  */
-function fittingComponents(
-  components: readonly ResolvableComponent[],
+export function fittingComponents<T extends { name: string }>(
+  components: readonly T[],
   name: string,
-): ResolvableComponent[] {
+): T[] {
   const wanted = normalize(name)
   if (!wanted) return []
   const exact = components.find((c) => normalize(c.name) === wanted)
