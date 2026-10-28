@@ -108,6 +108,7 @@ describe('plan_meal', () => {
 
     expect(result).toEqual({
       outcome: 'planned',
+      status: 'planned',
       date,
       mealType: 'dinner',
       meal: { id: 'stew', name: 'Glimmer stew' },
@@ -172,13 +173,64 @@ describe('plan_meal', () => {
     expect(plan.entries.map((entry) => entry.mealId)).toEqual(['stew'])
   })
 
-  it('accepts today and the day 28 days ahead', async () => {
+  it('accepts today and the day 28 days ahead, as planned meals', async () => {
     const household = await world()
 
-    await call(household, { date: day(0), mealType: 'dinner', mealId: 'stew' })
+    const today = await call(household, { date: day(0), mealType: 'dinner', mealId: 'stew' })
     await call(household, { date: day(28), mealType: 'dinner', mealId: 'stew' })
 
-    expect(await entryCount(household.id)).toBe(2)
+    expect(today.status).toBe('planned')
+    const entries = await prisma.mealPlanEntry.findMany({ where: { planId: 'plan-alder' } })
+    expect(entries.map((entry) => entry.status)).toEqual(['planned', 'planned'])
+  })
+
+  describe('on a past day, logs the meal as cooked', () => {
+    it("for yesterday's empty dinner, leaving the pantry alone", async () => {
+      const household = await world()
+      await prisma.pantryItem.create({
+        data: { householdId: household.id, ingredientId: 'ing-peanut', quantity: 300 },
+      })
+      const date = day(-1)
+
+      const result = await call(household, { date, mealType: 'dinner', mealId: 'stew' })
+
+      expect(result).toMatchObject({ outcome: 'planned', status: 'cooked', date })
+      const [entry] = await prisma.mealPlanEntry.findMany({ where: { planId: 'plan-alder' } })
+      expect(entry).toMatchObject({ mealId: 'stew', status: 'completed', pantryDeductedAt: null })
+      const pantry = await prisma.pantryItem.findMany({ where: { householdId: household.id } })
+      expect(pantry.map((row) => [row.ingredientId, row.quantity])).toEqual([['ing-peanut', 300]])
+
+      const plan = await getMealPlan.run(household, { from: date, to: date }, CALLER)
+      expect(plan.entries).toEqual([
+        expect.objectContaining({ date, mealId: 'stew', isCooked: true }),
+      ])
+    })
+
+    it('for a day 60 days back', async () => {
+      const household = await world()
+
+      const result = await call(household, { date: day(-60), mealType: 'dinner', mealId: 'stew' })
+
+      expect(result.status).toBe('cooked')
+      expect(await entryCount(household.id)).toBe(1)
+    })
+
+    it('refuses a past slot that has a meal, pointing to swap_meal', async () => {
+      const household = await world()
+      const date = day(-2)
+      await prisma.mealPlanEntry.create({
+        data: {
+          planId: 'plan-alder',
+          date: parseLocalDate(date),
+          mealType: 'dinner',
+          mealId: 'satay',
+        },
+      })
+
+      expect(await refusal(household, { date, mealType: 'dinner', mealId: 'stew' })).toContain(
+        'Use swap_meal',
+      )
+    })
   })
 
   describe('refuses and writes nothing', () => {
@@ -225,14 +277,6 @@ describe('plan_meal', () => {
       expect(await refusal(household, { date: day(1), mealType: 'dinner', mealId: 'satay' })).toBe(
         "This meal does not fit the household's diet, allergens or avoided ingredients. Nothing was changed.",
       )
-    })
-
-    it("for yesterday's date", async () => {
-      const household = await world()
-
-      expect(
-        await refusal(household, { date: day(-1), mealType: 'dinner', mealId: 'stew' }),
-      ).toContain('is in the past')
     })
 
     it('for a date 29 days ahead', async () => {

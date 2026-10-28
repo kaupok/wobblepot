@@ -6,15 +6,16 @@ import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-plann
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-import { findPlanSlot, slotInput } from './plan-slot'
+import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS, type McpHousehold } from '@/lib/mcp/context'
+import { findPlanSlot, slotInput, writableDays, type SlotMealType } from './plan-slot'
 
 const mealOutput = z.object({ id: z.string(), name: z.string() })
 
 export const swapMeal = defineTool({
   name: 'swap_meal',
   title: 'Swap a planned meal',
-  description: `Replaces the meal planned for one day and meal type. Call it first without mealId: it returns up to 3 suggestions that fit the household's diet, allergens and avoided ingredients, the same ones the app offers. Then call it again with the mealId the user chose. A mealId from list_meals is accepted too when it suits the meal type, fits the household, and is not planned anywhere from ${NO_REPEAT_DAYS} days ago onward; any other meal is refused. A meal already cooked cannot be swapped. Each call can return different suggestions.`,
+  description: `Replaces the meal planned for one day and meal type. Call it first without mealId: it returns up to 3 suggestions that fit the household's diet, allergens and avoided ingredients, the same ones the app offers. Then call it again with the mealId the user chose. A mealId from list_meals is accepted too when it suits the meal type, fits the household, and is not planned anywhere from ${NO_REPEAT_DAYS} days ago onward; any other meal is refused. On a past day the meal is logged as cooked, because the household ate it, and the pantry does not change; there a mealId from list_meals needs only to suit the meal type and fit the household, so a repeat is allowed. A meal already cooked cannot be swapped. Each call can return different suggestions.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -91,15 +92,23 @@ export const swapMeal = defineTool({
       return { outcome: 'unchanged' as const, date, mealType, meal: current, suggestions: [] }
     }
 
-    // The suggestions are the top of this pool, which carries the diet,
-    // allergen and avoided-ingredient filters. Checked against the pool, not
-    // the top 3: the top 3 has a fresh random tie-break on every request
-    // (HON-709), so it would refuse a meal this tool had just offered.
-    const pool = await loadSlotCandidates(household, slot, mode)
-    if (!pool.some((candidate) => candidate.id === mealId)) {
-      throw new ToolInputError(
-        `Wobblepot would not suggest this meal for ${mealType} on ${date}: it does not fit the household's diet, allergens or avoided ingredients, is not a ${mealType}, or is planned already. Call swap_meal without mealId for the suggestions. Nothing was changed.`,
-      )
+    // A past slot logs what the household ate (HON-1382), so it takes the
+    // `plan_meal` check: the pool's no-repeat rule would refuse "we ate the
+    // trout again".
+    const isPast = date < writableDays(household.timezone).today
+    if (isPast) {
+      await assertMealFitsPastSlot(household, mealId, mealType)
+    } else {
+      // The suggestions are the top of this pool, which carries the diet,
+      // allergen and avoided-ingredient filters. Checked against the pool, not
+      // the top 3: the top 3 has a fresh random tie-break on every request
+      // (HON-709), so it would refuse a meal this tool had just offered.
+      const pool = await loadSlotCandidates(household, slot, mode)
+      if (!pool.some((candidate) => candidate.id === mealId)) {
+        throw new ToolInputError(
+          `Wobblepot would not suggest this meal for ${mealType} on ${date}: it does not fit the household's diet, allergens or avoided ingredients, is not a ${mealType}, or is planned already. Call swap_meal without mealId for the suggestions. Nothing was changed.`,
+        )
+      }
     }
 
     // The app's swap, from here on: visibility, the resets, and the write
@@ -112,10 +121,15 @@ export const swapMeal = defineTool({
     }
     // A skipped slot gets its new meal planned: the skip was for the meal that
     // left. The app does the same from the card (`MealCard.handleSwapComplete`,
-    // HON-1125); here it is part of the one write.
+    // HON-1125); here it is part of the one write. A past slot is completed in
+    // the same write, with no pantry change.
     const swapped = await writeSwappedEntry(slot.id, {
       ...swapEntryData(slot.mealId, mealId),
-      ...(slot.status === 'skipped' ? { status: 'planned' as const } : {}),
+      ...(isPast
+        ? { status: 'completed' as const }
+        : slot.status === 'skipped'
+          ? { status: 'planned' as const }
+          : {}),
     })
     if (!swapped) {
       throw new ToolInputError(
@@ -136,3 +150,27 @@ export const swapMeal = defineTool({
     }
   },
 })
+
+/** `plan_meal`'s check, for a meal logged in a past slot. */
+async function assertMealFitsPastSlot(
+  household: McpHousehold,
+  mealId: string,
+  mealType: SlotMealType,
+) {
+  const fit = await isMealAllowedForSlot(household, mealId, mealType)
+  if (fit === 'notFound') {
+    throw new ToolInputError(
+      'No meal with this id. Use list_meals to find the meal. Nothing was changed.',
+    )
+  }
+  if (fit === 'unsuitable') {
+    throw new ToolInputError(
+      `This meal is not a ${mealType}, so it cannot be logged for ${mealType}. Nothing was changed.`,
+    )
+  }
+  if (fit === 'ruledOut') {
+    throw new ToolInputError(
+      "This meal does not fit the household's diet, allergens or avoided ingredients. Nothing was changed.",
+    )
+  }
+}

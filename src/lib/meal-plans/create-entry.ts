@@ -37,7 +37,7 @@ export interface NewEntry {
   note?: string | null
   noteX?: number | null
   noteY?: number | null
-  status?: 'planned' | 'skipped'
+  status?: 'planned' | 'skipped' | 'completed'
   servingOverride?: number | null
   rating?: 'up' | 'down' | null
   pantryDeducted?: boolean
