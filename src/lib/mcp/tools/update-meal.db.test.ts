@@ -159,10 +159,12 @@ describe('update_meal', () => {
       outcome: 'unmatched',
       meal: null,
       ingredients: [],
+      mainProtein: null,
       unmatched: [
         { name: 'quorvax pasta', original: '50 g quorvax pasta', alternatives: ['quorvex paste'] },
       ],
       check: [],
+      proteinTypes: [],
     })
     const meal = await stored(mealId)
     expect(meal.name).toBe('Glimmer lasagne')
@@ -200,8 +202,10 @@ describe('update_meal', () => {
       outcome: 'notFound',
       meal: null,
       ingredients: [],
+      mainProtein: null,
       unmatched: [],
       check: [],
+      proteinTypes: [],
     })
     expect((await stored(birch.mealId)).servings).toBe(4)
   })
@@ -242,5 +246,145 @@ describe('update_meal', () => {
       content: [{ type: 'text', text: WRITE_SCOPE_MESSAGE }],
     })
     expect((await stored(mealId)).servings).toBe(4)
+  })
+})
+
+// The household's chosen main protein (HON-1387). Per serving, 25 g of mince
+// at 20 g protein per 100 g gives 5 g; 133 g of beans at 8.7 gives 11.6 g, so
+// the beans win the automatic choice.
+describe('update_meal mainProtein', () => {
+  const MINCE = { name: 'glimmer beef mince', quantity: 25, unit: 'g' }
+  const BEANS = { name: 'quorvex kidney beans', quantity: 133, unit: 'g' }
+  const PASTE = { name: 'quorvex paste', quantity: 10, unit: 'g' }
+
+  /** A one-serving chilli of mince and beans, saved with `mainProtein` when given. */
+  async function chilli(mainProtein?: 'beef') {
+    const { household } = await world()
+    const ingredient = (
+      id: string,
+      name: string,
+      proteinType: 'beef' | 'legume',
+      protein: number,
+    ) =>
+      prisma.ingredient.create({
+        data: {
+          id: `${id}-${household.id}`,
+          name,
+          householdId: household.id,
+          category: 'protein',
+          defaultUnit: 'g',
+          proteinType,
+          calories: 150,
+          protein,
+          carbs: 0,
+          fat: 5,
+        },
+      })
+    await ingredient('ing-beef', 'glimmer beef mince', 'beef', 20)
+    await ingredient('ing-beans', 'quorvex kidney beans', 'legume', 8.7)
+    const created = await createMeal.run(
+      household,
+      createMeal.inputSchema.parse({
+        name: 'Glimmer chilli',
+        suitableFor: ['dinner'],
+        servings: 1,
+        ingredients: [MINCE, BEANS],
+        mainProtein,
+      }),
+      CALLER,
+    )
+    return { household, mealId: created.meal!.id }
+  }
+
+  it('tells the assistant when to send mainProtein, as create_meal does', () => {
+    expect(updateMeal.inputSchema.shape.mainProtein.description).toMatch(
+      /^The protein the household/,
+    )
+    expect(updateMeal.inputSchema.shape.mainProtein.description).toBe(
+      createMeal.inputSchema.shape.mainProtein.description,
+    )
+  })
+
+  it('keeps the stored choice when mainProtein is left out', async () => {
+    const { household, mealId } = await chilli('beef')
+
+    const result = await call(household, { mealId, timeMinutes: 30 })
+
+    expect(result.outcome).toBe('updated')
+    expect(result.mainProtein).toEqual({ type: 'beef', setBy: 'household' })
+    expect(await stored(mealId)).toMatchObject({
+      primaryProteinType: 'beef',
+      proteinTypeOverride: 'beef',
+    })
+  })
+
+  it('sets the choice when mainProtein is one of the ingredients', async () => {
+    const { household, mealId } = await chilli()
+
+    const result = await call(household, { mealId, mainProtein: 'beef' })
+
+    expect(result.outcome).toBe('updated')
+    expect(result.mainProtein).toEqual({ type: 'beef', setBy: 'household' })
+    expect(await stored(mealId)).toMatchObject({
+      primaryProteinType: 'beef',
+      proteinTypeOverride: 'beef',
+    })
+  })
+
+  it('goes back to automatic when mainProtein is null', async () => {
+    const { household, mealId } = await chilli('beef')
+
+    const result = await call(household, { mealId, mainProtein: null })
+
+    expect(result.outcome).toBe('updated')
+    expect(result.mainProtein).toEqual({ type: 'legume', setBy: 'automatic' })
+    expect(await stored(mealId)).toMatchObject({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('changes nothing when no stored ingredient has mainProtein', async () => {
+    const { household, mealId } = await chilli()
+
+    const result = await call(household, { mealId, mainProtein: 'fish', timeMinutes: 30 })
+
+    expect(result.outcome).toBe('check_protein')
+    expect(result.mainProtein).toBeNull()
+    expect([...result.proteinTypes].sort()).toEqual(['beef', 'legume'])
+    expect(await stored(mealId)).toMatchObject({
+      timeMinutes: null,
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('checks mainProtein against the new ingredients, and changes nothing when they drop it', async () => {
+    const { household, mealId } = await chilli('beef')
+
+    const result = await call(household, {
+      mealId,
+      mainProtein: 'beef',
+      ingredients: [BEANS, PASTE],
+    })
+
+    expect(result.outcome).toBe('check_protein')
+    expect(result.proteinTypes).toEqual(['legume'])
+    const meal = await stored(mealId)
+    expect(meal).toMatchObject({ primaryProteinType: 'beef', proteinTypeOverride: 'beef' })
+    expect(meal.rows.map(([name]) => name)).toEqual(['glimmer beef mince', 'quorvex kidney beans'])
+  })
+
+  it('clears the stored choice when the new ingredients alone drop it', async () => {
+    const { household, mealId } = await chilli('beef')
+
+    const result = await call(household, { mealId, ingredients: [BEANS, PASTE] })
+
+    expect(result.outcome).toBe('updated')
+    expect(result.mainProtein).toEqual({ type: 'legume', setBy: 'automatic' })
+    expect(await stored(mealId)).toMatchObject({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
   })
 })

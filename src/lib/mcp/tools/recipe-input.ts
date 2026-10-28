@@ -1,5 +1,6 @@
 import 'server-only'
 import { z } from 'zod'
+import { ProteinType } from '@/generated/prisma/enums'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
 import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
@@ -8,7 +9,8 @@ import type { HouseholdMealComponentInput } from '@/lib/household-meals'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
-import { mealFieldsSchema } from '@/lib/meals/meal-fields-schema'
+import type { ComponentForProtein } from '@/lib/meal-planning/protein'
+import { mealFieldsSchema, proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
 import type { McpHousehold } from '@/lib/mcp/context'
 import { isMeasured, MEASURED_UNITS } from './measured-units'
 
@@ -31,6 +33,14 @@ export const recipeFields = {
     'How to make it, in the user’s words.',
   ),
   timeMinutes: mealFieldsSchema.shape.timeMinutes.describe('Total time to make it, in minutes.'),
+  // The household's chosen main protein (HON-1387); `update_meal` makes it
+  // nullable, for back to automatic.
+  mainProtein: proteinTypeOverrideSchema
+    .unwrap()
+    .optional()
+    .describe(
+      'The protein the household plans this recipe by, for its badge. Leave it out unless the main protein is not the ingredient with the most protein, for example mince with beans, where the beef is the point. It must be the protein of one of the recipe’s ingredients. In update_meal, null goes back to automatic.',
+    ),
 }
 
 const ingredientInput = z
@@ -101,6 +111,42 @@ export const checkOutput = z
     }),
   )
   .describe('For check_quantity: each matched ingredient, its amount per serving, and why.')
+
+export const mainProteinOutput = z.object({
+  type: z.enum(ProteinType),
+  setBy: z.enum(['household', 'automatic']),
+})
+
+/** How `mainProteinOutput` reads, for each tool's own description. */
+export const MAIN_PROTEIN_HELP =
+  'The protein the recipe is planned by, for its badge. setBy household: the household chose it; automatic: the ingredient with the most protein.'
+
+export const proteinTypesOutput = z
+  .array(z.enum(ProteinType))
+  .describe('For check_protein: the protein types of the recipe’s ingredients.')
+
+/** The stored main protein, and whether the household chose it. */
+export function mainProteinOf(meal: {
+  primaryProteinType: ProteinType
+  proteinTypeOverride: ProteinType | null
+}): z.output<typeof mainProteinOutput> {
+  return {
+    type: meal.primaryProteinType,
+    setBy: meal.proteinTypeOverride ? 'household' : 'automatic',
+  }
+}
+
+/** The matched lines as the protein rule reads them, for `check_protein`'s types. */
+export function proteinComponentsOf(
+  matched: MatchedIngredient[],
+  servings: number,
+): ComponentForProtein[] {
+  return matched.map((m) => ({
+    quantityPerServing: m.convertedQuantity / servings,
+    isVague: m.isVague,
+    ingredient: m.ingredient,
+  }))
+}
 
 type RecipeIngredientMatch =
   | { outcome: 'unmatched'; unmatched: z.output<typeof unmatchedOutput> }
