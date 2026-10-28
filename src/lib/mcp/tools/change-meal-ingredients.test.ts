@@ -40,12 +40,22 @@ import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
 import { convertQuantity } from '@/lib/ai/recipe-quantities'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
 import { mcpHousehold, WRITE_SCOPES } from '@/test/mcp'
 import { runTool } from '@/lib/mcp/context'
 import { changeMealIngredients } from './change-meal-ingredients'
+import {
+  BROCCOLI,
+  CATALOGUE,
+  NO_CARROT,
+  POTATO_RICE,
+  TROUT,
+  component,
+  entry,
+  row,
+  slot,
+} from './change-meal-ingredients.fixtures'
 
 const household = mcpHousehold({ id: 'household-a' })
 const ctx = { userId: 'user-a', household, scopes: WRITE_SCOPES }
@@ -63,90 +73,6 @@ const output = (result: Awaited<ReturnType<typeof call>>) =>
   result.structuredContent as Record<string, unknown>
 const errorText = (result: Awaited<ReturnType<typeof call>>) =>
   (result.content as { text: string }[])[0]!.text
-
-const ingredient = (name: string, defaultUnit: 'g' | 'piece' = 'g') => ({
-  name,
-  defaultUnit,
-  measuredByVolume: false,
-  translations: [],
-})
-const component = (id: string, quantityPerServing: number) => ({
-  ingredientId: id,
-  quantityPerServing,
-  isVague: false,
-  originalPhrase: null,
-  ingredient: ingredient(id),
-})
-const change = (
-  id: string,
-  original: string | null,
-  replacement: string | null,
-  quantityPerServing: number | null = null,
-) => ({
-  id,
-  originalIngredientId: original,
-  replacementIngredientId: replacement,
-  quantityPerServing,
-  replacementIngredient: replacement ? ingredient(replacement) : null,
-})
-
-const TROUT = [
-  component('trout', 150),
-  component('potato', 200),
-  component('carrot', 80),
-  component('oil', 10),
-]
-
-/** A planned trout for 4, with `changes` applied as the read applies them. */
-function entry(changes: ReturnType<typeof change>[] = [], recipe = TROUT, status = 'planned') {
-  return {
-    id: 'entry-1',
-    planId: 'plan-a',
-    status,
-    servingOverride: 4,
-    cookedServings: null,
-    leftoverItems: [],
-    meal: { id: 'meal-trout', name: 'Trout', translations: [], components: recipe },
-    changes,
-    components: applyEntryChanges(recipe, changes),
-  }
-}
-
-function slot(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'entry-1',
-    planId: 'plan-a',
-    mealType: 'dinner',
-    mealId: 'meal-trout',
-    status: 'planned',
-    rating: null,
-    servingOverride: 4,
-    cookedServings: null,
-    leftoverItems: [],
-    meal: { id: 'meal-trout', name: 'Trout', timeMinutes: 30, primaryProteinType: null },
-    ...overrides,
-  }
-}
-
-/** The catalogue: a name matches itself, `egg` is counted with no known weight. */
-const CATALOGUE: Record<string, { defaultUnit: 'g' | 'piece'; lowConfidence?: boolean }> = {
-  rice: { defaultUnit: 'g' },
-  broccoli: { defaultUnit: 'g' },
-  carrot: { defaultUnit: 'g' },
-  milk: { defaultUnit: 'g' },
-  egg: { defaultUnit: 'piece' },
-  quinoa: { defaultUnit: 'g', lowConfidence: true },
-}
-
-const POTATO_RICE = change('c1', 'potato', 'rice', 75)
-const NO_CARROT = change('c2', 'carrot', null)
-const BROCCOLI = change('c3', null, 'broccoli', 100)
-
-const row = (original: string | null, replacement: string | null, quantity: number | null) => ({
-  originalIngredientId: original,
-  replacementIngredientId: replacement,
-  quantityPerServing: quantity,
-})
 
 describe('change_meal_ingredients', () => {
   beforeEach(() => {
@@ -275,6 +201,59 @@ describe('change_meal_ingredients', () => {
     ])
   })
 
+  it('restores an added ingredient and adds it again at a new amount in one call', async () => {
+    vi.mocked(loadEntryForAi).mockResolvedValue(entry([POTATO_RICE, BROCCOLI]) as never)
+
+    const result = await call([
+      { action: 'restore', ingredient: 'broccoli' },
+      { action: 'add', ingredient: 'broccoli', quantity: 200, unit: 'g' },
+    ])
+
+    // 200 g for 4 servings is 50 g a serving.
+    expect(replaceEntryChanges).toHaveBeenCalledWith('household-a', 'plan-a', 'entry-1', {
+      changes: [row('potato', 'rice', 75), row(null, 'broccoli', 50)],
+      basedOn: ['c1', 'c3'],
+      adjustmentNote: null,
+      noteMode: 'append',
+    })
+    expect(output(result)).toMatchObject({
+      outcome: 'changed',
+      alreadyInMeal: [],
+      applied: [
+        { action: 'add', original: null, replacement: 'broccoli', quantity: 200, unit: 'g' },
+        { action: 'restore', original: 'broccoli', replacement: null, quantity: null, unit: null },
+      ],
+    })
+  })
+
+  it('restores a replaced ingredient and adds its replacement in one call', async () => {
+    vi.mocked(loadEntryForAi).mockResolvedValue(entry([POTATO_RICE]) as never)
+
+    const result = await call([
+      { action: 'restore', ingredient: 'potato' },
+      { action: 'add', ingredient: 'rice', quantity: 200, unit: 'g' },
+    ])
+
+    expect(output(result).outcome).toBe('changed')
+    expect(vi.mocked(replaceEntryChanges).mock.calls[0]![3].changes).toEqual([
+      row(null, 'rice', 50),
+    ])
+  })
+
+  it('restores a left-out ingredient and replaces it in one call', async () => {
+    vi.mocked(loadEntryForAi).mockResolvedValue(entry([NO_CARROT]) as never)
+
+    const result = await call([
+      { action: 'restore', ingredient: 'carrot' },
+      { action: 'replace', ingredients: ['carrot'], with: 'peas', quantity: 320, unit: 'g' },
+    ])
+
+    expect(output(result).outcome).toBe('changed')
+    expect(vi.mocked(replaceEntryChanges).mock.calls[0]![3].changes).toEqual([
+      row('carrot', 'peas', 80),
+    ])
+  })
+
   it('writes nothing when one replacement has no match, even if another change would apply', async () => {
     vi.mocked(fuzzySearchIngredient).mockResolvedValue([
       { id: 'rice', name: 'rice' },
@@ -352,15 +331,14 @@ describe('change_meal_ingredients', () => {
       'replaces',
       { action: 'replace', ingredients: ['rice'], with: 'broccoli', quantity: 300, unit: 'g' },
     ],
-  ])('refuses a restore and a change that %s its replacement', async (_label, item) => {
+  ])('writes nothing for a restore and a change that %s its replacement', async (_label, item) => {
     vi.mocked(loadEntryForAi).mockResolvedValue(entry([POTATO_RICE]) as never)
 
     const result = await call([{ action: 'restore', ingredient: 'potato' }, item])
 
+    // After the restore the meal has potato again, not rice.
     expect(replaceEntryChanges).not.toHaveBeenCalled()
-    expect(errorText(result)).toBe(
-      'Two of the changes name the same ingredient of this meal. Name each ingredient once and call again. Nothing was changed.',
-    )
+    expect(output(result)).toMatchObject({ outcome: 'not_changed', notInMeal: ['rice'] })
   })
 
   it('asks for a check when an amount crosses into pieces by a guess, and writes nothing', async () => {
