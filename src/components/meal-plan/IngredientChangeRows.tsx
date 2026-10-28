@@ -83,12 +83,14 @@ export function EntryChangeRowActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
+          size="lg"
           disabled={controls.disabled}
           onSelect={() => controls.onReplace(component)}
         >
           {t('replace')}
         </DropdownMenuItem>
         <DropdownMenuItem
+          size="lg"
           disabled={controls.disabled}
           onSelect={() => controls.onLeaveOut(component)}
         >

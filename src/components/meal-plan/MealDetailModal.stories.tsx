@@ -760,7 +760,7 @@ export const StepsCached: Story = {
 
 /**
  * "Adjust recipe" opens under the ingredients only from the ⋯ menu; a stored
- * request shows without it (HON-1356). Both targets are 44px.
+ * request shows without it (HON-1356). Both targets are 44px; the item is 16px.
  */
 export const AdjustFromMenu: Story = {
   name: 'Planned: Adjust recipe from the ⋯ menu',
@@ -776,6 +776,7 @@ export const AdjustFromMenu: Story = {
     const item = await body().findByRole('menuitem', { name: 'Adjust recipe' })
     // `offsetHeight`, not the rect: the menu scales in from 95%.
     await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+    await expect(getComputedStyle(item).fontSize).toBe('16px')
     await userEvent.click(item)
     await waitFor(() => expect(field()).toHaveFocus())
     await waitFor(() =>
