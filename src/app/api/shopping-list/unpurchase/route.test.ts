@@ -116,8 +116,34 @@ describe('POST /api/shopping-list/unpurchase', () => {
       body: { success: true, ingredientId: 'ing-rice', action: 'removed' },
     })
     // Without `keepWithQuantity`: the app's undo removes a row with a quantity.
-    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice')
+    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice', {
+      restoreQuantity: undefined,
+    })
   })
+
+  it('passes restoreQuantity through and answers 200 with restored (HON-1438)', async () => {
+    mockUnpurchase.mockResolvedValue('restored')
+
+    expect(await answer(post({ ingredientId: 'ing-rice', restoreQuantity: 200 }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'restored' },
+    })
+    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice', {
+      restoreQuantity: 200,
+    })
+  })
+
+  it.each([0, -200, '200'])(
+    'returns 400 naming restoreQuantity for %j',
+    async (restoreQuantity) => {
+      const { status, body } = await answer(post({ ingredientId: 'ing-rice', restoreQuantity }))
+
+      expect(status).toBe(400)
+      expect(body.error).toBe('Validation failed')
+      expect(Object.keys(body.details)).toEqual(['restoreQuantity'])
+      expect(mockUnpurchase).not.toHaveBeenCalled()
+    },
+  )
 
   it('sets a staple back to ran out and answers 200 with ran_out', async () => {
     mockUnpurchase.mockResolvedValue('ran_out')

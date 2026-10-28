@@ -72,6 +72,8 @@ export const markPurchased = defineTool({
       const outcome = await unpurchaseIngredient(household.id, ingredientId, {
         keepWithQuantity: true,
       })
+      // Unreachable without `restoreQuantity`; narrows the type for the schema.
+      if (outcome === 'restored') throw new Error('unpurchaseIngredient answered restored')
       items.push({ ingredientId, outcome })
     }
     return { purchased, items }

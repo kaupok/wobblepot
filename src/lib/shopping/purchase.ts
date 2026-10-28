@@ -22,6 +22,10 @@ export const ingredientIdSchema = z.string().min(1)
 // (HON-659).
 export const ingredientIdsSchema = z.array(ingredientIdSchema).min(1)
 
+// The `replacedQuantity` a purchase returned, which is never 0 or null, sent
+// back on the undo (HON-1438).
+export const restoreQuantitySchema = z.number().positive()
+
 /** How long after a purchase it can be undone, so an older pantry item is never removed. */
 export const UNPURCHASE_WINDOW_DAYS = 7
 
@@ -191,9 +195,14 @@ export async function purchaseIngredients(
  * - `too_old`: the pantry item is older than {@link UNPURCHASE_WINDOW_DAYS}, so
  *   it was not this purchase
  * - `has_quantity`: the pantry item has a quantity above 0, so it was not
- *   a purchase; returned only with `keepWithQuantity`
+ *   a purchase; returned only with `keepWithQuantity`. With `restoreQuantity`,
+ *   any quantity, 0 included: the household set it after the purchase, so the
+ *   item stays as it is
+ * - `restored`: the pantry item stays, back at the quantity the purchase
+ *   replaced; returned only with `restoreQuantity`
  */
-export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'ran_out' | 'too_old' | 'has_quantity'
+export type UnpurchaseOutcome =
+  'removed' | 'not_in_pantry' | 'ran_out' | 'too_old' | 'has_quantity' | 'restored'
 
 /**
  * Takes a recently purchased ingredient back out of the household's pantry.
@@ -210,11 +219,17 @@ export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'ran_out' | 'too_o
  *
  * A staple keeps its row and its flag: the undo sets it back to 0, so it
  * comes back on the list as a ran-out line (HON-1398).
+ *
+ * `restoreQuantity` is the `replacedQuantity` the purchase returned. With it,
+ * the row stays, staple or not, back at that quantity, so a tick undone by
+ * mistake does not lose the amount the household entered (HON-1438). A row
+ * that is no longer `null` got its quantity after the purchase, so it is kept
+ * as it is rather than overwritten with the older one.
  */
 export async function unpurchaseIngredient(
   householdId: string,
   ingredientId: string,
-  options: { keepWithQuantity?: boolean } = {},
+  options: { keepWithQuantity?: boolean; restoreQuantity?: number } = {},
 ): Promise<UnpurchaseOutcome> {
   const pantryItem = await prisma.pantryItem.findUnique({
     where: {
@@ -239,6 +254,15 @@ export async function unpurchaseIngredient(
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
   if (pantryItem.updatedAt < cutoffDate) return 'too_old'
+
+  if (options.restoreQuantity !== undefined) {
+    if (pantryItem.quantity !== null) return 'has_quantity'
+    await prisma.pantryItem.update({
+      where: { id: pantryItem.id },
+      data: { quantity: options.restoreQuantity },
+    })
+    return 'restored'
+  }
 
   if (pantryItem.isStaple) {
     await prisma.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: 0 } })
@@ -268,7 +292,8 @@ export async function purchasePlanIngredients(
 
 /**
  * `unpurchaseIngredient` for `POST /api/meal-plans/[id]/shopping-list/unpurchase`,
- * without `keepWithQuantity`, so it never answers `has_quantity`. Throws
+ * without `keepWithQuantity`, so it answers `has_quantity` only with
+ * `restoreQuantity`. Throws
  * `ShoppingPlanError` for a plan that does not exist or is another
  * household's, before anything is deleted.
  */
@@ -276,10 +301,8 @@ export async function unpurchasePlanIngredient(
   householdId: string,
   planId: string,
   ingredientId: string,
-): Promise<Exclude<UnpurchaseOutcome, 'has_quantity'>> {
+  options: { restoreQuantity?: number } = {},
+): Promise<UnpurchaseOutcome> {
   await findHouseholdPlan(householdId, planId)
-  const outcome = await unpurchaseIngredient(householdId, ingredientId)
-  // Unreachable without `keepWithQuantity`; narrows the type for the route.
-  if (outcome === 'has_quantity') throw new Error('unpurchaseIngredient answered has_quantity')
-  return outcome
+  return unpurchaseIngredient(householdId, ingredientId, options)
 }

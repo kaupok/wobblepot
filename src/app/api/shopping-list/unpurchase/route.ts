@@ -6,12 +6,14 @@ import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import {
   ingredientIdSchema,
+  restoreQuantitySchema,
   UNPURCHASE_WINDOW_DAYS,
   unpurchaseIngredient,
 } from '@/lib/shopping/purchase'
 
 const unpurchaseSchema = z.object({
   ingredientId: ingredientIdSchema,
+  restoreQuantity: restoreQuantitySchema.optional(),
 })
 
 /**
@@ -19,6 +21,7 @@ const unpurchaseSchema = z.object({
  *
  * Mark a shopping list item as unpurchased by removing from pantry.
  * Only works for non-staple items added within the last 7 days.
+ * With `restoreQuantity`, the pantry item stays at that quantity instead.
  * Works with the rolling window shopping list (not tied to a specific plan).
  * The `mark_purchased` MCP tool calls the same `unpurchaseIngredient`.
  */
@@ -56,9 +59,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const { ingredientId } = parsed.data
+    const { ingredientId, restoreQuantity } = parsed.data
 
-    const outcome = await unpurchaseIngredient(household.id, ingredientId)
+    const outcome = await unpurchaseIngredient(household.id, ingredientId, { restoreQuantity })
 
     if (outcome === 'not_in_pantry') {
       return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
@@ -78,7 +81,9 @@ export async function POST(request: Request) {
       {
         success: true,
         ingredientId,
-        // A staple stays in the pantry at 0 ("ran out") instead (HON-1398).
+        // A staple stays in the pantry at 0 ("ran out") instead (HON-1398), and
+        // `restoreQuantity` keeps the row at that quantity, or as it is when
+        // the household set one after the purchase: `has_quantity` (HON-1438).
         action: outcome,
       },
       { status: 200 },
