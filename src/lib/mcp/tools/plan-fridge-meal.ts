@@ -33,7 +33,7 @@ export const planFridgeMeal = defineTool({
   inputSchema: z.object({
     ...slotInput,
     items: fridgeItemsSchema.describe(
-      'The items, in the order to show them. Each has exactly one of ingredientId, sourceEntryId or label. A leftover item may add servings: 0.5 to 20, in steps of 0.5.',
+      'The items, in the order to show them. Each has exactly one of ingredientId, sourceEntryId or label. A leftover item may add servings: 0.5 to 20, in steps of 0.5. Each sourceEntryId appears once.',
     ),
   }),
   outputSchema: z.object({

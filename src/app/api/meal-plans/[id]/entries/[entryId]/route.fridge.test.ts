@@ -117,6 +117,7 @@ describe('PATCH with fridgeItems', () => {
     ['an item with two sources', [{ ingredientId: 'a', label: 'b' }]],
     ['an empty label', [{ label: '  ' }]],
     ['a label over 80 characters', [{ label: 'x'.repeat(81) }]],
+    ['the same dinner twice', [{ sourceEntryId: 'e1' }, { sourceEntryId: 'e1' }]],
   ])('answers 400 for %s', async (_, fridgeItems) => {
     expect((await patch({ fridgeItems })).status).toBe(400)
   })
