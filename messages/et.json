@@ -274,7 +274,9 @@
       "usedItAll": "Sai otsa",
       "usedItAllLabel": "Sai otsa: {name}",
       "completeConfirm": "Valmis",
-      "completing": "Salvestan…"
+      "completing": "Salvestan…",
+      "recentLabelsHeading": "Viimasel ajal kasutatud",
+      "recentLabelsAllChosen": "Kõik on juba selles toidus."
     },
     "noteEditor": {
       "placeholder": "Lisa märkus…",
@@ -621,13 +623,30 @@
   },
   "pastMeals": {
     "title": "Möödunud toidud",
-    "description": "Viimased 7 päeva. Märgi iga toit valmistatuks või vahele jäetuks.",
-    "empty": "Viimasel 7 päeval polnud midagi plaanis.",
+    "description": "Märgi iga toit valmistatuks või vahele jäetuks või lisa, mida sõid.",
+    "empty": "Siin pole veel midagi. Päev ilmub siia, kui see on möödas.",
     "backToPlan": "Tagasi toiduplaani juurde",
     "row": {
       "cooked": "Tehtud",
       "skipped": "Vahele jäetud",
-      "undo": "Võta tagasi: {mealName}"
+      "undo": "Võta tagasi: {mealName}",
+      "remove": "Eemalda"
+    },
+    "showWeekBefore": "Näita eelmist nädalat",
+    "log": {
+      "title": "Vali retsept",
+      "description": "{day}: {mealType}. Salvestatakse tehtuna. Sahver ei muutu.",
+      "search": "Otsi retsepte",
+      "searchPlaceholder": "Näiteks: supp",
+      "frequentHeading": "Viimasel ajal sageli tehtud",
+      "myRecipesHeading": "Minu retseptid",
+      "resultsHeading": "Retseptid",
+      "loading": "Laadimine…",
+      "loadFailed": "Retsepte ei õnnestunud laadida. Palun proovi uuesti.",
+      "noRecipes": "Retsepte veel pole. Otsi retsepti ülalt.",
+      "noMatch": "Ükski retsept ei vasta otsingule „{query}“.",
+      "saveFailed": "Toitu ei õnnestunud salvestada. Palun proovi uuesti.",
+      "cancel": "Tühista"
     }
   },
   "recipes": {

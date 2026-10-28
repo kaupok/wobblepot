@@ -8,11 +8,26 @@ import { useTranslations } from 'next-intl'
 import type { AddMealChoice, AddMealView } from '@/components/meal-plan/AddMealMenu'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { FridgeMealPicker } from '@/components/meal-plan/fridge-meal/FridgeMealPicker'
+import { LogMealPicker } from './LogMealPicker'
 import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type { FrequentMeal } from '@/lib/meal-plans/past-logging'
+
+/**
+ * A log on Past meals (HON-1383): the household already ate the meal, so the
+ * slot is filled as cooked, from a recipe or a fridge meal only.
+ */
+export interface LogMode {
+  /** The day as its heading reads it, for the recipe picker's description. */
+  dayLabel: string
+  /** The meals the household cooked most in the last 30 days, most first. */
+  frequentMeals: FrequentMeal[]
+  /** The fridge meals' own words of the last 30 days, as chips. */
+  recentLabels: string[]
+}
 
 /** What the day's "+ Add" menu calls on a slot's controller. */
 export interface EmptySlotHandle {
@@ -49,6 +64,8 @@ interface EmptySlotControllerProps {
    * (HON-1248).
    */
   onPicked?: () => void
+  /** Set on Past meals: a recipe or fridge meal is saved as cooked (HON-1383). */
+  log?: LogMode
 }
 
 /**
@@ -68,6 +85,7 @@ export function EmptySlotController({
   returnFocusRef,
   onPendingChange,
   onPicked,
+  log,
 }: EmptySlotControllerProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
@@ -76,6 +94,7 @@ export function EmptySlotController({
   const [entryId, setEntryId] = useState<string | null>(null)
   const [view, setView] = useState<AddMealView>('library')
   const [isFridgeOpen, setIsFridgeOpen] = useState(false)
+  const [isLogOpen, setIsLogOpen] = useState(false)
   const hasSelectedRef = useRef(false)
 
   const createEntryMutation = useMutation({
@@ -169,6 +188,11 @@ export function EmptySlotController({
       setIsFridgeOpen(true)
       return
     }
+    // A log saves the pick in one request, so it needs no placeholder either.
+    if (log) {
+      setIsLogOpen(true)
+      return
+    }
     hasSelectedRef.current = false
     setView(chosen)
     createEntryMutation.mutate()
@@ -194,6 +218,11 @@ export function EmptySlotController({
     if (!open && entryId && !hasSelectedRef.current) {
       discardEntryMutation.mutate(entryId)
     }
+  }
+
+  function handleSaved() {
+    onPicked?.()
+    router.refresh()
   }
 
   // Radix hands focus back to a `DialogTrigger`, and the selector has none, so
@@ -231,12 +260,24 @@ export function EmptySlotController({
         date={date}
         mealType={mealType}
         pantryItems={pantryItems}
-        onSaved={() => {
-          onPicked?.()
-          router.refresh()
-        }}
+        onSaved={handleSaved}
         onCloseAutoFocus={handleCloseAutoFocus}
+        recentLabels={log?.recentLabels}
+        logPast={log !== undefined}
       />
+      {log && (
+        <LogMealPicker
+          open={isLogOpen}
+          onOpenChange={setIsLogOpen}
+          planId={planId}
+          date={date}
+          mealType={mealType}
+          dayLabel={log.dayLabel}
+          frequentMeals={log.frequentMeals}
+          onSaved={handleSaved}
+          onCloseAutoFocus={handleCloseAutoFocus}
+        />
+      )}
     </>
   )
 }

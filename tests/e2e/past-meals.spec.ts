@@ -1,4 +1,4 @@
-// ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PantryDeductionModal, MealRatingInline, Header (User menu)
+// ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PastEmptyRow, DayAddMenu, LogMealPicker, PantryDeductionModal, MealRatingInline, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -8,6 +8,8 @@ import { smokeFixture } from './utils/fixtures'
 // only on today and later days, so nothing else writes here.
 const PAST_DAY_OFFSET = -3
 const MEAL_TYPE = 'dinner'
+// The day the log test writes to, apart from the other test's day.
+const LOG_DAY_OFFSET = -5
 
 interface MealSummary {
   id: string
@@ -202,5 +204,81 @@ test('a past meal is marked cooked from its row in one click, charged once, and 
     await expect(accountMenu).toHaveAccessibleName(ACCOUNT_MENU_WITH_DOT)
   } finally {
     await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
+  }
+})
+
+// Add on an empty past slot logs what the household ate (HON-1383): one POST
+// with `status: 'completed'`, no pantry dialog and no pantry charge. The row
+// then shows Cooked, the thumbs and Undo. Undo, then Remove, leaves the slot
+// empty with Add again. The smoke household expects dinner on every day.
+test('a dinner is logged in an empty past slot, then removed', async ({ page }) => {
+  await signInAsSmoke(page)
+
+  const date = daysFromNow(LOG_DAY_OFFSET)
+  const { entries, planId } = await listEntries(page)
+  expect(planId, 'The smoke household has no meal plan (prisma/seed.ts).').toBeTruthy()
+  const stale = entries.find((e) => e.date === date && e.mealType === MEAL_TYPE)
+  if (stale) await page.request.delete(`/api/meal-plans/${planId}/entries/${stale.id}`)
+
+  const mealsResponse = await page.request.get('/api/meals?source=system&mealType=dinner&limit=1')
+  expect(mealsResponse.ok()).toBe(true)
+  const [meal] = ((await mealsResponse.json()) as { meals: MealSummary[] }).meals
+  expect(meal, 'No seeded system dinner').toBeTruthy()
+
+  let entryId: string | null = null
+  try {
+    await page.goto('/past-meals')
+    // The day's rows sit in the `RowGroup` right after its heading.
+    const day = page.locator(`#past-day-${date} + [data-slot="row-group"]`)
+    const add = day.getByRole('button', { name: /^Add to / })
+    await expect(add).toHaveAccessibleDescription('Dinner')
+
+    await add.click()
+    await page.getByRole('menuitem', { name: 'Choose a recipe' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Choose a recipe' })
+    await dialog.getByRole('searchbox', { name: 'Search recipes' }).fill(meal!.name)
+
+    const [post] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === 'POST' &&
+          new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries`,
+      ),
+      dialog.getByRole('button', { name: meal!.name, exact: true }).first().click(),
+    ])
+    expect(post.ok()).toBe(true)
+    expect(post.request().postDataJSON()).toEqual({
+      date,
+      mealType: MEAL_TYPE,
+      mealId: meal!.id,
+      status: 'completed',
+    })
+    entryId = ((await post.json()) as { id: string }).id
+
+    // Saved as cooked: no pantry dialog, and the row shows Cooked, the thumbs and Undo.
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const undo = day.getByRole('button', { name: `Undo: ${meal!.name}` })
+    await expect(undo).toBeFocused()
+    await expect(day.getByText('Cooked', { exact: true })).toBeVisible()
+    await expect(day.getByRole('button', { name: 'Thumbs up' })).toBeVisible()
+    await expect
+      .poll(async () => {
+        const entry = (await listEntries(page)).entries.find((e) => e.id === entryId)
+        return entry && { status: entry.status, charged: entry.pantryDeducted }
+      })
+      .toEqual({ status: 'completed', charged: false })
+
+    // A wrong log: Undo, then Remove, and the slot is empty with Add again.
+    await undo.click()
+    await day.getByRole('button', { name: 'Remove' }).click()
+    await expect(add).toBeFocused()
+    await expect
+      .poll(async () => (await listEntries(page)).entries.some((e) => e.id === entryId))
+      .toBe(false)
+    entryId = null
+  } finally {
+    if (entryId) {
+      await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
+    }
   }
 })

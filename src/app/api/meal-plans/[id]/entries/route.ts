@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
@@ -22,11 +22,14 @@ import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
 
 // The fields past `note` are for Undo after Clear, which posts the cleared
-// entry back (HON-1123). A completed entry offers no Clear, and a restore
-// must not create a completed row the pantry was never charged for, so
-// `status` stops at `skipped`. `pick` is "Pick for me": the server places the
-// slot's top suggestion itself, so it names no meal (HON-1248). `fridgeItems`
-// makes a fridge meal, which has no meal either (HON-1277).
+// entry back (HON-1123). A completed entry offers no Clear, so a restore
+// never sends `completed`. The one completed create is a log on Past meals
+// (HON-1383): a meal the household already ate, on a day before its today.
+// The pantry is never charged for it, so it carries no `pantryDeducted`, and
+// the POST refuses `completed` for today or a later day. `pick` is "Pick for
+// me": the server places the slot's top suggestion itself, so it names no
+// meal (HON-1248). `fridgeItems` makes a fridge meal, which has no meal
+// either (HON-1277).
 const createEntrySchema = z
   .object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
@@ -36,7 +39,7 @@ const createEntrySchema = z
     note: z.string().max(200).nullable().optional(),
     noteX: notePositionAxis,
     noteY: notePositionAxis,
-    status: z.enum(['planned', 'skipped']).optional(),
+    status: z.enum(['planned', 'skipped', 'completed']).optional(),
     servingOverride: z.number().int().min(1).max(20).nullable().optional(),
     rating: z.enum(['up', 'down']).nullable().optional(),
     pantryDeducted: z.boolean().optional(),
@@ -67,6 +70,13 @@ const createEntrySchema = z
         code: 'custom',
         path: ['fridgeItems'],
         message: 'fridgeItems excludes mealId and pick',
+      })
+    }
+    if (data.status === 'completed' && (data.pick || data.pantryDeducted)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['status'],
+        message: 'A completed log excludes pick and pantryDeducted',
       })
     }
   })
@@ -166,6 +176,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id: planId } = await params
   const { date, pick, ...fields } = parsed.data
+
+  // A log of a meal already eaten is for a past day only, in the household's
+  // day (HON-1383). Today's meal is marked cooked from its card, which runs
+  // the pantry deduction.
+  if (fields.status === 'completed' && date >= getTodayInTimezone(household.timezone)) {
+    return NextResponse.json(
+      { error: 'Only a day before today can take a completed entry' },
+      { status: 400 },
+    )
+  }
 
   // A pick ranks the slot as the suggestions route does, so it shares that
   // route's limit and cap check, in the same order. A plain create (the

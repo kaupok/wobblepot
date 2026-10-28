@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, SkipForward, Undo2 } from 'lucide-react'
+import { Check, SkipForward, Trash2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { MealRatingInline } from '@/components/meal-plan/MealRating'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
+import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type {
   EntryRating,
@@ -16,10 +17,15 @@ import type {
   PantryItemFull,
 } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
+import { usePastRowFocus } from './use-past-row-focus'
 
 interface PastMealRowProps {
   entryId: string
   planId: string
+  date: string
+  note?: string | null
+  noteX?: number | null
+  noteY?: number | null
   meal: MealData
   mealType: MealType
   status: MealStatus
@@ -29,6 +35,11 @@ interface PastMealRowProps {
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
   pantryItems?: PantryItemFull[]
+  /** Focus the row's control once it mounts — see `usePastRowFocus`. */
+  autoFocus?: boolean
+  onFocused?: () => void
+  /** Remove deleted the entry; the list moves focus to the empty slot that replaces it. */
+  onCleared?: () => void
 }
 
 /**
@@ -38,11 +49,18 @@ interface PastMealRowProps {
  * badges, and opens nothing. Cooked runs the same completion as the planner
  * card (`useEntryStatus`): the pantry deduction preview, unless the entry was
  * already charged or its meal would change no pantry row. Once cooked, the
- * thumbs sit inline; they are the prompt.
+ * thumbs sit inline; they are the prompt. A row that is not cooked also has
+ * Remove, which clears the slot as Clear does on the planner card, so a wrong
+ * log is fixed with Undo, then Remove (HON-1383). A cooked row has none:
+ * nothing tells a logged meal from a planned one cooked later.
  */
 export function PastMealRow({
   entryId,
   planId,
+  date,
+  note = null,
+  noteX = null,
+  noteY = null,
   meal,
   mealType,
   status: initialStatus,
@@ -51,6 +69,9 @@ export function PastMealRow({
   servingOverride,
   pantryDeducted = false,
   pantryItems = [],
+  autoFocus,
+  onFocused,
+  onCleared,
 }: PastMealRowProps) {
   const t = useTranslations('pastMeals.row')
   const mealTypeLabel = useEnumLabel('MealType', mealType)
@@ -75,42 +96,50 @@ export function PastMealRow({
     source: 'past_meals',
   })
 
-  // Each action swaps the control that was pressed for another: Cooked and
-  // Skipped give way to Undo, and Undo to Cooked, so focus would fall to the
-  // page body (docs/DESIGN.md → Focus management). Exactly one of the two is
-  // mounted, so it is the target whichever way the status moved, a revert
-  // after a failed request included. The buttons are keyed: Skipped and Undo
-  // sit in the same place, and React would otherwise reuse one's node for the
-  // other, focus and all.
-  const cookedRef = useRef<HTMLButtonElement>(null)
-  const undoRef = useRef<HTMLButtonElement>(null)
-  const actedRef = useRef(false)
-  function focusCurrentControl() {
-    ;(undoRef.current ?? cookedRef.current)?.focus()
-  }
-  useEffect(() => {
-    if (!actedRef.current) return
-    // Only when focus was lost: the user may have moved on by the time the
-    // request returns, and the deduction dialog holds focus while it is open.
-    if (document.activeElement && document.activeElement !== document.body) return
-    focusCurrentControl()
-  }, [status])
+  const { cookedRef, undoRef, markActed, focusRowOnClose } = usePastRowFocus({
+    status,
+    autoFocus,
+    onFocused,
+  })
+  const { clear, isClearing } = useClearEntry({ planId, entryId, name: meal.name, onCleared })
+  const isBusy = isUpdating || isClearing
 
   // A pending request keeps the buttons focusable (`aria-disabled`) and the
   // handler ignores the press: a `disabled` button drops focus.
   function act(next: MealStatus) {
-    if (isUpdating) return
-    actedRef.current = true
+    if (isBusy) return
+    markActed()
     handleStatusChange(next)
   }
 
-  // The dialog opens from state, with no trigger to return to. After a
-  // confirm Cooked is gone and Undo has taken its place; after a cancel
-  // Cooked is still there.
-  function focusRowOnClose(event: Event) {
-    event.preventDefault()
-    focusCurrentControl()
+  function remove() {
+    if (isBusy || status === 'completed') return
+    clear({
+      date,
+      mealType,
+      mealId: meal.id,
+      note,
+      noteX: note ? noteX : null,
+      noteY: note ? noteY : null,
+      servingOverride: servingOverride ?? null,
+      status,
+      rating,
+      pantryDeducted,
+    })
   }
+
+  const removeButton = (
+    <Button
+      key="remove"
+      variant="ghost"
+      aria-describedby={nameId}
+      aria-disabled={isBusy || undefined}
+      onClick={remove}
+    >
+      <Trash2 aria-hidden="true" />
+      {t('remove')}
+    </Button>
+  )
 
   return (
     <>
@@ -127,7 +156,7 @@ export function PastMealRow({
                 ref={cookedRef}
                 variant="outline"
                 aria-describedby={nameId}
-                aria-disabled={isUpdating || undefined}
+                aria-disabled={isBusy || undefined}
                 onClick={() => act('completed')}
               >
                 <Check aria-hidden="true" />
@@ -137,12 +166,13 @@ export function PastMealRow({
                 key="skipped"
                 variant="outline"
                 aria-describedby={nameId}
-                aria-disabled={isUpdating || undefined}
+                aria-disabled={isBusy || undefined}
                 onClick={() => act('skipped')}
               >
                 <SkipForward aria-hidden="true" />
                 {t('skipped')}
               </Button>
+              {removeButton}
             </>
           ) : (
             <>
@@ -175,11 +205,12 @@ export function PastMealRow({
                 variant="ghost"
                 size="icon"
                 aria-label={t('undo', { mealName: meal.name })}
-                aria-disabled={isUpdating || undefined}
+                aria-disabled={isBusy || undefined}
                 onClick={() => act('planned')}
               >
                 <Undo2 aria-hidden="true" />
               </Button>
+              {status === 'skipped' && removeButton}
             </>
           )}
         </div>

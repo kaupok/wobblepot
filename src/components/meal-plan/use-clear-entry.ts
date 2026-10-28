@@ -28,11 +28,16 @@ export interface ClearedMealEntry {
   pantryDeducted: boolean
 }
 
-/** What Undo posts back after a fridge meal is cleared: its items and its note (HON-1277). */
+/**
+ * What Undo posts back after a fridge meal is cleared: its items, its note
+ * (HON-1277) and its status, since Past meals offers Remove on a skipped one
+ * (HON-1383).
+ */
 export interface ClearedFridgeMeal {
   date: string
   mealType: MealType
   fridgeItems: FridgeItemInput[]
+  status: 'planned' | 'skipped'
   note: string | null
   noteX: number | null
   noteY: number | null

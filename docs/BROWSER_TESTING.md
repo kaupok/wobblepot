@@ -123,7 +123,7 @@ To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough
 | `/reminders/confirm`          | Public        | Confirm link in the weekly reminder email; opening it changes nothing, its button confirms                                     |
 | `/reminders/stop`             | Public        | Stop link in the weekly reminder email; opening it changes nothing, its button stops                                           |
 | `/consent`                    | Auth          | OAuth consent step for an MCP client: Allow or Deny (signed out → `/sign-in` with the query kept)                              |
-| `/past-meals`                 | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice                                     |
+| `/past-meals`                 | Auth          | Past days, newest first, a week at a time: mark meals cooked or skipped, or add what the household ate in an empty slot        |
 | `/onboarding`                 | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                                              |
 | `/recipes`                    | Auth          | My recipes — meal library browser                                                                                              |
 | `/recipes/create`             | Auth          | Create a recipe manually                                                                                                       |
