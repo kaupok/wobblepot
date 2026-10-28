@@ -576,9 +576,14 @@ describe('updateHouseholdMeal', () => {
     ])('clears it, and returns its URL, for %s', async (_label, patch) => {
       const { alder } = await world()
 
-      const { discardedImageUrl } = await updateHouseholdMeal(alder, 'meal-curry', patch)
+      const { discardedImageUrl, imageInvalidated } = await updateHouseholdMeal(
+        alder,
+        'meal-curry',
+        patch,
+      )
 
       expect(discardedImageUrl).toBe(CURRY_IMAGE)
+      expect(imageInvalidated).toBe(true)
       expect(await imageOf('meal-curry')).toEqual(cleared)
     })
 
@@ -593,10 +598,31 @@ describe('updateHouseholdMeal', () => {
     ])('keeps it for %s', async (_label, patch) => {
       const { alder } = await world()
 
-      const { discardedImageUrl } = await updateHouseholdMeal(alder, 'meal-curry', patch)
+      const { discardedImageUrl, imageInvalidated } = await updateHouseholdMeal(
+        alder,
+        'meal-curry',
+        patch,
+      )
 
       expect(discardedImageUrl).toBeNull()
+      expect(imageInvalidated).toBe(false)
       expect(await imageOf('meal-curry')).toEqual(kept)
+    })
+
+    // The route starts a new image on `imageInvalidated`, so it must not hinge
+    // on there having been a blob to delete (HON-1364).
+    it('reports the image invalidated when there was no image to delete', async () => {
+      const { alder } = await world()
+      await updateHouseholdMeal(alder, 'meal-curry', { name: 'Curry, first rename' })
+
+      const { discardedImageUrl, imageInvalidated } = await updateHouseholdMeal(
+        alder,
+        'meal-curry',
+        { name: 'Curry, second rename' },
+      )
+
+      expect(discardedImageUrl).toBeNull()
+      expect(imageInvalidated).toBe(true)
     })
 
     // The omelette is 2 eggs (100 g) and 30 g cheese for 1, so it ranks

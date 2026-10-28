@@ -9,6 +9,23 @@ import { GET, PATCH, DELETE } from './route'
 // household, body validation, the blob delete after an edit commits, and the status
 // and body each answer maps to (HON-1210).
 
+// `after()` callbacks are collected and run by the test, so a case can assert
+// on the response before any of the work has happened, as in production.
+const afterCallbacks: Array<() => unknown> = []
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn((callback: () => unknown) => {
+    afterCallbacks.push(callback)
+  }),
+}))
+
+// The image claim and draw live in `@/lib/meal-images/start`, tested in
+// `start.test.ts`; the route owns when they run (HON-1364).
+vi.mock('@/lib/meal-images/start', () => ({
+  claimSavedMealImage: vi.fn(),
+  drawSavedMealImage: vi.fn(),
+}))
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
@@ -37,6 +54,7 @@ vi.mock('@/lib/household-meals', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { discardMealImage } from '@/lib/meal-images/storage'
@@ -48,6 +66,8 @@ import {
 } from '@/lib/household-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
+const mockClaimImage = vi.mocked(claimSavedMealImage)
+const mockDrawImage = vi.mocked(drawSavedMealImage)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockDiscardMealImage = vi.mocked(discardMealImage)
@@ -88,6 +108,8 @@ const remove = () => DELETE(new Request(URL, { method: 'DELETE' }), params)
 
 beforeEach(() => {
   vi.clearAllMocks()
+  afterCallbacks.length = 0
+  mockClaimImage.mockResolvedValue(null)
   mockGetSession.mockResolvedValue(mockSession)
   mockGetMembership.mockResolvedValue(mockMembership)
 })
@@ -259,6 +281,46 @@ describe('PATCH /api/households/me/meals/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(mockDiscardMealImage).toHaveBeenCalledWith(storedImageUrl, ROUTE)
+  })
+
+  describe('the image (HON-1364)', () => {
+    const imageClaim = { meal: { id: 'meal-1' }, claim: { mealId: 'meal-1' } } as never
+
+    it('starts a new image after the response when the edit cleared it', async () => {
+      mockUpdate.mockResolvedValue({
+        meal: updated,
+        discardedImageUrl: null,
+        imageInvalidated: true,
+      } as never)
+      mockClaimImage.mockResolvedValue(imageClaim)
+
+      const response = await patch({ name: 'Updated meal' })
+
+      expect(response.status).toBe(200)
+      expect(mockClaimImage).toHaveBeenCalledExactlyOnceWith('household-123', 'meal-1', ROUTE)
+      expect(mockDrawImage).not.toHaveBeenCalled()
+
+      await afterCallbacks[0]!()
+
+      expect(mockDrawImage).toHaveBeenCalledExactlyOnceWith(imageClaim, {
+        householdId: 'household-123',
+        userId: 'user-123',
+        route: ROUTE,
+      })
+    })
+
+    it('starts nothing when the edit kept the image', async () => {
+      mockUpdate.mockResolvedValue({
+        meal: updated,
+        discardedImageUrl: null,
+        imageInvalidated: false,
+      } as never)
+
+      await patch({ servings: 6 })
+
+      expect(mockClaimImage).not.toHaveBeenCalled()
+      expect(afterCallbacks).toHaveLength(0)
+    })
   })
 
   it('returns 404 when the recipe is not the household’s or is deleted', async () => {

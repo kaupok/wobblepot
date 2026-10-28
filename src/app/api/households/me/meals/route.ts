@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
@@ -11,8 +11,11 @@ import {
 } from '@/lib/household-meals'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 import { mealFieldsSchema } from '@/lib/meals/meal-fields-schema'
+
+const ROUTE = '/api/households/me/meals'
 
 const createMealSchema = mealFieldsSchema.extend({ components: mealComponentsSchema })
 
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(page)
   } catch (error) {
-    captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
+    captureApiError(error, { route: ROUTE, userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meals' }, { status: 500 })
   }
 }
@@ -103,7 +106,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const meal = await createHouseholdMeal(membership.household.id, parsed.data)
+    const householdId = membership.household.id
+    const meal = await createHouseholdMeal(householdId, parsed.data)
+
+    // A saved recipe is one the household means to cook, so its image starts
+    // now rather than on the first cook view (HON-1364). The claim is taken
+    // here, so the list read after the save shows it drawing; the draw itself
+    // runs after the response, so saving is not slower.
+    const imageClaim = await claimSavedMealImage(householdId, meal.id, ROUTE)
+    if (imageClaim) {
+      const userId = session.user.id
+      after(() => drawSavedMealImage(imageClaim, { householdId, userId, route: ROUTE }))
+    }
 
     return NextResponse.json(meal, { status: 201 })
   } catch (error) {
@@ -114,7 +128,14 @@ export async function POST(request: Request) {
       )
     }
 
-    captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
+    captureApiError(error, { route: ROUTE, userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
 }
+
+/**
+ * Platform execution ceiling for this route, in seconds. `after()` runs within
+ * it, and the image drawn after a save needs up to 50 s of AI time
+ * (`@/lib/meal-images/start`); 60 is the value every Vercel plan allows.
+ */
+export const maxDuration = 60

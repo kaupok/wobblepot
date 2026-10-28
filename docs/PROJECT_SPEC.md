@@ -354,7 +354,7 @@ enum ProteinType {
 
 **AI Failures:** the numbers live in code; read them there rather than copying them here.
 
-- **Timeouts:** each AI route has a wall-clock budget in `src/lib/ai/budgets.ts`, sized under the route's `maxDuration`, and shared by the first attempt and the AI SDK's retries. Running out returns a 504 the client renders as catalog copy. The exception is the meal-image route, whose `AI_BUDGET_MS` is in `src/app/api/meals/[id]/image/route.ts`
+- **Timeouts:** each AI route has a wall-clock budget in `src/lib/ai/budgets.ts`, sized under the route's `maxDuration`, and shared by the first attempt and the AI SDK's retries. Running out returns a 504 the client renders as catalog copy. The exception is the meal-image route, whose `AI_BUDGET_MS` is in `src/lib/meal-images/start.ts`
 - **Retries:** the AI SDK's own retries, bounded by that budget. Meal images are the exception: `src/lib/meal-images/generate.ts` runs its own retry loop. No route makes a second model call to repair a bad plan; repair is deterministic (see AI Generation Flow)
 - **Rate limits:** per household or per user, per feature, in `src/lib/rate-limit.ts` (Upstash Redis). A limited request gets 429 with `Retry-After`. The limiter fails open when Redis is unreachable (see `checkRateLimit`)
 - **Cost cap:** every AI route, and the two swap routes, calls `assertUnderCap` (`src/lib/ai/usage.ts`) against the household's `aiCapUsd`
@@ -472,7 +472,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 
 - My recipes: create, edit, and import from a URL or pasted text (`/recipes`)
 - Imagine: describe what you want, optionally with photos, and the AI suggests recipes to save (`/recipes/imagine`)
-- Generated meal images
+- Generated meal images. A household recipe's image starts when it is saved, or edited in a way that clears its image: the save request claims it and `after()` draws it, so saving is not slower. The My recipes card shows a plain `bg-muted` box until it is ready (HON-1364). A recipe saved another way (MCP, a plan entry made a recipe) still gets its image when its cook view first opens.
 - Delete and restore (HON-1336): Delete sets `Meal.deletedAt` and keeps the image. For 30 days, the same window as account deletion, the household can bring the recipe back with its image, ingredients and history: Undo in the delete toast, or Restore under "Recently deleted" at the end of `/recipes` (`src/lib/deleted-household-meals.ts`, `POST /api/households/me/meals/[id]/restore`). After 30 days the recipe cannot be restored, and the daily purge cron clears its image and deletes the file (`purgeExpiredDeletedMealImages`). The `Meal` row stays, because past plan entries and `get_meal` read it.
 
 ### Shopping & Pantry (Complete)

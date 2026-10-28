@@ -515,7 +515,9 @@ function rankIngredients(rows: { id: string; amount: number }[]): string {
  * its plan entries and its image when, and only when, an input to that cache
  * changes by value. Returns the meal as the route sends it and the URL of the
  * image it cleared, which the caller deletes once this has committed: a
- * rolled-back edit must not have lost its image.
+ * rolled-back edit must not have lost its image. `imageInvalidated` says the
+ * image was cleared, even when there was none to delete, so the caller can
+ * start a new one (HON-1364).
  */
 export async function updateHouseholdMeal(
   householdId: string,
@@ -578,7 +580,7 @@ export async function updateHouseholdMeal(
   if (servings !== undefined) updateData.servings = servings
 
   // Use transaction to update meal and components atomically
-  const { meal, discardedImageUrl } = await prisma.$transaction(async (tx) => {
+  const { meal, discardedImageUrl, imageInvalidated } = await prisma.$transaction(async (tx) => {
     // `components` and `servings` are independently optional in the schema,
     // so a components-only PATCH has to scale against something. The meal's
     // own stored `servings` is that divisor — it is what the rows already on
@@ -820,7 +822,7 @@ export async function updateHouseholdMeal(
       },
     })
 
-    return { meal: updated, discardedImageUrl }
+    return { meal: updated, discardedImageUrl, imageInvalidated: imageInputChanged }
   })
 
   return {
@@ -860,6 +862,7 @@ export async function updateHouseholdMeal(
       ...summarise(meal.components),
     },
     discardedImageUrl,
+    imageInvalidated,
   }
 }
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
@@ -11,6 +11,7 @@ import {
 } from '@/lib/household-meals'
 import { captureApiError } from '@/lib/errors'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
@@ -112,14 +113,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const { meal, discardedImageUrl } = await updateHouseholdMeal(
-      membership.household.id,
+    const householdId = membership.household.id
+    const { meal, discardedImageUrl, imageInvalidated } = await updateHouseholdMeal(
+      householdId,
       id,
       parsed.data,
     )
 
     // After commit: a rolled-back edit must not have lost its image.
     await discardMealImage(discardedImageUrl, ROUTE)
+
+    // An edit that cleared the image starts the new one at once, as a new
+    // recipe does (HON-1364): claimed here, drawn after the response.
+    if (imageInvalidated) {
+      const imageClaim = await claimSavedMealImage(householdId, id, ROUTE)
+      if (imageClaim) {
+        const userId = session.user.id
+        after(() => drawSavedMealImage(imageClaim, { householdId, userId, route: ROUTE }))
+      }
+    }
 
     return NextResponse.json(meal)
   } catch (error) {
@@ -170,3 +182,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Failed to delete meal' }, { status: 500 })
   }
 }
+
+/**
+ * Platform execution ceiling for this route, in seconds. `after()` runs within
+ * it, and the image redrawn after an edit needs up to 50 s of AI time
+ * (`@/lib/meal-images/start`); 60 is the value every Vercel plan allows.
+ */
+export const maxDuration = 60

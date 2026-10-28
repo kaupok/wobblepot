@@ -299,16 +299,20 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
    * alternative card's Select button) below the picture.
    */
   footer?: ReactNode
+  /** `bottom` only: a plain `bg-muted` box holds the image's slot while `generating` (HON-1364). */
+  reserveWhileGenerating?: boolean
 }
 
 /**
  * A `Card` that takes its meal's colour (HON-746, `docs/DESIGN.md` → Imagery):
  * tinted with the meal's `imageHue`, with the illustration blended into the
  * right of the card, or below its content with `layout="bottom"`. A meal
- * without an image is a plain `Card` — no tint, no image element, nothing
- * reserved while it generates. A meal with an image but no hue keeps the
- * image on an untinted surface (`data-meal-surface="neutral"`: the tint's
- * lightness at zero chroma, globals.css).
+ * without an image is a plain `Card` — no tint, no image element. Only a
+ * `bottom` card with `reserveWhileGenerating` (My recipes, HON-1364) holds
+ * the image's space while it generates, with a plain `bg-muted` box. A meal
+ * with an image but no hue keeps the image on an untinted surface
+ * (`data-meal-surface="neutral"`: the tint's lightness at zero chroma,
+ * globals.css).
  *
  * With a `head`, the side image is bounded by the head rather than the card,
  * and `children` are the full-width rows below it (HON-927). An `overlay` lies
@@ -332,6 +336,7 @@ export function MealImageCard({
   overlayWide = false,
   overlayPlacement,
   footer,
+  reserveWhileGenerating = false,
   className,
   style,
   children,
@@ -345,6 +350,7 @@ export function MealImageCard({
   // A URL that no longer resolves is an absent image: the card goes neutral
   // rather than keeping a tint with nothing to explain it. Errors are silent.
   const hasImage = !!imageUrl && imageUrl !== brokenUrl
+  const reserved = reserveWhileGenerating && meal.imageStatus === 'generating'
   // An image without a hue is still shown, on the neutral card: a picture
   // that was generated and paid for is never hidden by its colour (HON-754).
   const tinted = hasImage && hue !== null
@@ -430,7 +436,14 @@ export function MealImageCard({
         head
       )}
       {children}
-      {layout === 'bottom' ? image : null}
+      {layout === 'bottom' &&
+        (image ??
+          (reserved && (
+            <div
+              data-testid="meal-card-image-generating"
+              className="bg-muted aspect-3/2 w-full shrink-0"
+            />
+          )))}
       {footer}
     </Card>
   )
