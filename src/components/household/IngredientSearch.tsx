@@ -5,7 +5,7 @@ import { Search, Plus, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
+import { cn, scrollIntoViewNearest } from '@/lib/utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
 import { type IngredientResult } from './meal-form-types'
@@ -63,6 +63,13 @@ export function IngredientSearch({
       : firstAddableIndex
 
   const getOptionId = (index: number) => `${listboxId}-option-${index}`
+
+  // On a phone the list opens below a field near the screen bottom, under the
+  // tab bar; scroll it up so the highlighted result shows (HON-1378). "Nearest"
+  // leaves a list that is already in view where it is.
+  useEffect(() => {
+    if (showDropdown) scrollIntoViewNearest(dropdownRef.current)
+  }, [showDropdown, searchResults.length])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -151,7 +158,7 @@ export function IngredientSearch({
           ref={dropdownRef}
           id={listboxId}
           role="listbox"
-          className="bg-popover absolute top-full z-10 mt-1 w-full rounded-md border shadow-md"
+          className="bg-popover scroll-mb-above-tab-bar absolute top-full z-10 mt-1 w-full rounded-md border shadow-md md:scroll-mb-0"
         >
           {searchResults.map((ingredient, index) => {
             const isAdded = existingIngredientIds.includes(ingredient.id)
