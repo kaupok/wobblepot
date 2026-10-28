@@ -1,6 +1,6 @@
-import { createRef } from 'react'
+import { useRef } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { MealCardMenu } from './MealCardMenu'
 
 const meta = {
@@ -19,7 +19,9 @@ const meta = {
   args: {
     mealName: 'Lemon garlic chicken',
     status: 'planned',
-    triggerRef: createRef<HTMLButtonElement>(),
+    // Replaced in `render`: a shared ref arg holding the trigger's DOM node
+    // overflowed the stack from the seventh story on.
+    triggerRef: { current: null },
     isUpdating: false,
     isClearing: false,
     onNote: fn(),
@@ -28,6 +30,10 @@ const meta = {
     onStatusChange: fn(),
     onSwap: fn(),
     onClear: fn(),
+  },
+  render: function Render(args) {
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    return <MealCardMenu {...args} triggerRef={triggerRef} />
   },
 } satisfies Meta<typeof MealCardMenu>
 
@@ -114,5 +120,44 @@ export const Estonian: Story = {
       'Mõtle välja toit',
       'Külmkapitoit',
     ])
+  },
+}
+
+/** A planned recipe dinner offers "Cook for tomorrow's lunch too" (HON-1396). */
+export const CookForLunch: Story = {
+  args: {
+    cookForLunch: {
+      option: { state: 'available' },
+      planId: 'plan-1',
+      entryId: 'entry-1',
+      householdServings: 2.5,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const menu = await openMenu(canvasElement)
+    await userEvent.click(menu.getByRole('menuitem', { name: "Cook for tomorrow's lunch too" }))
+    const dialog = await within(document.body).findByRole('dialog', {
+      name: "Cook for tomorrow's lunch too",
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(within(document.body).queryByRole('dialog')).toBeNull())
+  },
+}
+
+/** Lunch is off for the next day: the item says how to turn it on (HON-1396). */
+export const CookForLunchUnavailable: Story = {
+  args: {
+    cookForLunch: {
+      option: { state: 'unavailable', reason: 'lunchOff' },
+      planId: 'plan-1',
+      entryId: 'entry-1',
+      householdServings: 2.5,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const menu = await openMenu(canvasElement)
+    const item = menu.getByRole('menuitem', { name: /Cook for tomorrow's lunch too/ })
+    await expect(item).toHaveAttribute('aria-disabled', 'true')
+    await expect(item).toHaveTextContent('Meal preferences → Meals to plan')
   },
 }

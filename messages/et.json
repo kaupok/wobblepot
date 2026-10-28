@@ -252,8 +252,8 @@
       "addQuery": "Lisa „{query}“",
       "recentHeading": "Jäägid",
       "recentLoading": "Laadin…",
-      "recentFailed": "Viimaseid toite ei õnnestunud laadida. Lisa jäägid allpool tekstina.",
-      "recentEmpty": "Viimase 3 päeva jooksul pole ühtegi toitu söödud.",
+      "recentFailed": "Jääke ei õnnestunud laadida. Lisa need allpool tekstina.",
+      "recentEmpty": "Sellele eelneva 3 päeva jooksul pole ühtegi toitu.",
       "leftover": "{meal} ({day})",
       "leftoverNoName": "Jäägid ({day})",
       "leftoverDetail": "{meal} ({day}, {mealType, select, breakfast {hommikusöök} lunch {lõunasöök} other {õhtusöök}}) · {count, plural, one {{servings} portsjon} other {{servings} portsjonit}}",
@@ -280,7 +280,13 @@
       "completeConfirm": "Valmis",
       "completing": "Salvestan…",
       "recentLabelsHeading": "Viimasel ajal kasutatud",
-      "recentLabelsAllChosen": "Kõik on juba selles toidus."
+      "recentLabelsAllChosen": "Kõik on juba selles toidus.",
+      "servingsGroup": "Portsjonid: {name}",
+      "fewerServings": "Vähem portsjoneid",
+      "moreServings": "Rohkem portsjoneid",
+      "servingsValue": "{count, plural, one {{servings} portsjon} other {{servings} portsjonit}}",
+      "servingsNotSet": "Portsjonid määramata",
+      "leftoverRefused": "Üht jääki ei saa sellele toidukorrale enam kasutada. Eemalda see ja proovi uuesti."
     },
     "noteEditor": {
       "placeholder": "Lisa märkus…",
@@ -624,6 +630,27 @@
       "removing": "Eemaldan…",
       "saveFailed": "Lisa salvestamine ebaõnnestus. Palun proovi uuesti.",
       "removeFailed": "Lisa eemaldamine ebaõnnestus. Palun proovi uuesti."
+    },
+    "cookForLunch": {
+      "menuItem": "Tee ka homseks lõunaks",
+      "reasonRecipeLunch": "Homseks lõunaks on juba retseptiga toit.",
+      "reasonCooked": "Homne lõuna on juba valmis tehtud.",
+      "reasonLunchOff": "Lõunasöök on sellel päeval välja lülitatud. Lülita see sisse: Leibkond → Toidueelistused → Planeeritavad toidud.",
+      "title": "Tee ka homseks lõunaks",
+      "description": "Tee toitu {meal} rohkem portsjoneid. Ülejääk on homne lõuna ja ostunimekiri kasvab vastavalt.",
+      "servingsLabel": "Portsjonid lõunaks",
+      "confirm": "Lisa lõunaks",
+      "saving": "Lisan…",
+      "added": "Homne lõuna on jääkidest: {meal}.",
+      "errors": {
+        "recipeLunch": "Homseks lõunaks on juba retseptiga toit. Värskenda lehte, et seda näha.",
+        "cooked": "Homne lõuna on juba valmis tehtud. Värskenda lehte, et seda näha.",
+        "lunchOff": "Lõunasöök on sellel päeval välja lülitatud. Lülita see sisse: Leibkond → Toidueelistused → Planeeritavad toidud.",
+        "alreadyLinked": "Homne lõuna on juba selle toidu jääkidest. Portsjoneid muudad lõuna nupust „Muuda koostist“.",
+        "notPlannedDinner": "See toit pole enam planeeritud õhtusöök. Värskenda lehte, et seda näha.",
+        "lunchChanged": "Homne lõuna muutus vahepeal. Värskenda lehte ja proovi uuesti.",
+        "failed": "Lõunat ei õnnestunud lisada. Palun proovi uuesti."
+      }
     }
   },
   "pastMeals": {

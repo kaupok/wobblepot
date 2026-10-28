@@ -37,6 +37,11 @@ vi.mock('@/lib/meal-plans/fridge-meal', async (importOriginal) => ({
   setFridgeItems: vi.fn(),
 }))
 
+// The source rule is tested against a database in `plan-fridge-meal.leftovers.db.test.ts`.
+vi.mock('@/lib/meal-plans/recent-meals', () => ({
+  findLeftoverProblemForEntry: vi.fn(() => Promise.resolve(null)),
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { updateEntry } from '@/lib/meal-plans/entries'
@@ -45,6 +50,7 @@ import {
   setFridgeItems,
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
+import { findLeftoverProblemForEntry } from '@/lib/meal-plans/recent-meals'
 
 const mockUpdateEntry = vi.mocked(updateEntry)
 const mockSetFridgeItems = vi.mocked(setFridgeItems)
@@ -80,6 +86,25 @@ describe('PATCH with fridgeItems', () => {
     expect(await patch({ fridgeItems: ITEMS })).toEqual({ status: 200, body: updated })
     expect(mockSetFridgeItems).toHaveBeenCalledWith('household-123', 'plan-123', 'entry-123', ITEMS)
     expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 with the code when the source rule refuses an item (HON-1396)', async () => {
+    vi.mocked(findLeftoverProblemForEntry).mockResolvedValueOnce({
+      sourceEntryId: 'entry-mash',
+      problem: 'tooOld',
+    })
+
+    expect(await patch({ fridgeItems: ITEMS })).toEqual({
+      status: 400,
+      body: {
+        error: 'Leftover source refused',
+        code: 'leftover_source',
+        sourceEntryId: 'entry-mash',
+        problem: 'tooOld',
+      },
+    })
+    expect(findLeftoverProblemForEntry).toHaveBeenCalledWith('household-123', 'entry-123', ITEMS)
+    expect(mockSetFridgeItems).not.toHaveBeenCalled()
   })
 
   it('answers 400 for items sent with another field', async () => {

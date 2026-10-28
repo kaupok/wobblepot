@@ -38,6 +38,11 @@ vi.mock('@/lib/meal-plans/pick-for-slot', async (importOriginal) => ({
   pickMealForSlot: vi.fn(),
 }))
 
+// The source rule is tested against a database in `plan-fridge-meal.leftovers.db.test.ts`.
+vi.mock('@/lib/meal-plans/recent-meals', () => ({
+  findLeftoverSourceProblem: vi.fn(() => Promise.resolve(null)),
+}))
+
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
   retryAfterSeconds: vi.fn(() => 120),
@@ -58,6 +63,7 @@ import {
 } from '@/lib/meal-plans/create-entry'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
+import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
@@ -510,6 +516,32 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       const body = { date: '2099-01-28', mealType: 'dinner', fridgeItems, ...extra }
 
       expect((await answer(post(body))).status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it('runs the source rule for the slot, and answers 400 with its code when it refuses (HON-1396)', async () => {
+      const leftovers = [{ sourceEntryId: 'entry-dinner' }]
+      vi.mocked(findLeftoverSourceProblem).mockResolvedValueOnce({
+        sourceEntryId: 'entry-dinner',
+        problem: 'servingsRequired',
+      })
+
+      expect(
+        await answer(post({ date: '2099-01-28', mealType: 'lunch', fridgeItems: leftovers })),
+      ).toEqual({
+        status: 400,
+        body: {
+          error: 'Leftover source refused',
+          code: 'leftover_source',
+          sourceEntryId: 'entry-dinner',
+          problem: 'servingsRequired',
+        },
+      })
+      expect(findLeftoverSourceProblem).toHaveBeenCalledWith(
+        'household-123',
+        { date: '2099-01-28', mealType: 'lunch' },
+        leftovers,
+      )
       expect(mockCreateEntry).not.toHaveBeenCalled()
     })
 

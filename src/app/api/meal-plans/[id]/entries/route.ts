@@ -17,6 +17,7 @@ import {
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
+import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -218,6 +219,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
+    // The source rule (HON-1394): the picker lists only sources it allows, so
+    // a refusal means the list went stale. The client tells it apart by `code`.
+    const refused = fields.fridgeItems
+      ? await findLeftoverSourceProblem(
+          household.id,
+          { date, mealType: fields.mealType },
+          fields.fridgeItems,
+        )
+      : null
+    if (refused) {
+      return NextResponse.json(
+        { error: 'Leftover source refused', code: 'leftover_source', ...refused },
+        { status: 400 },
+      )
+    }
+
     // The plan, slot and meal checks live in `createEntry`.
     return NextResponse.json(
       pick

@@ -24,7 +24,9 @@ beforeEach(() => {
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
       requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null })
-      const body = url === '/api/entries/recent' ? { meals: [] } : { id: 'entry-new' }
+      const body = url.startsWith('/api/entries/recent')
+        ? { meals: [], defaultServings: 2 }
+        : { id: 'entry-new' }
       return Promise.resolve(
         new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } }),
       )

@@ -31,6 +31,7 @@ import { ProteinBadge } from './ProteinBadge'
 import { ConflictBadges } from './ConflictBadge'
 import { ChangedBadge } from './ChangedBadge'
 import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './use-leftover-lunches'
+import type { LeftoverLunchOption } from './leftover-lunch-option'
 import type {
   EntryChange,
   EntryRating,
@@ -49,7 +50,7 @@ import { useEntryStatus } from './use-entry-status'
 import { useClearEntry } from './use-clear-entry'
 import { DESCRIPTION_CLAMP, useDescriptionLines } from './use-description-lines'
 import { cn } from '@/lib/utils'
-import { CARD_CLICK_IGNORE } from './card-click'
+import { useMealCardClick } from './use-meal-card-click'
 
 interface MealCardProps {
   entryId: string
@@ -73,6 +74,8 @@ interface MealCardProps {
   cookServings?: number
   /** See `PlanEntry.leftoversFor`. */
   leftoversFor?: LeftoverLunch[]
+  /** "Cook for tomorrow's lunch too" in the ⋯ menu (HON-1396); absent hides it. */
+  leftoverLunch?: LeftoverLunchOption
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
   /** The entry's cached preparation tips — see `PlanEntry.preparationTips`. */
@@ -110,6 +113,7 @@ export function MealCard({
   servingOverride: initialServingOverride,
   cookServings,
   leftoversFor,
+  leftoverLunch,
   pantryDeducted = false,
   preparationTips = null,
   conflicts = [],
@@ -393,35 +397,13 @@ export function MealCard({
     handleStatusChange('completed', opener === 'menu' ? 'meal_card' : 'cook_view')
   }
 
-  // A click anywhere on the card opens the cook view, as the name does
-  // (HON-1010). A pointer shortcut only: the name stays the card's keyboard
-  // target and accessible name, so the card takes no role, tab stop or keys.
-  // Skipped for a click on a control (the name opens the view itself), in the
-  // open note editor, and for a click that ends a text selection. React bubbles
-  // events out of portals along its own tree, so a click in the ⋯ menu
-  // reaches this handler too; that is outside the card's DOM, which the first check catches. The menu is not modal, so a
-  // press outside it closes it and still clicks the card: that press only
-  // closes the menu.
-  const pressClosesMenuRef = useRef(false)
-  function handleCardPointerDown() {
-    pressClosesMenuRef.current =
-      moreActionsTriggerRef.current?.getAttribute('aria-expanded') === 'true'
-  }
-  function handleCardClick(event: React.MouseEvent<HTMLDivElement>) {
-    if (pressClosesMenuRef.current) return
-    const target = event.target
-    if (!(target instanceof Element) || !event.currentTarget.contains(target)) return
-    if (target.closest(CARD_CLICK_IGNORE)) return
-    // The open editor's slip belongs to the editor. A read-only card's slip is
-    // part of the card.
-    if (isNoteEditing && target.closest('[data-slot="meal-image-overlay"] *')) return
-    if (window.getSelection()?.toString()) return
-    // The press left focus on the page body, and the cook view hands focus
-    // back to whatever had it as it opened. Give it the name, as a click on
-    // the name would. After a pointer press this shows no focus ring.
-    mealNameButtonRef.current?.focus({ preventScroll: true })
-    setIsDetailModalOpen(true)
-  }
+  // A click anywhere on the card opens the cook view, as the name does (HON-1010).
+  const cardClick = useMealCardClick({
+    menuTriggerRef: moreActionsTriggerRef,
+    nameButtonRef: mealNameButtonRef,
+    isNoteEditing,
+    onOpen: () => setIsDetailModalOpen(true),
+  })
 
   // The menu sits at the right end of the first row; the image ends before
   // it and the title wraps before the image (HON-749).
@@ -512,8 +494,8 @@ export function MealCard({
         trailingActions={hasTrailingActions}
         size="sm"
         interactive
-        onPointerDownCapture={handleCardPointerDown}
-        onClick={handleCardClick}
+        onPointerDownCapture={cardClick.onPointerDownCapture}
+        onClick={cardClick.onClick}
         // The head is every row from the slot badge down to the badges; the
         // plate runs its height. The rows below it — the rating prompt
         // and the inline thumbs — run across the width, so they are the
@@ -582,6 +564,9 @@ export function MealCard({
                       setIsRegenerateModalOpen(true)
                     }}
                     onClear={handleClear}
+                    cookForLunch={
+                      leftoverLunch && { option: leftoverLunch, planId, entryId, householdServings }
+                    }
                   />
                 </div>
               )}

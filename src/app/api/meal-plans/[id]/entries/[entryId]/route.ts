@@ -17,6 +17,7 @@ import {
   setFridgeItems,
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
+import { findLeftoverProblemForEntry } from '@/lib/meal-plans/recent-meals'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -167,6 +168,19 @@ export async function PATCH(
   try {
     const { fridgeItems, ...patch } = parsed.data
     if (fridgeItems) {
+      // The source rule (HON-1394). Items the entry already stores pass, so
+      // Edit items can send them back as read.
+      const refused = await findLeftoverProblemForEntry(
+        membership.household.id,
+        entryId,
+        fridgeItems,
+      )
+      if (refused) {
+        return NextResponse.json(
+          { error: 'Leftover source refused', code: 'leftover_source', ...refused },
+          { status: 400 },
+        )
+      }
       return NextResponse.json(
         await setFridgeItems(membership.household.id, planId, entryId, fridgeItems),
       )

@@ -9,7 +9,13 @@ import {
   openViaTrigger,
   pressEscape,
 } from '@/stories/a11y-helpers'
-import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+import {
+  FRIDGE_DEFAULT_SERVINGS,
+  fridgeItems,
+  fridgePantryItems,
+  fridgePlannedSource,
+  fridgeRecentMeals,
+} from '@/stories/fridge-fixtures'
 import { expectFocusRingRoom } from '@/stories/layout-helpers'
 import { FridgeMealPicker } from './FridgeMealPicker'
 
@@ -22,7 +28,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Plans a meal from what is at home (HON-1277): pantry items, leftovers from a meal eaten in the last 3 days, and free text. Items have no quantities, and nothing goes on the shopping list. Portal-based.',
+          'Plans a meal from what is at home (HON-1277): pantry items, leftovers from a meal in the 3 days before this one, cooked or still planned (HON-1396), and free text. A leftover item takes servings from its meal; other items have no quantities, and nothing goes on the shopping list. Portal-based.',
       },
     },
   },
@@ -80,7 +86,7 @@ export const MixedItems: Story = {
     const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
     // Only the pantry items carry the marker: they get a "Used it all" tick later.
     await expect(chosen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Mash, from Tuesday',
+      'Mash, from TuesdayServings not set',
       'Cauliflower and broccoli mixpantry',
       'Cucumberpantry',
       'store meatballs',
@@ -133,7 +139,9 @@ export const EmptyPantry: Story = {
     await expect(
       dialog.getByText('Your pantry is empty. Add something below instead.'),
     ).toBeInTheDocument()
-    await expect(await dialog.findByText('No meals eaten in the last 3 days.')).toBeInTheDocument()
+    await expect(
+      await dialog.findByText('No meals in the 3 days before this one.'),
+    ).toBeInTheDocument()
   },
 }
 
@@ -148,6 +156,54 @@ export const AddAndSave: Story = {
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(args.onSaved).toHaveBeenCalledTimes(1))
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+/**
+ * Tomorrow's lunch from tonight's dinner (HON-1396): the planned dinner is
+ * marked "planned", and its item starts at the household's servings, which
+ * − and + change in half steps.
+ */
+export const PlannedSource: Story = {
+  args: { date: '2026-10-22', mealType: 'lunch' },
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/entries/recent', () =>
+          HttpResponse.json({
+            meals: [fridgePlannedSource, ...fridgeRecentMeals],
+            defaultServings: FRIDGE_DEFAULT_SERVINGS,
+          }),
+        ),
+      ],
+    },
+  },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    await userEvent.click(
+      await dialog.findByRole('button', { name: 'Add: Chicken curry, from Wednesday · planned' }),
+    )
+    const servings = within(
+      dialog.getByRole('group', { name: 'Servings: Chicken curry, from Wednesday' }),
+    )
+    await expect(servings.getByText('2.5 servings')).toBeInTheDocument()
+    await userEvent.click(servings.getByRole('button', { name: 'Fewer servings' }))
+    await expect(servings.getByText('2 servings')).toBeInTheDocument()
+  },
+}
+
+/** The same in Estonian: "2,5 portsjonit". */
+export const PlannedSourceEt: Story = {
+  ...PlannedSource,
+  globals: { locale: 'et' },
+  play: async () => {
+    const dialog = within(
+      await within(document.body).findByRole('dialog', { name: 'Külmkapitoit' }),
+    )
+    await userEvent.click(
+      await dialog.findByRole('button', { name: /^Lisa: Chicken curry .* · planeeritud$/ }),
+    )
+    await expect(dialog.getByText('2,5 portsjonit')).toBeInTheDocument()
   },
 }
 

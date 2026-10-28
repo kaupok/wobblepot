@@ -14,7 +14,7 @@ import {
   lemonGarlicChickenComponents,
   misoSalmonAlternative,
 } from './fixtures'
-import { fridgeRecentMeals } from './fridge-fixtures'
+import { FRIDGE_DEFAULT_SERVINGS, fridgeRecentMeals } from './fridge-fixtures'
 import { extraSearchResults } from './day-extra-fixtures'
 
 /**
@@ -296,8 +296,14 @@ export const defaultHandlers: HttpHandler[] = [
     HttpResponse.json({ id: `entry-${Date.now()}` }),
   ),
   http.delete('/api/meal-plans/:planId/entries/:entryId', () => HttpResponse.json({ ok: true })),
-  // The leftovers the fridge-meal picker offers (HON-1277).
-  http.get('/api/entries/recent', () => HttpResponse.json({ meals: fridgeRecentMeals })),
+  // The leftovers the fridge-meal picker offers (HON-1277, HON-1396).
+  http.get('/api/entries/recent', () =>
+    HttpResponse.json({ meals: fridgeRecentMeals, defaultServings: FRIDGE_DEFAULT_SERVINGS }),
+  ),
+  // "Cook for tomorrow's lunch too" (HON-1396).
+  http.post('/api/meal-plans/:planId/entries/:entryId/leftover-lunch', () =>
+    HttpResponse.json({ outcome: 'planned', date: '2026-10-22' }),
+  ),
   // Day extras (HON-1309): `AddExtra` creates, `DayExtrasRow` edits and removes.
   http.post('/api/extras', () => HttpResponse.json({ id: `extra-${Date.now()}` }, { status: 201 })),
   http.patch('/api/extras/:id', () => HttpResponse.json({ ok: true })),

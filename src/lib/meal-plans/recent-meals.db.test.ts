@@ -1,16 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { loadRecentMeals } from './recent-meals'
+import { findLeftoverProblemForEntry, loadLeftoverSources } from './recent-meals'
 
-// The leftovers a fridge meal can take (HON-1277). Runs against PGlite through
-// the `unit-db` project, with no mocks.
+// The leftovers a fridge meal can take (HON-1277), for one slot (HON-1396).
+// Runs against PGlite through the `unit-db` project, with no mocks.
 
-// 23:30 on 21 October in Tallinn (UTC+3), still the 21st in UTC too, and
-// 00:30 on the 22nd in Tallinn: the household's day decides which is "today".
-const LATE_ON_21ST = new Date('2026-10-21T20:30:00Z')
-const AFTER_MIDNIGHT_22ND = new Date('2026-10-21T21:30:00Z')
-const TZ = 'Europe/Tallinn'
+// The slot asked for: Thursday's lunch.
+const LUNCH_22ND = { date: '2026-10-22', mealType: 'lunch' as const }
 
 async function world() {
   await prisma.meal.create({
@@ -22,10 +19,10 @@ async function world() {
   })
   await prisma.meal.create({ data: { id: 'meal-soup', name: 'Soup' } })
   const alder = await prisma.household.create({
-    data: { name: 'Alder', timezone: TZ, mealPlans: { create: { id: 'plan-alder' } } },
+    data: { name: 'Alder', mealPlans: { create: { id: 'plan-alder' } } },
   })
   await prisma.household.create({
-    data: { name: 'Birch', timezone: TZ, mealPlans: { create: { id: 'plan-birch' } } },
+    data: { name: 'Birch', mealPlans: { create: { id: 'plan-birch' } } },
   })
   const entry = (
     id: string,
@@ -44,44 +41,105 @@ async function world() {
         ...data,
       },
     })
-  await entry('day-0', '2026-10-21', { mealType: 'lunch', mealId: 'meal-soup' })
-  await entry('day-1', '2026-10-20')
-  await entry('day-3', '2026-10-18')
-  await entry('day-4', '2026-10-17')
-  await entry('planned', '2026-10-19', { status: 'planned' })
-  await entry('skipped', '2026-10-19', { status: 'skipped', mealType: 'lunch' })
-  await entry('fridge', '2026-10-19', { kind: 'fridge', mealId: null, mealType: 'breakfast' })
-  // Tomorrow on the 21st, today on the 22nd.
-  await entry('the-22nd', '2026-10-22')
-  await entry('birch', '2026-10-20', {}, 'plan-birch')
-  return { alder: { id: alder.id, timezone: TZ, locale: null as string | null } }
+  await entry('tonight', '2026-10-21', { status: 'planned' })
+  await entry('cooked', '2026-10-20')
+  await entry('breakfast', '2026-10-22', { mealType: 'breakfast', mealId: 'meal-soup' })
+  await entry('three-days', '2026-10-19')
+  // Not a source for the 22nd's lunch:
+  await entry('four-days', '2026-10-18', { status: 'planned' })
+  await entry('after', '2026-10-22', { status: 'planned' })
+  await entry('the-lunch', '2026-10-22', { mealType: 'lunch', status: 'planned' })
+  await entry('skipped', '2026-10-21', { mealType: 'lunch', status: 'skipped' })
+  await entry('fridge', '2026-10-21', { kind: 'fridge', mealId: null, mealType: 'breakfast' })
+  await entry('birch', '2026-10-21', { status: 'planned' }, 'plan-birch')
+  return { alder: { id: alder.id, locale: null as string | null } }
 }
 
-describe('loadRecentMeals', () => {
-  it('lists completed recipe meals from today back 3 days, newest first, and no others', async () => {
+describe('loadLeftoverSources', () => {
+  it('lists planned and cooked recipe meals before the slot, up to 3 days back, newest first', async () => {
     const { alder } = await world()
 
-    expect(await loadRecentMeals(alder, LATE_ON_21ST)).toEqual([
-      { entryId: 'day-0', mealName: 'Soup', date: '2026-10-21' },
-      { entryId: 'day-1', mealName: 'Mash', date: '2026-10-20' },
-      { entryId: 'day-3', mealName: 'Mash', date: '2026-10-18' },
+    expect(await loadLeftoverSources(alder, LUNCH_22ND)).toEqual([
+      {
+        entryId: 'breakfast',
+        mealName: 'Soup',
+        date: '2026-10-22',
+        mealType: 'breakfast',
+        sourceState: 'completed',
+      },
+      {
+        entryId: 'tonight',
+        mealName: 'Mash',
+        date: '2026-10-21',
+        mealType: 'dinner',
+        sourceState: 'planned',
+      },
+      {
+        entryId: 'cooked',
+        mealName: 'Mash',
+        date: '2026-10-20',
+        mealType: 'dinner',
+        sourceState: 'completed',
+      },
+      {
+        entryId: 'three-days',
+        mealName: 'Mash',
+        date: '2026-10-19',
+        mealType: 'dinner',
+        sourceState: 'completed',
+      },
     ])
   })
 
-  it("moves the window at the household's midnight, not the server's", async () => {
+  it('counts the window back from the slot, not from today', async () => {
     const { alder } = await world()
 
-    const ids = (await loadRecentMeals(alder, AFTER_MIDNIGHT_22ND)).map((m) => m.entryId)
+    // The 21st's dinner: the same-day lunch is skipped, so the 18th to the 20th.
+    const ids = (await loadLeftoverSources(alder, { date: '2026-10-21', mealType: 'dinner' })).map(
+      (m) => m.entryId,
+    )
 
-    // The 22nd's window is the 19th to the 22nd: day 3 drops out, the 22nd is in.
-    expect(ids).toEqual(['the-22nd', 'day-0', 'day-1'])
+    expect(ids).toEqual(['cooked', 'three-days', 'four-days'])
   })
 
   it("names the meal in the household's language", async () => {
     const { alder } = await world()
 
-    const meals = await loadRecentMeals({ ...alder, locale: 'et' }, LATE_ON_21ST)
+    const meals = await loadLeftoverSources({ ...alder, locale: 'et' }, LUNCH_22ND)
 
-    expect(meals.map((m) => m.mealName)).toEqual(['Soup', 'Kartulipuder', 'Kartulipuder'])
+    expect(meals.map((m) => m.mealName)).toEqual([
+      'Soup',
+      'Kartulipuder',
+      'Kartulipuder',
+      'Kartulipuder',
+    ])
+  })
+})
+
+describe('findLeftoverProblemForEntry', () => {
+  it("runs the source rule for the entry's own slot", async () => {
+    const { alder } = await world()
+    const check = (items: Parameters<typeof findLeftoverProblemForEntry>[2]) =>
+      findLeftoverProblemForEntry(alder.id, 'the-lunch', items)
+
+    expect(await check([{ sourceEntryId: 'tonight', servings: 2.5 }])).toBeNull()
+    expect(await check([{ sourceEntryId: 'tonight' }])).toEqual({
+      sourceEntryId: 'tonight',
+      problem: 'servingsRequired',
+    })
+    expect(await check([{ sourceEntryId: 'after', servings: 1 }])).toEqual({
+      sourceEntryId: 'after',
+      problem: 'notBefore',
+    })
+  })
+
+  it("passes when the entry is not the household's, so the write answers 404", async () => {
+    await world()
+
+    expect(
+      await findLeftoverProblemForEntry('other-household', 'the-lunch', [
+        { sourceEntryId: 'after' },
+      ]),
+    ).toBeNull()
   })
 })

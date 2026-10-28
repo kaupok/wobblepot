@@ -3,27 +3,37 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { fridgeItems, fridgePantryItems, fridgeRecentMeals } from '@/stories/fridge-fixtures'
+import {
+  fridgeItems,
+  fridgePantryItems,
+  fridgePlannedSource,
+  fridgeRecentMeals,
+  plannedLeftoverItem,
+} from '@/stories/fridge-fixtures'
 import { FridgeMealPicker } from './FridgeMealPicker'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
 let requests: { method: string; url: string; body: unknown }[]
 let saveStatus: number
+let saveBody: unknown
 
 beforeEach(() => {
   requests = []
   saveStatus = 200
+  saveBody = undefined
   vi.mocked(toast.error).mockClear()
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
       requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null })
-      const [status, body] =
-        url === '/api/entries/recent'
-          ? [200, { meals: fridgeRecentMeals }]
-          : [saveStatus, saveStatus === 200 ? { id: 'entry-new' } : { error: 'Refused' }]
+      const [status, body] = url.startsWith('/api/entries/recent')
+        ? [200, { meals: [fridgePlannedSource, ...fridgeRecentMeals], defaultServings: 2 }]
+        : [
+            saveStatus,
+            saveBody ?? (saveStatus === 200 ? { id: 'entry-new' } : { error: 'Refused' }),
+          ]
       return Promise.resolve(
         new Response(JSON.stringify(body), {
           status,
@@ -43,6 +53,8 @@ function renderPicker(
     entryId?: string
     initialItems?: typeof fridgeItems
     pantryItems?: typeof fridgePantryItems
+    date?: string
+    mealType?: 'breakfast' | 'lunch' | 'dinner'
   } = {},
 ) {
   const onSaved = vi.fn()
@@ -66,16 +78,21 @@ function renderPicker(
   return { dialog, onSaved, onOpenChange, user: userEvent.setup() }
 }
 
-// An item's words, then its marker, if any: "Cucumber pantry".
+// An item's words, then its marker, if any: "Cucumber pantry". A leftover's
+// servings control is read apart, through `servingsOf`.
 const chosen = (dialog: ReturnType<typeof within>) =>
   within(dialog.getByRole('region', { name: 'In this meal' }))
     .queryAllByRole('listitem')
     .map((li) =>
       within(li)
         .getAllByRole('paragraph')
+        .filter((p) => !p.closest('[role="group"]'))
         .map((p) => p.textContent)
         .join(' '),
     )
+
+const servingsOf = (dialog: ReturnType<typeof within>, name: string) =>
+  within(dialog.getByRole('group', { name: `Servings: ${name}` }))
 
 const freeTextItem = (label: string): (typeof fridgeItems)[number] => ({
   id: `item-${label}`,
@@ -325,6 +342,99 @@ describe('FridgeMealPicker', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
         'This meal is already eaten, so its items cannot change. Refresh the page to see it.',
+      ),
+    )
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+  // HON-1396: the list is the source rule's for this slot, so tonight's
+  // planned dinner is a source for tomorrow's lunch.
+  it("asks for the slot's sources and marks a planned one", async () => {
+    const { dialog } = renderPicker({ date: '2026-10-22', mealType: 'lunch' })
+
+    expect(
+      await dialog.findByRole('button', { name: 'Add: Chicken curry, from Wednesday · planned' }),
+    ).toBeInTheDocument()
+    expect(dialog.getByRole('button', { name: 'Add: Mash, from Tuesday' })).toBeInTheDocument()
+    expect(requests[0]!.url).toBe('/api/entries/recent?date=2026-10-22&mealType=lunch')
+  })
+
+  it("starts a planned source at the household's servings and saves the servings set", async () => {
+    const { dialog, onSaved, user } = renderPicker({ date: '2026-10-22', mealType: 'lunch' })
+
+    await user.click(
+      await dialog.findByRole('button', { name: 'Add: Chicken curry, from Wednesday · planned' }),
+    )
+    expect(chosen(dialog)).toEqual(['Chicken curry, from Wednesday planned'])
+    const servings = servingsOf(dialog, 'Chicken curry, from Wednesday')
+    expect(servings.getByText('2 servings')).toBeInTheDocument()
+    await user.click(servings.getByRole('button', { name: 'More servings' }))
+    expect(servings.getByText('2.5 servings')).toBeInTheDocument()
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
+    expect(saves()[0]!.body).toEqual({
+      date: '2026-10-22',
+      mealType: 'lunch',
+      fridgeItems: [{ sourceEntryId: 'entry-curry', servings: 2.5 }],
+    })
+  })
+
+  it('keeps the servings in 0.5 to 20', async () => {
+    const at = (servings: number) => ({ ...plannedLeftoverItem, servings })
+    const { dialog, user } = renderPicker({ entryId: 'entry-1', initialItems: [at(0.5)] })
+    const servings = servingsOf(dialog, 'Roast chicken, from Tuesday')
+    const fewer = servings.getByRole('button', { name: 'Fewer servings' })
+
+    expect(fewer).toHaveAttribute('aria-disabled', 'true')
+    await user.click(fewer)
+    expect(servings.getByText('0.5 servings')).toBeInTheDocument()
+    await user.click(servings.getByRole('button', { name: 'More servings' }))
+    expect(servings.getByText('1 serving')).toBeInTheDocument()
+  })
+
+  it('shows the stored servings in Edit items and sends them back unchanged', async () => {
+    const { dialog, onSaved, user } = renderPicker({
+      entryId: 'entry-1',
+      initialItems: [plannedLeftoverItem],
+      date: '2026-10-21',
+      mealType: 'lunch',
+    })
+
+    expect(
+      servingsOf(dialog, 'Roast chicken, from Tuesday').getByText('2.5 servings'),
+    ).toBeInTheDocument()
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
+    expect(saves()[0]!.body).toEqual({
+      fridgeItems: [{ sourceEntryId: 'entry-roast', servings: 2.5 }],
+    })
+  })
+
+  it('leaves a cooked source unset until + sets it', async () => {
+    const { dialog, user } = renderPicker()
+
+    await user.click(await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' }))
+    const servings = servingsOf(dialog, 'Mash, from Tuesday')
+    expect(servings.getByText('Servings not set')).toBeInTheDocument()
+    await user.click(servings.getByRole('button', { name: 'More servings' }))
+
+    expect(servings.getByText('2 servings')).toBeInTheDocument()
+  })
+
+  it('shows catalog copy when the source rule refuses a leftover', async () => {
+    saveStatus = 400
+    saveBody = { error: 'Leftover source refused', code: 'leftover_source', problem: 'skipped' }
+    const { dialog, onSaved, user } = renderPicker({
+      entryId: 'entry-1',
+      initialItems: [plannedLeftoverItem],
+    })
+
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "One of the leftovers can't be used for this meal any more. Remove it and try again.",
       ),
     )
     expect(onSaved).not.toHaveBeenCalled()

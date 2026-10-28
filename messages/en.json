@@ -252,8 +252,8 @@
       "addQuery": "Add \"{query}\"",
       "recentHeading": "Leftovers",
       "recentLoading": "Loading…",
-      "recentFailed": "Couldn't load recent meals. Add leftovers as text below.",
-      "recentEmpty": "No meals eaten in the last 3 days.",
+      "recentFailed": "Couldn't load the leftovers. Add them as text below.",
+      "recentEmpty": "No meals in the 3 days before this one.",
       "leftover": "{meal}, from {day}",
       "leftoverNoName": "Leftovers, from {day}",
       "leftoverDetail": "{meal}, from {day} {mealType, select, breakfast {at breakfast} lunch {at lunch} other {at dinner}} · {count, plural, one {{servings} serving} other {{servings} servings}}",
@@ -280,7 +280,13 @@
       "completeConfirm": "Done",
       "completing": "Saving…",
       "recentLabelsHeading": "Used lately",
-      "recentLabelsAllChosen": "All of them are in this meal."
+      "recentLabelsAllChosen": "All of them are in this meal.",
+      "servingsGroup": "Servings: {name}",
+      "fewerServings": "Fewer servings",
+      "moreServings": "More servings",
+      "servingsValue": "{count, plural, one {{servings} serving} other {{servings} servings}}",
+      "servingsNotSet": "Servings not set",
+      "leftoverRefused": "One of the leftovers can't be used for this meal any more. Remove it and try again."
     },
     "noteEditor": {
       "placeholder": "Add a note…",
@@ -624,6 +630,27 @@
       "removing": "Removing…",
       "saveFailed": "Couldn't save the extra. Please try again.",
       "removeFailed": "Couldn't remove the extra. Please try again."
+    },
+    "cookForLunch": {
+      "menuItem": "Cook for tomorrow's lunch too",
+      "reasonRecipeLunch": "Tomorrow's lunch is already a recipe meal.",
+      "reasonCooked": "Tomorrow's lunch is already cooked.",
+      "reasonLunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
+      "title": "Cook for tomorrow's lunch too",
+      "description": "Cook {meal} for more servings. The extra becomes tomorrow's lunch, and the shopping list grows to match.",
+      "servingsLabel": "Servings for lunch",
+      "confirm": "Add to lunch",
+      "saving": "Adding…",
+      "added": "Tomorrow's lunch takes leftovers: {meal}.",
+      "errors": {
+        "recipeLunch": "Tomorrow's lunch is already a recipe meal. Refresh the page to see it.",
+        "cooked": "Tomorrow's lunch is already cooked. Refresh the page to see it.",
+        "lunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
+        "alreadyLinked": "Tomorrow's lunch already takes leftovers from this meal. Change the servings in the lunch's Edit items.",
+        "notPlannedDinner": "This meal is no longer a planned dinner. Refresh the page to see it.",
+        "lunchChanged": "Tomorrow's lunch changed meanwhile. Refresh the page and try again.",
+        "failed": "Couldn't add the lunch. Please try again."
+      }
     }
   },
   "pastMeals": {

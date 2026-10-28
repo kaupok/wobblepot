@@ -30,12 +30,11 @@ beforeEach(() => {
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
       requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null })
-      const body =
-        url === '/api/entries/recent'
-          ? { meals: [] }
-          : url.startsWith('/api/meals')
-            ? { meals: library, hasMore: false, total: library.length }
-            : { id: 'entry-new' }
+      const body = url.startsWith('/api/entries/recent')
+        ? { meals: [], defaultServings: 2 }
+        : url.startsWith('/api/meals')
+          ? { meals: library, hasMore: false, total: library.length }
+          : { id: 'entry-new' }
       return Promise.resolve(
         new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } }),
       )
