@@ -88,7 +88,7 @@ wt stop
 | `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                  | Seconds between polls                                                                                                        |
 | `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800               | Seconds before killing a worker                                                                                              |
 | `--dry-run`          | —                                   | false               | Log actions without executing                                                                                                |
-| `--once`             | —                                   | false               | Single poll cycle, then exit                                                                                                 |
+| `--once`             | —                                   | false               | Single poll cycle, then exit: 0 shipped, 1 failed or stranded, 2 no issue found                                              |
 | —                    | `NEON_BRANCH_CAP`                   | 10                  | Neon branches the plan allows                                                                                                |
 | —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800                | Seconds before a cap-requeued issue is pickable again                                                                        |
 | —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120                 | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog                                   |
@@ -244,7 +244,9 @@ A worker that dies during a network drop used to get its outcome at once, while 
 - **A network crash does not count toward the circuit breaker**, on the respawn or on the normal path after it.
 - **A Linear write that fails is retried.** When a strand is recorded for a human and the comment, the `Stranded` label or the return to Queued fails, the orchestrator logs `[DEFERRED] HON-XX: Linear writes failed (comment)` and makes only the failed writes on the next poll that reaches Linear, so a comment is posted once.
 
-The deferred list is in `orchestrator-status.json` (`deferred: [{issue, kind}]`), where `wt watch` shows it as `deferred: 2 (network)`, and a reload hands it to the new code. A `wt stop` or a `--once` run that ends with outcomes still deferred logs them in one WARN and keeps their worktrees.
+The deferred list is in `orchestrator-status.json` (`deferred: [{issue, kind}]`), where `wt watch` shows it as `deferred: 2 (network)`, and a reload hands it to the new code. Nothing else keeps it, so the list does not outlive the process.
+
+**On exit, every deferred outcome is recorded (HON-1447).** The graceful stop, the force drain (after it drains the running workers) and the end of a `--once` run each replay the list once, without waiting for Linear to answer, and log `Recording N deferred outcome(s) before exit`. A replay whose PR lookup still fails is recorded without it, as if it had waited `ORCHESTRATOR_DEFER_MAX_AGE`. No replay respawns a worker or starts a finish attempt, because the orchestrator is exiting: a network crash with commits is recorded as a strand, with the comment, the `Stranded` label and its worktree kept. A Linear write that still fails is not kept for later: the orchestrator logs `ERROR [DEFERRED] HON-XX: Linear writes still fail at exit (comment label) — make them by hand`, so make those writes yourself. Before this, an outcome still deferred at exit left its issue In Progress and assigned, with no comment and no label, and the picker skipped it for good; `--once` also exited 2, as if no issue was found. A `--once` run whose recorded outcome is a failure now exits 1.
 
 The 3-hour default budget exists for the same reason: waiting for CI in-turn costs 8–12 minutes on top of the implementation, and the previous 1-hour cap killed every run that needed longer at exactly the point it was about to merge. Lower it with `--worker-timeout` if you want faster failure on stuck workers, but not below about 90 minutes.
 
@@ -284,6 +286,7 @@ The orchestrator logs an idle poll only when it differs from the previous one: t
 
 - First `SIGINT`/`SIGTERM` → stops spawning, waits for running workers
 - Second signal → force kills all workers immediately, then drains: each worker's issue goes back to Queued unassigned before the orchestrator exits
+- Either way, an outcome still deferred is recorded before the exit: see Deferred outcomes and the network respawn
 
 The signal handler only sets flags; the main loop does the waiting and the drain. A handler that ran the wait loop itself could not see the second signal, because bash does not re-enter a handler that is still running (HON-1067). A signal that arrives during a Linear call or a triage call is acted on when that call returns.
 

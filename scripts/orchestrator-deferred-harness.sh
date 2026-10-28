@@ -29,6 +29,14 @@
 #       HARNESS_GH_MISSING         1: gh is not installed
 #       HARNESS_DEFER_MAX_AGE      DEFER_MAX_AGE; 0 records on the first replay
 #       HARNESS_FINISHING          the ended worker was a finish attempt
+#       HARNESS_RUN_ONCE           true: --once (RUN_ONCE)
+#       HARNESS_EXIT               after the polls, take an exit path (HON-1447):
+#                                  settle runs the REAL settle_deferred_at_exit
+#                                  that the graceful stop and --once call; force
+#                                  runs the REAL drain_if_forced. Then prints
+#                                  EXIT:<deferred count>:<ONCE_EXIT_CODE>, and
+#                                  for force EXIT_STATUS:<n>
+#       HARNESS_EXIT_PR            what gh answers at exit, default ERROR
 #
 #   restore-queue <state read: ok | fail> <move: ok | fail>
 #     The REAL restore_queue_if_in_progress and move_issue_unassigned, with the
@@ -163,6 +171,7 @@ case "$MODE" in
     OUTCOME_FINISHING="${HARNESS_FINISHING:-0}"
     NETWORK_RESPAWNED="${HARNESS_NETWORK_RESPAWNED:-}"
     RETRIED="${HARNESS_RETRIED:-0}"
+    RUN_ONCE="${HARNESS_RUN_ONCE:-false}"
     mkdir -p "$SPAWN_DIR/repo" "$SPAWN_DIR/scripts" "$SPAWN_DIR/logs" "$SPAWN_DIR/calls"
     REPO_ROOT="$SPAWN_DIR/repo"
     SCRIPT_DIR="$SPAWN_DIR/scripts"
@@ -206,6 +215,25 @@ EOF
       process_deferred 2>/dev/null
       report_poll
     done
+
+    PR_STATE="${HARNESS_EXIT_PR:-ERROR}"
+    case "${HARNESS_EXIT:-}" in
+      settle)
+        settle_deferred_at_exit 2>/dev/null
+        echo "EXIT:${#DEFERRED[@]}:$ONCE_EXIT_CODE" >> "$MAIN_LOG"
+        ;;
+      force)
+        # drain_if_forced exits, so a subshell, which drops the harness trap.
+        FORCE_SHUTDOWN=true
+        set +e
+        (
+          trap 'echo "EXIT:${#DEFERRED[@]}:$ONCE_EXIT_CODE" >> "$MAIN_LOG"' EXIT
+          drain_if_forced 2>/dev/null
+        )
+        echo "EXIT_STATUS:$?" >> "$MAIN_LOG"
+        set -e
+        ;;
+    esac
 
     for pid in ${WORKER_PIDS[@]+"${WORKER_PIDS[@]}"}; do wait "$pid" 2>/dev/null || true; done
     n=1

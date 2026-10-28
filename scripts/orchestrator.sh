@@ -2995,6 +2995,7 @@ drain_if_forced() {
   [ "$FORCE_SHUTDOWN" = true ] || return 0
   log WARN "Force shutdown — killing ${#WORKER_PIDS[@]} worker(s) and returning their issues to Queued"
   drain_workers_to_queue
+  settle_deferred_at_exit
   log INFO "═══ Orchestrator stopped (forced) ═══"
   exit 1
 }
@@ -3689,7 +3690,7 @@ main() {
     if [ "$SHUTTING_DOWN" = true ]; then
       if [ ${#WORKER_PIDS[@]} -eq 0 ]; then
         log INFO "All workers finished, exiting"
-        warn_deferred_left
+        settle_deferred_at_exit
         log INFO "═══ Orchestrator stopped ═══"
         exit 0
       fi
@@ -3846,7 +3847,7 @@ main() {
     fi
   done
 
-  warn_deferred_left
+  settle_deferred_at_exit
   log INFO "═══ Orchestrator stopped ═══"
 
   # In --once mode, exit with distinct code
