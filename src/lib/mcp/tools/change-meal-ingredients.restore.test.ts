@@ -38,9 +38,13 @@ import {
   BROCCOLI,
   NO_CARROT,
   POTATO_RICE,
+  TROUT,
   arrangeMocks,
   call,
+  change,
+  component,
   entry,
+  ingredient,
   output,
   row,
 } from './change-meal-ingredients.fixtures'
@@ -155,6 +159,25 @@ describe('change_meal_ingredients: restore and back to the recipe', () => {
       ingredients: expect.arrayContaining([
         { name: 'potato', quantity: 800, unit: 'g', note: null },
       ]),
+    })
+  })
+
+  it('does not check the amount of an ingredient that goes back to the recipe', async () => {
+    // Egg is counted with no known weight, so 100 g would need a check if it were saved.
+    const EGGS = [...TROUT, { ...component('egg', 1), ingredient: ingredient('egg', 'piece') }]
+    vi.mocked(loadEntryForAi).mockResolvedValue(
+      entry([change('c4', 'egg', 'tofu', 50)], EGGS) as never,
+    )
+
+    const result = await call([
+      { action: 'replace', ingredients: ['tofu'], with: 'egg', quantity: 100, unit: 'g' },
+    ])
+
+    expect(replaceEntryChanges).toHaveBeenCalled()
+    expect(output(result)).toMatchObject({
+      outcome: 'changed',
+      check: null,
+      applied: [{ replacement: 'egg', quantity: 4, unit: 'piece', backToRecipe: true }],
     })
   })
 

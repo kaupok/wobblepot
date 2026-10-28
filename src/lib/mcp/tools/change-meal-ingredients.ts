@@ -259,6 +259,9 @@ export const changeMealIngredients = defineTool({
       const match = resolved.matches.get(proposal)
       if (!asked || !match || !proposal.replacement?.matched) continue
       const { ingredient } = proposal.replacement
+      // Back to the recipe's own ingredient: the amount sent is not saved, so
+      // there is no amount to check.
+      if (ingredient.id === proposal.originalIngredientId) continue
       const shown = displayUnit(ingredient)
       const converted = Math.round(match.convertedQuantity * servings * 100) / 100
       const warning = amountWarning(
