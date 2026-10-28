@@ -2769,7 +2769,7 @@ watch_relative_age() {
 # Keys: TALLY_SUCCESS TALLY_FAILED TALLY_STRANDED TALLY_GATED TALLY_TIMEOUT
 #       TALLY_TRUNCATED LAST_OUTCOME LAST_OUTCOME_AT LAST_PICK LAST_PICK_AT
 #       SKIPS SKIP_SUMMARY ALERT ALERT_AT ALERT_FULL ALERT_FULL_AT
-#       TALLY_GATED_OPEN STRANDED_OPEN
+#       TALLY_GATED_OPEN TALLY_FAILED_OPEN STRANDED_OPEN
 #
 # TALLY_GATED_OPEN and STRANDED_OPEN are the gated and stranded outcomes the
 # log has not yet answered (HON-938). The tallies stay the run's history; these
@@ -2780,6 +2780,8 @@ watch_relative_age() {
 # its one automatic finish attempt (HON-1065). STRANDED_OPEN is
 # `<id>:<pr number|none>:<branch>`, and the caller checks the PR and the
 # worktree, which the log cannot see (watch_resolve_stranded).
+# TALLY_FAILED_OPEN counts FAILED outcomes the same way: a later `[OUTCOME]` or
+# `Claimed` for the issue answers it, because the issue ran again (HON-1435).
 #
 # ALERT is the operational blocker to show while a worker slot is free;
 # ALERT_FULL is the subset of that which still applies when every slot is busy,
@@ -2856,7 +2858,9 @@ watch_scan_log() {
           oid = f[n - 1]
           delete gated_open[oid]
           delete stranded_pr[oid]
+          delete failed_open[oid]
           if (f[n] == "GATED") gated_open[oid] = 1
+          if (f[n] == "FAILED") failed_open[oid] = 1
           # triage=FINISH: the orchestrator respawned the run for one automatic
           # finish attempt (HON-1065), so the strand is tallied but waits on
           # that worker, not the operator. Its own outcome line answers it.
@@ -2883,14 +2887,18 @@ watch_scan_log() {
     # the picker never claims an issue that still has the Stranded label, so a
     # claim means the operator cleared it. Without that, the re-run recreates
     # the preserved worktree on the same branch and the strand reads as open
-    # again until the new outcome. `[UNGATE]` says nothing about a strand.
+    # again until the new outcome. A claim answers a FAILED outcome as well,
+    # because the issue is running again. `[UNGATE]` says nothing about either.
     # The orchestrator also logs `[UNGATE] HON-X — left Queued` when a gated
     # issue leaves Queued (HON-940), so that answers the gate too.
     /\[UNGATE\] [A-Z]+-[0-9]+ / || / Claimed [A-Z]+-[0-9]+ / {
       if (in_window($0) && match($0, /(\[UNGATE\]|Claimed) [A-Z]+-[0-9]+/)) {
         n = split(substr($0, RSTART, RLENGTH), f, " ")
         delete gated_open[f[n]]
-        if (f[1] == "Claimed") delete stranded_pr[f[n]]
+        if (f[1] == "Claimed") {
+          delete stranded_pr[f[n]]
+          delete failed_open[f[n]]
+        }
       }
       next
     }
@@ -2995,6 +3003,9 @@ watch_scan_log() {
       gated_n = 0
       for (gid in gated_open) gated_n++
       printf "TALLY_GATED_OPEN=%d\n", gated_n
+      failed_n = 0
+      for (fid in failed_open) failed_n++
+      printf "TALLY_FAILED_OPEN=%d\n", failed_n
       # An issue stranded twice leaves two order entries; only the one its
       # stranded_seq still points at is the live one.
       for (k = 1; k <= n_stranded; k++) {
@@ -3318,7 +3329,11 @@ watch_pr_state_probe() {
 # needs the operator (HON-938). A stranded or gated count is yellow only while
 # one is open, and shows the open count. Once everything is answered, the run's
 # total is shown dim with "(resolved)". Yellow used to follow the total, so an
-# outcome resolved hours earlier still read as an action.
+# outcome resolved hours earlier still read as an action. A failed count follows
+# the same rule in red: an issue that failed and later ran again is history
+# (HON-1435). An empty `failed_open` is a scan cached by a wt older than
+# HON-1435, which lacks the key even when it has TALLY_GATED_OPEN: every failure
+# then counts as open, which is the old red total.
 #
 # The plain twin carries exactly the visible text, because it is what the pane
 # measures and clips against. A row wider than the pane is drawn as its clipped
@@ -3327,34 +3342,33 @@ watch_pr_state_probe() {
 # first: the dim already says the count is history, and the colour is the part
 # that has to survive.
 #
-# Usage: watch_tally_row <success> <failed> <stranded> <stranded_open> <gated> <gated_open> <timeout> <truncated> [width]
+# Usage: watch_tally_row <success> <failed> <failed_open> <stranded> <stranded_open> <gated> <gated_open> <timeout> <truncated> [width]
 watch_tally_row() {
   # See WT_WIDTH_LOCALE: `${#plain}` must count the `·` as one column, as the
   # pane does.
   local LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}"
-  local success="${1:-0}" failed="${2:-0}" stranded="${3:-0}" stranded_open="${4:-0}"
-  local gated="${5:-0}" gated_open="${6:-0}" timeout="${7:-0}" truncated="${8:-0}"
-  local width="${9:-}"
+  local success="${1:-0}" failed="${2:-0}" failed_open="${3:-0}"
+  local stranded="${4:-0}" stranded_open="${5:-0}" gated="${6:-0}" gated_open="${7:-0}"
+  local timeout="${8:-0}" truncated="${9:-0}" width="${10:-}"
   local n
-  for n in success failed stranded stranded_open gated gated_open timeout; do
+  for n in success failed failed_open stranded stranded_open gated gated_open timeout; do
     case "${!n}" in ''|*[!0-9]*) printf -v "$n" '%s' 0 ;; esac
   done
+  [ -n "${3:-}" ] || failed_open="$failed"
   case "$width" in *[!0-9]*) width="" ;; esac
 
-  local line plain suffix label total open text
+  local line plain suffix label total open colour text
   for suffix in " (resolved)" ""; do
     line="${GREEN}${success} merged${NC}"
     plain="${success} merged"
-    if [ "$failed" -gt 0 ]; then
-      line+=" · ${RED}${failed} failed${NC}"
-    else
-      line+=" · ${failed} failed"
-    fi
-    plain+=" · ${failed} failed"
 
-    # `stranded` is always shown, `gated` only once there has been one.
-    for label in stranded gated; do
-      if [ "$label" = stranded ]; then
+    # `failed` and `stranded` are always shown, `gated` only once there has
+    # been one.
+    for label in failed stranded gated; do
+      colour="$YELLOW"
+      if [ "$label" = failed ]; then
+        total="$failed"; open="$failed_open"; colour="$RED"
+      elif [ "$label" = stranded ]; then
         total="$stranded"; open="$stranded_open"
       else
         total="$gated"; open="$gated_open"
@@ -3362,7 +3376,7 @@ watch_tally_row() {
       fi
       if [ "$open" -gt 0 ]; then
         text="${open} ${label}"
-        line+=" · ${YELLOW}${text}${NC}"
+        line+=" · ${colour}${text}${NC}"
       elif [ "$total" -gt 0 ]; then
         text="${total} ${label}${suffix}"
         line+=" · ${DIM}${text}${NC}"
@@ -3686,6 +3700,8 @@ cmd_watch() {
     local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
     local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
     local alert_full="" alert_full_at="" t_gated_open="" stranded_open_lines=""
+    # Stays empty when the cached scan predates the key; see watch_tally_row.
+    local t_failed_open=""
     while IFS= read -r scan_line; do
       scan_key="${scan_line%%=*}"
       scan_val="${scan_line#*=}"
@@ -3707,6 +3723,7 @@ cmd_watch() {
         ALERT_FULL)      alert_full="$scan_val" ;;
         ALERT_FULL_AT)   alert_full_at="$scan_val" ;;
         TALLY_GATED_OPEN) t_gated_open="$scan_val" ;;
+        TALLY_FAILED_OPEN) t_failed_open="$scan_val" ;;
         STRANDED_OPEN)   stranded_open_lines+="${scan_val}"$'\n' ;;
       esac
     done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch" "$now_ts" "$poll_interval")
@@ -3801,10 +3818,11 @@ cmd_watch() {
 
     # The number is the run's history; the colour is whether any of it is
     # still open. Yellow for a stranded or gated outcome nobody has answered,
-    # dim "(resolved)" once all of them are (HON-938) — see watch_tally_row.
+    # red for a failed one that has not run again, dim "(resolved)" once all of
+    # them are (HON-938, HON-1435) — see watch_tally_row.
     local tally_line="" tally_plain=""
     { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
-      "$t_success" "$t_failed" "$t_stranded" "$t_stranded_open" \
+      "$t_success" "$t_failed" "$t_failed_open" "$t_stranded" "$t_stranded_open" \
       "$t_gated" "$t_gated_open" "$t_timeout" "$t_truncated" "$pane_r")
     r_rows+=("$tally_line")
     r_plain+=("$tally_plain")

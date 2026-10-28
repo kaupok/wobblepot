@@ -337,8 +337,9 @@
 #     cold cache is filled by the REAL watch_pr_state_probe in the background,
 #     exactly as on the dashboard. Prints the resolved PR numbers.
 #
-#   watch-tally-row <success> <failed> <stranded> <stranded_open> <gated>
-#                   <gated_open> <timeout> <truncated> [width]      (HON-938)
+#   watch-tally-row <success> <failed> <failed_open> <stranded> <stranded_open>
+#                   <gated> <gated_open> <timeout> <truncated> [width]
+#                                                         (HON-938, HON-1435)
 #     The REAL watch_tally_row, read back with the same two `read`s cmd_watch
 #     uses and printed bracketed as `[decorated]` then `[plain]`. The escapes
 #     stay literal (`\033[…`), so a test can see which colour wraps which text.
@@ -461,7 +462,7 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Capture every argument BEFORE clearing "$@": orchestrator.sh parses "$@" at
 # top level, so a sourcing script's own positional parameters would otherwise be
 # read as orchestrator flags.
-MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"; A7="${8:-}"; A8="${9:-}"; A9="${10:-}"
+MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"; A7="${8:-}"; A8="${9:-}"; A9="${10:-}"; A10="${11:-}"
 set --
 
 # The NEON_BRANCH_CAP this process actually inherited, captured before
@@ -1823,7 +1824,7 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
-      "$A1" "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8" "$A9")
+      "$A1" "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8" "$A9" "$A10")
     printf '[%s]\n[%s]\n' "$tally_line" "$tally_plain"
     exit 0
     ;;
