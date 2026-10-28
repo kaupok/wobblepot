@@ -24,7 +24,8 @@
 #       HARNESS_COMMENT_FAILS      how many commentCreate calls fail first
 #       HARNESS_COMMENT_LANDS      1: a failed commentCreate still lands, as a
 #                                  curl that timed out after Linear took it;
-#                                  the comments query returns what landed
+#                                  the comments query returns what landed,
+#                                  re-marked as an editor might store it
 #       HARNESS_LINEAR_GONE        polls (comma list) on which Linear says the
 #                                  issue does not exist
 #       HARNESS_OLD_ENTRY          1: cut poll 1's linear entry to the fields
@@ -182,7 +183,9 @@ case "$MODE" in
           [ "$COMMENT_CALLS" -le "${HARNESS_COMMENT_FAILS:-0}" ] && return 1
           ;;
         *comments*)
-          jq -c '{data: {issue: {comments: {nodes: .}}}}' "$LANDED"
+          # Linear stores markdown in its own editor format, so a body may come
+          # back without an HTML comment and with other emphasis marks.
+          jq -c 'map(.body |= (gsub("<!--.*?-->"; "") | gsub("_"; "*"))) | {data: {issue: {comments: {nodes: .}}}}' "$LANDED"
           return 0
           ;;
       esac

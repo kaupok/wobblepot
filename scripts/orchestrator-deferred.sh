@@ -204,11 +204,13 @@ network_respawn() {
 # Called by record_stranded for its comment. The body ends in a marker that
 # names this run. A replay reuses the marker and looks for it first, because a
 # post whose curl timed out after Linear took it is on the issue (HON-1452).
+# A visible line, matched on the token alone: Linear stores markdown in its own
+# editor format, which may drop an HTML comment or rewrite the emphasis.
 # A failed lookup counts as a failed comment: posting blind risks the duplicate.
 post_stranded_comment() {
   local issue_uuid="$1" issue_id="$2" body="$3" comments
   STRANDED_MARKER="${REPLAY_COMMENT_MARKER:-$(date +%s)-$$-$RANDOM}"
-  body+=$'\n\n'"<!-- orchestrator-run:$STRANDED_MARKER -->"
+  body+=$'\n\n'"_Orchestrator run ${STRANDED_MARKER}_"
   if [ -n "$REPLAY_COMMENT_MARKER" ]; then
     if ! comments=$(linear_api 'query($id: String!) { issue(id: $id) { comments(first: 250) { nodes { body } } } }' \
          "$(jq -n --arg id "$issue_uuid" '{id: $id}')" 2>/dev/null); then
@@ -216,7 +218,7 @@ post_stranded_comment() {
       LINEAR_WRITES_FAILED+=" comment"
       return 0
     fi
-    if jq -e --arg m "orchestrator-run:$STRANDED_MARKER" \
+    if jq -e --arg m "$STRANDED_MARKER" \
          'any(.data.issue.comments.nodes[]?; .body | contains($m))' <<<"$comments" > /dev/null 2>&1; then
       log INFO "$issue_id already has the stranded comment — not posting it again"
       return 0
