@@ -105,12 +105,10 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
     ])
     expect(purchase.ok()).toBe(true)
     purchasedId = ingredientId
-    // The line reads as purchased: ticked, or, when it was the list's only
-    // line, the list's "all bought" state. No meal is behind it.
+    // The line reads as purchased: ticked. It stays on the sheet even when it
+    // was the list's only line (HON-1354). No meal is behind it.
     await expect(
-      page
-        .getByRole('checkbox', { name: `Mark ${name} as not purchased` })
-        .or(page.getByText("You've bought everything on your list.")),
+      page.getByRole('checkbox', { name: `Mark ${name} as not purchased` }),
     ).toBeVisible()
     await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible()
   } finally {
