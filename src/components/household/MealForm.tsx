@@ -80,7 +80,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     handleIngredientRowResolve,
     isSubmitting,
     error,
-    submitAttempted,
+    flaggedEmptyIds,
     handleSubmit,
   } = useMealForm({ meal, defaultServings, onSuccess })
 
@@ -214,7 +214,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               onSetQuantity={setComponentQuantity}
               onMarkAsVague={markComponentAsVague}
               onQuantityEnter={() => focusClearOfTabBar(searchInputRef.current)}
-              showEmptyQuantityErrors={submitAttempted}
+              flaggedEmptyIds={flaggedEmptyIds}
             />
           )}
 

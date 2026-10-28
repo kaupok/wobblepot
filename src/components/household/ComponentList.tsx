@@ -30,8 +30,8 @@ interface ComponentListProps {
   onMarkAsVague: (ingredientId: string) => void
   /** Enter in a quantity field: the form sends focus back to the ingredient search. */
   onQuantityEnter: () => void
-  /** Flag an empty quantity as an error; the form sets it once the user tried to save. */
-  showEmptyQuantityErrors: boolean
+  /** Rows whose empty quantity shows the error: the ones empty at the last save attempt. */
+  flaggedEmptyIds: ReadonlySet<string>
 }
 
 // Each quantity field carries `data-quantity-for={ingredientId}`.
@@ -66,7 +66,7 @@ export function ComponentList({
   onSetQuantity,
   onMarkAsVague,
   onQuantityEnter,
-  showEmptyQuantityErrors,
+  flaggedEmptyIds,
 }: ComponentListProps) {
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.form.componentList')
@@ -96,7 +96,8 @@ export function ComponentList({
       {components.map((comp, index) => {
         const quantity = comp.totalQuantity
         const isInvalidQuantity =
-          !comp.isVague && (quantity === null ? showEmptyQuantityErrors : quantity <= 0)
+          !comp.isVague &&
+          (quantity === null ? flaggedEmptyIds.has(comp.ingredientId) : quantity <= 0)
         const unitLabel = formatUnit(comp.ingredient, pieceLabel)
         const duplicateIndices = duplicateMap.get(comp.ingredientId)
         const isDuplicate = duplicateIndices && duplicateIndices.length > 1

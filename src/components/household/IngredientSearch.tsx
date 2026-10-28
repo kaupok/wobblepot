@@ -107,7 +107,8 @@ export function IngredientSearch({
       setHighlightedIndex(Math.max(activeIndex - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const selectedResult = searchResults[activeIndex]
+      // Only a result the user can see: after Escape the list is gone.
+      const selectedResult = showDropdown ? searchResults[activeIndex] : undefined
       if (selectedResult && !existingIngredientIds.includes(selectedResult.id)) {
         handleAdd(selectedResult)
       }

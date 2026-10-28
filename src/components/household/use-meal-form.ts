@@ -145,8 +145,10 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   )
 
   const [error, setError] = useState('')
-  // An empty quantity shows its row error only once the user tried to save.
-  const [submitAttempted, setSubmitAttempted] = useState(false)
+  // The rows whose quantity was empty at the last save attempt. Only these show
+  // the empty-quantity error, so a row added after a failed save is not red
+  // before the user can type.
+  const [flaggedEmptyIds, setFlaggedEmptyIds] = useState<ReadonlySet<string>>(new Set())
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
   const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
@@ -302,6 +304,8 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           ...components,
           { ingredientId: ingredient.id, ingredient, totalQuantity: null },
         ])
+        // A row removed after a failed save and added again starts unflagged.
+        setFlaggedEmptyIds((ids) => new Set([...ids].filter((id) => id !== ingredient.id)))
       }
     },
     [getAllIngredientIds, isImportMode, ingredientRows, components, t],
@@ -410,7 +414,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSubmitAttempted(true)
+    setFlaggedEmptyIds(
+      new Set(components.filter((c) => c.totalQuantity === null).map((c) => c.ingredientId)),
+    )
     const form = e.currentTarget
 
     if (!name.trim()) {
@@ -530,7 +536,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     // Submission
     isSubmitting,
     error,
-    submitAttempted,
+    flaggedEmptyIds,
     handleSubmit,
   }
 }

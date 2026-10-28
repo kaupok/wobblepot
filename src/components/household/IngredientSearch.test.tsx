@@ -279,6 +279,21 @@ describe('IngredientSearch Enter on the top result', () => {
     expect(onAddIngredient).toHaveBeenCalledExactlyOnceWith(mockIngredients[0])
   })
 
+  it('adds nothing on Enter after Escape closed the results', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient })
+
+    const input = await typeAndWait(user, 'to')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).not.toHaveBeenCalled()
+    expect(input).toHaveValue('to')
+  })
+
   it('uses the field ref a caller passes, so the caller can focus it', async () => {
     const inputRef = { current: null as HTMLInputElement | null }
     renderSearch({ inputRef })

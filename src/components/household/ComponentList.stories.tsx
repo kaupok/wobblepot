@@ -83,7 +83,7 @@ const meta = {
     onSetQuantity: fn(),
     onMarkAsVague: fn(),
     onQuantityEnter: fn(),
-    showEmptyQuantityErrors: false,
+    flaggedEmptyIds: new Set(),
   },
 } satisfies Meta<typeof ComponentList>
 
@@ -248,7 +248,7 @@ export const NewEmptyRow: Story = {
 }
 
 export const EmptyQuantityAfterSave: Story = {
-  args: { components: componentsWithEmptyQuantity, showEmptyQuantityErrors: true },
+  args: { components: componentsWithEmptyQuantity, flaggedEmptyIds: new Set(['potato']) },
   parameters: {
     docs: {
       description: {

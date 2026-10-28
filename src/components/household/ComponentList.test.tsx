@@ -46,7 +46,7 @@ describe('ComponentList per-serving formatting', () => {
         onSetQuantity={vi.fn()}
         onMarkAsVague={vi.fn()}
         onQuantityEnter={vi.fn()}
-        showEmptyQuantityErrors={false}
+        flaggedEmptyIds={new Set()}
       />,
       'en',
     )
@@ -65,7 +65,7 @@ describe('ComponentList per-serving formatting', () => {
         onSetQuantity={vi.fn()}
         onMarkAsVague={vi.fn()}
         onQuantityEnter={vi.fn()}
-        showEmptyQuantityErrors={false}
+        flaggedEmptyIds={new Set()}
       />,
       'et',
     )
@@ -84,7 +84,7 @@ describe('ComponentList per-serving formatting', () => {
         onSetQuantity={vi.fn()}
         onMarkAsVague={vi.fn()}
         onQuantityEnter={vi.fn()}
-        showEmptyQuantityErrors={false}
+        flaggedEmptyIds={new Set()}
       />,
       'et',
     )
@@ -114,7 +114,7 @@ describe('ComponentList row controls', () => {
         onSetQuantity={vi.fn()}
         onMarkAsVague={vi.fn()}
         onQuantityEnter={vi.fn()}
-        showEmptyQuantityErrors={false}
+        flaggedEmptyIds={new Set()}
       />,
       locale,
     )
@@ -155,7 +155,7 @@ describe('ComponentList empty quantity', () => {
   }
 
   function renderEmpty({
-    showEmptyQuantityErrors = false,
+    flaggedEmptyIds = new Set<string>(),
     onQuantityEnter = vi.fn(),
     onUpdateQuantity = vi.fn(),
     locale = 'en' as 'en' | 'et',
@@ -172,7 +172,7 @@ describe('ComponentList empty quantity', () => {
           onSetQuantity={vi.fn()}
           onMarkAsVague={vi.fn()}
           onQuantityEnter={onQuantityEnter}
-          showEmptyQuantityErrors={showEmptyQuantityErrors}
+          flaggedEmptyIds={flaggedEmptyIds}
         />
       </form>,
       locale,
@@ -207,7 +207,7 @@ describe('ComponentList empty quantity', () => {
         onSetQuantity={vi.fn()}
         onMarkAsVague={vi.fn()}
         onQuantityEnter={vi.fn()}
-        showEmptyQuantityErrors={false}
+        flaggedEmptyIds={new Set()}
       />,
       'et',
     )
@@ -239,7 +239,7 @@ describe('ComponentList empty quantity', () => {
           onSetQuantity={vi.fn()}
           onMarkAsVague={vi.fn()}
           onQuantityEnter={onQuantityEnter}
-          showEmptyQuantityErrors={false}
+          flaggedEmptyIds={new Set()}
         />
         <button type="submit">Save</button>
       </form>,
@@ -254,8 +254,8 @@ describe('ComponentList empty quantity', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('flags the empty row once the form tried to save', () => {
-    renderEmpty({ showEmptyQuantityErrors: true })
+  it('flags an empty row the last save attempt found empty', () => {
+    renderEmpty({ flaggedEmptyIds: new Set(['potato']) })
 
     expect(screen.getByRole('textbox', { name: 'Total quantity for Potato' })).toHaveAttribute(
       'aria-invalid',

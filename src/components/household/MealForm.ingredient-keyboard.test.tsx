@@ -140,4 +140,29 @@ describe('MealForm adds ingredients from the keyboard', () => {
     expect(screen.getByText(/Quantity must be greater than 0: Egg/)).toBeInTheDocument()
     expect(saveRequests(fetchSpy)).toHaveLength(0)
   })
+
+  it('does not flag a row added after a failed save', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderForm()
+
+    await user.type(screen.getByLabelText('Recipe name'), 'Salad')
+    const servings = screen.getByLabelText('Recipe makes (servings)')
+    await user.clear(servings)
+    await user.type(servings, '0')
+    await search(user, 'egg')
+    await user.keyboard('{Enter}')
+    // Fails on the servings, and finds the egg quantity empty.
+    await user.click(screen.getByRole('button', { name: 'Create recipe' }))
+    const eggQuantity = screen.getByRole('textbox', { name: 'Total quantity for Egg' })
+    expect(eggQuantity).toHaveAttribute('aria-invalid', 'true')
+
+    await search(user, 'tomat')
+    await user.keyboard('{Enter}')
+
+    const tomatoQuantity = screen.getByRole('textbox', { name: 'Total quantity for Tomato' })
+    expect(tomatoQuantity).toHaveFocus()
+    expect(tomatoQuantity).not.toHaveAttribute('aria-invalid')
+    expect(eggQuantity).toHaveAttribute('aria-invalid', 'true')
+    expect(saveRequests(fetchSpy)).toHaveLength(0)
+  })
 })
