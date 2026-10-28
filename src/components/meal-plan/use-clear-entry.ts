@@ -30,8 +30,9 @@ export interface ClearedMealEntry {
 
 /**
  * What Undo posts back after a fridge meal is cleared: its items, its note
- * (HON-1277) and its status, since Past meals offers Remove on a skipped one
- * (HON-1383).
+ * (HON-1277), its status, since Past meals offers Remove on a skipped one
+ * (HON-1383), and whether the pantry was charged, so a restored meal is not
+ * charged a second time (HON-1444).
  */
 export interface ClearedFridgeMeal {
   date: string
@@ -41,6 +42,7 @@ export interface ClearedFridgeMeal {
   note: string | null
   noteX: number | null
   noteY: number | null
+  pantryDeducted: boolean
 }
 
 export type ClearedEntry = ClearedMealEntry | ClearedFridgeMeal

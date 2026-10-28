@@ -124,6 +124,7 @@ export function PastFridgeRow({
       note,
       noteX: note ? noteX : null,
       noteY: note ? noteY : null,
+      pantryDeducted: isPantryCharged,
     })
   }
 
