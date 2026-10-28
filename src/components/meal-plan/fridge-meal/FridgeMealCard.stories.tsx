@@ -87,6 +87,35 @@ export const FreeTextOnly: Story = {
   args: { items: fridgeItems.filter((item) => item.label !== null) },
 }
 
+/**
+ * A long name on the fridge tint, at phone width: with no image to clear, the
+ * name keeps the full row, so it wraps no earlier than it must and the card
+ * stays one height with the recipe cards (docs/DESIGN.md → Composition rules).
+ */
+export const LongNameOnPhone: Story = {
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  args: {
+    items: ['pelmeenid', 'sour cream', 'dill', 'rye bread', 'pickled cucumbers'].map(
+      (label, index) => ({
+        id: `item-${index}`,
+        ingredientId: null,
+        sourceEntryId: null,
+        label,
+        name: null,
+        sourceDate: null,
+      }),
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole('heading', { level: 3 })
+    const card = canvasElement.querySelector<HTMLElement>('[data-meal-surface="fridge"]')!
+    // The image's cap would hold the name at half the card or less.
+    await expect(heading.getBoundingClientRect().width).toBeGreaterThan(
+      card.getBoundingClientRect().width * 0.6,
+    )
+  },
+}
+
 export const WithNote: Story = {
   args: { note: 'Heat the mash first' },
 }

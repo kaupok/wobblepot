@@ -208,12 +208,61 @@ describe('FridgeMealCard', () => {
     expect(screen.getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/^Mash/))
   })
 
+  // A ready picture with no hue sits on the neutral surface, as on a recipe
+  // card (HON-754), rather than giving way to the fridge tint.
+  it("keeps the leftovers' meal's picture when it has no hue", () => {
+    const withImage = fridgeItems.map((item) =>
+      item.sourceEntryId
+        ? {
+            ...item,
+            image: {
+              imageUrl: 'https://example.com/mash.png',
+              imageStatus: 'ready' as const,
+              imageHue: null,
+            },
+          }
+        : item,
+    )
+    renderCard({ items: withImage })
+
+    expect(document.querySelector('[data-meal-surface]')).toHaveAttribute(
+      'data-meal-surface',
+      'neutral',
+    )
+    expect(screen.getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/^Mash/))
+  })
+
   it('opens the items from a click on the card', async () => {
     const { user } = renderCard()
 
     await user.click(screen.getByText('Nothing to buy'))
 
     expect(await screen.findByRole('dialog', { name: 'Fridge meal' })).toBeInTheDocument()
+  })
+
+  // docs/DESIGN.md → Focus management: a dialog opened from state hands focus
+  // back to the control that opened it.
+  it('focuses the name again when the picker opened from the card closes', async () => {
+    const { user } = renderCard()
+    const nameButton = screen.getByRole('button', { name: /^Mash \+ / })
+
+    await user.click(screen.getByText('Nothing to buy'))
+    await screen.findByRole('dialog', { name: 'Fridge meal' })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(nameButton).toHaveFocus()
+  })
+
+  it('focuses the ⋯ trigger again when the picker opened from "Edit items" closes', async () => {
+    const { user } = renderCard()
+
+    await choose(user, 'Edit items')
+    await screen.findByRole('dialog', { name: 'Fridge meal' })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger()).toHaveFocus()
   })
 
   it('completes with no dialog when no item is from the pantry', async () => {

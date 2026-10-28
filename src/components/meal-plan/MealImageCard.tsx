@@ -118,9 +118,10 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * Estonian ("Vaja osta 2 koostisosa", 177px of 356px). So the slip starts no
  * further left than 11/20 plus 8px, and half plus 8px on a wide card, where
  * 3/8 of a 448px card would still be under that badge. Both clear the title
- * cap (`TITLE_WIDTH`, at most half). A cap rather than a left inset, so a slip
- * dragged elsewhere keeps its width (HON-975). Change them together, and with
- * `NOTE_SCATTER_RANGE`, which only moves the slip left and up from here.
+ * cap (`TITLE_WIDTH` in `meal-image-widths.ts`, at most half). A cap rather
+ * than a left inset, so a slip dragged elsewhere keeps its width (HON-975).
+ * Change them together, and with `NOTE_SCATTER_RANGE`, which only moves the
+ * slip left and up from here.
  */
 const OVERLAY_ANCHOR = {
   default: 'right-4 bottom-0 max-w-note-slip @md/meal-image:max-w-note-slip-md',
@@ -180,45 +181,8 @@ function overlayStyle({ scatter, position }: NotePlacement): CSSProperties {
   } as CSSProperties
 }
 
-/**
- * The widest the title may be on a tinted card: it wraps before it reaches the
- * image. Fractions of the card's content row, matched to where `IMAGE_BOX`
- * starts — change the two together. The image's left fade is short (10%): the
- * title never reaches it, so it only softens the box's edge and the plate shows
- * at full strength (HON-1358). An uncapped badge row can run onto the plate
- * (HON-1380).
- *
- * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
- * card whose image fails to load drops it, and its title gets the full row
- * back with it. A neutral surface (an image without a hue) keeps the cap.
- *
- * A card with an `overlay` (`data-meal-overlay`) keeps the cap without an
- * image too, so the title wraps before the note's slip (`OVERLAY_BOX`) rather
- * than running under it (HON-974).
- */
-const TITLE_WIDTH = {
-  default:
-    'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
-  trailingActions:
-    'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
-} as const
-
-/** The `max-width` classes for a title inside a `MealImageCard`, matching its image box. */
-export function mealImageTitleWidth(trailingActions = false): string {
-  return trailingActions ? TITLE_WIDTH.trailingActions : TITLE_WIDTH.default
-}
-
-/**
- * The `max-width` for the head's badge rows on a card with an `overlay`: half
- * the content row, which ends before the slip's left edge (`OVERLAY_BOX`) at
- * any width, so a second badge wraps rather than running under the slip
- * (HON-974): the servings override after the pantry badge, and on a short
- * card, which the slip spans top to bottom, the first row's protein and
- * own-recipe badges. A single badge
- * wider than that overflows the cap rather than wrapping; the slip's left
- * edge is set to clear the widest one. Without an overlay the row is uncapped.
- */
-export const MEAL_IMAGE_BADGE_ROW_WIDTH = 'group-data-meal-overlay/meal-image:max-w-1/2'
+// The title and badge-row caps live beside the card; callers import them from here.
+export { MEAL_IMAGE_BADGE_ROW_WIDTH, mealImageTitleWidth } from './meal-image-widths'
 
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no

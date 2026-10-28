@@ -17,12 +17,7 @@ import { Body, Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
 import { cn } from '@/lib/utils'
 import { CARD_CLICK_IGNORE } from '../card-click'
-import {
-  MEAL_IMAGE_BADGE_ROW_WIDTH,
-  MealImageCard,
-  mealImageTitleWidth,
-  mealTintHue,
-} from '../MealImageCard'
+import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from '../MealImageCard'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
 import { StickyNote } from '../StickyNote'
@@ -90,10 +85,12 @@ export function FridgeMealCard({
   const [note, setNote] = useState<string | null>(initialNote)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
-  // Both dialogs open from the ⋯ menu with no `DialogTrigger`, so each hands
-  // focus back to the menu's trigger as it closes (docs/DESIGN.md → Focus management).
+  // Both dialogs open with no `DialogTrigger`, so each hands focus back to the
+  // control that opened it as it closes (docs/DESIGN.md → Focus management):
+  // the ⋯ trigger, or the name for the picker opened from the card.
   const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
   const nameButtonRef = useRef<HTMLButtonElement>(null)
+  const pickerOpenerRef = useRef<HTMLButtonElement | null>(null)
 
   const {
     status,
@@ -127,8 +124,12 @@ export function FridgeMealCard({
   // apart. Separators, not prepositions (docs/LOCALIZATION.md).
   const cardName = t('cardName', { title: t('title'), items: items.map(itemText).join(', ') })
   const { clear, isClearing } = useClearEntry({ planId, entryId, name: cardName, onCleared })
-  // The leftovers' dish, when one has a picture: the card shows that meal again.
-  const leftoverImage = items.find((item) => item.image && mealTintHue(item.image) !== null)?.image
+  // The leftovers' dish, when one has a picture: the card shows that meal
+  // again. A picture with no hue still shows, on the neutral surface, as on a
+  // recipe card (HON-754).
+  const leftoverImage = items.find(
+    (item) => item.image?.imageStatus === 'ready' && item.image.imageUrl,
+  )?.image
 
   const hasPantryItems = items.some((item) => item.ingredientId !== null)
   const isCompleted = status === 'completed'
@@ -158,8 +159,9 @@ export function FridgeMealCard({
     })
   }
 
-  function openPicker() {
+  function openPicker(opener: React.RefObject<HTMLButtonElement | null>) {
     if (isBusy || isCompleted) return
+    pickerOpenerRef.current = opener.current
     setIsPickerOpen(true)
   }
 
@@ -173,12 +175,17 @@ export function FridgeMealCard({
     if (isNoteEditing && target.closest('[data-slot="meal-image-overlay"] *')) return
     if (window.getSelection()?.toString()) return
     nameButtonRef.current?.focus({ preventScroll: true })
-    openPicker()
+    openPicker(nameButtonRef)
   }
 
   function focusMoreActionsOnClose(event: Event) {
     event.preventDefault()
     moreActionsTriggerRef.current?.focus()
+  }
+
+  function focusPickerOpenerOnClose(event: Event) {
+    event.preventDefault()
+    pickerOpenerRef.current?.focus()
   }
 
   return (
@@ -237,7 +244,10 @@ export function FridgeMealCard({
                         <Check aria-hidden="true" />
                         {t('markEaten')}
                       </DropdownMenuItem>
-                      <DropdownMenuItem disabled={isBusy} onSelect={openPicker}>
+                      <DropdownMenuItem
+                        disabled={isBusy}
+                        onSelect={() => openPicker(moreActionsTriggerRef)}
+                      >
                         <Pencil aria-hidden="true" />
                         {t('editItems')}
                       </DropdownMenuItem>
@@ -257,7 +267,7 @@ export function FridgeMealCard({
             <div
               className={cn(
                 'flex min-h-14 min-w-0 flex-col @md/meal-image:min-h-26',
-                mealImageTitleWidth(true),
+                mealImageTitleWidth(true, { image: !!leftoverImage }),
               )}
             >
               <div className="relative flex min-h-8 w-fit items-center">
@@ -269,7 +279,7 @@ export function FridgeMealCard({
                       data-slot="card-target"
                       aria-labelledby={sides.length > 0 ? `${nameId} ${sidesId}` : nameId}
                       className="absolute inset-0 cursor-pointer outline-none"
-                      onClick={openPicker}
+                      onClick={() => openPicker(nameButtonRef)}
                     />
                   )}
                   <span id={nameId} className="underline-offset-2 group-hover/card:underline">
@@ -333,7 +343,7 @@ export function FridgeMealCard({
         initialItems={items}
         pantryItems={pantryItems}
         onSaved={() => router.refresh()}
-        onCloseAutoFocus={focusMoreActionsOnClose}
+        onCloseAutoFocus={focusPickerOpenerOnClose}
       />
       <FridgeCompleteDialog
         open={isCompleteOpen}
