@@ -11,7 +11,7 @@ import type { PreparationSteps as PreparationStepsData } from '@/components/meal
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
 // The ⋯ menus and question panels of "You'll need" (HON-983). The steps' own
-// are in PreparationSteps.test.tsx.
+// are in PreparationSteps.ask.test.tsx.
 
 const sampleTips: PreparationStepsData = {
   equipment: ['Large pan', 'Cutting board'],

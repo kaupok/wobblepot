@@ -113,8 +113,9 @@ export const AskOwn: Story = {
 }
 
 /**
- * The row's answer is on its way: the ready-made questions are disabled, so a
- * second pick cannot bill a second call; "Ask your own question" is not (HON-1360).
+ * The row's answer is on its way: every item is disabled, so a second pick
+ * cannot bill a second call (HON-1360). "Ask your own question" would reset the
+ * panel and abort the answer, so it is disabled too (HON-1442).
  */
 export const Busy: Story = {
   args: { busy: true },
@@ -124,8 +125,10 @@ export const Busy: Story = {
     const item = (name: string) => within(menu).getByRole('menuitem', { name })
     const ready = ["How do I know it's done?", 'What can I substitute here?', "I'm short on time"]
     for (const name of ready) await expect(item(name)).toHaveAttribute('data-disabled')
-    await expect(item('Ask your own question')).not.toHaveAttribute('data-disabled')
+    await expect(item('Ask your own question')).toHaveAttribute('data-disabled')
     await userEvent.click(item("I'm short on time"), { pointerEventsCheck: 0 })
+    await userEvent.click(item('Ask your own question'), { pointerEventsCheck: 0 })
     await expect(args.onAsk).not.toHaveBeenCalled()
+    await expect(args.onAskOwn).not.toHaveBeenCalled()
   },
 }

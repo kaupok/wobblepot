@@ -31,9 +31,10 @@ export interface CookQuestionMenuProps {
   /** Whether this row's panel is open */
   open: boolean
   /**
-   * True while this row's answer is pending or streaming. The ready-made
-   * questions are disabled then: the route keeps generating an answer the
-   * browser aborts, so a second pick bills a second call (HON-1360).
+   * True while this row's answer is pending or streaming. Every item is
+   * disabled then: the route keeps generating an answer the browser aborts,
+   * so a second pick bills a second call (HON-1360). "Ask your own question"
+   * aborts it too, because opening the panel resets it (HON-1442).
    */
   busy: boolean
   panelId: string
@@ -54,9 +55,7 @@ export interface CookQuestionMenuProps {
  * `aria-label` is the same text, so the rows' buttons tell apart. With the
  * row's panel open the button is expanded but stays ghost: the panel's card
  * under the row is the visible sign, and a filled button beside it was the
- * heaviest thing on the row (HON-1371). Close is in the panel. "Ask your
- * own question" stays enabled while busy: it only opens the panel, whose Send
- * waits for the answer.
+ * heaviest thing on the row (HON-1371). Close is in the panel.
  */
 export function CookQuestionMenu({
   ref,
@@ -137,6 +136,7 @@ export function CookQuestionMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           size="lg"
+          disabled={busy}
           onSelect={() => {
             picked.current = 'field'
             onAskOwn()
