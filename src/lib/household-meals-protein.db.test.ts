@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMeal } from '@/lib/household-meals-read'
+import { loadMeals } from '@/lib/meals/load-meals'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import {
   createHouseholdMeal,
   HouseholdMealError,
@@ -221,5 +223,38 @@ describe('updateHouseholdMeal with a chosen main protein', () => {
       primaryProteinType: 'legume',
       proteinTypeOverride: null,
     })
+  })
+})
+
+describe('the cards that show the protein badge', () => {
+  it('read Beef for a recipe whose household chose Beef over derived Legumes', async () => {
+    const { alder } = await world()
+    const { id } = await createHouseholdMeal(alder, {
+      ...minceAndBeans,
+      proteinTypeOverride: 'beef',
+    })
+    await prisma.mealPlan.create({
+      data: {
+        id: 'plan-alder',
+        householdId: alder,
+        entries: {
+          create: { date: new Date('2026-10-19T00:00:00Z'), mealType: 'dinner', mealId: id },
+        },
+      },
+    })
+
+    // The meal selector reads `GET /api/meals`, which reads `loadMeals`.
+    const { meals } = await loadMeals(
+      { id: alder, locale: 'en', preferences: null },
+      { source: 'custom' },
+    )
+    expect(meals.find((meal) => meal.id === id)?.primaryProteinType).toBe('beef')
+
+    // The planner card reads `GET /api/entries`, which reads `loadPlanEntries`.
+    const { entries } = await loadPlanEntries(
+      { id: alder, locale: 'en', _count: { members: 0 }, members: [] },
+      { startDate: new Date('2026-10-19T00:00:00Z'), endDate: new Date('2026-10-20T00:00:00Z') },
+    )
+    expect(entries.map((entry) => entry.meal?.primaryProteinType)).toEqual(['beef'])
   })
 })
