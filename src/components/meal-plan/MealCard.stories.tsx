@@ -460,6 +460,28 @@ export const NoteWithServingOverridePhoneEstonian: Story = {
   globals: { locale: 'et' },
 }
 
+/** A dinner that feeds Tuesday's lunch shows the total and the lunch part (HON-1395). */
+export const WithLeftoverLunch: Story = {
+  args: {
+    ...PlannedWithImage.args,
+    householdServings: 3,
+    cookServings: 5.5,
+    leftoversFor: [{ date: '2026-10-13', mealType: MealType.lunch, servings: 2.5 }],
+  },
+  play: async ({ canvasElement }) => {
+    const line = within(canvasElement).getByText('5.5 servings · 2.5 for lunch: Tuesday')
+    await expect(line).toBeVisible()
+  },
+}
+
+/** On a phone, in Estonian, the line is cut short rather than wrapping. */
+export const WithLeftoverLunchPhoneEstonian: Story = {
+  args: WithLeftoverLunch.args,
+  name: 'With leftover lunch (phone, Estonian)',
+  parameters: { cardWidth: 'phone' },
+  globals: { locale: 'et' },
+}
+
 const SHORT_NAME = 'Pasta'
 const LONG_NOTE =
   'Use the big pot, salt the water well, and save a cup of the pasta water for the sauce before you drain it.'

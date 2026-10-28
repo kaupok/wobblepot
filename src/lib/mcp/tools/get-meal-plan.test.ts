@@ -156,6 +156,8 @@ describe('get_meal_plan', () => {
               name: 'Frozen peas',
               sourceDate: null,
               servings: null,
+              sourceMealType: null,
+              sourceState: null,
             },
             {
               id: 'item-2',
@@ -165,6 +167,8 @@ describe('get_meal_plan', () => {
               name: 'Mashed potatoes',
               sourceDate: '2026-10-10',
               servings: 2.5,
+              sourceMealType: 'dinner',
+              sourceState: 'completed',
             },
             {
               id: 'item-3',
@@ -174,6 +178,8 @@ describe('get_meal_plan', () => {
               name: null,
               sourceDate: '2026-10-11',
               servings: null,
+              sourceMealType: 'dinner',
+              sourceState: 'gone',
             },
             {
               id: 'item-4',
@@ -183,6 +189,8 @@ describe('get_meal_plan', () => {
               name: null,
               sourceDate: null,
               servings: null,
+              sourceMealType: null,
+              sourceState: null,
             },
           ],
         }),

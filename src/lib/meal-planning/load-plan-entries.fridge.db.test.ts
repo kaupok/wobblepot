@@ -78,6 +78,8 @@ describe('loadPlanEntries with a fridge meal', () => {
         name: 'Kurk',
         sourceDate: null,
         servings: null,
+        sourceMealType: null,
+        sourceState: null,
       },
       {
         ingredientId: null,
@@ -86,6 +88,8 @@ describe('loadPlanEntries with a fridge meal', () => {
         name: 'Kartulipuder',
         sourceDate: '2026-10-20',
         servings: null,
+        sourceMealType: 'dinner',
+        sourceState: 'completed',
       },
       {
         ingredientId: null,
@@ -94,7 +98,32 @@ describe('loadPlanEntries with a fridge meal', () => {
         name: null,
         sourceDate: null,
         servings: null,
+        sourceMealType: null,
+        sourceState: null,
       },
     ])
+  })
+
+  // Whether the leftovers will exist (HON-1395): the lunch card says
+  // "planned" while its dinner is still to cook, and warns once it is gone.
+  it.each([
+    ['planned', { status: 'planned' as const }, 'planned'],
+    ['skipped', { status: 'skipped' as const }, 'gone'],
+    [
+      'made a fridge meal',
+      { status: 'planned' as const, kind: 'fridge' as const, mealId: null },
+      'gone',
+    ],
+  ])("reports a %s source's state", async (_case, source, state) => {
+    const household = await world()
+    await prisma.mealPlanEntry.update({ where: { id: 'entry-mash' }, data: source })
+
+    const { entries } = await loadPlanEntries(household, {
+      startDate: new Date('2026-10-21T00:00:00Z'),
+      endDate: new Date('2026-10-22T00:00:00Z'),
+    })
+
+    const leftover = entries[0]!.items.find((item) => item.sourceEntryId === 'entry-mash')
+    expect(leftover).toMatchObject({ sourceMealType: 'dinner', sourceState: state })
   })
 })

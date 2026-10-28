@@ -1,0 +1,90 @@
+// The real next-intl: the global mock in vitest.setup.ts reads English only and
+// has no ICU `select`, and the leftover line names its slot per locale (HON-1395).
+import { describe, it, expect, vi } from 'vitest'
+vi.unmock('next-intl')
+import { render, screen } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
+import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
+import { createQueryWrapper } from '@/test/query-wrapper'
+import {
+  fridgeItems,
+  fridgePantryItems,
+  plannedLeftoverItem,
+  skippedLeftoverItem,
+} from '@/stories/fridge-fixtures'
+import type { FridgeMealItem } from '../types'
+import { FridgeMealCard } from './FridgeMealCard'
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}))
+vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+
+const WARNING =
+  "These leftovers won't exist, because that meal is skipped or changed. Plan something else for this meal."
+
+function renderCard(
+  items: FridgeMealItem[],
+  {
+    status = 'planned',
+    locale = 'en',
+  }: { status?: 'planned' | 'completed'; locale?: 'en' | 'et' } = {},
+) {
+  const { wrapper: Wrapper } = createQueryWrapper()
+  render(
+    <NextIntlClientProvider locale={locale} messages={locale === 'et' ? etMessages : enMessages}>
+      <Wrapper>
+        <FridgeMealCard
+          entryId="entry-1"
+          planId="plan-1"
+          date="2026-10-21"
+          mealType="lunch"
+          status={status}
+          items={items}
+          pantryItems={fridgePantryItems}
+        />
+      </Wrapper>
+    </NextIntlClientProvider>,
+  )
+}
+
+describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
+  it('names the dinner, its day and slot, its servings, and "planned"', () => {
+    renderCard([plannedLeftoverItem])
+    expect(
+      screen.getByText('Roast chicken, from Tuesday at dinner · 2.5 servings · planned'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
+  })
+
+  it('says it in Estonian, with a decimal comma', () => {
+    renderCard([plannedLeftoverItem], { locale: 'et' })
+    expect(
+      screen.getByText('Roast chicken (teisipäev, õhtusöök) · 2,5 portsjonit · planeeritud'),
+    ).toBeInTheDocument()
+  })
+
+  it('drops "planned" once the dinner is cooked', () => {
+    renderCard([{ ...plannedLeftoverItem, sourceState: 'completed' }])
+    expect(
+      screen.getByText('Roast chicken, from Tuesday at dinner · 2.5 servings'),
+    ).toBeInTheDocument()
+  })
+
+  it('warns that the leftovers will not exist when the dinner is skipped', () => {
+    renderCard([skippedLeftoverItem])
+    expect(screen.getByText(WARNING)).toBeInTheDocument()
+    expect(screen.queryByText(/planned/)).not.toBeInTheDocument()
+  })
+
+  it('drops the warning once the lunch is eaten', () => {
+    renderCard([skippedLeftoverItem], { status: 'completed' })
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
+  })
+
+  it('keeps the older line for a leftover added in the picker', () => {
+    renderCard(fridgeItems)
+    expect(screen.getByText('Mash, from Tuesday')).toBeInTheDocument()
+  })
+})

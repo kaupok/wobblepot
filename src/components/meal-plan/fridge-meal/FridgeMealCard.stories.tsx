@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
-import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+import {
+  fridgeItems,
+  fridgePantryItems,
+  plannedLeftoverItem,
+  skippedLeftoverItem,
+} from '@/stories/fridge-fixtures'
 import { FridgeMealCard } from './FridgeMealCard'
 
 const meta = {
@@ -97,4 +102,31 @@ export const EditItems: Story = {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
     await expect(dialog.getByRole('button', { name: 'Remove: Cucumber' })).toBeInTheDocument()
   },
+}
+
+/** Tomorrow's lunch from tonight's dinner, still to cook (HON-1395). */
+export const LeftoverFromPlannedDinner: Story = {
+  args: { mealType: 'lunch', items: [plannedLeftoverItem, fridgeItems[2]!] },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(
+        'Roast chicken, from Tuesday at dinner · 2.5 servings · planned',
+      ),
+    ).toBeVisible()
+  },
+}
+
+/** The dinner was skipped, so the lunch has nothing to eat: plan something else. */
+export const LeftoverFromSkippedDinner: Story = {
+  args: { mealType: 'lunch', items: [skippedLeftoverItem, fridgeItems[2]!] },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText(/These leftovers won't exist/)).toBeVisible()
+  },
+}
+
+export const LeftoverFromSkippedDinnerEstonian: Story = {
+  ...LeftoverFromSkippedDinner,
+  name: 'Leftover from skipped dinner (Estonian)',
+  globals: { locale: 'et' },
+  play: undefined,
 }

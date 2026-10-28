@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Check, MoreHorizontal, Pencil, Undo2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Callout } from '@/components/ui/callout'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   DropdownMenu,
@@ -188,6 +189,13 @@ export function FridgeMealCard({
             {items.map((item) => (
               <Li key={item.id}>
                 <Body variant="small">{itemText(item)}</Body>
+                {/* Only while the meal is still to eat: the household must plan
+                    something else (HON-1395). */}
+                {!isCompleted && item.sourceState === 'gone' && (
+                  <div className="mt-1">
+                    <Callout tone="warning">{t('sourceGone')}</Callout>
+                  </div>
+                )}
               </Li>
             ))}
           </Ul>

@@ -24,6 +24,7 @@ import { MealDetail } from './MealDetail'
 import { ConflictBadges } from './ConflictBadge'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { useAdjustSection } from './use-adjust-section'
+import type { SharedLeftover } from './use-leftover-lunches'
 import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
@@ -55,6 +56,9 @@ interface MealDetailModalProps {
   onNoteChange?: (note: string | null) => void
   servingOverride?: number | null
   onServingOverrideChange?: (servingOverride: number | null) => void
+  /** See `MealDetail`: the stored count of a completed entry, and the leftover lunches. */
+  cookedServings?: number
+  leftovers?: SharedLeftover[]
   /**
    * The entry's cached tips, as the server loaded them. Seeds the steps on
    * first render so a cached entry needs no request. Read once: a later
@@ -107,6 +111,8 @@ export function MealDetailModal({
   onNoteChange,
   servingOverride,
   onServingOverrideChange,
+  cookedServings,
+  leftovers,
   initialSteps = null,
   conflicts = [],
   changes,
@@ -427,6 +433,8 @@ export function MealDetailModal({
           householdServings={householdServings}
           status={status}
           servings={localServings}
+          cookedServings={cookedServings}
+          leftovers={leftovers}
           onServingsChange={readOnly ? undefined : handleServingsChange}
           pantryIngredients={pantryIngredients}
           onToggleAvailability={readOnly ? undefined : handleToggleAvailability}

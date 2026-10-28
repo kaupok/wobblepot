@@ -65,3 +65,22 @@ export const fridgeItems: FridgeMealItem[] = [
     servings: null,
   },
 ]
+
+/**
+ * Tomorrow's lunch from tonight's dinner (HON-1395): Tuesday's roast, still
+ * planned, gives this lunch 2.5 servings.
+ */
+export const plannedLeftoverItem: FridgeMealItem = {
+  id: 'item-roast',
+  ingredientId: null,
+  sourceEntryId: 'entry-roast',
+  label: null,
+  name: 'Roast chicken',
+  sourceDate: MASH_DATE,
+  servings: 2.5,
+  sourceMealType: 'dinner',
+  sourceState: 'planned',
+}
+
+/** The same lunch once the roast is skipped: there will be no leftovers. */
+export const skippedLeftoverItem: FridgeMealItem = { ...plannedLeftoverItem, sourceState: 'gone' }

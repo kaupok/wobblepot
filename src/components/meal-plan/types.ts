@@ -78,6 +78,14 @@ export interface PlanEntry {
   noteY?: number | null
   servingOverride: number | null
   /**
+   * What a recipe entry is cooked for: its own servings plus its leftover
+   * lunches, or the stored count once completed (HON-1394). Sent by
+   * `/api/entries` only.
+   */
+  cookServings?: number
+  /** The leftover lunches this entry feeds, in day order (HON-1394). Sent by `/api/entries` only. */
+  leftoversFor?: LeftoverLunch[]
+  /**
    * Whether completing this entry has already charged the pantry. The server
    * charges an entry at most once, even across a revert (HON-651), so the UI
    * must not preview a second deduction. Sent by `/api/entries` only.
@@ -124,6 +132,25 @@ export interface FridgeMealItem {
   /** The source meal's day, `YYYY-MM-DD`; null unless `sourceEntryId` is set. */
   sourceDate: string | null
   /** What a leftover item takes from its source (HON-1394); null otherwise. */
+  servings: number | null
+  /** The source meal's slot. Sent by `/api/entries` only; null unless `sourceEntryId` is set. */
+  sourceMealType?: MealType | null
+  /** Whether the source is still to cook (HON-1395). Sent by `/api/entries` only. */
+  sourceState?: FridgeSourceState | null
+}
+
+/**
+ * A leftover item's source: still `planned`, `completed`, or `gone` when it is
+ * skipped or no longer a recipe meal, so the leftovers will not exist.
+ */
+export type FridgeSourceState = 'planned' | 'completed' | 'gone'
+
+/** One lunch that takes leftovers from a recipe entry (HON-1394). */
+export interface LeftoverLunch {
+  /** `YYYY-MM-DD` */
+  date: string
+  mealType: MealType
+  /** Null for an item added in the picker, which takes no share of the cook. */
   servings: number | null
 }
 
