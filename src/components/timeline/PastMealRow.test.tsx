@@ -7,7 +7,7 @@ import type { MealStatus, PantryItemFull } from '@/components/meal-plan/types'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
 import { toast } from 'sonner'
 import { track } from '@/lib/analytics'
@@ -26,7 +26,14 @@ function respond(status: number, body: object = {}) {
 }
 
 function renderRow(
-  props: { status?: MealStatus; pantryDeducted?: boolean; pantryItems?: PantryItemFull[] } = {},
+  props: {
+    status?: MealStatus
+    pantryDeducted?: boolean
+    pantryItems?: PantryItemFull[]
+    autoFocus?: boolean
+    onFocused?: () => void
+    onCleared?: () => void
+  } = {},
 ) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
@@ -34,6 +41,7 @@ function renderRow(
       <PastMealRow
         entryId="entry-1"
         planId="plan-1"
+        date="2026-04-14"
         meal={meal}
         mealType="dinner"
         status="planned"
@@ -178,5 +186,48 @@ describe('PastMealRow', () => {
     )
     await waitFor(() => expect(cooked()).toHaveFocus())
     expect(skipped()).toBeInTheDocument()
+  })
+
+  describe('Remove (HON-1383)', () => {
+    it('clears a planned row as Clear does, with the entry for Undo', async () => {
+      const user = userEvent.setup()
+      const onCleared = vi.fn()
+      renderRow({ onCleared })
+
+      const remove = screen.getByRole('button', { name: 'Remove' })
+      expect(remove).toHaveAccessibleDescription(meal.name)
+      respond(200, { success: true })
+      await user.click(remove)
+
+      await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/meal-plans/plan-1/entries/entry-1',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+      expect(toast).toHaveBeenCalledWith(
+        `Cleared: ${meal.name}`,
+        expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }),
+      )
+    })
+
+    it('offers Remove on a skipped row', () => {
+      renderRow({ status: 'skipped' })
+
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    })
+
+    it('offers no Remove on a cooked row', () => {
+      renderRow({ status: 'completed' })
+
+      expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('takes focus on Undo when it replaces a logged slot', async () => {
+    const onFocused = vi.fn()
+    renderRow({ status: 'completed', autoFocus: true, onFocused })
+
+    await waitFor(() => expect(undo()).toHaveFocus())
+    expect(onFocused).toHaveBeenCalledTimes(1)
   })
 })

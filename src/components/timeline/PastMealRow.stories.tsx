@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import { RowGroup } from '@/components/ui/row-group'
 import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
@@ -16,6 +16,7 @@ const meta = {
   args: {
     entryId: 'entry-1',
     planId: 'plan-1',
+    date: '2026-04-14',
     meal,
     mealType: MealType.dinner,
     status: 'planned',
@@ -99,6 +100,23 @@ export const SkipThenUndo: Story = {
   },
 }
 
+/**
+ * A row that is not cooked has Remove, which clears the slot as Clear does on
+ * the planner card, with Undo in the toast (HON-1383). The list moves focus
+ * to the empty slot that replaces the row.
+ */
+export const Remove: Story = {
+  args: { onCleared: fn() },
+  play: async ({ args, canvasElement }) => {
+    const remove = within(canvasElement).getByRole('button', { name: 'Remove' })
+    await expect(remove).toHaveAccessibleDescription(meal.name)
+
+    await userEvent.click(remove)
+
+    await waitFor(() => expect(args.onCleared).toHaveBeenCalledTimes(1))
+  },
+}
+
 export const CookedRated: Story = {
   args: { status: 'completed', rating: 'up' },
   play: async ({ canvasElement }) => {
@@ -108,6 +126,8 @@ export const CookedRated: Story = {
       'true',
     )
     await expect(undo(canvasElement)).toBeInTheDocument()
+    // A cooked row has no Remove: nothing tells a logged meal from a planned one.
+    await expect(canvas.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
   },
 }
 
@@ -115,8 +135,14 @@ export const CookedUnrated: Story = {
   args: { status: 'completed', rating: null },
 }
 
+/** A skipped row keeps Undo and Remove. */
 export const Skipped: Story = {
   args: { status: 'skipped' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(undo(canvasElement)).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+  },
 }
 
 /**

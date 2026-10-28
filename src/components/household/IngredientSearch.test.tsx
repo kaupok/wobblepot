@@ -33,6 +33,19 @@ function renderSearch(props: Partial<ComponentProps<typeof IngredientSearch>> = 
   )
 }
 
+// jsdom has no scrollIntoView; the list scrolls itself clear of the phone tab
+// bar once results show (HON-1378).
+const scrollIntoView = vi.fn()
+
+beforeEach(() => {
+  scrollIntoView.mockClear()
+  Element.prototype.scrollIntoView = scrollIntoView
+})
+
+afterEach(() => {
+  delete (Element.prototype as Partial<Element>).scrollIntoView
+})
+
 describe('IngredientSearch ARIA attributes', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -405,5 +418,33 @@ describe('IngredientSearch other English name', () => {
       category: 'carb',
       defaultUnit: 'g',
     })
+  })
+})
+
+// HON-1378: on a phone the list opens under the tab bar unless it scrolls up.
+describe('IngredientSearch results near the screen bottom', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('scrolls the results list into view, clear of the tab bar, once results show', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderSearch()
+
+    await user.type(screen.getByRole('combobox'), 'to')
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(350)
+
+    const listbox = await screen.findByRole('listbox')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    expect(scrollIntoView.mock.contexts).toContain(listbox)
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }))
+    expect(listbox).toHaveClass('scroll-mb-above-tab-bar', 'md:scroll-mb-0')
   })
 })

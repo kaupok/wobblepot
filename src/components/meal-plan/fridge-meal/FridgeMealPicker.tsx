@@ -49,6 +49,16 @@ interface FridgeMealPickerProps {
   onSaved: () => void
   /** Opened from state, so the caller returns focus to its opener (docs/DESIGN.md → Focus management). */
   onCloseAutoFocus?: (event: Event) => void
+  /**
+   * The household's own words from its fridge meals of the last 30 days, as
+   * one-tap chips, so "Wolt" stays one label (HON-1383).
+   */
+  recentLabels?: string[]
+  /**
+   * A log on Past meals: the meal was already eaten, so the new entry is saved
+   * as cooked, with no pantry change (HON-1383).
+   */
+  logPast?: boolean
 }
 
 /**
@@ -106,6 +116,8 @@ function PickerForm({
   pantryItems,
   onSaved,
   onClose,
+  recentLabels = [],
+  logPast = false,
 }: PickerFormProps) {
   const t = useTranslations('meal-plan.fridge')
   const tCard = useTranslations('meal-plan.card')
@@ -143,6 +155,8 @@ function PickerForm({
     .filter((p) => !chosenIngredientIds.has(p.ingredientId))
     .slice(0, PANTRY_MATCHES_SHOWN)
   const recentMeals = (recentQuery.data?.meals ?? []).filter((m) => !chosenSourceIds.has(m.entryId))
+  const chosenLabels = new Set(items.flatMap((i) => (i.label ? [i.label.toLocaleLowerCase()] : [])))
+  const shownLabels = recentLabels.filter((label) => !chosenLabels.has(label.toLocaleLowerCase()))
 
   function add(item: FridgeItemShown) {
     if (isFull) return
@@ -197,7 +211,12 @@ function PickerForm({
         : apiFetch(`/api/meal-plans/${planId}/entries`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date, mealType, fridgeItems }),
+            body: JSON.stringify({
+              date,
+              mealType,
+              fridgeItems,
+              ...(logPast ? { status: 'completed' } : {}),
+            }),
           })
     },
     onSuccess: () => {
@@ -273,6 +292,34 @@ function PickerForm({
             </ul>
           )}
         </section>
+
+        {recentLabels.length > 0 && (
+          <section className="flex flex-col gap-2" aria-labelledby={`${searchId}-labels`}>
+            <Heading variant="caption" as="h3" id={`${searchId}-labels`}>
+              {t('recentLabelsHeading')}
+            </Heading>
+            {shownLabels.length === 0 ? (
+              <Body variant="muted">{t('recentLabelsAllChosen')}</Body>
+            ) : (
+              <ChoiceList
+                choices={shownLabels.map((label) => ({
+                  key: label,
+                  text: label,
+                  item: {
+                    ingredientId: null,
+                    sourceEntryId: null,
+                    label,
+                    name: null,
+                    sourceDate: null,
+                  },
+                }))}
+                disabled={isFull}
+                onAdd={addLeftover}
+                addLabel={(name) => t('add', { name })}
+              />
+            )}
+          </section>
+        )}
 
         <section className="flex flex-col gap-2">
           <Label htmlFor={searchId}>{t('pantrySearch')}</Label>

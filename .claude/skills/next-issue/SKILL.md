@@ -23,7 +23,7 @@ Find the next unblocked issue and return a concise implementation summary.
 - **Default:** find any unblocked, unclaimed issue ready to implement.
 - **No-human-input mode (`--auto`):** only surface issues that `/auto-implement` can complete end-to-end without a human in the loop — no open decisions, no missing configuration, no provisioning, no design/legal review. Applies **extra** filters in step 5 and a different state order in steps 2 and 6 — everything else identical.
 
-**This skill proposes; it never queues.** Its output is a list of candidates. In `--auto` mode a candidate is something a human may move to `Queued` (the orchestrator's queue) or pass to `/auto-implement HON-XX` — this skill never writes a state itself. That is why both modes still list Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only: finding ready work in the backlog is this skill's purpose, and putting it in the unattended queue stays a human act (HON-854).
+**This skill proposes; it writes no state.** It runs in a fork without `save_issue`. Its output is a list of candidates. In `--auto` mode a candidate is something to move to `Queued` (the orchestrator's queue) or pass to `/auto-implement HON-XX`. That is why both modes still list Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only: finding ready work in the backlog is this skill's purpose. Mark each candidate an agent can finish alone as ready to queue. The calling session then offers to move those to Queued and moves the ones the user accepts (CLAUDE.md → File and queue by default).
 
 ## Arguments
 

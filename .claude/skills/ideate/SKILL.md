@@ -144,6 +144,7 @@ Present the proposed issue(s) to the user before creating them. For each issue, 
 
 **Dependencies:** [blockedBy / blocks / relatedTo if any]
 **Priority:** [Urgent / High / Medium / Low / None]
+**State:** [Queued: an unattended worker picks it up / Todo: a human-only step / Backlog: `[DRAFT]`, spec not ready]
 ```
 
 If there are multiple issues, also show the proposed relationships (order, dependencies, parent/child).
@@ -156,13 +157,13 @@ Ask the user conversationally if the proposed issues look good to create. If the
 
 For each approved issue:
 
-Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (`/refine-backlog` → "Title prefixes"). Create the issue in Backlog.
+Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (`/refine-backlog` → "Title prefixes"). Create a ready issue that an agent can finish alone in Queued, per `CLAUDE.md` → File and queue by default. A `[DRAFT]` goes to Backlog, and an issue with a human-only step to Todo. Set any `blockedBy` in the same call. The approval in step 8 names the state of each issue.
 
 ```typescript
 mcp__linear-server__save_issue({
   title: 'Issue title', // CLAUDE.md → Issue titles
   team: 'Wobblebot',
-  state: 'Backlog',
+  state: 'Queued', // 'Backlog' for a [DRAFT], 'Todo' for a human-only step
   description: 'Full description with acceptance criteria',
   // priority: 1-4 if set (1=Urgent, 2=High, 3=Medium, 4=Low)
   // blockedBy: ['HON-XX'],
