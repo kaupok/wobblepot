@@ -388,6 +388,18 @@ describe('orchestrator.sh', () => {
     })
 
     describe('worktree-claude.sh auto_prompt', () => {
+      // cmd_auto hands the prompt to run_auto_claude, whose wt_auto_claude
+      // starts claude, once and on every resume after a network drop (HON-1413).
+      const launch = () =>
+        launchLine(
+          shellFunctionBody(
+            fs.readFileSync(
+              path.join(path.dirname(worktreeClaude), 'worktree-auto-run.sh'),
+              'utf8',
+            ),
+            'wt_auto_claude',
+          ),
+        )
       const prompt = (context: string) =>
         execFileSync('bash', [harness, 'auto-prompt', '/auto-implement HON-991'], {
           encoding: 'utf8',
@@ -413,10 +425,8 @@ describe('orchestrator.sh', () => {
           expect(line).not.toContain('ORCHESTRATOR_RETRY_CONTEXT')
           expect(line).not.toContain('auto_prompt')
         }
-        expect(launchLine(body)).toMatch(
-          /exec env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT [^\n]*claude/,
-        )
-        expect(body).toContain('"$(auto_prompt "$prompt")"')
+        expect(launch()).toMatch(/env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT [^\n]*claude/)
+        expect(body).toContain('run_auto_claude "$(auto_prompt "$prompt")" "$issue_id"')
       })
 
       // HON-1238: every MCP server that starts adds its tools to the base
@@ -424,17 +434,14 @@ describe('orchestrator.sh', () => {
       it('launches the worker with a strict MCP config and -- before the prompt', () => {
         const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
         expect(body).toContain('claude_mcp_args linear-server playwright')
-        expect(launchLine(body)).toContain('"${CLAUDE_MCP_ARGS[@]}" -- "$(auto_prompt "$prompt")"')
+        expect(launch()).toContain('"${CLAUDE_MCP_ARGS[@]}" -- "$prompt"')
       })
 
       // HON-1119: Claude Code moves an MCP call past 2 minutes to the
       // background, and this headless worker exits when its turn ends, so the
       // result would never arrive. 0 keeps every MCP call in the foreground.
       it('launches the worker with MCP auto-backgrounding switched off', () => {
-        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
-        expect(launchLine(body)).toMatch(
-          /exec env [^\n]* CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude /,
-        )
+        expect(launch()).toMatch(/env [^\n]* CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude /)
       })
     })
   })
@@ -575,7 +582,12 @@ describe('orchestrator.sh', () => {
       )
     /** The REAL cmd_auto against a `claude` stub: what the worker CLI receives. */
     const wtAuto = (args: string[], env: Record<string, string> = {}) =>
-      runHarnessEnv(env, 'wt-auto', String(args.length), ...args)
+      runHarnessEnv(env, 'wt-auto', String(args.length), ...args).replace(
+        // The worker's own session ID, so a resume after a network drop takes
+        // this session (HON-1413).
+        /--session-id [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /g,
+        '--session-id <sid> ',
+      )
     const triageInput = (env: Record<string, string>) =>
       stripTimestamps(runHarnessEnv(env, 'failure', 'BACKLOG', '0', 'false')).match(
         /^TRIAGE_INPUT:.*$/m,
@@ -614,7 +626,7 @@ describe('orchestrator.sh', () => {
       const out = wtAuto(['HON-991'])
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -624,7 +636,7 @@ describe('orchestrator.sh', () => {
 
     it('passes --effort to the worker when CLAUDE_AUTO_EFFORT is set', () => {
       expect(wtAuto(['HON-991'], { CLAUDE_AUTO_EFFORT: 'xhigh' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -637,7 +649,7 @@ describe('orchestrator.sh', () => {
       })
 
       expect(out).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model small-x --effort low ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model small-x --effort low ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
@@ -645,7 +657,7 @@ describe('orchestrator.sh', () => {
 
     it("reads wt auto --effort '' as no --effort flag", () => {
       expect(wtAuto(['--effort', '', 'HON-991'], { CLAUDE_AUTO_EFFORT: 'max' })).toContain(
-        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 ' +
+        'CLAUDE_ARGS:--session-id <sid> --dangerously-skip-permissions --model claude-opus-5-5 ' +
           WORKER_MCP_ARGS +
           ' -- /auto-implement HON-991\n',
       )
