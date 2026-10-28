@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
+import type { PantryChange } from './use-pantry-changes'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
 import { cn } from '@/lib/utils'
@@ -72,7 +73,7 @@ export function InventoryPage({
   // header-less states (`no-plan`, `error`) and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
-  const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
+  const [pantryChanges, setPantryChanges] = useState<Map<string, PantryChange>>(new Map())
 
   const handleItemPurchased = useCallback(
     (newItem: PantryItemData) => {
@@ -96,22 +97,30 @@ export function InventoryPage({
     setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
   }, [])
 
-  const handlePantryItemRemoved = useCallback(
-    (ingredientId: string) => {
-      // Add to removed set to trigger shopping list update (for visual uncheck)
-      setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
-      // Refresh the page data to recompute shopping list (item may now be needed)
+  // Tell the shopping list a pantry row went or came back (Undo), so it unticks
+  // or re-ticks the item, then recompute the list: the item may now be needed.
+  const recordPantryChange = useCallback(
+    (ingredientId: string, change: PantryChange) => {
+      setPantryChanges((prev) => new Map(prev).set(ingredientId, change))
       router.refresh()
     },
     [router],
+  )
+  const handlePantryItemRemoved = useCallback(
+    (ingredientId: string) => recordPantryChange(ingredientId, 'removed'),
+    [recordPantryChange],
+  )
+  const handlePantryItemRestored = useCallback(
+    (ingredientId: string) => recordPantryChange(ingredientId, 'restored'),
+    [recordPantryChange],
   )
 
   // "Have it" takes a ran-out row off the list: recompute it, as a removal does.
   const handlePantryQuantityChanged = useCallback(() => router.refresh(), [router])
 
-  const handleExternalUnpurchaseProcessed = useCallback(() => {
-    // Clear the set after ShoppingSection has processed it
-    setRemovedIngredientIds(new Set())
+  const handlePantryChangesProcessed = useCallback(() => {
+    // Clear the map after ShoppingSection has processed it
+    setPantryChanges(new Map())
   }, [])
 
   // The page shell every in-app page uses (docs/DESIGN.md → Composition
@@ -138,6 +147,7 @@ export function InventoryPage({
             onItemsChange={setPantryItems}
             loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
+            onPantryItemRestored={handlePantryItemRestored}
             onPantryQuantityChanged={handlePantryQuantityChanged}
           />
         </div>
@@ -155,8 +165,8 @@ export function InventoryPage({
               initialCustomItems={shoppingData.customItems}
               onItemPurchased={handleItemPurchased}
               onItemUnpurchased={handleItemUnpurchased}
-              externalUnpurchasedIds={removedIngredientIds}
-              onExternalUnpurchaseProcessed={handleExternalUnpurchaseProcessed}
+              externalPantryChanges={pantryChanges}
+              onExternalPantryChangesProcessed={handlePantryChangesProcessed}
             />
           ) : null}
         </div>

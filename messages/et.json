@@ -130,6 +130,7 @@
     "addAria": "Lisa koostisosa sahvrisse",
     "inPantry": "Sahvris",
     "noResults": "Koostisosi ei leitud",
+    "undo": "Võta tagasi",
     "removeDialog": {
       "title": "Eemalda sahvrist",
       "description": "Kas oled kindel, et soovid eemaldada „{name}\" oma sahvrist?",
@@ -138,10 +139,11 @@
     "errors": {
       "updateFailed": "Toote uuendamine ebaõnnestus",
       "removeFailed": "Toote eemaldamine ebaõnnestus",
+      "restoreFailed": "Toote tagasipanek ebaõnnestus",
       "addFailed": "Toote lisamine sahvrisse ebaõnnestus"
     },
     "success": {
-      "removed": "Toode eemaldati sahvrist",
+      "removed": "„{name}\" eemaldati sahvrist",
       "added": "„{name}\" lisati sahvrisse"
     },
     "alreadyInPantry": "„{name}\" on juba sinu sahvris"
