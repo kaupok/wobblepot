@@ -49,12 +49,14 @@ gh pr list --head "<branch>" --state all --json number,state,url,mergeable,merge
 
 For an issue: `mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })` and `mcp__linear-server__list_comments` (for a `# Plan:` comment). A branch or PR with no issue in the arguments can still carry `hon-NN` in its name or `Closes HON-NN` in its body.
 
-## Step 3: Check ownership
+## Step 3: Check the gates
 
 Stop and ask when:
 
 - **An orchestrator worker runs this issue or branch** (the `jq` line above lists it). Two agents on one branch race each other's pushes. The user can wait for the worker or `wt stop` it.
 - **The issue has another assignee.**
+- **The issue is closed** (`statusType` is `completed`, `canceled` or `duplicate`) with no merged PR, or in `triage`. Claiming it in Step 5 would reopen work the user closed.
+- **A `blockedBy` issue is still open.** `get_issue` each one, because the relation carries no status. Work on top of an unmerged blocker builds on code that is not on `main`.
 - **The PR is closed and not merged.** Ask whether to reopen it or start a new PR.
 
 A merged PR → Step 7 only. A `Gated` or `Stranded` label does not stop you: this run is the human taking it over.
