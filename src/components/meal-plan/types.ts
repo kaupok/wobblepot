@@ -220,6 +220,8 @@ export interface PantryItemFull {
     id: string
     name: string
     category: string
+    /** `herb`, `sauce`, `paste`…: the fridge meal picker hides seasonings by it. */
+    subcategory?: string | null
     defaultUnit: 'g' | 'piece'
   }
 }

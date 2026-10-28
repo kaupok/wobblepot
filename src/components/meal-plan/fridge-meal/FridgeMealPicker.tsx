@@ -28,10 +28,20 @@ import { toFridgeItemInput, useFridgeItemText, type FridgeItemShown } from './us
 const PANTRY_MATCHES_SHOWN = 8
 
 /**
- * Categories that season or bind a meal rather than make one. The pantry
- * section leaves them out until the household searches for one.
+ * What seasons or binds a meal rather than makes one. The pantry section
+ * leaves it out until the household searches for it. Herbs, sauces and pastes
+ * are subcategories (parsley is a `vegetable` with `subcategory: 'herb'`), so
+ * the two sets are checked against their own fields.
  */
-const NOT_A_MEAL = new Set(['spice', 'herb', 'condiment', 'fat', 'sauce', 'paste'])
+const NOT_A_MEAL_CATEGORY = new Set(['spice', 'condiment', 'fat'])
+const NOT_A_MEAL_SUBCATEGORY = new Set(['herb', 'sauce', 'paste'])
+
+function isMealFood(p: PantryItemFull): boolean {
+  return (
+    !NOT_A_MEAL_CATEGORY.has(p.ingredient.category) &&
+    !NOT_A_MEAL_SUBCATEGORY.has(p.ingredient.subcategory ?? '')
+  )
+}
 
 /** A pantry row as a picker item. */
 function pantryChoice(p: PantryItemFull): FridgeItemShown {
@@ -169,9 +179,7 @@ function PickerForm({
   // Without a query the pantry offers food, not what goes into food: a staple
   // or a seasoning is never a meal on its own. A search still finds them.
   const pantryMatches = atHome.filter((p) =>
-    needle
-      ? p.ingredient.name.toLocaleLowerCase().includes(needle)
-      : !p.isStaple && !NOT_A_MEAL.has(p.ingredient.category),
+    needle ? p.ingredient.name.toLocaleLowerCase().includes(needle) : !p.isStaple && isMealFood(p),
   )
   const shownPantry = pantryMatches
     .filter((p) => !chosenIngredientIds.has(p.ingredientId))

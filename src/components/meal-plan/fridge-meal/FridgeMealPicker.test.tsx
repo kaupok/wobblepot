@@ -119,12 +119,24 @@ describe('FridgeMealPicker', () => {
           isStaple: true,
           ingredient: { id: 'rice', name: 'Rice', category: 'carb', defaultUnit: 'g' },
         }),
+        // A herb is a vegetable by category: only its subcategory says herb.
+        createPantryItem({
+          ingredientId: 'parsley',
+          ingredient: {
+            id: 'parsley',
+            name: 'Curly parsley',
+            category: 'vegetable',
+            subcategory: 'herb',
+            defaultUnit: 'g',
+          },
+        }),
       ],
     })
 
     expect(dialog.getByRole('button', { name: 'Add: Cucumber' })).toBeInTheDocument()
     expect(dialog.queryByRole('button', { name: 'Add: Black pepper' })).not.toBeInTheDocument()
     expect(dialog.queryByRole('button', { name: 'Add: Rice' })).not.toBeInTheDocument()
+    expect(dialog.queryByRole('button', { name: 'Add: Curly parsley' })).not.toBeInTheDocument()
 
     await user.type(dialog.getByLabelText('What are you having?'), 'pep')
     expect(dialog.getByRole('button', { name: 'Add: Black pepper' })).toBeInTheDocument()

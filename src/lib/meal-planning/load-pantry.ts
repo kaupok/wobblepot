@@ -47,6 +47,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
             id: true,
             name: true,
             category: true,
+            subcategory: true,
             defaultUnit: true,
             gramsPerPiece: true,
             measuredByVolume: true,
@@ -160,6 +161,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
         id: translatedIngredient.id,
         name: translatedIngredient.name,
         category: translatedIngredient.category,
+        subcategory: item.ingredient.subcategory,
         defaultUnit: translatedIngredient.defaultUnit,
         // `g`, `ml` or `piece`, the unit the pantry screen shows (HON-1151).
         displayUnit: displayUnit(item.ingredient),
