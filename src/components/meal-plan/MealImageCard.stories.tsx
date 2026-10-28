@@ -68,7 +68,7 @@ export const WithImage: Story = {
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
     const heading = canvas.getByRole('heading', { name: 'Lemon-garlic roast chicken' })
     await expect(heading.getBoundingClientRect().right).toBeLessThanOrEqual(
-      box.left + box.width * 0.3,
+      box.left + box.width * 0.1,
     )
   },
 }
@@ -239,7 +239,7 @@ function TrailingActionsHeader({ name, children }: { name: string; children?: Re
 /**
  * Asserts that the actions and the title clear the image's opaque part: the
  * actions start at or after the image box's right edge, and the title ends
- * inside the left fade (the first 30% of the box).
+ * inside the short left fade (the first 10% of the box).
  */
 async function assertOnTint(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
@@ -249,7 +249,7 @@ async function assertOnTint(canvasElement: HTMLElement) {
   const title = canvas.getByRole('button', { name: LONG_TITLE }).getBoundingClientRect()
   await expect(box.width).toBeGreaterThan(0)
   await expect(actions.left).toBeGreaterThanOrEqual(box.right)
-  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+  await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
 }
 
 export const TrailingActionsPhone: Story = {

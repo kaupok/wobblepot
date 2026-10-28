@@ -182,8 +182,11 @@ function overlayStyle({ scatter, position }: NotePlacement): CSSProperties {
 
 /**
  * The widest the title may be on a tinted card: it wraps before it reaches the
- * image's opaque part. Fractions of the card's content row, matched to
- * `IMAGE_BOX` plus the 30% fade — change the two together.
+ * image. Fractions of the card's content row, matched to where `IMAGE_BOX`
+ * starts — change the two together. The image's left fade is short (10%): the
+ * title never reaches it, so it only softens the box's edge and the plate shows
+ * at full strength (HON-1358). An uncapped badge row can run onto the plate
+ * (HON-1380).
  *
  * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
  * card whose image fails to load drops it, and its title gets the full row
@@ -460,7 +463,9 @@ function CardImage({ src, alt, layout, trailingActions, height, onError }: CardI
             // fades into the tint above; the full 3:2 frame shows the whole plate.
             'relative aspect-3/2 w-full shrink-0 mask-t-from-60%'
           : cn(
-              'absolute -z-10 mask-l-from-30%',
+              // The `mask-l` gradient runs from the right edge, so `from-90%`
+              // fades only the left 10% of the box (HON-1358).
+              'absolute -z-10 mask-l-from-90%',
               IMAGE_HEIGHT[height],
               trailingActions ? IMAGE_BOX.trailingActions : IMAGE_BOX.default,
             ),

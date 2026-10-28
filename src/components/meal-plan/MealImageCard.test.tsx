@@ -36,7 +36,7 @@ describe('MealImageCard', () => {
       '@md/meal-image:w-5/8',
       '-z-10',
       'mix-blend-multiply',
-      'mask-l-from-30%',
+      'mask-l-from-90%',
     )
     // The image comes first, so the content still reads first after it in the DOM.
     expect(card.firstElementChild).toBe(wrapper)
@@ -54,7 +54,7 @@ describe('MealImageCard', () => {
       '@md/meal-image:left-3/8',
       'mask-r-from-80%',
     )
-    expect(wrapper).toHaveClass('mask-l-from-30%', 'mix-blend-multiply')
+    expect(wrapper).toHaveClass('mask-l-from-90%', 'mix-blend-multiply')
     expect(wrapper).not.toHaveClass('right-0', 'w-9/20', '@md/meal-image:w-5/8')
   })
 
@@ -84,7 +84,7 @@ describe('MealImageCard', () => {
       expect(wrapper).toHaveClass('absolute', '-z-10', '-inset-y-2', 'mask-b-from-60%')
       expect(wrapper).not.toHaveClass('inset-y-0', 'h-20')
       // The head keeps the horizontal geometry, fades and `sizes` of the trailing box.
-      expect(wrapper).toHaveClass('right-12', 'left-1/2', 'mask-l-from-30%', 'mask-r-from-80%')
+      expect(wrapper).toHaveClass('right-12', 'left-1/2', 'mask-l-from-90%', 'mask-r-from-80%')
       expect(screen.getByRole('img')).toHaveAttribute(
         'sizes',
         '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
@@ -305,7 +305,7 @@ describe('MealImageCard', () => {
       'mask-t-from-60%',
       'mix-blend-multiply',
     )
-    expect(wrapper).not.toHaveClass('absolute', '-z-10', 'mask-l-from-30%')
+    expect(wrapper).not.toHaveClass('absolute', '-z-10', 'mask-l-from-90%')
     expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 364px, 100vw')
     // Still tinted, but without the named group the title cap never applies.
     expect(card).toHaveAttribute('data-meal-surface')
