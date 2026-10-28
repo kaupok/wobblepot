@@ -20,13 +20,14 @@ describe('orchestrator.sh', () => {
   // orphans `claude` processes and leaves their issues In Progress + assigned,
   // the state select_next_issue skips forever.
   describe('stop_wait_bound', () => {
-    const bound = (workers: string, triage = '', statusTriage = '') =>
+    const bound = (workers: string, triage = '', statusTriage = '', deferred = '') =>
       Number(
         runHarnessEnv(
           { ORCHESTRATOR_TRIAGE_TIMEOUT: triage },
           'stop-wait-bound',
           workers,
           statusTriage,
+          deferred,
         ).trim(),
       )
 
@@ -94,12 +95,28 @@ describe('orchestrator.sh', () => {
       expect(body).toContain('wait_for_drain "$pid" "$bound"')
     })
 
-    it('cmd_stop passes the status file triage_timeout to stop_wait_bound', () => {
+    it('cmd_stop passes the status file triage_timeout and deferred count to stop_wait_bound', () => {
       const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_stop')
 
       expect(body).toContain('.triage_timeout // empty')
-      expect(body).toContain('stop_wait_bound "$worker_count" "$triage_timeout"')
+      expect(body).toContain("'(.deferred // []) | length'")
+      expect(body).toContain('stop_wait_bound "$worker_count" "$triage_timeout" "$deferred_count"')
     })
+
+    // The orchestrator records each deferred outcome before it exits, during
+    // the outage that deferred it: five 30s Linear calls and a triage call each
+    // (HON-1447). A SIGKILL partway leaves the issue In Progress and assigned.
+    it.each([1, 2, 3])('adds 150s plus one triage call per deferred outcome for %i', (n) => {
+      expect(bound('0', '', '', String(n))).toBe(2 * 120 + 60 + n * (150 + 120))
+      expect(bound('0', '', '300', String(n))).toBe(2 * 300 + 60 + n * (150 + 300))
+    })
+
+    it.each(['', 'null', 'abc'])(
+      'adds nothing for an unreadable deferred count (%s)',
+      (deferred) => {
+        expect(bound('2', '', '', deferred)).toBe(bound('2'))
+      },
+    )
 
     it('honours the first SIGTERM without waiting out the poll interval', () => {
       // Bash defers a trap while it waits on a FOREGROUND command, so a SIGTERM
