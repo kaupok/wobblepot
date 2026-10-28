@@ -196,6 +196,29 @@ describe('cook servings of a dinner with leftover lunches', () => {
     expect((await lentils()).quantity).toBe(1450)
   })
 
+  it('a fridge dinner swapped back to a recipe and completed in one request stores 5.5', async () => {
+    const household = await world()
+    await lunch(household, 2, 2.5)
+    await setFridgeItems(household.id, PLAN, 'dinner', [{ label: 'Pizza' }])
+    await prisma.pantryItem.updateMany({
+      where: { householdId: household.id, ingredientId: 'lentils' },
+      data: { quantity: 2000 },
+    })
+
+    await updateEntry(household.id, PLAN, 'dinner', {
+      mealId: 'stew',
+      status: 'completed',
+      deductPantry: true,
+    })
+
+    const stored = await prisma.mealPlanEntry.findUniqueOrThrow({ where: { id: 'dinner' } })
+    expect(stored).toMatchObject({ kind: 'meal', status: 'completed', cookedServings: 5.5 })
+    const lentils = await prisma.pantryItem.findFirstOrThrow({
+      where: { householdId: household.id, ingredientId: 'lentils' },
+    })
+    expect(lentils.quantity).toBe(1450)
+  })
+
   it('a dinner reverted to planned drops the stored count and counts its lunches again', async () => {
     const household = await world()
     await lunch(household, 2, 2.5)

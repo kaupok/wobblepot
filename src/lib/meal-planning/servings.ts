@@ -110,3 +110,22 @@ export function getCookServings(
   if (entry.status === 'completed') return entry.cookedServings ?? own
   return entry.leftoverItems.reduce((total, item) => total + (item.servings ?? 0), own)
 }
+
+/**
+ * `getCookServings` for an entry as an update saves it: an override in the
+ * update wins, and a swap's reset to null counts (`swapEntryData`), because
+ * the pantry deduction and the stored count scale by what the request
+ * persists, not by the row it read.
+ */
+export function getSavedCookServings(
+  entry: Parameters<typeof getCookServings>[0],
+  update: { servingOverride?: number | null },
+  householdServings: number,
+): number {
+  return getCookServings(
+    'servingOverride' in update
+      ? { ...entry, servingOverride: update.servingOverride ?? null }
+      : entry,
+    householdServings,
+  )
+}

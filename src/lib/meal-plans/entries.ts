@@ -1,7 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
-import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
+import { cookServingsSelect, getSavedCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import {
   clearChangesOnSwap,
@@ -241,6 +241,7 @@ export async function updateEntry(
   const updateData: {
     status?: MealPlanEntryStatus
     mealId?: string
+    kind?: 'meal'
     preparationTips?: null
     note?: string | null
     noteX?: number | null
@@ -341,19 +342,18 @@ export async function updateEntry(
     updateData.rating = (patch.rating as EntryRating) ?? null
   }
 
-  // What a completion cooks: own servings, as this request persists them (a
-  // swap resets the override), plus the leftover lunches. Stored, so a lunch
-  // changed afterwards leaves the count the pantry was charged at (HON-1394).
-  const cookServings = getCookServings(
-    'servingOverride' in updateData
-      ? { ...entry, servingOverride: updateData.servingOverride ?? null }
-      : entry,
+  // Stored at completion, so a lunch changed afterwards leaves the count the
+  // pantry was charged at (HON-1394). A fridge meal swapped to a recipe in
+  // this request is a recipe meal again.
+  const cookServings = getSavedCookServings(
+    entry,
+    updateData,
     sumPortions(entry.plan.household.members),
   )
   if (
     patch.status === 'completed' &&
     entry.status !== MealPlanEntryStatus.completed &&
-    entry.kind === 'meal'
+    (updateData.kind ?? entry.kind) === 'meal'
   ) {
     updateData.cookedServings = cookServings
   }
