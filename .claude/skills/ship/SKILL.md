@@ -65,7 +65,7 @@ Main checkout (the two `rev-parse` lines match) → call `EnterWorktree` before 
 
 ## Step 5: Enter the cycle at the right point
 
-Find the first row that matches, top to bottom, and start there. Before any work, claim the issue: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is.
+Find the first row that matches, top to bottom, and start there. **No issue yet → file it first (below), whatever the row**, so the work is tracked and the merge closes something. Then claim the issue: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is.
 
 | State                                                    | Start at                                                                                                    |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -75,9 +75,9 @@ Find the first row that matches, top to bottom, and start there. Before any work
 | Commits or uncommitted changes, no PR                    | Phase 4 (review and fix), then Phase 5                                                                      |
 | Issue with a `# Plan:` comment, no code                  | Phase 3                                                                                                     |
 | Issue with no plan                                       | 2.3 (2.1 and 2.2 are done by Steps 3 and 5)                                                                 |
-| Thread work or an idea, no issue                         | File the issue (below), then Phase 4 if code exists, else 2.3                                               |
+| An idea, no code                                         | 2.3                                                                                                         |
 
-**File the issue** by CLAUDE.md → Issue titles and → Writing for Agents. Take the problem, the decisions and the acceptance criteria from this thread; for work already done, describe what it does and why. Create it as `In Progress`, assigned to `me`, never `Queued`: the orchestrator claims a Queued issue within a minute and would race this thread. Put `Closes HON-XX` in the PR body, so Linear links a branch that does not carry the ID.
+**File the issue** by CLAUDE.md → Issue titles and → Writing for Agents. Take the problem, the decisions and the acceptance criteria from this thread; for work already done, describe what it does and why. Create it as `In Progress`, assigned to `me`, never `Queued`: the orchestrator claims a Queued issue within a minute and would race this thread. Put `Closes HON-XX` in the PR body, so Linear links a branch that does not carry the ID; an open PR gets it with `gh pr edit --body-file`.
 
 **Resolve conflicts** by merging, not rebasing, because the hook blocks a force push: `git merge origin/main`, fix each conflict, run `pnpm lint && pnpm type-check && pnpm test`, commit, push. A conflict in `prisma/migrations/` keeps `main`'s migration as it is (CLAUDE.md → Migration immutability) and moves this branch's migration to a new, later timestamp.
 
