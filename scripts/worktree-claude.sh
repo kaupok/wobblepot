@@ -1276,7 +1276,8 @@ wt_detect_phase() {
 # The status file's `checkout` object as one line, or nothing while the checkout
 # is current. orchestrator.sh check_checkout_behind fills it when origin/main
 # has commits to orchestrator.sh or worktree-claude.sh that the checkout lacks
-# (HON-861).
+# (HON-861). `not_pulled` is why the orchestrator did not fast-forward it
+# (HON-1428); a status file without it gets the older "pull it" wording.
 # Shared by `wt status` and `wt watch` so the two cannot word it differently.
 #
 # Usage: checkout_behind_notice <status-json>
@@ -1284,7 +1285,10 @@ checkout_behind_notice() {
   printf '%s' "$1" | jq -r '
     .checkout // empty
     | select((.behind_code // 0) > 0)
-    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_code) changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish"
+    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_code) changing orchestrator.sh or worktree-claude.sh"
+      + (if (.not_pulled // "") != ""
+         then ", not pulled: \(.not_pulled). Clear that, and the orchestrator pulls it on its next poll"
+         else ": pull it, and the orchestrator reloads itself once its running workers finish" end)
   ' 2>/dev/null || true
 }
 
