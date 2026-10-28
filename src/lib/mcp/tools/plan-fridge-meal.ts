@@ -24,7 +24,7 @@ import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 export const planFridgeMeal = defineTool({
   name: 'plan_fridge_meal',
   title: 'Plan a fridge meal',
-  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), the leftovers of a recipe meal cooked in the last ${RECENT_MEALS_DAYS} days ({ sourceEntryId }: that meal's entryId from get_meal_plan), or free text ({ label }). On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is today or up to ${MAX_DAYS_AHEAD} days ahead. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
+  description: `Plans a fridge meal: a meal made of what is at home, with no recipe. Each item is a pantry ingredient ({ ingredientId } from get_pantry), the leftovers of a recipe meal cooked in the last ${RECENT_MEALS_DAYS} days ({ sourceEntryId }: that meal's entryId from get_meal_plan), or free text ({ label }). On an empty slot it plans a new meal. On a slot with a planned meal or a fridge meal it replaces that meal with these items, so confirm with the user first. A cooked meal cannot be changed. The day is any past day, today, or up to ${MAX_DAYS_AHEAD} days ahead. A past day logs the meal as cooked, because the household ate it. This tool does not change the pantry: to mark items used up, use set_pantry_status.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -36,22 +36,22 @@ export const planFridgeMeal = defineTool({
     outcome: z
       .enum(['planned', 'replaced'])
       .describe('planned: the slot was empty. replaced: the slot had a meal, now these items.'),
+    status: z
+      .enum(['planned', 'cooked'])
+      .describe('cooked: the day is past, so the meal is logged as eaten.'),
     date: z.iso.date(),
     mealType: z.enum(['breakfast', 'lunch', 'dinner']),
     items: z.array(fridgeItemOutputSchema),
   }),
   run: async (household, { date, mealType, items }) => {
     const { today, lastDay } = writableDays(household.timezone)
-    if (date < today) {
-      throw new ToolInputError(
-        `${date} is in the past, so a meal cannot be planned for it. Nothing was changed.`,
-      )
-    }
     if (date > lastDay) {
       throw new ToolInputError(
-        `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day from today to ${lastDay}. Nothing was changed.`,
+        `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day up to ${lastDay}. Nothing was changed.`,
       )
     }
+    // A past day logs a meal the household ate, as `plan_meal` does (HON-1382).
+    const status = date < today ? 'completed' : 'planned'
 
     const day = parseLocalDate(date)
     const entry = await prisma.mealPlanEntry.findFirst({
@@ -86,9 +86,9 @@ export const planFridgeMeal = defineTool({
     try {
       if (isEmpty) {
         const planId = await findOrCreateMealPlan(household.id)
-        await createEntry(household.id, planId, { date: day, mealType, fridgeItems: items })
+        await createEntry(household.id, planId, { date: day, mealType, fridgeItems: items, status })
       } else {
-        await setFridgeItems(household.id, entry.planId, entry.id, items)
+        await setFridgeItems(household.id, entry.planId, entry.id, items, status)
       }
     } catch (error) {
       if (error instanceof FridgeItemNotFoundError) {
@@ -117,6 +117,7 @@ export const planFridgeMeal = defineTool({
     const written = entries.find((planned) => planned.mealType === mealType)
     return {
       outcome: isEmpty ? ('planned' as const) : ('replaced' as const),
+      status: status === 'completed' ? ('cooked' as const) : ('planned' as const),
       date,
       mealType,
       items: (written?.items ?? []).map(toFridgeItemOutput),

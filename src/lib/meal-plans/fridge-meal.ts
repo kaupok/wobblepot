@@ -90,6 +90,7 @@ export async function setFridgeItems(
   planId: string,
   entryId: string,
   items: FridgeItemInput[],
+  status: 'planned' | 'completed' = MealPlanEntryStatus.planned,
 ) {
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, planId, plan: { householdId } },
@@ -105,7 +106,8 @@ export async function setFridgeItems(
       data: {
         kind: 'fridge',
         // A skip was for the meal that left, as on a recipe swap (HON-1125).
-        status: MealPlanEntryStatus.planned,
+        // An MCP log of a past meal passes `completed` (HON-1382).
+        status,
         mealId: null,
         preparationTips: null,
         servingOverride: null,

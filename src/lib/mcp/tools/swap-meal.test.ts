@@ -40,7 +40,7 @@ vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { swapMeal } from './swap-meal'
@@ -59,7 +59,12 @@ function call(input: Record<string, unknown>, caller = ctx) {
   return runTool(swapMeal, caller, swapMeal.inputSchema.parse(input))
 }
 
-const DATE = '2026-10-15'
+/** A day ahead, so the slot is not past: a past slot is logged as cooked (HON-1382). */
+const DATE = (() => {
+  const day = parseLocalDate(getTodayInTimezone(household.timezone))
+  day.setDate(day.getDate() + 2)
+  return toDateString(day)
+})()
 
 const MEALS: Record<string, { name: string; timeMinutes: number; kidFriendly: boolean }> = {
   'meal-current': { name: 'Fish tacos', timeMinutes: 30, kidFriendly: true },
@@ -368,7 +373,7 @@ describe('swap_meal', () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0]).toMatchObject({
-      text: expect.stringContaining('Nothing is planned for dinner on 2026-10-15'),
+      text: expect.stringContaining(`Nothing is planned for dinner on ${DATE}`),
     })
     expect(prisma.mealPlanEntry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
