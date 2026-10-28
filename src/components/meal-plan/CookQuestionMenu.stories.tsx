@@ -10,6 +10,7 @@ const meta = {
     label: 'Ask about step 2',
     kind: 'step',
     open: false,
+    busy: false,
     panelId: 'panel-2',
     quietFocus: { current: false },
     onAsk: fn(),
@@ -108,5 +109,23 @@ export const AskOwn: Story = {
     await expect(args.onAskOwn).toHaveBeenCalledOnce()
     await expect(args.onAsk).not.toHaveBeenCalled()
     await waitFor(() => expect(args.onFocusPanel).toHaveBeenCalledWith('field'))
+  },
+}
+
+/**
+ * The row's answer is on its way: the ready-made questions are disabled, so a
+ * second pick cannot bill a second call; "Ask your own question" is not (HON-1360).
+ */
+export const Busy: Story = {
+  args: { busy: true },
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Ask about step 2' }))
+    const menu = await body().findByRole('menu')
+    const item = (name: string) => within(menu).getByRole('menuitem', { name })
+    const ready = ["How do I know it's done?", 'What can I substitute here?', "I'm short on time"]
+    for (const name of ready) await expect(item(name)).toHaveAttribute('data-disabled')
+    await expect(item('Ask your own question')).not.toHaveAttribute('data-disabled')
+    await userEvent.click(item("I'm short on time"), { pointerEventsCheck: 0 })
+    await expect(args.onAsk).not.toHaveBeenCalled()
   },
 }

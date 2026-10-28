@@ -227,6 +227,11 @@ function useAskPanels(
   const subjectAt = (index: number): CookQuestionSubject => ({ kind, index })
   const isOpen = (index: number) => sameSubject(cookQuestion?.openSubject, subjectAt(index))
   const panelId = (index: number) => `${panelIdPrefix}-panel-${index}`
+  // Row `index`'s answer is on its way (HON-1360).
+  const isBusy = (index: number) =>
+    !!cookQuestion &&
+    (cookQuestion.isPending || cookQuestion.isStreaming) &&
+    sameSubject(cookQuestion.active?.subject, subjectAt(index))
 
   return {
     isOpen,
@@ -238,12 +243,13 @@ function useAskPanels(
       },
       kind,
       open: isOpen(index),
+      busy: isBusy(index),
       panelId: panelId(index),
       quietFocus,
       // Opening resets the question on screen, so a pick on an open row
       // replaces it, as a question from another row would.
       onAsk: (question) => {
-        if (!cookQuestion) return
+        if (!cookQuestion || isBusy(index)) return
         const subject = subjectAt(index)
         cookQuestion.onOpenSubject(subject)
         // 'chip' still names a ready-made question in analytics.
