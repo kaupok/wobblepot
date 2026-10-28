@@ -71,7 +71,7 @@ beforeEach(() => {
   fs.mkdirSync(path.join(root, 'scripts'))
   fs.mkdirSync(stubDir)
   fs.mkdirSync(bin)
-  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh']) {
+  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh', 'e2e-branch-liveness.sh']) {
     fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
   }
   writeToolchain()
@@ -282,7 +282,9 @@ describe('e2e-local.sh', () => {
       const log = calls()
 
       expect(status).toBe(0)
-      expect(stdout).toMatch(/REVIEW-READY http:\/\/localhost:3200 db=e2e-local-\S+/)
+      expect(stdout).toMatch(
+        /REVIEW-READY http:\/\/localhost:3200 db=e2e-local-[a-z0-9]+-\d{8}-\d{6}-\d+\s/,
+      )
       expect(log).toContain('pnpm prisma migrate deploy')
       expect(log).not.toContain('db:seed')
       expect(log).toMatch(/branches delete e2e-local-/)

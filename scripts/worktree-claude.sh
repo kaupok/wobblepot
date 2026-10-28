@@ -204,6 +204,8 @@ neon_gc_orphan_names() {
   # `<prefix>--hon-<N>[-slug]` (the Linear branch names spawn_worker normally
   # uses — these had NO reaper at all before HON-572), plus
   # `${NEON_USER_PREFIX}-` when set (interactive `wt new <prefix>/...`).
+  # It also takes the dead `e2e-local-*` branches a crashed `pnpm review:local`
+  # or `pnpm test:e2e:local` left (HON-1415), by e2e-branch-liveness.sh's rule.
   # Anything else — `feat-`, `fix-`, test scaffolds, hand-managed branches —
   # stays untouched; users clean those up via `wt cleanup`.
   # Shape-tolerant: accepts either `[...]` or `{"branches": [...]}` wire formats.
@@ -231,6 +233,16 @@ neon_gc_orphan_names() {
     is_protected_neon_branch "$b" && continue
     echo "$b"
   done <<< "$all_neon_branches"
+
+  # No worktree ever holds an e2e-local-* branch, so only the dead rule applies.
+  # Sourced here, not at the top, so the tests that copy this file alone run.
+  # shellcheck source=./e2e-branch-liveness.sh
+  source "$SCRIPT_DIR/e2e-branch-liveness.sh"
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    is_protected_neon_branch "$b" && continue
+    echo "$b"
+  done <<< "$(e2e_local_dead_branch_names "$list_out" "${E2E_GC_MIN_AGE_HOURS:-2}")"
 }
 
 # The Vercel–Neon integration's `preview/<git-branch>` names, and the ref charset
@@ -271,10 +283,10 @@ neon_gc_preview_orphan_names() {
   done <<< "$names"
 }
 
-# Delete Neon branches whose live git worktree no longer exists. Filters to the
-# prefixes/shapes neon_gc_orphan_names recognises so the GC can't touch
-# hand-managed branches, plus the orphaned preview/* branches
-# neon_gc_preview_orphan_names finds. Skips protected names. Safe to call
+# Delete Neon branches whose live git worktree no longer exists, and dead
+# e2e-local-* branches. Filters to the prefixes/shapes neon_gc_orphan_names
+# recognises so the GC can't touch hand-managed branches, plus the orphaned
+# preview/* branches neon_gc_preview_orphan_names finds. Skips protected names. Safe to call
 # repeatedly; errors from individual deletes are ignored (best-effort sweep).
 neon_gc_orphans() {
   neon_enabled || return 0

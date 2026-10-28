@@ -19,6 +19,12 @@
 #   pnpm test:e2e:local -- --headed --debug      # forward args after `--` to playwright
 #   pnpm test:e2e:local gc                        # delete orphaned e2e-local-* branches (crash recovery)
 #
+# Each run makes the branch e2e-local-<host>-<date>-<time>-<pid> (<host> from
+# `hostname -s`). `gc` deletes a dead one: on this host, when <pid> no longer
+# runs e2e-local.sh, at any age; another host's or an old-format name, by
+# created_at age (E2E_GC_MIN_AGE_HOURS, default 2). A live run's branch stays.
+# `wt auto`'s cap sweep uses the same rule (scripts/e2e-branch-liveness.sh).
+#
 # Recognised flags: --ai, --keep, gc. A `.spec.ts` path or `--grep` is treated
 # as an explicit target (so @ai is NOT excluded). Anything after a literal `--`,
 # and any unrecognised arg, is forwarded to `playwright test` verbatim.
@@ -67,7 +73,7 @@ PORT="3100"
 # `serve` gets its own port: a queue worker may be running `pnpm test:e2e:local`
 # on 3100 at the same time, and `pnpm dev` holds 3000.
 REVIEW_PORT="3200"
-# Age gate for `gc` so a concurrent run's fresh branch is never reaped.
+# Age gate for another host's or an old-format branch (e2e-branch-liveness.sh).
 GC_MIN_AGE_HOURS="2"
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'; NC=$'\033[0m'
@@ -78,17 +84,13 @@ fail() { printf '%b\n' "${RED}error: $*${NC}" >&2; exit 1; }
 
 # shellcheck source=scripts/e2e-local-toolchain.sh
 source "$SCRIPT_DIR/e2e-local-toolchain.sh"
+# shellcheck source=scripts/e2e-branch-liveness.sh
+source "$SCRIPT_DIR/e2e-branch-liveness.sh"
 
 neon() { pnpm dlx "neonctl@$NEONCTL_VERSION" "$@"; }
 
 # Defense-in-depth: never create or delete a protected branch, however named.
 is_protected() { case "$1" in staging|main|production|preview) return 0 ;; *) return 1 ;; esac; }
-
-# Portable ISO-8601 → unix epoch (BSD date on macOS, GNU date on Linux).
-iso_to_epoch() {
-  local ts="${1%.*Z}"; ts="${ts%Z}"
-  date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' "$ts" +%s 2>/dev/null || echo 0
-}
 
 # Read KEY=VALUE pairs out of an env file and export them.
 #
@@ -185,29 +187,18 @@ POOLED=""; UNPOOLED=""; BRANCH=""; KEEP=0; SERVER_PID=""
 # Appended to the branch-cap error, so `serve` can name its way around the cap.
 CAP_HINT=""
 
-# Delete e2e-local-* branches older than GC_MIN_AGE_HOURS. Used both as
-# crash-recovery (`gc` subcommand) and to reclaim space on a branch-cap error.
+# Delete every dead e2e-local-* branch (the rule: scripts/e2e-branch-liveness.sh).
+# Used both as crash-recovery (`gc` subcommand) and on a branch-cap error.
 gc_orphans() {
-  local list now name id updated epoch age
+  local list name
   list="$(neon branches list --project-id "$NEON_PROJECT_ID" --output json 2>/dev/null)" \
     || { warn "branches list failed — skipping GC"; return 0; }
-  now="$(date -u +%s)"
-  # Shape-tolerant: accept either a bare array or {"branches": [...]}.
-  while IFS=$'\t' read -r id name updated; do
-    [ -n "$id" ] || continue
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
     is_protected "$name" && continue
-    epoch="$(iso_to_epoch "$updated")"
-    age=$(( (now - epoch) / 3600 ))
-    if [ "$epoch" -gt 0 ] && [ "$age" -lt "$GC_MIN_AGE_HOURS" ]; then
-      log "GC: keeping '$name' (age ${age}h < ${GC_MIN_AGE_HOURS}h)"
-      continue
-    fi
     info "GC: deleting orphaned '$name'"
     neon branches delete "$name" --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
-  done < <(echo "$list" | jq -r '
-    (if type == "array" then .[] elif .branches then .branches[] else empty end)
-    | select(.name | startswith("'"$BRANCH_PREFIX"'-"))
-    | [.id, .name, (.updated_at // .created_at // "")] | @tsv')
+  done < <(e2e_local_dead_branch_names "$list" "$GC_MIN_AGE_HOURS")
 }
 
 delete_branch() {
@@ -251,7 +242,7 @@ on_exit() {
 
 create_branch() {
   local parent="${NEON_PARENT_BRANCH:-staging}"
-  BRANCH="${BRANCH_PREFIX}-$(date -u +%Y%m%d-%H%M%S)-$$"
+  BRANCH="${BRANCH_PREFIX}-$(e2e_local_host_tag)-$(date -u +%Y%m%d-%H%M%S)-$$"
   is_protected "$BRANCH" && fail "refusing to use protected branch name '$BRANCH'"
 
   info "Creating ephemeral Neon branch '$BRANCH' (forked from '$parent')…"
@@ -280,7 +271,7 @@ create_branch() {
 
 cmd_gc() {
   load_env; resolve_config; require_neon
-  info "Sweeping orphaned ${BRANCH_PREFIX}-* Neon branches older than ${GC_MIN_AGE_HOURS}h…"
+  info "Sweeping dead ${BRANCH_PREFIX}-* Neon branches…"
   gc_orphans
   info "GC complete."
 }
