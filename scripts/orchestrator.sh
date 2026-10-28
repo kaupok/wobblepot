@@ -241,12 +241,14 @@ RELOAD_PENDING=false
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 # What runs out of the main checkout: this script, the worktree-claude.sh it
-# spawns every worker through, the models.sh both of them source, the
-# orchestrator-deferred.sh this script sources, and the
-# repo-node-bin.sh both of them run to pick the .nvmrc Node (HON-1307). Everything
-# else under scripts/ runs from the worker's own worktree, which branches from a
-# fresh origin/main, so a commit there leaves nothing stale to warn about.
-CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh scripts/orchestrator-deferred.sh .claude/hooks/repo-node-bin.sh)
+# spawns every worker through, every file either of them sources (models.sh,
+# orchestrator-deferred.sh, and worktree-claude.sh's worktree-auto-run.sh,
+# wt-stop-check.sh and e2e-branch-liveness.sh), and the repo-node-bin.sh both
+# of them run to pick the .nvmrc Node (HON-1307). checkout-code-paths.test.ts
+# fails when a sourced file is missing here (HON-1416). Everything else under
+# scripts/ runs from the worker's own worktree, which branches from a fresh
+# origin/main, so a commit there leaves nothing stale to warn about.
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh scripts/orchestrator-deferred.sh scripts/worktree-auto-run.sh scripts/wt-stop-check.sh scripts/e2e-branch-liveness.sh .claude/hooks/repo-node-bin.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_CODE=0

@@ -1382,6 +1382,15 @@ describe('orchestrator.sh', () => {
       ])
     })
 
+    it('warns on a commit that changes only worktree-auto-run.sh, which worktree-claude.sh sources (HON-1416)', () => {
+      const { clone, origin } = makeFixture()
+      commit(origin, 'scripts/worktree-auto-run.sh')
+      const out = check(clone, 1)
+
+      expect(polls(out)).toEqual([expect.objectContaining({ behind: 1, behind_code: 1 })])
+      expect(warns(out)).toHaveLength(1)
+    })
+
     it('warns again when origin/main moves to a new SHA', () => {
       const { clone, between } = makeFixture({ scripts: 1 }, ORIGIN_MOVES_AT_POLL_2)
       const out = check(clone, 3, {}, between)
