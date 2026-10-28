@@ -194,6 +194,47 @@ describe('AccountProfilePage', () => {
     expect(screen.getByTestId('profile-name-form')).toBeInTheDocument()
   })
 
+  it('calls the member check and the sign-in accounts read before either resolves', async () => {
+    const { getSession, getSignInAccounts } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    let resolveSession: (value: unknown) => void = () => {}
+    let resolveAccounts: (value: unknown) => void = () => {}
+    vi.mocked(getSession).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSession = resolve
+      }) as never,
+    )
+    vi.mocked(getSignInAccounts).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAccounts = resolve
+      }) as never,
+    )
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
+
+    const pending = AccountProfilePage(props())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(getSession).toHaveBeenCalledTimes(1)
+    expect(getSignInAccounts).toHaveBeenCalledTimes(1)
+
+    // Reverse order: the accounts first, then the session.
+    resolveAccounts([GOOGLE_ACCOUNT])
+    resolveSession(session)
+    render(await pending)
+    expect(screen.getByTestId('sign-in-methods')).toHaveAttribute(
+      'data-accounts',
+      JSON.stringify([GOOGLE_ACCOUNT]),
+    )
+  })
+
+  it('redirects to sign-in when there is no session, even if the accounts read rejects', async () => {
+    const { getSession, getSignInAccounts } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+    vi.mocked(getSignInAccounts).mockRejectedValue(new Error('UNAUTHORIZED'))
+
+    await expect(AccountProfilePage(props())).rejects.toThrow('NEXT_REDIRECT:/sign-in')
+  })
+
   /**
    * The layout's title sits on the page background as the document's `<h1>`,
    * at the Title level of the type scale (`variant="h4"`); the tab's sections

@@ -8,8 +8,9 @@ export const getSession = cache(async () => auth.api.getSession({ headers: await
 
 /**
  * The signed-in user's sign-in methods (HON-1158): one row per Better Auth
- * account, a password (`credential`) or Google. Call it after `getSession()`
- * has found a session; without one Better Auth refuses the read.
+ * account, a password (`credential`) or Google. Without a session Better Auth
+ * refuses the read and this rejects, so a caller that starts it before the
+ * session check (the account page, HON-1455) must handle that rejection.
  */
 export async function getSignInAccounts(): Promise<SignInAccount[]> {
   return toSignInAccounts(await auth.api.listUserAccounts({ headers: await headers() }))

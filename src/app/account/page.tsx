@@ -32,8 +32,14 @@ export default async function AccountProfilePage({
   const linkLanding = parseGoogleLinkLanding(params)
   const changeLanding = linkLanding ? null : parseChangeEmailLanding(params)
   const landing = linkLanding || changeLanding ? null : parseVerificationLanding(params)
+  // Both read only request headers, so they run together. The accounts read
+  // rejects without a session; awaiting the member check first keeps its
+  // redirect ahead of that rejection, and the no-op catch stops the rejection
+  // going unhandled when the redirect wins.
+  const accountsPromise = getSignInAccounts()
+  accountsPromise.catch(() => {})
   const { session, t } = await requireAccountMember({ landing })
-  const accounts = await getSignInAccounts()
+  const accounts = await accountsPromise
   // A Google-only account has no current password to type (HON-1158).
   const hasPassword = hasPasswordAccount(accounts)
 
