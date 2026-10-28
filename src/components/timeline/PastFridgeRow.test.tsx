@@ -143,7 +143,28 @@ describe('PastFridgeRow', () => {
       note: null,
       noteX: null,
       noteY: null,
+      pantryDeducted: false,
       restore: true,
     })
+  })
+
+  // HON-1444: a logged meal set back to planned is still charged. Undo after
+  // Remove creates a new entry, so it must carry the mark, or Cooked would
+  // take from the pantry again.
+  it('keeps the charged mark when a charged fridge meal is removed and restored', async () => {
+    const onCleared = vi.fn()
+    const user = renderRow({ pantryDeducted: true, onCleared })
+
+    respond(200, { success: true })
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
+
+    const [, options] = vi.mocked(toast).mock.calls[0]!
+    respond(200, { id: 'restored' })
+    ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const [url, init] = fetchMock.mock.calls[1]!
+    expect(url).toBe('/api/meal-plans/plan-1/entries')
+    expect(JSON.parse(init.body)).toMatchObject({ status: 'planned', pantryDeducted: true })
   })
 })

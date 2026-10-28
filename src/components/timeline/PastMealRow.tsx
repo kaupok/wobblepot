@@ -80,6 +80,7 @@ export function PastMealRow({
   const servings = servingOverride ?? householdServings
   const {
     status,
+    isPantryCharged,
     isUpdating,
     isDeductionModalOpen,
     setIsDeductionModalOpen,
@@ -124,7 +125,8 @@ export function PastMealRow({
       servingOverride: servingOverride ?? null,
       status,
       rating,
-      pantryDeducted,
+      // The current state, so a charge made since the page loaded is kept.
+      pantryDeducted: isPantryCharged,
     })
   }
 

@@ -340,8 +340,27 @@ describe('FridgeMealCard', () => {
         note: 'Heat the mash first',
         noteX: null,
         noteY: null,
+        pantryDeducted: false,
         restore: true,
       },
+    })
+  })
+
+  // HON-1444: Undo creates a new entry, so a charged meal sends its mark back,
+  // or Cooked would take from the pantry a second time.
+  it('keeps the charged mark when a charged entry is cleared and restored', async () => {
+    const { onCleared, user } = renderCard({ pantryDeducted: true })
+
+    await choose(user, 'Clear')
+
+    await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
+    const [, options] = vi.mocked(toast).mock.calls[0]!
+    const action = options?.action as { onClick: (e: unknown) => void }
+    action.onClick({})
+
+    await waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true))
+    expect(requests.find((r) => r.method === 'POST')?.body).toMatchObject({
+      pantryDeducted: true,
     })
   })
 })

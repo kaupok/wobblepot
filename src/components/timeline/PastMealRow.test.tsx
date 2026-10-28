@@ -210,6 +210,36 @@ describe('PastMealRow', () => {
       )
     })
 
+    // HON-1444: the page still holds `pantryDeducted: false` from its load, but
+    // Cooked charged the pantry since. Undo after Remove must keep that charge.
+    it('keeps a charge made in this session when the row is removed and restored', async () => {
+      const user = userEvent.setup()
+      const onCleared = vi.fn()
+      renderRow({ onCleared })
+
+      await user.click(cooked())
+      await screen.findByRole('dialog', { name: 'Mark as completed' })
+      respond(200, { pantryDeducted: true })
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(undo()).toHaveFocus())
+
+      respond(200)
+      await user.click(undo())
+      await waitFor(() => expect(cooked()).toHaveFocus())
+
+      respond(200, { success: true })
+      await user.click(screen.getByRole('button', { name: 'Remove' }))
+      await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
+
+      const [, options] = vi.mocked(toast).mock.calls[0]!
+      respond(200, { id: 'restored' })
+      ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+      const [url, init] = fetchMock.mock.calls[3]!
+      expect(url).toBe('/api/meal-plans/plan-1/entries')
+      expect(JSON.parse(init.body)).toMatchObject({ status: 'planned', pantryDeducted: true })
+    })
+
     it('offers Remove on a skipped row', () => {
       renderRow({ status: 'skipped' })
 

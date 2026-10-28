@@ -305,6 +305,31 @@ describe('completing a fridge meal', () => {
     expect(await pantryQuantity(alder.id, 'ing-apple')).toBe(300)
   })
 
+  // HON-1444: Undo after Clear creates a new entry. A charged meal sends its
+  // mark back, so the next Cooked does not charge the pantry again.
+  it('keeps the charge on a fridge meal restored as already charged', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-apple', quantity: 300 },
+    })
+
+    const restored = await createEntry(alder.id, 'plan-alder', {
+      ...lunch,
+      fridgeItems: [{ ingredientId: 'ing-apple' }],
+      pantryDeducted: true,
+    })
+    expect((await readEntry(restored.id)).pantryDeductedAt).toBeInstanceOf(Date)
+
+    const result = await updateEntry(alder.id, 'plan-alder', restored.id, {
+      status: 'completed',
+      usedUpIngredientIds: ['ing-apple'],
+    })
+
+    expect(result.pantryDeducted).toBe(false)
+    expect((await readEntry(restored.id)).status).toBe('completed')
+    expect(await pantryQuantity(alder.id, 'ing-apple')).toBe(300)
+  })
+
   it('completing with nothing ticked keeps the one charge for later', async () => {
     const { alder, fridgeId } = await fridgeWorld()
 
