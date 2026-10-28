@@ -144,7 +144,11 @@ export const CookForLunch: Story = {
   },
 }
 
-/** Lunch is off for the next day: the item says how to turn it on (HON-1396). */
+/**
+ * Lunch is off for the next day: the item says how to turn it on (HON-1396).
+ * It stays reachable with the arrow keys, so a keyboard user hears the reason,
+ * and Enter runs nothing (HON-1426).
+ */
 export const CookForLunchUnavailable: Story = {
   args: {
     cookForLunch: {
@@ -159,5 +163,20 @@ export const CookForLunchUnavailable: Story = {
     const item = menu.getByRole('menuitem', { name: /Cook for tomorrow's lunch too/ })
     await expect(item).toHaveAttribute('aria-disabled', 'true')
     await expect(item).toHaveTextContent('Meal preferences → Meals to plan')
+
+    // Note has focus; Cooked, Skipped, then the lunch item.
+    menu.getByRole('menuitem', { name: 'Note' }).focus()
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+    await expect(
+      menu.getByRole('menuitem', {
+        name: (name: string) =>
+          name.startsWith("Cook for tomorrow's lunch too") &&
+          name.includes('Meal preferences → Meals to plan'),
+      }),
+    ).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await expect(within(document.body).getByRole('menu')).toBeInTheDocument()
+    await expect(item).toHaveFocus()
+    await expect(within(document.body).queryByRole('dialog')).toBeNull()
   },
 }

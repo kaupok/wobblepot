@@ -74,6 +74,35 @@ describe("MealCardMenu: Cook for tomorrow's lunch too", () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  // A keyboard user arrows to the item and hears the reason, which Radix's
+  // `disabled` would skip; Enter and Space run nothing (HON-1426).
+  it.each([
+    ['recipeLunch', "Tomorrow's lunch is already a recipe meal."],
+    ['cooked', "Tomorrow's lunch is already cooked."],
+    [
+      'lunchOff',
+      'Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.',
+    ],
+  ] as const)('takes keyboard focus with the reason when %s', async (reason, text) => {
+    const { user } = renderMenu({ state: 'unavailable', reason })
+    screen.getByRole('button', { name: /more actions.*chicken curry/i }).focus()
+    await user.keyboard('{Enter}')
+    const menu = within(await screen.findByRole('menu'))
+
+    // Note, Cooked, Skipped, then the lunch item.
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+    const item = menu.getByRole('menuitem', {
+      name: (name) => name.startsWith("Cook for tomorrow's lunch too") && name.includes(text),
+    })
+    expect(item).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(item).toHaveFocus()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('is not shown without an option, or on a cooked meal', async () => {
     const first = renderMenu()
     let menu = await openMenu(first.user)

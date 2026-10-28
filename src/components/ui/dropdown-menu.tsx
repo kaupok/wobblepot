@@ -51,12 +51,20 @@ function DropdownMenuItem({
   inset,
   variant = 'default',
   size = 'default',
+  unavailable,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean
   variant?: 'default' | 'destructive'
   /** `lg`: a 44px minimum row, for surfaces with a 44px target floor (the cook view). */
   size?: 'default' | 'lg'
+  /**
+   * Dimmed and `aria-disabled`, but still focusable, unlike `disabled`, which
+   * Radix skips in arrow-key navigation. For an item that says why it cannot
+   * run, so a keyboard user reaches the reason. The caller's `onSelect` calls
+   * `event.preventDefault()` and runs nothing (HON-1426).
+   */
+  unavailable?: boolean
 }) {
   return (
     <DropdownMenuPrimitive.Item
@@ -64,8 +72,12 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       data-size={size}
+      data-unavailable={unavailable || undefined}
+      // Only when set: an explicit `undefined` would override the
+      // `aria-disabled` Radix gives a `disabled` item.
+      {...(unavailable && { 'aria-disabled': true })}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[size=lg]:min-h-11 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[size=lg]:min-h-11 data-[unavailable]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
