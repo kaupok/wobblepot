@@ -2,13 +2,13 @@ import 'server-only'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { findLastPlannedDate } from '@/lib/meal-plans/last-planned'
 import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { assertMealFitsSlot } from './meal-fit'
 import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 
 export const planMeal = defineTool({
@@ -44,22 +44,7 @@ export const planMeal = defineTool({
     // it is: the household has shopped and adjusted it since.
     const isPast = date < today
 
-    const fit = await isMealAllowedForSlot(household, mealId, mealType)
-    if (fit === 'notFound') {
-      throw new ToolInputError(
-        'No meal with this id. Use list_meals to find the meal. Nothing was changed.',
-      )
-    }
-    if (fit === 'unsuitable') {
-      throw new ToolInputError(
-        `This meal is not a ${mealType}, so it cannot be planned for ${mealType}. Nothing was changed.`,
-      )
-    }
-    if (fit === 'ruledOut') {
-      throw new ToolInputError(
-        "This meal does not fit the household's diet, allergens or avoided ingredients. Nothing was changed.",
-      )
-    }
+    await assertMealFitsSlot(household, mealId, mealType, isPast ? 'logged' : 'planned')
 
     const planId = await findOrCreateMealPlan(household.id)
     const lastPlannedOn = await findLastPlannedDate(household.id, mealId, date)
