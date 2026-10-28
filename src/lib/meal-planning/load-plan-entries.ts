@@ -106,6 +106,9 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           sourceEntry: {
             select: {
               date: true,
+              mealType: true,
+              status: true,
+              kind: true,
               meal: { select: { name: true, ...mealTranslationsInclude(locale) } },
             },
           },
@@ -170,6 +173,18 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
         // What a leftover item takes from its source (HON-1394); Edit items and
         // Undo send it back.
         servings: item.servings,
+        sourceMealType: item.sourceEntry?.mealType ?? null,
+        // Cooked leftovers exist whatever the entry became since; a skipped
+        // source, or one that is no longer a recipe meal, will not make any.
+        sourceState: !item.sourceEntry
+          ? null
+          : item.sourceEntry.status === 'completed'
+            ? ('completed' as const)
+            : item.sourceEntry.status === 'skipped' ||
+                item.sourceEntry.kind !== 'meal' ||
+                !item.sourceEntry.meal
+              ? ('gone' as const)
+              : ('planned' as const),
       })),
       rating: entry.rating,
       // Tips priced at other servings are dropped here as the tips route drops

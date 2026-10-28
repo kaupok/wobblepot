@@ -23,6 +23,11 @@ import {
   type CookQuestionControls,
 } from './PreparationSteps'
 import { ServingControl } from './ServingControl'
+import {
+  getShownCookServings,
+  useLeftoverLunchText,
+  type SharedLeftover,
+} from './use-leftover-lunches'
 import type {
   EntryChange,
   MealData,
@@ -51,6 +56,16 @@ interface MealDetailProps {
   status?: MealStatus
   /** Current effective servings (servingOverride or householdServings) */
   servings?: number
+  /**
+   * The servings a completed entry was cooked at (`PlanEntry.cookServings`),
+   * which it shows and scales by.
+   */
+  cookedServings?: number
+  /**
+   * The leftover lunches this entry feeds (HON-1395). The amounts scale by the
+   * servings plus theirs; the servings control still edits the own servings.
+   */
+  leftovers?: readonly SharedLeftover[]
   /** Handler for serving count changes. Ignored for a completed entry. */
   onServingsChange?: (servings: number | null) => Promise<boolean>
   pantryIngredients?: PantryIngredient[]
@@ -155,6 +170,8 @@ export function MealDetail({
   householdServings,
   status,
   servings,
+  cookedServings,
+  leftovers = [],
   onServingsChange,
   pantryIngredients = [],
   onToggleAvailability,
@@ -177,8 +194,15 @@ export function MealDetail({
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
   const tSteps = useTranslations('meal-plan.steps')
+  const tCard = useTranslations('meal-plan.card')
+  const leftoverText = useLeftoverLunchText()
   // Effective servings: use explicit prop if provided, otherwise householdServings
   const effectiveServings = servings ?? householdServings
+  const cookServings = getShownCookServings(
+    effectiveServings,
+    leftovers,
+    status === 'completed' ? cookedServings : undefined,
+  )
 
   const effectivePantry = useMemo(
     () => withOverrides(pantryIngredients, optimisticOverrides),
@@ -194,7 +218,7 @@ export function MealDetail({
 
   const ingredientListProps = {
     components: meal.components,
-    servings: effectiveServings,
+    servings: cookServings,
     householdServings,
     pantryIngredients,
     onToggleAvailability: hideAvailability ? undefined : onToggleAvailability,
@@ -258,25 +282,35 @@ export function MealDetail({
               cook view's `lg` size, with the cards' gap between badges
               (HON-951). `> 0`, not truthiness: `0 && …` renders a stray "0"
               (HON-711). */}
-          <div data-testid="cook-view-badges" className="flex flex-wrap items-center gap-1.5">
-            {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
-            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-              <Badge variant="surface" size="lg">
-                <Clock aria-hidden="true" />
-                {tDetail('timeMinutes', { count: meal.timeMinutes })}
-              </Badge>
-            )}
-            {showServingControl ? (
-              <ServingControl
-                servings={effectiveServings}
-                householdServings={householdServings}
-                onServingsChange={onServingsChange}
-                disabled={hideAvailability}
-              />
-            ) : (
-              <Badge variant="surface" size="lg">
-                {tServing('labelWithCount', { count: effectiveServings })}
-              </Badge>
+          <div className="flex flex-col gap-2">
+            <div data-testid="cook-view-badges" className="flex flex-wrap items-center gap-1.5">
+              {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
+              {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+                <Badge variant="surface" size="lg">
+                  <Clock aria-hidden="true" />
+                  {tDetail('timeMinutes', { count: meal.timeMinutes })}
+                </Badge>
+              )}
+              {showServingControl ? (
+                <ServingControl
+                  servings={effectiveServings}
+                  householdServings={householdServings}
+                  onServingsChange={onServingsChange}
+                  disabled={hideAvailability}
+                />
+              ) : (
+                <Badge variant="surface" size="lg">
+                  {tServing('labelWithCount', { count: cookServings })}
+                </Badge>
+              )}
+            </div>
+            {leftovers.length > 0 && (
+              <Body variant="small" tone="muted">
+                {tDetail('cooksFor', {
+                  servings: tCard('servings', { count: cookServings }),
+                  leftovers: leftoverText(leftovers),
+                })}
+              </Body>
             )}
           </div>
 

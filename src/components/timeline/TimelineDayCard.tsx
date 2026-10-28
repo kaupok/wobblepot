@@ -153,6 +153,8 @@ export function TimelineDayCard({
                 noteX={entry.noteX}
                 noteY={entry.noteY}
                 servingOverride={entry.servingOverride}
+                cookServings={entry.cookServings}
+                leftoversFor={entry.leftoversFor}
                 pantryDeducted={entry.pantryDeducted}
                 preparationTips={entry.preparationTips}
                 conflicts={entry.conflicts}
