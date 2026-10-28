@@ -234,6 +234,24 @@ describe('updateHouseholdIngredient', () => {
     expect(result).toMatchObject({ status: 'unit_locked' })
   })
 
+  it('allows a unit change once a deleted recipe is past the restore window', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await prisma.meal.update({
+      where: { id: meal.id },
+      data: { deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    })
+
+    const result = await updateHouseholdIngredient(alder, 'en', row.id, {
+      ...lovage,
+      defaultUnit: 'piece',
+      gramsPerPiece: 20,
+    })
+
+    expect(result).toMatchObject({ status: 'updated' })
+  })
+
   it('allows a unit change on a row nothing uses', async () => {
     const { alder } = await world()
     const row = await createHouseholdIngredient(alder, 'en', lovage)

@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { resolveProteinType } from '@/lib/meal-planning/protein'
+import { restoreWindowStart } from '@/lib/deleted-household-meals'
 import { findExisting, ingredientData, normaliseIngredientName } from './create'
 import type { HouseholdIngredient, IngredientUses } from './household-ingredient'
 import type { NewIngredientInput } from './new-ingredient'
@@ -52,12 +53,12 @@ const USES_COUNT = {
 type UsesCount = { _count: Record<keyof (typeof USES_COUNT)['_count']['select'], number> }
 
 /**
- * The row's components on deleted recipes. `inPlan` narrows them to the
- * recipes a meal plan entry still uses, and `false` to the ones none does.
- * A recipe holds an ingredient once, so a component count is a recipe count.
+ * The row's components on deleted recipes that a meal plan entry still uses
+ * (`inPlan`), or that none does. A recipe holds an ingredient once, so a
+ * component count is a recipe count.
  */
-function deletedMealComponents(id: string, inPlan?: boolean): Prisma.MealComponentWhereInput {
-  const planEntries = inPlan === undefined ? undefined : inPlan ? { some: {} } : { none: {} }
+function deletedMealComponents(id: string, inPlan: boolean): Prisma.MealComponentWhereInput {
+  const planEntries = inPlan ? { some: {} } : { none: {} }
   return { ingredientId: id, meal: { deletedAt: { not: null }, planEntries } }
 }
 
@@ -120,14 +121,16 @@ export async function updateHouseholdIngredient(
   }
 
   if (input.defaultUnit !== current.defaultUnit) {
-    // A deleted recipe still locks the unit, because a restore brings its
-    // quantities back in the old unit.
-    const [deletedMealsInPlan, deletedMeals] = await Promise.all([
+    // A recipe deleted inside the restore window still locks the unit,
+    // because a restore brings its quantities back in the old unit.
+    const [deletedMealsInPlan, restorableMeals] = await Promise.all([
       prisma.mealComponent.count({ where: deletedMealComponents(id, true) }),
-      prisma.mealComponent.count({ where: deletedMealComponents(id) }),
+      prisma.mealComponent.count({
+        where: { ingredientId: id, meal: { deletedAt: { gte: restoreWindowStart(new Date()) } } },
+      }),
     ])
     const uses = toUses(current, deletedMealsInPlan)
-    if (isInUse(uses) || deletedMeals > 0) return { status: 'unit_locked', uses }
+    if (isInUse(uses) || restorableMeals > 0) return { status: 'unit_locked', uses }
   }
 
   const ingredient = await prisma.$transaction(async (tx) => {
