@@ -131,17 +131,22 @@ Vitest with Testing Library, colocated, through accessibility queries. Detail: d
 
 **Queued is the queue.** The orchestrator and `/auto-implement` pick up only `Queued`; Todo means a human will do it. Queue an issue only when an agent can finish it alone, and set any `blockedBy` in the same call. Skips, overlapping files and timing: docs/PARALLEL_WORKFLOW.md → Queued is the queue.
 
+**File and queue by default.** The user's workflow is: file the work in Linear, then queue it for an unattended worker. So when a thread turns up work (a bug, a change, a follow-up, an idea with a clear spec), file the issue and put it in Queued when an agent can finish it alone. Do both without being asked. Any other path needs the user's word or a reason you state in the same message, so the user can overrule it in one read:
+
+- **Implement in the thread** only when the user asks, or for a stated reason: the change is small enough to finish now, it blocks this session, or it needs the user in the loop (a live debug, a choice made by eye).
+- **Hold an issue out of Queued** only for a stated reason: the spec is not ready (`[DRAFT]`, Backlog), it has a human-only step (Todo), or its blocker can change its scope. A small, clear issue goes to Queued; the queue is the fast path.
+
 **A follow-up is an issue.** A step the work needs but the PR does not ship is a Linear issue before the parent closes, because nobody reads a Done issue again. Rules: `/plan-issue` → A follow-up is an issue.
 
 **Before committing:** `pnpm lint && pnpm type-check && pnpm test`. Husky runs type-check, ESLint and Prettier on staged files. **Merging:** never without an explicit user request; `/merge` runs without further confirmation.
 
-**Hooks:** `.claude/hooks/block-destructive.sh` (PreToolUse, Bash) blocks destructive database commands, any `git push` to `main`, force pushes, and `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` that `/merge` and `/auto-implement` add. It fires for headless workers too and matches what would execute, so a `grep` that mentions a command passes. When it blocks you, ask the user; do not route around it.
+**Hooks:** `.claude/hooks/block-destructive.sh` (PreToolUse, Bash) blocks destructive database commands, any `git push` to `main`, force pushes, and `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` that `/merge`, `/auto-implement` and `/ship` add. It fires for headless workers too and matches what would execute, so a `grep` that mentions a command passes. When it blocks you, ask the user; do not route around it.
 
 **CI:** every PR passes `pnpm lint`, `pnpm type-check`, `pnpm test` and the checks in docs/DEPLOYMENT.md → CI Pipeline.
 
 ## Skill Workflow
 
-**Sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`. A small issue can start at `/branch-review`. Plans are Linear comments, so a new session can fetch them. `/create-pr` triggers the PR review (`/review-pr` → When to run it). `/auto-implement HON-XX` runs the whole cycle unattended. `/branch-review` is our skill; `/code-review` is the built-in diff reviewer.
+**Sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`. A small issue can start at `/branch-review`. Plans are Linear comments, so a new session can fetch them. `/create-pr` triggers the PR review (`/review-pr` → When to run it). `/auto-implement HON-XX` runs the whole cycle unattended. `/ship` takes whatever the thread holds (an idea, uncommitted work, a PR, a red CI) to a merge. `/branch-review` is our skill; `/code-review` is the built-in diff reviewer.
 
 **Go-to-market content stays out of this repository.** It is public, so a market, price, cohort result or channel plan written here is published. It lives in Linear (`GTM …` documents, `GTM` issues); `/gtm` has the map.
 
@@ -165,7 +170,7 @@ Do not nest a markdown table inside a list item in a Linear description: Linear 
 
 **Ask before you guard against an unlikely case.** A check for a theoretical race or attack costs every later reader. Name the failure, its likelihood and the guard's cost, and get a yes. Unattended, leave it out and file a follow-up issue.
 
-**Waiting inside a skill with a defined endpoint.** `/auto-implement`, `/implement-issue`, `/merge` and `/branch-review` end on their own, so do not schedule a `ScheduleWakeup` fallback: it fires after the work ends and re-runs the skill on stale state. To wait on CI, a build or a deploy, poll with foreground wait-chunks: a `Bash` call under the 600 s cap that prints a terminal or "still waiting" marker, re-issued until terminal. Do not rely on a completion notification from a backgrounded Bash call, a subagent (pass `run_in_background: false`) or Monitor: a headless worker exits when its turn ends, and the backgrounded work dies with it. Backgrounding a command that outruns the cap is fine if the same turn waits on its marker. Interactive `/merge` has a TTY, so its CI poll may run in the background. `ScheduleWakeup` is for real polling: `/loop`, or an external state change.
+**Waiting inside a skill with a defined endpoint.** `/auto-implement`, `/ship`, `/implement-issue`, `/merge` and `/branch-review` end on their own, so do not schedule a `ScheduleWakeup` fallback: it fires after the work ends and re-runs the skill on stale state. To wait on CI, a build or a deploy, poll with foreground wait-chunks: a `Bash` call under the 600 s cap that prints a terminal or "still waiting" marker, re-issued until terminal. Do not rely on a completion notification from a backgrounded Bash call, a subagent (pass `run_in_background: false`) or Monitor: a headless worker exits when its turn ends, and the backgrounded work dies with it. Backgrounding a command that outruns the cap is fine if the same turn waits on its marker. Interactive `/merge` has a TTY, so its CI poll may run in the background. `ScheduleWakeup` is for real polling: `/loop`, or an external state change.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

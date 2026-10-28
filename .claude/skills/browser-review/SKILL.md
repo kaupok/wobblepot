@@ -116,13 +116,13 @@ When the user agrees a finding is worth tracking:
 
 ### Step 7: Create in Linear
 
-Create the issue in **Backlog** unless the user names another state. Queued sends it to an unattended agent and Todo means a human picks it up (CLAUDE.md → Queued is the queue), so either one is the user's call.
+Create the issue in **Queued** when an agent can finish it alone, per CLAUDE.md → File and queue by default. Use **Todo** when it has a human-only step, and **Backlog** with `[DRAFT]` when the spec is not ready. When you pick Todo or Backlog, tell the user why in one sentence.
 
 ```typescript
 mcp__linear-server__save_issue({
     title: 'Agreed title, per CLAUDE.md → Issue titles',
     team: 'Wobblebot',
-    state: 'Backlog', // the default; another state only when the user names it
+    state: 'Queued', // 'Todo' for a human-only step, 'Backlog' for a [DRAFT]
     description: `## What
 Description of the finding.
 
