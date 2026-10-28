@@ -290,6 +290,7 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
       id: true,
       name: true,
       description: true,
+      preparationNotes: true,
       timeMinutes: true,
       kidFriendly: true,
       primaryProteinType: true,
@@ -381,6 +382,8 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
       id: translatedMeal.id,
       name: translatedMeal.name,
       description: translatedMeal.description,
+      // The picker's cook view shows them (HON-1352).
+      preparationNotes: translatedMeal.preparationNotes,
       timeMinutes: translatedMeal.timeMinutes,
       kidFriendly: translatedMeal.kidFriendly,
       primaryProteinType: translatedMeal.primaryProteinType,

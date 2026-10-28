@@ -16,7 +16,13 @@ const STEP = 'Glaze the salmon and broil it for 8 minutes.'
 
 const meals: AlternativeMeal[] = [
   misoSalmonAlternative,
-  { ...misoSalmonAlternative, id: 'alt-2', name: 'Lemon-garlic roast chicken', isCustom: true },
+  {
+    ...misoSalmonAlternative,
+    id: 'alt-2',
+    name: 'Lemon-garlic roast chicken',
+    isCustom: true,
+    preparationNotes: 'Rub the lemon under the skin.',
+  },
 ]
 
 /** The list inside the same `DialogContent` that `MealSelectorModal` renders it in. */
@@ -64,6 +70,17 @@ describe('AlternativesList cook view', () => {
     const view = await screen.findByRole('dialog', { name })
     expect(await within(view).findByText(STEP)).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith(`/api/meals/${id}/preparation-steps`, expect.anything())
+  })
+
+  it("shows a household recipe's own notes, as from My recipes", async () => {
+    const user = userEvent.setup()
+    renderInPicker()
+
+    await user.click(screen.getByRole('button', { name: 'Lemon-garlic roast chicken' }))
+
+    const view = await screen.findByRole('dialog', { name: 'Lemon-garlic roast chicken' })
+    await user.click(await within(view).findByRole('button', { name: 'Your notes' }))
+    expect(within(view).getByText('Rub the lemon under the skin.')).toBeInTheDocument()
   })
 
   it('closes only the cook view on Escape, with focus back on the name', async () => {

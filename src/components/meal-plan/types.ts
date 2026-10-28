@@ -164,6 +164,11 @@ export interface AlternativeMeal extends MealImageFields {
   suitableFor?: MealType[]
   /** One of the household's own recipes, rather than a library meal (HON-948) */
   isCustom?: boolean
+  /**
+   * The recipe's own notes, which the cook view a card's name opens shows
+   * beside the steps, as it does from My recipes (HON-1352).
+   */
+  preparationNotes?: string | null
   components: MealComponent[]
   nutrition: NutritionData
   /**

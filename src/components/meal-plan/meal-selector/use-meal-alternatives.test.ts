@@ -18,6 +18,7 @@ function libraryMeal(id: string, name: string) {
     id,
     name,
     description: null,
+    preparationNotes: null,
     timeMinutes: 30,
     kidFriendly: true,
     primaryProteinType: 'poultry',
@@ -180,6 +181,20 @@ describe('useMealAlternatives', () => {
         ['lib', false],
         ['own', true],
       ])
+    })
+
+    // HON-1352: the cook view a card's name opens shows them.
+    it("keeps a recipe's own notes on each result", async () => {
+      mockApiFetch.mockResolvedValueOnce({
+        meals: [{ ...libraryMeal('own', 'Own'), isCustom: true, preparationNotes: 'Salt early.' }],
+        hasMore: false,
+        total: 1,
+      })
+
+      const { result } = render({ search: 'soup' })
+
+      await waitFor(() => expect(result.current.hasLoadedList).toBe(true))
+      expect(result.current.displayedMeals[0]!.preparationNotes).toBe('Salt early.')
     })
 
     it('adds source=custom when the my-recipes filter is on', async () => {

@@ -139,7 +139,12 @@ describe.each(['swap', 'add'] as const)('suggestForSlot in %s mode', (mode) => {
         imageHue: 145,
         imagePromptVersion: 'v4',
       },
-      'meal-2': { imageUrl: null, imageStatus: 'none', imageHue: null },
+      'meal-2': {
+        imageUrl: null,
+        imageStatus: 'none',
+        imageHue: null,
+        preparationNotes: 'Rest it for ten minutes.',
+      },
     })
 
     const alternatives = await suggest()
@@ -155,6 +160,9 @@ describe.each(['swap', 'add'] as const)('suggestForSlot in %s mode', (mode) => {
     })
     // The selector marks the household's own recipes (HON-948).
     expect(byId['meal-2']).toMatchObject({ imageUrl: null, imageHue: null, isCustom: true })
+    // The cook view the card's name opens shows the recipe's notes (HON-1352).
+    expect(byId['meal-2']!.preparationNotes).toBe('Rest it for ten minutes.')
+    expect(byId['meal-1']!.preparationNotes).toBeNull()
   })
 
   describe('tie-break jitter', () => {

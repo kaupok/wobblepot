@@ -200,6 +200,8 @@ export async function suggestForSlot(
       primaryProteinType: candidate.primaryProteinType,
       suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
       isCustom: candidate.isCustom,
+      // The cook view the card's name opens shows them (HON-1352).
+      preparationNotes: translatedMeal?.preparationNotes ?? null,
       components: components.map((comp) => {
         const translatedIngredient = translateIngredient(comp.ingredient, locale)
         return {
