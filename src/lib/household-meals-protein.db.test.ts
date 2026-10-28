@@ -245,7 +245,7 @@ describe('the cards that show the protein badge', () => {
 
     // The meal selector reads `GET /api/meals`, which reads `loadMeals`.
     const { meals } = await loadMeals(
-      { id: alder, locale: 'en', preferences: null },
+      { id: alder, locale: 'en', timezone: 'Europe/Tallinn', preferences: null },
       { source: 'custom' },
     )
     expect(meals.find((meal) => meal.id === id)?.primaryProteinType).toBe('beef')

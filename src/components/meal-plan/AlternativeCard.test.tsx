@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { AlternativeCard } from './AlternativeCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
 
@@ -245,6 +245,36 @@ describe('AlternativeCard', () => {
       renderWithPantry([{ ingredientId: 'salt', isStaple: true }])
 
       expect(screen.queryByText(/ingredients? to buy|Have all ingredients/)).not.toBeInTheDocument()
+    })
+  })
+
+  // HON-1388: "what have we not had lately?"
+  describe('cooking history line', () => {
+    afterEach(() => vi.useRealTimers())
+
+    function onThe28th() {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 9, 28, 12))
+    }
+
+    it('says how long ago the household cooked it', () => {
+      onThe28th()
+      renderCard({ meal: { ...mockMeal, lastCookedOn: '2026-10-16', nextPlannedOn: null } })
+
+      expect(screen.getByText('Cooked 12 days ago')).toBeInTheDocument()
+    })
+
+    it('says a recipe is not cooked yet and when it is planned', () => {
+      onThe28th()
+      renderCard({ meal: { ...mockMeal, lastCookedOn: null, nextPlannedOn: '2026-10-31' } })
+
+      expect(screen.getByText('Not cooked yet · Planned: Sat, Oct 31')).toBeInTheDocument()
+    })
+
+    it('shows no line on a suggestion, which carries no history', () => {
+      renderCard()
+
+      expect(screen.queryByText(/Cooked|Not cooked yet/)).not.toBeInTheDocument()
     })
   })
 })

@@ -20,7 +20,7 @@ export const listMeals = defineTool({
   name: 'list_meals',
   title: 'List meals',
   description:
-    "Finds meals the household can plan: Wobblepot's shared recipes and the household's own, without those its allergies or excluded ingredients rule out. Use it to search by name or ingredient, to suggest a meal, or with source to list the household's own recipes or favourites, for example to plan from its rotation with plan_meal. Call get_meal with an id for the ingredients.",
+    "Finds meals the household can plan: Wobblepot's shared recipes and the household's own, without those its allergies or excluded ingredients rule out. Use it to search by name or ingredient, to suggest a meal, or with source to list the household's own recipes or favourites, for example to plan from its rotation with plan_meal. Call get_meal with an id for the ingredients. Each meal carries lastCookedOn, cookedLast28Days and nextPlannedOn: use them, with order longestSinceCooked, to answer what the household has not had lately.",
   inputSchema: z.object({
     search: z
       .string()
@@ -33,6 +33,12 @@ export const listMeals = defineTool({
       .enum(['own', 'favourites'])
       .optional()
       .describe("own: only the household's own recipes. favourites: only its favourites."),
+    order: z
+      .enum(['longestSinceCooked'])
+      .optional()
+      .describe(
+        'longestSinceCooked: the meal not cooked for longest first, then those never cooked, then those already planned. Ignored with search. Unset: by name.',
+      ),
     limit: z
       .number()
       .int()
@@ -51,6 +57,17 @@ export const listMeals = defineTool({
         proteinType: z.string().nullable(),
         isFavorite: z.boolean(),
         isOwnRecipe: z.boolean(),
+        lastCookedOn: z
+          .string()
+          .nullable()
+          .describe(
+            'The last day the household cooked it, YYYY-MM-DD. Skipped meals do not count.',
+          ),
+        cookedLast28Days: z.number().describe('How often it was cooked in the last 4 weeks.'),
+        nextPlannedOn: z
+          .string()
+          .nullable()
+          .describe('The next day it is planned, from today on, YYYY-MM-DD.'),
       }),
     ),
   }),
@@ -59,6 +76,7 @@ export const listMeals = defineTool({
       search: input.search,
       mealType: input.mealType,
       limit: input.limit,
+      order: input.order,
       ...(input.source ? { source: SOURCES[input.source] } : {}),
     })
     return {
@@ -70,6 +88,9 @@ export const listMeals = defineTool({
         proteinType: meal.primaryProteinType,
         isFavorite: meal.isFavorite,
         isOwnRecipe: meal.isCustom,
+        lastCookedOn: meal.lastCookedOn,
+        cookedLast28Days: meal.cookedLast28Days,
+        nextPlannedOn: meal.nextPlannedOn,
       })),
     }
   },

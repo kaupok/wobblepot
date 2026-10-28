@@ -107,6 +107,7 @@ describe('GET /api/meals', () => {
       kidFriendly: null,
       search: null,
       source: null,
+      order: null,
       limit: 20,
       offset: 0,
     })
@@ -114,7 +115,7 @@ describe('GET /api/meals', () => {
 
   it('passes every filter from the query string', async () => {
     await get(
-      '?mealType=dinner&proteinType=poultry&kidFriendly=true&search=chicken&source=favorites&limit=10&offset=20',
+      '?mealType=dinner&proteinType=poultry&kidFriendly=true&search=chicken&source=favorites&order=longestSinceCooked&limit=10&offset=20',
     )
 
     expect(filters()).toEqual({
@@ -123,6 +124,7 @@ describe('GET /api/meals', () => {
       kidFriendly: true,
       search: 'chicken',
       source: 'favorites',
+      order: 'longestSinceCooked',
       limit: 10,
       offset: 20,
     })
@@ -136,6 +138,12 @@ describe('GET /api/meals', () => {
     await get(`?kidFriendly=${value}`)
 
     expect(filters()?.kidFriendly).toBe(expected)
+  })
+
+  it('reads an order it does not know as the default order', async () => {
+    await get('?order=random')
+
+    expect(filters()?.order).toBeNull()
   })
 
   it('falls back to the default page for a limit or offset that is not a number', async () => {
