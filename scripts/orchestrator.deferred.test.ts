@@ -365,6 +365,27 @@ describe('deferred outcomes (HON-1414)', () => {
       expect(out).toContain('LEFT_IN_ENV:unset')
     })
 
+    it('holds a slot for each deferred worker that keeps its worktree', () => {
+      const out = execFileSync('bash', [deferredHarness, 'slots'], {
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: harnessEnv(),
+      })
+
+      expect(out).toContain('SLOTS:2')
+      expect(out).toContain('EMPTY:0')
+    })
+
+    // Without it the gate fills a deferred worker's slot on the same poll, and
+    // the replay's respawn then runs past MAX_WORKERS and the Neon branch cap.
+    it('counts the deferred slots in the spawn gate', () => {
+      const source = fs.readFileSync(path.join(scriptsDir, 'orchestrator.sh'), 'utf8')
+
+      expect(shellFunctionBody(source, 'main')).toContain(
+        'local active=$(( ${#WORKER_PIDS[@]} + $(deferred_slots) ))',
+      )
+    })
+
     // A replay in the poll that deferred the outcome would respawn a network
     // crash at once, while the API is likely still down.
     it('replays before monitor_workers, so a deferral waits a full poll', () => {

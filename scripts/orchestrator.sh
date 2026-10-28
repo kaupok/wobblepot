@@ -3666,8 +3666,10 @@ main() {
     local disk_ok=true
     check_disk_space || disk_ok=false
 
-    # Spawn new worker if slots available
-    local active=${#WORKER_PIDS[@]}
+    # Spawn new worker if slots available. A deferred worker still holds its
+    # worktree and Neon branch, and its replay may respawn, so it keeps its
+    # slot (HON-1414).
+    local active=$(( ${#WORKER_PIDS[@]} + $(deferred_slots) ))
     local polled=false
     local drained=false
 

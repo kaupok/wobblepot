@@ -32,6 +32,10 @@
 #     Linear API stubbed to answer In Progress, or to fail, per argument. Prints
 #     LINEAR_WRITES_FAILED.
 #
+#   slots
+#     Seeds DEFERRED with one network, one probe and one linear entry and prints
+#     the REAL deferred_slots, then the same for an empty list.
+#
 #   reload
 #     Seeds DEFERRED with entries that hold empty fields, runs the REAL
 #     export_deferred_state and restore_deferred_state, and prints each entry
@@ -60,6 +64,18 @@ bracket() {
 }
 
 case "$MODE" in
+  slots)
+    DEFERRED=(
+      "$(deferred_entry network HON-1 error uuid-1 b1 /l1 0 T1 1 60)"
+      "$(deferred_entry probe HON-2 clean uuid-2 b2 /l2 0 T2 "" 60)"
+      "$(deferred_entry linear HON-3 comment uuid-3 HON-3 b3 /l3)"
+    )
+    echo "SLOTS:$(deferred_slots)"
+    DEFERRED=()
+    echo "EMPTY:$(deferred_slots)"
+    exit 0
+    ;;
+
   restore-queue)
     READ="${ARGS[0]}"; MOVE="${ARGS[1]}"
     linear_api() {

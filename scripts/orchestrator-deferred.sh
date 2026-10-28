@@ -215,6 +215,17 @@ process_deferred() {
   write_status_file
 }
 
+# The worker slots deferred entries hold, for the spawn gate. A network or
+# probe entry keeps its worktree and Neon branch, and its replay may respawn on
+# them; a linear entry is a recorded strand and holds no slot.
+deferred_slots() {
+  local entry n=0
+  for entry in ${DEFERRED[@]+"${DEFERRED[@]}"}; do
+    case "$entry" in "linear$DEFERRED_FS"*) ;; *) n=$((n + 1)) ;; esac
+  done
+  echo "$n"
+}
+
 # `[{issue, kind}]` for orchestrator-status.json, which `wt watch` reads.
 deferred_json() {
   local entry fields=()
