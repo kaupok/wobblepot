@@ -168,6 +168,24 @@ describe('addLeftoverLunch', () => {
     )
   })
 
+  it('refuses when the lunch already holds 30 items, the most a fridge meal takes', async () => {
+    await world()
+    await entry('lunch', THURSDAY, {
+      mealType: 'lunch',
+      mealId: null,
+      kind: 'fridge',
+      items: {
+        create: Array.from({ length: 30 }, (_, position) => ({
+          label: `thing ${position}`,
+          position,
+        })),
+      },
+    })
+
+    expect(await refusal(addLeftoverLunch(household, 'plan-alder', 'dinner', 2))).toBe('lunchFull')
+    expect((await thursdayLunch())?.items).toHaveLength(30)
+  })
+
   it('refuses when lunch is off for the next day', async () => {
     await world()
 

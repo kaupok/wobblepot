@@ -94,6 +94,17 @@ function earliestSourceDate(targetDate: string): string {
 export type LeftoverSourceProblem =
   'notFound' | 'notRecipe' | 'skipped' | 'notBefore' | 'tooOld' | 'servingsRequired'
 
+/**
+ * The problems a change to the source after the link can cause: a dinner
+ * skipped, made a fridge meal, or set back from cooked to planned. Undo after
+ * Clear sends the lunch's own items back, so it passes these (HON-1396).
+ */
+export const CHANGED_SOURCE_PROBLEMS: ReadonlySet<LeftoverSourceProblem> = new Set([
+  'skipped',
+  'notRecipe',
+  'servingsRequired',
+])
+
 /** Slot order within a day, so the same-day breakfast comes before the lunch. */
 const MEAL_TYPE_ORDER = Object.values(MealType)
 
@@ -118,6 +129,8 @@ export async function findLeftoverSourceProblem(
   householdId: string,
   target: { date: string; mealType: MealType; entryId?: string },
   items: readonly FridgeItemInput[],
+  /** Problems to pass, such as `CHANGED_SOURCE_PROBLEMS` for a restore. */
+  tolerate: ReadonlySet<LeftoverSourceProblem> = new Set(),
 ): Promise<{ sourceEntryId: string; problem: LeftoverSourceProblem } | null> {
   const stored = target.entryId
     ? await prisma.mealPlanEntryItem.findMany({
@@ -144,7 +157,7 @@ export async function findLeftoverSourceProblem(
   for (const item of leftovers) {
     const source = byId.get(item.sourceEntryId)
     const problem = sourceProblem(source, item.servings, target, earliestDate)
-    if (problem) return { sourceEntryId: item.sourceEntryId, problem }
+    if (problem && !tolerate.has(problem)) return { sourceEntryId: item.sourceEntryId, problem }
   }
   return null
 }

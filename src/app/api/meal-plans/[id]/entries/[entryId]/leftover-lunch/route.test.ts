@@ -85,18 +85,22 @@ describe('POST leftover-lunch', () => {
     expect((await post({ servings: 1 })).status).toBe(404)
   })
 
-  it.each(['notPlannedDinner', 'lunchOff', 'recipeLunch', 'cooked', 'alreadyLinked'] as const)(
-    'answers 409 with code %s, unreported',
-    async (reason) => {
-      mockAdd.mockRejectedValue(new LeftoverLunchError(reason))
+  it.each([
+    'notPlannedDinner',
+    'lunchOff',
+    'recipeLunch',
+    'cooked',
+    'alreadyLinked',
+    'lunchFull',
+  ] as const)('answers 409 with code %s, unreported', async (reason) => {
+    mockAdd.mockRejectedValue(new LeftoverLunchError(reason))
 
-      const { status, body } = await post({ servings: 1 })
+    const { status, body } = await post({ servings: 1 })
 
-      expect(status).toBe(409)
-      expect(body.code).toBe(reason)
-      expect(captureApiError).not.toHaveBeenCalled()
-    },
-  )
+    expect(status).toBe(409)
+    expect(body.code).toBe(reason)
+    expect(captureApiError).not.toHaveBeenCalled()
+  })
 
   it('answers 409 lunchChanged when the slot filled between the read and the write', async () => {
     mockAdd.mockRejectedValue(new EntryCreateError('slotTaken'))

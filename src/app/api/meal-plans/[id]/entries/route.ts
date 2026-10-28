@@ -17,7 +17,7 @@ import {
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
-import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
+import { CHANGED_SOURCE_PROBLEMS, findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -47,8 +47,7 @@ const createEntrySchema = z
     pantryDeducted: z.boolean().optional(),
     pick: z.literal('suggested').optional(),
     // Undo after Clear (HON-1396): the entry's own items come back, so the
-    // leftover source rule, which a source changed since may now fail, is not
-    // run on them.
+    // leftover source rule passes what a source changed since can cause.
     restore: z.literal(true).optional(),
   })
   // The note's place is one point, set together, and only beside a note
@@ -225,14 +224,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     // The source rule (HON-1394): the picker lists only sources it allows, so
     // a refusal means the list went stale. The client tells it apart by `code`.
-    const refused =
-      fields.fridgeItems && !restore
-        ? await findLeftoverSourceProblem(
-            household.id,
-            { date, mealType: fields.mealType },
-            fields.fridgeItems,
-          )
-        : null
+    const refused = fields.fridgeItems
+      ? await findLeftoverSourceProblem(
+          household.id,
+          { date, mealType: fields.mealType },
+          fields.fridgeItems,
+          restore ? CHANGED_SOURCE_PROBLEMS : undefined,
+        )
+      : null
     if (refused) {
       return NextResponse.json(
         { error: 'Leftover source refused', code: 'leftover_source', ...refused },

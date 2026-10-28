@@ -5,7 +5,7 @@ import { isWeekday, parseLocalDate, toDateString } from '@/lib/meal-planning/dat
 import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
 import { createEntry } from './create-entry'
 import { setFridgeItems } from './fridge-meal'
-import type { FridgeItemInput } from './fridge-items'
+import { FRIDGE_ITEMS_MAX, type FridgeItemInput } from './fridge-items'
 
 /**
  * Why "Cook for tomorrow's lunch too" refused (HON-1396):
@@ -16,9 +16,16 @@ import type { FridgeItemInput } from './fridge-items'
  * - `recipeLunch`: the next day's lunch is a recipe meal (409)
  * - `cooked`: the next day's lunch is cooked (409)
  * - `alreadyLinked`: that lunch already takes leftovers from this dinner (409)
+ * - `lunchFull`: that lunch already holds `FRIDGE_ITEMS_MAX` items (409)
  */
 export type LeftoverLunchRefusal =
-  'dinnerNotFound' | 'notPlannedDinner' | 'lunchOff' | 'recipeLunch' | 'cooked' | 'alreadyLinked'
+  | 'dinnerNotFound'
+  | 'notPlannedDinner'
+  | 'lunchOff'
+  | 'recipeLunch'
+  | 'cooked'
+  | 'alreadyLinked'
+  | 'lunchFull'
 
 export class LeftoverLunchError extends Error {
   constructor(readonly reason: LeftoverLunchRefusal) {
@@ -102,6 +109,8 @@ export async function addLeftoverLunch(
   if (lunch.items.some((stored) => stored.sourceEntryId === dinnerEntryId)) {
     throw new LeftoverLunchError('alreadyLinked')
   }
+  // One more would be a fridge meal its own Edit items could not save.
+  if (lunch.items.length >= FRIDGE_ITEMS_MAX) throw new LeftoverLunchError('lunchFull')
 
   // A note-only card or a picker placeholder becomes a fridge meal with the
   // one item, and keeps its note.

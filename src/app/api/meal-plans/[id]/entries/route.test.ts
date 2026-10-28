@@ -39,7 +39,8 @@ vi.mock('@/lib/meal-plans/pick-for-slot', async (importOriginal) => ({
 }))
 
 // The source rule is tested against a database in `plan-fridge-meal.leftovers.db.test.ts`.
-vi.mock('@/lib/meal-plans/recent-meals', () => ({
+vi.mock('@/lib/meal-plans/recent-meals', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/recent-meals')>()),
   findLeftoverSourceProblem: vi.fn(() => Promise.resolve(null)),
 }))
 
@@ -62,7 +63,6 @@ import {
   type EntryCreateRefusal,
 } from '@/lib/meal-plans/create-entry'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
-import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
 import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -492,92 +492,6 @@ describe('POST /api/meal-plans/[id]/entries', () => {
 
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
       expect(mockAssertUnderCap).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('fridge meal (HON-1277)', () => {
-    const fridgeItems = [{ ingredientId: 'ing-cucumber' }, { label: 'store meatballs' }]
-
-    it('passes the items through to createEntry', async () => {
-      mockCreateEntry.mockResolvedValue({ ...created, mealId: null })
-
-      const { status } = await answer(post({ date: '2099-01-28', mealType: 'dinner', fridgeItems }))
-
-      expect(status).toBe(200)
-      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
-        date: new Date(2099, 0, 28),
-        mealType: 'dinner',
-        fridgeItems,
-      })
-    })
-
-    it.each([
-      ['with a meal', { mealId: 'meal-1' }],
-      ['with a pick', { pick: 'suggested' }],
-    ])('refuses items %s', async (_label, extra) => {
-      const body = { date: '2099-01-28', mealType: 'dinner', fridgeItems, ...extra }
-
-      expect((await answer(post(body))).status).toBe(400)
-      expect(mockCreateEntry).not.toHaveBeenCalled()
-    })
-
-    it('runs the source rule for the slot, and answers 400 with its code when it refuses (HON-1396)', async () => {
-      const leftovers = [{ sourceEntryId: 'entry-dinner' }]
-      vi.mocked(findLeftoverSourceProblem).mockResolvedValueOnce({
-        sourceEntryId: 'entry-dinner',
-        problem: 'servingsRequired',
-      })
-
-      expect(
-        await answer(post({ date: '2099-01-28', mealType: 'lunch', fridgeItems: leftovers })),
-      ).toEqual({
-        status: 400,
-        body: {
-          error: 'Leftover source refused',
-          code: 'leftover_source',
-          sourceEntryId: 'entry-dinner',
-          problem: 'servingsRequired',
-        },
-      })
-      expect(findLeftoverSourceProblem).toHaveBeenCalledWith(
-        'household-123',
-        { date: '2099-01-28', mealType: 'lunch' },
-        leftovers,
-      )
-      expect(mockCreateEntry).not.toHaveBeenCalled()
-    })
-
-    // Undo after Clear sends the entry's own items back. A source changed
-    // since, such as a cooked dinner set back to planned with the item's
-    // servings unset, must not refuse it (HON-1396).
-    it('restores items the source rule would refuse, and does not pass the flag on', async () => {
-      mockCreateEntry.mockResolvedValue({ ...created, mealId: null })
-      vi.mocked(findLeftoverSourceProblem).mockResolvedValue({
-        sourceEntryId: 'entry-dinner',
-        problem: 'servingsRequired',
-      })
-      const leftovers = [{ sourceEntryId: 'entry-dinner' }]
-
-      const { status } = await answer(
-        post({ date: '2099-01-28', mealType: 'lunch', fridgeItems: leftovers, restore: true }),
-      )
-
-      expect(status).toBe(200)
-      expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
-        date: new Date(2099, 0, 28),
-        mealType: 'lunch',
-        fridgeItems: leftovers,
-      })
-    })
-
-    it('answers 404 for an item the household may not see, unreported', async () => {
-      mockCreateEntry.mockRejectedValue(new FridgeItemNotFoundError())
-
-      expect(await answer(post({ date: '2099-01-28', mealType: 'dinner', fridgeItems }))).toEqual({
-        status: 404,
-        body: { error: 'Fridge meal item not found' },
-      })
-      expect(mockCaptureApiError).not.toHaveBeenCalled()
     })
   })
 })

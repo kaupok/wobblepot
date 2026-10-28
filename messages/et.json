@@ -646,6 +646,7 @@
         "cooked": "Homne lõuna on juba valmis tehtud. Värskenda lehte, et seda näha.",
         "lunchOff": "Lõunasöök on sellel päeval välja lülitatud. Lülita see sisse: Leibkond → Toidueelistused → Planeeritavad toidud.",
         "alreadyLinked": "Homne lõuna on juba selle toidu jääkidest. Portsjoneid muudad lõuna nupust „Muuda koostist“.",
+        "lunchFull": "Homses lõunas on juba 30 asja. Eemalda üks nupust „Muuda koostist“ ja proovi uuesti.",
         "notPlannedDinner": "See toit pole enam planeeritud õhtusöök. Värskenda lehte, et seda näha.",
         "lunchChanged": "Homne lõuna muutus vahepeal. Värskenda lehte ja proovi uuesti.",
         "failed": "Lõunat ei õnnestunud lisada. Palun proovi uuesti."

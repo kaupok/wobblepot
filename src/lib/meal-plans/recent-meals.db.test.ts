@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { findLeftoverProblemForEntry, loadLeftoverSources } from './recent-meals'
+import {
+  CHANGED_SOURCE_PROBLEMS,
+  findLeftoverProblemForEntry,
+  findLeftoverSourceProblem,
+  loadLeftoverSources,
+} from './recent-meals'
 
 // The leftovers a fridge meal can take (HON-1277), for one slot (HON-1396).
 // Runs against PGlite through the `unit-db` project, with no mocks.
@@ -141,5 +146,32 @@ describe('findLeftoverProblemForEntry', () => {
         { sourceEntryId: 'after' },
       ]),
     ).toBeNull()
+  })
+})
+
+// Undo after Clear sends a lunch's own items back (HON-1396).
+describe('findLeftoverSourceProblem with CHANGED_SOURCE_PROBLEMS', () => {
+  it('passes what a change to the source causes, and nothing else', async () => {
+    const { alder } = await world()
+    const restore = (items: Parameters<typeof findLeftoverSourceProblem>[2]) =>
+      findLeftoverSourceProblem(alder.id, LUNCH_22ND, items, CHANGED_SOURCE_PROBLEMS)
+
+    // Planned with no servings, skipped since, and a fridge meal now: all pass.
+    expect(
+      await restore([
+        { sourceEntryId: 'tonight' },
+        { sourceEntryId: 'skipped' },
+        { sourceEntryId: 'fridge' },
+      ]),
+    ).toBeNull()
+    // A source after the slot, or too old, never passed the rule.
+    expect(await restore([{ sourceEntryId: 'tonight' }, { sourceEntryId: 'after' }])).toEqual({
+      sourceEntryId: 'after',
+      problem: 'notBefore',
+    })
+    expect(await restore([{ sourceEntryId: 'four-days' }])).toEqual({
+      sourceEntryId: 'four-days',
+      problem: 'tooOld',
+    })
   })
 })

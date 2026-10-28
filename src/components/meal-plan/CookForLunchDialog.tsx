@@ -24,6 +24,7 @@ const ERROR_KEYS = [
   'cooked',
   'lunchOff',
   'alreadyLinked',
+  'lunchFull',
   'notPlannedDinner',
   'lunchChanged',
 ] as const
