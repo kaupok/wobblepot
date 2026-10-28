@@ -799,3 +799,22 @@ describe('the cook-question tool-ownership claims', () => {
     ).toBeNull()
   })
 })
+
+/** The prompt names steps in English; an Estonian answer must not (HON-1376). */
+describe('the cook-question Estonian step word', () => {
+  const input = starter('cook-question', 'et-step-word-seene-stroganoff')
+  const score = (answer: string) => scoreCookQuestion(input, answer)
+
+  it.each([
+    'Step 6 puhul asenda kookospiim vahukoorega, mis sul sahvris olemas on.',
+    'Kasuta selles stepis kookospiima asemel vahukoort.',
+  ])('fails the English word: %s', (answer) => {
+    expect(score(answer).avoidsClaims).toBe(0)
+  })
+
+  it('passes the Estonian word', () => {
+    expect(
+      score('Sammus 6 asenda kookospiim vahukoorega, mis sul sahvris olemas on.').avoidsClaims,
+    ).toBe(1)
+  })
+})

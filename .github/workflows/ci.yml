@@ -353,28 +353,29 @@ jobs:
         run: pnpm audit --audit-level critical
 
   # ==========================================
-  # Unit tests (Vitest), in two shards, with the coverage gate (HON-1192)
+  # Unit tests (Vitest), in three shards, with the coverage gate (HON-1192)
   # ==========================================
-  # The `unit`, `unit-node` and `unit-db` projects, split by file into two
-  # shards that run in parallel (HON-1203): one run was the slowest CI job.
-  # Each shard writes a blob report with its coverage, and `unit-report`
-  # merges them, so the thresholds in vitest.config.ts apply to the whole
-  # suite. A shard covers about half the files, so it sets `COVERAGE_SHARD`,
-  # which turns the thresholds off for that run. Still no database service
-  # (HON-1183): `unit-db` runs `*.db.test.ts` against PGlite, an in-process
-  # Postgres (HON-1186), and points its own `DATABASE_URL` at a closed port.
+  # The `unit`, `unit-node` and `unit-db` projects, split by file into three
+  # shards that run in parallel (HON-1203, HON-1408): one run was the slowest
+  # CI job. Each shard writes a blob report with its coverage, and
+  # `unit-report` merges them, so the thresholds in vitest.config.ts apply to
+  # the whole suite. A shard covers about a third of the files, so it sets
+  # `COVERAGE_SHARD`, which turns the thresholds off for that run. Still no
+  # database service (HON-1183): `unit-db` runs `*.db.test.ts` against
+  # PGlite, an in-process Postgres (HON-1186), and points its own
+  # `DATABASE_URL` at a closed port.
   unit:
-    name: Unit tests (${{ matrix.shard }}/2)
+    name: Unit tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       actions: write
     strategy:
-      # Run both shards to the end, so one red run shows every failure.
+      # Run every shard to the end, so one red run shows every failure.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout code
@@ -393,13 +394,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # `default` prints the failures in this log; `blob` writes
-      # `.vitest/blob/blob-<shard>-2.json` for the merge. Coverage goes into
+      # `.vitest/blob/blob-<shard>-3.json` for the merge. Coverage goes into
       # the blob, so `json` is the only coverage reporter a shard needs.
-      - name: Run unit tests with coverage (shard ${{ matrix.shard }}/2)
+      - name: Run unit tests with coverage (shard ${{ matrix.shard }}/3)
         env:
           COVERAGE_SHARD: '1'
         run: >-
-          pnpm test:coverage --shard=${{ matrix.shard }}/2
+          pnpm test:coverage --shard=${{ matrix.shard }}/3
           --reporter=default --reporter=blob --coverage.reporter=json
 
       # `.vitest/` is a hidden directory, which upload-artifact skips by
@@ -416,7 +417,7 @@ jobs:
   # ==========================================
   # Unit tests: merge the shards and apply the coverage gate (HON-1203)
   # ==========================================
-  # Merges the two blob reports and checks the merged coverage against the
+  # Merges the three blob reports and checks the merged coverage against the
   # thresholds in vitest.config.ts, so a merged run under any of them fails
   # this job. No `if: always()`: when a shard fails this job is skipped, and
   # `ci` fails on the shard result. It runs no tests, but it loads the

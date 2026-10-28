@@ -344,41 +344,21 @@ A failed commit, push or `gh pr create` → stop with its error.
 
 **Budget: 3 review rounds** (6.3 → 6.6). `ROUND` is the count of `<!-- claude-review -->` comments on the PR after 6.3, so earlier runs' rounds count. The cap bounds reviews, not merges.
 
-### 6.1 Wait for CI
+Each round reviews before it waits for CI: the review does not need the CI result, so it runs while CI does.
 
-CI takes 12-45 min. **Wait in foreground chunks**: CLAUDE.md → Working style → "Waiting inside a skill with a defined endpoint". No `run_in_background`, no background Agent, no Monitor. Each chunk runs with `timeout: 540000`:
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-./scripts/ci-settle.sh "$PR_NUMBER"
-```
-
-It polls about 8 minutes and prints one marker last; 6 chunks cover `ci.yml`'s timeout.
-
-- `CI_WAITING`, or no marker → re-issue at once. Never end a turn here. A `Usage:` line on stderr (exit 2) means no PR number: report and stop.
-- `CI_TIMEOUT` → report and stop. Do not merge.
-- `CI_SETTLED` → verify in the same turn. Read the output: `--json` exits 0 on failures.
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# A pending third-party commit status (empty workflow — Vercel) is exempt; a fail still blocks.
-gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
-  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
-```
-
-No output → passed. Any line → `recovery.md` → CI-fix loop. `no checks reported` on stderr → `recovery.md` → No checks reported.
-
-### 6.2 Get PR info
+### 6.1 Get PR info
 
 ```bash
 gh pr view --json number,title,headRefName,url
 ```
 
+### 6.2 Count earlier rounds
+
+Run the 6.3 count before the reviewer, as `ROUND_BEFORE`. **`ROUND_BEFORE` ≥ 3 → skip the reviewer**: `ROUND = ROUND_BEFORE`, go to 6.4.
+
 ### 6.3 Trigger Claude review
 
-Count the markers first as `ROUND_BEFORE`. **`ROUND_BEFORE` ≥ 3 → skip the reviewer**: `ROUND = ROUND_BEFORE`, go to 6.4.
-
-Otherwise print `[auto-implement] Running Claude review for PR #${PR_NUMBER}...` and run it in the foreground, `timeout: 600000` (shorter leaves a stale lock). Past 600 s, background it and wait on the comment in this turn, as `batched.md` does.
+Print `[auto-implement] Running Claude review for PR #${PR_NUMBER}...` and run it in the foreground, `timeout: 600000` (shorter leaves a stale lock). Past 600 s, background it and wait on the comment in this turn, as `batched.md` does.
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
@@ -412,16 +392,38 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 Empty output is a failed fetch (none prints `[]`): stop. On a re-reviewed PR, check each inline finding against the diff: an addressed one whose anchor moved still looks live.
 
 - **No summary** → the review did not complete. Stop; it is not clean.
-- **Clean** = "No issues found" **and** no inline comment **and** no `**Spec:**` entry → 6.8, then Phase 7. A **"less usable"** `**Usability:**` verdict is a finding too.
+- **Clean** = "No issues found" **and** no inline comment **and** no `**Spec:**` entry → nothing to fix; 6.5 still waits for CI. A **"less usable"** `**Usability:**` verdict is a finding too.
 - Every inline comment, and every finding in the summary (out-of-diff ones and those past the 5-comment cap live only there), is **Address Now**.
 - **Each `**Spec:**` entry is Address Now.** A **Missing** or **Implemented but wrong** entry is a correctness defect at every round: never defer or drop it; if unfixable here, 6.7. An **Unproven** entry is fixed by a test that asserts the result, or by naming in the PR body the existing test, `Driven:` line or `measured:` Proof line that shows it. `**Spec:** no issue linked` / `issue not readable` are not findings.
 - Otherwise use the rubric. **ROUND ≥ 3 → read `review-cap.md` → Materiality bar first.**
 
 Append each round's Defer items and `kind: follow-up` blocks to `/tmp/auto-implement-deferrals-<ID>.md`: an earlier summary is unreadable once a later one posts.
 
-### 6.5 Address review comments
+### 6.5 Wait for CI, then fix
 
-Per Address Now item: take file and line from the inline comment, or find the site from the summary text; read it; fix it.
+PR CI takes about 4-5 min. **Wait in foreground chunks**: CLAUDE.md → Working style → "Waiting inside a skill with a defined endpoint". No `run_in_background`, no background Agent, no Monitor. Each chunk runs with `timeout: 540000`:
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/ci-settle.sh "$PR_NUMBER"
+```
+
+It polls about 8 minutes and prints one marker last; 6 chunks cover `ci.yml`'s 45 min timeout.
+
+- `CI_WAITING`, or no marker → re-issue at once. Never end a turn here. A `Usage:` line on stderr (exit 2) means no PR number: report and stop.
+- `CI_TIMEOUT` → report and stop. Do not merge.
+- `CI_SETTLED` → verify in the same turn. Read the output: `--json` exits 0 on failures.
+
+```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+# A pending third-party commit status (empty workflow — Vercel) is exempt; a fail still blocks.
+gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
+  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
+```
+
+No output → passed. Any line → fix it in the pass below (`recovery.md` → CI-fix loop). `no checks reported` on stderr → `recovery.md` → No checks reported.
+
+**One fix pass** takes this round's Address Now items and CI failures. Per Address Now item: take file and line from the inline comment, or find the site from the summary text; read it; fix it.
 
 A **PR-body finding**: rewrite by the 5.4 rules, `gh pr edit <PR_NUMBER> --body-file <file>`. Close a "Not verified" gap with a test if you can; if not, keep the line and comment `not actioned: cannot be verified from this session — <reason>`, which settles it at any round.
 
@@ -442,10 +444,10 @@ EOF
 git push
 ```
 
-After a push, re-run the 6.1 wait and verification; with nothing pushed, CI has settled. Then decide, first match wins:
+After a push at `ROUND` ≥ 3, re-run the 6.5 wait and verification; a failure → `recovery.md` → CI-fix loop. Rule A's next round waits in its own 6.5. With nothing pushed, CI has settled. Then decide, first match wins:
 
 - **Any round, a correctness or safety finding unresolved** → 6.7. Defer is for scope, not defects.
-- **A. `ROUND` < 3, pushed** → `[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing`, back to 6.3.
+- **A. `ROUND` < 3, pushed** (review fixes, CI fixes, or both) → `[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing`, back to 6.2.
 - **B. `ROUND` < 3, nothing changed** (all deferred, or a body-only edit) → no re-review of an identical diff: 6.8, Phase 7.
 - **C. `ROUND` ≥ 3** → no 4th review. All resolved (fixed, or dropped with a note) → 6.8, Phase 7.
 
@@ -456,8 +458,6 @@ On B, or C with all resolved:
 [review-pr:complete]
 [auto-implement] Phase 6/7 complete → Proceeding to Phase 7
 ```
-
-The clean exit in 6.4 prints this block itself.
 
 ### 6.7 Review-round cap reached: terminal hand-off
 
@@ -490,7 +490,7 @@ CLOSED → stop: "PR is closed. Cannot merge." Not mergeable → stop: "PR canno
 
 ### 7.2 Wait for CI
 
-Re-run the 6.1 poll until terminal, then the 6.1 verification block in the same turn. `CI_TIMEOUT` → stop. No output → 7.3. **Any line → stop, do NOT merge**, a failed Vercel check included. No CI-fix loop: a push here would merge an unreviewed commit. `no checks reported` → `recovery.md`.
+Re-run the 6.5 poll until terminal, then the 6.5 verification block in the same turn. `CI_TIMEOUT` → stop. No output → 7.3. **Any line → stop, do NOT merge**, a failed Vercel check included. No CI-fix loop: a push here would merge an unreviewed commit. `no checks reported` → `recovery.md`.
 
 ### 7.3 Merge the PR
 
@@ -504,7 +504,7 @@ Non-zero exit → stop with the `gh` error: `[auto-implement] ✗ Error: Merge f
 
 ### 7.4 Post summary to Linear
 
-Use the literal PR number from 6.2:
+Use the literal PR number from 6.1:
 
 ```bash
 gh pr view <PR_NUMBER> --json number,title,url,commits,files

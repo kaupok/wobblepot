@@ -24,7 +24,7 @@ The route keeps the session, the household, body validation and the status map. 
 
 ## Commands and coverage
 
-`pnpm test`, `pnpm test:db`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. CI runs `pnpm test:coverage` in two shards and fails when the merged report is under the thresholds in `vitest.config.ts`; the ratchet rule is in [DEPLOYMENT.md](DEPLOYMENT.md) → CI Pipeline. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
+`pnpm test`, `pnpm test:db`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. CI runs `pnpm test:coverage` in three shards and fails when the merged report is under the thresholds in `vitest.config.ts`; the ratchet rule is in [DEPLOYMENT.md](DEPLOYMENT.md) → CI Pipeline. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
 
 ## E2E drift
 

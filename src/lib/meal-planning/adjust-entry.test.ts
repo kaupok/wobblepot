@@ -44,6 +44,7 @@ import {
   AdjustEntryError,
   loadAdjustContext,
   proposeAdjustment,
+  resolveProposals,
   type AdjustContext,
 } from './adjust-entry'
 
@@ -300,6 +301,72 @@ describe('proposeAdjustment', () => {
 
     expect(result.changes).toEqual([])
     expect(result.notInMeal).toEqual(['bacon'])
+  })
+})
+
+describe('resolveProposals', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const resolve = (changes: unknown[]) =>
+    resolveProposals(
+      changes as Parameters<typeof resolveProposals>[0],
+      entry as unknown as AdjustContext,
+      'household-1',
+      'en',
+    )
+  const named = (
+    op: 'replace' | 'remove' | 'add',
+    original: string | null,
+    replacement: string | null = null,
+  ) => ({
+    op,
+    original,
+    replacement,
+    quantityPerServing: replacement ? 20 : null,
+    unit: replacement ? 'g' : null,
+    reason: '',
+  })
+
+  it('resolves named changes without a model call, with the catalogue match behind each', async () => {
+    mockMatch.mockImplementation(async ([wanted]) => [matched(wanted!.name, 20)] as never)
+
+    const result = await resolve([
+      named('replace', 'cream', 'yoghurt'),
+      named('remove', 'mushroom'),
+    ])
+
+    expect(mockGenerate).not.toHaveBeenCalled()
+    expect(result.changes.map((c) => [c.op, c.original?.id, c.replacement?.matched])).toEqual([
+      ['replace', 'cream', true],
+      ['remove', 'mushroom', undefined],
+    ])
+    expect(result.matches.get(result.changes[0]!)).toMatchObject({
+      ingredient: { id: 'yoghurt' },
+      convertedQuantity: 20,
+    })
+    expect(result.matches.has(result.changes[1]!)).toBe(false)
+    expect(result).toMatchObject({ unmatched: [], notInMeal: [], ambiguous: [], alreadyInMeal: [] })
+  })
+
+  it('names a replacement the meal already has, or one another change brings in', async () => {
+    mockMatch.mockImplementation(async ([wanted]) => [matched(wanted!.name, 20)] as never)
+
+    const result = await resolve([
+      named('add', null, 'pasta'),
+      named('add', null, 'basil'),
+      named('replace', 'cream', 'basil'),
+    ])
+
+    expect(result.changes.map((c) => c.op)).toEqual(['add'])
+    expect(result.alreadyInMeal).toEqual(['pasta', 'basil'])
+  })
+
+  it('reports unmatched, missing and unknown names', async () => {
+    mockMatch.mockResolvedValue([{ type: 'unmatched' }] as never)
+
+    const result = await resolve([named('add', null, 'xyzzy'), named('remove', 'bacon')])
+
+    expect(result).toMatchObject({ unmatched: ['xyzzy'], notInMeal: ['bacon'], ambiguous: [] })
   })
 })
 

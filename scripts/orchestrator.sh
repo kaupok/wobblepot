@@ -1483,7 +1483,7 @@ pr_for_branch() {
 }
 
 # Summarize a PR's CI as green | pending | failing | unknown. Mirrors the
-# bucket rules /auto-implement Phase 6.1 uses: pass and skipping are fine,
+# bucket rules /auto-implement Phase 6.5 uses: pass and skipping are fine,
 # pending means still running, anything else (fail/cancel) is failing — with
 # the same pending-only exemption for third-party commit statuses (HON-600).
 #

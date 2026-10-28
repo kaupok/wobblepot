@@ -8,9 +8,10 @@ import { cookServingsSelect } from '@/lib/meal-planning/servings'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
 
 /**
- * The slot inputs `swap_meal`, `rate_meal`, `adjust_meal`, `clear_meal` and
- * `set_meal_status` share: a day and a meal type, the way `get_meal_plan`
- * reports an entry and the way a user names it ("Thursday's dinner").
+ * The slot inputs `swap_meal`, `rate_meal`, `adjust_meal`,
+ * `change_meal_ingredients`, `clear_meal` and `set_meal_status` share: a day
+ * and a meal type, the way `get_meal_plan` reports an entry and the way a
+ * user names it ("Thursday's dinner").
  */
 export const slotInput = {
   date: z.iso.date().describe('The day, YYYY-MM-DD, as get_meal_plan reports it.'),

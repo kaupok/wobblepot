@@ -93,7 +93,7 @@ export default defineConfig({
       // in a PR that says why (`pnpm coverage:ratchet`, docs/DEPLOYMENT.md →
       // CI Pipeline).
       //
-      // A CI shard covers about half the files, so it would fail every
+      // A CI shard covers about a third of the files, so it would fail every
       // threshold. It sets `COVERAGE_SHARD`, and the `Unit tests` merge job
       // applies the thresholds to the merged report (HON-1203). The CLI cannot
       // turn them off: Vitest 5 keeps only the first `--coverage.thresholds.*=0`.
