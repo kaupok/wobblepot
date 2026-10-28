@@ -112,8 +112,9 @@ export async function createEntry(householdId: string, planId: string, input: Ne
           rating: input.rating ?? null,
           // "Not cooked yet" keeps the charge on the entry so it is charged at
           // most once (HON-651). A restore of such an entry keeps it too, or the
-          // next completion would charge the pantry again. The flag can only
-          // stop a charge, never cause one.
+          // next completion would charge the pantry again. A log of a past meal
+          // sets it as well (HON-1391). The flag can only stop a charge, never
+          // cause one.
           pantryDeductedAt: input.pantryDeducted ? new Date() : null,
         },
       }),

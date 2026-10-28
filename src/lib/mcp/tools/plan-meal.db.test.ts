@@ -196,7 +196,11 @@ describe('plan_meal', () => {
 
       expect(result).toMatchObject({ outcome: 'planned', status: 'cooked', date })
       const [entry] = await prisma.mealPlanEntry.findMany({ where: { planId: 'plan-alder' } })
-      expect(entry).toMatchObject({ mealId: 'stew', status: 'completed', pantryDeductedAt: null })
+      expect(entry).toMatchObject({
+        mealId: 'stew',
+        status: 'completed',
+        pantryDeductedAt: expect.any(Date),
+      })
       const pantry = await prisma.pantryItem.findMany({ where: { householdId: household.id } })
       expect(pantry.map((row) => [row.ingredientId, row.quantity])).toEqual([['ing-peanut', 300]])
 

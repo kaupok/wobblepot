@@ -128,11 +128,12 @@ export const swapMeal = defineTool({
     // A skipped slot gets its new meal planned: the skip was for the meal that
     // left. The app does the same from the card (`MealCard.handleSwapComplete`,
     // HON-1125); here it is part of the one write. A past slot is completed in
-    // the same write, with no pantry change.
+    // the same write, with no pantry change, and saved as already charged so a
+    // later planned → cooked never charges it (HON-1391).
     const swapped = await writeSwappedEntry(slot.id, {
       ...swapEntryData(slot.mealId, mealId),
       ...(isPast
-        ? { status: 'completed' as const }
+        ? { status: 'completed' as const, pantryDeductedAt: new Date() }
         : slot.status === 'skipped'
           ? { status: 'planned' as const }
           : {}),

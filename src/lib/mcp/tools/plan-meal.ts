@@ -41,7 +41,9 @@ export const planMeal = defineTool({
       )
     }
     // A past day logs a meal the household ate (HON-1382). The pantry stays as
-    // it is: the household has shopped and adjusted it since.
+    // it is: the household has shopped and adjusted it since. The entry is
+    // saved as already charged, so a later planned → cooked never charges it
+    // (HON-1391).
     const isPast = date < today
 
     await assertMealFitsSlot(household, mealId, mealType, isPast ? 'logged' : 'planned')
@@ -54,6 +56,7 @@ export const planMeal = defineTool({
         mealType,
         mealId,
         status: isPast ? 'completed' : 'planned',
+        pantryDeducted: isPast,
       })
     } catch (error) {
       // `planNotFound` cannot happen for the plan found above, so it stays a failure.

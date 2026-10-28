@@ -107,8 +107,11 @@ export async function setFridgeItems(
       data: {
         kind: 'fridge',
         // A skip was for the meal that left, as on a recipe swap (HON-1125).
-        // An MCP log of a past meal passes `completed` (HON-1382).
+        // An MCP log of a past meal passes `completed` (HON-1382). It is saved
+        // as already charged, so a later planned → cooked never charges the
+        // pantry for it (HON-1391).
         status,
+        ...(status === MealPlanEntryStatus.completed && { pantryDeductedAt: new Date() }),
         mealId: null,
         preparationTips: null,
         servingOverride: null,

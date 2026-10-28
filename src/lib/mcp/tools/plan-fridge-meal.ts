@@ -54,7 +54,8 @@ export const planFridgeMeal = defineTool({
         `${date} is more than ${MAX_DAYS_AHEAD} days ahead. Plan a day up to ${lastDay}. Nothing was changed.`,
       )
     }
-    // A past day logs a meal the household ate, as `plan_meal` does (HON-1382).
+    // A past day logs a meal the household ate, as `plan_meal` does (HON-1382),
+    // saved as already charged (HON-1391).
     const status = date < today ? 'completed' : 'planned'
 
     const day = parseLocalDate(date)
@@ -88,7 +89,13 @@ export const planFridgeMeal = defineTool({
     try {
       if (isEmpty) {
         const planId = await findOrCreateMealPlan(household.id)
-        await createEntry(household.id, planId, { date: day, mealType, fridgeItems: items, status })
+        await createEntry(household.id, planId, {
+          date: day,
+          mealType,
+          fridgeItems: items,
+          status,
+          pantryDeducted: status === 'completed',
+        })
       } else {
         await setFridgeItems(household.id, entry.planId, entry.id, items, status)
       }
