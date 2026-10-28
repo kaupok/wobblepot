@@ -48,6 +48,7 @@ import {
   type SortMode,
 } from './shopping-sort'
 import { useCustomShoppingItems } from './use-custom-shopping-items'
+import { usePantryChanges, type PantryChange } from './use-pantry-changes'
 
 const PURCHASE_TOGGLE_KEY = ['shopping-list', 'purchase-toggle'] as const
 
@@ -76,8 +77,9 @@ interface ShoppingSectionProps {
   initialCustomItems?: CustomItemData[]
   onItemPurchased?: (item: PantryItemData) => void
   onItemUnpurchased?: (ingredientId: string) => void
-  externalUnpurchasedIds?: Set<string>
-  onExternalUnpurchaseProcessed?: () => void
+  /** Pantry rows removed or put back (Undo), by ingredient id: `usePantryChanges`. */
+  externalPantryChanges?: Map<string, PantryChange>
+  onExternalPantryChangesProcessed?: (listStale: boolean) => void
 }
 
 export function ShoppingSection({
@@ -89,8 +91,8 @@ export function ShoppingSection({
   initialCustomItems = [],
   onItemPurchased,
   onItemUnpurchased,
-  externalUnpurchasedIds,
-  onExternalUnpurchaseProcessed,
+  externalPantryChanges,
+  onExternalPantryChangesProcessed,
 }: ShoppingSectionProps) {
   const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
@@ -128,21 +130,7 @@ export function ShoppingSection({
   // Don't leave the "copied" checkmark timer running after unmount.
   useEffect(() => () => clearTimeout(copiedTimeoutRef.current), [])
 
-  // Handle external unpurchase events (e.g., when pantry item is removed)
-  useEffect(() => {
-    if (!externalUnpurchasedIds || externalUnpurchasedIds.size === 0) return
-
-    // Applies a one-off event from the parent, then tells the parent to clear it.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPurchasedIds((prev) => {
-      const next = new Set(prev)
-      externalUnpurchasedIds.forEach((id) => next.delete(id))
-      return next
-    })
-
-    // Clear the external set after processing to prevent stale reruns
-    onExternalUnpurchaseProcessed?.()
-  }, [externalUnpurchasedIds, onExternalUnpurchaseProcessed])
+  usePantryChanges(externalPantryChanges, onExternalPantryChangesProcessed, setPurchasedIds)
 
   const handleSortModeChange = (value: SortMode) => {
     setSortMode(value)

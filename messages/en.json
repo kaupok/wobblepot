@@ -130,6 +130,7 @@
     "addAria": "Add ingredient to pantry",
     "inPantry": "In pantry",
     "noResults": "No ingredients found",
+    "undo": "Undo",
     "removeDialog": {
       "title": "Remove from pantry",
       "description": "Are you sure you want to remove {name} from your pantry?",
@@ -138,10 +139,11 @@
     "errors": {
       "updateFailed": "Failed to update item",
       "removeFailed": "Failed to remove item",
+      "restoreFailed": "Failed to put the item back",
       "addFailed": "Failed to add item to pantry"
     },
     "success": {
-      "removed": "Item removed from pantry",
+      "removed": "{name} removed from pantry",
       "added": "{name} added to pantry"
     },
     "alreadyInPantry": "{name} is already in your pantry"

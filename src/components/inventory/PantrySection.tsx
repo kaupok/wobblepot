@@ -1,28 +1,29 @@
 'use client'
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMutation, useMutationState } from '@tanstack/react-query'
 import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { RowGroup } from '@/components/ui/row-group'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, ApiError } from '@/lib/api'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { GroupHeading } from './GroupHeading'
 
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
-const REMOVE_KEY = ['pantry', 'remove'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
 
 const haveItSelector = (id: string) => `[data-have-it="${id}"]`
 const stapleSelector = (id: string) => `[data-staple="${id}"]`
+const removeSelector = (id: string) => `[data-remove="${id}"]`
+// The add search is the section's only input.
+const ADD_INPUT_SELECTOR = 'input'
 
 interface ToggleStapleVariables {
   id: string
@@ -39,6 +40,8 @@ interface PantrySectionProps {
    */
   loadFailed?: boolean
   onPantryItemRemoved?: (ingredientId: string) => void
+  /** The toast's Undo put a removed row back, so the shopping list reverts. */
+  onPantryItemRestored?: (ingredientId: string) => void
   /**
    * A row's quantity changed on the server ("Have it"). The shopping list
    * buys a row at 0 and skips one at null, so the parent re-reads it.
@@ -51,6 +54,7 @@ export function PantrySection({
   onItemsChange,
   loadFailed = false,
   onPantryItemRemoved,
+  onPantryItemRestored,
   onPantryQuantityChanged,
 }: PantrySectionProps) {
   const tPantry = useTranslations('pantry')
@@ -63,9 +67,9 @@ export function PantrySection({
   const onHand = items.filter((item) => !item.isStaple && item.quantity !== 0)
   const ranOut = items.filter((item) => !item.isStaple && item.quantity === 0)
 
-  // "Have it" moves its row out of Ran out, so the clicked button unmounts and
-  // focus would fall to `<body>` (docs/DESIGN.md → Focus management). The
-  // mutation names the control to focus once the move has rendered.
+  // "Have it", Remove and Undo each unmount or mount the row in focus, so focus
+  // would fall to `<body>` (docs/DESIGN.md → Focus management). The mutation
+  // names the control to focus once the change has rendered.
   const sectionRef = useRef<HTMLElement>(null)
   const focusAfterRender = useRef<string | null>(null)
   useEffect(() => {
@@ -138,28 +142,73 @@ export function PantrySection({
     },
   })
 
-  const removeMutation = useMutation({
-    mutationKey: REMOVE_KEY,
-    // The route answers 204 with no body.
-    mutationFn: (id: string) => apiFetch<void>(`/api/pantry/${id}`, { method: 'DELETE' }),
-    onMutate: (id) => {
-      const removedItem = items.find((item) => item.id === id)
-      onItemsChange((prev) => prev.filter((item) => item.id !== id))
-      return { removedItem }
+  // Undo creates the row again: the route has no restore, so the new row has a
+  // new id. The removed item's "needed" fields fill what the response lacks.
+  const restoreMutation = useMutation({
+    mutationFn: (item: PantryItemData) =>
+      apiFetch<PantryItemData>(
+        '/api/pantry',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ingredientId: item.ingredient.id,
+            quantity: item.quantity,
+            isStaple: item.isStaple,
+          }),
+        },
+        tPantry('errors.restoreFailed'),
+      ),
+    onSuccess: (data, item) => {
+      const restored = { ...item, ...data }
+      focusAfterRender.current = removeSelector(restored.id)
+      onItemsChange((prev) => [...prev, restored].sort(comparePantryItems(locale)))
+      onPantryItemRestored?.(item.ingredient.id)
     },
-    onSuccess: (_data, _id, context) => {
-      toast.success(tPantry('success.removed'))
+    onError: (err) => {
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      console.error(
+        '[pantry] restore failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      toast.error(tPantry('errors.restoreFailed'))
+    },
+  })
 
-      // Notify parent so shopping list can uncheck this item
-      if (context.removedItem && onPantryItemRemoved) {
-        onPantryItemRemoved(context.removedItem.ingredient.id)
-      }
+  // Remove takes the row out at once, with no confirmation: the toast's Undo
+  // puts it back (HON-1355). Focus goes to the next row's Remove in the same
+  // group, so a household can clear several in a row.
+  const removeMutation = useMutation({
+    // The route answers 204 with no body.
+    mutationFn: (item: PantryItemData) =>
+      apiFetch<void>(`/api/pantry/${item.id}`, { method: 'DELETE' }),
+    onMutate: (removed) => {
+      const group = removed.isStaple ? staples : removed.quantity === 0 ? ranOut : onHand
+      const index = group.findIndex((item) => item.id === removed.id)
+      const next = group[index + 1] ?? group[index - 1]
+      focusAfterRender.current = next ? removeSelector(next.id) : ADD_INPUT_SELECTOR
+      onItemsChange((prev) => prev.filter((item) => item.id !== removed.id))
     },
-    onError: (_error, _id, context) => {
-      const removedItem = context?.removedItem
-      if (removedItem) {
-        onItemsChange((prev) => [...prev, removedItem].sort(comparePantryItems(locale)))
-      }
+    // The Undo waits for the DELETE, because a POST before it lands is a 409.
+    onSuccess: (_data, removed) => {
+      toast(tPantry('success.removed', { name: removed.ingredient.name }), {
+        action: {
+          label: tPantry('undo'),
+          onClick: (event) => {
+            // Sonner returns focus to where it was before the toast whenever
+            // focus leaves the toaster, which would undo the move to the
+            // restored row. Leave now, so that return happens first.
+            event.currentTarget.blur()
+            restoreMutation.mutate(removed)
+          },
+        },
+        duration: 6000,
+      })
+      // The shopping list unticks the item
+      onPantryItemRemoved?.(removed.ingredient.id)
+    },
+    onError: (_error, removed) => {
+      onItemsChange((prev) => [...prev, removed].sort(comparePantryItems(locale)))
       toast.error(tPantry('errors.removeFailed'))
     },
   })
@@ -170,15 +219,11 @@ export function PantrySection({
     filters: { mutationKey: TOGGLE_STAPLE_KEY, status: 'pending' },
     select: (mutation) => (mutation.state.variables as ToggleStapleVariables).id,
   })
-  const removingIds = useMutationState({
-    filters: { mutationKey: REMOVE_KEY, status: 'pending' },
-    select: (mutation) => mutation.state.variables as string,
-  })
 
   const handleToggleStaple = (id: string, currentIsStaple: boolean) =>
     toggleStapleMutation.mutate({ id, currentIsStaple })
 
-  const handleRemove = (id: string) => removeMutation.mutate(id)
+  const handleRemove = (item: PantryItemData) => removeMutation.mutate(item)
 
   const handleHaveIt = (id: string) => haveItMutation.mutate(id)
 
@@ -214,7 +259,6 @@ export function PantrySection({
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
                 isToggling={togglingIds.includes(item.id)}
-                isRemoving={removingIds.includes(item.id)}
               />
             ))}
           </RowGroup>
@@ -232,7 +276,6 @@ export function PantrySection({
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
                 isToggling={togglingIds.includes(item.id)}
-                isRemoving={removingIds.includes(item.id)}
               />
             ))}
           </RowGroup>
@@ -251,7 +294,6 @@ export function PantrySection({
                 onRemove={handleRemove}
                 onHaveIt={handleHaveIt}
                 isToggling={togglingIds.includes(item.id)}
-                isRemoving={removingIds.includes(item.id)}
               />
             ))}
           </RowGroup>
@@ -286,11 +328,10 @@ export function PantrySection({
 interface PantryItemRowProps {
   item: PantryItemData
   onToggleStaple: (id: string, currentIsStaple: boolean) => void
-  onRemove: (id: string) => void
+  onRemove: (item: PantryItemData) => void
   /** Marks a ran-out row as at home again. Only the Ran out group passes it. */
   onHaveIt?: (id: string) => void
   isToggling?: boolean
-  isRemoving?: boolean
 }
 
 /**
@@ -306,19 +347,10 @@ export function PantryItemRow({
   onRemove,
   onHaveIt,
   isToggling = false,
-  isRemoving = false,
 }: PantryItemRowProps) {
   const tPantry = useTranslations('pantry')
-  const [showRemoveDialog, setShowRemoveDialog] = useState(false)
 
   const handleToggle = () => onToggleStaple(item.id, item.isStaple)
-
-  // `onRemove` drops the row optimistically in the same render, so closing the
-  // dialog here only matters for a parent that keeps the row mounted.
-  const handleRemove = () => {
-    onRemove(item.id)
-    setShowRemoveDialog(false)
-  }
 
   return (
     // No entrance when a ticked shopping item lands here: it happens many
@@ -377,23 +409,13 @@ export function PantryItemRow({
         <Button
           variant="quiet-destructive"
           size="icon-sm"
-          onClick={() => setShowRemoveDialog(true)}
+          onClick={() => onRemove(item)}
+          data-remove={item.id}
           aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
         >
           <Trash2 className="size-4" />
         </Button>
       </div>
-
-      <ConfirmDialog
-        open={showRemoveDialog}
-        onOpenChange={setShowRemoveDialog}
-        title={tPantry('removeDialog.title')}
-        description={tPantry('removeDialog.description', { name: item.ingredient.name })}
-        confirmLabel={tPantry('removeDialog.confirm')}
-        variant="destructive"
-        onConfirm={handleRemove}
-        isLoading={isRemoving}
-      />
     </div>
   )
 }
