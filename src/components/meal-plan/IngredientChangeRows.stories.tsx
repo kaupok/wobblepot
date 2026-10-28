@@ -189,14 +189,22 @@ export const Stale: Story = {
   },
 }
 
-/** Each unchanged row's menu offers Replace and Leave out, and "Add an ingredient" calls `onAdd`. */
+/**
+ * Each unchanged row's menu offers Replace and Leave out, each 16px text in a
+ * row of 44px or more (HON-1359), and "Add an ingredient" calls `onAdd`.
+ */
 export const RowMenu: Story = {
   args: { changes: [], changeControls: controls() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: 'Change Potato' }))
-    const body = within(document.body)
-    await userEvent.click(await body.findByRole('menuitem', { name: 'Leave out' }))
+    const menu = await within(document.body).findByRole('menu')
+    for (const item of within(menu).getAllByRole('menuitem')) {
+      // `offsetHeight`, not the rect: the menu scales in from 95%.
+      await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+      await expect(getComputedStyle(item).fontSize).toBe('16px')
+    }
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Leave out' }))
     await expect(args.changeControls!.onLeaveOut).toHaveBeenCalledWith(potato)
     await userEvent.click(canvas.getByRole('button', { name: 'Add an ingredient' }))
     await expect(args.changeControls!.onAdd).toHaveBeenCalledTimes(1)

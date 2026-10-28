@@ -11,6 +11,7 @@ import {
   computeMealAvailability,
   hasPantryData,
 } from './AvailabilityIndicator'
+import { CookedLine } from './CookedLine'
 import { MealCardBase } from './MealCardBase'
 import { MealImageCard } from './MealImageCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
@@ -93,6 +94,15 @@ export function AlternativeCard({
           nameTarget="name"
           nameButtonRef={nameButtonRef}
         />
+        {/* When the household last had it, on a meal from `/api/meals` (HON-1388). */}
+        {meal.lastCookedOn !== undefined && (
+          <div className="mt-2">
+            <CookedLine
+              lastCookedOn={meal.lastCookedOn}
+              nextPlannedOn={meal.nextPlannedOn ?? null}
+            />
+          </div>
+        )}
         {/* Why this suggestion ranked where it did, when the household's own ratings moved it (HON-340). */}
         {meal.ratingSignal && (
           <div className="text-muted-foreground mt-2 flex items-center gap-1">

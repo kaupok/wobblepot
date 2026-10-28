@@ -176,6 +176,12 @@ export interface AlternativeMeal extends MealImageFields {
    * so the card can say so. Absent for a meal the household has not rated on balance.
    */
   ratingSignal?: RatingSignal
+  /**
+   * The household's cooking history of the meal, from `/api/meals` (HON-1388).
+   * Absent from suggestions, so their cards show no history line.
+   */
+  lastCookedOn?: string | null
+  nextPlannedOn?: string | null
 }
 
 export interface WeekContext {

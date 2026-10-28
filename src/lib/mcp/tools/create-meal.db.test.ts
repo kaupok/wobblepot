@@ -135,10 +135,12 @@ describe('create_meal', () => {
       outcome: 'unmatched',
       meal: null,
       ingredients: [],
+      mainProtein: null,
       unmatched: [
         { name: 'quorvax pasta', original: '50 g quorvax pasta', alternatives: ['quorvex paste'] },
       ],
       check: [],
+      proteinTypes: [],
     })
     expect(await mealCount(household.id)).toBe(0)
   })
@@ -201,6 +203,7 @@ describe('create_meal', () => {
       outcome: 'check_quantity',
       meal: null,
       ingredients: [],
+      mainProtein: null,
       unmatched: [],
       check: [
         {
@@ -210,6 +213,7 @@ describe('create_meal', () => {
           warning: 'Unusually high: 12500g per serving. Please verify this amount.',
         },
       ],
+      proteinTypes: [],
     })
     expect(createMeal.outputSchema.safeParse(result).success).toBe(true)
     expect(await mealCount(household.id)).toBe(0)
@@ -298,8 +302,10 @@ describe('create_meal', () => {
       outcome: 'exists',
       meal: { id: existing.id, name: 'Glimmer Lasagne' },
       ingredients: [],
+      mainProtein: null,
       unmatched: [],
       check: [],
+      proteinTypes: [],
     })
     expect(await mealCount(household.id)).toBe(1)
   })
@@ -340,5 +346,96 @@ describe('create_meal', () => {
     ['no ingredients', { ingredients: [] }],
   ])('refuses %s in validation', (_label, override) => {
     expect(createMeal.inputSchema.safeParse({ ...LASAGNE, ...override }).success).toBe(false)
+  })
+})
+
+// The household's chosen main protein (HON-1387). Per serving, 25 g of mince
+// at 20 g protein per 100 g gives 5 g; 133 g of beans at 8.7 gives 11.6 g, so
+// the beans win the automatic choice.
+describe('create_meal mainProtein', () => {
+  async function proteinWorld() {
+    const household = await world()
+    const ingredient = (
+      id: string,
+      name: string,
+      proteinType: 'beef' | 'legume',
+      protein: number,
+    ) =>
+      prisma.ingredient.create({
+        data: {
+          id,
+          name,
+          householdId: household.id,
+          category: 'protein',
+          defaultUnit: 'g',
+          proteinType,
+          calories: 150,
+          protein,
+          carbs: 0,
+          fat: 5,
+        },
+      })
+    await ingredient('ing-beef', 'glimmer beef mince', 'beef', 20)
+    await ingredient('ing-beans', 'quorvex kidney beans', 'legume', 8.7)
+    return household
+  }
+
+  const CHILLI = {
+    name: 'Glimmer chilli',
+    suitableFor: ['dinner'],
+    servings: 1,
+    ingredients: [
+      { name: 'glimmer beef mince', quantity: 25, unit: 'g' },
+      { name: 'quorvex kidney beans', quantity: 133, unit: 'g' },
+    ],
+  }
+
+  function storedProtein(mealId: string) {
+    return prisma.meal.findUniqueOrThrow({
+      where: { id: mealId },
+      select: { primaryProteinType: true, proteinTypeOverride: true },
+    })
+  }
+
+  it('stores the automatic protein when mainProtein is left out', async () => {
+    const household = await proteinWorld()
+
+    const result = await call(household, CHILLI)
+
+    expect(result.outcome).toBe('created')
+    expect(result.mainProtein).toEqual({ type: 'legume', setBy: 'automatic' })
+    expect(await storedProtein(result.meal!.id)).toEqual({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('stores the household’s choice when mainProtein is one of the ingredients', async () => {
+    const household = await proteinWorld()
+
+    const result = await call(household, { ...CHILLI, mainProtein: 'beef' })
+
+    expect(result.outcome).toBe('created')
+    expect(result.mainProtein).toEqual({ type: 'beef', setBy: 'household' })
+    expect(await storedProtein(result.meal!.id)).toEqual({
+      primaryProteinType: 'beef',
+      proteinTypeOverride: 'beef',
+    })
+  })
+
+  it('saves nothing when no ingredient has mainProtein, and returns the recipe’s protein types', async () => {
+    const household = await proteinWorld()
+
+    const result = await call(household, { ...CHILLI, mainProtein: 'fish' })
+
+    expect(result.outcome).toBe('check_protein')
+    expect(result.meal).toBeNull()
+    expect(result.mainProtein).toBeNull()
+    expect([...result.proteinTypes].sort()).toEqual(['beef', 'legume'])
+    expect(await mealCount(household.id)).toBe(0)
+  })
+
+  it('refuses none as mainProtein in validation', () => {
+    expect(createMeal.inputSchema.safeParse({ ...CHILLI, mainProtein: 'none' }).success).toBe(false)
   })
 })

@@ -13,6 +13,13 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+import {
+  compareLongestSinceCooked,
+  loadMealHistory,
+  NO_HISTORY,
+  type MealHistory,
+} from '@/lib/meal-plans/meal-history'
 
 export const MEALS_DEFAULT_LIMIT = 20
 export const MEALS_MAX_LIMIT = 50
@@ -64,9 +71,14 @@ export function visibleMealWhere(householdId: string): Prisma.MealWhereInput {
 
 export type MealSource = 'all' | 'system' | 'custom' | 'favorites'
 
+/** `longestSinceCooked`: the meal the household has gone longest without first (HON-1388). */
+export type MealOrder = 'longestSinceCooked'
+
 export interface LoadMealsHousehold {
   id: string
   locale: string
+  /** Decides "today" for each meal's cooking history. */
+  timezone: string
   preferences: { allergensToAvoid: Allergen[]; excludedIngredients: string[] } | null
 }
 
@@ -76,6 +88,8 @@ export interface LoadMealsFilters {
   kidFriendly?: boolean | null
   search?: string | null
   source?: MealSource | null
+  /** Unset is alphabetical. A search keeps its relevance order either way. */
+  order?: MealOrder | null
   /** Clamped to 1..MEALS_MAX_LIMIT. */
   limit?: number
   offset?: number
@@ -264,28 +278,47 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
     ? new Map(fuzzyMealMatches.map((m) => [m.id, m.similarity]))
     : null
 
+  const today = getTodayInTimezone(household.timezone)
+  const byHistory = filters.order === 'longestSinceCooked' && !fuzzyOrderMap
+  let history: Map<string, MealHistory> | null = null
+  const historyOf = (id: string) => history?.get(id) ?? NO_HISTORY
+
   // Prisma can only order by the English `name`. For a translated locale,
   // sort the matching meals' display names with the locale's collation
   // (Estonian puts š, z, ž after s and õ, ä, ö, ü after w) and fetch just
-  // that page (HON-911).
-  let translatedPageIds: string[] | null = null
-  if (!fuzzyOrderMap && translate) {
+  // that page (HON-911). The history order sorts here too, before the name,
+  // because it needs every matching meal's history (HON-1388).
+  let inMemoryPageIds: string[] | null = null
+  if (!fuzzyOrderMap && (translate || byHistory)) {
     const collator = new Intl.Collator(locale)
-    const names = await prisma.meal.findMany({
-      where,
-      select: { id: true, name: true, ...mealTranslationsInclude(locale) },
-    })
-    translatedPageIds = names
-      .map((meal) => translateMeal(meal, locale))
-      // The id tie-break keeps pages stable when two meals share a name
-      .sort((a, b) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id))
+    const names = (
+      await prisma.meal.findMany({
+        where,
+        select: { id: true, name: true, ...mealTranslationsInclude(locale) },
+      })
+    ).map((meal) => translateMeal(meal, locale))
+    if (byHistory) {
+      history = await loadMealHistory(
+        household.id,
+        names.map((meal) => meal.id),
+        today,
+      )
+    }
+    inMemoryPageIds = names
+      .sort(
+        (a, b) =>
+          (byHistory ? compareLongestSinceCooked(historyOf(a.id), historyOf(b.id)) : 0) ||
+          collator.compare(a.name, b.name) ||
+          // The id tie-break keeps pages stable when two meals share a name
+          a.id.localeCompare(b.id),
+      )
       .slice(offset, offset + limit)
       .map((meal) => meal.id)
   }
 
   // Fetch meals with pagination
   const mealsRaw = await prisma.meal.findMany({
-    where: translatedPageIds ? { AND: [where, { id: { in: translatedPageIds } }] } : where,
+    where: inMemoryPageIds ? { AND: [where, { id: { in: inMemoryPageIds } }] } : where,
     select: {
       id: true,
       name: true,
@@ -332,16 +365,16 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
     },
     // When searching, we need to fetch all matching meals and sort in memory
     // because Prisma doesn't support ordering by a computed value from raw SQL.
-    // A translated page is already chosen and ordered by `translatedPageIds`.
-    ...(fuzzyOrderMap || translatedPageIds ? {} : { orderBy: { name: 'asc' } }),
-    skip: fuzzyOrderMap || translatedPageIds ? 0 : offset,
-    take: fuzzyOrderMap || translatedPageIds ? undefined : limit,
+    // A page sorted in memory is already chosen and ordered by `inMemoryPageIds`.
+    ...(fuzzyOrderMap || inMemoryPageIds ? {} : { orderBy: { name: 'asc' } }),
+    skip: fuzzyOrderMap || inMemoryPageIds ? 0 : offset,
+    take: fuzzyOrderMap || inMemoryPageIds ? undefined : limit,
   })
 
   // Sort by similarity if searching, then apply pagination
   let sortedMeals = mealsRaw
-  if (translatedPageIds) {
-    const position = new Map(translatedPageIds.map((id, index) => [id, index]))
+  if (inMemoryPageIds) {
+    const position = new Map(inMemoryPageIds.map((id, index) => [id, index]))
     sortedMeals = [...mealsRaw].sort(
       (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
     )
@@ -353,6 +386,12 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
     })
     sortedMeals = sortedMeals.slice(offset, offset + limit)
   }
+
+  history ??= await loadMealHistory(
+    household.id,
+    sortedMeals.map((meal) => meal.id),
+    today,
+  )
 
   // Compute nutrition per serving for each meal and format components
   const meals = sortedMeals.map((meal) => {
@@ -391,6 +430,7 @@ export async function loadMeals(household: LoadMealsHousehold, filters: LoadMeal
       isCustom: meal.householdId !== null,
       isFavorite: meal.favoritedBy.length > 0,
       ...presentMealImage(meal),
+      ...historyOf(meal.id),
       components,
       nutrition: {
         calories: Math.round(nutrition.calories),

@@ -15,6 +15,7 @@ import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
 import { defineTool, ToolInputError, type McpHousehold } from '@/lib/mcp/context'
 import { findPlanSlot, slotInput } from './plan-slot'
+import { MAIN_PROTEIN_HELP, mainProteinOf, mainProteinOutput } from './recipe-input'
 
 const mealType = z.enum(['breakfast', 'lunch', 'dinner'])
 
@@ -66,6 +67,9 @@ export const getMeal = defineTool({
       }),
       isOwnRecipe: z.boolean(),
       isFavorite: z.boolean(),
+      mainProtein: mainProteinOutput.describe(
+        `${MAIN_PROTEIN_HELP} A shared recipe is always automatic.`,
+      ),
     }),
   }),
   run: async (household, { mealId, servings: requestedServings, date, mealType }) => {
@@ -91,6 +95,8 @@ export const getMeal = defineTool({
         timeMinutes: true,
         suitableFor: true,
         householdId: true,
+        primaryProteinType: true,
+        proteinTypeOverride: true,
         components: {
           select: {
             ingredientId: true,
@@ -153,6 +159,8 @@ export const getMeal = defineTool({
         },
         isOwnRecipe: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
+        // A shared recipe never carries an override, so it reads automatic.
+        mainProtein: mainProteinOf(meal),
       },
     }
   },

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { loadMeals, type LoadMealsFilters } from '@/lib/meals/load-meals'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks,
@@ -122,7 +123,11 @@ const load = (
   householdId: string,
   filters: LoadMealsFilters = {},
   over: Partial<Parameters<typeof loadMeals>[0]> = {},
-) => loadMeals({ id: householdId, locale: 'en', preferences: null, ...over }, filters)
+) =>
+  loadMeals(
+    { id: householdId, locale: 'en', timezone: 'Europe/Tallinn', preferences: null, ...over },
+    filters,
+  )
 
 const names = (result: Awaited<ReturnType<typeof loadMeals>>) => result.meals.map((m) => m.name)
 
@@ -297,6 +302,104 @@ describe('loadMeals', () => {
 
       expect(names(result)).toEqual(['Chicken stir fry'])
       expect(result).toMatchObject({ total: 3, hasMore: true })
+    })
+  })
+
+  // HON-1388: "what have we not had lately?"
+  describe('order longestSinceCooked', () => {
+    afterEach(() => vi.useRealTimers())
+
+    /**
+     * Alder's own recipes on 28 October in Tallinn: the stew cooked 12 days
+     * ago, the soup 3 days ago and once skipped since, the curry and the
+     * dumplings never, the goulash cooked long ago but planned on Friday.
+     */
+    async function rotation() {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-28T09:00:00Z'))
+      const ids = await world()
+      await prisma.mealPlan.create({ data: { id: 'plan-alder', householdId: ids.alder } })
+      await prisma.mealPlan.create({ data: { id: 'plan-birch', householdId: ids.birch } })
+      for (const [id, name] of [
+        ['meal-soup', 'Soup'],
+        ['meal-curry', 'Curry'],
+        ['meal-dumplings', 'Dumplings'],
+        ['meal-goulash', 'Goulash'],
+      ] as const) {
+        await meal(id, name, { householdId: ids.alder, suitableFor: ['dinner'] })
+      }
+      const entry = (
+        mealId: string,
+        date: string,
+        status: 'planned' | 'completed' | 'skipped',
+        planId = 'plan-alder',
+      ) =>
+        prisma.mealPlanEntry.create({
+          data: { planId, mealId, date: parseLocalDate(date), mealType: 'dinner', status },
+        })
+      await entry('meal-alder', '2026-10-16', 'completed')
+      await entry('meal-soup', '2026-10-25', 'completed')
+      await entry('meal-soup', '2026-10-26', 'skipped')
+      await entry('meal-goulash', '2026-08-01', 'completed')
+      await entry('meal-goulash', '2026-10-31', 'planned')
+      // Birch's entries never move Alder's order.
+      await entry('meal-curry', '2026-10-20', 'completed', 'plan-birch')
+      await entry('meal-dumplings', '2026-10-30', 'planned', 'plan-birch')
+      return ids
+    }
+
+    it('lists the longest since cooked first, then never cooked by name, then planned', async () => {
+      const { alder } = await rotation()
+
+      const result = await load(alder, { source: 'custom', order: 'longestSinceCooked' })
+
+      expect(names(result)).toEqual(["Alder's stew", 'Soup', 'Curry', 'Dumplings', 'Goulash'])
+      expect(result.meals[0]).toMatchObject({
+        lastCookedOn: '2026-10-16',
+        cookedLast28Days: 1,
+        nextPlannedOn: null,
+      })
+      expect(result.meals[4]).toMatchObject({
+        lastCookedOn: '2026-08-01',
+        cookedLast28Days: 0,
+        nextPlannedOn: '2026-10-31',
+      })
+    })
+
+    it('pages in that order', async () => {
+      const { alder } = await rotation()
+
+      const page = await load(alder, {
+        source: 'custom',
+        order: 'longestSinceCooked',
+        limit: 2,
+        offset: 2,
+      })
+
+      expect(names(page)).toEqual(['Curry', 'Dumplings'])
+      expect(page).toMatchObject({ total: 5, hasMore: true })
+    })
+
+    it('carries the history in the default order too', async () => {
+      const { alder } = await rotation()
+
+      const result = await load(alder, { source: 'custom' })
+
+      expect(names(result)).toEqual(["Alder's stew", 'Curry', 'Dumplings', 'Goulash', 'Soup'])
+      expect(result.meals[4]).toMatchObject({
+        lastCookedOn: '2026-10-25',
+        cookedLast28Days: 1,
+        nextPlannedOn: null,
+      })
+    })
+
+    it('keeps the relevance order for a search', async () => {
+      const { alder } = await rotation()
+
+      const result = await load(alder, { search: 'soup', order: 'longestSinceCooked' })
+
+      // "Soup" is the closer substring match, so it leads though Onion soup was never cooked.
+      expect(names(result)).toEqual(['Soup', 'Onion soup'])
     })
   })
 
