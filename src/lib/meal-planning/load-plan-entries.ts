@@ -109,7 +109,15 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
               mealType: true,
               status: true,
               kind: true,
-              meal: { select: { name: true, ...mealTranslationsInclude(locale) } },
+              meal: {
+                select: {
+                  name: true,
+                  imageUrl: true,
+                  imageStatus: true,
+                  imageHue: true,
+                  ...mealTranslationsInclude(locale),
+                },
+              },
             },
           },
         },
@@ -170,6 +178,14 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
             ? translateMeal(item.sourceEntry.meal, locale).name
             : null,
         sourceDate: item.sourceEntry ? toDateString(item.sourceEntry.date) : null,
+        // The leftovers' meal's picture, so the card shows the dish again.
+        image: item.sourceEntry?.meal
+          ? {
+              imageUrl: item.sourceEntry.meal.imageUrl,
+              imageStatus: item.sourceEntry.meal.imageStatus,
+              imageHue: item.sourceEntry.meal.imageHue,
+            }
+          : null,
         // What a leftover item takes from its source (HON-1394); Edit items and
         // Undo send it back.
         servings: item.servings,

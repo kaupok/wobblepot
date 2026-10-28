@@ -55,7 +55,7 @@ export const Empty: Story = {
 /**
  * A log on Past meals (HON-1383): the household's own words of the last 30
  * days are one-tap chips, so "Wolt" stays one label. A chip in the meal
- * leaves the list, and focus moves to the search, not the body.
+ * leaves the list, and focus moves to the field, not the body.
  */
 export const RecentLabels: Story = {
   args: { recentLabels: ['Wolt', 'pelmeenid'], logPast: true },
@@ -68,7 +68,7 @@ export const RecentLabels: Story = {
     const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
     await expect(chosen.getByText('Wolt')).toBeInTheDocument()
     await expect(labels.queryByRole('button', { name: 'Add: Wolt' })).not.toBeInTheDocument()
-    await expect(dialog.getByRole('searchbox', { name: 'Search the pantry' })).toHaveFocus()
+    await expect(dialog.getByRole('searchbox', { name: 'What are you having?' })).toHaveFocus()
   },
 }
 
@@ -93,9 +93,8 @@ export const NoMatch: Story = {
   args: { pantryItems: fridgePantryItems.filter((p) => p.ingredientId !== 'cucumber') },
   play: async () => {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
-    const search = dialog.getByLabelText('Search the pantry')
+    const search = dialog.getByLabelText('What are you having?')
     await userEvent.type(search, 'cucumber')
-    await expect(dialog.getByText('Nothing in the pantry matches "cucumber".')).toBeInTheDocument()
     await userEvent.click(dialog.getByRole('button', { name: 'Add "cucumber"' }))
     const chosen = within(dialog.getByRole('region', { name: 'In this meal' }))
     await expect(chosen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['cucumber'])
@@ -115,14 +114,12 @@ export const NoMatchEt: Story = {
     const dialog = within(
       await within(document.body).findByRole('dialog', { name: 'Külmkapitoit' }),
     )
-    await userEvent.type(dialog.getByLabelText('Otsi sahvrist'), 'kurk')
-    await expect(
-      dialog.getByText('Sahvris pole midagi, mis sobiks otsinguga „kurk“.'),
-    ).toBeInTheDocument()
+    await userEvent.type(dialog.getByLabelText('Mida sööte?'), 'kurk')
     await expect(dialog.getByRole('button', { name: 'Lisa „kurk“' })).toBeInTheDocument()
   },
 }
 
+/** Nothing to suggest: only the field, with no empty sections under it. */
 export const EmptyPantry: Story = {
   args: { pantryItems: [] },
   parameters: {
@@ -130,10 +127,10 @@ export const EmptyPantry: Story = {
   },
   play: async () => {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
-    await expect(
-      dialog.getByText('Your pantry is empty. Add something below instead.'),
-    ).toBeInTheDocument()
-    await expect(await dialog.findByText('No meals eaten in the last 3 days.')).toBeInTheDocument()
+    await expect(dialog.getByLabelText('What are you having?')).toBeInTheDocument()
+    await expect(dialog.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'In this meal',
+    ])
   },
 }
 
@@ -141,10 +138,10 @@ export const EmptyPantry: Story = {
 export const AddAndSave: Story = {
   play: async ({ args }) => {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
-    await userEvent.type(dialog.getByLabelText('Search the pantry'), 'cuc')
+    await userEvent.type(dialog.getByLabelText('What are you having?'), 'cuc')
     await userEvent.click(dialog.getByRole('button', { name: 'Add: Cucumber' }))
     await userEvent.click(await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' }))
-    await userEvent.type(dialog.getByLabelText('Something else'), 'store meatballs{Enter}')
+    await userEvent.type(dialog.getByLabelText('What are you having?'), 'store meatballs{Enter}')
     await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(args.onSaved).toHaveBeenCalledTimes(1))
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
@@ -171,17 +168,17 @@ export const FocusRingRoom: Story = {
     const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
     // The recent meals load last; wait so the scroll area has its full height.
     await dialog.findByRole('button', { name: /^Add: Lentil soup/ })
-    const search = dialog.getByLabelText('Search the pantry')
+    const search = dialog.getByLabelText('What are you having?')
     let scrollArea = search.parentElement
     while (scrollArea && getComputedStyle(scrollArea).overflowY !== 'auto') {
       scrollArea = scrollArea.parentElement
     }
-    if (!scrollArea) throw new Error('No scroll area around "Search the pantry"')
+    if (!scrollArea) throw new Error('No scroll area around "What are you having?"')
     await expect(scrollArea.scrollHeight).toBeGreaterThan(scrollArea.clientHeight)
     await expect(scrollArea.scrollWidth).toBeLessThanOrEqual(scrollArea.clientWidth)
     const controls = Array.from(scrollArea.querySelectorAll<HTMLElement>('input, button'))
-    await expect(controls).toContain(dialog.getByLabelText('Something else'))
-    await expect(controls).toContain(dialog.getByRole('button', { name: 'Add' }))
+    await expect(controls).toContain(dialog.getByLabelText('What are you having?'))
+    await expect(controls).toContain(dialog.getByRole('button', { name: 'Add: Butter' }))
     for (const control of controls) expectFocusRingRoom(control, scrollArea)
   },
 }

@@ -368,18 +368,18 @@ describe('MealImageCard', () => {
   })
 
   it('narrows the title to the tint left of the image', () => {
-    // Scoped to a tinted card, so a card whose image fails goes back to the
+    // Scoped to a card that shows an image, so a card whose image fails goes back to the
     // full row — unless the card has an overlay (HON-974), which keeps the cap.
     expect(mealImageTitleWidth().split(' ')).toEqual([
-      'group-data-meal-surface/meal-image:max-w-1/2',
+      'group-data-meal-image/meal-image:max-w-1/2',
       'group-data-meal-overlay/meal-image:max-w-1/2',
-      '@md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+      '@md/meal-image:group-data-meal-image/meal-image:max-w-3/8',
       '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
     ])
     expect(mealImageTitleWidth(true).split(' ')).toEqual([
-      'group-data-meal-surface/meal-image:max-w-1/2',
+      'group-data-meal-image/meal-image:max-w-1/2',
       'group-data-meal-overlay/meal-image:max-w-1/2',
-      '@md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+      '@md/meal-image:group-data-meal-image/meal-image:max-w-3/8',
       '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
     ])
   })
@@ -472,6 +472,27 @@ describe('MealImageCard', () => {
     expect(card).not.toHaveAttribute('data-meal-surface')
     expect(card.style.getPropertyValue('--meal-hue')).toBe('')
     expect(card).not.toHaveClass('isolate')
+  })
+
+  // The fridge meal is never the plain card, even when its leftovers' picture
+  // fails (docs/DESIGN.md → "A fridge meal names its food").
+  it('takes the fallback surface when the image fails to load, and drops the title cap', async () => {
+    const { container } = render(
+      <MealImageCard
+        meal={{ name: 'Mash', imageStatus: 'ready', imageUrl: URL, imageHue: 40 }}
+        fallbackSurface="fridge"
+      >
+        <p>Content</p>
+      </MealImageCard>,
+    )
+    const card = container.querySelector('[data-slot="card"]') as HTMLElement
+    expect(card).toHaveAttribute('data-meal-surface', '')
+    expect(card).toHaveAttribute('data-meal-image', '')
+
+    fireEvent.error(screen.getByRole('img'))
+
+    await waitFor(() => expect(card).toHaveAttribute('data-meal-surface', 'fridge'))
+    expect(card).not.toHaveAttribute('data-meal-image')
   })
 
   it('keeps the content mounted when the tint switches on', () => {

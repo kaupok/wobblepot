@@ -368,7 +368,7 @@ export const Fullscreen: Story = {
     await expect(dialog).toHaveAttribute('data-size', 'fullscreen')
     // Layout metrics: the zoom-in transform scales rects while it runs.
     // The box the `inset-0` overlay fills: on a classic-scrollbar system `html`
-    // keeps a scrollbar gutter under the scroll lock (globals.css, HON-690).
+    // keeps a scrollbar gutter under the scroll lock (scroll-and-motion.css, HON-690).
     const overlay = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!
     await expect(dialog.offsetWidth).toBe(overlay.offsetWidth)
     await expect(dialog.offsetHeight).toBe(overlay.offsetHeight)

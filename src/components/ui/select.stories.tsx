@@ -252,7 +252,7 @@ export const Desktop: Story = {
 // for the header. The play function asserts that neither the fixed bar's
 // centred content nor the in-flow trigger moves under the lock, and that the
 // library's compensating body margin is zeroed. Removing either rule in
-// globals.css fails it. (`documentElement.clientWidth` is not asserted:
+// scroll-and-motion.css fails it. (`documentElement.clientWidth` is not asserted:
 // Chromium stops subtracting the reserved gutter from it once overflow is
 // hidden, although layout keeps the gutter.)
 export const ScrollLockKeepsLayout: Story = {

@@ -50,26 +50,23 @@ function renderCard(
 }
 
 describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
-  it('names the dinner, its day and slot, its servings, and "planned"', () => {
+  it('names the dinner, and under it its day and slot, its servings, and "planned"', () => {
     renderCard([plannedLeftoverItem])
-    expect(
-      screen.getByText('Roast chicken, from Tuesday at dinner · 2.5 servings · planned'),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Roast chicken$/)
+    expect(screen.getByText('Tuesday at dinner · 2.5 servings · planned')).toBeInTheDocument()
     expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
   })
 
   it('says it in Estonian, with a decimal comma', () => {
     renderCard([plannedLeftoverItem], { locale: 'et' })
     expect(
-      screen.getByText('Roast chicken (teisipäev, õhtusöök) · 2,5 portsjonit · planeeritud'),
+      screen.getByText('Teisipäev, õhtusöök · 2,5 portsjonit · planeeritud'),
     ).toBeInTheDocument()
   })
 
   it('drops "planned" once the dinner is cooked', () => {
     renderCard([{ ...plannedLeftoverItem, sourceState: 'completed' }])
-    expect(
-      screen.getByText('Roast chicken, from Tuesday at dinner · 2.5 servings'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Tuesday at dinner · 2.5 servings')).toBeInTheDocument()
   })
 
   it('warns that the leftovers will not exist when the dinner is skipped', () => {
@@ -83,8 +80,10 @@ describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
     expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
   })
 
-  it('keeps the older line for a leftover added in the picker', () => {
+  // A leftover picked in the dialog takes no servings, so it has no line.
+  it('shows no source line for a leftover added in the picker', () => {
     renderCard(fridgeItems)
-    expect(screen.getByText('Mash, from Tuesday')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Mash$/)
+    expect(screen.queryByText(/servings/)).not.toBeInTheDocument()
   })
 })
