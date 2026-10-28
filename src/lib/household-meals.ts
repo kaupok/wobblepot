@@ -6,7 +6,7 @@ import {
   findComponentIngredients,
   type HouseholdMealComponentInput,
 } from '@/lib/household-meal-ingredients'
-import { assertProteinOverride, resolveStoredMealProtein } from '@/lib/household-meal-protein'
+import { assertProteinOverride } from '@/lib/household-meal-protein'
 import { INGREDIENT_NUTRITION_SELECT, summarise } from '@/lib/household-meals-read'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { gramsOf } from '@/lib/meal-images/prompt'
@@ -220,9 +220,9 @@ export async function updateHouseholdMeal(
   // transaction below — a refusal here must not open one.
   const ingredientMap = components ? await findComponentIngredients(householdId, components) : null
 
-  // A chosen main protein is checked against the sent components, else the
-  // stored ones, before any write (HON-1386). With components, it resolves
-  // in the transaction below.
+  // A chosen main protein sent with components is checked against them
+  // before any write (HON-1386); it resolves in the transaction below. One
+  // sent alone is checked there, against the components read under the lock.
   if (components && ingredientMap) {
     assertProteinOverride(
       components.map((c) => ({
@@ -233,10 +233,6 @@ export async function updateHouseholdMeal(
       proteinTypeOverride,
     )
   }
-  const storedProtein =
-    proteinTypeOverride !== undefined && !components
-      ? await resolveStoredMealProtein(id, proteinTypeOverride)
-      : null
 
   // Build update data
   const updateData: {
@@ -260,7 +256,6 @@ export async function updateHouseholdMeal(
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
   if (servings !== undefined) updateData.servings = servings
-  if (storedProtein) Object.assign(updateData, storedProtein)
 
   // Use transaction to update meal and components atomically
   const { meal, discardedImageUrl, imageInvalidated } = await prisma.$transaction(async (tx) => {
@@ -291,8 +286,11 @@ export async function updateHouseholdMeal(
     // servings-only rescale would then overwrite a concurrent components
     // edit with rows computed from the stale read, or `update` a row the
     // other request just deleted. Lock the meal row first so every request
-    // that reads-then-writes the components queues behind the last one.
-    const readsComponents = components !== undefined || servings !== undefined
+    // that reads-then-writes the components queues behind the last one. A
+    // main-protein choice sent alone reads them too: checked against an
+    // unlocked read, a concurrent edit could drop its ingredient first.
+    const readsComponents =
+      components !== undefined || servings !== undefined || proteinTypeOverride !== undefined
     if (readsComponents) {
       await tx.$queryRaw`SELECT 1 FROM "meal" WHERE "id" = ${id} FOR UPDATE`
     }
@@ -303,10 +301,31 @@ export async function updateHouseholdMeal(
           select: {
             servings: true,
             proteinTypeOverride: true,
-            components: { select: { ingredientId: true, quantityPerServing: true } },
+            components: {
+              select: {
+                ingredientId: true,
+                quantityPerServing: true,
+                isVague: true,
+                ingredient: {
+                  select: {
+                    proteinType: true,
+                    protein: true,
+                    defaultUnit: true,
+                    gramsPerPiece: true,
+                  },
+                },
+              },
+            },
           },
         })
       : null
+
+    // A choice sent without components resolves over the stored ones. A
+    // refusal here rolls the transaction back, so nothing is written.
+    if (!components && proteinTypeOverride !== undefined && current) {
+      assertProteinOverride(current.components, proteinTypeOverride)
+      Object.assign(updateData, resolveProteinType(current.components, proteinTypeOverride))
+    }
 
     // A bare `servings` edit keeps the recipe's total, not its per-serving
     // amounts: every reader — the edit form, the shopping list, the imagine
