@@ -263,6 +263,27 @@ describe('ShoppingSection copy to clipboard', () => {
     )
   })
 
+  it('copies a ran-out staple with no amount as its name alone', async () => {
+    const user = userEvent.setup()
+    const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
+    localStorage.setItem('shopping-list-sort-mode', 'category')
+    renderSection({
+      groups: [
+        makeGroup('dairy', 'Dairy', [
+          { ...makeItem('Greek yoghurt', 'd1'), displayQuantity: '', restock: true },
+        ]),
+      ],
+    })
+
+    await user.click(screen.getByRole('button', { name: /copy list/i }))
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        [expectedHeading, '', '🧀 Dairy (1)', '- Greek yoghurt'].join('\n'),
+      ),
+    )
+  })
+
   it('copies unchecked custom items under the "Other" heading', async () => {
     const user = userEvent.setup()
     const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
