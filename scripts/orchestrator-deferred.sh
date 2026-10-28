@@ -51,6 +51,9 @@ DEFER_MAX_AGE="${ORCHESTRATOR_DEFER_MAX_AGE:-1800}"
 # move_issue_unassigned; cleared and read only by strand_worker and the linear
 # replay.
 LINEAR_WRITES_FAILED=""
+# true during settle_deferred_at_exit: a write that still fails is logged for
+# a human instead of deferred again.
+DEFER_FINAL=false
 
 # The marker HON-1413's wt_auto_network_drop (worktree-auto-run.sh) matches, in
 # the same scope: the last lines of the log. A worker that quotes the marker in
@@ -183,6 +186,11 @@ network_respawn() {
 defer_linear_writes() {
   [ -n "$LINEAR_WRITES_FAILED" ] || return 0
   local steps="${LINEAR_WRITES_FAILED# }"
+  # At exit nothing replays the entry, so a human makes the write.
+  if [ "$DEFER_FINAL" = true ]; then
+    log ERROR "[DEFERRED] $2: Linear writes still fail at exit ($steps) — make them by hand"
+    return 0
+  fi
   DEFERRED+=("$(deferred_entry linear "$2" "$steps" "$@")")
   log WARN "[DEFERRED] $2: Linear writes failed ($steps) — retrying them on the next poll that reaches Linear"
   return 0
@@ -285,7 +293,29 @@ restore_deferred_state() {
   unset ORCHESTRATOR_RELOAD_DEFERRED ORCHESTRATOR_RELOAD_NETWORK_RESPAWNED
 }
 
-# At exit: what a stop or --once leaves unrecorded. Each keeps its worktree.
+# Before every exit (graceful stop, force drain, --once), because DEFERRED
+# lives only in memory and nothing replays it after a restart: an issue left
+# deferred stays In Progress and assigned, with no comment and no label, and
+# the picker skips it for good (HON-1447). One replay per entry, with the
+# age-out forced, so a probe that still fails records the outcome without the
+# PR lookup. Not through process_deferred: its Linear check would skip every
+# entry during the outage that deferred them. SHUTTING_DOWN, because every
+# respawn path (network_respawn, the finish attempt, a RETRY) refuses under it.
+settle_deferred_at_exit() {
+  [ ${#DEFERRED[@]} -gt 0 ] || return 0
+  log INFO "Recording ${#DEFERRED[@]} deferred outcome(s) before exit"
+  SHUTTING_DOWN=true
+  DEFER_FINAL=true
+  DEFER_MAX_AGE=0
+  local entries=("${DEFERRED[@]}") entry
+  DEFERRED=()
+  for entry in "${entries[@]}"; do
+    replay_deferred "$entry"
+  done
+  warn_deferred_left
+}
+
+# At exit: what settle_deferred_at_exit could not record. Each keeps its worktree.
 warn_deferred_left() {
   [ ${#DEFERRED[@]} -gt 0 ] || return 0
   log WARN "Exiting with ${#DEFERRED[@]} deferred outcome(s) unrecorded: $(deferred_json | jq -r 'map(.issue) | join(", ")') — their worktrees are kept"

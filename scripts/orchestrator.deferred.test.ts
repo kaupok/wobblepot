@@ -486,7 +486,6 @@ describe('deferred outcomes (HON-1414)', () => {
       const main = shellFunctionBody(source, 'main')
 
       expect(main.match(/^\s*process_deferred$/gm)).toHaveLength(2)
-      expect(main.match(/^\s*warn_deferred_left$/gm)).toHaveLength(2)
     })
 
     it('is wired into reload_if_code_changed and restore_reload_state', () => {

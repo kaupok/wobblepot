@@ -2038,7 +2038,8 @@ handle_timeout() {
   #   probe failed       → one rate-limited `gh pr list` would otherwise
   #                        reproduce the exact HON-583 symptom on a worker that
   #                        was killed watching a green PR.
-  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ]; then
+  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ] &&
+     [ "$DEFER_FINAL" != true ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "timeout" "$title"
     return 0
   fi
@@ -2098,7 +2099,10 @@ handle_error_exit() {
   fi
   defer_outcome error "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code" "$duration_secs" \
     && return 0
-  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; then
+  # At exit a replay strands: Linear may be down, and handle_failure deletes the
+  # worktree and reports no failed write (HON-1447). Same in handle_timeout.
+  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] &&
+     [ "$DEFER_FINAL" != true ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi
@@ -2995,6 +2999,7 @@ drain_if_forced() {
   [ "$FORCE_SHUTDOWN" = true ] || return 0
   log WARN "Force shutdown — killing ${#WORKER_PIDS[@]} worker(s) and returning their issues to Queued"
   drain_workers_to_queue
+  settle_deferred_at_exit
   log INFO "═══ Orchestrator stopped (forced) ═══"
   exit 1
 }
@@ -3689,7 +3694,7 @@ main() {
     if [ "$SHUTTING_DOWN" = true ]; then
       if [ ${#WORKER_PIDS[@]} -eq 0 ]; then
         log INFO "All workers finished, exiting"
-        warn_deferred_left
+        settle_deferred_at_exit
         log INFO "═══ Orchestrator stopped ═══"
         exit 0
       fi
@@ -3846,7 +3851,7 @@ main() {
     fi
   done
 
-  warn_deferred_left
+  settle_deferred_at_exit
   log INFO "═══ Orchestrator stopped ═══"
 
   # In --once mode, exit with distinct code

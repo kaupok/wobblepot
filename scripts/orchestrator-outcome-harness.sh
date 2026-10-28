@@ -257,7 +257,7 @@
 #     live-worktree and is_protected_neon_branch filters — over fixture data.
 #     NEON_USER_PREFIX is read from the environment.
 #
-#   stop-wait-bound <worker-count> [triage-timeout]  (HON-572 finding 5, HON-1067)
+#   stop-wait-bound <worker-count> [triage-timeout] [deferred-count]  (HON-572 finding 5, HON-1067)
 #     Prints the REAL stop_wait_bound from worktree-claude.sh. [triage-timeout]
 #     stands in for the status file's triage_timeout.
 #
@@ -1163,7 +1163,7 @@ EOF
   stop-wait-bound)
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
-    stop_wait_bound "$A1" "$A2"
+    stop_wait_bound "$A1" "$A2" "$A3"
     exit 0
     ;;
 

@@ -4254,8 +4254,14 @@ cmd_start() {
 # the 60s floor covers a missing, empty or unparseable status file, where the
 # count is unknown and guessing low is the failure mode that stranded issues in
 # the first place.
+#
+# $3 is the count of deferred outcomes from the status file. The orchestrator
+# records each before it exits (settle_deferred_at_exit, HON-1447), during the
+# outage that deferred it: up to five Linear calls of 30s (comment, label,
+# queue read and move) and one triage call each. A SIGKILL partway leaves the
+# issue In Progress and assigned with no comment, which that pass exists to stop.
 stop_wait_bound() {
-  local workers="${1:-}"
+  local workers="${1:-}" deferred="${3:-}"
   local floor=60 per_worker=15
   # Same default as TRIAGE_TIMEOUT in orchestrator.sh. A fractional value (GNU
   # timeout accepts `1.5`) rounds up; anything unreadable takes the default.
@@ -4268,10 +4274,11 @@ stop_wait_bound() {
   fi
 
   [[ "$workers" =~ ^[0-9]+$ ]] || workers=0
+  [[ "$deferred" =~ ^[0-9]+$ ]] || deferred=0
 
   local drain=$(( 10#$workers * per_worker ))
   [ "$drain" -lt "$floor" ] && drain=$floor
-  echo $(( 2 * 10#$triage_whole + drain ))
+  echo $(( 2 * 10#$triage_whole + drain + 10#$deferred * (150 + 10#$triage_whole) ))
 }
 
 # Wait up to $2 seconds for the orchestrator ($1) to exit, re-sending SIGTERM
@@ -4348,13 +4355,14 @@ cmd_stop() {
     # orphaning `claude` processes and leaving their issues In Progress +
     # assigned — the exact state select_next_issue skips forever (HON-572).
     # Scale the wait with the work instead.
-    local worker_count triage_timeout bound
+    local worker_count triage_timeout deferred_count bound
     worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
     # The orchestrator's own value: an ORCHESTRATOR_TRIAGE_TIMEOUT exported
     # only into `wt start` is not in this shell.
     triage_timeout=$(jq -r '.triage_timeout // empty' "$status_file" 2>/dev/null) || triage_timeout=""
-    bound=$(stop_wait_bound "$worker_count" "$triage_timeout")
-    echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) — waiting up to ${bound}s before SIGKILL${NC}"
+    deferred_count=$(jq -r '(.deferred // []) | length' "$status_file" 2>/dev/null) || deferred_count=""
+    bound=$(stop_wait_bound "$worker_count" "$triage_timeout" "$deferred_count")
+    echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) and ${deferred_count:-0} deferred outcome(s) — waiting up to ${bound}s before SIGKILL${NC}"
 
     wait_for_drain "$pid" "$bound"
   fi
