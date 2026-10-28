@@ -134,6 +134,30 @@ describe('loadInventory', () => {
     )
   })
 
+  // The sheet and its Add field render on an empty list, so they need the
+  // window and dates even when there is no plan (HON-1354).
+  it('keeps the shopping data for a household with no plan', async () => {
+    mockLoadShoppingList.mockResolvedValue({
+      ...SHOPPING_LIST,
+      generatedAt: null,
+      hasAnyPlan: false,
+      groups: [],
+      summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
+    } as never)
+
+    const data = await loadInventory(undefined)
+
+    expect(data.emptyStateVariant).toBe('no-plan')
+    expect(data.shoppingData).toEqual(
+      expect.objectContaining({
+        startDate: '2026-09-29',
+        endDate: '2026-10-06',
+        groups: [],
+        customItems: [],
+      }),
+    )
+  })
+
   it('shows the error empty state for a failed shopping list and keeps the pantry', async () => {
     const error = new Error('shopping down')
     mockLoadShoppingList.mockRejectedValue(error)

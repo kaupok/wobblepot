@@ -69,7 +69,7 @@ export function InventoryPage({
   // Applies a saved 7/14-day preference to the URL. Here rather than in
   // `ShoppingListHeader` because this component renders on every `/shopping`
   // and `/pantry` visit and exactly once, so the reconcile reaches the
-  // header-less states (`no-plan`, `error`) and can never fire twice.
+  // header-less `error` state and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
@@ -143,10 +143,13 @@ export function InventoryPage({
         </div>
 
         <div className={cn(view !== 'shopping' && 'hidden md:block')} data-testid="shopping-column">
-          {emptyStateVariant ? (
-            <ShoppingEmptyState variant={emptyStateVariant} windowDays={windowDays} />
-          ) : shoppingData ? (
+          {/* Only a failed load drops the sheet: an empty list keeps its Add
+              field, so a household with no plan can still add an item (HON-1354). */}
+          {emptyStateVariant === 'error' || !shoppingData ? (
+            <ShoppingEmptyState />
+          ) : (
             <ShoppingSection
+              emptyVariant={emptyStateVariant}
               windowDays={shoppingData.windowDays}
               startDate={shoppingData.startDate}
               endDate={shoppingData.endDate}
@@ -158,7 +161,7 @@ export function InventoryPage({
               externalUnpurchasedIds={removedIngredientIds}
               onExternalUnpurchaseProcessed={handleExternalUnpurchaseProcessed}
             />
-          ) : null}
+          )}
         </div>
       </div>
     </div>

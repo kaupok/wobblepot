@@ -22,11 +22,11 @@ interface ShoppingListHeaderProps {
 }
 
 /**
- * The header both `/shopping` branches share: the column title with its
- * summary on the same baseline, then one row of controls — the 7/14-day
- * window picker first, followed by whatever the branch owns. The picker is
- * here, rather than in one branch, because the window is only worth changing
- * from whichever state the user is actually looking at. Before HON-624 it
+ * The shopping list's header: the column title with its summary on the same
+ * baseline, then one row of controls — the 7/14-day window picker first,
+ * followed by the list's own controls. It renders on an empty list too
+ * (HON-1354), because the window is worth changing from whichever state the
+ * user is actually looking at. Before HON-624 it
  * lived only in the `nothing-needed` empty state, so widening to 14 days
  * removed the control that could narrow it back.
  *
@@ -37,7 +37,7 @@ interface ShoppingListHeaderProps {
  *
  * It owns the picker but not the mount reconcile: that lives in `InventoryPage`,
  * which renders on every `/shopping` visit rather than only the ones that have
- * a header, so a saved window is honoured on `no-plan` and `error` too. See
+ * a header, so a saved window is honoured on `error` too. See
  * `useWindowReconcile`.
  */
 export function ShoppingListHeader({ windowDays, summary, children }: ShoppingListHeaderProps) {

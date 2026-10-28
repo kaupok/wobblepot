@@ -8,15 +8,17 @@ export interface ShoppingEmptyStateInput {
 }
 
 /**
- * Picks the `/shopping` empty state, or `undefined` when the list renders.
+ * Picks why the `/shopping` list is empty, or `undefined` when it has items.
+ * The sheet and its Add field render either way; the variant only picks the
+ * muted line under the Add field (HON-1354).
  *
  * `no-plan` keys on `hasAnyPlan`, never on `generatedAt`: the latter is null
  * whenever the rolling window holds no planned entries, so branching on it told
- * a household whose entries fall past the window that it had no plan — and
- * `no-plan` has no window picker to widen with. Such a household falls through
- * to `nothing-needed`, which does.
+ * a household whose entries fall past the window that it had no plan, when a
+ * wider window would show its list. Such a household falls through to
+ * `nothing-needed`, which names the window.
  *
- * Custom items suppress both empty states, since they are a list on their own.
+ * Custom items suppress both, since they are a list on their own.
  */
 export function getShoppingEmptyStateVariant({
   hasAnyPlan,

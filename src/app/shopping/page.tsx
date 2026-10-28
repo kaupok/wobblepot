@@ -20,7 +20,7 @@ export default async function ShoppingPage({ searchParams }: ShoppingPageProps) 
     // `?days=7` → `?days=14` refetches the payload and reconciles the existing
     // tree. Without the key, `purchasedIds` from the old window survives into
     // the new one: narrowing 14 → 7 can make `allPurchased` count purchased ids
-    // that are no longer in the list, replacing it with "All done!" over items
+    // that are no longer in the list, showing "You've bought everything" over items
     // the user never bought. This became reachable when the picker moved onto
     // the populated list — previously `?days=` only changed from an empty state,
     // where `ShoppingSection` was not mounted to begin with.

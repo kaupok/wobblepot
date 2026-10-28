@@ -98,12 +98,8 @@
       "copyFailed": "Nimekirja kopeerimine ebaõnnestus"
     },
     "emptyState": {
-      "noPlanHeading": "Söögiplaani veel pole",
-      "noPlanBody": "Loo söögiplaan, et näha poenimekirja.",
-      "noPlanCta": "Loo plaan",
-      "allDoneHeading": "Kõik tehtud!",
+      "emptyBody": "Poenimekiri on tühi.",
       "allDoneBody": "Kõik nimekirjas olev on ostetud.",
-      "nothingHeading": "Pole midagi osta",
       "nothingBody": "Sul on järgmiseks {days} päevaks sahvris kõik vajalik olemas.",
       "errorHeading": "Midagi läks valesti",
       "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",

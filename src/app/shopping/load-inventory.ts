@@ -125,7 +125,7 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
   return {
     pantryItems: formattedPantryItems,
     pantryLoadFailed,
-    shoppingData: emptyStateVariant ? null : shoppingData,
+    shoppingData,
     emptyStateVariant,
     windowDays: days,
     windowDaysFromUrl: daysFromUrl,

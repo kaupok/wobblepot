@@ -21,6 +21,8 @@ vi.mock('next/navigation', () => ({
 vi.stubGlobal('fetch', vi.fn())
 
 beforeEach(() => {
+  // A test that fails before its request leaves the queued response for the next.
+  vi.mocked(fetch).mockReset()
   mockPathname = '/shopping'
   localStorage.clear()
   routerPush.mockClear()
@@ -28,10 +30,25 @@ beforeEach(() => {
   routerRefresh.mockClear()
 })
 
+/** What `loadInventory` hands over for a list with nothing on it. */
+const EMPTY_SHOPPING_DATA = {
+  windowDays: 7,
+  startDate: '2026-02-16',
+  endDate: '2026-02-23',
+  groups: [],
+  initialPurchasedIds: new Set<string>(),
+  customItems: [],
+}
+
 function renderPage(overrides: Partial<Parameters<typeof InventoryPage>[0]> = {}) {
   const { wrapper } = createQueryWrapper()
   return render(
-    <InventoryPage view="shopping" pantryItems={[]} shoppingData={null} {...overrides} />,
+    <InventoryPage
+      view="shopping"
+      pantryItems={[]}
+      shoppingData={EMPTY_SHOPPING_DATA}
+      {...overrides}
+    />,
     { wrapper },
   )
 }
@@ -68,22 +85,22 @@ describe('InventoryPage window reconcile', () => {
     expect(routerReplace).toHaveBeenCalledWith('/shopping?days=14')
   })
 
-  // `no-plan` renders no header and so no picker, which the AC requires. It
-  // still has to honour the saved window, so the next page the user reaches
-  // after generating a plan opens at the window they chose.
-  it('applies it on `no-plan`, which has no picker to recover with', () => {
+  it('applies it on `no-plan` as well', () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
     renderPage({ emptyStateVariant: 'no-plan', windowDays: 7 })
 
-    expect(screen.queryByRole('combobox', { name: 'Time window' })).not.toBeInTheDocument()
     expect(routerReplace).toHaveBeenCalledWith('/shopping?days=14')
   })
 
-  it('applies it on `error` as well', () => {
+  // `error` renders no header and so no picker. It still has to honour the
+  // saved window, so the list opens at the chosen window once it loads.
+  it('applies it on `error`, which has no picker to recover with', () => {
     localStorage.setItem(WINDOW_STORAGE_KEY, '14')
 
-    renderPage({ emptyStateVariant: 'error', windowDays: 7 })
+    renderPage({ emptyStateVariant: 'error', shoppingData: null, windowDays: 7 })
+
+    expect(screen.queryByRole('combobox', { name: 'Time window' })).not.toBeInTheDocument()
 
     expect(routerReplace).toHaveBeenCalledWith('/shopping?days=14')
   })
@@ -144,7 +161,7 @@ describe('InventoryPage view', () => {
 
   // The page stays neutral edge to edge: no layer paints the viewport and
   // neither column is a surface. The note is one sheet inside the shopping
-  // column, and only once there is a list to put on it (HON-1016).
+  // column (HON-1016), on an empty list too (HON-1354).
   it.each(['shopping', 'pantry'] as const)(
     'view="%s" puts the list, and only the list, on one note sheet',
     (view) => {
@@ -187,16 +204,66 @@ describe('InventoryPage view', () => {
     },
   )
 
-  // There is no list to put on paper, so the empty and load-failed states
-  // render on the page background.
-  it.each(['no-plan', 'nothing-needed', 'error'] as const)(
-    'renders the %s state with no sheet',
-    (emptyStateVariant) => {
-      const { container } = renderPage({ emptyStateVariant, windowDays: 7 })
+  // An empty list keeps the sheet and its Add field, so the household can
+  // always add an item; the plan is generated on Today, not here (HON-1354).
+  it.each([
+    ['no-plan', 'Your shopping list is empty.'],
+    ['nothing-needed', 'Your pantry has everything you need for the next 7 days.'],
+  ] as const)('renders the %s state on the sheet with its Add field', (emptyStateVariant, line) => {
+    renderPage({ emptyStateVariant, windowDays: 7 })
 
-      expect(container.querySelector('[data-surface]')).toBeNull()
-    },
-  )
+    const column = within(screen.getByTestId('shopping-column'))
+    expect(column.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
+    expect(column.getByRole('combobox', { name: 'Time window' })).toBeInTheDocument()
+    const sheet = within(column.getByTestId('shopping-sheet'))
+    expect(sheet.getByRole('textbox', { name: 'Add custom item to shopping list' })).toBeVisible()
+    expect(sheet.getByText(line)).toBeInTheDocument()
+    expect(screen.queryByText('No meal plan yet')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Generate plan' })).not.toBeInTheDocument()
+  })
+
+  it('adds an item from the no-plan state without a reload', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        item: {
+          id: 'c-new',
+          name: 'Coffee',
+          checked: false,
+          ingredientId: null,
+          ingredient: null,
+          createdAt: '2026-02-16T00:00:00.000Z',
+        },
+      }),
+    )
+    renderPage({ emptyStateVariant: 'no-plan', windowDays: 7 })
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Add custom item to shopping list' }),
+      'Coffee{Enter}',
+    )
+
+    const sheet = within(screen.getByTestId('shopping-sheet'))
+    await waitFor(() => expect(sheet.getByText('Coffee')).toBeInTheDocument())
+    expect(sheet.queryByText('Your shopping list is empty.')).not.toBeInTheDocument()
+    expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  // A failed load has no list to put on paper, so it renders on the page
+  // background with its error and no Add field.
+  it('renders the load-failed state with no sheet', () => {
+    const { container } = renderPage({
+      emptyStateVariant: 'error',
+      shoppingData: null,
+      windowDays: 7,
+    })
+
+    expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+    expect(container.querySelector('[data-surface]')).toBeNull()
+    expect(
+      screen.queryByRole('textbox', { name: 'Add custom item to shopping list' }),
+    ).not.toBeInTheDocument()
+  })
 
   // One h1 per page, ahead of the column h2s, visually hidden (HON-815).
   it.each(['shopping', 'pantry'] as const)(

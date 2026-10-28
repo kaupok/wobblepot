@@ -98,12 +98,8 @@
       "copyFailed": "Couldn't copy the list"
     },
     "emptyState": {
-      "noPlanHeading": "No meal plan yet",
-      "noPlanBody": "Generate a meal plan to see your shopping list.",
-      "noPlanCta": "Generate plan",
-      "allDoneHeading": "All done!",
+      "emptyBody": "Your shopping list is empty.",
       "allDoneBody": "You've bought everything on your list.",
-      "nothingHeading": "Nothing to buy",
       "nothingBody": "Your pantry has everything you need for the next {days} days.",
       "errorHeading": "Something went wrong",
       "errorBody": "We couldn't load your shopping list. Please try again.",

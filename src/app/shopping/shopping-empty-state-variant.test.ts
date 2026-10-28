@@ -27,7 +27,7 @@ describe('getShoppingEmptyStateVariant', () => {
 
   // HON-653: entries only on days 8-14 leave the 7-day window empty, so the API
   // reports `generatedAt: null` — but the household has a plan, and must land on
-  // the state that carries the window picker.
+  // the state whose line names the window.
   it('shows `nothing-needed` when the plan exists but nothing falls in the window', () => {
     expect(getShoppingEmptyStateVariant(input({ groupCount: 0, totalItems: 0 }))).toBe(
       'nothing-needed',
@@ -40,7 +40,8 @@ describe('getShoppingEmptyStateVariant', () => {
     )
   })
 
-  it('renders the list for custom items even without a plan', () => {
+  // No empty line under the Add field: the custom items are the list (HON-1354).
+  it('picks no empty state for custom items even without a plan', () => {
     expect(
       getShoppingEmptyStateVariant(
         input({ hasAnyPlan: false, groupCount: 0, totalItems: 0, customItemCount: 1 }),
