@@ -29,9 +29,17 @@ export function useFridgeItemText() {
   }
 }
 
-/** The body the entry routes take for an item. */
+/**
+ * The body the entry routes take for an item. A leftover item keeps its
+ * `servings`, so Edit items and Undo do not drop what the assistant set
+ * (HON-1394).
+ */
 export function toFridgeItemInput(item: FridgeItemShown): FridgeItemInput {
   if (item.ingredientId !== null) return { ingredientId: item.ingredientId }
-  if (item.sourceEntryId !== null) return { sourceEntryId: item.sourceEntryId }
+  if (item.sourceEntryId !== null) {
+    return item.servings === null
+      ? { sourceEntryId: item.sourceEntryId }
+      : { sourceEntryId: item.sourceEntryId, servings: item.servings }
+  }
   return { label: item.label ?? '' }
 }

@@ -10,7 +10,7 @@ import { resolveProposals, type AdjustContext } from '@/lib/meal-planning/adjust
 import { fittingComponents } from '@/lib/meal-planning/adjust-proposal'
 import { MAX_QUANTITY_PER_SERVING } from '@/lib/meal-planning/components-schema'
 import { staleChangeIds } from '@/lib/meal-planning/entry-components'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { amountWarning } from './amount-warning'
@@ -143,7 +143,7 @@ export const changeMealIngredients = defineTool({
   run: async (household, { date, mealType, changes }) => {
     const locale = resolveHouseholdLocale(household)
     const { slot, context } = await loadChangeableEntry(household, date, mealType, locale)
-    const servings = getEffectiveServings(context, sumPortions(household.members))
+    const servings = getCookServings(context, sumPortions(household.members))
 
     // Restore is the app's Undo: the live change is left out of the new set.
     const live = liveChanges(context, locale)

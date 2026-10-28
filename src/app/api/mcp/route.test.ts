@@ -162,6 +162,8 @@ describe('/api/mcp', () => {
           kind: 'meal',
           items: [],
           servingOverride: null,
+          cookServings: 2,
+          leftoversFor: [],
           meal: { id: `meal-${household.id}`, name: `Dinner of ${household.id}` },
         },
       ] as never,

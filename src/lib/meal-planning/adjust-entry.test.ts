@@ -72,6 +72,8 @@ const entry = {
   id: 'entry-1',
   status: 'planned',
   servingOverride: 2,
+  cookedServings: null,
+  leftoverItems: [],
   changes: [],
   meal: {
     name: 'Cream pasta',

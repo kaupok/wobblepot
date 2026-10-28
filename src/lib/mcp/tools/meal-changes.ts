@@ -14,7 +14,7 @@ import {
   type MatchedReplacement,
 } from '@/lib/meal-planning/adjust-proposal'
 import { staleChangeIds } from '@/lib/meal-planning/entry-components'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
 import { findPlanSlot, type SlotMealType } from './plan-slot'
@@ -130,13 +130,20 @@ export async function writeChanges(
   }
 }
 
-/** The entry's merged ingredients at its effective servings, as `get_meal` shows them. */
+/**
+ * The entry's merged ingredients at its cook servings, as `get_meal` shows
+ * them: the leftover lunches it feeds count, because it is cooked for them
+ * (HON-1394).
+ */
 export function mealIngredients(
-  entry: Pick<AdjustContext, 'components' | 'servingOverride'>,
+  entry: Pick<
+    AdjustContext,
+    'components' | 'servingOverride' | 'status' | 'cookedServings' | 'leftoverItems'
+  >,
   household: Pick<McpHousehold, 'members'>,
   locale: string,
 ): z.infer<typeof ingredientsOutput> {
-  const servings = getEffectiveServings(entry, sumPortions(household.members))
+  const servings = getCookServings(entry, sumPortions(household.members))
   return entry.components.map((component) => {
     // A vague amount ("a pinch") is a phrase, not a number to scale, as in get_meal.
     const vague = component.isVague && !!component.originalPhrase

@@ -15,6 +15,7 @@ const wolt: FridgeMealItem[] = [
     label: 'Wolt',
     name: null,
     sourceDate: null,
+    servings: null,
   },
 ]
 

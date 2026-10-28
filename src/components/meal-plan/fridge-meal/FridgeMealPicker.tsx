@@ -103,6 +103,7 @@ const toDraft = (item: FridgeItemShown): Draft => ({
   label: item.label,
   name: item.name,
   sourceDate: item.sourceDate,
+  servings: item.servings,
   key: `draft-${++draftCounter}`,
 })
 
@@ -167,7 +168,14 @@ function PickerForm({
   function addLabel(text: string) {
     const label = text.trim().slice(0, FRIDGE_ITEM_LABEL_MAX)
     if (!label) return
-    add({ ingredientId: null, sourceEntryId: null, label, name: null, sourceDate: null })
+    add({
+      ingredientId: null,
+      sourceEntryId: null,
+      label,
+      name: null,
+      sourceDate: null,
+      servings: null,
+    })
   }
 
   function addFreeText(event: FormEvent) {
@@ -303,6 +311,7 @@ function PickerForm({
                     label,
                     name: null,
                     sourceDate: null,
+                    servings: null,
                   },
                 }))}
                 disabled={isFull}
@@ -361,6 +370,7 @@ function PickerForm({
                   label: null,
                   name: p.ingredient.name,
                   sourceDate: null,
+                  servings: null,
                 },
               }))}
               disabled={isFull}
@@ -389,6 +399,7 @@ function PickerForm({
                   label: null,
                   name: meal.mealName,
                   sourceDate: meal.date,
+                  servings: null,
                 }
                 return { key: meal.entryId, text: itemText(item), item }
               })}

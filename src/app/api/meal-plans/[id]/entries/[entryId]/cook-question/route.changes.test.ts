@@ -131,6 +131,8 @@ function entry(changes: unknown[], components: unknown[], householdId: string | 
     mealId: 'meal-1',
     preparationTips: null,
     servingOverride: null,
+    cookedServings: null,
+    leftoverItems: [],
     meal: {
       id: 'meal-1',
       name: 'Chicken with garlic',

@@ -66,7 +66,17 @@ export const fridgeItemOutputSchema = z.object({
   source: z
     .enum(['pantry', 'leftover', 'text'])
     .describe(
-      'pantry: a catalogue ingredient. leftover: what is left of an earlier cooked meal. text: free text.',
+      'pantry: a catalogue ingredient. leftover: what is left of an earlier meal, cooked or planned. text: free text.',
+    ),
+  sourceEntryId: z
+    .string()
+    .nullable()
+    .describe("A leftover's meal: its entryId, as plan_fridge_meal takes it. Null otherwise."),
+  servings: z
+    .number()
+    .nullable()
+    .describe(
+      'How many servings of that meal a leftover takes. Null when none was set, and for pantry and text items.',
     ),
 })
 
@@ -74,12 +84,27 @@ interface FridgeItemRow {
   sourceEntryId: string | null
   label: string | null
   name: string | null
+  servings: number | null
 }
 
-/** The card's naming rule (`useFridgeItemText`), without its weekday. */
+/**
+ * The card's naming rule (`useFridgeItemText`), without its weekday. A
+ * leftover carries its source and servings, so an assistant can send the items
+ * back unchanged (HON-1394).
+ */
 export function toFridgeItemOutput(item: FridgeItemRow): z.output<typeof fridgeItemOutputSchema> {
-  if (item.label !== null) return { name: item.label, source: 'text' }
-  return { name: item.name, source: item.sourceEntryId !== null ? 'leftover' : 'pantry' }
+  if (item.label !== null) {
+    return { name: item.label, source: 'text', sourceEntryId: null, servings: null }
+  }
+  if (item.sourceEntryId !== null) {
+    return {
+      name: item.name,
+      source: 'leftover',
+      sourceEntryId: item.sourceEntryId,
+      servings: item.servings,
+    }
+  }
+  return { name: item.name, source: 'pantry', sourceEntryId: null, servings: null }
 }
 
 export const mealPlanOutputSchema = z.object({
@@ -90,7 +115,7 @@ export const mealPlanOutputSchema = z.object({
       entryId: z
         .string()
         .describe(
-          "The entry's id. A cooked meal's entryId is the sourceEntryId plan_fridge_meal takes for its leftovers.",
+          "The entry's id. A recipe meal's entryId is the sourceEntryId plan_fridge_meal takes for its leftovers.",
         ),
       date: isoDate,
       mealType: z.enum(['breakfast', 'lunch', 'dinner']),
@@ -104,7 +129,25 @@ export const mealPlanOutputSchema = z.object({
         .describe("A fridge meal's items, in order. Empty for a recipe entry."),
       mealId: z.string().nullable(),
       mealName: z.string().nullable(),
-      servings: z.number(),
+      servings: z
+        .number()
+        .describe("The meal's own servings: the household's, or the entry's override."),
+      cookServings: z
+        .number()
+        .describe(
+          'The servings the meal is cooked and bought for: servings plus the leftovers planned from it, or the count it was cooked at.',
+        ),
+      leftoversFor: z
+        .array(
+          z.object({
+            date: isoDate,
+            mealType: z.enum(['breakfast', 'lunch', 'dinner']),
+            servings: z.number().nullable(),
+          }),
+        )
+        .describe(
+          'The fridge meals that take leftovers of this meal, and how many servings each. Empty for a fridge meal.',
+        ),
       isCooked: z.boolean(),
       isSkipped: z.boolean(),
     }),
@@ -159,6 +202,8 @@ export async function readMealPlan(
       mealId: entry.meal?.id ?? null,
       mealName: entry.meal?.name ?? null,
       servings: getEffectiveServings(entry, householdServings),
+      cookServings: entry.cookServings,
+      leftoversFor: entry.leftoversFor,
       isCooked: entry.status === 'completed',
       isSkipped: entry.status === 'skipped',
     })),

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { cookServingsSelect } from '@/lib/meal-planning/servings'
 import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
 
 /**
@@ -54,9 +55,9 @@ export async function findPlanSlot(household: McpHousehold, date: string, mealTy
       mealType: true,
       kind: true,
       mealId: true,
-      status: true,
       rating: true,
-      servingOverride: true,
+      // `servingOverride`, `status` and the leftover lunches (HON-1394).
+      ...cookServingsSelect,
       meal: {
         select: {
           id: true,

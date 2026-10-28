@@ -148,6 +148,34 @@ describe('change_meal_ingredients', () => {
     expect(await prisma.aiUsage.count({ where: { householdId: household.id } })).toBe(0)
   })
 
+  // Sunday's lunch takes 2 servings of Saturday's dinner, so it is cooked for
+  // 6 and get_meal shows amounts for 6. An amount the assistant gives "as
+  // get_meal shows" is then per 6, not per the dinner's own 4 (HON-1394).
+  it("reads amounts at the dinner's cook servings when a leftover lunch takes some", async () => {
+    const household = await world()
+    await prisma.mealPlanEntry.create({
+      data: {
+        id: 'entry-sun',
+        planId: 'plan-alder',
+        date: new Date('2026-10-18T00:00:00Z'),
+        mealType: 'lunch',
+        kind: 'fridge',
+        items: { create: [{ sourceEntryId: 'entry-sat', servings: 2, position: 0 }] },
+      },
+    })
+
+    const added = await call(household, [
+      { action: 'add', ingredient: 'broccoli', quantity: 600, unit: 'g' },
+    ])
+
+    expect(added.outcome).toBe('changed')
+    expect(await rows()).toEqual([BROCCOLI_ROW])
+    expect(added.ingredients.map((i) => [i.name.toLowerCase(), i.quantity])).toContainEqual([
+      'trout',
+      900,
+    ])
+  })
+
   it('writes nothing when one change has no match', async () => {
     const household = await world()
 

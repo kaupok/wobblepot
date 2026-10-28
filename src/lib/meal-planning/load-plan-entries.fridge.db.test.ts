@@ -77,6 +77,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: null,
         name: 'Kurk',
         sourceDate: null,
+        servings: null,
       },
       {
         ingredientId: null,
@@ -84,6 +85,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: null,
         name: 'Kartulipuder',
         sourceDate: '2026-10-20',
+        servings: null,
       },
       {
         ingredientId: null,
@@ -91,6 +93,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: 'store meatballs',
         name: null,
         sourceDate: null,
+        servings: null,
       },
     ])
   })

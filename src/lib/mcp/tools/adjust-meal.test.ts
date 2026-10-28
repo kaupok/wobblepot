@@ -76,6 +76,8 @@ function slot(overrides: Record<string, unknown> = {}) {
     status: 'planned',
     rating: null,
     servingOverride: null,
+    cookedServings: null,
+    leftoverItems: [],
     meal: { id: 'meal-pasta', name: 'Cream pasta', timeMinutes: 25, primaryProteinType: null },
     ...overrides,
   }
@@ -87,6 +89,8 @@ const CONTEXT = {
   planId: 'plan-a',
   status: 'planned',
   servingOverride: null,
+  cookedServings: null,
+  leftoverItems: [],
   meal: {
     id: 'meal-pasta',
     components: [component('pasta', 100), component('cream', 50), component('mushroom', 40)],

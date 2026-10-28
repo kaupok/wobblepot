@@ -1,7 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { cookServingsSelect, getSavedCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import {
   clearChangesOnSwap,
@@ -163,8 +163,7 @@ export async function updateEntry(
       id: true,
       mealId: true,
       kind: true,
-      status: true,
-      servingOverride: true,
+      ...cookServingsSelect,
       pantryDeductedAt: true,
       note: true,
       plan: {
@@ -242,11 +241,13 @@ export async function updateEntry(
   const updateData: {
     status?: MealPlanEntryStatus
     mealId?: string
+    kind?: 'meal'
     preparationTips?: null
     note?: string | null
     noteX?: number | null
     noteY?: number | null
     servingOverride?: number | null
+    cookedServings?: number | null
     rating?: EntryRating | null
   } = {}
 
@@ -266,6 +267,7 @@ export async function updateEntry(
     // and `servingOverride` writers below.
     if (entry.status === MealPlanEntryStatus.completed && patch.status !== 'completed') {
       updateData.preparationTips = null
+      updateData.cookedServings = null
     }
   }
 
@@ -340,6 +342,22 @@ export async function updateEntry(
     updateData.rating = (patch.rating as EntryRating) ?? null
   }
 
+  // Stored at completion, so a lunch changed afterwards leaves the count the
+  // pantry was charged at (HON-1394). A fridge meal swapped to a recipe in
+  // this request is a recipe meal again.
+  const cookServings = getSavedCookServings(
+    entry,
+    updateData,
+    sumPortions(entry.plan.household.members),
+  )
+  if (
+    patch.status === 'completed' &&
+    entry.status !== MealPlanEntryStatus.completed &&
+    (updateData.kind ?? entry.kind) === 'meal'
+  ) {
+    updateData.cookedServings = cookServings
+  }
+
   // Require at least one field to update
   if (Object.keys(updateData).length === 0) {
     throw new EntryUpdateError('noFields')
@@ -402,18 +420,11 @@ export async function updateEntry(
   if (shouldDeductPantry) {
     // The members' portions, not their count: a toddler at 0.5× eats half
     // of what an adult does, so the pantry loses half as much (HON-1040).
-    const householdServings = sumPortions(entry.plan.household.members)
-    // Scale by what this request persists, not by the row read at the top:
-    // the route accepts `servingOverride` alongside `status: 'completed'` +
-    // `deductPantry`, and a meal swap resets the override to null — either
-    // way `entry.servingOverride` is already stale by the time the
-    // transaction below runs.
-    const effectiveServings = getEffectiveServings(
-      'servingOverride' in updateData
-        ? { servingOverride: updateData.servingOverride ?? null }
-        : entry,
-      householdServings,
-    )
+    // Scaled by `cookServings`, what this request persists, not by the row
+    // read at the top: the route accepts `servingOverride` alongside
+    // `status: 'completed'` + `deductPantry`, and a meal swap resets the
+    // override to null.
+    const effectiveServings = cookServings
     // How much of each ingredient this meal consumes. The database applies
     // these as relative decrements — nothing here reads a pantry quantity,
     // because reading one is what used to lose deductions: two entries

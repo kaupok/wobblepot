@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getEffectiveServings, sumPortions } from './servings'
+import { getCookServings, getEffectiveServings, sumPortions } from './servings'
 
 const member = (portionMultiplier: number) => ({ preferences: { portionMultiplier } })
 
@@ -41,5 +41,45 @@ describe('getEffectiveServings', () => {
 
   it('honours an override smaller than the household', () => {
     expect(getEffectiveServings({ servingOverride: 1 }, 4)).toBe(1)
+  })
+})
+
+// HON-1394: the issue's numbers, not the code's.
+describe('getCookServings', () => {
+  const planned = (servings: (number | null)[], servingOverride: number | null = null) => ({
+    servingOverride,
+    status: 'planned',
+    cookedServings: null,
+    leftoverItems: servings.map((s) => ({ servings: s })),
+  })
+
+  it('is the own servings with no leftover lunch', () => {
+    expect(getCookServings(planned([]), 3)).toBe(3)
+  })
+
+  it('adds one lunch at 2.5 to 3 own servings: 5.5', () => {
+    expect(getCookServings(planned([2.5]), 3)).toBe(5.5)
+  })
+
+  it('adds two lunches at 2.5 and 2: 7.5', () => {
+    expect(getCookServings(planned([2.5, 2]), 3)).toBe(7.5)
+  })
+
+  it('adds the lunches to an override', () => {
+    expect(getCookServings(planned([2.5], 4), 3)).toBe(6.5)
+  })
+
+  it('counts a leftover item with no servings as nothing', () => {
+    expect(getCookServings(planned([null, 2]), 3)).toBe(5)
+  })
+
+  it('is the stored count once completed, whatever the lunches say now', () => {
+    expect(getCookServings({ ...planned([]), status: 'completed', cookedServings: 5.5 }, 3)).toBe(
+      5.5,
+    )
+  })
+
+  it('is the own servings for a completed entry with no stored count', () => {
+    expect(getCookServings({ ...planned([2.5]), status: 'completed' }, 3)).toBe(3)
   })
 })

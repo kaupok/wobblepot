@@ -27,6 +27,8 @@ function entry(overrides: Partial<Entries[number]>): Entries[number] {
     kind: 'meal',
     items: [],
     servingOverride: null,
+    cookServings: 2,
+    leftoversFor: [],
     meal: { id: 'meal-1', name: 'Chicken soup' },
     ...overrides,
   } as Entries[number]
@@ -65,12 +67,17 @@ describe('get_meal_plan', () => {
     vi.mocked(loadPlanEntries).mockResolvedValue({
       planId: 'plan-1',
       entries: [
-        entry({}),
+        // Tomorrow's lunch takes 2.5 servings of this dinner (HON-1394).
+        entry({
+          cookServings: 4.5,
+          leftoversFor: [{ date: '2026-10-13', mealType: 'lunch', servings: 2.5 }],
+        }),
         entry({
           id: 'entry-2',
           mealType: 'lunch',
           status: 'completed',
           servingOverride: 4,
+          cookServings: 4,
           meal: { id: 'meal-2', name: 'Pasta' } as Entries[number]['meal'],
         }),
         entry({ id: 'entry-3', mealType: 'breakfast', status: 'skipped', meal: null }),
@@ -93,6 +100,8 @@ describe('get_meal_plan', () => {
           mealId: 'meal-1',
           mealName: 'Chicken soup',
           servings: 2,
+          cookServings: 4.5,
+          leftoversFor: [{ date: '2026-10-13', mealType: 'lunch', servings: 2.5 }],
           isCooked: false,
           isSkipped: false,
         },
@@ -105,6 +114,8 @@ describe('get_meal_plan', () => {
           mealId: 'meal-2',
           mealName: 'Pasta',
           servings: 4,
+          cookServings: 4,
+          leftoversFor: [],
           isCooked: true,
           isSkipped: false,
         },
@@ -117,6 +128,8 @@ describe('get_meal_plan', () => {
           mealId: null,
           mealName: null,
           servings: 2,
+          cookServings: 2,
+          leftoversFor: [],
           isCooked: false,
           isSkipped: true,
         },
@@ -142,6 +155,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: 'Frozen peas',
               sourceDate: null,
+              servings: null,
             },
             {
               id: 'item-2',
@@ -150,6 +164,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: 'Mashed potatoes',
               sourceDate: '2026-10-10',
+              servings: 2.5,
             },
             {
               id: 'item-3',
@@ -158,6 +173,7 @@ describe('get_meal_plan', () => {
               label: null,
               name: null,
               sourceDate: '2026-10-11',
+              servings: null,
             },
             {
               id: 'item-4',
@@ -166,6 +182,7 @@ describe('get_meal_plan', () => {
               label: 'Meatballs',
               name: null,
               sourceDate: null,
+              servings: null,
             },
           ],
         }),
@@ -181,10 +198,15 @@ describe('get_meal_plan', () => {
           kind: 'fridge',
           mealId: null,
           items: [
-            { name: 'Frozen peas', source: 'pantry' },
-            { name: 'Mashed potatoes', source: 'leftover' },
-            { name: null, source: 'leftover' },
-            { name: 'Meatballs', source: 'text' },
+            { name: 'Frozen peas', source: 'pantry', sourceEntryId: null, servings: null },
+            {
+              name: 'Mashed potatoes',
+              source: 'leftover',
+              sourceEntryId: 'entry-old',
+              servings: 2.5,
+            },
+            { name: null, source: 'leftover', sourceEntryId: 'entry-gone', servings: null },
+            { name: 'Meatballs', source: 'text', sourceEntryId: null, servings: null },
           ],
         },
       ],

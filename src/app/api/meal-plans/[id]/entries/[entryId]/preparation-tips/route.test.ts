@@ -142,6 +142,8 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
     // (HON-681) — leaving it off would make that filter `undefined`, which
     // Prisma reads as "no filter at all".
     servingOverride: null,
+    cookedServings: null,
+    leftoverItems: [],
     meal: {
       id: 'meal-1',
       name: 'Chicken stir fry',

@@ -118,6 +118,8 @@ function entry(overrides: Record<string, unknown> = {}) {
     mealId: 'meal-1',
     preparationTips: null,
     servingOverride: null,
+    cookedServings: null,
+    leftoverItems: [],
     adjustmentNote: null,
     meal: {
       id: 'meal-1',
