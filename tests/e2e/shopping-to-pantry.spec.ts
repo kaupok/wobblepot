@@ -147,6 +147,10 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
   test('marking an item purchased moves it to the pantry, un-purchasing returns it', async ({
     page,
   }) => {
+    // One test walks purchase, the window picker, "Ran out" and Complete, so it
+    // needs more than the 30s default on a cold dev server (HON-1399 ran out of
+    // it in teardown).
+    test.setTimeout(90_000)
     const { email, password } = smokeFixture()
 
     // Pre-grant cookie consent so the bottom-fixed CookieBanner never
