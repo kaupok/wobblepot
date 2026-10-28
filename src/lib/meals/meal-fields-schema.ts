@@ -21,3 +21,12 @@ export const mealFieldsSchema = z.object({
   suitableFor: z.array(z.enum(['breakfast', 'lunch', 'dinner'])).min(1),
   servings: z.number().int().positive().max(50),
 })
+
+/**
+ * A household's chosen main protein (HON-1386): any protein type but `none`,
+ * or null for automatic. Whether the recipe carries it is the lib's check
+ * (`proteinTypeNotInRecipe`), because it needs the ingredients.
+ */
+export const proteinTypeOverrideSchema = z
+  .enum(['poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'legume', 'dairy'])
+  .nullable()

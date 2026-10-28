@@ -47,3 +47,48 @@ export function deriveProteinType(components: ComponentForProtein[]): ProteinTyp
 
   return primaryType
 }
+
+/**
+ * Whether a household's chosen main protein (HON-1386) still fits the
+ * recipe: it is not `none`, and a non-vague component's ingredient carries
+ * it. Vague components are skipped, as in `deriveProteinType`, so a pinch of
+ * an ingredient cannot hold the label up.
+ */
+export function isProteinOverrideValid(
+  components: ComponentForProtein[],
+  override: ProteinType,
+): boolean {
+  return (
+    override !== 'none' &&
+    components.some((comp) => !comp.isVague && comp.ingredient.proteinType === override)
+  )
+}
+
+/**
+ * The protein fields a write stores. A valid override wins; an invalid one is
+ * dropped, so the override never outlives its ingredient, and the derived
+ * value takes over. Every household-recipe write path calls this.
+ */
+export function resolveProteinType(
+  components: ComponentForProtein[],
+  override: ProteinType | null,
+): { primaryProteinType: ProteinType; proteinTypeOverride: ProteinType | null } {
+  if (override && isProteinOverrideValid(components, override)) {
+    return { primaryProteinType: override, proteinTypeOverride: override }
+  }
+  return { primaryProteinType: deriveProteinType(components), proteinTypeOverride: null }
+}
+
+/**
+ * The distinct protein types of a recipe's non-vague components, in the order
+ * they first appear. The recipe form offers the main-protein choice when
+ * there are two or more.
+ */
+export function distinctProteinTypes(components: ComponentForProtein[]): ProteinType[] {
+  const types = new Set<ProteinType>()
+  for (const comp of components) {
+    const { proteinType } = comp.ingredient
+    if (proteinType && proteinType !== 'none' && !comp.isVague) types.add(proteinType)
+  }
+  return [...types]
+}

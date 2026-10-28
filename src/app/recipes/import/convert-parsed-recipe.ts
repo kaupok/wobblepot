@@ -1,4 +1,4 @@
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 
 // Types for the parsed recipe response from the API
@@ -8,6 +8,10 @@ interface IngredientAlternative {
   category: IngredientCategory
   defaultUnit: Unit
   measuredByVolume?: boolean
+  /** Copied onto the row when picked, for the "Main protein" choice (HON-1386). */
+  gramsPerPiece?: number | null
+  protein?: number
+  proteinType?: ProteinType | null
   similarity: number
 }
 
@@ -28,6 +32,7 @@ interface MatchedIngredient {
     protein?: number
     carbs?: number
     fat?: number
+    proteinType?: ProteinType | null
   }
   convertedQuantity: number
   isVague: boolean
@@ -102,6 +107,7 @@ export function convertToPrefilledData(recipe: ParsedRecipeData): {
           protein: ingredient.ingredient.protein,
           carbs: ingredient.ingredient.carbs,
           fat: ingredient.ingredient.fat,
+          proteinType: ingredient.ingredient.proteinType,
         },
         convertedQuantity: ingredient.convertedQuantity,
         isVague: ingredient.isVague,
@@ -127,6 +133,7 @@ export function convertToPrefilledData(recipe: ParsedRecipeData): {
         protein: ingredient.ingredient.protein,
         carbs: ingredient.ingredient.carbs,
         fat: ingredient.ingredient.fat,
+        proteinType: ingredient.ingredient.proteinType,
       },
       convertedQuantity: ingredient.convertedQuantity,
       isVague: ingredient.isVague,

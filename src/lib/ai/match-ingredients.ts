@@ -1,4 +1,4 @@
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import {
   getVagueDefault,
   checkGuardrail,
@@ -45,6 +45,7 @@ export interface MatchedIngredient {
     protein: number
     carbs: number
     fat: number
+    proteinType: ProteinType | null
   }
   /** Quantity converted to the ingredient's default unit */
   convertedQuantity: number
@@ -70,6 +71,10 @@ export interface MatchedIngredient {
     category: IngredientCategory
     defaultUnit: Unit
     measuredByVolume: boolean
+    /** A picked alternative feeds the form's "Main protein" choice (HON-1386). */
+    gramsPerPiece: number | null
+    protein: number
+    proteinType: ProteinType | null
     similarity: number
   }>
 }
@@ -271,6 +276,9 @@ export async function matchIngredients(
             category: m.category,
             defaultUnit: m.defaultUnit,
             measuredByVolume: m.measuredByVolume,
+            gramsPerPiece: m.gramsPerPiece,
+            protein: m.protein,
+            proteinType: m.proteinType,
             similarity: m.similarity,
           }))
         : undefined
@@ -346,6 +354,7 @@ export async function matchIngredients(
           protein: match.protein,
           carbs: match.carbs,
           fat: match.fat,
+          proteinType: match.proteinType,
         },
         convertedQuantity,
         quantityWarning,

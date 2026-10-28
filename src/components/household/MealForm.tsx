@@ -56,6 +56,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     setSourceUrl,
     kidFriendly,
     setKidFriendly,
+    mainProtein,
     suitableFor,
     handleMealTypeToggle,
     servings,
@@ -262,6 +263,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
           onTimeMinutesChange={setTimeMinutes}
           kidFriendly={kidFriendly}
           onKidFriendlyChange={setKidFriendly}
+          mainProtein={mainProtein}
           disabled={isSubmitting}
         />
 

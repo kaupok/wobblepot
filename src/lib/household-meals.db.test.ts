@@ -2,12 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import type { Allergen, ProteinType } from '@/generated/prisma/enums'
+import { getHouseholdMeal, listHouseholdMeals } from '@/lib/household-meals-read'
 import {
   createHouseholdMeal,
   deleteHouseholdMeal,
-  getHouseholdMeal,
   HouseholdMealError,
-  listHouseholdMeals,
   updateHouseholdMeal,
   type HouseholdMealCreateInput,
   type HouseholdMealPatch,
@@ -393,6 +392,7 @@ describe('getHouseholdMeal', () => {
       protein: 31,
       carbs: 10,
       fat: 5,
+      proteinType: 'poultry',
     })
   })
 

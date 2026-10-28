@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 
 /**
@@ -22,6 +22,7 @@ export type FuzzyIngredientMatch = {
   protein: number
   carbs: number
   fat: number
+  proteinType: ProteinType | null
   similarity: number
   source: IngredientMatchSource
   /**
@@ -113,6 +114,7 @@ export async function fuzzySearchIngredient(
         protein,
         carbs,
         fat,
+        "proteinType",
         GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) AS similarity,
         'global'::text AS source,
         name AS "matchedName"
@@ -134,6 +136,7 @@ export async function fuzzySearchIngredient(
         protein,
         carbs,
         fat,
+        "proteinType",
         GREATEST(similarity(name, ${searchName}), similarity(name, ${pluralName})) AS similarity,
         'household'::text AS source,
         name AS "matchedName"
@@ -155,6 +158,7 @@ export async function fuzzySearchIngredient(
         i.protein,
         i.carbs,
         i.fat,
+        i."proteinType",
         GREATEST(similarity(t.name, ${searchName}), similarity(t.name, ${pluralName})) AS similarity,
         'translation'::text AS source,
         t.name AS "matchedName"

@@ -14,7 +14,7 @@ import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 
 // Defined by the search hook that produces it; re-exported here so recipe-row
 // callers keep a single import for the row's types.
@@ -26,6 +26,10 @@ export interface IngredientAlternative {
   category: IngredientCategory
   defaultUnit: Unit
   measuredByVolume?: boolean
+  /** Copied onto the row when picked, for the "Main protein" choice (HON-1386). */
+  gramsPerPiece?: number | null
+  protein?: number
+  proteinType?: ProteinType | null
   similarity: number
 }
 

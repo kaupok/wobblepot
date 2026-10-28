@@ -1,61 +1,28 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import { HouseholdMealError } from '@/lib/household-meal-error'
 import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
+  findComponentIngredients,
+  type HouseholdMealComponentInput,
+} from '@/lib/household-meal-ingredients'
+import { assertProteinOverride } from '@/lib/household-meal-protein'
+import { INGREDIENT_NUTRITION_SELECT, summarise } from '@/lib/household-meals-read'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
-import { presentMealImage } from '@/lib/meal-images/present'
 import { gramsOf } from '@/lib/meal-images/prompt'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { deriveProteinType } from '@/lib/meal-planning/protein'
-import type { Locale } from '@/lib/i18n/locales'
+import { resolveProteinType } from '@/lib/meal-planning/protein'
+
+export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meal-error'
+export type { HouseholdMealComponentInput } from '@/lib/household-meal-ingredients'
 
 /**
- * A household's own recipes, behind `GET` and `POST
- * /api/households/me/meals`, `GET`, `PATCH` and `DELETE
- * /api/households/me/meals/[id]` (HON-1210), and the `/recipes` server
- * prefetch. The routes own the session, the membership and body validation;
- * these functions own every query and every rule that acts on rows, and are
- * tested against a database in `household-meals.db.test.ts`.
+ * The writes to a household's own recipes, behind `POST
+ * /api/households/me/meals`, `PATCH` and `DELETE
+ * /api/households/me/meals/[id]` (HON-1210). The reads live in
+ * `household-meals-read.ts`. The routes own the session, the membership and
+ * body validation; these functions own every query and every rule that acts
+ * on rows, and are tested against a database in `household-meals.db.test.ts`.
  */
-
-/**
- * Why a household meal read or write was refused. The routes map each one to
- * its status:
- *
- * - `mealNotFound`: no such meal in this household (404). A library meal and
- *   another household's meal answer this too, and so does a deleted one on
- *   update and delete, and so does one deleted longer ago than the restore
- *   window on restore.
- * - `mealNotDeleted`: a restore names a live recipe (409, HON-1336).
- * - `ingredientsNotFound`: a component names an ingredient that does not
- *   exist or belongs to another household, so its id is not revealed (400,
- *   HON-889). `missingIds` names them.
- */
-export type HouseholdMealRefusal = 'mealNotFound' | 'mealNotDeleted' | 'ingredientsNotFound'
-
-export class HouseholdMealError extends Error {
-  constructor(
-    readonly reason: HouseholdMealRefusal,
-    readonly missingIds: string[] = [],
-  ) {
-    super(`Household meal refused: ${reason}`)
-    this.name = 'HouseholdMealError'
-  }
-}
-
-/** One validated component, as `mealComponentsSchema` outputs it. */
-export interface HouseholdMealComponentInput {
-  ingredientId: string
-  /** The recipe's total, in the ingredient's default unit; 0 for a vague row. */
-  totalQuantity: number
-  isVague?: boolean
-  originalPhrase?: string | null
-}
 
 /** The validated body of a create. */
 export interface HouseholdMealCreateInput {
@@ -68,6 +35,8 @@ export interface HouseholdMealCreateInput {
   suitableFor: MealType[]
   servings: number
   components: HouseholdMealComponentInput[]
+  /** The household's chosen main protein (HON-1386); absent or null is automatic. */
+  proteinTypeOverride?: ProteinType | null
 }
 
 /** The validated body of an update. A key that is present but null clears the field. */
@@ -81,229 +50,8 @@ export interface HouseholdMealPatch {
   suitableFor?: MealType[]
   servings?: number
   components?: HouseholdMealComponentInput[]
-}
-
-export interface ListHouseholdMealsOptions {
-  householdId: string
-  /** Resolved household locale (`resolveHouseholdLocale`). */
-  locale: Locale
-  search?: string | null
-  cursor?: string | null
-  limit?: number
-  includeDeleted?: boolean
-}
-
-export const HOUSEHOLD_MEALS_DEFAULT_LIMIT = 30
-
-/**
- * One page of a household's recipe library, newest first, keyset-paginated by
- * meal id. Shared by `GET /api/households/me/meals` and the `/recipes` server
- * prefetch (HON-770), so the page the server hydrates is the page the client
- * would have fetched.
- */
-export async function listHouseholdMeals({
-  householdId,
-  locale,
-  search = null,
-  cursor = null,
-  limit = HOUSEHOLD_MEALS_DEFAULT_LIMIT,
-  includeDeleted = false,
-}: ListHouseholdMealsOptions) {
-  const baseQuery = {
-    where: {
-      householdId,
-      ...(includeDeleted ? {} : { deletedAt: null }),
-      ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      sourceUrl: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      servings: true,
-      imageUrl: true,
-      imageStatus: true,
-      imageHue: true,
-      imagePromptVersion: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          isVague: true,
-          originalPhrase: true,
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              defaultUnit: true,
-              measuredByVolume: true,
-              pieceDisplay: true,
-              gramsPerPiece: true,
-              calories: true,
-              protein: true,
-              carbs: true,
-              fat: true,
-              allergens: true,
-              proteinType: true,
-              ...ingredientTranslationsInclude(locale),
-            },
-          },
-        },
-      },
-      favoritedBy: {
-        where: { householdId },
-        select: { id: true },
-      },
-      ...mealTranslationsInclude(locale),
-    },
-    orderBy: [{ updatedAt: 'desc' as const }, { id: 'desc' as const }],
-    take: limit + 1,
-  }
-
-  // Prisma 7 answers an unknown cursor with no rows, so the page is empty and
-  // `nextCursor` is `null`; the client ends the list (HON-1232).
-  const meals = await prisma.meal.findMany({
-    ...baseQuery,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-  })
-
-  const hasNext = meals.length > limit
-  const pageMeals = hasNext ? meals.slice(0, limit) : meals
-  const nextCursor = hasNext ? (pageMeals.at(-1)?.id ?? null) : null
-
-  const mealsWithNutrition = pageMeals.map((meal) => {
-    const nutrition = computeMealNutrition(meal.components)
-
-    const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-    const translatedMeal = translateMeal(meal, locale)
-
-    return {
-      id: translatedMeal.id,
-      name: translatedMeal.name,
-      description: translatedMeal.description,
-      preparationNotes: translatedMeal.preparationNotes,
-      sourceUrl: meal.sourceUrl,
-      timeMinutes: translatedMeal.timeMinutes,
-      kidFriendly: translatedMeal.kidFriendly,
-      primaryProteinType: translatedMeal.primaryProteinType,
-      suitableFor: translatedMeal.suitableFor,
-      servings: meal.servings,
-      isCustom: true,
-      isFavorite: meal.favoritedBy.length > 0,
-      ...presentMealImage(meal),
-      deletedAt: meal.deletedAt,
-      createdAt: meal.createdAt,
-      updatedAt: meal.updatedAt,
-      components: meal.components.map((comp) => {
-        const translatedIngredient = translateIngredient(comp.ingredient, locale)
-        return {
-          ingredientId: comp.ingredientId,
-          quantityPerServing: comp.quantityPerServing,
-          isVague: comp.isVague,
-          originalPhrase: comp.originalPhrase,
-          ingredient: {
-            id: translatedIngredient.id,
-            name: translatedIngredient.name,
-            category: translatedIngredient.category,
-            defaultUnit: translatedIngredient.defaultUnit,
-            measuredByVolume: translatedIngredient.measuredByVolume,
-            pieceDisplay: translatedIngredient.pieceDisplay,
-            gramsPerPiece: translatedIngredient.gramsPerPiece,
-          },
-        }
-      }),
-      nutrition: {
-        calories: Math.round(nutrition.calories),
-        protein: Math.round(nutrition.protein),
-        carbs: Math.round(nutrition.carbs),
-        fat: Math.round(nutrition.fat),
-      },
-      allergens,
-    }
-  })
-
-  return { meals: mealsWithNutrition, nextCursor }
-}
-
-const INGREDIENT_NUTRITION_SELECT = {
-  id: true,
-  name: true,
-  category: true,
-  defaultUnit: true,
-  measuredByVolume: true,
-  pieceDisplay: true,
-  gramsPerPiece: true,
-  calories: true,
-  protein: true,
-  carbs: true,
-  fat: true,
-  allergens: true,
-} as const
-
-/** Rounded macros and the deduplicated allergens of a meal's components. */
-function summarise(
-  components: (Parameters<typeof computeMealNutrition>[0][number] & {
-    ingredient: { allergens: Allergen[] }
-  })[],
-) {
-  const nutrition = computeMealNutrition(components)
-  return {
-    nutrition: {
-      calories: Math.round(nutrition.calories),
-      protein: Math.round(nutrition.protein),
-      carbs: Math.round(nutrition.carbs),
-      fat: Math.round(nutrition.fat),
-    },
-    allergens: [...new Set(components.flatMap((comp) => comp.ingredient.allergens))],
-  }
-}
-
-/**
- * The components' ingredients, if every one is global or the household's own.
- * Another household's ingredient reads as not found, so its id is not
- * revealed (HON-889). Repeated ids were already rejected by
- * `mealComponentsSchema`.
- */
-async function findComponentIngredients(
-  householdId: string,
-  components: HouseholdMealComponentInput[],
-) {
-  const ingredientIds = components.map((c) => c.ingredientId)
-  const ingredients = await prisma.ingredient.findMany({
-    where: {
-      id: { in: ingredientIds },
-      OR: [{ householdId: null }, { householdId }],
-    },
-    select: {
-      id: true,
-      proteinType: true,
-      protein: true,
-      // For the image ranking in `updateHouseholdMeal`, which orders by grams
-      // as the prompt does.
-      defaultUnit: true,
-      gramsPerPiece: true,
-      densityGPerMl: true,
-    },
-  })
-
-  if (ingredients.length !== ingredientIds.length) {
-    const foundIds = new Set(ingredients.map((i) => i.id))
-    throw new HouseholdMealError(
-      'ingredientsNotFound',
-      ingredientIds.filter((id) => !foundIds.has(id)),
-    )
-  }
-
-  return new Map(ingredients.map((i) => [i.id, i]))
+  /** Absent keeps the stored choice, null clears it, a value sets it. */
+  proteinTypeOverride?: ProteinType | null
 }
 
 /**
@@ -320,7 +68,7 @@ export async function findOwnMealByName(householdId: string, name: string) {
 
 /**
  * Store a new recipe for the household, with each component's total divided
- * by `servings` and the primary protein derived from the ingredients. It
+ * by `servings` and the primary protein by `resolveProteinType`. It
  * writes no translation rows: a household's recipe is stored in the language
  * it was typed in.
  */
@@ -328,12 +76,13 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
   const { components, servings } = input
   const ingredientMap = await findComponentIngredients(householdId, components)
 
-  const primaryProteinType = deriveProteinType(
-    components.map((c) => ({
-      quantityPerServing: c.totalQuantity / servings,
-      ingredient: ingredientMap.get(c.ingredientId)!,
-    })),
-  )
+  const proteinComponents = components.map((c) => ({
+    quantityPerServing: c.totalQuantity / servings,
+    isVague: c.isVague,
+    ingredient: ingredientMap.get(c.ingredientId)!,
+  }))
+  const override = input.proteinTypeOverride ?? null
+  assertProteinOverride(proteinComponents, override)
 
   const meal = await prisma.meal.create({
     data: {
@@ -345,7 +94,7 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
       kidFriendly: input.kidFriendly,
       suitableFor: input.suitableFor,
       servings,
-      primaryProteinType,
+      ...resolveProteinType(proteinComponents, override),
       householdId,
       components: {
         create: components.map((c) => ({
@@ -415,93 +164,6 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
   }
 }
 
-/**
- * One of the household's recipes in the household's locale, with its
- * nutrition and allergens. A deleted recipe is still returned, with its
- * `deletedAt`, so a past plan entry can open it.
- */
-export async function getHouseholdMeal(householdId: string, mealId: string, locale: Locale) {
-  const meal = await prisma.meal.findFirst({
-    where: { id: mealId, householdId },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      sourceUrl: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      servings: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          isVague: true,
-          originalPhrase: true,
-          ingredient: {
-            select: { ...INGREDIENT_NUTRITION_SELECT, ...ingredientTranslationsInclude(locale) },
-          },
-        },
-      },
-      favoritedBy: {
-        where: { householdId },
-        select: { id: true },
-      },
-      ...mealTranslationsInclude(locale),
-    },
-  })
-
-  if (!meal) throw new HouseholdMealError('mealNotFound')
-
-  const translatedMeal = translateMeal(meal, locale)
-
-  return {
-    id: translatedMeal.id,
-    name: translatedMeal.name,
-    description: translatedMeal.description,
-    preparationNotes: translatedMeal.preparationNotes,
-    sourceUrl: meal.sourceUrl,
-    timeMinutes: translatedMeal.timeMinutes,
-    kidFriendly: translatedMeal.kidFriendly,
-    primaryProteinType: translatedMeal.primaryProteinType,
-    suitableFor: translatedMeal.suitableFor,
-    servings: meal.servings,
-    isCustom: true,
-    isFavorite: meal.favoritedBy.length > 0,
-    deletedAt: meal.deletedAt,
-    createdAt: meal.createdAt,
-    updatedAt: meal.updatedAt,
-    components: meal.components.map((comp) => {
-      const translatedIngredient = translateIngredient(comp.ingredient, locale)
-      return {
-        ingredientId: comp.ingredientId,
-        quantityPerServing: comp.quantityPerServing,
-        isVague: comp.isVague,
-        originalPhrase: comp.originalPhrase,
-        ingredient: {
-          id: translatedIngredient.id,
-          name: translatedIngredient.name,
-          category: translatedIngredient.category,
-          defaultUnit: translatedIngredient.defaultUnit,
-          measuredByVolume: translatedIngredient.measuredByVolume,
-          pieceDisplay: translatedIngredient.pieceDisplay,
-          gramsPerPiece: translatedIngredient.gramsPerPiece,
-          calories: comp.ingredient.calories,
-          protein: comp.ingredient.protein,
-          carbs: comp.ingredient.carbs,
-          fat: comp.ingredient.fat,
-        },
-      }
-    }),
-    ...summarise(meal.components),
-  }
-}
-
 /** Ingredient ids, largest amount first; ties broken by id so the key is stable. */
 function rankIngredients(rows: { id: string; amount: number }[]): string {
   return [...rows]
@@ -551,11 +213,26 @@ export async function updateHouseholdMeal(
     suitableFor,
     servings,
     components,
+    proteinTypeOverride,
   } = patch
 
   // This half only reads the ingredient table, so it stays out of the write
   // transaction below — a refusal here must not open one.
   const ingredientMap = components ? await findComponentIngredients(householdId, components) : null
+
+  // A chosen main protein sent with components is checked against them
+  // before any write (HON-1386); it resolves in the transaction below. One
+  // sent alone is checked there, against the components read under the lock.
+  if (components && ingredientMap) {
+    assertProteinOverride(
+      components.map((c) => ({
+        quantityPerServing: c.totalQuantity,
+        isVague: c.isVague,
+        ingredient: ingredientMap.get(c.ingredientId)!,
+      })),
+      proteinTypeOverride,
+    )
+  }
 
   // Build update data
   const updateData: {
@@ -568,6 +245,7 @@ export async function updateHouseholdMeal(
     suitableFor?: MealType[]
     servings?: number
     primaryProteinType?: ProteinType
+    proteinTypeOverride?: ProteinType | null
   } = {}
 
   if (name !== undefined) updateData.name = name
@@ -608,8 +286,11 @@ export async function updateHouseholdMeal(
     // servings-only rescale would then overwrite a concurrent components
     // edit with rows computed from the stale read, or `update` a row the
     // other request just deleted. Lock the meal row first so every request
-    // that reads-then-writes the components queues behind the last one.
-    const readsComponents = components !== undefined || servings !== undefined
+    // that reads-then-writes the components queues behind the last one. A
+    // main-protein choice sent alone reads them too: checked against an
+    // unlocked read, a concurrent edit could drop its ingredient first.
+    const readsComponents =
+      components !== undefined || servings !== undefined || proteinTypeOverride !== undefined
     if (readsComponents) {
       await tx.$queryRaw`SELECT 1 FROM "meal" WHERE "id" = ${id} FOR UPDATE`
     }
@@ -619,10 +300,32 @@ export async function updateHouseholdMeal(
           where: { id },
           select: {
             servings: true,
-            components: { select: { ingredientId: true, quantityPerServing: true } },
+            proteinTypeOverride: true,
+            components: {
+              select: {
+                ingredientId: true,
+                quantityPerServing: true,
+                isVague: true,
+                ingredient: {
+                  select: {
+                    proteinType: true,
+                    protein: true,
+                    defaultUnit: true,
+                    gramsPerPiece: true,
+                  },
+                },
+              },
+            },
           },
         })
       : null
+
+    // A choice sent without components resolves over the stored ones. A
+    // refusal here rolls the transaction back, so nothing is written.
+    if (!components && proteinTypeOverride !== undefined && current) {
+      assertProteinOverride(current.components, proteinTypeOverride)
+      Object.assign(updateData, resolveProteinType(current.components, proteinTypeOverride))
+    }
 
     // A bare `servings` edit keeps the recipe's total, not its per-serving
     // amounts: every reader — the edit form, the shopping list, the imagine
@@ -645,12 +348,20 @@ export async function updateHouseholdMeal(
     if (components && current && ingredientMap) {
       componentServings = servings ?? current.servings
 
-      // Derive primary protein type from ingredients
+      // New components re-resolve the protein: the sent choice, else the
+      // stored one, which is dropped if its ingredient is gone (HON-1386).
       const componentData = components.map((c) => ({
         quantityPerServing: c.totalQuantity / componentServings,
+        isVague: c.isVague,
         ingredient: ingredientMap.get(c.ingredientId)!,
       }))
-      updateData.primaryProteinType = deriveProteinType(componentData)
+      Object.assign(
+        updateData,
+        resolveProteinType(
+          componentData,
+          proteinTypeOverride === undefined ? current.proteinTypeOverride : proteinTypeOverride,
+        ),
+      )
 
       // The prep-tips prompt renders one line per component from its
       // ingredient and its `quantityPerServing` — the same division applied

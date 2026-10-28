@@ -49,6 +49,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
       suitableFor: data.suitableFor,
       servings: data.servings,
       components: data.components,
+      proteinTypeOverride: data.proteinTypeOverride,
     }),
   })
 

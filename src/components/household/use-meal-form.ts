@@ -15,6 +15,7 @@ import {
   suggestedQuantity,
 } from './meal-form-types'
 import { focusFirstInvalidQuantity } from './ComponentList'
+import { useMainProtein } from './use-main-protein'
 import { prefersReducedMotion } from '@/lib/utils'
 import { ApiError, apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
@@ -152,6 +153,14 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
   const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
+  const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
+  const mainProtein = useMainProtein({
+    initial: meal?.proteinTypeOverride,
+    isImportMode,
+    components,
+    ingredientRows,
+    servingsNum,
+  })
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
 
@@ -377,6 +386,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       // two are fallbacks; any other 400 is Zod detail no user can act on.
       if ('duplicateIds' in err.body) return t('errors.duplicateIngredients')
       if ('missingIds' in err.body) return t('errors.ingredientsMissing')
+      if ('code' in err.body && err.body.code === 'proteinTypeNotInRecipe') {
+        return t('errors.proteinTypeNotInRecipe')
+      }
     }
     return failed
   }
@@ -481,10 +493,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       suitableFor,
       servings: servingsNum,
       components: result.components,
+      proteinTypeOverride: mainProtein.choice,
     })
   }
-
-  const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1
   const totalIngredientCount = isImportMode ? ingredientRows.length : components.length
 
   return {
@@ -507,6 +518,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     setSourceUrl,
     kidFriendly,
     setKidFriendly,
+    mainProtein,
     suitableFor,
     handleMealTypeToggle,
     servings,

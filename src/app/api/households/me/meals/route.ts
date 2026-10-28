@@ -3,21 +3,22 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import {
-  createHouseholdMeal,
-  HOUSEHOLD_MEALS_DEFAULT_LIMIT,
-  HouseholdMealError,
-  listHouseholdMeals,
-} from '@/lib/household-meals'
+import { createHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
+import { HOUSEHOLD_MEALS_DEFAULT_LIMIT, listHouseholdMeals } from '@/lib/household-meals-read'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
-import { mealFieldsSchema } from '@/lib/meals/meal-fields-schema'
+import { mealFieldsSchema, proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
 
 const ROUTE = '/api/households/me/meals'
 
-const createMealSchema = mealFieldsSchema.extend({ components: mealComponentsSchema })
+// `proteinTypeOverride` is the app's only: `create_meal` shares
+// `mealFieldsSchema` and gains it in HON-1387.
+const createMealSchema = mealFieldsSchema.extend({
+  components: mealComponentsSchema,
+  proteinTypeOverride: proteinTypeOverrideSchema.optional(),
+})
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -124,6 +125,12 @@ export async function POST(request: Request) {
     if (error instanceof HouseholdMealError && error.reason === 'ingredientsNotFound') {
       return NextResponse.json(
         { error: 'Some ingredients not found', missingIds: error.missingIds },
+        { status: 400 },
+      )
+    }
+    if (error instanceof HouseholdMealError && error.reason === 'proteinTypeNotInRecipe') {
+      return NextResponse.json(
+        { error: 'No ingredient carries that protein', code: 'proteinTypeNotInRecipe' },
         { status: 400 },
       )
     }

@@ -327,6 +327,44 @@ describe("promoteEntry on the household's own recipe", () => {
     expect(await prisma.meal.count()).toBe(2)
   })
 
+  it('keeps a chosen main protein while its ingredient stays (HON-1386)', async () => {
+    const { alder } = await ownRecipe()
+    // 200 g beans give 18 g protein against 12.5 g from 50 g chicken, so the
+    // recipe derives Legumes; the household chose Poultry.
+    await prisma.ingredient.create({
+      data: {
+        id: 'beans',
+        name: 'beans',
+        category: 'legume',
+        defaultUnit: 'g',
+        calories: 1,
+        protein: 9,
+        carbs: 0,
+        fat: 0,
+        proteinType: 'legume',
+      },
+    })
+    await prisma.mealComponent.createMany({
+      data: [
+        { mealId: 'meal-own', ingredientId: 'chicken', quantityPerServing: 50 },
+        { mealId: 'meal-own', ingredientId: 'beans', quantityPerServing: 200 },
+      ],
+    })
+    await prisma.meal.update({
+      where: { id: 'meal-own' },
+      data: { primaryProteinType: 'poultry', proteinTypeOverride: 'poultry' },
+    })
+
+    await promoteEntry(alder.id, 'plan-alder', 'entry-mon', { name: 'ignored' })
+
+    expect(
+      await prisma.meal.findUniqueOrThrow({
+        where: { id: 'meal-own' },
+        select: { primaryProteinType: true, proteinTypeOverride: true },
+      }),
+    ).toEqual({ primaryProteinType: 'poultry', proteinTypeOverride: 'poultry' })
+  })
+
   it('refuses when a change is undone after the read, and leaves the recipe as it was', async () => {
     const { alder } = await ownRecipe()
     // Another member taps Undo on the chili between the read and the write.

@@ -42,15 +42,20 @@ vi.mock('@/lib/errors', () => ({
 
 vi.mock('@/lib/household-meals', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/household-meals')>()),
-  listHouseholdMeals: vi.fn(),
   createHouseholdMeal: vi.fn(),
+}))
+
+vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-meals-read')>()),
+  listHouseholdMeals: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { createHouseholdMeal, HouseholdMealError, listHouseholdMeals } from '@/lib/household-meals'
+import { createHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
+import { listHouseholdMeals } from '@/lib/household-meals-read'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)
@@ -353,6 +358,38 @@ describe('POST /api/households/me/meals', () => {
     expect(await response.json()).toEqual({
       error: 'Some ingredients not found',
       missingIds: ['ing-2', 'ing-other-household'],
+    })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('passes a chosen main protein to the lib', async () => {
+    mockCreate.mockResolvedValue({ id: 'meal-new' } as never)
+
+    await post({ ...validBody, proteinTypeOverride: 'beef' })
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      'household-123',
+      expect.objectContaining({ proteinTypeOverride: 'beef' }),
+    )
+  })
+
+  it('rejects none as a chosen main protein', async () => {
+    const response = await post({ ...validBody, proteinTypeOverride: 'none' })
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).details.proteinTypeOverride).toHaveLength(1)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 with a code when no ingredient carries the chosen protein', async () => {
+    mockCreate.mockRejectedValue(new HouseholdMealError('proteinTypeNotInRecipe'))
+
+    const response = await post({ ...validBody, proteinTypeOverride: 'fish' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'No ingredient carries that protein',
+      code: 'proteinTypeNotInRecipe',
     })
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })

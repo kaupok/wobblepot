@@ -120,7 +120,13 @@ describe('matchIngredients', () => {
   it('marks low confidence matches with alternatives', async () => {
     const lowConfidenceMatches = [
       makeDbMatch({ similarity: 0.55, name: 'chicken breast' }),
-      makeDbMatch({ id: 'ing-2', similarity: 0.52, name: 'chicken thigh' }),
+      makeDbMatch({
+        id: 'ing-2',
+        similarity: 0.52,
+        name: 'chicken thigh',
+        protein: 24,
+        proteinType: 'poultry',
+      }),
       makeDbMatch({ id: 'ing-3', similarity: 0.51, name: 'chicken wing' }),
     ]
     mockQueryRaw.mockResolvedValue(lowConfidenceMatches)
@@ -131,11 +137,16 @@ describe('matchIngredients', () => {
     const matched = results[0] as {
       type: 'matched'
       lowConfidence: boolean
-      alternatives: unknown[]
+      alternatives: { id: string; protein: number; proteinType: string | null }[]
     }
     expect(matched.type).toBe('matched')
     expect(matched.lowConfidence).toBe(true)
     expect(matched.alternatives).toHaveLength(3)
+    // A picked alternative feeds the form's "Main protein" choice (HON-1386).
+    expect(matched.alternatives.find((alt) => alt.id === 'ing-2')).toMatchObject({
+      protein: 24,
+      proteinType: 'poultry',
+    })
   })
 
   it('treats very low confidence matches as unmatched', async () => {
