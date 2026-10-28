@@ -128,21 +128,21 @@ describe('ImagineClient focus and announcements (HON-1366)', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
-  it('keeps focus on the pressed Select while fine-tuning, then moves it into the dialog', async () => {
+  it('keeps focus on the pressed "Review and save" while the recipe gets ready, then moves it into the dialog', async () => {
     saveImagineSession({ prompt: 'something with lentils', meals: ideas })
     const respond = deferFetch()
     const user = userEvent.setup()
     renderInLocale(<ImagineClient />, 'en')
 
     await screen.findByRole('heading', { name: 'Lentil soup' })
-    const [first, second, third] = screen.getAllByRole('button', { name: 'Select' }) as [
+    const [first, second, third] = screen.getAllByRole('button', { name: 'Review and save' }) as [
       HTMLElement,
       HTMLElement,
       HTMLElement,
     ]
     await user.click(second)
 
-    expect(second).toHaveAccessibleName('Fine-tuning recipe…')
+    expect(second).toHaveAccessibleName('Getting the recipe ready…')
     expect(second).toHaveFocus()
     for (const button of [first, second, third]) expectBusy(button)
 

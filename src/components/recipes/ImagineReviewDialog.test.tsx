@@ -3,11 +3,9 @@ vi.unmock('next-intl')
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { ImagineReviewDialog, computeReviewNutrition } from './ImagineReviewDialog'
+import { ImagineReviewDialog } from './ImagineReviewDialog'
 import { buildMeal, renderInLocale } from './ImagineReviewDialog.fixtures'
-import type { IngredientRowData } from './IngredientRow'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
-import { DEFAULT_GRAMS_PER_PIECE } from '@/lib/ai/recipe-quantities'
 
 describe('ImagineReviewDialog locale formatting', () => {
   describe('macros', () => {
@@ -413,115 +411,9 @@ describe('ImagineReviewDialog ingredient cap', () => {
   })
 })
 
-// HON-721: the macro line is derived from the live rows, through the same
-// `computeMealNutrition` the save endpoint uses, instead of the imagine
-// response's `nutrition` — which predates the AI quantity review and never
-// sees a row edit or removal.
-describe('computeReviewNutrition', () => {
-  const grams = (overrides: Partial<Extract<IngredientRowData, { type: 'matched' }>> = {}) =>
-    ({
-      type: 'matched',
-      ingredient: {
-        id: 'rice',
-        name: 'Rice',
-        category: 'carb',
-        defaultUnit: 'g',
-        gramsPerPiece: null,
-        calories: 350,
-        protein: 7,
-        carbs: 78,
-        fat: 1,
-      },
-      totalQuantity: 400,
-      ...overrides,
-    }) satisfies IngredientRowData
-
-  const eggs: IngredientRowData = {
-    type: 'matched',
-    ingredient: {
-      id: 'egg',
-      name: 'Egg',
-      category: 'protein',
-      defaultUnit: 'piece',
-      gramsPerPiece: 55,
-      calories: 155,
-      protein: 13,
-      carbs: 1,
-      fat: 11,
-    },
-    totalQuantity: 8,
-  }
-
-  it('divides by servings and scales per-100g macros for gram rows', () => {
-    // 400 g / 4 servings = 100 g per serving.
-    expect(computeReviewNutrition([grams()], 4)).toEqual({
-      calories: 350,
-      protein: 7,
-      carbs: 78,
-      fat: 1,
-    })
-  })
-
-  it('converts piece rows through gramsPerPiece, as the save endpoint does', () => {
-    // 8 eggs / 4 servings = 2 eggs × 55 g = 110 g per serving.
-    expect(computeReviewNutrition([eggs], 4)?.calories).toBeCloseTo(170.5)
-  })
-
-  it('falls back to the default piece weight when gramsPerPiece is missing', () => {
-    const row = {
-      ...eggs,
-      ingredient: { ...eggs.ingredient, gramsPerPiece: null },
-    } as IngredientRowData
-    expect(computeReviewNutrition([row], 4)?.calories).toBeCloseTo(
-      (2 * DEFAULT_GRAMS_PER_PIECE * 155) / 100,
-    )
-  })
-
-  const unmatched: IngredientRowData = {
-    type: 'unmatched',
-    extractedName: 'yuzu',
-    originalText: '1 yuzu',
-    extractedQuantity: 1,
-    extractedUnit: '',
-  }
-
-  it('counts low-confidence rows and skips vague ones, matched or not', () => {
-    const rows: IngredientRowData[] = [
-      grams(),
-      { ...grams(), type: 'low-confidence', extractedName: 'rice', alternatives: [] },
-      grams({ isVague: true, originalPhrase: 'to taste' }),
-      { ...unmatched, extractedName: 'salt', isVague: true, originalPhrase: 'to taste' },
-    ]
-    expect(computeReviewNutrition(rows, 4)?.calories).toBe(700)
-  })
-
-  it('returns null rather than a partial total while a row is still unmatched', () => {
-    expect(computeReviewNutrition([grams(), unmatched], 4)).toBeNull()
-  })
-
-  it('returns null rather than a partial total when a counted row has no macros', () => {
-    // A row picked from the low-confidence alternatives carries no macros.
-    const bare = grams({
-      ingredient: { id: 'miso', name: 'Miso', category: 'condiment', defaultUnit: 'g' },
-    })
-    expect(computeReviewNutrition([grams(), bare], 4)).toBeNull()
-  })
-
-  it('ignores missing macros on a vague row, which contributes nothing anyway', () => {
-    const bareVague = grams({
-      ingredient: { id: 'salt', name: 'Salt', category: 'condiment', defaultUnit: 'g' },
-      isVague: true,
-    })
-    expect(computeReviewNutrition([grams(), bareVague], 4)?.calories).toBe(350)
-  })
-
-  it('returns null when there is nothing to sum', () => {
-    expect(computeReviewNutrition([], 4)).toBeNull()
-    expect(computeReviewNutrition([grams({ isVague: true })], 4)).toBeNull()
-  })
-})
-
-describe('ImagineReviewDialog macro line', () => {
+// HON-721 derives the numbers from the live rows; HON-1367 shows them as the
+// `NutritionSummary` every other meal view uses, not a one-line string.
+describe('ImagineReviewDialog nutrition summary', () => {
   const [chicken] = buildMeal().prefilledIngredients as [PrefilledIngredient]
   // 30 g of miso across 4 servings at 200 kcal/100g → 15 kcal per serving.
   const miso: PrefilledIngredient = {
@@ -573,10 +465,19 @@ describe('ImagineReviewDialog macro line', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   }
 
+  const legend = (macro: string) =>
+    document.querySelector(`[data-macro="${macro}"]`)?.textContent ?? null
+
   it('reflects the quantities the dialog opens with, i.e. after the AI review', () => {
     // 600 g / 4 = 150 g of chicken at 200 kcal, 25 g protein, 10 g fat per 100g.
     renderMeal([chicken])
-    expect(screen.getByText('300 kcal · 38g protein · 0g carbs · 15g fat')).toBeInTheDocument()
+    expect(screen.getByText('300 kcal')).toBeInTheDocument()
+    expect(screen.getByText('per serving')).toBeInTheDocument()
+    expect(legend('protein')).toBe('38gProtein')
+    expect(legend('carbs')).toBe('0gCarbs')
+    expect(legend('fat')).toBe('15gFat')
+    expect(screen.getByText(enMessages.common.nutritionDisclaimer)).toBeInTheDocument()
+    expect(screen.queryByText(/kcal · /)).not.toBeInTheDocument()
   })
 
   it('recomputes after a row quantity edit', () => {
@@ -597,7 +498,7 @@ describe('ImagineReviewDialog macro line', () => {
     expect(screen.getByText(/^300 kcal/)).toBeInTheDocument()
   })
 
-  it('hides the line while a row is unmatched and shows it once the row is dropped', () => {
+  it('hides the summary while a row is unmatched and shows it once the row is dropped', () => {
     renderMeal([
       chicken,
       {
@@ -617,9 +518,30 @@ describe('ImagineReviewDialog macro line', () => {
     expect(screen.getByText(/^300 kcal/)).toBeInTheDocument()
   })
 
-  it('hides the line instead of rendering zeros when the ingredients carry no macros', () => {
+  it('hides the summary instead of rendering zeros when the ingredients carry no macros', () => {
     const { calories: _c, protein: _p, carbs: _cb, fat: _f, ...bare } = chicken.ingredient!
     renderMeal([{ ...chicken, ingredient: bare }])
     expect(screen.queryByText(/kcal/)).not.toBeInTheDocument()
+    expect(screen.queryByText(enMessages.common.nutritionDisclaimer)).not.toBeInTheDocument()
+  })
+})
+
+// Every quantity in the dialog is per serving, so it says how many it makes.
+describe('ImagineReviewDialog servings', () => {
+  it.each([
+    ['en', 4, 'Makes 4 servings'],
+    ['en', 1, 'Makes 1 serving'],
+    ['et', 4, 'Annab 4 portsjonit'],
+  ] as const)('shows the count in %s for %i', (locale, servings, text) => {
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ servings })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      locale,
+    )
+    expect(screen.getByText(text)).toBeInTheDocument()
   })
 })

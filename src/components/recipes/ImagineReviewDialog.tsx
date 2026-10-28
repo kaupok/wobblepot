@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useId, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, ChevronDown, ChevronRight, Clock, Check } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, Clock, Check, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { Badge } from '@/components/ui/badge'
@@ -16,8 +16,11 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
+import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { IngredientRow, type IngredientRowData } from './IngredientRow'
 import type { IngredientResult } from './IngredientRow'
+import { computeReviewNutrition, initIngredientRows } from './imagine-review-nutrition'
 import {
   buildFinalComponents,
   formatAmountWithUnit,
@@ -27,19 +30,11 @@ import type { FinalComponent, PrefilledIngredient } from '@/components/household
 import { ApiError, apiFetch } from '@/lib/api'
 import { savableTimeMinutes } from '@/lib/imagine-utils'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
+import { formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Locale } from '@/lib/i18n/locales'
 import type { MealType } from '@/generated/prisma/enums'
 import { FieldError } from '@/components/FieldError'
-
-interface NutritionData {
-  calories: number
-  protein: number
-  carbs: number
-  fat: number
-}
 
 export interface ReviewMealData {
   name: string
@@ -65,93 +60,6 @@ interface ImagineReviewDialogProps {
    * `event.preventDefault()` and focuses the control that opened it.
    */
   onCloseAutoFocus?: (event: Event) => void
-}
-
-/**
- * Per-serving nutrition for the rows as they currently stand in the dialog.
- *
- * Derived from the live rows rather than the imagine response's `nutrition`,
- * which was computed before the AI quantity review and never sees a row edit or
- * removal (HON-721). Mirrors `POST /api/households/me/meals`, which stores
- * `totalQuantity / servings` and reduces it with the same `computeMealNutrition`,
- * so the line shows what the saved meal will carry — piece units included.
- *
- * Returns `null` when there is nothing to sum, or when the total would be
- * partial: a non-vague unmatched row (no ingredient yet), or a row whose
- * ingredient lacks macros (one picked from the low-confidence alternatives
- * carries none). A partial total reads as trustworthy and is wrong, so the
- * caller hides the line instead. Vague rows add nothing, matched or not.
- */
-export function computeReviewNutrition(
-  rows: IngredientRowData[],
-  servings: number,
-): NutritionData | null {
-  const components = []
-  for (const row of rows) {
-    if (row.isVague) continue
-    if (row.type === 'unmatched') return null
-    const { calories, protein, carbs, fat } = row.ingredient
-    if (calories == null || protein == null || carbs == null || fat == null) return null
-    components.push({
-      quantityPerServing: row.totalQuantity / servings,
-      ingredient: { ...row.ingredient, calories, protein, carbs, fat },
-    })
-  }
-  if (components.length === 0) return null
-  return computeMealNutrition(components)
-}
-
-function initIngredientRows(
-  prefilledIngredients: PrefilledIngredient[],
-  unknownName: string,
-): IngredientRowData[] {
-  const rows = prefilledIngredients.map((prefilled): IngredientRowData => {
-    if (prefilled.type === 'unmatched') {
-      return {
-        type: 'unmatched',
-        extractedName: prefilled.extractedName ?? unknownName,
-        originalText: prefilled.originalText ?? '',
-        extractedQuantity: prefilled.extractedQuantity ?? 0,
-        extractedUnit: prefilled.extractedUnit ?? '',
-        isVague: prefilled.isVague,
-        originalPhrase: prefilled.originalPhrase,
-      }
-    }
-
-    if (prefilled.type === 'low-confidence' && prefilled.ingredient && prefilled.alternatives) {
-      return {
-        type: 'low-confidence',
-        extractedName: prefilled.extractedName ?? prefilled.ingredient.name,
-        originalText: prefilled.originalText,
-        ingredient: prefilled.ingredient,
-        alternatives: prefilled.alternatives,
-        totalQuantity: prefilled.convertedQuantity ?? 100,
-        isVague: prefilled.isVague,
-        originalPhrase: prefilled.originalPhrase,
-      }
-    }
-
-    if (prefilled.ingredient) {
-      return {
-        type: 'matched',
-        ingredient: prefilled.ingredient,
-        totalQuantity: prefilled.convertedQuantity ?? 100,
-        isVague: prefilled.isVague,
-        originalPhrase: prefilled.originalPhrase,
-      }
-    }
-
-    return {
-      type: 'unmatched',
-      extractedName: prefilled.extractedName ?? unknownName,
-      originalText: prefilled.originalText ?? '',
-      extractedQuantity: 0,
-      extractedUnit: '',
-    }
-  })
-
-  const typeOrder = { unmatched: 0, 'low-confidence': 1, matched: 2 }
-  return rows.sort((a, b) => typeOrder[a.type] - typeOrder[b.type])
 }
 
 function toPrefilledIngredients(rows: IngredientRowData[]): PrefilledIngredient[] {
@@ -362,18 +270,6 @@ export function ImagineReviewDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          {/* Macros summary — hidden rather than zeroed when macros are missing */}
-          {nutrition && (
-            <div className="text-muted-foreground text-xs">
-              {t('nutritionLine', {
-                calories: formatInteger(nutrition.calories, locale),
-                protein: formatInteger(nutrition.protein, locale),
-                carbs: formatInteger(nutrition.carbs, locale),
-                fat: formatInteger(nutrition.fat, locale),
-              })}
-            </div>
-          )}
-
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
             {/* The sanitised value, never `null` or `0`, so no stray "0" (HON-711). */}
@@ -383,11 +279,30 @@ export function ImagineReviewDialog({
                 {tDetail('timeMinutes', { count: timeMinutes })}
               </Badge>
             )}
+            {/* Every quantity below is per serving, so say how many it makes. */}
+            <Badge variant="outline">
+              <Users className="size-3.5" />
+              {t('servings', { count: meal.servings })}
+            </Badge>
             {meal.kidFriendly && <KidFriendlyBadge />}
             {meal.mealTypes.map((type) => (
               <MealTypeBadge key={type} type={type} />
             ))}
           </div>
+
+          {/* The same summary as every other meal view; hidden rather than
+              zeroed when macros are missing. */}
+          {nutrition && (
+            <div className="flex flex-col gap-2">
+              <NutritionSummary
+                nutrition={nutrition}
+                components={
+                  ingredientRows.some((row) => row.isVague) ? [{ isVague: true }] : undefined
+                }
+              />
+              <NutritionDisclaimer />
+            </div>
+          )}
 
           {/* Issue rows: unmatched and low-confidence */}
           {hasIssues && (

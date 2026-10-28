@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
 import type { Locale } from '@/lib/i18n/locales'
@@ -159,7 +160,15 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
    */
   const review = useMutation({
     mutationFn: reviewImaginedMeal,
-    onSuccess: (finalMeal) => setReviewMeal(convertToPrefilledData(finalMeal)),
+    onSuccess: (finalMeal, meal) => {
+      // The card takes the dialog's numbers, so the two agree (HON-1367).
+      setImaginedMeals((ideas) =>
+        ideas
+          ? ideas.map((m) => (m.id === meal.id ? withReviewNutrition(m, finalMeal) : m))
+          : ideas,
+      )
+      setReviewMeal(convertToPrefilledData(finalMeal))
+    },
   })
 
   const isImagining = imagine.isPending
