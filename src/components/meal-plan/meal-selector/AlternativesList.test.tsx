@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { misoSalmonAlternative } from '@/stories/fixtures'
 import type { AlternativeMeal } from '../types'
-import { AlternativesList } from './AlternativesList'
+import { AlternativeSkeleton, AlternativesList } from './AlternativesList'
 
 vi.mock('@/hooks/use-meal-image', () => ({
   useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
@@ -98,5 +98,27 @@ describe('AlternativesList cook view', () => {
     expect(screen.getByRole('dialog', { name: 'Pick a dinner' })).toBeInTheDocument()
     expect(onPickerOpenChange).not.toHaveBeenCalled()
     expect(name).toHaveFocus()
+  })
+})
+
+// HON-1352: the cards lost the "Show ingredients" toggle, so their skeleton did too.
+describe('AlternativesList loading', () => {
+  it('draws three cards of three text bars and a Select bar, with no toggle or list bars', () => {
+    const { container } = render(
+      <AlternativesList meals={[]} isLoading householdServings={4} onSelect={vi.fn()} />,
+    )
+
+    const cards = container.querySelectorAll('[data-slot="card"]')
+    expect(cards).toHaveLength(3)
+    for (const card of cards) {
+      expect(within(card as HTMLElement).getAllByRole('status')).toHaveLength(4)
+    }
+    expect(screen.queryByTestId('ingredient-list-skeleton')).toBeNull()
+  })
+
+  it("keeps the ingredient bars for the imagine panel's cards", () => {
+    render(<AlternativeSkeleton ingredients="list" />)
+
+    expect(screen.getByTestId('ingredient-list-skeleton')).toBeInTheDocument()
   })
 })
