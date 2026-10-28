@@ -22,6 +22,14 @@
 #       HARNESS_WT_PATH            the worktree the dirty check and the patch read
 #       HARNESS_LOG_DIR            LOG_DIR, where a patch lands
 #       HARNESS_COMMENT_FAILS      how many commentCreate calls fail first
+#       HARNESS_COMMENT_LANDS      1: a failed commentCreate still lands, as a
+#                                  curl that timed out after Linear took it;
+#                                  the comments query returns what landed,
+#                                  re-marked as an editor might store it
+#       HARNESS_LINEAR_GONE        polls (comma list) on which Linear says the
+#                                  issue does not exist
+#       HARNESS_OLD_ENTRY          1: cut poll 1's linear entry to the fields
+#                                  older code wrote, as a reload hands it on
 #       HARNESS_LABEL_FAILS        how many label writes fail first
 #       HARNESS_LINEAR_DOWN        polls (comma list) whose `{ viewer }` fails
 #       HARNESS_NETWORK_RESPAWNED  seeds NETWORK_RESPAWNED
@@ -42,6 +50,12 @@
 #     The REAL restore_queue_if_in_progress and move_issue_unassigned, with the
 #     Linear API stubbed to answer In Progress, or to fail, per argument. Prints
 #     LINEAR_WRITES_FAILED.
+#
+#   linear-error <message>
+#     The REAL linear_api against a curl that answers a GraphQL error with
+#     <message>, once directly and once inside $(…), as the label and queue
+#     reads call it. Prints GONE:<direct>:<subshell>, each true when
+#     LINEAR_GONE_FLAG exists after the call.
 #
 #   slots
 #     Seeds DEFERRED with one network, one probe and one linear entry and prints
@@ -84,6 +98,18 @@ case "$MODE" in
     echo "SLOTS:$(deferred_slots)"
     DEFERRED=()
     echo "EMPTY:$(deferred_slots)"
+    exit 0
+    ;;
+
+  linear-error)
+    MSG="${ARGS[0]}"
+    curl() { jq -n --arg m "$MSG" '{errors: [{message: $m}]}'; }
+    gone() { if [ -f "$LINEAR_GONE_FLAG" ]; then echo true; else echo false; fi; rm -f "$LINEAR_GONE_FLAG"; }
+    rm -f "$LINEAR_GONE_FLAG"
+    linear_api '{ viewer { id } }' > /dev/null 2>&1 || true
+    direct=$(gone)
+    out=$(linear_api '{ viewer { id } }' 2>/dev/null) || true
+    echo "GONE:$direct:$(gone)"
     exit 0
     ;;
 
@@ -136,15 +162,31 @@ case "$MODE" in
       printf '%s\t%s\t%s\n' "$PR_STATE" "650" "https://github.com/kaupok/wobblepot/pull/650"
     }
     COMMENT_CALLS=0
+    LANDED="$SPAWN_DIR/landed.json"
+    echo '[]' > "$LANDED"
     linear_api() {
+      if [[ "$1" != *viewer* && ",${HARNESS_LINEAR_GONE:-}," == *",$POLL,"* ]]; then
+        : > "$LINEAR_GONE_FLAG"
+        return 1
+      fi
       case "$1" in
         *viewer*)
           [[ ",${HARNESS_LINEAR_DOWN:-}," == *",$POLL,"* ]] && return 1
           ;;
         *commentCreate*)
           COMMENT_CALLS=$((COMMENT_CALLS + 1))
+          if [ "$COMMENT_CALLS" -gt "${HARNESS_COMMENT_FAILS:-0}" ] || [ -n "${HARNESS_COMMENT_LANDS:-}" ]; then
+            echo "COMMENT:$(printf '%s' "${2:-}" | jq -r '.body' | head -1)" >> "$MAIN_LOG"
+            jq --arg b "$(printf '%s' "${2:-}" | jq -r '.body')" '. + [{body: $b}]' "$LANDED" > "$LANDED.tmp" &&
+              mv "$LANDED.tmp" "$LANDED"
+          fi
           [ "$COMMENT_CALLS" -le "${HARNESS_COMMENT_FAILS:-0}" ] && return 1
-          echo "COMMENT:$(printf '%s' "${2:-}" | jq -r '.body' | head -1)" >> "$MAIN_LOG"
+          ;;
+        *comments*)
+          # Linear stores markdown in its own editor format, so a body may come
+          # back without an HTML comment and with other emphasis marks.
+          jq -c 'map(.body |= (gsub("<!--.*?-->"; "") | gsub("_"; "*"))) | {data: {issue: {comments: {nodes: .}}}}' "$LANDED"
+          return 0
           ;;
       esac
       echo '{"data":{}}'
@@ -152,6 +194,8 @@ case "$MODE" in
     notify() { :; }
     LABEL_CALLS=0
     try_add_label() {
+      # Inside $(…), as the real label read: a deleted issue must still drop.
+      labels=$(linear_api '{ issue { labels } }') || { LINEAR_WRITES_FAILED+=" label"; return 0; }
       LABEL_CALLS=$((LABEL_CALLS + 1))
       if [ "$LABEL_CALLS" -le "${HARNESS_LABEL_FAILS:-0}" ]; then
         LINEAR_WRITES_FAILED+=" label"
@@ -208,6 +252,10 @@ EOF
       timeout) handle_timeout HON-999 uuid-999 test-branch "$WORKER_LOG" "$RETRIED" "Fixture title" 3600 2>/dev/null ;;
       *) handle_error_exit HON-999 uuid-999 test-branch "$WORKER_LOG" "$RETRIED" "Fixture title" 1 2>/dev/null ;;
     esac
+    if [ -n "${HARNESS_OLD_ENTRY:-}" ]; then
+      IFS="$DEFERRED_FS" read -r -a old <<< "${DEFERRED[0]}"
+      DEFERRED[0]="$(deferred_entry "${old[@]:0:15}")"
+    fi
     report_poll
     while [ "$POLL" -lt "${#POLL_STATES[@]}" ]; do
       PR_STATE="${POLL_STATES[$POLL]}"

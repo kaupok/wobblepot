@@ -619,6 +619,8 @@ linear_api() {
     local msg
     msg=$(echo "$response" | jq -r '.errors[0].message // "Unknown error"')
     log ERROR "Linear API error: $msg"
+    # A deleted issue: its deferred writes are dropped, not retried (HON-1452).
+    ! grep -qiE 'entity not found|could not find referenced' <<<"$msg" || : > "$LINEAR_GONE_FLAG"
     return 1
   fi
 
@@ -1852,6 +1854,7 @@ strand_worker() {
   local recreated=false
   restore_strand_worktree "$branch" && recreated=true
   LINEAR_WRITES_FAILED=""
+  rm -f "$LINEAR_GONE_FLAG"
   local stranded_args=("$issue_uuid" "$issue_id" "$branch" "$log_file" \
     "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code" \
     "$recreated")
@@ -2224,17 +2227,7 @@ record_stranded() {
   body=$(printf '## Auto-implementation stranded at `%s`\n\n%s %s%s\n\n%s\n\n%s' \
     "$phase" "$how" "$pr_note" "$log_path_note" "$preserved" "$next_step")
 
-  local vars
-  vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
-  if [[ "$steps" == *" comment "* ]]; then
-    linear_api \
-      'mutation($issueId: String!, $body: String!) {
-        commentCreate(input: { issueId: $issueId, body: $body }) { success }
-      }' "$vars" > /dev/null 2>&1 || {
-      log WARN "Failed to comment on $issue_id"
-      LINEAR_WRITES_FAILED+=" comment"
-    }
-  fi
+  [[ "$steps" != *" comment "* ]] || post_stranded_comment "$issue_uuid" "$issue_id" "$body"
 
   [[ "$steps" != *" label "* ]] || try_add_label "$issue_uuid" "Stranded"
   log WARN "Stranded $issue_id at phase=$phase (pr=$pr_ref ci=$ci_state) — artifacts preserved"
