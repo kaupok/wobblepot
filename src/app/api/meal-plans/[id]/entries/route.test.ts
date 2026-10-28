@@ -112,6 +112,8 @@ async function answer(response: Promise<Response>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // A test may make the source rule refuse; every other test passes it.
+  vi.mocked(findLeftoverSourceProblem).mockResolvedValue(null)
   mockGetSession.mockResolvedValue(mockSession)
   mockGetMembership.mockResolvedValue(mockMembership)
 })
@@ -548,8 +550,12 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     // Undo after Clear sends the entry's own items back. A source changed
     // since, such as a cooked dinner set back to planned with the item's
     // servings unset, must not refuse it (HON-1396).
-    it('does not run the source rule on a restore, and does not pass the flag on', async () => {
+    it('restores items the source rule would refuse, and does not pass the flag on', async () => {
       mockCreateEntry.mockResolvedValue({ ...created, mealId: null })
+      vi.mocked(findLeftoverSourceProblem).mockResolvedValue({
+        sourceEntryId: 'entry-dinner',
+        problem: 'servingsRequired',
+      })
       const leftovers = [{ sourceEntryId: 'entry-dinner' }]
 
       const { status } = await answer(
@@ -557,7 +563,6 @@ describe('POST /api/meal-plans/[id]/entries', () => {
       )
 
       expect(status).toBe(200)
-      expect(findLeftoverSourceProblem).not.toHaveBeenCalled()
       expect(mockCreateEntry).toHaveBeenCalledWith('household-123', 'plan-123', {
         date: new Date(2099, 0, 28),
         mealType: 'lunch',
