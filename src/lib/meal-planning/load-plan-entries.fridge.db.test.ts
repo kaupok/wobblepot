@@ -23,6 +23,9 @@ async function world() {
     data: {
       id: 'meal-mash',
       name: 'Mash',
+      imageUrl: 'https://example.com/mash.png',
+      imageStatus: 'ready',
+      imageHue: 40,
       translations: { create: { locale: 'et', name: 'Kartulipuder' } },
     },
   })
@@ -77,6 +80,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: null,
         name: 'Kurk',
         sourceDate: null,
+        image: null,
       },
       {
         ingredientId: null,
@@ -84,6 +88,8 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: null,
         name: 'Kartulipuder',
         sourceDate: '2026-10-20',
+        // The leftovers' meal's picture, so the card shows that dish again.
+        image: { imageUrl: 'https://example.com/mash.png', imageStatus: 'ready', imageHue: 40 },
       },
       {
         ingredientId: null,
@@ -91,6 +97,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         label: 'store meatballs',
         name: null,
         sourceDate: null,
+        image: null,
       },
     ])
   })
