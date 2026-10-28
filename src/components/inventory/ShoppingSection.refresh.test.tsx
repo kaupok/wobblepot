@@ -104,6 +104,32 @@ describe('ShoppingSection after the list is re-read', () => {
     expect(screen.queryByText(/purchased$/)).not.toBeInTheDocument()
   })
 
+  // A pantry Undo ticks a row with no tap: `usePantryChanges` (HON-1355).
+  it('keeps a row a pantry Undo ticked again when a re-read leaves it out', async () => {
+    stubPurchaseApi()
+    const user = userEvent.setup()
+    const groups = withMilk()
+    const view = renderSection({ groups })
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' }))
+    await screen.findByRole('checkbox', { name: 'Mark Milk as not purchased' })
+    const rerender = (props: Partial<Parameters<typeof ShoppingSection>[0]>) =>
+      view.rerender(<ShoppingSection {...defaultProps} groups={groups} {...props} />)
+
+    // Removing Milk's pantry row unticks it; the re-read lists it again.
+    rerender({ externalPantryChanges: new Map([['milk', 'removed']]) })
+    const relisted = withMilk()
+    rerender({ groups: relisted, externalPantryChanges: new Map() })
+    await screen.findByRole('checkbox', { name: 'Mark Milk as purchased' })
+    // Undo puts the row back and ticks Milk again, with no re-read.
+    rerender({ groups: relisted, externalPantryChanges: new Map([['milk', 'restored']]) })
+    await screen.findByRole('checkbox', { name: 'Mark Milk as not purchased' })
+
+    // Another pantry change re-reads the list, which leaves Milk out.
+    rerender({ groups: withoutMilk(), externalPantryChanges: new Map() })
+
+    expect(screen.getByRole('checkbox', { name: 'Mark Milk as not purchased' })).toBeChecked()
+  })
+
   // A re-read that lands while the tick is in flight was read before the tick.
   it('keeps a tick still in flight when a re-read lists its row', async () => {
     vi.stubGlobal(
