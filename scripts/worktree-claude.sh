@@ -1122,23 +1122,19 @@ cmd_auto() {
   echo "─────────────────────────────────────────"
   echo ""
 
-  # Start Claude Code with permissions bypassed and auto-implement prompt
-  # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits.
-  # Unset ORCHESTRATOR_RETRY_CONTEXT too: it is consumed into the prompt here,
-  # and the worker runs `pnpm test`, which sources these scripts — a leaked
-  # value would make every script under test see a retry (HON-728).
-  # CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 keeps a slow MCP call (Linear,
-  # Playwright) in the foreground. Claude Code otherwise backgrounds one after
-  # 2 minutes, and this headless worker exits when its turn ends, so the turn
-  # can end before the result arrives and the result is lost (HON-1119).
-  # An empty AUTO_EFFORT passes no --effort flag (HON-1193).
-  # The worker uses two MCP servers; the rest only add tools to every request
-  # (HON-1238). `--` ends --mcp-config's values so the prompt stays a prompt.
+  # Start Claude Code with permissions bypassed and auto-implement prompt.
+  # An empty AUTO_EFFORT passes no --effort flag (HON-1193). The worker uses
+  # two MCP servers; the rest only add tools to every request (HON-1238).
+  # run_auto_claude continues the session after a network drop (HON-1413).
+  # Sourced here, not at the top, because the fixture repos in
+  # worktree-prepare.test.ts and worktree-done.test.ts copy this file alone.
   claude_model_args "$AUTO_MODEL" "$AUTO_EFFORT"
   claude_mcp_args linear-server playwright || exit 1
-  exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT \
-    CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude --dangerously-skip-permissions \
-    "${CLAUDE_MODEL_ARGS[@]}" "${CLAUDE_MCP_ARGS[@]}" -- "$(auto_prompt "$prompt")"
+  # shellcheck source=./worktree-auto-run.sh
+  source "$SCRIPT_DIR/worktree-auto-run.sh"
+  local rc=0
+  run_auto_claude "$(auto_prompt "$prompt")" "$issue_id" || rc=$?
+  exit "$rc"
 }
 
 # Resume existing worktree

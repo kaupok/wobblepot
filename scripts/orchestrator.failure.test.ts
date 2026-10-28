@@ -388,6 +388,18 @@ describe('orchestrator.sh', () => {
     })
 
     describe('worktree-claude.sh auto_prompt', () => {
+      // cmd_auto hands the prompt to run_auto_claude, whose wt_auto_claude
+      // starts claude, once and on every resume after a network drop (HON-1413).
+      const launch = () =>
+        launchLine(
+          shellFunctionBody(
+            fs.readFileSync(
+              path.join(path.dirname(worktreeClaude), 'worktree-auto-run.sh'),
+              'utf8',
+            ),
+            'wt_auto_claude',
+          ),
+        )
       const prompt = (context: string) =>
         execFileSync('bash', [harness, 'auto-prompt', '/auto-implement HON-991'], {
           encoding: 'utf8',
@@ -413,10 +425,8 @@ describe('orchestrator.sh', () => {
           expect(line).not.toContain('ORCHESTRATOR_RETRY_CONTEXT')
           expect(line).not.toContain('auto_prompt')
         }
-        expect(launchLine(body)).toMatch(
-          /exec env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT [^\n]*claude/,
-        )
-        expect(body).toContain('"$(auto_prompt "$prompt")"')
+        expect(launch()).toMatch(/env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT [^\n]*claude/)
+        expect(body).toContain('run_auto_claude "$(auto_prompt "$prompt")" "$issue_id"')
       })
 
       // HON-1238: every MCP server that starts adds its tools to the base
@@ -424,17 +434,14 @@ describe('orchestrator.sh', () => {
       it('launches the worker with a strict MCP config and -- before the prompt', () => {
         const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
         expect(body).toContain('claude_mcp_args linear-server playwright')
-        expect(launchLine(body)).toContain('"${CLAUDE_MCP_ARGS[@]}" -- "$(auto_prompt "$prompt")"')
+        expect(launch()).toContain('"${CLAUDE_MCP_ARGS[@]}" -- "$prompt"')
       })
 
       // HON-1119: Claude Code moves an MCP call past 2 minutes to the
       // background, and this headless worker exits when its turn ends, so the
       // result would never arrive. 0 keeps every MCP call in the foreground.
       it('launches the worker with MCP auto-backgrounding switched off', () => {
-        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
-        expect(launchLine(body)).toMatch(
-          /exec env [^\n]* CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude /,
-        )
+        expect(launch()).toMatch(/env [^\n]* CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude /)
       })
     })
   })

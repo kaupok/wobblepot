@@ -4,12 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  launchLine,
-  scriptsDir,
-  shellFunctionBody,
-  worktreeClaude,
-} from './orchestrator-test-harness'
+import { scriptsDir, worktreeClaude } from './orchestrator-test-harness'
 
 // `wt stop` checks its own drain (HON-575 B4): no `claude` worker left running,
 // and no drained issue left where the picker skips it forever.
@@ -107,6 +102,12 @@ describe('stop_drain_orphans', () => {
     expect(run('stop_drain_orphans "$1"', {}, [`HON-1\t${pid}`]).out).toBe(`HON-1\t${pid}\n`)
   })
 
+  it('lists a worker whose PID still runs the wt auto shell', () => {
+    const pid = start(worktreeClaude)
+
+    expect(run('stop_drain_orphans "$1"', {}, [`HON-1\t${pid}`]).out).toBe(`HON-1\t${pid}\n`)
+  })
+
   it('skips a PID that now runs a different command', () => {
     const pid = start('sleep')
 
@@ -168,7 +169,7 @@ describe('stop_drain_verdict', () => {
 
     expect(result.status).toBe(1)
     expect(result.out).toBe(
-      '  FAIL HON-2: its worker (PID 102) still runs. Stop it: kill 102\n' +
+      '  FAIL HON-2: its worker (PID 102) still runs. Stop it: pkill -P 102; kill 102\n' +
         'Drain check: 1 problem(s) across 2 worker(s)\n',
     )
   })
@@ -266,12 +267,25 @@ describe('wt stop', () => {
     )
   })
 
-  // The status file holds the PID `wt auto` was started with. The check can
-  // see a leftover worker only while that PID becomes the claude process; a
-  // wrapper shell in between would exit and leave claude running unseen.
-  it('relies on wt auto exec-ing claude, so the worker PID is the claude process', () => {
-    const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
+  // The status file holds the PID `wt auto` was started with: the shell, with
+  // claude as its child so it can continue the session after a network drop
+  // (HON-1413). The kill the check prints must reach that child, or the shell
+  // exits and leaves claude running unseen.
+  it('names a kill that reaches the claude child of the wt auto shell', () => {
+    const shell = spawn('bash', ['-c', 'sleep 30 & wait'], { stdio: 'ignore' })
+    children.push(shell)
+    const out = verdict(`HON-7\t${shell.pid}`, `HON-7\t${shell.pid}`, 'HON-7\tQueued\t').out
+    const kill = out.match(/Stop it: (.*)$/m)?.[1]
+    expect(kill).toBe(`pkill -P ${shell.pid}; kill ${shell.pid}`)
+    // Give bash time to start its child.
+    spawnSync('sleep', ['0.3'])
+    const child = Number(spawnSync('pgrep', ['-P', String(shell.pid)], { encoding: 'utf8' }).stdout)
+    expect(child).toBeGreaterThan(0)
+    strays.push(child)
 
-    expect(launchLine(body)).toMatch(/^exec env .* claude /)
+    spawnSync('bash', ['-c', kill!])
+    spawnSync('sleep', ['0.3'])
+
+    expect(spawnSync('kill', ['-0', String(child)]).status).not.toBe(0)
   })
 })
