@@ -175,6 +175,9 @@ function PickerForm({
       apiFetch<LeftoverSourcesResponse>(
         `/api/entries/recent?${new URLSearchParams({ date, mealType })}`,
       ),
+    // Not the global 60 s: a dinner skipped or planned since the last open
+    // must show on the next one (HON-1451).
+    staleTime: 0,
   })
   const defaultServings = recentQuery.data?.defaultServings ?? 1
 

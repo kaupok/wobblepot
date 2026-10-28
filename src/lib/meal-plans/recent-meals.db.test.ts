@@ -156,22 +156,28 @@ describe('findLeftoverSourceProblem with CHANGED_SOURCE_PROBLEMS', () => {
     const restore = (items: Parameters<typeof findLeftoverSourceProblem>[2]) =>
       findLeftoverSourceProblem(alder.id, LUNCH_22ND, items, CHANGED_SOURCE_PROBLEMS)
 
-    // Planned with no servings, skipped since, and a fridge meal now: all pass.
+    // Planned with no servings, skipped since, a fridge meal now, and older
+    // than a window rule that moved past it (HON-1451): all pass.
     expect(
       await restore([
         { sourceEntryId: 'tonight' },
         { sourceEntryId: 'skipped' },
         { sourceEntryId: 'fridge' },
+        { sourceEntryId: 'four-days' },
       ]),
     ).toBeNull()
-    // A source after the slot, or too old, never passed the rule.
+    // A source after the slot never passed the rule.
     expect(await restore([{ sourceEntryId: 'tonight' }, { sourceEntryId: 'after' }])).toEqual({
       sourceEntryId: 'after',
       problem: 'notBefore',
     })
-    expect(await restore([{ sourceEntryId: 'four-days' }])).toEqual({
-      sourceEntryId: 'four-days',
-      problem: 'tooOld',
-    })
+  })
+
+  it('still refuses a too-old source on a new fridge meal (HON-1451)', async () => {
+    const { alder } = await world()
+
+    expect(
+      await findLeftoverSourceProblem(alder.id, LUNCH_22ND, [{ sourceEntryId: 'four-days' }]),
+    ).toEqual({ sourceEntryId: 'four-days', problem: 'tooOld' })
   })
 })
