@@ -7,6 +7,7 @@ import { TimelineDayCard } from './TimelineDayCard'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
 import { daySlots } from './day-slots'
+import { getLeftoverLunchOptions } from '@/components/meal-plan/leftover-lunch-option'
 import { Heading } from '@/components/ui/typography'
 import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
@@ -166,6 +167,10 @@ export function TimelineView({
 
     return { futureDays: days, fillStartDate: fillStart }
   }, [entries, extras, todayDate, expectedMealTypes, locale, tDates])
+  const leftoverLunchOptions = useMemo(
+    () => getLeftoverLunchOptions(entries, expectedMealTypes),
+    [entries, expectedMealTypes],
+  )
 
   function handleEntryUpdated() {
     router.refresh()
@@ -230,6 +235,7 @@ export function TimelineView({
         focusHeading={headingDateToFocus === day.date}
         onHeadingFocused={handleHeadingFocused}
         onSlotPicked={handleFilled}
+        leftoverLunchOptions={leftoverLunchOptions}
       />
     )
   }

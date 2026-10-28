@@ -340,6 +340,7 @@ describe('FridgeMealCard', () => {
         note: 'Heat the mash first',
         noteX: null,
         noteY: null,
+        restore: true,
       },
     })
   })

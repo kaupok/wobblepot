@@ -2123,6 +2123,7 @@ export const ClearWithUndo: Story = {
         status: 'skipped',
         rating: null,
         pantryDeducted: false,
+        restore: true,
       },
     })
   },

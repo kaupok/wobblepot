@@ -281,7 +281,13 @@
       "usedItAllLabel": "Used it all: {name}",
       "completeConfirm": "Done",
       "completing": "Saving…",
-      "recentLabelsHeading": "Used lately"
+      "recentLabelsHeading": "Used lately",
+      "servingsGroup": "Servings: {name}",
+      "fewerServings": "Fewer servings",
+      "moreServings": "More servings",
+      "servingsValue": "{count, plural, one {{servings} serving} other {{servings} servings}}",
+      "servingsNotSet": "Servings not set",
+      "leftoverRefused": "One of the leftovers can't be used for this meal any more. Remove it and try again."
     },
     "noteEditor": {
       "placeholder": "Add a note…",
@@ -625,6 +631,28 @@
       "removing": "Removing…",
       "saveFailed": "Couldn't save the extra. Please try again.",
       "removeFailed": "Couldn't remove the extra. Please try again."
+    },
+    "cookForLunch": {
+      "menuItem": "Cook for tomorrow's lunch too",
+      "reasonRecipeLunch": "Tomorrow's lunch is already a recipe meal.",
+      "reasonCooked": "Tomorrow's lunch is already cooked.",
+      "reasonLunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
+      "title": "Cook for tomorrow's lunch too",
+      "description": "Cook {meal} for more servings. The extra becomes tomorrow's lunch, and the shopping list grows to match.",
+      "servingsLabel": "Servings for lunch",
+      "confirm": "Add to lunch",
+      "saving": "Adding…",
+      "added": "Tomorrow's lunch takes leftovers: {meal}.",
+      "errors": {
+        "recipeLunch": "Tomorrow's lunch is already a recipe meal. Refresh the page to see it.",
+        "cooked": "Tomorrow's lunch is already cooked. Refresh the page to see it.",
+        "lunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
+        "alreadyLinked": "Tomorrow's lunch already takes leftovers from this meal. Change the servings in the lunch's Edit items.",
+        "lunchFull": "Tomorrow's lunch already has 30 items. Remove one in its Edit items, then try again.",
+        "notPlannedDinner": "This meal is no longer a planned dinner. Refresh the page to see it.",
+        "lunchChanged": "Tomorrow's lunch changed meanwhile. Refresh the page and try again.",
+        "failed": "Couldn't add the lunch. Please try again."
+      }
     }
   },
   "pastMeals": {

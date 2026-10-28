@@ -8,6 +8,7 @@ import { DayAddMenu } from './DayAddMenu'
 import { DayExtrasRow } from './day-extras/DayExtrasRow'
 import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type { LeftoverLunchOption } from '@/components/meal-plan/leftover-lunch-option'
 import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
@@ -36,6 +37,8 @@ interface TimelineDayCardProps {
    * from leaves with the refresh, so the page focuses the heading (HON-1248).
    */
   onSlotPicked?: (date: string) => void
+  /** "Cook for tomorrow's lunch too" per dinner entry id (HON-1396), from `getLeftoverLunchOptions`. */
+  leftoverLunchOptions?: ReadonlyMap<string, LeftoverLunchOption>
 }
 
 export function TimelineDayCard({
@@ -51,6 +54,7 @@ export function TimelineDayCard({
   focusHeading = false,
   onHeadingFocused,
   onSlotPicked,
+  leftoverLunchOptions,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   const headingRef = useRef<HTMLElement>(null)
@@ -155,6 +159,7 @@ export function TimelineDayCard({
                 servingOverride={entry.servingOverride}
                 cookServings={entry.cookServings}
                 leftoversFor={entry.leftoversFor}
+                leftoverLunch={leftoverLunchOptions?.get(entry.id)}
                 pantryDeducted={entry.pantryDeducted}
                 preparationTips={entry.preparationTips}
                 conflicts={entry.conflicts}

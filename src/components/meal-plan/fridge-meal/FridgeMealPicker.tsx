@@ -19,10 +19,11 @@ import { Label } from '@/components/ui/label'
 import { Body, Heading } from '@/components/ui/typography'
 import { ApiError, apiFetch } from '@/lib/api'
 import { FRIDGE_ITEM_LABEL_MAX, FRIDGE_ITEMS_MAX } from '@/lib/meal-plans/fridge-items'
-import type { RecentMeal } from '@/lib/meal-plans/recent-meals'
+import type { LeftoverSource } from '@/lib/meal-plans/recent-meals'
 import type { MealType } from '@/generated/prisma/enums'
 import type { FridgeMealItem, PantryItemFull } from '../types'
 import { toFridgeItemInput, useFridgeItemText, type FridgeItemShown } from './use-fridge-item-text'
+import { LeftoverServingsControl } from './LeftoverServingsControl'
 
 /** Pantry matches shown at once, so a full pantry does not push the rest away. */
 const PANTRY_MATCHES_SHOWN = 8
@@ -55,8 +56,15 @@ function pantryChoice(p: PantryItemFull): FridgeItemShown {
   }
 }
 
-/** The leftovers the picker offers. Fetched each time it opens. */
+/** The leftovers the picker offers for a slot. Fetched each time it opens. */
 export const recentMealsQueryKey = ['recent-meals'] as const
+
+/** What `/api/entries/recent` answers for a slot (HON-1396). */
+export interface LeftoverSourcesResponse {
+  meals: LeftoverSource[]
+  /** The household's own servings, where a planned source's servings start. */
+  defaultServings: number
+}
 
 interface FridgeMealPickerProps {
   open: boolean
@@ -91,9 +99,10 @@ interface FridgeMealPickerProps {
 
 /**
  * The fridge-meal picker (HON-1277): what the household has at home, from the
- * pantry, from a meal eaten in the last days, or in its own words. Items have
- * no quantities. Saving creates the entry, or replaces the items of the one
- * given.
+ * pantry, from an earlier meal's leftovers, or in its own words. A leftover's
+ * meal may still be planned, such as tonight's dinner for tomorrow's lunch, and
+ * each leftover item takes servings from it (HON-1396); other items have no
+ * quantities. Saving creates the entry, or replaces the items of the one given.
  */
 export function FridgeMealPicker({
   open,
@@ -132,6 +141,8 @@ const toDraft = (item: FridgeItemShown): Draft => ({
   name: item.name,
   sourceDate: item.sourceDate,
   servings: item.servings,
+  sourceMealType: item.sourceMealType,
+  sourceState: item.sourceState,
   key: `draft-${++draftCounter}`,
 })
 
@@ -159,9 +170,13 @@ function PickerForm({
   const [showNeedsItem, setShowNeedsItem] = useState(false)
 
   const recentQuery = useQuery({
-    queryKey: recentMealsQueryKey,
-    queryFn: () => apiFetch<{ meals: RecentMeal[] }>('/api/entries/recent'),
+    queryKey: [...recentMealsQueryKey, date, mealType],
+    queryFn: () =>
+      apiFetch<LeftoverSourcesResponse>(
+        `/api/entries/recent?${new URLSearchParams({ date, mealType })}`,
+      ),
   })
+  const defaultServings = recentQuery.data?.defaultServings ?? 1
 
   const chosenIngredientIds = new Set(
     items.flatMap((i) => (i.ingredientId ? [i.ingredientId] : [])),
@@ -207,6 +222,10 @@ function PickerForm({
     if (isFull) return
     setShowNeedsItem(false)
     setItems((current) => [...current, toDraft(item)])
+  }
+
+  function setServings(key: string, servings: number) {
+    setItems((current) => current.map((i) => (i.key === key ? { ...i, servings } : i)))
   }
 
   /** The household's own words, as the `Add "…"` button and Enter add them. */
@@ -273,6 +292,11 @@ function PickerForm({
         '[fridge-meal-picker] save failed',
         err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
       )
+      // A leftover's meal changed since the list loaded (HON-1396).
+      if (err instanceof ApiError && err.code === 'leftover_source') {
+        toast.error(t('leftoverRefused'))
+        return
+      }
       // A 409: the entry was completed meanwhile, or the open slot filled.
       if (err instanceof ApiError && err.status === 409) {
         toast.error(entryId ? t('completedConflict') : tCard('entryAlreadyExists'))
@@ -308,9 +332,10 @@ function PickerForm({
           ) : (
             <ul className="flex flex-col gap-1">
               {items.map((item) => {
-                const text = itemText(item)
+                // A leftover's servings show in its control, not in its words.
+                const text = itemText({ ...item, servings: null })
                 return (
-                  <li key={item.key} className="flex items-center justify-between gap-2">
+                  <li key={item.key} className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex min-w-0 items-baseline gap-2">
                       <Body variant="small">{text}</Body>
                       {/* Only a pantry item gets a "Used it all" tick when the meal is eaten. */}
@@ -319,17 +344,32 @@ function PickerForm({
                           {t('pantryMarker')}
                         </Body>
                       )}
+                      {item.sourceState === 'planned' && (
+                        <Body variant="small" tone="muted">
+                          {t('sourcePlanned')}
+                        </Body>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t('remove', { name: text })}
-                      onClick={() =>
-                        setItems((current) => current.filter((i) => i.key !== item.key))
-                      }
-                    >
-                      <X aria-hidden="true" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {item.sourceEntryId !== null && (
+                        <LeftoverServingsControl
+                          value={item.servings}
+                          onChange={(servings) => setServings(item.key, servings)}
+                          defaultServings={defaultServings}
+                          label={t('servingsGroup', { name: text })}
+                        />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('remove', { name: text })}
+                        onClick={() =>
+                          setItems((current) => current.filter((i) => i.key !== item.key))
+                        }
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    </div>
                   </li>
                 )
               })}
@@ -396,8 +436,9 @@ function PickerForm({
           </section>
         )}
 
-        {/* Leftovers first: a meal already cooked is the likeliest fridge
-            meal. A section with nothing to offer is left out. */}
+        {/* Leftovers first: a meal already cooked, or tonight's still to cook,
+            is the likeliest fridge meal. A section with nothing to offer is
+            left out. */}
         {recentQuery.isError ? (
           <Body variant="muted">{t('recentFailed')}</Body>
         ) : (
@@ -408,15 +449,24 @@ function PickerForm({
               </Heading>
               <ChoiceList
                 choices={recentMeals.map((meal) => {
+                  // A planned source needs servings, so it starts at the
+                  // household's own (HON-1396); a cooked one may stay unset.
                   const item: FridgeItemShown = {
                     ingredientId: null,
                     sourceEntryId: meal.entryId,
                     label: null,
                     name: meal.mealName,
                     sourceDate: meal.date,
-                    servings: null,
+                    servings: meal.sourceState === 'planned' ? defaultServings : null,
+                    sourceMealType: meal.mealType,
+                    sourceState: meal.sourceState,
                   }
-                  return { key: meal.entryId, text: itemText(item), item }
+                  const text = itemText({ ...item, servings: null })
+                  return {
+                    key: meal.entryId,
+                    text: meal.sourceState === 'planned' ? `${text} · ${t('sourcePlanned')}` : text,
+                    item,
+                  }
                 })}
                 disabled={isFull}
                 onAdd={(item) => addFromField(() => add(item))}

@@ -1,5 +1,5 @@
 import type { FridgeMealItem, PantryItemFull } from '@/components/meal-plan/types'
-import type { RecentMeal } from '@/lib/meal-plans/recent-meals'
+import type { LeftoverSource } from '@/lib/meal-plans/recent-meals'
 import { createPantryItem } from './fixtures'
 
 // The fridge-meal scenario (HON-1277): yesterday's mash, a frozen vegetable
@@ -22,10 +22,34 @@ export const fridgePantryItems: PantryItemFull[] = [
 /** Tuesday 20 October 2026: the mash's day. */
 export const MASH_DATE = '2026-10-20'
 
-export const fridgeRecentMeals: RecentMeal[] = [
-  { entryId: 'entry-mash', mealName: 'Mash', date: MASH_DATE },
-  { entryId: 'entry-soup', mealName: 'Lentil soup', date: '2026-10-19' },
+export const fridgeRecentMeals: LeftoverSource[] = [
+  {
+    entryId: 'entry-mash',
+    mealName: 'Mash',
+    date: MASH_DATE,
+    mealType: 'dinner',
+    sourceState: 'completed',
+  },
+  {
+    entryId: 'entry-soup',
+    mealName: 'Lentil soup',
+    date: '2026-10-19',
+    mealType: 'dinner',
+    sourceState: 'completed',
+  },
 ]
+
+/** Wednesday's dinner, still to cook: a source for Thursday's lunch (HON-1396). */
+export const fridgePlannedSource: LeftoverSource = {
+  entryId: 'entry-curry',
+  mealName: 'Chicken curry',
+  date: '2026-10-21',
+  mealType: 'dinner',
+  sourceState: 'planned',
+}
+
+/** The household's own servings in the stories: two adults and a child. */
+export const FRIDGE_DEFAULT_SERVINGS = 2.5
 
 export const fridgeItems: FridgeMealItem[] = [
   {
