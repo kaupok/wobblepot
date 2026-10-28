@@ -50,8 +50,8 @@ export default async function PastMealsPage({
   const { household } = membership
 
   // The household's day, as on Today, so "yesterday" is theirs and not the
-  // server's. The first week is the range the account menu's dot counts; the
-  // range never starts before the household existed.
+  // server's. The first week is the range the account menu's dot counts; "Show
+  // the week before" stops at the week the household was created in.
   const range = getPastMealsRange(household.timezone, {
     weeks: Number(weeks ?? 1),
     createdAt: household.createdAt,
@@ -83,8 +83,8 @@ export default async function PastMealsPage({
           <Body variant="muted">{t('description')}</Body>
         </div>
 
-        {/* No day in range has a row or an empty slot: the household was
-            created today, or has no plan to log into yet. */}
+        {/* No day in range has a row or an empty slot, or the household has
+            no plan to log into yet. */}
         {days.length === 0 || !planId ? (
           <div className="flex flex-col items-start gap-4">
             <Body variant="muted">{t('empty')}</Body>

@@ -42,15 +42,26 @@ describe('getPastMealsRange', () => {
       expect(range.hasEarlierWeek).toBe(true)
     })
 
-    it('stops at the creation day and offers no earlier week', () => {
-      // 23:30 UTC on 19 March is already the 20th in Tallinn.
+    it('stops at the week that holds the creation day', () => {
+      // 23:30 UTC on 19 March is already the 20th in Tallinn: 10 days back,
+      // in the second week.
       const range = getPastMealsRange('Europe/Tallinn', {
-        weeks: 2,
+        weeks: 5,
         createdAt: new Date('2026-03-19T23:30:00Z'),
       })
 
-      expect(range.startDate).toEqual(new Date(2026, 2, 20))
+      expect(range.weeks).toBe(2)
+      expect(range.startDate).toEqual(new Date(2026, 2, 16))
       expect(range.hasEarlierWeek).toBe(false)
+    })
+
+    it('offers the second week while the creation day is in it', () => {
+      const range = getPastMealsRange('Europe/Tallinn', {
+        createdAt: new Date('2026-03-19T23:30:00Z'),
+      })
+
+      expect(range.startDate).toEqual(new Date(2026, 2, 23))
+      expect(range.hasEarlierWeek).toBe(true)
     })
 
     it('offers no earlier week when the first week starts on the creation day', () => {
@@ -62,13 +73,13 @@ describe('getPastMealsRange', () => {
       expect(range.hasEarlierWeek).toBe(false)
     })
 
-    it('is empty for a household created today', () => {
+    it('still shows the first week for a household created today', () => {
       const range = getPastMealsRange('Europe/Tallinn', {
         createdAt: new Date('2026-03-30T06:00:00Z'),
       })
 
-      expect(range.startDate).toEqual(new Date(2026, 2, 30))
-      expect(range.endDate).toEqual(new Date(2026, 2, 30))
+      expect(range.startDate).toEqual(new Date(2026, 2, 23))
+      expect(range.hasEarlierWeek).toBe(false)
     })
 
     it('reads a missing or broken weeks count as one week', () => {

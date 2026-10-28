@@ -157,15 +157,16 @@ describe('PastMealsPage', () => {
     expect(list).toHaveAttribute('data-has-earlier-week', 'true')
   })
 
-  it('stops at the day the household was created', async () => {
-    // Noon on 18 October in Tallinn.
+  it('offers no week before the one that holds the creation day', async () => {
+    // Noon on 18 October in Tallinn: inside the first week.
     household.createdAt = new Date('2026-10-18T09:00:00Z')
     await mockLoaders([])
 
-    render(await page())
+    render(await page({ weeks: '3' }))
 
     const list = screen.getByTestId('past-meals-list')
-    expect(list).toHaveAttribute('data-days', '2026-10-21,2026-10-20,2026-10-19,2026-10-18')
+    expect(list.getAttribute('data-days')?.split(',')).toHaveLength(7)
+    expect(list).toHaveAttribute('data-weeks', '1')
     expect(list).toHaveAttribute('data-has-earlier-week', 'false')
   })
 
@@ -211,15 +212,15 @@ describe('PastMealsPage', () => {
     expect(slots).toContain('2026-10-18:breakfast')
   })
 
-  it('shows the empty state for a household created today', async () => {
+  it('lists the expected dinners of a household created today, not the empty state', async () => {
     household.createdAt = new Date('2026-10-22T08:00:00Z')
     await mockLoaders([])
 
     render(await page())
 
-    expect(screen.getByText(enMessages.pastMeals.empty)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to the meal plan' })).toHaveAttribute('href', '/')
-    expect(screen.queryByTestId('past-meals-list')).not.toBeInTheDocument()
+    const list = screen.getByTestId('past-meals-list')
+    expect(list.getAttribute('data-empty-slots')).toContain('2026-10-21:dinner')
+    expect(screen.queryByText(enMessages.pastMeals.empty)).not.toBeInTheDocument()
   })
 
   it('shows the empty state for a household with no plan yet', async () => {
