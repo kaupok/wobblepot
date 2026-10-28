@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { MoreHorizontal, NotebookPen } from 'lucide-react'
+import { MoreHorizontal, NotebookPen, Sparkles } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +23,7 @@ import { CookViewDialog } from './CookViewDialog'
 import { MealDetail } from './MealDetail'
 import { ConflictBadges } from './ConflictBadge'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
+import { useAdjustSection } from './use-adjust-section'
 import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
@@ -119,6 +120,7 @@ export function MealDetailModal({
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
   const tNote = useTranslations('meal-plan.noteEditor')
+  const tAdjust = useTranslations('meal-plan.adjust')
   const [localServings, setLocalServings] = useState(servingOverride ?? householdServings)
   const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
     useIngredientAvailability({
@@ -227,6 +229,12 @@ export function MealDetailModal({
     if (opener === 'note' && noteEditorRef.current?.focus()) return
     moreActionsTriggerRef.current?.focus()
   }, [isEditingNote])
+
+  // "Adjust recipe" (HON-1244) on the planned, editable entry that gets "Done
+  // cooking", opened from the ⋯ menu (HON-1356).
+  const adjustEditable = !!changes && !readOnly && status === 'planned' && !!onDoneCooking
+  const adjust = useAdjustSection({ viewOpen: open, triggerRef: moreActionsTriggerRef })
+
   // Sync local state when prop changes
   const effectiveServings = servingOverride ?? householdServings
   if (localServings !== effectiveServings && !open) {
@@ -369,16 +377,20 @@ export function MealDetailModal({
                   // Radix returns focus to the trigger as the menu closes, after
                   // `NoteEditor` has focused its textarea (HON-946). When the
                   // note was chosen, focus the textarea here instead: the menu's
-                  // unmount is the last thing to move focus.
+                  // unmount is the last thing to move focus. "Adjust recipe"
+                  // focuses its field the same way, and brings it into view.
                   onCloseAutoFocus={(event) => {
                     if (noteRequestedRef.current) {
                       event.preventDefault()
                       noteRequestedRef.current = false
                       noteEditorRef.current?.focus()
+                    } else if (adjust.takeMenuFocus()) {
+                      event.preventDefault()
                     }
                   }}
                 >
                   <DropdownMenuItem
+                    className="min-h-11"
                     onSelect={() => {
                       noteRequestedRef.current = true
                       noteOpenerRef.current = 'menu'
@@ -388,6 +400,12 @@ export function MealDetailModal({
                     <NotebookPen aria-hidden="true" />
                     {note ? tNote('editNote') : tNote('addNote')}
                   </DropdownMenuItem>
+                  {adjustEditable && (
+                    <DropdownMenuItem className="min-h-11" onSelect={adjust.request}>
+                      <Sparkles aria-hidden="true" />
+                      {tAdjust('label')}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )
@@ -435,11 +453,11 @@ export function MealDetailModal({
                   entryId,
                   changes,
                   adjustmentNote,
-                  // The planned, editable entry that gets "Done cooking".
-                  editable: status === 'planned' && !!onDoneCooking,
+                  editable: adjustEditable,
                   // The write nulled the cached steps, so drop the ones shown;
                   // a planned view regenerates them from the merged list.
                   onChanged: cancelSteps,
+                  adjust: adjust.controls,
                 }
               : undefined
           }
