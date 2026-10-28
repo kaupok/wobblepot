@@ -169,7 +169,7 @@ describe('orchestrator.sh', () => {
     it('logs ten idle polls with an unchanged queue once', () => {
       const out = pollLog(Array(10).fill('0:none'))
 
-      expect(count(out, 'Polling: 0/3 workers active')).toBe(1)
+      expect(count(out, 'Polling: 0/5 workers active')).toBe(1)
       expect(count(out, 'No eligible issues found')).toBe(1)
     })
 
@@ -177,10 +177,10 @@ describe('orchestrator.sh', () => {
       const out = pollLog(['0:none', '0:none', '0:eligible', '1:none', '1:none', '0:none'])
 
       expect(out.split('\n').filter((l) => l.startsWith('DEBUG Polling'))).toEqual([
-        'DEBUG Polling: 0/3 workers active',
-        'DEBUG Polling: 0/3 workers active',
-        'DEBUG Polling: 1/3 workers active',
-        'DEBUG Polling: 0/3 workers active',
+        'DEBUG Polling: 0/5 workers active',
+        'DEBUG Polling: 0/5 workers active',
+        'DEBUG Polling: 1/5 workers active',
+        'DEBUG Polling: 0/5 workers active',
       ])
       // `eligible` is followed by a Selected line, not by "No eligible".
       expect(count(out, 'No eligible issues found')).toBe(3)
@@ -189,7 +189,7 @@ describe('orchestrator.sh', () => {
     it('logs the first poll after a pass that did not poll Linear', () => {
       const out = pollLog(['0:none', '-', '0:none'])
 
-      expect(count(out, 'Polling: 0/3 workers active')).toBe(2)
+      expect(count(out, 'Polling: 0/5 workers active')).toBe(2)
     })
 
     it('main routes both idle-poll lines through log_poll_summary', () => {
@@ -290,7 +290,7 @@ describe('orchestrator.sh', () => {
       const steps = reportLog(['0;planning:0', '60;planning:0', '540;planning:0'])
 
       expect(steps[0]).toEqual([
-        'DEBUG ── Active workers: 1/3 ──',
+        'DEBUG ── Active workers: 1/5 ──',
         'DEBUG   HON-1      0m00s  planning      no commits yet',
       ])
       // No header either: a quiet poll writes nothing.
@@ -317,7 +317,7 @@ describe('orchestrator.sh', () => {
       const steps = reportLog(['0;planning:0;planning:0', '60;planning:0;implementing:0'])
 
       expect(steps[1]).toEqual([
-        'DEBUG ── Active workers: 2/3 ──',
+        'DEBUG ── Active workers: 2/5 ──',
         'DEBUG   HON-2      1m00s  implementing  no commits yet',
       ])
     })

@@ -12,7 +12,7 @@
 #
 # Flags:
 #   ./scripts/orchestrator.sh                          # Run with defaults
-#   ./scripts/orchestrator.sh --max-workers 3          # Limit concurrent workers
+#   ./scripts/orchestrator.sh --max-workers 2          # Limit concurrent workers
 #   ./scripts/orchestrator.sh --dry-run                # Log actions without executing
 #   ./scripts/orchestrator.sh --once                   # Single poll cycle, then exit
 #   ./scripts/orchestrator.sh --poll-interval 30       # Poll every 30 seconds
@@ -96,14 +96,15 @@ WORKER_FINISHING=()
 #
 # So with S stranded runs and the three permanent branches (main, staging,
 # dev/kaupo), peak usage is `N + S + 3`. The project is on Neon's free plan, a
-# 10-branch cap: N=3 fits at 6 with 4 spare. Watch `wt list` for stranded
+# 10-branch cap: the default N=5 fits at 8 with 2 spare, one for a stranded
+# run and one for a `pnpm review:local` server. Watch `wt list` for stranded
 # worktrees and clean them up; they are the reason to keep a spare, not headroom
 # to spend.
 #
 # Raising this without raising the plan makes `wt auto` die in worktree setup
 # with "branches limit exceeded", failing the issue back to Backlog +
 # `Needs attention` before Claude ever runs (HON-609, 2026-09-03). See HON-616.
-MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-3}"
+MAX_WORKERS="${ORCHESTRATOR_MAX_WORKERS:-5}"
 # The budget above, as something the script can check rather than only document.
 # check_branch_budget refuses to start when `N + P` exceeds the cap, so a
 # ceiling the plan cannot fund is rejected here instead of failing an arbitrary
@@ -278,7 +279,7 @@ while [[ $# -gt 0 ]]; do
       echo "move an issue to Queued only when an agent can finish it without a human."
       echo ""
       echo "Options:"
-      echo "  --max-workers N      Max concurrent workers (default: 3, capped by Neon branches)"
+      echo "  --max-workers N      Max concurrent workers (default: 5, capped by Neon branches)"
       echo "  --poll-interval N    Seconds between polls (default: 60)"
       echo "  --worker-timeout N   Seconds before killing a worker (default: 10800)"
       echo "  --dry-run            Log actions without executing"

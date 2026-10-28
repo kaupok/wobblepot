@@ -12,7 +12,7 @@ The orchestrator (`scripts/orchestrator.sh`, started with `wt start`) is a long-
 
 The orchestrator and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are not picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human. An issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue. `/next-issue` still lists Todo, Queued and Backlog: it proposes, and moving an issue to Queued stays a human act.
 
-- **What the orchestrator skips.** It runs up to three workers at once by default, each in its own git worktree with its own Neon branch. It skips a Queued issue that has an open `blockedBy`, and one labelled `Gated` (a worker exited without commits) or `Stranded` (a worker ended with an open, unmerged PR). Neither label clears itself: fix the cause or finish the PR, then remove the label.
+- **What the orchestrator skips.** It runs up to five workers at once by default, each in its own git worktree with its own Neon branch. It skips a Queued issue that has an open `blockedBy`, and one labelled `Gated` (a worker exited without commits) or `Stranded` (a worker ended with an open, unmerged PR). Neither label clears itself: fix the cause or finish the PR, then remove the label.
 - **Queueing issues that touch the same files.** Workers branch from the same `origin/main` and run in parallel, so two Queued issues that edit the same file produce conflicting PRs. Before queueing a batch, compare the files each issue names. Where two overlap, add a `blockedBy` between them and say in the blocked issue that the relation is for sequencing only.
 - **Set `blockedBy` in the call that queues the issue.** The orchestrator sees a Queued issue within a minute, so a `blockedBy` added after the move to Queued can arrive too late: the issue is picked up, fails the blocker check and comes back `Gated`. Create or move the issue with its relation in one `save_issue` call (HON-902).
 
@@ -27,8 +27,8 @@ wt start --dry-run
 # Single issue, full lifecycle
 wt start --once --max-workers 1
 
-# Steady state with 3 concurrent workers
-wt start --max-workers 3
+# Steady state with the default 5 concurrent workers
+wt start
 
 # Stop it
 wt stop
@@ -84,7 +84,7 @@ wt stop
 
 | Flag                 | Env Var                             | Default             | Description                                                                                                                  |
 | -------------------- | ----------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                   | Max concurrent workers                                                                                                       |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 5                   | Max concurrent workers                                                                                                       |
 | `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                  | Seconds between polls                                                                                                        |
 | `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800               | Seconds before killing a worker                                                                                              |
 | `--dry-run`          | —                                   | false               | Log actions without executing                                                                                                |
@@ -120,7 +120,7 @@ The model and effort defaults live in `scripts/models.sh`, the one file under `s
 N + S + 3
 ```
 
-On Neon's free plan (10 branches): N=3 fits at 6 with 4 spare. N=6 is the most that keeps one spare for a stranded run; N=7 fits with none, and startup warns. Treat a stranded worktree as something to clear (`wt list`, then `wt cleanup <branch>`), not as headroom.
+On Neon's free plan (10 branches): the default N=5 fits at 8 with 2 spare, one for a stranded run and one for a `pnpm review:local` server. N=6 is the most that keeps one spare for a stranded run; N=7 fits with none, and startup warns. Treat a stranded worktree as something to clear (`wt list`, then `wt cleanup <branch>`), not as headroom.
 
 **A local review server takes a spare too.** `pnpm review:local` in its default branch mode holds one `e2e-local-*` branch for as long as it runs (it is deleted when the server stops). When no slot is free, `pnpm review:local --db env` reviews against the database in `.env` and takes no branch (`docs/BROWSER_TESTING.md` → "Reviewing sign-up and onboarding"). `pnpm test:e2e:local` costs the same one branch for the length of the suite.
 
