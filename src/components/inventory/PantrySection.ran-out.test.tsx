@@ -264,4 +264,23 @@ describe('PantrySection marking a row ran out', () => {
     const row = screen.getByText('Eggs').closest('.p-3') as HTMLElement
     expect(within(row).getByText('Ran out')).toBeInTheDocument()
   })
+
+  it('"Have it" after "Ran out" sends back the count the row had, not null', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    const butter = makeItem({ quantity: 2 })
+    renderStateful([butter])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ran out: Butter' }))
+    await waitFor(() => expect(groupOf('Butter')).toBe('Ran out 1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Have it: Butter' }))
+
+    await waitFor(() => expect(groupOf('Butter')).toBe('On hand 1'))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/pantry/pantry-1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"quantity":2}',
+    })
+  })
 })

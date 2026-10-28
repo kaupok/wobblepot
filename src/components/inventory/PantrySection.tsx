@@ -112,7 +112,10 @@ export function PantrySection({
   // "Ran out" sets the quantity to 0. An ordinary row moves to Ran out; a
   // staple stays in Staples, because staples are always stocked. Either way
   // the button becomes the row's "Have it", which takes focus, so a second
-  // tap undoes a slip.
+  // tap undoes a slip. The undo sends back the quantity the row had, so a
+  // counted row keeps its count rather than dropping to null, "have some".
+  // Kept for this visit only: after a reload "Have it" sends null.
+  const quantityBeforeRanOut = useRef(new Map<string, number | null>())
   const ranOutMutation = useMutation({
     mutationKey: RAN_OUT_KEY,
     mutationFn: (item: PantryItemData) =>
@@ -125,7 +128,8 @@ export function PantrySection({
         },
         tPantry('errors.updateFailed'),
       ),
-    onMutate: ({ id }) => {
+    onMutate: ({ id, quantity }) => {
+      quantityBeforeRanOut.current.set(id, quantity)
       focusAfterRender.current = haveItSelector(id)
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item)),
@@ -133,6 +137,7 @@ export function PantrySection({
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, { id, quantity }) => {
+      quantityBeforeRanOut.current.delete(id)
       // The row's "Have it" unmounts as "Ran out" comes back, so follow it.
       const haveIt = sectionRef.current?.querySelector(haveItSelector(id))
       if (haveIt && haveIt === document.activeElement) {
@@ -143,23 +148,25 @@ export function PantrySection({
     },
   })
 
-  // "Have it" sets the quantity to null, "have some". A staple stays where it
+  // "Have it" sets the quantity to null, "have some", or back to the count
+  // "Ran out" took from the row this visit. A staple stays where it
   // is, so focus goes to its own "Ran out". An ordinary row moves back to On
   // hand: focus goes to the next ran-out row's "Have it", so a household can
   // clear several in a row, or to the moved row's star when none is left.
   const haveItMutation = useMutation({
     mutationKey: HAVE_IT_KEY,
+    // The variables are the row as it will be, with the quantity to restore.
     mutationFn: (item: PantryItemData) =>
       apiFetch(
         `/api/pantry/${item.id}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity: null }),
+          body: JSON.stringify({ quantity: item.quantity }),
         },
         tPantry('errors.updateFailed'),
       ),
-    onMutate: ({ id, isStaple }) => {
+    onMutate: ({ id, isStaple, quantity }) => {
       if (isStaple) {
         focusAfterRender.current = ranOutSelector(id)
       } else {
@@ -167,11 +174,12 @@ export function PantrySection({
         const next = ranOut[index + 1] ?? ranOut[index - 1]
         focusAfterRender.current = next ? haveItSelector(next.id) : stapleSelector(id)
       }
-      onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity: null } : item)),
-      )
+      onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     },
-    onSuccess: () => onPantryQuantityChanged?.(),
+    onSuccess: (_data, { id }) => {
+      quantityBeforeRanOut.current.delete(id)
+      onPantryQuantityChanged?.()
+    },
     onError: (_error, { id }) => {
       // The row goes back to 0. If focus is still on its star in On hand,
       // that star unmounts; if it is on its "Ran out", that button turns back
@@ -275,7 +283,8 @@ export function PantrySection({
 
   const handleRemove = (item: PantryItemData) => removeMutation.mutate(item)
 
-  const handleHaveIt = (item: PantryItemData) => haveItMutation.mutate(item)
+  const handleHaveIt = (item: PantryItemData) =>
+    haveItMutation.mutate({ ...item, quantity: quantityBeforeRanOut.current.get(item.id) ?? null })
 
   const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
