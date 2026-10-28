@@ -1288,6 +1288,13 @@ checkout_behind_notice() {
   ' 2>/dev/null || true
 }
 
+# The outcomes the orchestrator holds until GitHub and Linear answer (HON-1414),
+# as "deferred: 2 (network)", or nothing when it holds none.
+watch_deferred_note() {
+  printf '%s' "$1" | jq -r '(.deferred // []) | select(length > 0)
+    | "deferred: \(length) (\(map(.kind) | unique | join(", ")))"' 2>/dev/null || true
+}
+
 # Show orchestrator and worker status
 cmd_status() {
   local verbose=false
@@ -3769,6 +3776,12 @@ cmd_watch() {
     fi
     l_rows+=("pid ${orch_pid} · ${worker_count}/${max_workers} workers")
     l_plain+=("pid ${orch_pid} · ${worker_count}/${max_workers} workers")
+    local deferred_note=""
+    deferred_note=$(watch_deferred_note "$status")
+    if [ -n "$deferred_note" ]; then
+      l_rows+=("${YELLOW}${deferred_note}${NC}")
+      l_plain+=("$deferred_note")
+    fi
 
     # The circuit breaker's remaining pause, not just its failure count: `wt
     # status` has shown the countdown since HON-572 and watch never did, so a

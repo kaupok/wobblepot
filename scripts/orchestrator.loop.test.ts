@@ -30,6 +30,7 @@ describe('orchestrator.sh', () => {
     ['neon-cleanup.sh', neonCleanup],
     ['e2e-local.sh', e2eLocal],
     ['models.sh', models],
+    ['orchestrator-deferred.sh', path.join(scriptsDir, 'orchestrator-deferred.sh')],
     ['pr-review.sh', prReview],
   ])('%s is syntactically valid', (_name, script) => {
     expect(() => execFileSync('bash', ['-n', script], { timeout: 30_000 })).not.toThrow()
@@ -1034,7 +1035,7 @@ describe('orchestrator.sh', () => {
       expect(body).not.toContain('elif check_disk_space; then')
       // Ordering is the whole point: the check has to precede the slot test.
       expect(body.indexOf('check_disk_space || disk_ok=false')).toBeLessThan(
-        body.indexOf('local active=${#WORKER_PIDS[@]}'),
+        body.indexOf('local active=$(( ${#WORKER_PIDS[@]}'),
       )
     })
 
@@ -1251,7 +1252,7 @@ describe('orchestrator.sh', () => {
         // Before the spawn gate, so a poll that claims an issue cannot reload
         // after spawning it.
         expect(body.indexOf('reload_if_code_changed')).toBeLessThan(
-          body.indexOf('local active=${#WORKER_PIDS[@]}'),
+          body.indexOf('local active=$(( ${#WORKER_PIDS[@]}'),
         )
         expect(body).toContain('elif [ "$RELOAD_PENDING" = true ]; then')
         expect(body.indexOf('elif [ "$RELOAD_PENDING" = true ]; then')).toBeLessThan(

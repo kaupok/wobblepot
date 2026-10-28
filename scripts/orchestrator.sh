@@ -40,15 +40,19 @@ PID_FILE="$WORKTREE_BASE/orchestrator.pid"
 LINEAR_API_URL="https://api.linear.app/graphql"
 # The code this process is running, for reload_if_code_changed's fingerprint.
 # Only files bash has READ into this process belong here: this script and
-# anything it sources at load time (models.sh). worktree-claude.sh is not one:
+# anything it sources at load time (models.sh, orchestrator-deferred.sh).
+# worktree-claude.sh is not one:
 # spawn_worker runs it as a fresh process per worker, so it is always current.
 # A new `source` line must add its file here — orchestrator.loop.test.ts pins that.
-ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh")
+ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh" "$SCRIPT_DIR/orchestrator-deferred.sh")
 # The workflow's model IDs; this script reads TRIAGE_MODEL and TRIAGE_EFFORT
 # (HON-730), and AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL for a `Small` issue
 # (HON-1193).
 # shellcheck source=./models.sh
 source "$SCRIPT_DIR/models.sh"
+# Outcomes that wait for GitHub and Linear to answer (HON-1414).
+# shellcheck source=./orchestrator-deferred.sh
+source "$SCRIPT_DIR/orchestrator-deferred.sh"
 
 # Linear workflow state IDs (Honkadori workspace)
 STATE_BACKLOG="035a5cef-88de-4334-98a0-b908f61d26a7"
@@ -237,11 +241,12 @@ RELOAD_PENDING=false
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 # What runs out of the main checkout: this script, the worktree-claude.sh it
-# spawns every worker through, the models.sh both of them source, and the
+# spawns every worker through, the models.sh both of them source, the
+# orchestrator-deferred.sh this script sources, and the
 # repo-node-bin.sh both of them run to pick the .nvmrc Node (HON-1307). Everything
 # else under scripts/ runs from the worker's own worktree, which branches from a
 # fresh origin/main, so a commit there leaves nothing stale to warn about.
-CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh .claude/hooks/repo-node-bin.sh)
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh scripts/orchestrator-deferred.sh .claude/hooks/repo-node-bin.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_CODE=0
@@ -578,7 +583,8 @@ write_status_file() {
        else {consecutive_failures: $consecutive_failures, paused_until: $paused_until} end')" \
     --argjson workers "$workers_json" \
     --argjson checkout "$checkout_json" \
-    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), triage_timeout: ($triage_timeout | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
+    --argjson deferred "$(deferred_json)" \
+    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), triage_timeout: ($triage_timeout | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers, deferred: $deferred}' \
     > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$STATUS_FILE" || rm -f "$tmp_file"
 }
 
@@ -1019,6 +1025,7 @@ monitor_workers() {
     local finished=false
     LAST_OUTCOME=""
     LAST_OUTCOME_COMMITS=""
+    OUTCOME_FINISHING="${WORKER_FINISHING[$i]:-0}"
     local issue_id="${WORKER_ISSUES[$i]}"
     local issue_uuid="${WORKER_ISSUE_UUIDS[$i]}"
     local branch="${WORKER_BRANCHES[$i]}"
@@ -1540,6 +1547,8 @@ notify() {
 # the counter means "consecutive runs that shipped nothing".
 
 note_consecutive_failure() {
+  # A network crash is an outage, not a run that failed to ship (HON-1414).
+  [ "$NETWORK_CRASH" = true ] && return 0
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
   if [ "$CONSECUTIVE_FAILURES" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
     local pause_duration=600  # 10 minutes
@@ -1833,9 +1842,11 @@ strand_worker() {
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
   local recreated=false
   restore_strand_worktree "$branch" && recreated=true
-  record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
+  LINEAR_WRITES_FAILED=""
+  local stranded_args=("$issue_uuid" "$issue_id" "$branch" "$log_file" \
     "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code" \
-    "$recreated"
+    "$recreated")
+  record_stranded "${stranded_args[@]}"
 
   # With a PR, In Review is the accurate state and record_stranded leaves it
   # alone. With no PR — none opened, or gh missing/unauthenticated, which
@@ -1848,6 +1859,8 @@ strand_worker() {
   if [ -z "$WORKER_PR_NUMBER" ]; then
     restore_queue_if_in_progress "$issue_uuid" "$issue_id"
   fi
+  # A write Linear refused is made on the next poll that reaches it (HON-1414).
+  defer_linear_writes "${stranded_args[@]}"
 
   # An incomplete cycle is a failure to ship, so it counts toward the
   # circuit breaker: a systemic stranding must not walk the whole
@@ -1869,6 +1882,10 @@ strand_worker() {
 # it passes its own rather than calling this.
 worker_duration_secs() {
   local issue_id="$1"
+  if [ "$REPLAYING" = true ]; then
+    echo "${REPLAY_DURATION_SECS:-0}"
+    return 0
+  fi
   local i=0
   while [ $i -lt ${#WORKER_ISSUES[@]} ]; do
     if [ "${WORKER_ISSUES[$i]}" = "$issue_id" ]; then
@@ -1911,6 +1928,10 @@ handle_success() {
     probe_branch="$branch"
   fi
   probe_worker_pr "$probe_branch"
+  if [ "$phase" != "done" ] && defer_outcome clean "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+       "$retried" "$title" "" "$duration_secs"; then
+    return 0
+  fi
   if [ "$WORKER_PR_MERGED" = true ]; then
     log INFO "$issue_id: phase reported '$phase' but PR $WORKER_PR_REF is merged — treating as success"
   fi
@@ -1947,8 +1968,9 @@ handle_success() {
   # local branch and Neon branch that a resume needs.
   #
   # A MERGED PR (confirmed above) falls through to SUCCESS; everything else —
-  # open, closed, never created, or unknowable because gh is missing — is
-  # STRANDED, because on this path a false SUCCESS is the expensive answer.
+  # open, closed, or never created — is STRANDED, because on this path a false
+  # SUCCESS is the expensive answer. A PR gh could not look up was deferred
+  # above (HON-1414).
   # (handle_timeout answers the unknowable case differently — see the comment
   # there; a kill is evidence of a stall in a way a clean exit is not.)
   if [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
@@ -1977,8 +1999,9 @@ handle_success() {
 #   no PR, but commits     → STRANDED too. handle_failure force-deletes the
 #                            branch on three of its four exits, and commits are
 #                            what the stranded path exists to preserve.
-#   probe never ran        → STRANDED. Silence from a broken gh is not evidence
-#                            of anything, and this is the destructive branch.
+#   probe never ran        → deferred (defer_outcome, HON-1414) and routed
+#                            again once gh answers. Silence from a broken gh is
+#                            not evidence of anything.
 #   no PR and no commits   → a genuine stall. handle_failure, triaged as before.
 handle_timeout() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
@@ -1990,6 +2013,8 @@ handle_timeout() {
   commits=$(count_commits "$branch")
   phase=$(detect_phase "$log_file" "$branch")
   duration_str=$(format_duration "$duration_secs")
+  defer_outcome timeout "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "" "$duration_secs" \
+    && return 0
 
   # The genuine stall, and the only route out of here that destroys anything:
   # the query ran, it found no PR, and nothing was committed either. Both other
@@ -2033,6 +2058,7 @@ handle_timeout() {
 #                            dies before Claude runs, so it has no PR and no
 #                            commits, and it must still reach the CAP arm.
 #   anything else          → STRANDED exit=error: artifacts preserved.
+# A failed probe or a network crash defers first (defer_outcome, HON-1414).
 # A crash with commits no longer gets a RETRY triage. That is deliberate:
 # both cases on record triaged NEEDS_HUMAN, so the RETRY never ran. Like any
 # first strand, it gets strand_worker's one finish attempt instead (HON-1065),
@@ -2046,7 +2072,9 @@ handle_error_exit() {
   local commits phase duration_str
   commits=$(count_commits "$branch")
   phase=$(detect_phase "$log_file" "$branch")
-  duration_str=$(format_duration "$(worker_duration_secs "$issue_id")")
+  local duration_secs
+  duration_secs=$(worker_duration_secs "$issue_id")
+  duration_str=$(format_duration "$duration_secs")
 
   # The only route out of here that destroys anything. See handle_timeout for
   # why each of the three conditions is load-bearing. A Neon cap death is the
@@ -2054,10 +2082,14 @@ handle_error_exit() {
   # cannot have opened a PR, and its CAP verdict must not depend on gh
   # answering. Stranding it would add the sticky Stranded label and leak the
   # worktree, which is the outcome the CAP arm exists to prevent (HON-616).
-  if [ "${commits:-0}" -eq 0 ] && {
-    worker_hit_neon_cap "$log_file" ||
-      { [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; }
-  }; then
+  # For the same reason it is checked before defer_outcome.
+  if [ "${commits:-0}" -eq 0 ] && worker_hit_neon_cap "$log_file"; then
+    handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
+    return 0
+  fi
+  defer_outcome error "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code" "$duration_secs" \
+    && return 0
+  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi
@@ -2118,6 +2150,9 @@ record_stranded() {
   local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
   local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
   local kill_reason="${10:-clean}" exit_code="${11:-}" recreated="${12:-false}"
+  # The writes to make: a deferred replay passes only the ones that failed, so
+  # a comment that landed is not posted twice (HON-1414).
+  local steps=" ${13:-comment label} "
 
   # pr_ref is "#650" — the shape the outcome log line wants. Every operator
   # instruction below needs the bare number instead: `gh pr merge` rejects a
@@ -2178,12 +2213,17 @@ record_stranded() {
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
-  linear_api \
-    'mutation($issueId: String!, $body: String!) {
-      commentCreate(input: { issueId: $issueId, body: $body }) { success }
-    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
+  if [[ "$steps" == *" comment "* ]]; then
+    linear_api \
+      'mutation($issueId: String!, $body: String!) {
+        commentCreate(input: { issueId: $issueId, body: $body }) { success }
+      }' "$vars" > /dev/null 2>&1 || {
+      log WARN "Failed to comment on $issue_id"
+      LINEAR_WRITES_FAILED+=" comment"
+    }
+  fi
 
-  try_add_label "$issue_uuid" "Stranded"
+  [[ "$steps" != *" label "* ]] || try_add_label "$issue_uuid" "Stranded"
   log WARN "Stranded $issue_id at phase=$phase (pr=$pr_ref ci=$ci_state) — artifacts preserved"
 }
 
@@ -2696,6 +2736,7 @@ restore_queue_if_in_progress() {
     move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_QUEUED" "Queued"
   elif [ -z "$state_id" ]; then
     log WARN "Could not read the state of $issue_id — leaving it untouched"
+    LINEAR_WRITES_FAILED+=" queue"
   else
     log WARN "$issue_id is no longer In Progress — leaving its state untouched"
   fi
@@ -2713,11 +2754,18 @@ move_issue_unassigned() {
   linear_api \
     'mutation($id: String!, $stateId: String!) {
       issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null }) { success }
-    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to move $issue_id to $state_label"
+    }' "$vars" > /dev/null 2>&1 || {
+    log WARN "Failed to move $issue_id to $state_label"
+    # Read only by the strand path, where this move is the return to Queued.
+    LINEAR_WRITES_FAILED+=" queue"
+  }
 }
 
 # ─── Label management (best-effort) ─────────────────────────────────────────
 
+# A failed Linear call adds " label" to LINEAR_WRITES_FAILED, which only the
+# strand path reads (HON-1414). A label that is missing and cannot be created
+# is not a failed call, so it is not retried.
 try_add_label() {
   local issue_uuid="$1" label_name="$2"
 
@@ -2728,7 +2776,7 @@ try_add_label() {
       filter: { name: { eq: "'"$label_name"'" }, team: { key: { eq: "HON" } } }
       first: 1
     ) { nodes { id } }
-  }' 2>/dev/null | jq -r '.data.issueLabels.nodes[0].id // empty') || return 0
+  }' 2>/dev/null | jq -r '.data.issueLabels.nodes[0].id // empty') || { LINEAR_WRITES_FAILED+=" label"; return 0; }
 
   # Create if not found
   if [ -z "$label_id" ] && [ -n "$TEAM_UUID" ]; then
@@ -2745,7 +2793,7 @@ try_add_label() {
         issueLabelCreate(input: { name: $name, teamId: $teamId, color: $color }) {
           issueLabel { id }
         }
-      }' "$vars" 2>/dev/null | jq -r '.data.issueLabelCreate.issueLabel.id // empty') || return 0
+      }' "$vars" 2>/dev/null | jq -r '.data.issueLabelCreate.issueLabel.id // empty') || { LINEAR_WRITES_FAILED+=" label"; return 0; }
   fi
 
   [ -z "$label_id" ] && return 0
@@ -2755,14 +2803,14 @@ try_add_label() {
   label_ids=$(linear_api '{
     issue(id: "'"$issue_uuid"'") { labels { nodes { id } } }
   }' 2>/dev/null | jq --arg new "$label_id" \
-    '[.data.issue.labels.nodes[].id, $new] | unique') || return 0
+    '[.data.issue.labels.nodes[].id, $new] | unique') || { LINEAR_WRITES_FAILED+=" label"; return 0; }
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --argjson labels "$label_ids" '{id: $id, labelIds: $labels}')
   linear_api \
     'mutation($id: String!, $labelIds: [String!]!) {
       issueUpdate(id: $id, input: { labelIds: $labelIds }) { success }
-    }' "$vars" > /dev/null 2>&1 || true
+    }' "$vars" > /dev/null 2>&1 || LINEAR_WRITES_FAILED+=" label"
 }
 
 fetch_team_uuid() {
@@ -3302,6 +3350,7 @@ reload_if_code_changed() {
   export ORCHESTRATOR_RELOAD_GATED="$GATED_ISSUES"
   export ORCHESTRATOR_RELOAD_CAP_REQUEUED="$CAP_REQUEUED_ISSUES"
   export ORCHESTRATOR_RELOAD_CHECKOUT_WARNED="$CHECKOUT_WARNED_SHA"
+  export_deferred_state
   rm -f "$SEEN_SKIPS_FILE"
 
   # execfail: without it a failed exec kills a non-interactive shell outright,
@@ -3314,7 +3363,7 @@ reload_if_code_changed() {
   # Only reached when the exec failed: carry on as the old image.
   unset ORCHESTRATOR_RELOAD_FINGERPRINT ORCHESTRATOR_RELOAD_START_TIME ORCHESTRATOR_RELOAD_FAILURES \
     ORCHESTRATOR_RELOAD_PAUSED_UNTIL ORCHESTRATOR_RELOAD_GATED ORCHESTRATOR_RELOAD_CAP_REQUEUED \
-    ORCHESTRATOR_RELOAD_CHECKOUT_WARNED
+    ORCHESTRATOR_RELOAD_CHECKOUT_WARNED ORCHESTRATOR_RELOAD_DEFERRED ORCHESTRATOR_RELOAD_NETWORK_RESPAWNED
   SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX") || SEEN_SKIPS_FILE=/dev/null
   RELOAD_REJECTED_FINGERPRINT="$new_fp"
   RELOAD_PENDING=false
@@ -3341,12 +3390,13 @@ restore_reload_state() {
   CAP_REQUEUED_ISSUES="${ORCHESTRATOR_RELOAD_CAP_REQUEUED:-}"
   CHECKOUT_WARNED_SHA="${ORCHESTRATOR_RELOAD_CHECKOUT_WARNED:-}"
   ORCHESTRATOR_START_TIME="${ORCHESTRATOR_RELOAD_START_TIME:-}"
+  restore_deferred_state
 
   unset ORCHESTRATOR_RELOAD_FINGERPRINT ORCHESTRATOR_RELOAD_START_TIME ORCHESTRATOR_RELOAD_FAILURES \
     ORCHESTRATOR_RELOAD_PAUSED_UNTIL ORCHESTRATOR_RELOAD_GATED ORCHESTRATOR_RELOAD_CAP_REQUEUED \
     ORCHESTRATOR_RELOAD_CHECKOUT_WARNED
 
-  log INFO "Reloaded from $previous: circuit breaker failures=$CONSECUTIVE_FAILURES paused_until=$PAUSED_UNTIL, gated=[${GATED_ISSUES}] cap_requeued=[${CAP_REQUEUED_ISSUES}]"
+  log INFO "Reloaded from $previous: circuit breaker failures=$CONSECUTIVE_FAILURES paused_until=$PAUSED_UNTIL, gated=[${GATED_ISSUES}] cap_requeued=[${CAP_REQUEUED_ISSUES}] deferred=${#DEFERRED[@]}"
 }
 
 # Only reachable after a reload: on a first start validate_environment exits.
@@ -3573,15 +3623,23 @@ main() {
     if [ "$SHUTTING_DOWN" = true ]; then
       if [ ${#WORKER_PIDS[@]} -eq 0 ]; then
         log INFO "All workers finished, exiting"
+        warn_deferred_left
         log INFO "═══ Orchestrator stopped ═══"
         exit 0
       fi
+      process_deferred
       monitor_workers
       drain_if_forced
       write_status_file
       [ ${#WORKER_PIDS[@]} -gt 0 ] && interruptible_sleep "$SHUTDOWN_POLL_INTERVAL"
       continue
     fi
+
+    # Outcomes that waited for GitHub and Linear (HON-1414). Every poll, not
+    # only in the spawn gate, because the slots or the breaker can keep the
+    # gate shut. Before monitor_workers, so an outcome deferred on this poll
+    # waits a full poll interval before its replay.
+    process_deferred
 
     # Monitor running workers
     if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
@@ -3609,8 +3667,10 @@ main() {
     local disk_ok=true
     check_disk_space || disk_ok=false
 
-    # Spawn new worker if slots available
-    local active=${#WORKER_PIDS[@]}
+    # Spawn new worker if slots available. A deferred worker still holds its
+    # worktree and Neon branch, and its replay may respawn, so it keeps its
+    # slot (HON-1414).
+    local active=$(( ${#WORKER_PIDS[@]} + $(deferred_slots) ))
     local polled=false
     local drained=false
 
@@ -3720,6 +3780,7 @@ main() {
     fi
   done
 
+  warn_deferred_left
   log INFO "═══ Orchestrator stopped ═══"
 
   # In --once mode, exit with distinct code

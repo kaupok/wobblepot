@@ -399,14 +399,16 @@ describe('orchestrator.sh', () => {
       expect(classify(6, 'implementing', 'NONE', 'unknown')).toContain('STRANDED')
     })
 
-    it('strands rather than triages when gh could not answer at all', () => {
+    it('defers rather than triages when gh could not answer at all', () => {
       // pr_for_branch is equally silent for "no PR" and for missing /
       // unauthenticated / offline / rate-limited gh. On this path that silence
       // decides whether the branch survives, so one rate-limited `gh pr list`
-      // would otherwise reproduce the exact symptom this issue is about.
+      // would otherwise reproduce the exact symptom this issue is about. The
+      // outcome waits for gh to answer (HON-1414, orchestrator.deferred.test.ts).
       const out = classifyTimeout(3, 'pr-review', 'ERROR', 'unknown')
 
-      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('[DEFERRED] HON-999')
+      expect(out).not.toContain('[OUTCOME]')
       expect(out).not.toContain('HANDLE_FAILURE')
       expect(out).not.toContain('CLEANUP:')
     })
@@ -466,16 +468,14 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('CLEANUP:test-branch:false')
     })
 
-    it.each([0, 3])(
-      'strands rather than fails when gh could not answer (%i commits)',
-      (commits) => {
-        const out = classifyError(commits, 'pr-review', 'ERROR', 'unknown')
+    it.each([0, 3])('defers rather than fails when gh could not answer (%i commits)', (commits) => {
+      const out = classifyError(commits, 'pr-review', 'ERROR', 'unknown')
 
-        expect(out).toContain('[OUTCOME] HON-999 STRANDED')
-        expect(out).not.toContain('HANDLE_FAILURE')
-        expect(out).not.toContain('CLEANUP:')
-      },
-    )
+      expect(out).toContain('[DEFERRED] HON-999')
+      expect(out).not.toContain('[OUTCOME]')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+    })
 
     // A cap death dies in worktree setup, before Claude runs, so it cannot have
     // a PR. Its CAP verdict comes from the log alone and must not depend on gh:
@@ -492,14 +492,16 @@ describe('orchestrator.sh', () => {
       },
     )
 
-    it('strands a cap-marked log that has commits rather than force-deleting them', () => {
-      // The cap check only waives the probe condition, never the commit one.
+    it('defers a cap-marked log that has commits rather than force-deleting them', () => {
+      // The cap check only waives the probe condition, never the commit one,
+      // so the failed probe defers the outcome (HON-1414).
       const out = stripTimestamps(
         runHarness('error', '2', 'implementing', 'ERROR', 'unknown', 'cap'),
       )
 
-      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('[DEFERRED] HON-999')
       expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
     })
 
     it('strands a closed-but-unmerged PR rather than triaging it', () => {
@@ -523,7 +525,7 @@ describe('orchestrator.sh', () => {
 
     // The harness keeps orchestrator.sh's `set -e` on, so a statement that
     // returns non-zero aborts mid-function and the trailing line never appears.
-    it.each(['OPEN', 'CLOSED', 'NONE', 'ERROR'] as PrState[])(
+    it.each(['OPEN', 'CLOSED', 'NONE'] as PrState[])(
       'runs handle_error_exit to completion with a %s PR',
       (pr) => {
         expect(classifyError(3, 'pr-review', pr, 'unknown')).toContain(
@@ -531,6 +533,10 @@ describe('orchestrator.sh', () => {
         )
       },
     )
+
+    it('runs handle_error_exit to completion when the probe fails', () => {
+      expect(classifyError(3, 'pr-review', 'ERROR', 'unknown')).toContain('CONSECUTIVE_FAILURES:0')
+    })
 
     it('runs handle_error_exit to completion on the merged path', () => {
       expect(classifyError(3, 'pr-review', 'MERGED', 'green')).toContain(
@@ -743,8 +749,14 @@ describe('orchestrator.sh', () => {
       expectRecordedForHuman(strand(mode, 'CLOSED', {}, 3, 'unknown'))
     })
 
+    // The outcome waits for gh instead; orchestrator.deferred.test.ts replays it.
     it.each(MODES)('does not respawn when the PR probe failed on the %s path', (mode) => {
-      expectRecordedForHuman(strand(mode, 'ERROR', {}, 3, 'unknown'))
+      const out = strand(mode, 'ERROR', {}, 3, 'unknown')
+
+      expect(out).toContain('[DEFERRED] HON-999')
+      expect(out).not.toContain('[OUTCOME]')
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).not.toContain('WT_CALL:')
     })
 
     it.each(MODES)('does not respawn during shutdown on the %s path', (mode) => {
