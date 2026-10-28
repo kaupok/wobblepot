@@ -12,7 +12,9 @@ import {
   type MealFormData,
   buildFinalComponents,
   mealComponentErrorMessage,
+  suggestedQuantity,
 } from './meal-form-types'
+import { focusFirstInvalidQuantity } from './ComponentList'
 import { prefersReducedMotion } from '@/lib/utils'
 import { ApiError, apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
@@ -143,6 +145,8 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   )
 
   const [error, setError] = useState('')
+  // An empty quantity shows its row error only once the user tried to save.
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
   const isImportMode = hasPrefilledIngredients || ingredientRows.length > 0
@@ -244,7 +248,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           continue
         }
         matchedCount++
-        addNutrition(comp.ingredient, comp.totalQuantity)
+        addNutrition(comp.ingredient, comp.totalQuantity ?? 0)
       }
     }
 
@@ -288,17 +292,15 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           {
             type: 'matched',
             ingredient,
-            totalQuantity: ingredient.defaultUnit === 'piece' ? 1 : 100,
+            totalQuantity: suggestedQuantity(ingredient),
           },
         ])
       } else {
+        // Empty, so no amount is saved that the user did not choose; the
+        // suggestion shows as the field's placeholder (HON-1362).
         setComponents([
           ...components,
-          {
-            ingredientId: ingredient.id,
-            ingredient,
-            totalQuantity: ingredient.defaultUnit === 'piece' ? 1 : 100,
-          },
+          { ingredientId: ingredient.id, ingredient, totalQuantity: null },
         ])
       }
     },
@@ -309,7 +311,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     setComponents(components.filter((c) => c.ingredientId !== ingredientId))
   }
 
-  const updateComponentQuantity = (ingredientId: string, quantity: number) => {
+  const updateComponentQuantity = (ingredientId: string, quantity: number | null) => {
     setComponents(
       components.map((c) =>
         c.ingredientId === ingredientId
@@ -408,6 +410,8 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSubmitAttempted(true)
+    const form = e.currentTarget
 
     if (!name.trim()) {
       setError(t('errors.nameRequired'))
@@ -441,6 +445,8 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
           behavior: prefersReducedMotion() ? 'auto' : 'smooth',
           block: 'start',
         })
+      } else if (typeof result.error !== 'string' && result.error.code === 'invalid_quantity') {
+        focusFirstInvalidQuantity(form, components)
       }
       return
     }
@@ -524,6 +530,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     // Submission
     isSubmitting,
     error,
+    submitAttempted,
     handleSubmit,
   }
 }

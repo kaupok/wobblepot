@@ -1,15 +1,22 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Info, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
+import { cn, prefersReducedMotion } from '@/lib/utils'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { type MealComponent, formatAmountWithUnit, formatUnit } from './meal-form-types'
+import {
+  type MealComponent,
+  formatAmountWithUnit,
+  formatUnit,
+  isMissingQuantity,
+  suggestedQuantity,
+} from './meal-form-types'
 import type { Unit } from '@/generated/prisma/enums'
 
 interface ComponentListProps {
@@ -18,9 +25,35 @@ interface ComponentListProps {
   disabled: boolean
   duplicateMap: Map<string, number[]>
   onRemove: (ingredientId: string) => void
-  onUpdateQuantity: (ingredientId: string, quantity: number) => void
+  onUpdateQuantity: (ingredientId: string, quantity: number | null) => void
   onSetQuantity: (ingredientId: string, defaultUnit: Unit) => void
   onMarkAsVague: (ingredientId: string) => void
+  /** Enter in a quantity field: the form sends focus back to the ingredient search. */
+  onQuantityEnter: () => void
+  /** Flag an empty quantity as an error; the form sets it once the user tried to save. */
+  showEmptyQuantityErrors: boolean
+}
+
+// Each quantity field carries `data-quantity-for={ingredientId}`.
+function quantityInput(container: ParentNode, ingredientId: string) {
+  return container.querySelector<HTMLInputElement>(`[data-quantity-for="${ingredientId}"]`)
+}
+
+/**
+ * Focus a field and scroll it clear of the phone tab bar. The browser's own
+ * focus scroll stops at the viewport edge, which is under the bar, so the field
+ * carries `scroll-mb-above-tab-bar` and is scrolled to with that margin.
+ */
+export function focusClearOfTabBar(field: HTMLElement | null | undefined) {
+  if (!field) return
+  field.focus({ preventScroll: true })
+  field.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+}
+
+/** Focus the quantity field of the first row that `invalid_quantity` names. */
+export function focusFirstInvalidQuantity(container: ParentNode, components: MealComponent[]) {
+  const first = components.find(isMissingQuantity)
+  if (first) focusClearOfTabBar(quantityInput(container, first.ingredientId))
 }
 
 export function ComponentList({
@@ -32,19 +65,38 @@ export function ComponentList({
   onUpdateQuantity,
   onSetQuantity,
   onMarkAsVague,
+  onQuantityEnter,
+  showEmptyQuantityErrors,
 }: ComponentListProps) {
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.form.componentList')
   const tCommon = useTranslations('common')
   const vaguePhrase = useVaguePhrase()
   const pieceLabel = useEnumLabel('Unit', 'piece')
+  const listRef = useRef<HTMLDivElement>(null)
+  // The ids the last render showed; null before the first, so an edit form's
+  // existing rows take no focus.
+  const shownIdsRef = useRef<Set<string> | null>(null)
+
+  // A newly added row gets focus in its quantity field, so the user types the
+  // amount next (HON-1362). The search field keeps focus until then, so it never
+  // falls to <body>.
+  useEffect(() => {
+    const shown = shownIdsRef.current
+    shownIdsRef.current = new Set(components.map((c) => c.ingredientId))
+    const last = components.at(-1)
+    if (!shown || !last || shown.has(last.ingredientId) || !listRef.current) return
+    focusClearOfTabBar(quantityInput(listRef.current, last.ingredientId))
+  }, [components])
 
   if (components.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={listRef} className="flex flex-col gap-2">
       {components.map((comp, index) => {
-        const isInvalidQuantity = !comp.isVague && comp.totalQuantity <= 0
+        const quantity = comp.totalQuantity
+        const isInvalidQuantity =
+          !comp.isVague && (quantity === null ? showEmptyQuantityErrors : quantity <= 0)
         const unitLabel = formatUnit(comp.ingredient, pieceLabel)
         const duplicateIndices = duplicateMap.get(comp.ingredientId)
         const isDuplicate = duplicateIndices && duplicateIndices.length > 1
@@ -63,9 +115,10 @@ export function ComponentList({
                 ) : isInvalidQuantity ? (
                   <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (
+                  quantity !== null &&
                   t('perServing', {
                     quantity: formatAmountWithUnit(
-                      formatQuantity(comp.totalQuantity / servings, locale, {
+                      formatQuantity(quantity / servings, locale, {
                         maximumFractionDigits: 1,
                       }),
                       comp.ingredient,
@@ -107,12 +160,19 @@ export function ComponentList({
                     )}
                   >
                     <NumberInput
-                      value={comp.totalQuantity}
-                      onValueChange={(v) => {
-                        if (v !== null) onUpdateQuantity(comp.ingredientId, v)
+                      value={quantity}
+                      onValueChange={(v) => onUpdateQuantity(comp.ingredientId, v)}
+                      placeholder={formatQuantity(suggestedQuantity(comp.ingredient), locale)}
+                      onKeyDown={(e) => {
+                        // Enter would submit the form; move on to the next ingredient instead.
+                        if (e.key !== 'Enter') return
+                        e.preventDefault()
+                        onQuantityEnter()
                       }}
+                      aria-invalid={isInvalidQuantity || undefined}
+                      data-quantity-for={comp.ingredientId}
                       embedded
-                      className="w-20"
+                      className="scroll-mb-above-tab-bar w-20 md:scroll-mb-0"
                       disabled={disabled}
                       aria-label={t('totalQuantityAria', { name: comp.ingredient.name })}
                     />

@@ -107,17 +107,18 @@ describe('IngredientSearch ARIA attributes', () => {
       expect(screen.getByRole('listbox')).toBeInTheDocument()
     })
 
-    // No option highlighted initially
+    // The first option is highlighted as soon as results show (HON-1362)
     const options = screen.getAllByRole('option')
-    expect(options[0]).toHaveAttribute('aria-selected', 'false')
-    expect(options[1]).toHaveAttribute('aria-selected', 'false')
-
-    // Arrow down to highlight first option
-    await user.keyboard('{ArrowDown}')
-
     expect(options[0]).toHaveAttribute('aria-selected', 'true')
     expect(options[1]).toHaveAttribute('aria-selected', 'false')
     expect(input).toHaveAttribute('aria-activedescendant', options[0]!.id)
+
+    // Arrow down moves to the second option
+    await user.keyboard('{ArrowDown}')
+
+    expect(options[0]).toHaveAttribute('aria-selected', 'false')
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+    expect(input).toHaveAttribute('aria-activedescendant', options[1]!.id)
   })
 
   it('should update aria-activedescendant when navigating options', async () => {
@@ -134,16 +135,15 @@ describe('IngredientSearch ARIA attributes', () => {
       expect(screen.getByRole('listbox')).toBeInTheDocument()
     })
 
-    // No activedescendant initially
-    expect(input).not.toHaveAttribute('aria-activedescendant')
-
-    // Navigate down twice
-    await user.keyboard('{ArrowDown}')
     const options = screen.getAllByRole('option')
     expect(input).toHaveAttribute('aria-activedescendant', options[0]!.id)
 
-    await user.keyboard('{ArrowDown}')
+    // Down stops at the last option; up stops at the first
+    await user.keyboard('{ArrowDown}{ArrowDown}')
     expect(input).toHaveAttribute('aria-activedescendant', options[1]!.id)
+
+    await user.keyboard('{ArrowUp}{ArrowUp}')
+    expect(input).toHaveAttribute('aria-activedescendant', options[0]!.id)
   })
 })
 
@@ -169,7 +169,7 @@ describe('IngredientSearch after a selection', () => {
     await vi.advanceTimersByTimeAsync(350)
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
 
-    await user.keyboard('{ArrowDown}{Enter}')
+    await user.keyboard('{Enter}')
     expect(onAddIngredient).toHaveBeenCalledTimes(1)
 
     // Selecting clears the field; typing something unrelated inside the same
@@ -181,6 +181,86 @@ describe('IngredientSearch after a selection', () => {
 
     await user.keyboard('{Enter}')
     expect(onAddIngredient).toHaveBeenCalledTimes(1)
+  })
+})
+
+// HON-1362: most users type and press Enter, so the top result is the default.
+describe('IngredientSearch Enter on the top result', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  async function typeAndWait(user: ReturnType<typeof userEvent.setup>, text: string) {
+    const input = screen.getByRole('combobox')
+    await user.type(input, text)
+    await vi.advanceTimersByTimeAsync(350)
+    await screen.findAllByRole('option')
+    return input
+  }
+
+  it('adds the first result on Enter without the arrow keys', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient })
+
+    const input = await typeAndWait(user, 'to')
+    await user.keyboard('{Enter}')
+
+    expect(onAddIngredient).toHaveBeenCalledExactlyOnceWith(mockIngredients[0])
+    expect(input).toHaveValue('')
+    expect(input).toHaveFocus()
+  })
+
+  it('adds the second result after one ArrowDown', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient })
+
+    await typeAndWait(user, 'to')
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    expect(onAddIngredient).toHaveBeenCalledExactlyOnceWith(mockIngredients[1])
+  })
+
+  it('skips a result the recipe already has', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient, existingIngredientIds: ['1'] })
+
+    const input = await typeAndWait(user, 'to')
+    const options = screen.getAllByRole('option')
+    expect(input).toHaveAttribute('aria-activedescendant', options[1]!.id)
+
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).toHaveBeenCalledExactlyOnceWith(mockIngredients[1])
+  })
+
+  it('adds nothing on Enter when every result is already added', async () => {
+    mockFetchSuccess(mockIngredients)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAddIngredient = vi.fn()
+    renderSearch({ onAddIngredient, existingIngredientIds: ['1', '2'] })
+
+    const input = await typeAndWait(user, 'to')
+    expect(input).not.toHaveAttribute('aria-activedescendant')
+
+    await user.keyboard('{Enter}')
+    expect(onAddIngredient).not.toHaveBeenCalled()
+  })
+
+  it('uses the field ref a caller passes, so the caller can focus it', async () => {
+    const inputRef = { current: null as HTMLInputElement | null }
+    renderSearch({ inputRef })
+
+    expect(inputRef.current).toBe(screen.getByRole('combobox'))
   })
 })
 
