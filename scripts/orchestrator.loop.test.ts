@@ -30,6 +30,7 @@ describe('orchestrator.sh', () => {
     ['neon-cleanup.sh', neonCleanup],
     ['e2e-local.sh', e2eLocal],
     ['models.sh', models],
+    ['orchestrator-deferred.sh', path.join(scriptsDir, 'orchestrator-deferred.sh')],
     ['pr-review.sh', prReview],
   ])('%s is syntactically valid', (_name, script) => {
     expect(() => execFileSync('bash', ['-n', script], { timeout: 30_000 })).not.toThrow()

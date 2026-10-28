@@ -21,9 +21,9 @@
 #     Same stubs as `outcome`, but drives handle_timeout — the path taken when
 #     monitor_workers kills a worker at WORKER_TIMEOUT. handle_failure is
 #     stubbed to a HANDLE_FAILURE:<type> marker, so a test can tell the routes
-#     apart: SUCCESS (merged PR), STRANDED (unmerged PR, or commits with no PR,
-#     or an ERROR probe), and the handle_failure fallback (probe ran, no PR, no
-#     commits). Everything else is genuine, including record_stranded's comment
+#     apart: SUCCESS (merged PR), STRANDED (unmerged PR, or commits with no PR),
+#     [DEFERRED] (an ERROR probe, HON-1414) and the handle_failure fallback
+#     (probe ran, no PR, no commits). Everything else is genuine, including record_stranded's comment
 #     body and the cleanup decision.
 #
 #   error <commits> <phase> <pr_state> <ci_state> [log-flavour]   (HON-1064)
