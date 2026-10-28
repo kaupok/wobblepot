@@ -271,15 +271,19 @@ test('a dinner is logged in an empty past slot, cooked again, then removed', asy
       .toEqual({ status: 'completed', charged: true })
 
     // Undo, then Cooked: the log is already charged, so no dialog opens and the
-    // PATCH asks for no deduction.
+    // PATCH asks for no deduction. Undo has landed once focus is on Cooked, so
+    // the PATCH caught below is Cooked's.
     await undo.click()
+    const cooked = day.getByRole('button', { name: 'Cooked' })
+    await expect(cooked).toBeFocused()
     const [patch] = await Promise.all([
       page.waitForResponse(
         (r) =>
           r.request().method() === 'PATCH' &&
-          new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries/${entryId}`,
+          new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries/${entryId}` &&
+          r.request().postDataJSON()?.status === 'completed',
       ),
-      day.getByRole('button', { name: 'Cooked' }).click(),
+      cooked.click(),
     ])
     expect(patch.ok()).toBe(true)
     expect(patch.request().postDataJSON()).toEqual({ status: 'completed', deductPantry: false })
