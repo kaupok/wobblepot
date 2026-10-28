@@ -98,12 +98,8 @@
       "copyFailed": "Nimekirja kopeerimine ebaõnnestus"
     },
     "emptyState": {
-      "noPlanHeading": "Söögiplaani veel pole",
-      "noPlanBody": "Loo söögiplaan, et näha poenimekirja.",
-      "noPlanCta": "Loo plaan",
-      "allDoneHeading": "Kõik tehtud!",
+      "emptyBody": "Poenimekiri on tühi.",
       "allDoneBody": "Kõik nimekirjas olev on ostetud.",
-      "nothingHeading": "Pole midagi osta",
       "nothingBody": "Sul on järgmiseks {days} päevaks sahvris kõik vajalik olemas.",
       "errorHeading": "Midagi läks valesti",
       "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",
@@ -130,6 +126,7 @@
     "addAria": "Lisa koostisosa sahvrisse",
     "inPantry": "Sahvris",
     "noResults": "Koostisosi ei leitud",
+    "undo": "Võta tagasi",
     "removeDialog": {
       "title": "Eemalda sahvrist",
       "description": "Kas oled kindel, et soovid eemaldada „{name}\" oma sahvrist?",
@@ -138,10 +135,11 @@
     "errors": {
       "updateFailed": "Toote uuendamine ebaõnnestus",
       "removeFailed": "Toote eemaldamine ebaõnnestus",
+      "restoreFailed": "Toote tagasipanek ebaõnnestus",
       "addFailed": "Toote lisamine sahvrisse ebaõnnestus"
     },
     "success": {
-      "removed": "Toode eemaldati sahvrist",
+      "removed": "„{name}\" eemaldati sahvrist",
       "added": "„{name}\" lisati sahvrisse"
     },
     "alreadyInPantry": "„{name}\" on juba sinu sahvris"
@@ -354,8 +352,8 @@
         "generate": "Mõtle toidud välja",
         "generating": "Mõtlen ideid…",
         "cancel": "Tühista",
-        "fineTuning": "Lihvin retsepti…",
-        "select": "Vali",
+        "fineTuning": "Valmistan retsepti ette…",
+        "select": "Vaata üle ja salvesta",
         "promptOrPhotoRequired": "Kirjelda, millist toitu soovid, või lisa foto",
         "tooManyImages": "Saad lisada kuni {max} fotot",
         "wrongImageType": "Fotod peavad olema JPEG, PNG või WebP",
@@ -419,7 +417,7 @@
       "send": "Saada",
       "thinking": "Mõtlen…",
       "youAsked": "Küsisid: {question}",
-      "edit": "Muuda",
+      "editQuestion": "Muuda küsimust",
       "retry": "Proovi uuesti",
       "close": "Sulge",
       "errors": {
@@ -472,6 +470,7 @@
       "replace": "Asenda",
       "leaveOut": "Jäta välja",
       "addIngredient": "Lisa koostisosa",
+      "add": "Lisa",
       "undo": "Võta tagasi",
       "undoAria": "Võta muudatus tagasi: {name}",
       "insteadOf": "Algne: {name}",
@@ -536,6 +535,8 @@
       "useInSteps": "Arvesta sammudes",
       "noteLabel": "Sammud arvestavad sinu sooviga: {note}",
       "clearNote": "Eemalda soov",
+      "close": "Sulge",
+      "closeLabel": "Sulge retsepti kohandamine",
       "review": {
         "title": "Pakutud muudatused",
         "description": "Märgi muudatused, mida teha. Muutub ainult see toidukord. Retsept jääb samaks.",
@@ -650,10 +651,12 @@
       "attachAria": "Lisa fotosid",
       "removeImageAria": "Eemalda „{filename}\"",
       "generate": "Mõtle toidud välja",
+      "generateAgain": "Mõtle uuesti välja",
       "generating": "Mõtlen ideid…",
       "cancel": "Tühista",
-      "fineTuning": "Lihvin retsepti…",
-      "select": "Vali",
+      "fineTuning": "Valmistan retsepti ette…",
+      "ideasReady": "{count, plural, one {# toiduidee valmis} other {# toiduideed valmis}}",
+      "select": "Vaata üle ja salvesta",
       "savedToast": "Retsept lisati sinu raamatukokku",
       "saved": "Salvestatud",
       "openRecipe": "Ava retsept",
@@ -679,8 +682,8 @@
     },
     "import": {
       "title": "Lisa retsept",
-      "description": "Kleebi retsept, lisa link või foto retseptist ja me loeme koostisosad välja. Kirjuta juurde, mitmele inimesele see on, muidu arvestame neljaga.",
-      "placeholder": "Kleebi retsept või URL siia…\n\nNäited:\nhttps://example.com/kanapraad\n\nVõi kleebi retsepti tekst otse:\nKanapraad (4 portsjonit)\n- 500g kanafilee\n- 2 sl sojakastet\n- 1 punane paprika",
+      "description": "Kleebi retsept, lisa link või foto retseptist ja me loeme koostisosad välja. Kirjuta juurde, mitmele inimesele see on, muidu arvestame sinu leibkonna suurusega ({count}).",
+      "placeholder": "Kleebi retsept või link\nNäiteks: https://…",
       "textAria": "Retsepti tekst või URL",
       "attachAria": "Lisa foto retseptist",
       "removeImageAria": "Eemalda „{filename}\"",
@@ -737,16 +740,16 @@
       "descriptionCreate": "Lisa uus retsept oma leibkonna kogusse",
       "originalTextLabel": "Algne retsepti tekst",
       "ingredientsHeading": "Koostisosad",
-      "ingredientsHelper": "Sisesta kogu retsepti jaoks vajalik kogus ({count, plural, one {# portsjon} other {# portsjonit}}). Arvutame ühe portsjoni koguse automaatselt.",
+      "ingredientsHelper": "Kogused kogu retseptile ({count, plural, one {# portsjon} other {# portsjonit}}).",
       "noIngredients": "Koostisosi pole veel lisatud. Kasuta ülaltoodud otsingut.",
       "nutritionApproximate": "Ligikaudne — {count, plural, one {# koostisosa pole arvestatud} other {# koostisosa pole arvestatud}}",
       "toVerifyBadge": "{count} kontrollida",
       "unmatchedBadge": "{count} sobitamata",
       "preparationNotesLabel": "Valmistusjuhised (vabatahtlik)",
       "preparationNotesHelper": "Kuidas seda valmistada? Sammud, nõuanded või muud märkused.",
-      "preparationNotesPlaceholder": "nt sammud, küpsetamise nõuanded",
+      "preparationNotesPlaceholder": "Näiteks: keeda pasta. Prae küüslauku oliiviõlis, lisa tomatid…",
       "sourceUrlLabel": "Algallika URL (vabatahtlik)",
-      "sourceUrlPlaceholder": "https://example.com/retsept",
+      "sourceUrlPlaceholder": "Näiteks: https://example.com/retsept",
       "sourceUrlClearAria": "Tühjenda algallika URL",
       "cancel": "Tühista",
       "saving": "Salvestan…",
@@ -779,20 +782,20 @@
       "basic": {
         "heading": "Põhiandmed",
         "nameLabel": "Retsepti nimi",
-        "namePlaceholder": "nt kanapraad",
+        "namePlaceholder": "Näiteks: kanapraad",
         "descriptionLabel": "Kirjeldus (vabatahtlik)",
-        "descriptionPlaceholder": "Lühike retsepti kirjeldus…",
+        "descriptionPlaceholder": "Näiteks: kiire argiõhtune pasta värskete tomatitega",
         "servingsLabel": "Retsept on (portsjonit)"
       },
       "details": {
         "heading": "Lisaandmed",
         "suitableForLabel": "Sobib",
         "timeMinutesLabel": "Valmistusaeg minutites (vabatahtlik)",
-        "timeMinutesPlaceholder": "nt 30",
+        "timeMinutesPlaceholder": "Näiteks: 30",
         "kidFriendlyLabel": "Lastesõbralik"
       },
       "componentList": {
-        "perServing": "{quantity}{unit} portsjoni kohta",
+        "perServing": "{quantity} portsjoni kohta",
         "invalidQuantity": "Kogus peab olema suurem kui 0",
         "setQuantity": "Määra kogus",
         "noQuantity": "Kogus määramata",
@@ -800,7 +803,7 @@
         "totalQuantityAria": "„{name}\" üldkogus"
       },
       "ingredientSearch": {
-        "placeholder": "Otsi koostisosi…",
+        "placeholder": "Näiteks: tomat",
         "aria": "Otsi lisatavaid koostisosi",
         "noResults": "Koostisosi ei leitud",
         "added": "Lisatud"
@@ -809,7 +812,7 @@
     "ingredientRow": {
       "removeAria": "Eemalda koostisosa",
       "invalidQuantity": "Kogus peab olema suurem kui 0",
-      "perServing": "{quantity}{unit} portsjoni kohta",
+      "perServing": "{quantity} portsjoni kohta",
       "duplicateRow": "{count, plural, one {Kasutusel ka real {rows}} other {Kasutusel ka ridadel {rows}}}",
       "originalLabel": "Algne: {text}",
       "searchPlaceholder": "Otsi koostisosi…",
@@ -858,7 +861,7 @@
       }
     },
     "review": {
-      "nutritionLine": "{calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",
+      "servings": "{count, plural, one {Annab # portsjoni} other {Annab # portsjonit}}",
       "matchedCollapse": "{count, plural, one {# sobitatud koostisosa} other {# sobitatud koostisosa}}",
       "save": "Salvesta retsept",
       "saving": "Salvestan…",

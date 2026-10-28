@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { block, contrast, parseOklch, token, type Oklch } from '@/test/oklch-contrast'
+import {
+  block,
+  contrast,
+  over,
+  parseOklch,
+  srgbContrast,
+  toSrgb,
+  token,
+  type Oklch,
+} from '@/test/oklch-contrast'
 
 /**
  * The meal tint (docs/DESIGN.md → Imagery) fixes lightness and chroma so that
@@ -41,6 +50,15 @@ describe.each([
 
   it('keeps chip text at 5:1 for every hue, like the status pairings', () => {
     expect(worst((h) => contrast(at('text', h), at('chip', h))).ratio).toBeGreaterThanOrEqual(5)
+  })
+
+  // The cook view's question panel (`Card surface="chip"`, HON-1371): the chip
+  // at 50% alpha, composited over the surface.
+  it('keeps muted text on the half-strength chip at 4.5:1 for every hue', () => {
+    const halfChip = (h: number) => over(toSrgb(at('chip', h)), 0.5, toSrgb(at('surface', h)))
+    expect(
+      worst((h) => srgbContrast(toSrgb(at('muted', h)), halfChip(h))).ratio,
+    ).toBeGreaterThanOrEqual(4.5)
   })
 
   // Colours the card keeps from the theme: the pantry-coded ingredient names

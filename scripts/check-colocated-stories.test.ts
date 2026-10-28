@@ -57,9 +57,10 @@ function run(...args: string[]): { status: number; output: string } {
 }
 
 describe('isComponentFile', () => {
-  it('accepts a component and rejects tests, stories and barrels', () => {
+  it('accepts a component and rejects tests, fixtures, stories and barrels', () => {
     expect(isComponentFile('Foo.tsx')).toBe(true)
     expect(isComponentFile('Foo.test.tsx')).toBe(false)
+    expect(isComponentFile('Foo.fixtures.tsx')).toBe(false)
     expect(isComponentFile('Foo.stories.tsx')).toBe(false)
     expect(isComponentFile('index.tsx')).toBe(false)
     expect(isComponentFile('use-foo.ts')).toBe(false)

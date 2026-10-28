@@ -35,7 +35,12 @@ const TEXT_STEP_DELAYS = [0, 4000]
 // Reading a photo takes longer than reading pasted text, so each step stays up longer.
 const PHOTO_STEP_DELAYS = [0, 5000, 12000]
 
-export function RecipeImportClient() {
+interface RecipeImportClientProps {
+  /** The household's member count, the servings a recipe gets when it does not say. */
+  defaultServings: number
+}
+
+export function RecipeImportClient({ defaultServings }: RecipeImportClientProps) {
   const router = useRouter()
   const t = useTranslations('recipes.import')
   const locale = useLocale() as Locale
@@ -278,7 +283,7 @@ export function RecipeImportClient() {
   return (
     <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no bordered page wrapper (HON-779). */}
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <BackToRecipesLink />
@@ -286,7 +291,7 @@ export function RecipeImportClient() {
               {t('title')}
             </Heading>
           </div>
-          <Body variant="muted">{t('description')}</Body>
+          <Body variant="muted">{t('description', { count: defaultServings })}</Body>
         </div>
         <div className="flex flex-col gap-4">
           <AttachImages

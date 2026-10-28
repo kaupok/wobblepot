@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useState, type ReactNode, type RefObject } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import { AdjustReviewDialog } from './AdjustReviewDialog'
 import { useAdjustRecipe } from './use-adjust-recipe'
 import type { EntryChange, MealComponent } from './types'
 
-interface AdjustRecipeProps {
+export interface AdjustRecipeProps {
   planId: string
   entryId: string
   /** The entry's stored changes, which the new set keeps unless a proposal supersedes one. */
@@ -26,6 +26,15 @@ interface AdjustRecipeProps {
   adjustmentNote: string | null
   /** The changes landed, and the server dropped the entry's cached steps. */
   onChanged?: () => void
+  /**
+   * The section is shown: the ⋯ menu's "Adjust recipe" opens it (HON-1356).
+   * Closed, only the stored request shows, because it explains the steps.
+   */
+  open: boolean
+  /** Hide the section and return focus to the ⋯ trigger. */
+  onClose: () => void
+  /** The instruction field, which the ⋯ menu focuses as it closes. */
+  fieldRef: RefObject<HTMLTextAreaElement | null>
 }
 
 /**
@@ -34,7 +43,7 @@ interface AdjustRecipeProps {
  * the ones it keeps. An instruction that needs no change says so here and
  * writes nothing. One the steps should follow with no ingredient change ("less
  * salt") is offered for the steps alone; the stored request shows here, with
- * Clear.
+ * Clear, whether the section is open or not.
  */
 export function AdjustRecipe({
   planId,
@@ -43,14 +52,89 @@ export function AdjustRecipe({
   components,
   adjustmentNote,
   onChanged,
+  open,
+  onClose,
+  fieldRef,
 }: AdjustRecipeProps) {
   const t = useTranslations('meal-plan.adjust')
+  const adjust = useAdjustRecipe({ planId, entryId, onChanged })
+  const { apply, isApplying } = adjust
+
+  // The stored changes as they are, for a write that only moves the request.
+  const storeNote = (note: string | null, mode: 'append' | 'replace') =>
+    apply(
+      buildChangeSet(changes, []),
+      changes.map((c) => c.id),
+      note,
+      mode,
+    )
+
+  // Clear removes its own line, so focus goes to the field, or to the ⋯
+  // trigger when the section is closed.
+  const clearNote = async () => {
+    if (!(await storeNote(null, 'replace'))) return
+    if (open) fieldRef.current?.focus()
+    else onClose()
+  }
+
+  const noteLine = adjustmentNote ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <Body variant="muted">
+        {t('noteLabel', { note: adjustmentNote.split('\n').join(' · ') })}
+      </Body>
+      <Button
+        type="button"
+        variant="ghost"
+        size="lg"
+        disabled={isApplying}
+        onClick={() => void clearNote()}
+      >
+        {t('clearNote')}
+      </Button>
+    </div>
+  ) : null
+
+  if (!open) return noteLine
+  return (
+    <AdjustForm
+      adjust={adjust}
+      changes={changes}
+      components={components}
+      noteLine={noteLine}
+      storeNote={storeNote}
+      onClose={onClose}
+      fieldRef={fieldRef}
+    />
+  )
+}
+
+interface AdjustFormProps extends Pick<
+  AdjustRecipeProps,
+  'changes' | 'components' | 'onClose' | 'fieldRef'
+> {
+  adjust: ReturnType<typeof useAdjustRecipe>
+  noteLine: ReactNode
+  storeNote: (note: string | null, mode: 'append' | 'replace') => Promise<boolean>
+}
+
+/**
+ * The open section. Mounted only while open, so closing it drops the draft,
+ * the "no change" answer and an error, and the next open starts empty.
+ */
+function AdjustForm({
+  adjust,
+  changes,
+  components,
+  noteLine,
+  storeNote,
+  onClose,
+  fieldRef,
+}: AdjustFormProps) {
+  const t = useTranslations('meal-plan.adjust')
   const fieldId = useId()
-  const { propose, isProposing, proposeError, resetProposal, apply, isApplying } = useAdjustRecipe({
-    planId,
-    entryId,
-    onChanged,
-  })
+  const { propose, isProposing, proposeError, resetProposal, apply, isApplying } = adjust
+  // The answer lives in the hook above this form, so drop it as the form goes.
+  useEffect(() => resetProposal, [resetProposal])
   const [instruction, setInstruction] = useState('')
   const [review, setReview] = useState<{ instruction: string; proposals: AdjustProposal[] }>({
     instruction: '',
@@ -59,7 +143,6 @@ export function AdjustRecipe({
   const [dialogOpen, setDialogOpen] = useState(false)
   // An answer with no change: `steps` when the steps can still follow it.
   const [empty, setEmpty] = useState<{ instruction: string; steps: boolean } | null>(null)
-  const fieldRef = useRef<HTMLTextAreaElement>(null)
   // The button is disabled while the AI answers, so focus returns to it when
   // the answer is an error or "no change" (docs/DESIGN.md → Focus management).
   const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isProposing)
@@ -71,21 +154,6 @@ export function AdjustRecipe({
     ...components.map((c) => c.ingredientId),
     ...changes.flatMap((c) => (c.original ? [c.original.id] : [])),
   ]
-
-  // The stored changes as they are, for a write that only moves the request.
-  const storeNote = async (note: string | null, mode: 'append' | 'replace') => {
-    const stored = await apply(
-      buildChangeSet(changes, []),
-      changes.map((c) => c.id),
-      note,
-      mode,
-    )
-    if (stored) {
-      setEmpty(null)
-      if (mode === 'append') setInstruction('')
-      fieldRef.current?.focus()
-    }
-  }
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -104,23 +172,19 @@ export function AdjustRecipe({
   return (
     <>
       <form onSubmit={submit} className="flex flex-col gap-2">
-        <Label htmlFor={fieldId}>{t('label')}</Label>
-        {adjustmentNote && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Body variant="muted">
-              {t('noteLabel', { note: adjustmentNote.split('\n').join(' · ') })}
-            </Body>
-            <Button
-              type="button"
-              variant="ghost"
-              size="lg"
-              disabled={isApplying}
-              onClick={() => void storeNote(null, 'replace')}
-            >
-              {t('clearNote')}
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={fieldId}>{t('label')}</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            aria-label={t('closeLabel')}
+            onClick={onClose}
+          >
+            {t('close')}
+          </Button>
+        </div>
+        {noteLine}
         <Body variant="muted" id={`${fieldId}-hint`}>
           {t('hint')}
         </Body>
@@ -153,7 +217,10 @@ export function AdjustRecipe({
             size="lg"
             className="w-full md:w-auto md:self-start"
             disabled={isApplying}
-            onClick={() => void storeNote(empty.instruction, 'append')}
+            // The steps now follow the request, so the section's work is done.
+            onClick={() =>
+              void storeNote(empty.instruction, 'append').then((ok) => ok && onClose())
+            }
           >
             {t('useInSteps')}
           </Button>
@@ -198,9 +265,11 @@ export function AdjustRecipe({
           if (applied) setInstruction('')
           return applied
         }}
+        // Applied or dismissed, the suggestion is settled: close the section,
+        // and focus goes to the ⋯ trigger rather than an unmounting field.
         onCloseAutoFocus={(event) => {
           event.preventDefault()
-          fieldRef.current?.focus()
+          onClose()
         }}
       />
     </>

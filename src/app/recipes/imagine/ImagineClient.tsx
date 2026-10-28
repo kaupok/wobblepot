@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { downscaleImage } from '@/lib/downscale-image'
@@ -40,32 +41,34 @@ import { FieldError } from '@/components/FieldError'
 
 const recipeHref = (mealId: string) => `/recipes/${mealId}/edit`
 
+// `Skeleton` renders `role="status"` on every bar, so all but the name bar are
+// `aria-hidden`: each card announces "Loading" once, not 15 times.
 function SkeletonCard() {
   return (
     <Card size="sm" className="flex h-full flex-col">
       <CardContent className="flex-1 p-4 pb-2">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-5 w-full" />
-          <Skeleton className="h-5 w-2/3" />
+          <Skeleton aria-hidden className="h-5 w-full" />
+          <Skeleton aria-hidden className="h-5 w-2/3" />
           <div className="mt-1 flex gap-2">
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
+            <Skeleton aria-hidden className="h-8 w-16" />
           </div>
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-5 w-32" />
+          <Skeleton aria-hidden className="h-5 w-24" />
+          <Skeleton aria-hidden className="h-5 w-32" />
           <div className="mt-1 flex flex-col gap-1">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-20" />
+            <Skeleton aria-hidden className="h-4 w-28" />
+            <Skeleton aria-hidden className="h-4 w-24" />
+            <Skeleton aria-hidden className="h-4 w-32" />
+            <Skeleton aria-hidden className="h-4 w-20" />
           </div>
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Skeleton className="h-touch w-full md:h-10" />
+        <Skeleton aria-hidden className="h-touch w-full md:h-10" />
       </CardFooter>
     </Card>
   )
@@ -80,13 +83,13 @@ export function ImagineClient() {
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
   // Imagined meal ID → saved recipe ID. A saved idea shows "Open recipe" in
-  // place of Select, so it cannot be reviewed and saved a second time (HON-1270).
+  // place of "Review and save", so it cannot be reviewed and saved a second time (HON-1270).
   const [savedMealIds, setSavedMealIds] = useState<Record<string, string>>({})
   const abortControllerRef = useRef<AbortController | null>(null)
   // `ReviewMealData` carries no ID, so the imagined meal behind the open
   // dialog is kept here, set when its review lands.
   const reviewSourceIdRef = useRef<string | null>(null)
-  // Each card's action (Select, or "Open recipe" once saved), by imagined meal
+  // Each card's action ("Review and save", or "Open recipe" once saved), by imagined meal
   // ID: where focus goes when the review dialog closes.
   const cardActionRefs = useRef(new Map<string, HTMLElement>())
 
@@ -128,6 +131,12 @@ export function ImagineClient() {
     mutationFn: reviewImaginedMeal,
     onSuccess: (finalMeal, meal) => {
       reviewSourceIdRef.current = meal.id
+      // The card takes the dialog's numbers, so the two agree (HON-1367).
+      if (meals) {
+        const next = meals.map((m) => (m.id === meal.id ? withReviewNutrition(m, finalMeal) : m))
+        setMeals(next)
+        saveImagineSession({ prompt, meals: next, savedMealIds })
+      }
       setReviewMeal(convertToPrefilledData(finalMeal))
     },
   })
@@ -154,8 +163,8 @@ export function ImagineClient() {
     })
   }
 
-  // Back to the card the dialog was opened from: its Select after a cancel, or
-  // its "Open recipe" link after a save, which replaced Select on that card.
+  // Back to the card the dialog was opened from: its "Review and save" after a cancel, or
+  // its "Open recipe" link after a save, which replaced it on that card.
   const handleReviewCloseAutoFocus = (event: Event) => {
     const sourceId = reviewSourceIdRef.current
     const target = sourceId ? cardActionRefs.current.get(sourceId) : undefined
@@ -265,6 +274,9 @@ export function ImagineClient() {
   }
 
   const handleGenerate = () => {
+    // The prompt field and this button stay focusable while busy
+    // (`aria-disabled`), so Enter and clicks still reach here.
+    if (isGenerating || reviewingMealId !== null) return
     if (!prompt.trim() && images.length === 0) {
       setError(t('errors.promptOrPhotoRequired'))
       return
@@ -284,10 +296,10 @@ export function ImagineClient() {
 
   return (
     <div className="w-full px-4 py-8">
-      {/* Top-aligned, no page-level Card (HON-779). The column is `max-w-4xl`
-          rather than a form's `max-w-2xl` because the results grid needs the
-          width; the result cards stay cards, each is the item itself. */}
-      <div className="flex max-w-4xl flex-col gap-6">
+      {/* Top-aligned, no page-level Card (HON-779). The column fills the page
+          width, as a list does, not a form's `max-w-2xl`: the results grid
+          needs it (HON-1367). The result cards stay cards, each is the item itself. */}
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <BackToRecipesLink />
@@ -316,7 +328,9 @@ export function ImagineClient() {
               aria-label={t('promptAria')}
               rows={3}
               className="min-w-0 flex-1 resize-none"
-              disabled={isGenerating}
+              // Not `disabled`: Chromium would drop focus to <body> on Enter.
+              readOnly={isGenerating}
+              aria-disabled={isGenerating || undefined}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -330,9 +344,12 @@ export function ImagineClient() {
         <div className="flex flex-col gap-3">
           <Button
             onClick={handleGenerate}
-            disabled={
-              isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
-            }
+            // Busy is `aria-disabled`, so a pressed button keeps focus; an empty
+            // prompt is `disabled`, since focus is in the field when it empties.
+            aria-disabled={isGenerating || reviewingMealId !== null || undefined}
+            disabled={!prompt.trim() && images.length === 0}
+            // Once ideas show, each card's action leads, so this steps back.
+            variant={meals ? 'outline' : 'default'}
             className="w-full md:w-auto md:self-start"
           >
             {isGenerating ? (
@@ -343,7 +360,7 @@ export function ImagineClient() {
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {t('generate')}
+                {meals ? t('generateAgain') : t('generate')}
               </>
             )}
           </Button>
@@ -357,6 +374,11 @@ export function ImagineClient() {
               {t('cancel')}
             </Button>
           )}
+          {/* Mounted before the ideas arrive, so the count is announced. Focus
+              stays where the user left it. */}
+          <div role="status" className="sr-only">
+            {imagine.isSuccess && meals ? t('ideasReady', { count: meals.length }) : null}
+          </div>
         </div>
 
         {/* Results: skeleton cards while loading, real cards when done */}
@@ -389,9 +411,17 @@ export function ImagineClient() {
                         ) : (
                           <Button
                             ref={cardActionRef(meal.id)}
+                            // Outline: three filled buttons in a row would compete
+                            // with the review dialog's one primary Save.
+                            variant="outline"
                             className="w-full"
-                            onClick={() => review.mutate(meal)}
-                            disabled={reviewingMealId !== null}
+                            onClick={() => {
+                              if (reviewingMealId !== null) return
+                              review.mutate(meal)
+                            }}
+                            // Not `disabled`: the pressed button keeps focus
+                            // until the review dialog takes it.
+                            aria-disabled={reviewingMealId !== null || undefined}
                           >
                             {reviewingMealId === meal.id ? (
                               <>

@@ -31,6 +31,7 @@ import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import type { RecipeExtraction } from './recipe-schema'
 import { RecipeParseError } from './recipe-errors'
 import { buildRecipeRequest } from './recipe-prompt'
+import { z } from 'zod'
 import { RECIPE_MODEL } from './models'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
@@ -40,20 +41,26 @@ const mockGenerateObject = vi.mocked(generateObject)
 import { logAiSample } from './sampling'
 const mockLogAiSample = vi.mocked(logAiSample)
 
+// Each build makes a new Zod schema, and two instances never deep-equal, so
+// compare the JSON Schema the provider receives instead.
+function withJsonSchema(request: object) {
+  return { ...request, schema: z.toJSONSchema((request as { schema: z.ZodType }).schema) }
+}
+
 describe('parseRecipeText', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('throws RecipeParseError for text shorter than 20 characters', async () => {
-    await expect(parseRecipeText('too short')).rejects.toThrow(RecipeParseError)
-    await expect(parseRecipeText('too short')).rejects.toThrow(
+    await expect(parseRecipeText('too short', 4)).rejects.toThrow(RecipeParseError)
+    await expect(parseRecipeText('too short', 4)).rejects.toThrow(
       'The text is too short to be a recipe',
     )
   })
 
   it('throws RecipeParseError for whitespace-only short text', async () => {
-    await expect(parseRecipeText('   short   ')).rejects.toThrow(RecipeParseError)
+    await expect(parseRecipeText('   short   ', 4)).rejects.toThrow(RecipeParseError)
   })
 
   it('returns parsed recipe with confidence on successful AI extraction', async () => {
@@ -85,6 +92,7 @@ describe('parseRecipeText', () => {
 
     const result = await parseRecipeText(
       'A full recipe with chicken breast and vegetables for dinner',
+      4,
     )
     expect(result.extraction.name).toBe('Chicken Stir Fry')
     expect(result.extraction.ingredients).toHaveLength(1)
@@ -120,6 +128,7 @@ describe('parseRecipeText', () => {
 
     await parseRecipeText(
       'A full recipe with chicken breast and vegetables for dinner',
+      4,
       undefined,
       undefined,
       abortSignal,
@@ -136,16 +145,19 @@ describe('parseRecipeText', () => {
     const abortSignal = AbortSignal.timeout(35_000)
 
     await expect(
-      parseRecipeText(`  ${recipeText}\n`, 'et', undefined, abortSignal),
+      parseRecipeText(`  ${recipeText}\n`, 3, 'et', undefined, abortSignal),
     ).rejects.toThrow('stop after the call')
 
     // The model benchmark (HON-795) sends the builder's output. If production
     // adds an argument, or builds any of these inline, the two drift apart.
-    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-      ...buildRecipeRequest(recipeText, 'et'),
-      model: 'mock-model',
-      abortSignal,
-    })
+    // The household's size (3) reaching the schema is HON-1363.
+    expect(withJsonSchema(mockGenerateObject.mock.calls[0]![0])).toEqual(
+      withJsonSchema({
+        ...buildRecipeRequest(recipeText, 3, 'et'),
+        model: 'mock-model',
+        abortSignal,
+      }),
+    )
   })
 
   it('rethrows a TimeoutError instead of wrapping it in RecipeParseError (HON-694)', async () => {
@@ -158,7 +170,7 @@ describe('parseRecipeText', () => {
     // would match its 400 branch first and the mapped 504 would be dead code —
     // which the route tests cannot catch, because they mock this module out.
     await expect(
-      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
+      parseRecipeText('A full recipe with chicken breast and vegetables for dinner', 4),
     ).rejects.toBe(err)
   })
 
@@ -170,7 +182,7 @@ describe('parseRecipeText', () => {
     // user their recipe could not be parsed when the budget simply ran out,
     // and skipping `captureApiError` so nothing reports the mis-sized budget.
     await expect(
-      parseRecipeText('A full recipe with chicken breast and vegetables for dinner'),
+      parseRecipeText('A full recipe with chicken breast and vegetables for dinner', 4),
     ).rejects.toBe(err)
   })
 
@@ -191,7 +203,7 @@ describe('parseRecipeText', () => {
       const err = apiCallError(529)
       mockGenerateObject.mockRejectedValue(err)
 
-      const thrown = await parseRecipeText(TEXT).catch((e: unknown) => e)
+      const thrown = await parseRecipeText(TEXT, 4).catch((e: unknown) => e)
 
       // Not `parse_failed`: that code answers 400 and skips `captureApiError`,
       // so an outage read as "your recipe was bad" and reported nothing.
@@ -203,7 +215,7 @@ describe('parseRecipeText', () => {
     it('wraps a connection failure (APICallError without a status) as provider_unavailable', async () => {
       mockGenerateObject.mockRejectedValue(apiCallError())
 
-      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({ code: 'provider_unavailable' })
+      await expect(parseRecipeText(TEXT, 4)).rejects.toMatchObject({ code: 'provider_unavailable' })
     })
 
     it('wraps a RetryError (retries exhausted) as provider_unavailable', async () => {
@@ -214,7 +226,7 @@ describe('parseRecipeText', () => {
       })
       mockGenerateObject.mockRejectedValue(err)
 
-      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({
+      await expect(parseRecipeText(TEXT, 4)).rejects.toMatchObject({
         code: 'provider_unavailable',
         cause: err,
       })
@@ -226,7 +238,7 @@ describe('parseRecipeText', () => {
       const err = apiCallError(400, false)
       mockGenerateObject.mockRejectedValue(err)
 
-      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+      await expect(parseRecipeText(TEXT, 4)).rejects.toBe(err)
     })
 
     it('rethrows a RetryError that ended on a non-retryable error', async () => {
@@ -237,7 +249,7 @@ describe('parseRecipeText', () => {
       })
       mockGenerateObject.mockRejectedValue(err)
 
-      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+      await expect(parseRecipeText(TEXT, 4)).rejects.toBe(err)
     })
 
     it('rethrows a RetryError whose last attempt failed permanently, even at maxRetriesExceeded', async () => {
@@ -250,20 +262,20 @@ describe('parseRecipeText', () => {
       })
       mockGenerateObject.mockRejectedValue(err)
 
-      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+      await expect(parseRecipeText(TEXT, 4)).rejects.toBe(err)
     })
 
     it('keeps parse_failed for a model answer that did not fit the schema', async () => {
       mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
 
-      await expect(parseRecipeText(TEXT)).rejects.toMatchObject({ code: 'parse_failed' })
+      await expect(parseRecipeText(TEXT, 4)).rejects.toMatchObject({ code: 'parse_failed' })
     })
 
     it('rethrows any other error unwrapped, so the route reports it as a 500', async () => {
       const err = new TypeError('Cannot read properties of undefined')
       mockGenerateObject.mockRejectedValue(err)
 
-      await expect(parseRecipeText(TEXT)).rejects.toBe(err)
+      await expect(parseRecipeText(TEXT, 4)).rejects.toBe(err)
     })
   })
 
@@ -296,6 +308,7 @@ describe('parseRecipeText', () => {
 
     await parseRecipeText(
       'A full recipe with chicken breast and vegetables for dinner',
+      4,
       'en',
       onAiUsage,
     )
@@ -312,6 +325,7 @@ describe('parseRecipeText', () => {
     await expect(
       parseRecipeText(
         'A full recipe with chicken breast and vegetables for dinner',
+        4,
         'en',
         onAiUsage,
       ),
@@ -328,6 +342,7 @@ describe('parseRecipeText', () => {
     await expect(
       parseRecipeText(
         'A full recipe with chicken breast and vegetables for dinner',
+        4,
         'en',
         onAiUsage,
       ),
@@ -361,7 +376,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+    await expect(parseRecipeText('Some recipe text that is long enough', 4)).rejects.toThrow(
       RecipeParseError,
     )
   })
@@ -381,7 +396,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+    await expect(parseRecipeText('Some recipe text that is long enough', 4)).rejects.toThrow(
       RecipeParseError,
     )
   })
@@ -411,7 +426,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+    await expect(parseRecipeText('Some recipe text that is long enough', 4)).rejects.toThrow(
       "Couldn't identify specific ingredients",
     )
   })
@@ -450,7 +465,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    await expect(parseRecipeText('Some recipe text that is long enough')).rejects.toThrow(
+    await expect(parseRecipeText('Some recipe text that is long enough', 4)).rejects.toThrow(
       "Couldn't identify specific ingredients",
     )
   })
@@ -480,7 +495,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    await expect(parseRecipeText('Some article about food that is long enough')).rejects.toThrow(
+    await expect(parseRecipeText('Some article about food that is long enough', 4)).rejects.toThrow(
       "doesn't appear to contain a recipe",
     )
   })
@@ -519,7 +534,7 @@ describe('parseRecipeText', () => {
       },
     } as never)
 
-    const result = await parseRecipeText('A casual food blog with some pasta tips for you')
+    const result = await parseRecipeText('A casual food blog with some pasta tips for you', 4)
     expect(result.confidence.tier).toBe('medium')
     expect(result.confidence.message).toBeDefined()
   })
@@ -549,7 +564,7 @@ describe('parseRecipeText', () => {
     mockGenerateObject.mockResolvedValue({ object: extraction } as never)
 
     const longInput = 'Eesti kana ja riis retsept '.repeat(60)
-    await parseRecipeText(longInput, 'et')
+    await parseRecipeText(longInput, 4, 'et')
 
     expect(mockLogAiSample).toHaveBeenCalledTimes(1)
     const args = mockLogAiSample.mock.calls[0]![0]
@@ -629,6 +644,9 @@ describe('parseAndMatchRecipe', () => {
 
     const result = await parseAndMatchRecipe(
       'Simple pasta recipe: 400g spaghetti, 2 tbsp olive oil',
+      undefined,
+      undefined,
+      { defaultServings: 4 },
     )
 
     expect(result.name).toBe('Simple Pasta')
@@ -693,7 +711,12 @@ describe('parseAndMatchRecipe', () => {
       .mockResolvedValueOnce([]) // "breast" (last word fallback)
       .mockResolvedValueOnce([]) // zarkleberry not found
 
-    const result = await parseAndMatchRecipe('Mystery dish: 300g chicken breast, 50g zarkleberry')
+    const result = await parseAndMatchRecipe(
+      'Mystery dish: 300g chicken breast, 50g zarkleberry',
+      undefined,
+      undefined,
+      { defaultServings: 4 },
+    )
 
     expect(result.allMatched).toBe(false)
     expect(result.ingredients[0]!.type).toBe('matched')
@@ -744,6 +767,7 @@ describe('parseAndMatchRecipe', () => {
       'Kanasupp: 400g kana, 2 porgandit, 1 sibul, keeda pehmeks ja maitsesta soolaga.'
 
     const result = await parseAndMatchRecipe(pastedText, undefined, undefined, {
+      defaultServings: 4,
       householdId: 'household-et',
       locale: 'et',
     })
@@ -813,6 +837,7 @@ describe('parseAndMatchRecipe', () => {
     const sourceUrl = 'https://www.toidutare.ee/retseptid/kartulisalat'
 
     const result = await parseAndMatchRecipe(fetchedEtText, sourceUrl, undefined, {
+      defaultServings: 4,
       householdId: 'household-et',
       locale: 'et',
     })
@@ -872,6 +897,8 @@ describe('parseAndMatchRecipe source URL prepending', () => {
     const result = await parseAndMatchRecipe(
       'This is a longer recipe text with at least 20 characters so it passes validation',
       'https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas',
+      undefined,
+      { defaultServings: 4 },
     )
 
     expect(result.sourceUrl).toBe('https://www.bbcgoodfood.com/recipes/easy-chicken-fajitas')
@@ -886,6 +913,8 @@ describe('parseAndMatchRecipe source URL prepending', () => {
     const result = await parseAndMatchRecipe(
       'This is a longer recipe text with at least 20 characters so it passes validation',
       'https://www.example.com/recipe',
+      undefined,
+      { defaultServings: 4 },
     )
 
     expect(result.sourceUrl).toBe('https://www.example.com/recipe')
@@ -895,6 +924,9 @@ describe('parseAndMatchRecipe source URL prepending', () => {
   it('returns null sourceUrl when no source URL is provided', async () => {
     const result = await parseAndMatchRecipe(
       'This is a longer recipe text with at least 20 characters so it passes validation',
+      undefined,
+      undefined,
+      { defaultServings: 4 },
     )
 
     expect(result.sourceUrl).toBeNull()
@@ -904,9 +936,24 @@ describe('parseAndMatchRecipe source URL prepending', () => {
   it('returns null sourceUrl for plain text imports', async () => {
     const result = await parseAndMatchRecipe(
       'Plain text recipe with enough characters to pass the length validation check',
+      undefined,
+      undefined,
+      { defaultServings: 4 },
     )
 
     expect(result.sourceUrl).toBeNull()
     expect(result.preparationNotes).toBe('1. Heat oven to 200C\n2. Mix ingredients')
+  })
+
+  it("asks the parser for the household's size when the recipe gives no servings (HON-1363)", async () => {
+    await parseAndMatchRecipe(
+      'Plain text recipe with enough characters to pass the length validation check',
+      undefined,
+      undefined,
+      { defaultServings: 3 },
+    )
+
+    const { prompt } = mockGenerateObject.mock.calls[0]![0] as { prompt: string }
+    expect(prompt).toContain("6. If servings aren't specified, default to 3\n")
   })
 })

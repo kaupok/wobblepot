@@ -19,5 +19,7 @@ export default async function RecipeImportPage() {
     redirect('/')
   }
 
-  return <RecipeImportClient />
+  // The member count the parser falls back to when a recipe does not say how
+  // many it serves, the same start the blank form uses (HON-1363).
+  return <RecipeImportClient defaultServings={membership.household._count.members} />
 }

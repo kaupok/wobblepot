@@ -254,6 +254,10 @@ export function scoreRecipe(input: RecipeCase, output: RecipeExtraction): Scores
     // Reported, never a pass or fail: step granularity is a judgement call.
     stepCountDelta:
       stepCount === undefined ? null : countNumberedLines(output.preparationNotes) - stepCount,
+    servingsMatch:
+      input.expected.servings === undefined
+        ? null
+        : pass(output.servings === input.expected.servings),
   }
 }
 

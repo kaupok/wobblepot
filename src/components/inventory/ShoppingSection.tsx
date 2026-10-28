@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useMutation, useMutationState } from '@tanstack/react-query'
 import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
+import { Body } from '@/components/ui/typography'
 import {
   CategoryGroup,
   CATEGORY_EMOJI,
@@ -26,18 +27,12 @@ import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/Shopp
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { GroupHeading } from './GroupHeading'
-import { ShoppingEmptyState } from './ShoppingEmptyState'
+import type { ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { ShoppingListHeader } from './ShoppingListHeader'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import { track } from '@/lib/analytics'
 import { apiFetch } from '@/lib/api'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { formatDateRange } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import {
-  formatShoppingListForClipboard,
-  type ClipboardSection,
-} from '@/lib/shopping/format-clipboard'
+import type { ClipboardSection } from '@/lib/shopping/format-clipboard'
 import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
@@ -47,7 +42,9 @@ import {
   SORT_STORAGE_KEY,
   type SortMode,
 } from './shopping-sort'
+import { useCopyShoppingList } from './use-copy-shopping-list'
 import { useCustomShoppingItems } from './use-custom-shopping-items'
+import { usePantryChanges, type PantryChange } from './use-pantry-changes'
 
 const PURCHASE_TOGGLE_KEY = ['shopping-list', 'purchase-toggle'] as const
 
@@ -68,6 +65,8 @@ interface ShoppingListGroup {
 }
 
 interface ShoppingSectionProps {
+  /** Why the server's list came back empty; picks the line an empty sheet shows. */
+  emptyVariant?: Exclude<ShoppingEmptyStateVariant, 'error'>
   windowDays: number
   startDate: string
   endDate: string
@@ -76,11 +75,13 @@ interface ShoppingSectionProps {
   initialCustomItems?: CustomItemData[]
   onItemPurchased?: (item: PantryItemData) => void
   onItemUnpurchased?: (ingredientId: string) => void
-  externalUnpurchasedIds?: Set<string>
-  onExternalUnpurchaseProcessed?: () => void
+  /** Pantry rows removed or put back (Undo), by ingredient id: `usePantryChanges`. */
+  externalPantryChanges?: Map<string, PantryChange>
+  onExternalPantryChangesProcessed?: (listStale: boolean) => void
 }
 
 export function ShoppingSection({
+  emptyVariant,
   windowDays,
   startDate,
   endDate,
@@ -89,20 +90,18 @@ export function ShoppingSection({
   initialCustomItems = [],
   onItemPurchased,
   onItemUnpurchased,
-  externalUnpurchasedIds,
-  onExternalUnpurchaseProcessed,
+  externalPantryChanges,
+  onExternalPantryChangesProcessed,
 }: ShoppingSectionProps) {
   const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
+  const tEmpty = useTranslations('shopping.emptyState')
   const tErrors = useTranslations('shopping.errors')
   const tSort = useTranslations('shopping.sort')
   const tCategory = useTranslations('enums.IngredientCategory')
   const tUrgency = useTranslations('dates.urgency')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [sortMode, setSortMode] = useState<SortMode>(DEFAULT_SORT_MODE)
-  const [copied, setCopied] = useState(false)
-  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const copyInFlightRef = useRef(false)
 
   const {
     customItems,
@@ -125,24 +124,7 @@ export function ShoppingSection({
     setSortMode(getInitialSortMode())
   }, [])
 
-  // Don't leave the "copied" checkmark timer running after unmount.
-  useEffect(() => () => clearTimeout(copiedTimeoutRef.current), [])
-
-  // Handle external unpurchase events (e.g., when pantry item is removed)
-  useEffect(() => {
-    if (!externalUnpurchasedIds || externalUnpurchasedIds.size === 0) return
-
-    // Applies a one-off event from the parent, then tells the parent to clear it.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPurchasedIds((prev) => {
-      const next = new Set(prev)
-      externalUnpurchasedIds.forEach((id) => next.delete(id))
-      return next
-    })
-
-    // Clear the external set after processing to prevent stale reruns
-    onExternalUnpurchaseProcessed?.()
-  }, [externalUnpurchasedIds, onExternalUnpurchaseProcessed])
+  usePantryChanges(externalPantryChanges, onExternalPantryChangesProcessed, setPurchasedIds)
 
   const handleSortModeChange = (value: SortMode) => {
     setSortMode(value)
@@ -288,54 +270,7 @@ export function ShoppingSection({
     urgencyGroups,
   ])
 
-  const handleCopy = async () => {
-    // The button stays enabled through the ~2s checkmark, so a double-tap would
-    // otherwise double-count `shopping:list_copied`.
-    // Same shape as `handleToggle`'s pending guard.
-    if (copyInFlightRef.current) return
-
-    copyInFlightRef.current = true
-    try {
-      // Built synchronously, before any `await`: Safari drops the user-gesture
-      // association if the clipboard write isn't the first thing the handler
-      // does. It sits inside the `try` because `parseLocalDate` throws on a
-      // malformed date and `Intl.formatRange` throws on the resulting invalid
-      // `Date` — and `startDate` / `endDate` arrive unvalidated, since
-      // `src/app/shopping/page.tsx` casts the API response rather than parsing
-      // it. Outside the `try` those throws became an unhandled rejection and a
-      // button that looked dead, with no toast at all.
-      const sections = buildClipboardSections()
-      const itemCount = sections.reduce((sum, section) => sum + section.lines.length, 0)
-      const heading = tShopping('copyHeading', {
-        range: formatDateRange(parseLocalDate(startDate), parseLocalDate(endDate), locale, {
-          withYear: true,
-        }),
-      })
-      const text = formatShoppingListForClipboard(heading, sections)
-
-      if (!text) return
-
-      // `navigator.clipboard` is undefined outside a secure context. Optional
-      // chaining would resolve to `undefined` and show the checkmark for a copy
-      // that never happened, so check explicitly.
-      if (!navigator.clipboard?.writeText) {
-        toast.error(tErrors('copyFailed'))
-        return
-      }
-
-      await navigator.clipboard.writeText(text)
-      // The checkmark is the confirmation, not a toast: it is where the user is
-      // already looking (HON-955). The status region below voices it.
-      setCopied(true)
-      void track('shopping:list_copied', { source: 'shopping_list', item_count: itemCount })
-      clearTimeout(copiedTimeoutRef.current)
-      copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error(tErrors('copyFailed'))
-    } finally {
-      copyInFlightRef.current = false
-    }
-  }
+  const { copied, handleCopy } = useCopyShoppingList(buildClipboardSections, startDate, endDate)
 
   const setPurchased = (ingredientId: string, purchased: boolean) =>
     setPurchasedIds((prev) => {
@@ -420,8 +355,7 @@ export function ShoppingSection({
   const allPurchased = totalPurchased === totalItems && totalItems > 0 && uncheckedCustomCount === 0
 
   // `allPurchased` covers every list that has items and has them all accounted
-  // for, so what's left for this gate is the list with no items at all — which
-  // fails `allPurchased`'s `totalItems > 0` guard and renders the card as normal.
+  // for, so what's left for this gate is the list with no items at all.
   // Without it the header would offer to copy an empty list.
   const unpurchasedComputedCount = useMemo(
     () =>
@@ -433,11 +367,18 @@ export function ShoppingSection({
   )
   const hasItemsToCopy = unpurchasedComputedCount + uncheckedCustomCount > 0
 
-  if (allPurchased) {
-    // Carries the window through so the empty state's picker opens on the
-    // window the user is actually looking at, not the 7-day default.
-    return <ShoppingEmptyState variant="all-purchased" windowDays={windowDays} />
-  }
+  // An empty or fully bought list keeps the sheet and its Add field, with one
+  // line under it that says why nothing is left to buy (HON-1354). It is derived
+  // here, not taken from the server, so adding an item replaces it at once.
+  // `emptyVariant` is unset for a list that loaded with custom items, so one
+  // emptied by deleting them says only that it is empty.
+  const emptyLine = allPurchased
+    ? tEmpty('allDoneBody')
+    : totalItems === 0
+      ? emptyVariant === 'nothing-needed'
+        ? tEmpty('nothingBody', { days: windowDays })
+        : tEmpty('emptyBody')
+      : null
 
   return (
     <section className="flex flex-col gap-6">
@@ -506,8 +447,11 @@ export function ShoppingSection({
         <CardContent>
           <div className="flex flex-col gap-6">
             <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
+            {emptyLine && <Body variant="muted">{emptyLine}</Body>}
 
-            {sortMode === 'category' && (
+            {/* `totalItems > 0`, here and for urgency: an empty mode wrapper is
+                still a flex child, which adds a stray gap under the empty line. */}
+            {sortMode === 'category' && totalItems > 0 && (
               <div className="flex flex-col gap-6">
                 {enhancedGroups.map((group) => (
                   <CategoryGroup
@@ -567,7 +511,7 @@ export function ShoppingSection({
               </div>
             )}
 
-            {sortMode === 'urgency' && (
+            {sortMode === 'urgency' && totalItems > 0 && (
               <div className="flex flex-col gap-6">
                 {/* Undated custom items lead in one "Custom items" group: a new
                 one lands right under the input that added it. */}

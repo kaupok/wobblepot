@@ -88,19 +88,90 @@ export const Default: Story = {
   },
 }
 
-export const NothingToCopy: Story = {
-  args: { groups: [], initialCustomItems: [] },
+const ADD_FIELD = { name: 'Add custom item to shopping list' } as const
+
+/** Asserts the empty sheet: header, Add field and the state's line, no Copy list. */
+async function expectEmptySheet(canvasElement: HTMLElement, line: string) {
+  const canvas = within(canvasElement)
+  await expect(canvas.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
+  const sheet = within(canvas.getByTestId('shopping-sheet'))
+  await expect(sheet.getByRole('textbox', ADD_FIELD)).toBeVisible()
+  await expect(sheet.getByText(line)).toBeVisible()
+  await expect(canvas.queryByRole('button', { name: 'Copy list' })).not.toBeInTheDocument()
+  await expect(canvas.queryByRole('link', { name: 'Generate plan' })).not.toBeInTheDocument()
+}
+
+export const NoPlan: Story = {
+  args: { emptyVariant: 'no-plan', groups: [], initialCustomItems: [] },
   parameters: {
     docs: {
       description: {
         story:
-          'An empty list still renders the card and the custom-item input, but the copy button is gone — there is nothing to put on the clipboard.',
+          'No meal plan yet. The list keeps its header, the note sheet and the Add field, and one muted line under the field says it is empty, so a household that shops by hand can still add an item. There is no "Generate plan" button: the plan is generated on Today (HON-1354). Copy list is hidden, because nothing is left to copy.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectEmptySheet(canvasElement, 'Your shopping list is empty.')
+  },
+}
+
+export const NothingNeeded: Story = {
+  args: { emptyVariant: 'nothing-needed', groups: [], initialCustomItems: [] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A plan exists but the pantry already covers it. The line under the Add field says why the list is empty and names the window the picker shows.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectEmptySheet(
+      canvasElement,
+      'Your pantry has everything you need for the next 7 days.',
+    )
+  },
+}
+
+export const AllPurchased: Story = {
+  args: {
+    groups: [{ category: 'vegetable' as const, items: produceShoppingItems }],
+    initialPurchasedIds: new Set(produceShoppingItems.map((item) => item.ingredientId)),
+    initialCustomItems: [],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Every item is checked off. The bought rows stay on the sheet, so a mis-tap can be undone, and the line under the Add field says the list is done. The line names no window, so it never contradicts the picker (HON-661).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectEmptySheet(canvasElement, "You've bought everything on your list.")
+  },
+}
+
+// Adding an item from an empty list puts it on the sheet at once and replaces
+// the empty line. The default MSW handler answers the POST.
+export const AddFromEmpty: Story = {
+  args: { emptyVariant: 'no-plan', groups: [], initialCustomItems: [] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Typing an item into the Add field of an empty list and pressing Enter puts it on the sheet without a reload; the empty line goes and Copy list appears.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.queryByRole('button', { name: /copy list/i })).not.toBeInTheDocument()
+    await userEvent.type(canvas.getByRole('textbox', ADD_FIELD), 'Coffee{Enter}')
+    const sheet = within(canvas.getByTestId('shopping-sheet'))
+    await waitFor(() => expect(sheet.getByText('Coffee')).toBeVisible())
+    await expect(sheet.queryByText('Your shopping list is empty.')).not.toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Copy list' })).toBeVisible()
   },
 }
 

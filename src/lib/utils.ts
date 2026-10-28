@@ -64,6 +64,7 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
   'grid-cols': ['grid-cols-timeline', 'grid-cols-macro-split'],
   'scroll-mt': ['scroll-mt-below-header'],
+  'scroll-mb': ['scroll-mb-above-tab-bar'],
   bottom: ['bottom-above-tab-bar'],
   left: ['left-macro-carbs'],
   p: ['p-safe'],
@@ -114,6 +115,15 @@ export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
   if (document.documentElement.getAttribute('data-reduced-motion') === 'true') return true
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * Scroll `el` into its nearest scrollable ancestor, a snap under reduced
+ * motion. "Nearest" leaves an element that is already in view where it is.
+ * Focus does not move.
+ */
+export function scrollIntoViewNearest(el: HTMLElement | null) {
+  el?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
 }
 
 const DEFAULT_REDIRECT = '/'

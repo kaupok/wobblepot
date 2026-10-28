@@ -2,8 +2,8 @@ import React from 'react'
 import { useTranslations } from 'next-intl'
 import { Body } from '@/components/ui/typography'
 
-// Rendered today on: `MealDetail` (meal detail surface, including `MealDetailModal`)
-// and `MealForm` (meal creation/edit). Not rendered on `MealCardBase` — cards appear
+// Rendered today on: `MealDetail` (meal detail surface, including `MealDetailModal`),
+// `MealForm` (meal creation/edit) and `ImagineReviewDialog`. Not rendered on `MealCardBase` — cards appear
 // in lists and multiple disclaimers would be noisy.
 // Future surfaces that must render this when they ship: Today-dashboard nutrition
 // rollup, member-preferences macro-targets UI.

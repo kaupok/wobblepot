@@ -16,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Combobox for adding ingredients to a meal. Debounces input by 300 ms and queries `/api/ingredients?search=…`. Highlight via arrow keys, select via Enter or click. Already-added ingredients render as disabled "Added" rows.',
+          'Combobox for adding ingredients to a meal. Debounces input by 300 ms and queries `/api/ingredients?search=…`. The first addable result is highlighted, so Enter adds it; the arrow keys move the highlight, and a click adds any result. Already-added ingredients render as disabled "Added" rows.',
       },
     },
   },
@@ -115,6 +115,8 @@ export const WithSelection: Story = {
 
 // Play story — exercises the parent-callback contract: type → wait for the
 // dropdown → click an option → expect onAddIngredient with the ingredient.
+// The click leaves the field cleared and focused, with the results closed,
+// as Enter does (HON-1361).
 
 export const SearchAndSelectInvokesCallback: Story = {
   play: async ({ args, canvasElement }) => {
@@ -130,6 +132,9 @@ export const SearchAndSelectInvokesCallback: Story = {
         expect.objectContaining({ id: 'chicken-thigh', name: 'Chicken thigh' }),
       ),
     )
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveFocus()
+    await expect(canvas.queryByRole('listbox')).not.toBeInTheDocument()
   },
 }
 
@@ -162,5 +167,34 @@ export const MatchedByOtherName: Story = {
         defaultUnit: 'g',
       }),
     )
+  },
+}
+
+export const EnterAddsTopResult: Story = {
+  parameters: {
+    msw: { handlers: synonymIngredientsHandlers },
+    docs: {
+      description: {
+        story:
+          'The first result is highlighted as soon as results show, so typing and pressing Enter adds it with no arrow key (HON-1362).',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const input = canvas.getByRole('combobox')
+    await userEvent.type(input, 'all-purpose')
+
+    const first = await canvas.findByRole('option', { name: /plain flour/i }, { timeout: 3000 })
+    await expect(first).toHaveAttribute('aria-selected', 'true')
+    await expect(input).toHaveAttribute('aria-activedescendant', first.id)
+
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(args.onAddIngredient).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'plain-flour' }),
+      ),
+    )
+    await expect(input).toHaveValue('')
   },
 }

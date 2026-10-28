@@ -1,0 +1,18 @@
+{
+  "text": "Tomato pasta\n\n- 250 g spaghetti\n- 4 ripe tomatoes, chopped\n- 2 cloves garlic, sliced\n- 30 ml olive oil\n- salt to taste\n\n1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
+  "locale": "en",
+  "defaultServings": 2,
+  "expected": {
+    "ingredients": [
+      { "names": ["spaghetti", "pasta"], "quantity": 250, "unit": "g" },
+      { "names": ["tomato", "tomatoes"], "quantity": 4, "unit": "piece" },
+      { "names": ["garlic", "garlic clove"], "quantity": 2, "unit": "piece" },
+      { "names": ["olive oil"], "quantity": 30, "unit": "ml" },
+      { "names": ["salt"], "quantity": null, "unit": null }
+    ],
+    "lowConfidence": false,
+    "stepCount": 3,
+    "servings": 2
+  },
+  "source": "HON-1363"
+}

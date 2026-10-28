@@ -199,7 +199,7 @@ async function assertPhone(): Promise<void> {
   await expect(box(nutrition).bottom).toBeLessThanOrEqual(box(steps).top)
   // A 44px+ close, always there.
   const close = within(dialog).getByRole('button', { name: 'Close' })
-  await expect(close.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+  await expect(close.offsetHeight).toBeGreaterThanOrEqual(44)
   await assertFocusOnPanel(dialog)
   await assertNoSmallText(dialog)
   await assertDisclaimerUnderMacros(dialog)
@@ -758,6 +758,37 @@ export const StepsCached: Story = {
   },
 }
 
+/**
+ * "Adjust recipe" opens under the ingredients only from the ⋯ menu; a stored
+ * request shows without it (HON-1356). Both targets are 44px.
+ */
+export const AdjustFromMenu: Story = {
+  name: 'Planned: Adjust recipe from the ⋯ menu',
+  args: { ...plannedArgs, initialSteps: tips, changes: [], adjustmentNote: 'Less salt' },
+  globals: { viewport: PHONE },
+  play: async () => {
+    const dialog = within(await findDialog())
+    const field = () => dialog.queryByRole('textbox', { name: 'Adjust recipe' })
+    await expect(field()).toBeNull()
+    await expect(dialog.getByText('The steps follow your request: Less salt')).toBeVisible()
+    const trigger = dialog.getByRole('button', { name: `More actions: ${tintedMeal.name}` })
+    await userEvent.click(trigger)
+    const item = await body().findByRole('menuitem', { name: 'Adjust recipe' })
+    // `offsetHeight`, not the rect: the menu scales in from 95%.
+    await expect(item.offsetHeight).toBeGreaterThanOrEqual(44)
+    await userEvent.click(item)
+    await waitFor(() => expect(field()).toHaveFocus())
+    await waitFor(() =>
+      expect(field()!.getBoundingClientRect().bottom).toBeLessThanOrEqual(innerHeight),
+    )
+    const close = dialog.getByRole('button', { name: 'Close Adjust recipe' })
+    await expect(close.offsetHeight).toBeGreaterThanOrEqual(44)
+    await userEvent.click(close)
+    await expect(field()).toBeNull()
+    await expect(trigger).toHaveFocus()
+  },
+}
+
 export const StepsGenerating: Story = {
   name: 'Planned: writing the steps',
   args: plannedArgs,
@@ -890,7 +921,7 @@ export const AskAboutStep: Story = {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
 
-    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Edit' }))
+    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Edit question' }))
     const field = within(panelFor(2)).getByRole('textbox', { name: 'Your question' })
     await expect(field).toHaveValue('What can I substitute here?')
     await expect(field).toHaveFocus()
@@ -1018,9 +1049,9 @@ const resultOf = (panel: HTMLElement) =>
 /**
  * The last step's ⋯ button sits on the bottom edge of the scroll region,
  * as a cook reaches it scrolling down. A ready-made question opens the panel
- * and brings it into view. The long answer arrives, and the answer with Close
- * scrolls into view, while focus stays on Close, where the menu handed it
- * (HON-1022, HON-1350).
+ * and brings it into view. The long answer arrives, and the answer with the
+ * follow-up field scrolls into view, while focus stays on the × Close, where
+ * the menu handed it (HON-1022, HON-1350, HON-1371).
  */
 async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const last = longTips.steps!.length
@@ -1035,7 +1066,7 @@ async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const close = within(panel).getByRole('button', { name: 'Close' })
   await waitFor(() => expect(close).toHaveFocus())
   await within(panel).findByText(longAnswer)
-  await expect(resultOf(panel)).toContainElement(close)
+  await expect(resultOf(panel)).toContainElement(field)
   await waitFor(() => expect(isInside(resultOf(panel), scroller)).toBe(true))
   // The answer arriving moved nothing but the scroll.
   await expect(close).toHaveFocus()

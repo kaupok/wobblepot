@@ -50,6 +50,10 @@ export interface AllowlistEntry {
 
 export const ALLOWLIST: AllowlistEntry[] = [
   {
+    path: 'src/components/meal-plan/CookQuestionPanel.tsx',
+    why: 'The question panel under a cook-view step or a row of "You\'ll need", split out of PreparationSteps for the file-size cap (HON-1371). It renders only inside a row, opened from that row\'s ⋯ menu, so its states are stories of PreparationSteps: PreparationSteps.ask.stories.tsx (AskPanelOpen, EquipmentAskAnswered) and PreparationSteps.answers.stories.tsx (AskPending, AskAnswered, AskAnsweredDark, AskPendingWithPrevious, AskStreaming, AskStreamBroke, AskError, AskRateLimited, AskEchoAndEdit, AskCloseReturnsFocus).',
+  },
+  {
     path: 'src/components/theme-provider.tsx',
     why: 'Thin wrapper around the next-themes ThemeProvider (plus a null-rendering theme-color updater) with no UI of its own. Storybook drives the theme through the withTailwindTheme decorator in .storybook/preview.tsx instead.',
   },
@@ -101,11 +105,12 @@ export function listComponents(repoRoot: string): string[] {
   return components.sort()
 }
 
-/** A `.tsx` file that is not a test, a story, or a barrel. */
+/** A `.tsx` file that is not a test, a test fixture, a story, or a barrel. */
 export function isComponentFile(name: string): boolean {
   return (
     name.endsWith('.tsx') &&
     !name.endsWith('.test.tsx') &&
+    !name.endsWith('.fixtures.tsx') &&
     !name.endsWith('.stories.tsx') &&
     name !== 'index.tsx'
   )

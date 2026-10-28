@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
-import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 const meta = {
   title: 'Feature/Shopping/ShoppingEmptyState',
@@ -12,127 +11,27 @@ const meta = {
     docs: {
       description: {
         component:
-          'What `/shopping` renders instead of `ShoppingSection` when there is nothing to buy: a heading, one muted line and at most one primary button, at the top of the column on the page background. Four variants cover the four reasons the list can be empty. The two list-shaped ones — `nothing-needed` and `all-purchased` — render the shared `ShoppingListHeader`, so the 7/14-day window picker is reachable from either; widening the window is the natural next step in both. `no-plan` and `error` are not list states, so they stay header-less.',
+          'What `/shopping` renders instead of `ShoppingSection` when the shopping list failed to load: a heading, one muted line and one primary button, at the top of the column on the page background. It is the only state with no header and no note sheet. An empty list is not this component: it keeps the sheet and its Add field, with a muted line under the field (`ShoppingSection` → `NoPlan`, `NothingNeeded`, `AllPurchased`; HON-1354).',
       },
     },
-  },
-  // Every story starts from a known window preference regardless of what a
-  // previously-played story persisted. Nothing here reads the key today — the
-  // reconcile lives in `InventoryPage` — but the picker writes it, so leaving
-  // it set would leak into `AllVariants` and the scenario stories.
-  beforeEach: () => () => localStorage.removeItem(WINDOW_STORAGE_KEY),
-  args: {
-    variant: 'no-plan',
   },
 } satisfies Meta<typeof ShoppingEmptyState>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const NoPlan: Story = {
-  args: { variant: 'no-plan' },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'No meal plan exists yet, so there is nothing to derive a list from. Primary CTA sends the user to the dashboard (`/`), where the rolling timeline generates one. No header: a wider window cannot conjure a plan.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.queryByRole('combobox', { name: /time window/i })).not.toBeInTheDocument()
-  },
-}
-
-export const AllPurchased: Story = {
-  args: { variant: 'all-purchased', windowDays: 7 },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Every item on the list has been checked off. Rendered by `ShoppingSection` itself once the last item is purchased, so it has no CTA — the user is already done. It does get the header, because widening to 14 days is the one thing left worth doing from here; `ShoppingSection` passes its own `windowDays` down so the picker opens on the window the user is looking at.',
-      },
-    },
-  },
-}
-
-export const NothingNeeded: Story = {
-  args: { variant: 'nothing-needed', windowDays: 7 },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'A plan exists but the pantry already covers it. The header shows the "Shopping list" title beside the window picker, so widening to 14 days is reachable without leaving the empty state.',
-      },
-    },
-  },
-}
-
-export const NothingNeededFourteenDays: Story = {
-  args: { variant: 'nothing-needed', windowDays: 14 },
-  // The day count in the body copy comes from the `windowDays` prop, so the
-  // seed changes nothing on screen — it states which user this is: one who
-  // chose 14 days. The reconcile that reads the key lives in `InventoryPage`,
-  // above this component, so no story here navigates.
-  beforeEach: () => {
-    localStorage.setItem(WINDOW_STORAGE_KEY, '14')
-    return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The same variant at the wider window — the body copy interpolates the day count, so this is the story where `windowDays` changes the body text.',
-      },
-    },
-  },
-}
-
-export const AllPurchasedFourteenDays: Story = {
-  args: { variant: 'all-purchased', windowDays: 14 },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Everything bought at the wider window. Unlike `nothing-needed`, the body copy does not interpolate the day count — it is window-agnostic, so it never contradicts the picker beside it (HON-661: it used to say "stocked for the week" under a 14-day picker).',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { name: 'All done!' })).toBeInTheDocument()
-    await expect(canvasElement).not.toHaveTextContent(/week/i)
-  },
-}
-
 export const ErrorState: Story = {
-  args: { variant: 'error' },
   parameters: {
     docs: {
       description: {
         story:
-          'The shopping-list request failed. Same card shell as the other variants, with a CTA rather than a retry — reloading the route is the retry, and no header, since the window is not what failed. The CTA is labelled "Go to dashboard" and its `href` is `/`, which is the dashboard (HON-623; it used to point at `/meal-plan`, a legacy redirect to the same place).',
+          'The shopping-list request failed. A CTA rather than a retry, because reloading the route is the retry, and no header, since the window is not what failed. The CTA is labelled "Go to dashboard" and its `href` is `/`, which is the dashboard (HON-623). The heading is Title level (`variant="h4"`) per the docs/DESIGN.md type scale.',
       },
     },
   },
-}
-
-export const AllVariants: Story = {
-  render: () => (
-    <div className="flex flex-col gap-6">
-      <ShoppingEmptyState variant="no-plan" />
-      <ShoppingEmptyState variant="all-purchased" windowDays={7} />
-      <ShoppingEmptyState variant="nothing-needed" windowDays={7} />
-      <ShoppingEmptyState variant="error" />
-    </div>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'All four variants stacked, for reviewing heading size and card rhythm side by side, and for seeing which two carry the header. The headings are Title level (`variant="h4"`) per the docs/DESIGN.md type scale.',
-      },
-    },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/')
+    await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
   },
 }

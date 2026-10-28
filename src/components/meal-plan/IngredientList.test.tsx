@@ -200,3 +200,87 @@ describe('IngredientList vegetables in pieces', () => {
     expect(screen.getByText(/Onion \(¾ pc, 83g\)/)).toBeInTheDocument()
   })
 })
+
+// An editable entry's add action ends the Ingredients heading line, not the
+// list (HON-1357). It reads "Add" and is named "Add an ingredient".
+describe('IngredientList add button', () => {
+  const controls = { onReplace: vi.fn(), onLeaveOut: vi.fn(), onAdd: vi.fn(), onUndo: vi.fn() }
+
+  it('sits on the heading line, after the heading, outside the list', () => {
+    renderInLocale(<IngredientList components={[chicken]} servings={2} changeControls={controls} />)
+    const button = screen.getByRole('button', { name: 'Add an ingredient' })
+    expect(button.textContent).toBe('Add')
+    // The heading sits in a baseline group with the status; the line holds
+    // that group, then the button.
+    const headingLine = screen.getByRole('heading', { name: 'Ingredients' }).parentElement!
+      .parentElement!
+    expect(button.parentElement).toBe(headingLine)
+    expect(headingLine.lastElementChild).toBe(button)
+    expect(within(screen.getByRole('list')).queryByRole('button', { name: /^Add/ })).toBeNull()
+  })
+
+  it('names the Estonian button "Lisa koostisosa" around the visible "Lisa"', () => {
+    renderInLocale(
+      <IngredientList components={[chicken]} servings={2} changeControls={controls} />,
+      'et',
+    )
+    expect(screen.getByRole('button', { name: 'Lisa koostisosa' }).textContent).toBe('Lisa')
+  })
+
+  it('shows no button without change controls', () => {
+    renderInLocale(<IngredientList components={[chicken]} servings={2} />)
+    expect(screen.queryByRole('button', { name: 'Add an ingredient' })).toBeNull()
+  })
+})
+
+// A change reads as a muted line under the name, never a badge beside it
+// (HON-1370).
+describe('IngredientList changed rows', () => {
+  const controls = { onReplace: vi.fn(), onLeaveOut: vi.fn(), onAdd: vi.fn(), onUndo: vi.fn() }
+  const rice = createMealComponent({ ingredientId: 'short-grain-rice', quantityPerServing: 80 })
+  const added = {
+    id: 'change-add',
+    original: null,
+    replacement: { id: 'short-grain-rice', name: 'Short-grain rice' },
+    quantityPerServing: 80,
+    stale: false,
+  }
+  const replaced = {
+    id: 'change-replace',
+    original: { id: 'lemon', name: 'Lime' },
+    replacement: { id: 'chicken-thigh', name: 'Chicken thigh' },
+    quantityPerServing: 150,
+    stale: false,
+  }
+
+  it('says "Added" under an added name, in the muted "Instead of" style, with no badge', () => {
+    const { container } = renderInLocale(
+      <IngredientList
+        components={[chicken, rice]}
+        servings={2}
+        changes={[added, replaced]}
+        changeControls={controls}
+      />,
+    )
+    const label = within(row('Short-grain rice')).getByText('Added')
+    expect(label.previousElementSibling?.textContent).toBe('Short-grain rice')
+    expect(label.className).toBe(screen.getByText('Instead of Lime').className)
+    expect(label.className).toContain('text-muted-foreground')
+    expect(container.querySelector('[data-slot="badge"]')).toBeNull()
+    const undo = within(row('Short-grain rice')).getByRole('button', {
+      name: 'Undo change: Short-grain rice',
+    })
+    expect(row('Short-grain rice').lastElementChild).toBe(undo)
+  })
+
+  it('says "Lisatud" in Estonian', () => {
+    renderInLocale(<IngredientList components={[rice]} servings={2} changes={[added]} />, 'et')
+    expect(within(row('Short-grain rice')).getByText('Lisatud')).toBeInTheDocument()
+  })
+
+  it('keeps "Added" on a read-only row, with no Undo', () => {
+    renderInLocale(<IngredientList components={[rice]} servings={2} changes={[added]} />)
+    expect(within(row('Short-grain rice')).getByText('Added')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Undo/ })).toBeNull()
+  })
+})

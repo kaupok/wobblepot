@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -27,7 +27,7 @@ import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
 import { type MealFormProps } from './meal-form-types'
 import { MealFormBasicInfo } from './MealFormBasicInfo'
 import { MealFormDetails } from './MealFormDetails'
-import { ComponentList } from './ComponentList'
+import { ComponentList, focusClearOfTabBar } from './ComponentList'
 import { IngredientSearch } from './IngredientSearch'
 import { useMealForm } from './use-meal-form'
 import { FieldError } from '@/components/FieldError'
@@ -80,12 +80,15 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     handleIngredientRowResolve,
     isSubmitting,
     error,
+    flaggedEmptyIds,
     handleSubmit,
   } = useMealForm({ meal, defaultServings, onSuccess })
 
   // Collapsible state for original recipe text
   const [isOriginalTextOpen, setIsOriginalTextOpen] = useState(false)
   const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false)
+  // Enter in a quantity field sends focus back here for the next ingredient.
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const handleCancelClick = () => {
     // Imported data is unrecoverable once discarded, so confirm first.
@@ -210,6 +213,8 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
               onUpdateQuantity={updateComponentQuantity}
               onSetQuantity={setComponentQuantity}
               onMarkAsVague={markComponentAsVague}
+              onQuantityEnter={() => focusClearOfTabBar(searchInputRef.current)}
+              flaggedEmptyIds={flaggedEmptyIds}
             />
           )}
 
@@ -217,6 +222,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             disabled={isSubmitting}
             existingIngredientIds={getAllIngredientIds()}
             onAddIngredient={addIngredient}
+            inputRef={searchInputRef}
           />
 
           {!hasIngredients && (

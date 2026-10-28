@@ -138,7 +138,7 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
   return (
     <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no page-level Card (HON-779). */}
-      <div className="max-w-2xl">
+      <div className="mx-auto max-w-2xl">
         <MealForm
           meal={getPrefilledMeal()}
           defaultServings={defaultServings}

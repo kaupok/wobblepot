@@ -1,58 +1,71 @@
 import { describe, it, expect } from 'vitest'
+import { z } from 'zod'
 import { buildRecipeExtractionPrompt, buildRecipeRequest } from './recipe-prompt'
+
+// Each build makes a new Zod schema, and two instances never deep-equal, so
+// compare the JSON Schema the provider receives instead.
+function withJsonSchema(request: object) {
+  return { ...request, schema: z.toJSONSchema((request as { schema: z.ZodType }).schema) }
+}
 
 describe('buildRecipeExtractionPrompt', () => {
   it('includes the recipe text', () => {
-    const prompt = buildRecipeExtractionPrompt('My delicious recipe')
+    const prompt = buildRecipeExtractionPrompt('My delicious recipe', 4)
     expect(prompt).toContain('My delicious recipe')
   })
 
   it('includes vague phrases list', () => {
-    const prompt = buildRecipeExtractionPrompt('test')
+    const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain('to taste')
     expect(prompt).toContain('a pinch')
     expect(prompt).toContain('for garnish')
   })
 
   it('includes unit conversion guidelines', () => {
-    const prompt = buildRecipeExtractionPrompt('test')
+    const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain('tbsp')
     expect(prompt).toContain('tsp')
     expect(prompt).toContain('cup')
   })
 
   it('includes ingredient specificity guidelines', () => {
-    const prompt = buildRecipeExtractionPrompt('test')
+    const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain('black pepper')
     expect(prompt).toContain('olive oil')
   })
 
+  it("tells the model to fall back to the household's size, not a fixed 4 (HON-1363)", () => {
+    const prompt = buildRecipeExtractionPrompt('Soup\n- 1 carrot', 3)
+    expect(prompt).toContain("6. If servings aren't specified, default to 3\n")
+    expect(prompt).not.toContain('default to 4')
+  })
+
   it('includes confidence scoring guidelines', () => {
-    const prompt = buildRecipeExtractionPrompt('test')
+    const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain('RECIPE CONFIDENCE SCORING')
     expect(prompt).toContain('90-100')
     expect(prompt).toContain('not a recipe')
   })
 
   it('omits the locale instruction for English / default locale', () => {
-    expect(buildRecipeExtractionPrompt('test')).not.toContain('LOCALE:')
-    expect(buildRecipeExtractionPrompt('test', 'en')).not.toContain('LOCALE:')
+    expect(buildRecipeExtractionPrompt('test', 4)).not.toContain('LOCALE:')
+    expect(buildRecipeExtractionPrompt('test', 4, 'en')).not.toContain('LOCALE:')
   })
 
   it('injects an Estonian output instruction when locale is "et"', () => {
-    const prompt = buildRecipeExtractionPrompt('test', 'et')
+    const prompt = buildRecipeExtractionPrompt('test', 4, 'et')
     expect(prompt).toContain('LOCALE:')
     expect(prompt).toContain('Estonian')
   })
 
   it('appends the Estonian voice block after the locale instruction for "et" only', () => {
-    const et = buildRecipeExtractionPrompt('test', 'et')
+    const et = buildRecipeExtractionPrompt('test', 4, 'et')
     expect(et).toContain('ESTONIAN VOICE')
     expect(et).toContain('Karjusepirukas')
     expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
 
-    expect(buildRecipeExtractionPrompt('test')).not.toContain('ESTONIAN VOICE')
-    expect(buildRecipeExtractionPrompt('test', 'en')).not.toContain('ESTONIAN VOICE')
+    expect(buildRecipeExtractionPrompt('test', 4)).not.toContain('ESTONIAN VOICE')
+    expect(buildRecipeExtractionPrompt('test', 4, 'en')).not.toContain('ESTONIAN VOICE')
   })
 })
 
@@ -63,7 +76,7 @@ describe('buildRecipeRequest', () => {
   })
 
   it('sends one text prompt and no messages without images', () => {
-    const request = buildRecipeRequest('Soup\n- 1 carrot', 'en')
+    const request = buildRecipeRequest('Soup\n- 1 carrot', 4, 'en')
     expect(request).not.toHaveProperty('messages')
     expect(request).toHaveProperty('prompt')
     const prompt = (request as { prompt: string }).prompt
@@ -72,12 +85,21 @@ describe('buildRecipeRequest', () => {
     expect(prompt).not.toContain('RECIPE PHOTOS')
   })
 
+  it("puts the household's size into the schema's servings default (HON-1363)", () => {
+    const { schema } = buildRecipeRequest('Soup', 3, 'en', [photo('a')])
+    expect(schema.shape.servings.description).toBe(
+      'Number of servings the recipe makes (integer, 1-50, default to 3 if not specified)',
+    )
+  })
+
   it('treats an empty image list as no images', () => {
-    expect(buildRecipeRequest('Soup', 'en', [])).toEqual(buildRecipeRequest('Soup', 'en'))
+    expect(withJsonSchema(buildRecipeRequest('Soup', 4, 'en', []))).toEqual(
+      withJsonSchema(buildRecipeRequest('Soup', 4, 'en')),
+    )
   })
 
   it('sends one image part per photo, then the copy instruction as one text part', () => {
-    const request = buildRecipeRequest('Grandma soup', 'et', [photo('a'), photo('b')])
+    const request = buildRecipeRequest('Grandma soup', 4, 'et', [photo('a'), photo('b')])
     expect(request).not.toHaveProperty('prompt')
     expect(request).toHaveProperty('messages')
 
@@ -102,7 +124,7 @@ describe('buildRecipeRequest', () => {
   })
 
   it('leaves out the user text section when photos come with no text', () => {
-    const request = buildRecipeRequest('', 'en', [photo('a')])
+    const request = buildRecipeRequest('', 4, 'en', [photo('a')])
     const { messages } = request as Extract<typeof request, { messages: unknown }>
     const text = (messages[0]!.content.at(-1) as { text: string }).text
     expect(text).toContain('RECIPE PHOTOS:')

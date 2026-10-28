@@ -43,6 +43,12 @@ const imaginedMeal = (id: string, name: string): ImaginedMealResponse => ({
         category: 'protein',
         defaultUnit: 'g',
         gramsPerPiece: null,
+        // 90 g per serving → 315 kcal, unlike the model's 480 estimate, so a
+        // story sees the card take the dialog's numbers (HON-1367).
+        calories: 350,
+        protein: 24,
+        carbs: 60,
+        fat: 1.5,
       },
       convertedQuantity: 360,
       isVague: false,
@@ -85,7 +91,7 @@ const imaginePending = [
 ]
 
 /**
- * The review round-trip: "Select" fine-tunes quantities, then the dialog's
+ * The review round-trip: "Review and save" fine-tunes quantities, then the dialog's
  * "Save recipe" posts the recipe. Both are stubbed so `SavingOneKeepsTheStash` can
  * drive the flow end to end.
  */
@@ -159,7 +165,8 @@ export const Generating: Story = {
     msw: { handlers: imaginePending },
     docs: {
       description: {
-        story: 'Request never resolves — three skeleton cards and the cancel button stay visible.',
+        story:
+          'Request never resolves — three skeleton cards and the cancel button stay visible. The pressed button and the prompt field are `aria-disabled`, not `disabled`, so focus stays on the button, and each card announces "Loading…" once (HON-1366).',
       },
     },
   },
@@ -168,6 +175,14 @@ export const Generating: Story = {
     await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByRole('button', { name: /^cancel$/i })
+
+    const button = canvas.getByRole('button', { name: /generating ideas/i })
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+    await expect(button).toBeEnabled()
+    await expect(button).toHaveFocus()
+    await expect(canvas.getByRole('textbox')).toHaveAttribute('aria-disabled', 'true')
+    await expect(canvas.getByRole('textbox')).toBeEnabled()
+    await expect(canvas.getAllByRole('status', { name: 'Loading…' })).toHaveLength(3)
   },
 }
 
@@ -188,6 +203,18 @@ export const WithResults: Story = {
 
     await canvas.findByText('Smoky red lentil stew')
     await canvas.findByText('Lentil ragù with orzo')
+
+    // A screen reader hears the result; focus stays on the button (HON-1366).
+    await expect(canvas.getByRole('status')).toHaveTextContent('3 meal ideas ready')
+    const again = canvas.getByRole('button', { name: /imagine again/i })
+    await expect(again).toHaveFocus()
+
+    // One filled button at a time: with ideas showing, it is none of these
+    // (HON-1367). The review dialog's Save is the filled one.
+    await expect(again).toHaveAttribute('data-variant', 'outline')
+    for (const button of canvas.getAllByRole('button', { name: /^review and save$/i })) {
+      await expect(button).toHaveAttribute('data-variant', 'outline')
+    }
 
     // The page title is the only h1, on the page background, and each result
     // card's name sits one level below it (HON-779).
@@ -261,11 +288,21 @@ export const SavingOneKeepsTheStash: Story = {
     const body = within(document.body)
 
     await canvas.findByText('Smoky red lentil stew')
-    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    // Taken before the dialog opens: the modal hides the page from role queries.
+    const firstCard = canvas
+      .getByRole('heading', { name: 'Smoky red lentil stew' })
+      .closest<HTMLElement>('[data-slot="card"]')!
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^review and save$/i })
     await userEvent.click(firstSelect!)
 
     // The dialog is portalled, so it lives outside `canvasElement`.
     const save = await body.findByRole('button', { name: /save recipe/i })
+    // The card now shows the dialog's numbers, not the model's estimate (HON-1367).
+    // The dialog fades in, so its text is not visible on first render.
+    const dialog = body.getByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByText('315 kcal')).toBeVisible())
+    await expect(within(firstCard).getByText('315 kcal')).toBeInTheDocument()
+    await expect(within(canvasElement).getAllByText('480 kcal')).toHaveLength(2)
     await userEvent.click(save)
 
     await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
@@ -275,12 +312,12 @@ export const SavingOneKeepsTheStash: Story = {
     await canvas.findByText('Lentil ragù with orzo')
     expect(sessionStorage.getItem(STORAGE_KEY)).not.toBeNull()
 
-    // The saved idea links its recipe in place of Select, and focus lands on
+    // The saved idea links its recipe in place of "Review and save", and focus lands on
     // that link rather than falling to <body> (HON-1270).
     const openRecipe = await canvas.findByRole('link', { name: 'Open recipe' })
     expect(openRecipe).toHaveAttribute('href', '/recipes/meal-saved/edit')
     await waitFor(() => expect(openRecipe).toHaveFocus())
-    expect(canvas.getAllByRole('button', { name: /^select$/i })).toHaveLength(2)
+    expect(canvas.getAllByRole('button', { name: /^review and save$/i })).toHaveLength(2)
     expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).savedMealIds).toEqual({
       'im-1': 'meal-saved',
     })
@@ -293,7 +330,7 @@ export const OneIdeaSaved: Story = {
     docs: {
       description: {
         story:
-          'The user saved the second idea earlier in this tab. Its card shows "Saved" and an "Open recipe" link to the recipe in place of Select, so the same idea cannot be saved twice; the other two stay selectable (HON-1270).',
+          'The user saved the second idea earlier in this tab. Its card shows "Saved" and an "Open recipe" link to the recipe in place of "Review and save", so the same idea cannot be saved twice; the other two stay selectable (HON-1270).',
       },
     },
   },
@@ -317,7 +354,7 @@ export const OneIdeaSaved: Story = {
       'href',
       '/recipes/meal-saved/edit',
     )
-    expect(canvas.getAllByRole('button', { name: /^select$/i })).toHaveLength(2)
+    expect(canvas.getAllByRole('button', { name: /^review and save$/i })).toHaveLength(2)
   },
 }
 
@@ -350,7 +387,7 @@ export const ReviewTimeoutStillOpensDialog: Story = {
     docs: {
       description: {
         story:
-          'The review endpoint returns a 504. "Select" still opens the review dialog on the uncorrected meal, and nothing about the failure reaches the user — it is reported instead (HON-699).',
+          'The review endpoint returns a 504. "Review and save" still opens the review dialog on the uncorrected meal, and nothing about the failure reaches the user — it is reported instead (HON-699).',
       },
     },
   },
@@ -362,11 +399,13 @@ export const ReviewTimeoutStillOpensDialog: Story = {
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByText('Smoky red lentil stew')
 
-    const [firstSelect] = canvas.getAllByRole('button', { name: /^select$/i })
+    const [firstSelect] = canvas.getAllByRole('button', { name: /^review and save$/i })
     await userEvent.click(firstSelect!)
 
-    // The dialog is portalled, so it lives outside `canvasElement`.
-    await body.findByRole('dialog')
+    // The dialog is portalled, so it lives outside `canvasElement`. It takes
+    // focus from the pressed "Review and save" (HON-1366).
+    const dialog = await body.findByRole('dialog')
+    await waitFor(() => expect(dialog).toHaveFocus())
     await expect(canvas.queryByText(/too long/i)).not.toBeInTheDocument()
   },
 }
@@ -377,7 +416,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop width. "Imagine meals" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+          'Desktop width. "Imagine meals" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782). The column fills the page width, as a list does, so the prompt and the results grid are not boxed in (HON-1367).',
       },
     },
   },
@@ -386,5 +425,14 @@ export const Desktop: Story = {
     await expect(button.getBoundingClientRect().width).toBeLessThan(
       button.parentElement!.getBoundingClientRect().width,
     )
+    // The prompt spans the page container's content box: no `max-w-*` column.
+    const prompt = within(canvasElement).getByRole('textbox')
+    const page = canvasElement.querySelector<HTMLElement>('.px-4')!
+    const { paddingLeft, paddingRight } = getComputedStyle(page)
+    const contentWidth =
+      page.getBoundingClientRect().width - parseFloat(paddingLeft) - parseFloat(paddingRight)
+    await expect(
+      prompt.closest<HTMLElement>('.flex.flex-col.gap-6')!.getBoundingClientRect().width,
+    ).toBeCloseTo(contentWidth, 0)
   },
 }

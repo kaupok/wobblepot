@@ -80,6 +80,7 @@ export default defineConfig({
         // denominator at ~0% and dragged reported line coverage from ~82% to
         // ~61% (HON-791).
         '**/*.stories.{ts,tsx}',
+        '**/*.fixtures.{ts,tsx}',
         'src/stories/**',
         'src/generated/**',
         // CI checks and tooling, not app source. `include` already leaves

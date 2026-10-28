@@ -98,12 +98,8 @@
       "copyFailed": "Couldn't copy the list"
     },
     "emptyState": {
-      "noPlanHeading": "No meal plan yet",
-      "noPlanBody": "Generate a meal plan to see your shopping list.",
-      "noPlanCta": "Generate plan",
-      "allDoneHeading": "All done!",
+      "emptyBody": "Your shopping list is empty.",
       "allDoneBody": "You've bought everything on your list.",
-      "nothingHeading": "Nothing to buy",
       "nothingBody": "Your pantry has everything you need for the next {days} days.",
       "errorHeading": "Something went wrong",
       "errorBody": "We couldn't load your shopping list. Please try again.",
@@ -130,6 +126,7 @@
     "addAria": "Add ingredient to pantry",
     "inPantry": "In pantry",
     "noResults": "No ingredients found",
+    "undo": "Undo",
     "removeDialog": {
       "title": "Remove from pantry",
       "description": "Are you sure you want to remove {name} from your pantry?",
@@ -138,10 +135,11 @@
     "errors": {
       "updateFailed": "Failed to update item",
       "removeFailed": "Failed to remove item",
+      "restoreFailed": "Failed to put the item back",
       "addFailed": "Failed to add item to pantry"
     },
     "success": {
-      "removed": "Item removed from pantry",
+      "removed": "{name} removed from pantry",
       "added": "{name} added to pantry"
     },
     "alreadyInPantry": "{name} is already in your pantry"
@@ -354,8 +352,8 @@
         "generate": "Imagine meals",
         "generating": "Generating ideas…",
         "cancel": "Cancel",
-        "fineTuning": "Fine-tuning recipe…",
-        "select": "Select",
+        "fineTuning": "Getting the recipe ready…",
+        "select": "Review and save",
         "promptOrPhotoRequired": "Please describe what kind of meal you want or attach a photo",
         "tooManyImages": "You can attach up to {max} images",
         "wrongImageType": "Images must be JPEG, PNG, or WebP",
@@ -419,7 +417,7 @@
       "send": "Send",
       "thinking": "Thinking…",
       "youAsked": "You asked: {question}",
-      "edit": "Edit",
+      "editQuestion": "Edit question",
       "retry": "Retry",
       "close": "Close",
       "errors": {
@@ -472,6 +470,7 @@
       "replace": "Replace",
       "leaveOut": "Leave out",
       "addIngredient": "Add an ingredient",
+      "add": "Add",
       "undo": "Undo",
       "undoAria": "Undo change: {name}",
       "insteadOf": "Instead of {name}",
@@ -536,6 +535,8 @@
       "useInSteps": "Use in the steps",
       "noteLabel": "The steps follow your request: {note}",
       "clearNote": "Clear request",
+      "close": "Close",
+      "closeLabel": "Close Adjust recipe",
       "review": {
         "title": "Suggested changes",
         "description": "Tick the changes to make. Only this meal changes. The recipe stays as it is.",
@@ -650,10 +651,12 @@
       "attachAria": "Attach photos",
       "removeImageAria": "Remove {filename}",
       "generate": "Imagine meals",
+      "generateAgain": "Imagine again",
       "generating": "Generating ideas…",
       "cancel": "Cancel",
-      "fineTuning": "Fine-tuning recipe…",
-      "select": "Select",
+      "fineTuning": "Getting the recipe ready…",
+      "ideasReady": "{count, plural, one {# meal idea ready} other {# meal ideas ready}}",
+      "select": "Review and save",
       "savedToast": "Recipe saved to your library",
       "saved": "Saved",
       "openRecipe": "Open recipe",
@@ -679,8 +682,8 @@
     },
     "import": {
       "title": "Add recipe",
-      "description": "Paste a recipe, add a link, or add a photo of a recipe, and we'll read the ingredients for you. Include how many servings it makes, otherwise we'll assume 4.",
-      "placeholder": "Paste a recipe or URL here…\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red pepper",
+      "description": "Paste a recipe, add a link, or add a photo of a recipe, and we'll read the ingredients for you. Include how many servings it makes, otherwise we'll use your household's size ({count}).",
+      "placeholder": "Paste a recipe or a link\nFor example: https://…",
       "textAria": "Recipe text or URL",
       "attachAria": "Add a photo of a recipe",
       "removeImageAria": "Remove {filename}",
@@ -737,16 +740,16 @@
       "descriptionCreate": "Add a new recipe to your household collection",
       "originalTextLabel": "Original recipe text",
       "ingredientsHeading": "Ingredients",
-      "ingredientsHelper": "Enter the total quantity needed for the entire recipe ({count, plural, one {# serving} other {# servings}}). We will calculate per-serving amounts automatically.",
+      "ingredientsHelper": "Amounts for the whole recipe ({count, plural, one {# serving} other {# servings}}).",
       "noIngredients": "No ingredients added yet. Search above to add some.",
       "nutritionApproximate": "Approximate — {count, plural, one {# ingredient not included} other {# ingredients not included}}",
       "toVerifyBadge": "{count} to verify",
       "unmatchedBadge": "{count} unmatched",
       "preparationNotesLabel": "Preparation notes (optional)",
       "preparationNotesHelper": "How do you make this recipe? Steps, tips, or other notes.",
-      "preparationNotesPlaceholder": "e.g., steps, cooking tips",
+      "preparationNotesPlaceholder": "For example: Boil the pasta. Fry the garlic in olive oil, add the tomatoes…",
       "sourceUrlLabel": "Source URL (optional)",
-      "sourceUrlPlaceholder": "https://example.com/recipe",
+      "sourceUrlPlaceholder": "For example: https://example.com/recipe",
       "sourceUrlClearAria": "Clear source URL",
       "cancel": "Cancel",
       "saving": "Saving…",
@@ -779,20 +782,20 @@
       "basic": {
         "heading": "Basic information",
         "nameLabel": "Recipe name",
-        "namePlaceholder": "e.g., Chicken stir fry",
+        "namePlaceholder": "For example: Chicken stir fry",
         "descriptionLabel": "Description (optional)",
-        "descriptionPlaceholder": "Brief description of the recipe…",
+        "descriptionPlaceholder": "For example: A quick weeknight pasta with fresh tomatoes",
         "servingsLabel": "Recipe makes (servings)"
       },
       "details": {
         "heading": "Additional details",
         "suitableForLabel": "Suitable for",
         "timeMinutesLabel": "Prep time in minutes (optional)",
-        "timeMinutesPlaceholder": "e.g., 30",
+        "timeMinutesPlaceholder": "For example: 30",
         "kidFriendlyLabel": "Kid-friendly"
       },
       "componentList": {
-        "perServing": "{quantity}{unit} per serving",
+        "perServing": "{quantity} per serving",
         "invalidQuantity": "Quantity must be greater than 0",
         "setQuantity": "Set quantity",
         "noQuantity": "No quantity",
@@ -800,7 +803,7 @@
         "totalQuantityAria": "Total quantity for {name}"
       },
       "ingredientSearch": {
-        "placeholder": "Search to add ingredients…",
+        "placeholder": "For example: tomato",
         "aria": "Search ingredients to add",
         "noResults": "No ingredients found",
         "added": "Added"
@@ -809,7 +812,7 @@
     "ingredientRow": {
       "removeAria": "Remove ingredient",
       "invalidQuantity": "Quantity must be greater than 0",
-      "perServing": "{quantity}{unit} per serving",
+      "perServing": "{quantity} per serving",
       "duplicateRow": "{count, plural, one {Also used in row {rows}} other {Also used in rows {rows}}}",
       "originalLabel": "Original: {text}",
       "searchPlaceholder": "Search ingredients…",
@@ -858,7 +861,7 @@
       }
     },
     "review": {
-      "nutritionLine": "{calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
+      "servings": "{count, plural, one {Makes # serving} other {Makes # servings}}",
       "matchedCollapse": "{count, plural, one {# ingredient matched} other {# ingredients matched}}",
       "save": "Save recipe",
       "saving": "Saving…",

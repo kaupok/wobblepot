@@ -154,6 +154,24 @@ describe('useIngredientSearch', () => {
     expect(result.current.data).toEqual(ingredients)
   })
 
+  // HON-1362: the recipe form adds the top result on Enter, so it must know when
+  // the results on screen are for a shorter prefix than the field holds.
+  it('marks results for a shorter prefix as not current until the debounce catches up', async () => {
+    const { result, rerender } = renderSearch('')
+
+    rerender({ query: 'tom' })
+    await flushDebounce()
+    await waitFor(() => expect(result.current.data).toEqual(ingredients))
+    expect(result.current.isCurrent).toBe(true)
+
+    rerender({ query: 'toma' })
+    expect(result.current.data).toEqual(ingredients)
+    expect(result.current.isCurrent).toBe(false)
+
+    await flushDebounce()
+    await waitFor(() => expect(result.current.isCurrent).toBe(true))
+  })
+
   it('drops the results when the user deletes back to a shorter term', async () => {
     const { result, rerender } = renderSearch('')
 

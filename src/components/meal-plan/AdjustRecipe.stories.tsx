@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useRef, useState } from 'react'
 import { http, HttpResponse } from 'msw'
 import { Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { createMealComponent } from '@/stories/fixtures'
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
-import { AdjustRecipe } from './AdjustRecipe'
+import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
 
 const ADJUST = '/api/meal-plans/:planId/entries/:entryId/adjust'
 const COMPONENTS = '/api/meal-plans/:planId/entries/:entryId/components'
@@ -38,6 +39,33 @@ const answer = (body: Record<string, unknown>, status = 200) => [
   }),
 ]
 
+/**
+ * Owns `open` as `MealDetailModal` does, with a stand-in for its ⋯ trigger
+ * that opens the section and takes focus back on Close (HON-1356).
+ */
+function WithTrigger(args: AdjustRecipeProps) {
+  const [open, setOpen] = useState(args.open)
+  const fieldRef = useRef<HTMLTextAreaElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  return (
+    <div className="flex flex-col gap-4">
+      <button ref={triggerRef} type="button" className="self-start" onClick={() => setOpen(true)}>
+        Open Adjust recipe
+      </button>
+      <AdjustRecipe
+        {...args}
+        open={open}
+        fieldRef={fieldRef}
+        onClose={() => {
+          args.onClose()
+          setOpen(false)
+          triggerRef.current?.focus()
+        }}
+      />
+    </div>
+  )
+}
+
 const meta = {
   title: 'Meal plan/AdjustRecipe',
   component: AdjustRecipe,
@@ -48,7 +76,7 @@ const meta = {
     docs: {
       description: {
         component:
-          '"Adjust recipe" on a planned entry (HON-1244): the household says what to change, the AI proposes ingredient changes, and the review dialog applies the ones it keeps as the entry’s change set. An instruction that needs no change says so and writes nothing.',
+          '"Adjust recipe" on a planned entry (HON-1244): the household says what to change, the AI proposes ingredient changes, and the review dialog applies the ones it keeps as the entry’s change set. An instruction that needs no change says so and writes nothing. The cook view’s ⋯ menu opens the section on request (HON-1356); closed, only a stored request shows.',
       },
     },
   },
@@ -62,7 +90,11 @@ const meta = {
     ],
     adjustmentNote: null,
     onChanged: fn(),
+    open: true,
+    onClose: fn(),
+    fieldRef: { current: null },
   },
+  render: (args) => <WithTrigger {...args} />,
   beforeEach: () => {
     applied.length = 0
   },
@@ -95,6 +127,7 @@ export const ReviewAndApply: Story = {
     await body.findByRole('dialog', { name: 'Suggested changes' })
     await userEvent.click(body.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(args.onChanged).toHaveBeenCalled())
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled())
     await expect(applied).toEqual([
       {
         changes: [
@@ -133,6 +166,7 @@ export const StepsOnly: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(await canvas.findByRole('button', { name: 'Use in the steps' }))
     await waitFor(() => expect(args.onChanged).toHaveBeenCalled())
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled())
     await expect(applied).toEqual([
       {
         changes: [],
@@ -147,6 +181,38 @@ export const StepsOnly: Story = {
 /** A stored request, shown with Clear. */
 export const WithStoredRequest: Story = {
   args: { adjustmentNote: 'Less salt\nFish instead of chicken' },
+}
+
+/** The default in the cook view: closed, and nothing shows. */
+export const Closed: Story = {
+  args: { open: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Adjust recipe')).not.toBeInTheDocument()
+  },
+}
+
+/** Closed with a stored request: the line stays, because it explains the steps. */
+export const ClosedWithStoredRequest: Story = {
+  args: { open: false, adjustmentNote: 'Less salt' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('The steps follow your request: Less salt')).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Clear request' })).toBeVisible()
+    await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
+  },
+}
+
+/** Close hides the section and returns focus to what opened it. */
+export const CloseReturnsFocus: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Close Adjust recipe' }))
+    await expect(args.onClose).toHaveBeenCalled()
+    await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Open Adjust recipe' })).toHaveFocus()
+  },
 }
 
 /** A refusal renders catalog copy, never the route's English `error`. */

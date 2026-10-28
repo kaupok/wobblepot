@@ -36,9 +36,13 @@ export interface ParseRecipeResult {
  * `images` are photos of a recipe (HON-1274). With them, the model copies the
  * recipe it sees and `recipeText` is optional context, so the length check
  * applies only without images.
+ *
+ * `defaultServings` is the household's member count, the servings the recipe
+ * gets when its text does not say (HON-1363).
  */
 export async function parseRecipeText(
   recipeText: string,
+  defaultServings: number,
   locale?: string,
   onAiUsage?: (usage: AiUsageStats) => void,
   abortSignal?: AbortSignal,
@@ -56,7 +60,7 @@ export async function parseRecipeText(
   }
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-  const request = buildRecipeRequest(trimmedText, locale, images)
+  const request = buildRecipeRequest(trimmedText, defaultServings, locale, images)
 
   try {
     const startedAt = Date.now()
@@ -202,14 +206,19 @@ export interface ParsedRecipe {
  * @param recipeText - The recipe text to parse
  * @param sourceUrl - Optional source URL for URL imports (stored as dedicated field)
  * @param onAiUsage - Callback for tracking AI usage stats
- * @param matchOptions - Household + locale context for ingredient matching
+ * @param matchOptions - Household + locale context for ingredient matching, and
+ *   `defaultServings`, the household's member count the parser falls back to
+ *   when the recipe does not say how many it serves (HON-1363)
  * @param images - Photos of the recipe; with them, `recipeText` is optional context
  */
 export async function parseAndMatchRecipe(
   recipeText: string,
-  sourceUrl?: string,
-  onAiUsage?: (usage: AiUsageStats) => void,
-  matchOptions: { householdId?: string | null; locale?: string } = {},
+  sourceUrl: string | undefined,
+  onAiUsage: ((usage: AiUsageStats) => void) | undefined,
+  {
+    defaultServings,
+    ...matchOptions
+  }: { householdId?: string | null; locale?: string; defaultServings: number },
   // Kept out of `matchOptions`: that object is forwarded to `matchIngredients`,
   // which is deterministic, so an AI-only budget on it would misstate what it
   // controls.
@@ -221,6 +230,7 @@ export async function parseAndMatchRecipe(
   // instruction; matcher-side locale threading is handled via `matchOptions`.
   const { extraction, confidence } = await parseRecipeText(
     recipeText,
+    defaultServings,
     matchOptions.locale,
     onAiUsage,
     abortSignal,

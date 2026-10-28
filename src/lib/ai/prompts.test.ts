@@ -697,7 +697,7 @@ describe('British English on every English surface', () => {
           locale,
         }),
     },
-    { name: 'recipe parsing', build: (locale) => buildRecipeExtractionPrompt('1 egg', locale) },
+    { name: 'recipe parsing', build: (locale) => buildRecipeExtractionPrompt('1 egg', 4, locale) },
   ]
 
   describe.each(builders)('$name', ({ build }) => {
@@ -711,7 +711,7 @@ describe('British English on every English surface', () => {
   })
 
   it('includes the block for recipe parsing with no locale', () => {
-    expect(buildRecipeExtractionPrompt('1 egg')).toContain(britishEnglish(null))
+    expect(buildRecipeExtractionPrompt('1 egg', 4)).toContain(britishEnglish(null))
   })
 
   it('leaves it out of the quantity review, which returns IDs and numbers only', () => {

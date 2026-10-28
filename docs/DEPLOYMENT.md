@@ -212,6 +212,19 @@ first push. Nothing used them. Screens are driven on `pnpm review:local`,
 and the label-gated preview-smoke workflow ran on 0 of 432 PRs that month, so
 it was removed. To get a preview for one branch, run `vercel deploy` from it.
 
+**PR branches create no deployment at all.** `vercel.json` sets
+`git.deploymentEnabled` to `{ "**": false, "main": true }` (`**`, not `*`,
+because branch names contain `/`). The Ignored Build Step alone was not enough:
+Vercel still created a deployment for each push and only cancelled its build,
+and the Vercel–Neon integration acts on that deployment. It created a
+`preview/<git-branch>` Neon branch for every PR, and cancelled and redeployed the
+first push, which left a `Canceled from the Vercel Dashboard` failure status
+(HON-1348). With no deployment, a PR gets no Vercel status, no preview branch and
+no redeploy. A `vercel deploy` from a branch still creates a deployment, so it
+still gets a `preview/<git-branch>`; the daily Neon sweep reaps it once the git
+branch is gone. The Ignored Build Step stays, because it also keeps production
+builds manual.
+
 ### Email deliverability
 
 Resend + Cloudflare DNS setup, FROM-address conventions, DMARC reading, and

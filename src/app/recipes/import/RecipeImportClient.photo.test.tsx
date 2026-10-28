@@ -28,7 +28,7 @@ function renderInLocale(locale: 'en' | 'et' = 'en') {
   return render(
     <QueryWrapper>
       <NextIntlClientProvider locale={locale} messages={locale === 'en' ? enMessages : etMessages}>
-        <RecipeImportClient />
+        <RecipeImportClient defaultServings={4} />
       </NextIntlClientProvider>
     </QueryWrapper>,
   )

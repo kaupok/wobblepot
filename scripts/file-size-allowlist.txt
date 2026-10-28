@@ -29,7 +29,7 @@
 24962 scripts/orchestrator-outcome-harness.sh
 7876 scripts/orchestrator.failure.test.ts
 15957 scripts/orchestrator.loop.test.ts
-11343 scripts/orchestrator.neon.test.ts
+11319 scripts/orchestrator.neon.test.ts
 13221 scripts/orchestrator.outcomes.test.ts
 7097 scripts/orchestrator.phase.test.ts
 44905 scripts/orchestrator.sh
@@ -57,8 +57,8 @@
 7220 src/app/sign-up/page.test.tsx
 6305 src/components/header-chrome.stories.tsx
 6081 src/components/household/MealForm.test.tsx
-6108 src/components/inventory/ShoppingSection.test.tsx
-6131 src/components/inventory/ShoppingSection.tsx
+5350 src/components/inventory/ShoppingSection.test.tsx
+5833 src/components/inventory/ShoppingSection.tsx
 20528 src/components/meal-plan/MealCard.stories.tsx
 9024 src/components/meal-plan/MealCard.test.tsx
 7969 src/components/meal-plan/MealCard.tsx
@@ -68,11 +68,8 @@
 5457 src/components/meal-plan/MealImageCard.test.tsx
 5414 src/components/meal-plan/MealImageCard.tsx
 6024 src/components/meal-plan/MealSelectorModal.stories.tsx
-6320 src/components/meal-plan/PreparationSteps.stories.tsx
-10187 src/components/meal-plan/PreparationSteps.test.tsx
-6957 src/components/meal-plan/PreparationSteps.tsx
+9425 src/components/meal-plan/PreparationSteps.test.tsx
 5482 src/components/PostHogProvider.test.tsx
-5516 src/components/recipes/ImagineReviewDialog.test.tsx
 6237 src/hooks/use-cook-question.test.ts
 5063 src/hooks/use-meal-image.test.ts
 5035 src/lib/ai/fill-plan.test.ts

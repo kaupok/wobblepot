@@ -143,7 +143,7 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
 - Name the steps that use this piece of equipment, by number.${stepWord}
 - When you suggest a substitute for it, pick something most kitchens have, and say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.
 - Do not suggest buying anything.
-- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.`
+- You do not know which tools the cook owns. Do not say what they have or lack; suggest the substitute and let the cook decide.`
   const notes = preparationNotes?.trim()
     ? `\n\nThe household's own notes on this meal:\n${preparationNotes.trim()}`
     : ''
@@ -201,9 +201,10 @@ ${question}
 
 Rules:
 - ${scopeRule}${equipmentRules}
-- When you suggest a substitute, prefer an ingredient from the pantry above, and say that the household has it. Only call an ingredient available if it is in the pantry.${changedRule}
-- The pantry lists ingredients only. Never claim the household has or lacks a tool or appliance.
-- Never suggest a food the household restrictions exclude.
+- When you suggest a substitute, prefer an ingredient from the pantry above, and say that they have it: "which you have in the pantry". Only call an ingredient available if it is in the pantry.${changedRule}
+- The pantry lists ingredients only. Never claim the cook has or lacks a tool or appliance.
+- Never suggest a food the restrictions above exclude.
+- Write to the cook as "you". Never write "the household" in the answer: the household is the cook.
 - 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.
 - Metric units only: °C, g, kg, ml, L, cm.
 - Do not repeat the step text.${previousRule}

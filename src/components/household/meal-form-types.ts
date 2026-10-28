@@ -1,7 +1,7 @@
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
-import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 
 export type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
 
@@ -24,7 +24,8 @@ export interface IngredientAlternative {
 export interface MealComponent {
   ingredientId: string
   ingredient: IngredientResult
-  totalQuantity: number
+  /** `null` until the user types an amount: a new row starts empty (HON-1362). */
+  totalQuantity: number | null
   isVague?: boolean
   originalPhrase?: string | null
 }
@@ -101,16 +102,37 @@ export interface MealFormProps {
 }
 
 // The unit label beside a quantity: 'g' for grams, 'ml' for an ingredient a
-// cook measures by volume (1 g = 1 ml, HON-1054), and nothing for piece-counted
-// items (the number alone reads more naturally — "5 lemons" not "5 pcs
-// lemons"). Estonian translations live in the catalog under `enums.Unit.*` for
-// any future consumer that wants to render piece units explicitly.
-export function formatUnit(ingredient: {
-  defaultUnit: string
-  measuredByVolume?: boolean
-}): string {
+// cook measures by volume (1 g = 1 ml, HON-1054), and the catalog's piece label
+// ("pc" / "tk", `enums.Unit.piece`) for a piece-counted one, as the cook view
+// shows it (HON-956). Callers pass `useEnumLabel('Unit', 'piece')`.
+export function formatUnit(
+  ingredient: { defaultUnit: string; measuredByVolume?: boolean },
+  pieceLabel: string,
+): string {
   const unit = displayUnit(ingredient)
-  return unit === 'piece' ? '' : unit
+  return unit === 'piece' ? pieceLabel : unit
+}
+
+// A formatted amount with its unit: "5g", "200ml", "0.3 pc". The piece label is
+// a word, so it takes the cook view's no-break space.
+export function formatAmountWithUnit(
+  amount: string,
+  ingredient: { defaultUnit: string; measuredByVolume?: boolean },
+  pieceLabel: string,
+): string {
+  const unit = displayUnit(ingredient)
+  return unit === 'piece' ? withPieceUnit(amount, pieceLabel) : `${amount}${unit}`
+}
+
+// The amount a new ingredient row suggests: one piece, or 100 g / ml.
+export function suggestedQuantity(ingredient: { defaultUnit: string }): number {
+  return ingredient.defaultUnit === 'piece' ? 1 : 100
+}
+
+// A row the user must still give an amount: not "No quantity", and empty or
+// not above zero. Saving rejects it with `invalid_quantity`.
+export function isMissingQuantity(c: MealComponent): boolean {
+  return !c.isVague && (c.totalQuantity ?? 0) <= 0
 }
 
 const MAX_LISTED_NAMES = 3
@@ -197,7 +219,7 @@ export function buildFinalComponents(
   } else {
     finalComponents = components.map((c) => ({
       ingredientId: c.ingredientId,
-      totalQuantity: c.isVague ? 0 : c.totalQuantity,
+      totalQuantity: c.isVague ? 0 : (c.totalQuantity ?? 0),
       isVague: c.isVague ?? false,
       originalPhrase: c.originalPhrase ?? null,
     }))
@@ -217,7 +239,7 @@ export function buildFinalComponents(
       return { error: { code: 'invalid_quantity', names } }
     }
   } else {
-    const invalidComps = components.filter((c) => !c.isVague && c.totalQuantity <= 0)
+    const invalidComps = components.filter(isMissingQuantity)
     if (invalidComps.length > 0) {
       const names = invalidComps.map((c) => c.ingredient.name)
       return { error: { code: 'invalid_quantity', names } }

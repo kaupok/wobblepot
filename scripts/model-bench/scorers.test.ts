@@ -137,7 +137,14 @@ describe('scoreRecipe', () => {
       quantityUnitMatch: 1,
       confidenceAgrees: 1,
       stepCountDelta: 0,
+      servingsMatch: null,
     })
+  })
+
+  it('checks the servings only when the case expects them (HON-1363)', () => {
+    const expectsTwo = { ...input, expected: { ...input.expected, servings: 2 } }
+    expect(scoreRecipe(expectsTwo, { ...perfect, servings: 2 }).servingsMatch).toBe(1)
+    expect(scoreRecipe(expectsTwo, { ...perfect, servings: 4 }).servingsMatch).toBe(0)
   })
 
   it('accepts a plural English name the prompt never asked to singularise', () => {
@@ -204,6 +211,7 @@ describe('scoreRecipe', () => {
         quantityUnitMatch: null,
         confidenceAgrees: 1,
         stepCountDelta: null,
+        servingsMatch: null,
       })
     })
 
@@ -567,10 +575,19 @@ describe('scoreCookQuestion', () => {
       withinSentences: 1,
       offTopicDeclined: null,
       avoidsForbidden: null,
-      avoidsClaims: null,
+      avoidsClaims: 1,
       mentionsExpected: 1,
       omitsLeftOut: 1,
     })
+  })
+
+  it('fails a substitute answer that calls the cook "the household" (HON-1372)', () => {
+    expect(
+      scoreCookQuestion(
+        substitute,
+        'Swap the sour cream for Greek yogurt, which the household has in the pantry.',
+      ).avoidsClaims,
+    ).toBe(0)
   })
 
   it('fails an answer that names an ingredient the household left out (HON-1254)', () => {

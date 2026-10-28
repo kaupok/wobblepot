@@ -612,7 +612,7 @@ async function imagineAndSaveMeal() {
   await userEvent.type(await body.findByRole('textbox'), 'something with lentils')
   await userEvent.click(body.getByRole('button', { name: /imagine meals/i }))
   await body.findByText('Smoky red lentil stew', undefined, { timeout: 3000 })
-  await userEvent.click(body.getByRole('button', { name: /^select$/i }))
+  await userEvent.click(body.getByRole('button', { name: /^review and save$/i }))
   await userEvent.click(
     await body.findByRole('button', { name: /^save recipe$/i }, { timeout: 3000 }),
   )

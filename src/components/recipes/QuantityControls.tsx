@@ -56,9 +56,11 @@ export function QuantityControls({
           className="w-20"
           disabled={disabled}
         />
-        {unitLabel && (
-          <span className="text-foreground bg-muted border-l px-2 py-1.5 text-sm">{unitLabel}</span>
-        )}
+        {/* From `sm` the controls sit at the row end, so a minimum width keeps
+            the fields of "g", "ml" and "pc" rows in line. */}
+        <span className="text-foreground bg-muted border-l px-2 py-1.5 text-center text-sm sm:min-w-10">
+          {unitLabel}
+        </span>
       </div>
       <Button type="button" variant="outline" size="sm" onClick={onMarkAsVague} disabled={disabled}>
         {tForm('noQuantity')}

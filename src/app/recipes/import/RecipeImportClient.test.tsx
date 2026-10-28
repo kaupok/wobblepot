@@ -40,12 +40,24 @@ describe('RecipeImportClient heading', () => {
   ] as const)(
     'reads %s: heading %s, submit %s, blank link %s',
     (locale, heading, submit, blank) => {
-      renderInLocale(<RecipeImportClient />, locale)
+      renderInLocale(<RecipeImportClient defaultServings={4} />, locale)
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: submit })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: blank })).toHaveAttribute('href', '/recipes/create')
     },
   )
+})
+
+describe('RecipeImportClient column', () => {
+  // A narrow form column, centred in the page so a wide screen is balanced
+  // (HON-1368). The route skeleton mirrors it.
+  it('puts the title in a centred max-w-2xl column', () => {
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
+    const column = screen
+      .getByRole('heading', { level: 1, name: 'Add recipe' })
+      .closest('.max-w-2xl')
+    expect(column).toHaveClass('mx-auto')
+  })
 })
 
 describe('RecipeImportClient progress steps', () => {
@@ -61,7 +73,7 @@ describe('RecipeImportClient progress steps', () => {
   })
 
   it('shows URL progress steps when importing a URL', () => {
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     const textarea = screen.getByRole('textbox')
     fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
@@ -82,7 +94,7 @@ describe('RecipeImportClient progress steps', () => {
   })
 
   it('shows text progress steps when importing plain text', () => {
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     const textarea = screen.getByRole('textbox')
     fireEvent.change(textarea, {
@@ -110,7 +122,7 @@ describe('RecipeImportClient progress steps', () => {
       }),
     )
 
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     const textarea = screen.getByRole('textbox')
     fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
@@ -149,7 +161,7 @@ describe('RecipeImportClient cancel', () => {
   })
 
   it('shows cancel button during parsing and hides it otherwise', () => {
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     // Cancel button not visible initially
     expect(screen.queryByRole('button', { name: /cancel/i })).not.toBeInTheDocument()
@@ -174,7 +186,7 @@ describe('RecipeImportClient cancel', () => {
   it('aborts request and restores textarea on cancel', async () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
 
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     const textarea = screen.getByRole('textbox')
     fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
@@ -211,7 +223,7 @@ describe('RecipeImportClient cancel', () => {
     abortError.name = 'AbortError'
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError))
 
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
 
     const textarea = screen.getByRole('textbox')
     fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
@@ -253,7 +265,7 @@ describe('RecipeImportClient error localization', () => {
   }
 
   function parse(locale: 'en' | 'et') {
-    renderInLocale(<RecipeImportClient />, locale)
+    renderInLocale(<RecipeImportClient defaultServings={4} />, locale)
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'https://example.com/recipe' },
     })
@@ -367,12 +379,28 @@ describe('RecipeImportClient error localization', () => {
   })
 })
 
+describe("RecipeImportClient household's size (HON-1363)", () => {
+  // A recipe with no servings gets the household's size, the same start the
+  // blank form uses, so the page names the number the parser falls back to.
+  it.each([
+    ['en', "Include how many servings it makes, otherwise we'll use your household's size (3)."],
+    [
+      'et',
+      'Kirjuta juurde, mitmele inimesele see on, muidu arvestame sinu leibkonna suurusega (3).',
+    ],
+  ] as const)('names the fallback servings in %s', (locale, expected) => {
+    renderInLocale(<RecipeImportClient defaultServings={3} />, locale)
+
+    expect(screen.getByText(expected, { exact: false })).toBeInTheDocument()
+  })
+})
+
 describe('RecipeImportClient paste field name', () => {
-  // The placeholder is ten lines of example text; without a label that is what
-  // a screen reader announces as the field's name (HON-808).
+  // The placeholder is example text; without a label that is what a screen
+  // reader announces as the field's name (HON-808).
   it.each(['en', 'et'] as const)('names the paste textarea in %s', (locale) => {
     const messages = locale === 'en' ? enMessages : etMessages
-    renderInLocale(<RecipeImportClient />, locale)
+    renderInLocale(<RecipeImportClient defaultServings={4} />, locale)
 
     expect(screen.getByLabelText(messages.recipes.import.textAria)).toHaveAttribute(
       'placeholder',
@@ -417,7 +445,7 @@ describe('RecipeImportClient stash origin', () => {
           }),
       }),
     )
-    renderInLocale(<RecipeImportClient />, 'en')
+    renderInLocale(<RecipeImportClient defaultServings={4} />, 'en')
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'Lentil stew\n- 200g lentils' },
     })

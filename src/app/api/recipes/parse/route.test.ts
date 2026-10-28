@@ -169,7 +169,7 @@ describe('extractUrlAndContext', () => {
 
 describe('POST /api/recipes/parse rate limiting', () => {
   const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
-  const mockMembership = { household: { id: 'household-42' } }
+  const mockMembership = { household: { id: 'household-42', _count: { members: 3 } } }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -208,7 +208,7 @@ describe('POST /api/recipes/parse rate limiting', () => {
 
 describe('POST /api/recipes/parse kill-switches (HON-868)', () => {
   const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
-  const mockMembership = { household: { id: 'household-42' } }
+  const mockMembership = { household: { id: 'household-42', _count: { members: 3 } } }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -256,7 +256,7 @@ describe('POST /api/recipes/parse kill-switches (HON-868)', () => {
 
 describe('POST /api/recipes/parse RecipeParseError handling', () => {
   const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
-  const mockMembership = { household: { id: 'household-42' } }
+  const mockMembership = { household: { id: 'household-42', _count: { members: 3 } } }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -366,7 +366,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
   const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
 
   function membership(locale: string) {
-    return { household: { id: 'household-42', locale } }
+    return { household: { id: 'household-42', locale, _count: { members: 3 } } }
   }
 
   function successfulParse() {
@@ -414,6 +414,20 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
     const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
     expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'en' })
+  })
+
+  it("passes the household's member count as the servings default (HON-1363)", async () => {
+    // A recipe with no servings gets the household's size, as the blank form
+    // does. The parser falls back to `defaultServings`; this pins the source.
+    mockGetMembership.mockResolvedValue({
+      household: { id: 'household-42', locale: 'en', _count: { members: 5 } },
+    } as never)
+    successfulParse()
+
+    await POST(jsonRequest({ text: 'Pancakes: 200g flour, 2 eggs, 300ml milk, pinch of salt.' }))
+
+    expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
+    expect(mockParseAndMatchRecipe.mock.calls[0]![3]).toMatchObject({ defaultServings: 5 })
   })
 
   it('threads Estonian locale straight through with no env flag set (gate retired)', async () => {

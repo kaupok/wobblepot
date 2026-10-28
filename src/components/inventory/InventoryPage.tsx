@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
+import type { PantryChange } from './use-pantry-changes'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
 import { cn } from '@/lib/utils'
@@ -69,10 +70,10 @@ export function InventoryPage({
   // Applies a saved 7/14-day preference to the URL. Here rather than in
   // `ShoppingListHeader` because this component renders on every `/shopping`
   // and `/pantry` visit and exactly once, so the reconcile reaches the
-  // header-less states (`no-plan`, `error`) and can never fire twice.
+  // header-less `error` state and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
-  const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
+  const [pantryChanges, setPantryChanges] = useState<Map<string, PantryChange>>(new Map())
 
   const handleItemPurchased = useCallback(
     (newItem: PantryItemData) => {
@@ -96,23 +97,32 @@ export function InventoryPage({
     setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
   }, [])
 
+  // Tell the shopping list a pantry row went or came back (Undo), so it unticks
+  // or re-ticks the item. A removal also recomputes the list: the item may now
+  // be needed. An Undo leaves that to `handlePantryChangesProcessed`.
   const handlePantryItemRemoved = useCallback(
     (ingredientId: string) => {
-      // Add to removed set to trigger shopping list update (for visual uncheck)
-      setRemovedIngredientIds((prev) => new Set(prev).add(ingredientId))
-      // Refresh the page data to recompute shopping list (item may now be needed)
+      setPantryChanges((prev) => new Map(prev).set(ingredientId, 'removed'))
       router.refresh()
     },
     [router],
   )
+  const handlePantryItemRestored = useCallback((ingredientId: string) => {
+    setPantryChanges((prev) => new Map(prev).set(ingredientId, 'restored'))
+  }, [])
 
   // "Have it" takes a ran-out row off the list: recompute it, as a removal does.
   const handlePantryQuantityChanged = useCallback(() => router.refresh(), [router])
 
-  const handleExternalUnpurchaseProcessed = useCallback(() => {
-    // Clear the set after ShoppingSection has processed it
-    setRemovedIngredientIds(new Set())
-  }, [])
+  const handlePantryChangesProcessed = useCallback(
+    (listStale: boolean) => {
+      // Clear the map after ShoppingSection has processed it
+      setPantryChanges(new Map())
+      // An Undo the list could not re-tick: the row may cover a need again.
+      if (listStale) router.refresh()
+    },
+    [router],
+  )
 
   // The page shell every in-app page uses (docs/DESIGN.md → Composition
   // rules, "No page-level Card"); the two columns sit on the background with
@@ -138,15 +148,19 @@ export function InventoryPage({
             onItemsChange={setPantryItems}
             loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
+            onPantryItemRestored={handlePantryItemRestored}
             onPantryQuantityChanged={handlePantryQuantityChanged}
           />
         </div>
 
         <div className={cn(view !== 'shopping' && 'hidden md:block')} data-testid="shopping-column">
-          {emptyStateVariant ? (
-            <ShoppingEmptyState variant={emptyStateVariant} windowDays={windowDays} />
-          ) : shoppingData ? (
+          {/* Only a failed load drops the sheet: an empty list keeps its Add
+              field, so a household with no plan can still add an item (HON-1354). */}
+          {emptyStateVariant === 'error' || !shoppingData ? (
+            <ShoppingEmptyState />
+          ) : (
             <ShoppingSection
+              emptyVariant={emptyStateVariant}
               windowDays={shoppingData.windowDays}
               startDate={shoppingData.startDate}
               endDate={shoppingData.endDate}
@@ -155,10 +169,10 @@ export function InventoryPage({
               initialCustomItems={shoppingData.customItems}
               onItemPurchased={handleItemPurchased}
               onItemUnpurchased={handleItemUnpurchased}
-              externalUnpurchasedIds={removedIngredientIds}
-              onExternalUnpurchaseProcessed={handleExternalUnpurchaseProcessed}
+              externalPantryChanges={pantryChanges}
+              onExternalPantryChangesProcessed={handlePantryChangesProcessed}
             />
-          ) : null}
+          )}
         </div>
       </div>
     </div>
