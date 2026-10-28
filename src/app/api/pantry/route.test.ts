@@ -234,7 +234,11 @@ describe('POST /api/pantry', () => {
   })
 
   it('returns 409 with the existing id when the ingredient is already in the pantry', async () => {
-    mockCreatePantryItem.mockResolvedValue({ status: 'exists', existingId: 'existing-item' })
+    mockCreatePantryItem.mockResolvedValue({
+      status: 'exists',
+      existingId: 'existing-item',
+      isStaple: false,
+    })
 
     const response = await post({ ingredientId: 'ing-456' })
 

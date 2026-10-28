@@ -169,6 +169,50 @@ describe('set_pantry_status', () => {
     expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({ quantity })
   })
 
+  it('writes the amount have_some brings, on a new item and on an existing one', async () => {
+    vi.mocked(prisma.pantryItem.findUnique).mockResolvedValueOnce(null)
+
+    const created = await call({ ingredientId: 'ing-milk', status: 'have_some', amount: 1800 })
+
+    expect(created.structuredContent).toMatchObject({
+      outcome: 'created',
+      item: { quantity: 1800, unit: 'ml' },
+    })
+    expect(prisma.pantryItem.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ quantity: 1800 }) }),
+    )
+
+    vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(
+      pantryRow({ quantity: null }) as never,
+    )
+    vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(pantryRow({ quantity: null }) as never)
+
+    const updated = await call({ ingredientId: 'ing-milk', status: 'have_some', amount: 1800 })
+
+    expect(updated.structuredContent).toMatchObject({
+      outcome: 'updated',
+      item: { quantity: 1800 },
+    })
+    expect(prisma.pantryItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 1800 } }),
+    )
+  })
+
+  it('refuses an amount on a staple and writes nothing', async () => {
+    const staple = pantryRow({ isStaple: true, quantity: null })
+    vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(staple as never)
+    vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(staple as never)
+
+    const result = await call({ ingredientId: 'ing-milk', status: 'have_some', amount: 1800 })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toMatchObject({
+      text: expect.stringContaining('a staple takes no amount'),
+    })
+    expect(prisma.pantryItem.create).not.toHaveBeenCalled()
+    expect(prisma.pantryItem.update).not.toHaveBeenCalled()
+  })
+
   it("refuses another household's ingredient as unknown and writes nothing", async () => {
     // The ingredient lookup is limited to global and the caller's own, so
     // household B's ingredient is not found.
@@ -237,6 +281,10 @@ describe('set_pantry_status', () => {
     ['null', { status: null }],
     ['another string', { status: 'half' }],
     ['the old quantity field', { quantity: 200 }],
+    ['an amount with ran_out', { status: 'ran_out', amount: 1800 }],
+    ['an amount of 0', { status: 'have_some', amount: 0 }],
+    ['a negative amount', { status: 'have_some', amount: -1 }],
+    ['an amount as text', { status: 'have_some', amount: '1800' }],
   ])('refuses %s at the schema, so nothing is written', (_label, input) => {
     expect(
       setPantryStatus.inputSchema.safeParse({ ingredientId: 'ing-milk', ...input }).success,

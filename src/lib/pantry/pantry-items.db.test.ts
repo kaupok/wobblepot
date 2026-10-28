@@ -135,7 +135,7 @@ describe('createPantryItem', () => {
       isStaple: false,
     })
 
-    expect(outcome).toEqual({ status: 'exists', existingId: alderOil })
+    expect(outcome).toEqual({ status: 'exists', existingId: alderOil, isStaple: false })
     expect(await pantryOf(alder.id)).toEqual([
       { ingredientId: 'ing-oil', quantity: 500, isStaple: false },
     ])

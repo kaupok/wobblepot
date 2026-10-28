@@ -68,12 +68,13 @@ function withTranslatedIngredient<T extends { ingredient: { name: string } }>(
  * - `ingredient_not_found`: the ingredient is neither global nor the
  *   household's own. Another household's reads the same, so its id is not
  *   revealed (HON-889).
- * - `exists`: the household's pantry has this ingredient already
+ * - `exists`: the household's pantry has this ingredient already, and whether
+ *   it is a staple
  */
 export type CreatePantryItemOutcome =
   | { status: 'created'; item: PantryItemWithIngredient }
   | { status: 'ingredient_not_found' }
-  | { status: 'exists'; existingId: string }
+  | { status: 'exists'; existingId: string; isStaple: boolean }
 
 /** Puts an ingredient in the household's pantry. */
 export async function createPantryItem(
@@ -96,7 +97,7 @@ export async function createPantryItem(
   }
   const existing = await prisma.pantryItem.findUnique({ where })
 
-  if (existing) return { status: 'exists', existingId: existing.id }
+  if (existing) return { status: 'exists', existingId: existing.id, isStaple: existing.isStaple }
 
   // `InlineAddItem` inserts the route's response straight into the pantry
   // list, so it carries the household's name for the ingredient, as
@@ -118,7 +119,7 @@ export async function createPantryItem(
     // A concurrent request added the same ingredient first.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const winner = await prisma.pantryItem.findUnique({ where })
-      if (winner) return { status: 'exists', existingId: winner.id }
+      if (winner) return { status: 'exists', existingId: winner.id, isStaple: winner.isStaple }
     }
     throw error
   }

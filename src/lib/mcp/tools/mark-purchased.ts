@@ -14,7 +14,7 @@ const MAX_INGREDIENTS = 100
 export const markPurchased = defineTool({
   name: 'mark_purchased',
   title: 'Mark purchased',
-  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry as "have some", replacing any quantity the pantry had for it, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry; a staple stays a staple and goes back to ran out, so it is on the shopping list again. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase, and never for a pantry item with a quantity the household entered after the purchase; the result says so for each item. Undoing a purchase does not bring back a quantity the purchase replaced: the result gives it as replacedQuantity.`,
+  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry as "have some", replacing any quantity the pantry had for it, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry; a staple stays a staple and goes back to ran out, so it is on the shopping list again. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase, and never for a pantry item with a quantity the household entered after the purchase; the result says so for each item. Undoing a purchase does not bring back a quantity the purchase replaced: the result gives it as replacedQuantity, and set_pantry_status with that amount puts it back.`,
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientIds: ingredientIdsSchema
@@ -64,8 +64,8 @@ export const markPurchased = defineTool({
     // One at a time, as the app undoes them: each is its own small change.
     // A row with a quantity is kept, so an undo never deletes a quantity the
     // household entered. A purchase replaces one with "have some", so it
-    // returns `replacedQuantity` above. The app tracks no amounts (HON-1201),
-    // so the undo loses nothing the household can see or edit:
+    // returns `replacedQuantity` above, and `set_pantry_status` can write it
+    // back as `amount` (HON-1402), so nothing is lost that cannot be restored:
     // `destructiveHint: false` stays true (HON-1176).
     const items = []
     for (const ingredientId of uniqueIds) {

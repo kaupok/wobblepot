@@ -1,9 +1,19 @@
-// ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingListHeader, ShoppingItem, PantrySection, PantryItem
+// ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingListHeader, ShoppingItem, PantrySection, PantryItem, PantryAmountControl
 // API: /api/meal-plans/[id]/entries/[entryId]/components (HON-1243)
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import {
+  escapeRegExp,
+  findReplacement,
+  listEntries,
+  pantryRows,
+  shoppingItems,
+  toBuy,
+  type EntrySummary,
+  type MealSummary,
+} from './utils/shopping-pantry-api'
 
 /**
  * Shopping list → mark purchased → pantry receives the item (HON-479).
@@ -25,39 +35,6 @@ import { smokeFixture } from './utils/fixtures'
 const ENTRY_DAY_OFFSET = 2
 const ENTRY_MEAL_TYPE = 'lunch'
 
-interface EntrySummary {
-  id: string
-  date: string
-  mealType: string
-}
-
-interface MealComponent {
-  ingredientId: string
-  quantityPerServing: number
-  isVague?: boolean
-}
-
-interface MealSummary {
-  id: string
-  name: string
-  components: MealComponent[]
-}
-
-interface ShoppingListItem {
-  ingredientId: string
-  name: string
-  purchased: boolean
-  /** What to buy: the meals' need less the pantry's stock. */
-  quantity: number
-  /** A staple the household marked ran out (HON-1398). */
-  restock: boolean
-}
-
-interface PantryRow {
-  ingredient: { id: string }
-  quantity: number | null
-}
-
 /** The entry's servings, pinned so the quantities below are exact. */
 const ENTRY_SERVINGS = 2
 /** The replacement's amount per serving, in its default unit. */
@@ -65,69 +42,10 @@ const REPLACEMENT_PER_SERVING = 50
 /** What the deduction check stocks the replacement with. */
 const STOCKED = 1000
 
-async function shoppingItems(request: APIRequestContext): Promise<ShoppingListItem[]> {
-  const response = await request.get('/api/shopping-list?days=7')
-  expect(response.ok()).toBe(true)
-  const { groups } = (await response.json()) as { groups: Array<{ items: ShoppingListItem[] }> }
-  return groups.flatMap((g) => g.items)
-}
-
-/** What the list says to buy of one ingredient; 0 when it is not listed. */
-const toBuy = (items: ShoppingListItem[], ingredientId: string) =>
-  items.find((item) => item.ingredientId === ingredientId)?.quantity ?? 0
-
-async function pantryRows(request: APIRequestContext): Promise<PantryRow[]> {
-  const response = await request.get('/api/pantry')
-  expect(response.ok()).toBe(true)
-  return ((await response.json()) as { items: PantryRow[] }).items
-}
-
-/**
- * A global ingredient the meal does not use and the pantry does not hold, to
- * replace one of the meal's with: a pantry row would cover it, so it would
- * never reach the list. Searched by a few common names, so the spec does not
- * depend on one seed row.
- */
-async function findReplacement(
-  request: APIRequestContext,
-  mealIngredientIds: Set<string>,
-): Promise<{ id: string; name: string }> {
-  const taken = new Set([
-    ...mealIngredientIds,
-    ...(await pantryRows(request)).map((row) => row.ingredient.id),
-  ])
-  for (const term of ['yoghurt', 'yogurt', 'tofu', 'lentil', 'chickpea', 'rice']) {
-    const response = await request.get(`/api/ingredients?search=${term}`)
-    expect(response.ok()).toBe(true)
-    const { ingredients } = (await response.json()) as {
-      ingredients: Array<{ id: string; name: string }>
-    }
-    const found = ingredients.find((i) => !taken.has(i.id))
-    if (found) return found
-  }
-  throw new Error(
-    'No seeded ingredient outside the meal and the pantry matched the replacement search terms.',
-  )
-}
-
 function targetDate(): string {
   const date = new Date()
   date.setDate(date.getDate() + ENTRY_DAY_OFFSET)
   return date.toISOString().slice(0, 10)
-}
-
-async function listEntries(
-  request: APIRequestContext,
-): Promise<{ entries: EntrySummary[]; planId: string | null }> {
-  const start = new Date()
-  start.setDate(start.getDate() - 1)
-  const end = new Date()
-  end.setDate(end.getDate() + 9)
-  const fmt = (d: Date) => d.toISOString().slice(0, 10)
-
-  const response = await request.get(`/api/entries?startDate=${fmt(start)}&endDate=${fmt(end)}`)
-  expect(response.ok(), `GET /api/entries failed with ${response.status()}`).toBe(true)
-  return (await response.json()) as { entries: EntrySummary[]; planId: string | null }
 }
 
 /** Removes the fixture slot if a previous run died before its teardown. */
@@ -402,8 +320,9 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       ).toMatchObject({ quantity: 0, restock: true })
 
       // Completing the entry charges the replacement, never the original
-      // (HON-1243). Stock both: the replacement afresh, the original only when
-      // the household has no row for it, so an existing row is only read.
+      // (HON-1243). Stock both: the replacement through its pantry row below,
+      // the original only when the household has no row for it, so an
+      // existing row is only read.
       const stock = async (ingredientId: string) => {
         const response = await page.request.post('/api/pantry', {
           data: { ingredientId, quantity: STOCKED },
@@ -411,7 +330,38 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
         expect(response.status(), `Stocking ${ingredientId} failed`).toBe(201)
         createdPantryIds.push(ingredientId)
       }
-      await stock(replacement.id)
+      // The household enters the replacement's amount on its pantry row
+      // (HON-1402), and the list beside it takes that much off, with no
+      // reload. The row starts as "have some", as a purchase leaves it.
+      const needBefore = toBuy(await shoppingItems(page.request), replacement.id)
+      const replacementResponse = await page.request.post('/api/pantry', {
+        data: { ingredientId: replacement.id, quantity: null },
+      })
+      expect(replacementResponse.status(), 'Adding the replacement row failed').toBe(201)
+      createdPantryIds.push(replacement.id)
+      await page.reload()
+      await page.getByRole('button', { name: `Add amount: ${replacement.name}` }).click()
+      await page.getByRole('textbox', { name: 'How much do you have?' }).fill(String(STOCKED))
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes('/api/pantry/') && r.request().method() === 'PATCH',
+        ),
+        page.getByRole('button', { name: 'Save' }).click(),
+      ])
+      await expect(
+        page.getByRole('button', {
+          name: new RegExp(`^Amount: ${escapeRegExp(replacement.name)}, ${STOCKED}`),
+        }),
+      ).toBeFocused()
+      const remaining = Math.max(0, needBefore - STOCKED)
+      expect(toBuy(await shoppingItems(page.request), replacement.id)).toBeCloseTo(remaining)
+      if (remaining === 0) {
+        await expect(
+          page.getByRole('checkbox', {
+            name: new RegExp(`^Mark ${escapeRegExp(replacement.name)} as`),
+          }),
+        ).toHaveCount(0)
+      }
       const originalRow = (await pantryRows(page.request)).find(
         (row) => row.ingredient.id === original!.ingredientId,
       )
