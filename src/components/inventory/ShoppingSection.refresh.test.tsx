@@ -91,13 +91,32 @@ describe('ShoppingSection after the list is re-read', () => {
     expect(screen.getByText('1 item')).toBeInTheDocument()
   })
 
-  it('shows the server copy of a row once the server lists it again', async () => {
+  // A listed item is never bought (`load-shopping-list.ts`): a pantry amount
+  // below the need, or Ran out, puts Milk back on the list to buy.
+  it('shows the server copy of a row, unticked, once the server lists it again', async () => {
     const { view } = await tickMilkThenReRead()
 
     view.rerender(<ShoppingSection {...defaultProps} groups={withMilk()} />)
 
     expect(screen.getAllByText('Milk')).toHaveLength(1)
-    expect(screen.getByText(/^2 items/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' })).not.toBeChecked()
+    expect(screen.getByText('2 items')).toBeInTheDocument()
+    expect(screen.queryByText(/purchased$/)).not.toBeInTheDocument()
+  })
+
+  // A re-read that lands while the tick is in flight was read before the tick.
+  it('keeps a tick still in flight when a re-read lists its row', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    )
+    const user = userEvent.setup()
+    const view = renderSection({ groups: withMilk() })
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' }))
+
+    view.rerender(<ShoppingSection {...defaultProps} groups={withMilk()} />)
+
+    expect(screen.getByRole('checkbox', { name: 'Mark Milk as not purchased' })).toBeChecked()
   })
 
   it('does not count a tick whose row was never on screen', () => {

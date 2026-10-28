@@ -89,7 +89,7 @@ export function ShoppingSection({
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [sortMode, setSortMode] = useState<SortMode>(DEFAULT_SORT_MODE)
   // The server's groups plus the ticked rows a re-read left out (HON-1439).
-  const { displayGroups, keep } = useKeptTickedRows(groups, purchasedIds)
+  const { displayGroups, keep } = useKeptTickedRows(groups, purchasedIds, setPurchasedIds)
 
   const {
     customItems,

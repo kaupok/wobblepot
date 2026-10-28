@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { usePendingPurchaseIds } from './use-purchase-toggle'
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -18,12 +19,19 @@ type KeptRows = Map<string, { category: IngredientCategory; item: ShoppingItemDa
  * be unticked (HON-1439). A kept row stays until the page is left, unticked
  * too, because an untick does not re-read the list.
  *
- * Each re-read keeps only the rows still ticked that the server left out: the
- * server's copy of a row wins, and it is the authority on an unticked one.
+ * Each re-read keeps only the rows still ticked that the server left out. The
+ * server is the authority on every row it lists: a listed item is never bought
+ * (`load-shopping-list.ts`), so a re-read also unticks it. A tick still in
+ * flight keeps its tick, because a re-read that lands first predates it.
  */
-export function useKeptTickedRows(groups: ShoppingListGroup[], purchasedIds: Set<string>) {
+export function useKeptTickedRows(
+  groups: ShoppingListGroup[],
+  purchasedIds: Set<string>,
+  setPurchasedIds: Dispatch<SetStateAction<Set<string>>>,
+) {
   const [kept, setKept] = useState<KeptRows>(() => new Map())
   const [seenGroups, setSeenGroups] = useState(groups)
+  const pendingIds = usePendingPurchaseIds()
 
   // A new `groups` is a re-read: prune while rendering, so the stale rows
   // never paint (react.dev → "Adjusting some state when a prop changes").
@@ -36,6 +44,10 @@ export function useKeptTickedRows(groups: ShoppingListGroup[], purchasedIds: Set
         if (!listed.has(id) && purchasedIds.has(id)) next.set(id, row)
       })
       return next
+    })
+    setPurchasedIds((prev) => {
+      const next = new Set([...prev].filter((id) => !listed.has(id) || pendingIds.has(id)))
+      return next.size === prev.size ? prev : next
     })
   }
 
