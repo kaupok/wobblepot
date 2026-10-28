@@ -43,6 +43,8 @@ const MEAL = {
   timeMinutes: 30,
   suitableFor: ['dinner'],
   householdId: null,
+  primaryProteinType: 'poultry',
+  proteinTypeOverride: null,
   translations: [],
   favoritedBy: [{ id: 'fav-1' }],
   components: [
@@ -107,9 +109,30 @@ describe('get_meal', () => {
         nutritionPerServing: { calories: 180, protein: 33, carbs: 0, fat: 0 },
         isOwnRecipe: false,
         isFavorite: true,
+        mainProtein: { type: 'poultry', setBy: 'automatic' },
       },
     })
     expect(getMeal.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it.each([
+    ['with the household’s choice', 'beef', { type: 'beef', setBy: 'household' }],
+    ['without a choice', null, { type: 'legume', setBy: 'automatic' }],
+  ])('returns the main protein of an own recipe %s', async (_label, override, expected) => {
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({
+      ...MEAL,
+      householdId: 'household-1',
+      primaryProteinType: override ?? 'legume',
+      proteinTypeOverride: override,
+    } as never)
+
+    const result = await call()
+
+    expect(result.structuredContent).toMatchObject({ meal: { mainProtein: expected } })
+    expect(vi.mocked(prisma.meal.findFirst).mock.calls[0]![0]!.select).toMatchObject({
+      primaryProteinType: true,
+      proteinTypeOverride: true,
+    })
   })
 
   it("scales to the servings the caller passes, such as a planned entry's override", async () => {
