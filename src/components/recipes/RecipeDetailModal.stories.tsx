@@ -61,7 +61,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view for one of the household’s own recipes, opened from My recipes (HON-1338). The planned view’s shell (`CookViewDialog`) and body (`MealDetail`), without what belongs to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict badges and no ingredient changes. It opens at the household’s servings; a change scales the ingredients and asks `POST /api/meals/{id}/preparation-steps` for steps at the new count, and nothing is saved. Ask (HON-1339) posts to `POST /api/meals/{id}/cook-question` with the steps and the servings on screen. More actions holds Edit. Portal-based: queries go through `document.body`.',
+          'The cook view for one of the household’s own recipes, opened from My recipes (HON-1338). The planned view’s shell (`CookViewDialog`) and body (`MealDetail`), without what belongs to a plan entry: no note, no "Done cooking", no pantry ticks, no conflict badges and no ingredient changes. It opens at the household’s servings; a change scales the ingredients and asks `POST /api/meals/{id}/preparation-steps` for steps at the new count, and nothing is saved. Ask (HON-1339) posts to `POST /api/meals/{id}/cook-question` with the steps and the servings on screen. More actions holds Edit, and a library meal opened from the meal picker has no More actions (HON-1352). Portal-based: queries go through `document.body`.',
       },
     },
     msw: { handlers: { steps: [stepsHandler], cookQuestion: [askHandler] } },
@@ -126,6 +126,19 @@ export const MoreActionsEdit: Story = {
     const items = await body().findAllByRole('menuitem')
     await expect(items).toHaveLength(1)
     await expect(items[0]).toHaveAttribute('href', '/recipes/recipe-1/edit')
+  },
+}
+
+/**
+ * A library meal, opened from the meal picker (HON-1352): not the household's
+ * to edit, and Edit is the menu's only item, so it has no More actions.
+ */
+export const LibraryMeal: Story = {
+  args: { meal: { ...recipe, isCustom: false } },
+  play: async () => {
+    const dialog = await findDialog()
+    await expect(await within(dialog).findByText(steps.steps![0]!)).toBeVisible()
+    await expect(within(dialog).queryByRole('button', { name: /More actions/ })).toBeNull()
   },
 }
 

@@ -1,20 +1,29 @@
-import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { misoSalmonAlternative } from '@/stories/fixtures'
 import type { AlternativeMeal } from '../types'
 import { AlternativesList } from './AlternativesList'
 
+vi.mock('@/hooks/use-meal-image', () => ({
+  useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
+}))
+vi.mock('@/hooks/use-wake-lock', () => ({ useWakeLock: vi.fn() }))
+
+const STEP = 'Glaze the salmon and broil it for 8 minutes.'
+
 const meals: AlternativeMeal[] = [
   misoSalmonAlternative,
-  { ...misoSalmonAlternative, id: 'alt-2', name: 'Lemon-garlic roast chicken' },
+  { ...misoSalmonAlternative, id: 'alt-2', name: 'Lemon-garlic roast chicken', isCustom: true },
 ]
 
 /** The list inside the same `DialogContent` that `MealSelectorModal` renders it in. */
-function InDialog({ open }: { open: boolean }) {
-  return (
-    <Dialog open={open}>
+function renderInPicker() {
+  const onPickerOpenChange = vi.fn()
+  render(
+    <Dialog open onOpenChange={onPickerOpenChange}>
       <DialogContent>
         <DialogTitle>Pick a dinner</DialogTitle>
         <AlternativesList
@@ -24,34 +33,53 @@ function InDialog({ open }: { open: boolean }) {
           onSelect={vi.fn()}
         />
       </DialogContent>
-    </Dialog>
+    </Dialog>,
+    createQueryWrapper(),
   )
+  return { onPickerOpenChange }
 }
 
-// HON-1115: one "Show ingredients" toggle state for the whole grid.
-describe('AlternativesList ingredients toggle', () => {
-  it('opens and closes the lists on every card from one toggle', async () => {
-    render(<InDialog open />)
-
-    expect(screen.queryAllByRole('list')).toHaveLength(0)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Show ingredients' })[0]!)
-
-    expect(screen.getAllByRole('list')).toHaveLength(2)
-    expect(screen.getAllByRole('button', { name: 'Hide ingredients' })).toHaveLength(2)
-
-    await userEvent.click(screen.getAllByRole('button', { name: 'Hide ingredients' })[1]!)
-    expect(screen.queryAllByRole('list')).toHaveLength(0)
+// HON-1352: the name opens the cook view over the picker.
+describe('AlternativesList cook view', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ tips: { steps: [STEP], pitfalls: [] } }))),
+    )
   })
 
-  it('starts closed again the next time the dialog opens', async () => {
-    const { rerender } = render(<InDialog open />)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Show ingredients' })[0]!)
-    expect(screen.getAllByRole('list')).toHaveLength(2)
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
 
-    rerender(<InDialog open={false} />)
-    rerender(<InDialog open />)
+  it.each([
+    ['a library meal', 'Miso-glazed salmon with rice', 'alt-1'],
+    ['a household recipe', 'Lemon-garlic roast chicken', 'alt-2'],
+  ])('opens %s from its name, with its steps', async (_kind, name, id) => {
+    const user = userEvent.setup()
+    renderInPicker()
 
-    expect(screen.queryAllByRole('list')).toHaveLength(0)
-    expect(screen.getAllByRole('button', { name: 'Show ingredients' })).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name }))
+
+    const view = await screen.findByRole('dialog', { name })
+    expect(await within(view).findByText(STEP)).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(`/api/meals/${id}/preparation-steps`, expect.anything())
+  })
+
+  it('closes only the cook view on Escape, with focus back on the name', async () => {
+    const user = userEvent.setup()
+    const { onPickerOpenChange } = renderInPicker()
+    const name = screen.getByRole('button', { name: 'Lemon-garlic roast chicken' })
+
+    await user.click(name)
+    await screen.findByRole('dialog', { name: 'Lemon-garlic roast chicken' })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Lemon-garlic roast chicken' })).toBeNull(),
+    )
+    expect(screen.getByRole('dialog', { name: 'Pick a dinner' })).toBeInTheDocument()
+    expect(onPickerOpenChange).not.toHaveBeenCalled()
+    expect(name).toHaveFocus()
   })
 })

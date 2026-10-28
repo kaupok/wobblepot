@@ -98,6 +98,9 @@ export const Populated: Story = {
       expect(canvas.queryByText(component.ingredient.name)).toBeNull()
     }
 
+    // No nutrition: the cook view carries it (HON-1352).
+    expect(canvas.queryByText(/kcal/)).toBeNull()
+
     // Two controls on every title row: the heart and the ⋯ trigger, named
     // for its recipe. Edit and Delete live in the menu (HON-934).
     expect(canvas.getAllByRole('button', { name: /favourites/i })).toHaveLength(names.length)

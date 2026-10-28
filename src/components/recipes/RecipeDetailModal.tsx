@@ -121,27 +121,31 @@ export function RecipeDetailModal({
           image={parts.image}
           title={parts.title}
           // As in the planned view: a 44px trigger on the title row. A real
-          // link, so middle-click and open-in-new-tab work.
+          // link, so middle-click and open-in-new-tab work. A library meal is
+          // not the household's to edit, and Edit is the menu's only item, so
+          // it has no menu (HON-1352).
           titleActions={
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  aria-label={tDetail('moreActions', { name: meal.name })}
-                >
-                  <MoreHorizontal aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/recipes/${meal.id}/edit`}>
-                    <Pencil aria-hidden="true" />
-                    {tList('edit')}
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            meal.isCustom ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-lg"
+                    aria-label={tDetail('moreActions', { name: meal.name })}
+                  >
+                    <MoreHorizontal aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/recipes/${meal.id}/edit`}>
+                      <Pencil aria-hidden="true" />
+                      {tList('edit')}
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : undefined
           }
           householdServings={householdServings}
           servings={servings}

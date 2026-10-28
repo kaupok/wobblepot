@@ -16,8 +16,7 @@ const meta = {
     householdServings: 4,
     onSelect: fn(),
     isSelecting: false,
-    ingredientsOpen: false,
-    onIngredientsOpenChange: fn(),
+    onOpen: fn(),
   },
   decorators: [
     (Story) => (
@@ -43,8 +42,9 @@ function footerContentBox(button: HTMLElement) {
 /**
  * Below `md` the cards stack, so Select spans the card for a column-wide target
  * (HON-943). The fixture is a dinner, but the card leaves the meal-type badge
- * out: the dialog's title names the slot (HON-945). The ingredient list starts
- * closed behind a ghost `sm` "Show ingredients" toggle (HON-1115).
+ * out: the dialog's title names the slot (HON-945). No nutrition and no
+ * ingredient list: the name opens the cook view, which carries both
+ * (HON-1352). The time ends the first badge row, at its right edge.
  */
 export const Default: Story = {
   args: { meal: mealFixture },
@@ -54,27 +54,24 @@ export const Default: Story = {
     await expect(button.getBoundingClientRect().width).toBe(footerContentBox(button).width)
     await expect(canvas.queryByText('Dinner')).not.toBeInTheDocument()
 
-    const toggle = canvas.getByRole('button', { name: 'Show ingredients' })
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(toggle).toHaveAttribute('data-variant', 'ghost')
-    await expect(toggle).toHaveAttribute('data-size', 'sm')
+    await expect(canvas.queryByText(/kcal/)).not.toBeInTheDocument()
     await expect(canvas.queryByRole('list')).toBeNull()
-    await userEvent.click(toggle)
-    await expect(args.onIngredientsOpenChange).toHaveBeenCalledWith(true)
-  },
-}
+    await expect(canvas.queryByRole('button', { name: /ingredients/i })).toBeNull()
 
-/** Open: the toggle reads "Hide ingredients" with a down chevron, and the list follows it. */
-export const IngredientsOpen: Story = {
-  args: { meal: mealFixture, ingredientsOpen: true },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const toggle = canvas.getByRole('button', { name: 'Hide ingredients' })
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const list = canvas.getByRole('list')
-    await expect(toggle.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-      list.getBoundingClientRect().top,
+    const time = canvas.getByText('30 min')
+    const protein = canvas.getByText('Fish')
+    const row = protein.closest('div')!
+    await expect(row).toContainElement(time)
+    await expect(Math.round(time.getBoundingClientRect().right)).toBe(
+      Math.round(row.getBoundingClientRect().right),
     )
+
+    const name = canvas.getByRole('button', { name: mealFixture.name })
+    await userEvent.click(name)
+    await expect(args.onOpen).toHaveBeenCalledTimes(1)
+    await expect(name).toHaveFocus()
+    await userEvent.click(protein)
+    await expect(args.onOpen).toHaveBeenCalledTimes(1)
   },
 }
 
@@ -98,7 +95,7 @@ export const Desktop: Story = {
 
 /**
  * The dialog's tall card puts the image below the content, above Select
- * (HON-750). Open, the list sits above the image too (HON-1115).
+ * (HON-750).
  */
 export const WithImage: Story = {
   args: {
@@ -108,15 +105,14 @@ export const WithImage: Story = {
       imageUrl: mealIllustration.src,
       imageHue: 200,
     },
-    ingredientsOpen: true,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: mealFixture.name })
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-    await expect(canvas.getByRole('list').getBoundingClientRect().bottom).toBeLessThanOrEqual(
-      box.top,
-    )
+    await expect(
+      canvas.getByRole('heading', { level: 3 }).getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(box.top)
     await expect(
       canvas.getByRole('button', { name: 'Select' }).getBoundingClientRect().top,
     ).toBeGreaterThanOrEqual(box.bottom)
@@ -184,21 +180,15 @@ const tintedMeal = {
 }
 
 /**
- * Each ingredient carries an icon and hidden state text as well as its colour,
- * and the badge gives the pantry's verdict, as the card on Today does
- * (HON-816). The badge counts exactly the rows marked missing. The list is
- * open, so the axe gate covers the colour-coded rows on the tint (HON-1115).
+ * The badge gives the pantry's verdict, as the card on Today does (HON-816):
+ * the to-buy count is one of the facts the household picks on (HON-1352).
  */
 export const WithPantryAvailability: Story = {
   name: 'Pantry: some missing',
-  args: { meal: tintedMeal, pantryIngredients: somePantry, ingredientsOpen: true },
+  args: { meal: tintedMeal, pantryIngredients: somePantry },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('1 ingredient to buy')).toBeVisible()
-    await expect(canvas.getAllByText(', not available')).toHaveLength(1)
-    await expect(canvas.getByText('Short-grain rice').closest('li')).toHaveTextContent(
-      'Short-grain rice, not available',
-    )
   },
 }
 
@@ -210,11 +200,10 @@ export const WithPantryAvailabilityDark: Story = {
 
 export const PantryAllAvailable: Story = {
   name: 'Pantry: all available',
-  args: { meal: tintedMeal, pantryIngredients: fullPantry, ingredientsOpen: true },
+  args: { meal: tintedMeal, pantryIngredients: fullPantry },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Have all ingredients')).toBeVisible()
-    await expect(canvas.queryByText(', not available')).not.toBeInTheDocument()
   },
 }
 
@@ -225,9 +214,8 @@ export const PantryAllAvailableDark: Story = {
 }
 
 /**
- * No pantry data, or a pantry holding only the default staples (HON-769):
- * bulleted muted names and no badge, rather than a badge calling every
- * non-staple missing.
+ * No pantry data, or a pantry holding only the default staples (HON-769): no
+ * badge, rather than a badge calling every non-staple missing.
  */
 export const PantryOnlyStaples: Story = {
   name: 'Pantry: no data (staples only)',
@@ -237,12 +225,10 @@ export const PantryOnlyStaples: Story = {
       { ingredientId: 'short-grain-rice', isStaple: true },
       { ingredientId: 'miso-paste', isStaple: true },
     ] satisfies PantryIngredient[],
-    ingredientsOpen: true,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.queryByText(/ingredients? to buy|Have all ingredients/)).toBeNull()
-    await expect(canvas.getByRole('list')).toHaveClass('list-disc')
   },
 }
 

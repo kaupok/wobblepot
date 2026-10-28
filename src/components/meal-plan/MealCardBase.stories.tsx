@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { Heart, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CardContent } from '@/components/ui/card'
@@ -31,6 +31,58 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   args: { meal: mealFixture },
+}
+
+/**
+ * The time ends the first badge row, at its right edge, on every card
+ * (HON-1352).
+ */
+export const TimeInFirstRow: Story = {
+  args: { meal: { ...mealFixture, timeMinutes: 45 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const time = canvas.getByText('45 min')
+    const row = time.parentElement!
+    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      canvas.getByRole('heading').getBoundingClientRect().top,
+    )
+    await expect(Math.round(time.getBoundingClientRect().right)).toBe(
+      Math.round(row.getBoundingClientRect().right),
+    )
+  },
+}
+
+/**
+ * `nutrition="hide"`, for the meal picker and My recipes: the household picks
+ * on the name, badges and time, and the cook view carries nutrition
+ * (HON-1352).
+ */
+export const NutritionHidden: Story = {
+  args: { meal: mealFixture, nutrition: 'hide', ingredients: 'never' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText(/kcal/)).toBeNull()
+  },
+}
+
+/**
+ * `nameTarget="name"`, for the meal picker: only the name opens the cook
+ * view, so the name button rings itself rather than relying on an
+ * `interactive` card (HON-1352).
+ */
+export const NameOpensView: Story = {
+  args: {
+    meal: mealFixture,
+    nutrition: 'hide',
+    ingredients: 'never',
+    onNameClick: fn(),
+    nameTarget: 'name',
+  },
+  play: async ({ canvasElement }) => {
+    const name = within(canvasElement).getByRole('button', { name: mealFixture.name })
+    await userEvent.tab()
+    await expect(name).toHaveFocus()
+    await expect(getComputedStyle(name).boxShadow).not.toBe('none')
+  },
 }
 
 export const NameAsH3: Story = {
