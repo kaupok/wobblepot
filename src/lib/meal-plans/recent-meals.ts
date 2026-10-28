@@ -92,13 +92,30 @@ const MEAL_TYPE_ORDER = Object.values(MealType)
  * runs this. `toItemRows` does not, because Edit items and Undo send stored
  * items back, and the app's picker still offers cooked meals only
  * (`loadRecentMeals`).
+ *
+ * For the same reason, an item `target.entryId` already stores, with the same
+ * source and servings, passes unchanged. Its source can have changed since it
+ * was linked: a dinner made a fridge meal or skipped keeps its lunches, so an
+ * assistant that sends the lunch's items back to add one must not be refused.
  */
 export async function findLeftoverSourceProblem(
   householdId: string,
-  target: { date: string; mealType: MealType },
+  target: { date: string; mealType: MealType; entryId?: string },
   items: readonly FridgeItemInput[],
 ): Promise<{ sourceEntryId: string; problem: LeftoverSourceProblem } | null> {
-  const leftovers = items.flatMap((item) => ('sourceEntryId' in item ? [item] : []))
+  const stored = target.entryId
+    ? await prisma.mealPlanEntryItem.findMany({
+        where: { entryId: target.entryId, sourceEntryId: { not: null } },
+        select: { sourceEntryId: true, servings: true },
+      })
+    : []
+  const isStored = (item: { sourceEntryId: string; servings?: number }) =>
+    stored.some(
+      (row) => row.sourceEntryId === item.sourceEntryId && row.servings === (item.servings ?? null),
+    )
+  const leftovers = items.flatMap((item) =>
+    'sourceEntryId' in item && !isStored(item) ? [item] : [],
+  )
   if (leftovers.length === 0) return null
 
   const sources = await prisma.mealPlanEntry.findMany({

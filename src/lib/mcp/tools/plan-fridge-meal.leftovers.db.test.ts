@@ -120,6 +120,49 @@ describe('plan_fridge_meal with leftovers of a planned meal', () => {
     expect(lunch).toMatchObject({ id: 'entry-lunch', kind: 'meal', mealId: 'stew', items: [] })
   })
 
+  // The dinner keeps its lunches when it is made a fridge meal or skipped, so
+  // the lunch's items, sent back as read to add one, must not be refused.
+  it.each([
+    ['made a fridge meal', { kind: 'fridge', mealId: null }],
+    ['skipped', { status: 'skipped' }],
+  ] as const)('takes a lunch item back unchanged after its dinner is %s', async (_, change) => {
+    const household = await world()
+    await plannedDinner('entry-tonight', day(0))
+    await call(household, {
+      date: day(1),
+      mealType: 'lunch',
+      items: [{ sourceEntryId: 'entry-tonight', servings: 2.5 }],
+    })
+    await prisma.mealPlanEntry.update({ where: { id: 'entry-tonight' }, data: change })
+
+    const result = await call(household, {
+      date: day(1),
+      mealType: 'lunch',
+      items: [{ sourceEntryId: 'entry-tonight', servings: 2.5 }, { label: 'Bread' }],
+    })
+
+    expect(result.outcome).toBe('replaced')
+    const [lunch] = await lunchOn(day(1))
+    expect(
+      lunch!.items.map(({ sourceEntryId, label, servings }) => ({
+        sourceEntryId,
+        label,
+        servings,
+      })),
+    ).toEqual([
+      { sourceEntryId: 'entry-tonight', label: null, servings: 2.5 },
+      { sourceEntryId: null, label: 'Bread', servings: null },
+    ])
+
+    // A changed amount is a new link, so the source rule applies again.
+    const message = await refusal(household, {
+      date: day(1),
+      mealType: 'lunch',
+      items: [{ sourceEntryId: 'entry-tonight', servings: 3 }],
+    })
+    expect(message).toContain('Nothing was changed.')
+  })
+
   it.each([0, 0.3, 20.5])('refuses servings of %s before any write', async (servings) => {
     await world()
     await plannedDinner('entry-tonight', day(0))

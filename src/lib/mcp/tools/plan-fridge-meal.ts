@@ -67,8 +67,13 @@ export const planFridgeMeal = defineTool({
     }
     // `toItemRows` accepts any entry of the household, because Edit items and
     // Undo send stored items back, so the source rule runs here. The slot's own
-    // entry never passes it: a source must be in an earlier slot.
-    const refused = await findLeftoverSourceProblem(household.id, { date, mealType }, items)
+    // entry never passes it: a source must be in an earlier slot. The slot's
+    // stored links pass unchanged, so its items can be sent back as read.
+    const refused = await findLeftoverSourceProblem(
+      household.id,
+      { date, mealType, entryId: entry?.id },
+      items,
+    )
     if (refused) {
       throw new ToolInputError(
         `sourceEntryId ${refused.sourceEntryId}: ${SOURCE_PROBLEM_MESSAGES[refused.problem]} Nothing was changed.`,
