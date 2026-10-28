@@ -222,6 +222,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Chicken Stir Fry',
@@ -269,6 +271,8 @@ describe('computeShoppingList', () => {
         changes: [],
         status: 'planned',
         servingOverride: null,
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Chicken Stir Fry',
@@ -300,6 +304,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Salad',
@@ -352,6 +358,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Rice Bowl',
@@ -404,6 +412,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Eggs',
@@ -458,6 +468,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Chicken',
@@ -514,6 +526,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Rice',
@@ -567,6 +581,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Chicken Meal 1',
@@ -597,6 +613,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-2',
           name: 'Chicken Meal 2',
@@ -644,6 +662,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Planned Meal',
@@ -708,6 +728,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Test Meal',
@@ -751,6 +773,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: null, // No meal assigned
       },
       {
@@ -761,6 +785,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Real Meal',
@@ -806,6 +832,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Test Meal',
@@ -852,6 +880,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-1',
           name: 'Chicken Stir Fry',
@@ -882,6 +912,8 @@ describe('computeShoppingList', () => {
         mealType: 'dinner',
         changes: [],
         status: 'planned',
+        cookedServings: null,
+        leftoverItems: [],
         meal: {
           id: 'meal-2',
           name: 'Chicken Salad',
@@ -957,6 +989,8 @@ describe('computeRollingWindowShoppingList', () => {
       id: `e-${overrides.mealId ?? 'x'}`,
       date: overrides.date ?? new Date('2026-01-20'),
       servingOverride: overrides.servingOverride ?? null,
+      cookedServings: null,
+      leftoverItems: [],
       changes: [],
       plan: { createdAt: overrides.planCreatedAt ?? PLAN_CREATED },
       meal:

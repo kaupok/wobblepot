@@ -111,7 +111,7 @@ export interface PlanEntry {
 
 /**
  * One item of a fridge meal. Exactly one of `ingredientId`, `sourceEntryId`
- * and `label` is set: a pantry ingredient, a recent meal's leftovers, or free
+ * and `label` is set: a pantry ingredient, an earlier meal's leftovers, or free
  * text.
  */
 export interface FridgeMealItem {
@@ -123,6 +123,8 @@ export interface FridgeMealItem {
   name: string | null
   /** The source meal's day, `YYYY-MM-DD`; null unless `sourceEntryId` is set. */
   sourceDate: string | null
+  /** What a leftover item takes from its source (HON-1394); null otherwise. */
+  servings: number | null
 }
 
 /**

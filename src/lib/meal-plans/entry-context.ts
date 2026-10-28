@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { ingredientTranslationsInclude, mealTranslationsInclude } from '@/lib/i18n/content'
 import { serializePreparationSteps } from '@/lib/preparation-steps'
 import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
+import { cookServingsSelect } from '@/lib/meal-planning/servings'
 import type { Prisma } from '@/generated/prisma/client'
 import type { PreparationSteps } from '@/components/meal-plan/types'
 
@@ -50,6 +51,8 @@ export async function loadEntryForAi(
       plan: { householdId },
     },
     include: {
+      // The leftover lunches it feeds, for `getCookServings` (HON-1394).
+      leftoverItems: cookServingsSelect.leftoverItems,
       changes: {
         orderBy: { createdAt: 'asc' },
         select: {

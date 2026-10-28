@@ -132,7 +132,15 @@ describe('get_meal', () => {
   })
 
   describe('for a planned entry', () => {
-    const slot = { id: 'entry-1', mealId: 'meal-1', servingOverride: 3, meal: null }
+    const slot = {
+      id: 'entry-1',
+      mealId: 'meal-1',
+      status: 'planned',
+      servingOverride: 3,
+      cookedServings: null,
+      leftoverItems: [],
+      meal: null,
+    }
     const planned = (input: Record<string, unknown> = {}) =>
       runTool(
         getMeal,
@@ -187,6 +195,19 @@ describe('get_meal', () => {
       expect(vi.mocked(prisma.mealPlanEntryComponent.findMany).mock.calls[0]![0]!.where).toEqual({
         entryId: 'entry-1',
       })
+    })
+
+    it('scales to the cook servings when a lunch takes 2.5 of the leftovers (HON-1394)', async () => {
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue({
+        ...slot,
+        leftoverItems: [{ servings: 2.5 }],
+      } as never)
+
+      const meal = ingredientsOf(await planned())
+
+      // 3 own servings plus 2.5: 5.5 × 120 g tofu.
+      expect(meal.servings).toBe(5.5)
+      expect(meal.ingredients[0]).toEqual({ name: 'Tofu', quantity: 660, unit: 'g', note: null })
     })
 
     it('answers isError when the slot holds another meal', async () => {

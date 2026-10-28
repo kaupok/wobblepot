@@ -10,7 +10,7 @@ import {
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
 import { defineTool, ToolInputError, type McpHousehold } from '@/lib/mcp/context'
@@ -32,7 +32,7 @@ export const getMeal = defineTool({
       .max(50)
       .optional()
       .describe(
-        "How many servings to scale the ingredients to. Defaults to the entry's servings for a planned meal, else the household's usual servings.",
+        "How many servings to scale the ingredients to. Defaults to the entry's cookServings for a planned meal, which counts the leftovers planned from it, else the household's usual servings.",
       ),
     date: slotInput.date
       .optional()
@@ -112,12 +112,13 @@ export const getMeal = defineTool({
     }
 
     const translated = translateMeal(meal, locale)
-    // A planned entry can override the household's servings (guests), so the
-    // caller passes the entry's servings from get_meal_plan.
+    // A planned entry can override the household's servings (guests), and
+    // cooks for its leftover lunches too (HON-1394), so the amounts are the
+    // entry's cook servings unless the caller passes its own.
     const servings =
       requestedServings ??
       (entry
-        ? getEffectiveServings(entry, sumPortions(household.members))
+        ? getCookServings(entry, sumPortions(household.members))
         : sumPortions(household.members))
     // The planned entry's own changes merged over the recipe (HON-1243), so
     // the assistant reads what the household will cook.

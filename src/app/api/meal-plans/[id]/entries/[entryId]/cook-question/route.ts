@@ -14,7 +14,7 @@ import {
 } from '@/lib/ai/cook-question-route'
 import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { withRequestId } from '@/lib/request-id'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -83,7 +83,7 @@ async function handlePOST(
     const mealName = shownMeal.name
     // The cached tips give Watch out and Tip when the entry holds them. The
     // steps never come from here: the request carries the ones on screen.
-    const servings = getEffectiveServings(entry, sumPortions(household.members))
+    const servings = getCookServings(entry, sumPortions(household.members))
     // Only tips priced at these servings, as the tips route serves them.
     const cachedTips = entry.preparationTips
       ? parseCachedPreparationSteps(entry.preparationTips, {

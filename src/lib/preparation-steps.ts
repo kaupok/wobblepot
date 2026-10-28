@@ -29,8 +29,9 @@ export function serializePreparationSteps(tips: PreparationSteps, servings: numb
  * An entry's cached tips, or null when they were priced at other servings than
  * the entry cooks for now, so the caller regenerates instead of serving them.
  *
- * - `servings` is what the entry cooks for now: `getEffectiveServings` with the
- *   household's `sumPortions`.
+ * - `servings` is what the entry cooks for now: `getCookServings` with the
+ *   household's `sumPortions`, so a leftover lunch added or removed since
+ *   prices the tips out (HON-1394).
  * - `legacyServings` is what a cache without a stored `servings` was priced
  *   at: `servingOverride ?? the member count`, the rule before HON-1040.
  *

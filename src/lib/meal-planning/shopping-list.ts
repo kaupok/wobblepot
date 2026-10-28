@@ -7,7 +7,7 @@ import {
   type WithIngredientTranslations,
 } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
-import { getEffectiveServings } from './servings'
+import { cookServingsSelect, getCookServings } from './servings'
 import { applyEntryChanges } from './entry-components'
 import { loadHouseholdServings } from '@/lib/household'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
@@ -277,7 +277,7 @@ export async function computeShoppingList(
     },
     select: {
       date: true,
-      servingOverride: true,
+      ...cookServingsSelect,
       changes: shoppingChangesArgs(locale),
       meal: {
         include: {
@@ -306,7 +306,7 @@ export async function computeShoppingList(
         ? [
             {
               date: entry.date,
-              servings: getEffectiveServings(entry, householdServings),
+              servings: getCookServings(entry, householdServings),
               components: applyEntryChanges(entry.meal.components, entry.changes),
             },
           ]
@@ -433,7 +433,7 @@ export async function computeRollingWindowShoppingList(
       },
       select: {
         date: true,
-        servingOverride: true,
+        ...cookServingsSelect,
         changes: shoppingChangesArgs(locale),
         plan: {
           select: {
@@ -494,7 +494,7 @@ export async function computeRollingWindowShoppingList(
           ? [
               {
                 date: entry.date,
-                servings: getEffectiveServings(entry, householdServings),
+                servings: getCookServings(entry, householdServings),
                 components: applyEntryChanges(entry.meal.components, entry.changes),
               },
             ]

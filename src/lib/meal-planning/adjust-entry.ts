@@ -20,7 +20,7 @@ import {
   loadPantryNamesForAi,
 } from '@/lib/meal-plans/entry-context'
 import { staleChangeIds } from './entry-components'
-import { getEffectiveServings, sumPortions } from './servings'
+import { getCookServings, sumPortions } from './servings'
 import {
   resolveChanges,
   unresolvedOriginals,
@@ -123,7 +123,7 @@ export async function proposeAdjustment(input: {
 
   const request = buildAdjustRecipeRequest({
     mealName: translateMeal(context.meal, locale).name,
-    servings: getEffectiveServings(context, sumPortions(household.members)),
+    servings: getCookServings(context, sumPortions(household.members)),
     components,
     pantry: pantry.map((item) => ({
       name: translateIngredient(item.ingredient, locale).name,

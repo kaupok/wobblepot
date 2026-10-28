@@ -2,7 +2,7 @@ import 'server-only'
 import { getTranslations } from 'next-intl/server'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -88,7 +88,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       // `note`) and every `Meal` scalar (`description`, `preparationNotes`,
       // `sourceUrl`, …) across the wire for every entry in the window.
       select: {
-        servingOverride: true,
+        // Own servings plus the leftover lunches it feeds (HON-1394).
+        ...cookServingsSelect,
         // The entry's own ingredient changes (HON-1243), merged below as the
         // shopping list merges them, so the two panes agree.
         changes: ENTRY_CHANGES_FOR_DEDUCTION,
@@ -118,7 +119,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       if (!entry.meal) continue
       // Same rule the shopping list and pantry deduction use, so the two
       // numbers /shopping renders side by side agree (HON-614).
-      const effectiveServings = getEffectiveServings(entry, householdServings)
+      const effectiveServings = getCookServings(entry, householdServings)
       for (const component of applyEntryChanges(entry.meal.components, entry.changes)) {
         const qty = component.quantityPerServing * effectiveServings
         const existing = neededQuantities.get(component.ingredientId)

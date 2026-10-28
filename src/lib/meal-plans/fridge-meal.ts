@@ -69,6 +69,7 @@ export async function toItemRows(householdId: string, items: FridgeItemInput[]) 
   return items.map((item, position) => ({
     ingredientId: 'ingredientId' in item ? item.ingredientId : null,
     sourceEntryId: 'sourceEntryId' in item ? item.sourceEntryId : null,
+    servings: 'sourceEntryId' in item ? (item.servings ?? null) : null,
     label: 'label' in item ? item.label : null,
     position,
   }))

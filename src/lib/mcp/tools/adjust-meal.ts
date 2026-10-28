@@ -21,7 +21,7 @@ import {
 } from '@/lib/meal-planning/adjust-proposal'
 import { ADJUST_INSTRUCTION_MAX_LENGTH } from '@/lib/meal-planning/components-schema'
 import { staleChangeIds } from '@/lib/meal-planning/entry-components'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
@@ -184,7 +184,7 @@ export const adjustMeal = defineTool({
       outcome === 'unchanged'
         ? context
         : await loadEntryForAi(household.id, slot.planId, slot.id, locale)
-    const servings = getEffectiveServings(entry, sumPortions(household.members))
+    const servings = getCookServings(entry, sumPortions(household.members))
 
     return {
       outcome,

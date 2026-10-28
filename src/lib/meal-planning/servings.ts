@@ -66,3 +66,47 @@ export function getEffectiveServings(
 ): number {
   return entry.servingOverride ?? householdServings
 }
+
+/**
+ * The fields `getCookServings` reads, for a Prisma `select` or `include`. The
+ * leftover items it counts are those on an entry that is not skipped. Every
+ * site spreads this, so all of them add the same lunches.
+ */
+export const cookServingsSelect = {
+  servingOverride: true,
+  status: true,
+  cookedServings: true,
+  leftoverItems: {
+    where: { entry: { status: { not: 'skipped' } } },
+    select: { servings: true },
+  },
+} as const
+
+/**
+ * How many servings a recipe entry is cooked, bought and charged for: its own
+ * servings (`getEffectiveServings`) plus the servings of every leftover item
+ * that points at it, such as tomorrow's lunch from tonight's dinner (HON-1394).
+ * A dinner for 3 with a lunch of 2.5 cooks 5.5.
+ *
+ * A completed entry returns the total it was completed at, so a lunch changed
+ * afterwards does not move what the pantry was charged for. An entry completed
+ * before that column existed has no total and keeps its own servings: a
+ * leftover of a cooked meal adds nothing.
+ *
+ * The sites that show or edit the entry's own servings (the servings control,
+ * `set_meal_servings`, the `servings` output) keep `getEffectiveServings`,
+ * because a "+" on a total of 5.5 must not set the override to 6.5.
+ */
+export function getCookServings(
+  entry: {
+    servingOverride: number | null
+    status: string
+    cookedServings: number | null
+    leftoverItems: readonly { servings: number | null }[]
+  },
+  householdServings: number,
+): number {
+  const own = getEffectiveServings(entry, householdServings)
+  if (entry.status === 'completed') return entry.cookedServings ?? own
+  return entry.leftoverItems.reduce((total, item) => total + (item.servings ?? 0), own)
+}

@@ -855,6 +855,11 @@ model MealPlanEntry {
   /// Set when completing this entry charged the pantry. Never cleared — not by
   /// a revert, not by a swap after one — so the entry is charged at most once.
   pantryDeductedAt DateTime?
+  /// The servings this entry was cooked for when it was completed: its own
+  /// servings plus its leftover items' (HON-1394). Null while it is not
+  /// completed. A lunch changed after the dinner is cooked leaves it alone, so
+  /// the cooked amount stays what the pantry was charged for (`getCookServings`).
+  cookedServings   Float?
   /// The household's free-text instruction behind this entry's ingredient
   /// changes, from "Adjust recipe" (HON-1244). The tips prompt reads it, so the
   /// steps follow the instruction and not only the ingredient list. Written by
@@ -912,7 +917,7 @@ model MealPlanEntryComponent {
 /// is set, which a CHECK in the migration holds:
 ///
 /// - `ingredientId`: something from the pantry
-/// - `sourceEntryId`: leftovers of a meal completed in the last days
+/// - `sourceEntryId`: leftovers of an earlier recipe meal, cooked or planned
 /// - `label`: free text, such as "store meatballs"
 ///
 /// A trigger in the migration turns a leftover item into free text with the
@@ -923,6 +928,10 @@ model MealPlanEntryItem {
   ingredientId  String?
   sourceEntryId String?
   label         String?
+  /// A leftover item's servings (HON-1394), 0.5–20 in steps of 0.5. Required
+  /// when the source is still planned, because the source cooks this much more
+  /// (`getCookServings`). Null on pantry and free-text items.
+  servings      Float?
   position      Int
 
   entry       MealPlanEntry  @relation("FridgeItems", fields: [entryId], references: [id], onDelete: Cascade)

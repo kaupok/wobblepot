@@ -35,6 +35,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Mash',
     sourceDate: MASH_DATE,
+    servings: null,
   },
   {
     id: 'item-veg',
@@ -43,6 +44,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Cauliflower and broccoli mix',
     sourceDate: null,
+    servings: null,
   },
   {
     id: 'item-cucumber',
@@ -51,6 +53,7 @@ export const fridgeItems: FridgeMealItem[] = [
     label: null,
     name: 'Cucumber',
     sourceDate: null,
+    servings: null,
   },
   {
     id: 'item-meatballs',
@@ -59,5 +62,6 @@ export const fridgeItems: FridgeMealItem[] = [
     label: 'store meatballs',
     name: null,
     sourceDate: null,
+    servings: null,
   },
 ]
