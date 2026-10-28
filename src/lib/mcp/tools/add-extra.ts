@@ -1,7 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
-import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { translateIngredientNames } from '@/lib/ai/translate-match-results'
 import { dayExtraOutputSchema, toDayExtraOutput } from '@/lib/api/v1/meal-plan'
 import { createDayExtra } from '@/lib/day-extras/day-extras'
@@ -9,7 +9,8 @@ import { DAY_EXTRA_LABEL_MAX, DAY_EXTRA_QUANTITY_MAX } from '@/lib/day-extras/sc
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-import { MEASURED_UNITS, type MeasuredUnit } from './measured-units'
+import { amountWarning } from './amount-warning'
+import { MEASURED_UNITS } from './measured-units'
 import { MAX_DAYS_AHEAD, writableDays } from './plan-slot'
 
 export const addExtra = defineTool({
@@ -104,7 +105,14 @@ export const addExtra = defineTool({
           locale,
         )
         const shown = displayUnit(result.ingredient)
-        const warning = amountWarning(result, named.name, quantity, unit, shown)
+        const warning = amountWarning(
+          result,
+          named.name,
+          quantity,
+          unit,
+          result.convertedQuantity,
+          shown,
+        )
         if (warning) {
           return {
             outcome: 'check_quantity' as const,
@@ -140,31 +148,6 @@ export const addExtra = defineTool({
     }
   },
 })
-
-/**
- * Why a sure match's amount needs the user's word before it is saved, or null.
- * The assistant converts units itself, so the risky amount is one that crosses
- * between pieces and weight or volume: Wobblepot guesses 30 g a piece when it
- * does not know the weight, and the matcher's `quantityWarning` flags a total
- * that is unusually high. An amount in the ingredient's own unit is saved as
- * given: the warning is a per-serving recipe limit (500 g), and a day's 750 ml
- * of wine is not a serving. Sending the amount in that unit clears the check.
- */
-function amountWarning(
-  match: MatchedIngredient,
-  name: string,
-  quantity: number,
-  unit: MeasuredUnit,
-  shown: MeasuredUnit,
-): string | null {
-  const { defaultUnit, gramsPerPiece } = match.ingredient
-  if ((unit === 'piece') === (defaultUnit === 'piece')) return null
-  const converted = `${quantity} ${unit} became ${match.convertedQuantity} ${shown}`
-  if (!gramsPerPiece) {
-    return `Wobblepot does not know what one piece of ${name} weighs, so ${converted} by a guess.`
-  }
-  return match.quantityWarning ? `${converted}, which is unusually high.` : null
-}
 
 function saved(outcome: Awaited<ReturnType<typeof createDayExtra>>, date: string) {
   // Both refusals need the day to turn over, or the ingredient to go, while this ran.

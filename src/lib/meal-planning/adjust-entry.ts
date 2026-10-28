@@ -3,8 +3,12 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { serverEnv } from '@/lib/env'
 import { ADJUST_MODEL } from '@/lib/ai/models'
-import { buildAdjustRecipeRequest, MAX_ADJUST_CHANGES } from '@/lib/ai/adjust-recipe'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
+import {
+  buildAdjustRecipeRequest,
+  MAX_ADJUST_CHANGES,
+  type AdjustRecipeChange,
+} from '@/lib/ai/adjust-recipe'
+import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
 import { translateMatchResults } from '@/lib/ai/translate-match-results'
 import {
   recordAiUsage,
@@ -111,13 +115,7 @@ export async function proposeAdjustment(input: {
   abortSignal: AbortSignal
 }): Promise<AdjustResult> {
   const { household, context, instruction, locale, abortSignal } = input
-  const components = context.components.map((comp) => ({
-    ingredientId: comp.ingredientId,
-    name: translateIngredient(comp.ingredient, locale).name,
-    quantityPerServing: comp.quantityPerServing,
-    defaultUnit: comp.ingredient.defaultUnit,
-    measuredByVolume: comp.ingredient.measuredByVolume,
-  }))
+  const components = mergedComponents(context, locale)
   const pantry = await loadPantryNamesForAi(household.id, locale)
   const preferences = household.preferences
 
@@ -148,15 +146,67 @@ export async function proposeAdjustment(input: {
   )
   await record(toAiUsageStats(ADJUST_MODEL, result.usage, Date.now() - startedAt))
 
+  const { changes, unmatched, notInMeal, ambiguous } = await resolveProposals(
+    result.object.changes,
+    context,
+    household.id,
+    locale,
+  )
+  return { changes, followInSteps: result.object.followInSteps, unmatched, notInMeal, ambiguous }
+}
+
+/** The entry's merged components, named in the household's language. */
+function mergedComponents(context: AdjustContext, locale: string) {
+  return context.components.map((comp) => ({
+    ingredientId: comp.ingredientId,
+    name: translateIngredient(comp.ingredient, locale).name,
+    quantityPerServing: comp.quantityPerServing,
+    defaultUnit: comp.ingredient.defaultUnit,
+    measuredByVolume: comp.ingredient.measuredByVolume,
+  }))
+}
+
+export interface ResolvedProposals {
+  changes: AdjustProposal[]
+  /** The replacement names the catalogue did not match, in proposal order. */
+  unmatched: string[]
+  /** The originals named that the meal does not have; dropped. */
+  notInMeal: string[]
+  /** The originals named that fit several of the meal's ingredients; dropped. */
+  ambiguous: string[]
+  /**
+   * The replacement names dropped because the recipe, the meal or an earlier
+   * change already brings that ingredient in, or because it is the ingredient
+   * it replaces.
+   */
+  alreadyInMeal: string[]
+  /** The catalogue match behind each matched replacement, for an amount check. */
+  matches: Map<AdjustProposal, MatchedIngredient>
+}
+
+/**
+ * Named changes, from the model or from `change_meal_ingredients`
+ * (HON-1385), become proposals: each original resolved against the merged
+ * components and each replacement matched to the catalogue. A replacement the
+ * recipe or another proposal already brings in is dropped, because the apply
+ * would refuse it. Amounts are per serving.
+ */
+export async function resolveProposals(
+  named: readonly AdjustRecipeChange[],
+  context: AdjustContext,
+  householdId: string,
+  locale: string,
+): Promise<ResolvedProposals> {
+  const components = mergedComponents(context, locale)
   const stale = staleChangeIds(context.meal.components, context.changes)
-  const modelChanges = result.object.changes.slice(0, MAX_ADJUST_CHANGES)
+  const modelChanges = named.slice(0, MAX_ADJUST_CHANGES)
   const resolved = resolveChanges(
     modelChanges,
     components,
     context.changes.filter((c) => !stale.has(c.id)),
   )
-  const replacements = await Promise.all(
-    resolved.map((change) => matchReplacement(change, household.id, locale)),
+  const matched = await Promise.all(
+    resolved.map((change) => matchReplacement(change, householdId, locale)),
   )
 
   // Ingredients the apply would refuse to bring in: the recipe's own (a
@@ -166,33 +216,41 @@ export async function proposeAdjustment(input: {
     ...components.map((c) => c.ingredientId),
   ])
   const changes: AdjustProposal[] = []
+  const alreadyInMeal: string[] = []
+  const matches = new Map<AdjustProposal, MatchedIngredient>()
   resolved.forEach((change, i) => {
-    const replacement = replacements[i] ?? null
+    const { replacement = null, match = null } = matched[i] ?? {}
     if (replacement?.matched) {
       const id = replacement.ingredient.id
-      // The ingredient it replaces: no change at all.
-      if (id === change.original?.id) return
-      // Back to the recipe's own ingredient is allowed: it undoes a change.
-      if (id !== change.originalIngredientId && taken.has(id)) return
+      // The ingredient it replaces, or one the apply would refuse.
+      const refused =
+        id === change.original?.id || (id !== change.originalIngredientId && taken.has(id))
+      if (refused) {
+        alreadyInMeal.push(change.replacement!.name)
+        return
+      }
       taken.add(id)
     }
-    changes.push({
+    const proposal: AdjustProposal = {
       op: change.op,
       original: change.original,
       originalIngredientId: change.originalIngredientId,
       replacesChangeId: change.replacesChangeId,
       replacement,
       reason: change.reason,
-    })
+    }
+    changes.push(proposal)
+    if (match) matches.set(proposal, match)
   })
 
   return {
     changes,
-    followInSteps: result.object.followInSteps,
     unmatched: changes.flatMap((c) =>
       c.replacement && !c.replacement.matched ? [c.replacement.name] : [],
     ),
     ...unresolvedOriginals(modelChanges, components),
+    alreadyInMeal,
+    matches,
   }
 }
 
@@ -206,7 +264,7 @@ async function matchReplacement(
   change: ResolvedChange,
   householdId: string,
   locale: string,
-): Promise<AdjustReplacement | null> {
+): Promise<{ replacement: AdjustReplacement; match: MatchedIngredient | null } | null> {
   const wanted = change.replacement
   if (!wanted) return null
   const [match] = await translateMatchResults(
@@ -229,9 +287,15 @@ async function matchReplacement(
     locale,
   )
   if (match?.type !== 'matched' || match.lowConfidence) {
-    return { matched: false, name: wanted.name, quantity: wanted.quantity, unit: wanted.unit }
+    const replacement = {
+      matched: false as const,
+      name: wanted.name,
+      quantity: wanted.quantity,
+      unit: wanted.unit,
+    }
+    return { replacement, match: null }
   }
-  return {
+  const replacement: AdjustReplacement = {
     matched: true,
     ingredient: {
       id: match.ingredient.id,
@@ -242,4 +306,5 @@ async function matchReplacement(
     // In the ingredient's own unit now, so a piece count may round small.
     quantityPerServing: storableQuantity(match.convertedQuantity),
   }
+  return { replacement, match }
 }
