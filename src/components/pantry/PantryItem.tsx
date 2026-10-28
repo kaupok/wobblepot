@@ -17,10 +17,11 @@ export interface PantryItemData {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
-    /** The unit the pantry shows (`loadPantry`); absent on a row added this visit. */
+    /**
+     * The unit the pantry shows an amount in. `loadPantry`, `POST /api/pantry`
+     * and a purchase send it; a fixture may leave it out.
+     */
     displayUnit?: DisplayUnit
-    /** Present on a row from `POST /api/pantry`, so its unit can be worked out. */
-    measuredByVolume?: boolean
   }
   quantity: number | null
   isStaple: boolean

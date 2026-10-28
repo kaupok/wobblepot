@@ -5,6 +5,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { displayUnit, type DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { findHouseholdPlan } from './load-shopping-list'
 
 /**
@@ -39,6 +40,7 @@ export type PurchaseResult = {
       name: string
       category: string
       defaultUnit: string
+      displayUnit: DisplayUnit
     }
     quantity: number | null
     isStaple: boolean
@@ -105,6 +107,7 @@ export async function purchaseIngredients(
         name: true,
         category: true,
         defaultUnit: true,
+        measuredByVolume: true,
         ...ingredientTranslationsInclude(locale),
       },
     },
@@ -158,6 +161,8 @@ export async function purchaseIngredients(
             name: ingredientShown.name,
             category: ingredientShown.category,
             defaultUnit: ingredientShown.defaultUnit,
+            // The unit the pantry row shows an amount in, as `loadPantry` sends it.
+            displayUnit: displayUnit(pantryItem.ingredient),
           },
           quantity: pantryItem.quantity,
           isStaple: pantryItem.isStaple,

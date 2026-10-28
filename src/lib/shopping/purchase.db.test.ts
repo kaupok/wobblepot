@@ -119,7 +119,13 @@ describe('purchaseIngredients', () => {
           replacedQuantity: null,
           pantryItem: {
             id: row.id,
-            ingredient: { id: 'ing-rice', name: 'rice', category: 'carb', defaultUnit: 'g' },
+            ingredient: {
+              id: 'ing-rice',
+              name: 'rice',
+              category: 'carb',
+              defaultUnit: 'g',
+              displayUnit: 'g',
+            },
             quantity: null,
             isStaple: false,
             updatedAt: row.updatedAt.toISOString(),
@@ -232,7 +238,19 @@ describe('purchaseIngredients', () => {
       name: 'riis',
       category: 'carb',
       defaultUnit: 'g',
+      displayUnit: 'g',
     })
+  })
+
+  it('gives a volume ingredient its millilitres, so its pantry row shows ml (HON-1402)', async () => {
+    const { alder } = await world()
+    await prisma.ingredient.update({ where: { id: 'ing-milk' }, data: { measuredByVolume: true } })
+
+    const outcome = await purchaseIngredients(alder, ['ing-milk'])
+
+    expect(
+      outcome.status === 'purchased' && outcome.results[0]!.pantryItem.ingredient.displayUnit,
+    ).toBe('ml')
   })
 
   it('leaves the same ingredient in another household alone', async () => {

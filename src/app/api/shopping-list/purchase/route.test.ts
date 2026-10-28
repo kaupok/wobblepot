@@ -58,7 +58,13 @@ const rice = {
   replacedQuantity: 300,
   pantryItem: {
     id: 'pantry-rice',
-    ingredient: { id: 'ing-rice', name: 'riis', category: 'carb', defaultUnit: 'g' },
+    ingredient: {
+      id: 'ing-rice',
+      name: 'riis',
+      category: 'carb',
+      defaultUnit: 'g',
+      displayUnit: 'g' as const,
+    },
     quantity: null,
     isStaple: false,
     updatedAt: '2026-10-15T10:00:00.000Z',
@@ -70,7 +76,13 @@ const milk = {
   replacedQuantity: null,
   pantryItem: {
     id: 'pantry-milk',
-    ingredient: { id: 'ing-milk', name: 'piim', category: 'dairy', defaultUnit: 'g' },
+    ingredient: {
+      id: 'ing-milk',
+      name: 'piim',
+      category: 'dairy',
+      defaultUnit: 'g',
+      displayUnit: 'ml' as const,
+    },
     quantity: null,
     isStaple: false,
     updatedAt: '2026-10-15T10:00:00.000Z',
