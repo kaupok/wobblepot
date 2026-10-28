@@ -417,8 +417,8 @@
         "skip": "Kas saan ilma selleta hakkama?"
       },
       "questionLabel": "Sinu küsimus",
-      "placeholder": "Küsi selle sammu kohta",
-      "equipmentPlaceholder": "Küsi selle vahendi kohta",
+      "placeholder": "Küsi sammu kohta",
+      "equipmentPlaceholder": "Küsi vahendi kohta",
       "followUpPlaceholder": "Küsi veel midagi",
       "send": "Saada",
       "thinking": "Mõtlen…",
