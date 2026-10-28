@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import {
   fridgeItems,
   fridgePantryItems,
@@ -57,10 +58,67 @@ const itemNames = (menu: ReturnType<typeof within>) =>
 export const Planned: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { name: 'Fridge meal' })).toBeInTheDocument()
-    await expect(canvas.getByText('Mash, from Tuesday')).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent(/^Mash$/)
+    await expect(
+      canvas.getByText('+ Cauliflower and broccoli mix, Cucumber, store meatballs'),
+    ).toBeInTheDocument()
+    await expect(canvas.getByText('Leftovers')).toBeInTheDocument()
+    await expect(canvas.getByText('Nothing to buy')).toBeInTheDocument()
     const menu = await openMenu(canvasElement)
-    await expect(itemNames(menu)).toEqual(['Eaten', 'Edit items', 'Clear'])
+    await expect(itemNames(menu)).toEqual(['Note', 'Eaten', 'Edit items', 'Clear'])
+  },
+}
+
+/** Leftovers with a picture: the card takes that meal's image and tint. */
+export const LeftoversWithImage: Story = {
+  args: {
+    items: fridgeItems.map((item) =>
+      item.sourceEntryId
+        ? {
+            ...item,
+            image: {
+              imageUrl: mealIllustration.src,
+              imageStatus: 'ready' as const,
+              imageHue: 40,
+            },
+          }
+        : item,
+    ),
+  },
+}
+
+/** Free text only, no leftovers: the fixed fridge tint. */
+export const FreeTextOnly: Story = {
+  args: { items: fridgeItems.filter((item) => item.label !== null) },
+}
+
+/**
+ * A long name on the fridge tint, at phone width: with no image to clear, the
+ * name keeps the full row, so it wraps no earlier than it must and the card
+ * stays one height with the recipe cards (docs/DESIGN.md → Composition rules).
+ */
+export const LongNameOnPhone: Story = {
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  args: {
+    items: ['pelmeenid', 'sour cream', 'dill', 'rye bread', 'pickled cucumbers'].map(
+      (label, index) => ({
+        id: `item-${index}`,
+        ingredientId: null,
+        sourceEntryId: null,
+        label,
+        name: null,
+        sourceDate: null,
+        servings: null,
+      }),
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole('heading', { level: 3 })
+    const card = canvasElement.querySelector<HTMLElement>('[data-meal-surface="fridge"]')!
+    // The image's cap would hold the name at half the card or less.
+    await expect(heading.getBoundingClientRect().width).toBeGreaterThan(
+      card.getBoundingClientRect().width * 0.6,
+    )
   },
 }
 
@@ -104,15 +162,17 @@ export const EditItems: Story = {
   },
 }
 
-/** Tomorrow's lunch from tonight's dinner, still to cook (HON-1395). */
+/**
+ * Tomorrow's lunch from tonight's dinner, still to cook (HON-1395): the
+ * dinner is the name, and a line under it says which meal and how much.
+ */
 export const LeftoverFromPlannedDinner: Story = {
   args: { mealType: 'lunch', items: [plannedLeftoverItem, fridgeItems[2]!] },
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText(
-        'Roast chicken, from Tuesday at dinner · 2.5 servings · planned',
-      ),
-    ).toBeVisible()
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent(/^Roast chicken$/)
+    await expect(canvas.getByText('Tuesday at dinner · 2.5 servings · planned')).toBeVisible()
+    await expect(canvas.getByText('+ Cucumber')).toBeVisible()
   },
 }
 

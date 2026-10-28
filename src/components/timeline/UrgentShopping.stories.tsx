@@ -255,6 +255,31 @@ export const TodayOnly: Story = {
   },
 }
 
+// A staple the household marked ran out (HON-1398): with no amount the
+// "Ran out" tag stands alone; with a planned need it follows the amount.
+export const RanOutStaples: Story = {
+  args: {
+    items: [
+      createUrgentShoppingItem({
+        ingredientId: 'greek-yoghurt',
+        name: 'Greek yoghurt',
+        displayQuantity: '',
+        restock: true,
+      }),
+      createUrgentShoppingItem({
+        ingredientId: 'eggs',
+        name: 'Eggs',
+        displayQuantity: '6\u00a0pc',
+        restock: true,
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expectDayGroups(canvasElement, ['Today'])
+    await expect(within(canvasElement).getAllByText('Ran out')).toHaveLength(2)
+  },
+}
+
 export const TomorrowOnly: Story = {
   args: {
     items: [

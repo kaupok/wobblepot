@@ -2,23 +2,12 @@ import { render } from '@testing-library/react'
 import { ShoppingSection } from './ShoppingSection'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import type { IngredientCategory } from '@/generated/prisma/enums'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 
 // Shared by the `ShoppingSection.*.test.tsx` files. Each test file sets up its
 // own `vi.mock` calls, since those are hoisted per file.
 
-export function makeItem(
-  name: string,
-  ingredientId: string,
-  purchased = false,
-): {
-  ingredientId: string
-  name: string
-  displayQuantity: string
-  purchased: boolean
-  neededByDate: string
-  neededByRelative: string
-  neededByAbsolute: string
-} {
+export function makeItem(name: string, ingredientId: string, purchased = false): ShoppingItemData {
   return {
     ingredientId,
     name,

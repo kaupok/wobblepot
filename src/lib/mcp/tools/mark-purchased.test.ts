@@ -6,7 +6,7 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     ingredient: { findMany: vi.fn() },
-    pantryItem: { findUnique: vi.fn(), delete: vi.fn() },
+    pantryItem: { findUnique: vi.fn(), delete: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -245,13 +245,18 @@ describe('mark_purchased', () => {
       expect(result.structuredContent).toEqual({
         purchased: false,
         items: [
-          { ingredientId: 'ing-salt', outcome: 'staple' },
+          { ingredientId: 'ing-salt', outcome: 'ran_out' },
           { ingredientId: 'ing-rice', outcome: 'too_old' },
           { ingredientId: 'ing-flour', outcome: 'has_quantity' },
           { ingredientId: 'ing-of-b', outcome: 'not_in_pantry' },
         ],
       })
       expect(prisma.pantryItem.delete).not.toHaveBeenCalled()
+      // The staple stays, back at ran out, so it is on the list again (HON-1398).
+      expect(prisma.pantryItem.update).toHaveBeenCalledExactlyOnceWith({
+        where: { id: 'p-staple' },
+        data: { quantity: 0 },
+      })
     })
   })
 })

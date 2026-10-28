@@ -119,9 +119,17 @@ describe('POST /api/shopping-list/unpurchase', () => {
     expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice')
   })
 
+  it('sets a staple back to ran out and answers 200 with ran_out', async () => {
+    mockUnpurchase.mockResolvedValue('ran_out')
+
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'ran_out' },
+    })
+  })
+
   it.each([
     ['not_in_pantry', 404, { error: 'Item not found in pantry' }],
-    ['staple', 400, { error: 'Cannot unpurchase staple items', reason: 'staple' }],
     [
       'too_old',
       400,

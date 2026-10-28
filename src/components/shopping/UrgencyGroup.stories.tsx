@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { createCustomItem, shoppingItemsByUrgency } from '@/stories/fixtures'
+import { createCustomItem, createShoppingItem, shoppingItemsByUrgency } from '@/stories/fixtures'
 import { Card, CardContent } from '@/components/ui/card'
 import { UrgencyGroup } from './UrgencyGroup'
 
@@ -60,6 +60,34 @@ export const UrgentItems: Story = {
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByText('today')).not.toBeInTheDocument()
+  },
+}
+
+// A staple the household marked ran out sits in Today (HON-1398), with the
+// "Ran out" tag in place of an amount.
+export const WithRanOutStaple: Story = {
+  args: {
+    bucket: 'today',
+    items: [
+      createShoppingItem({
+        ingredientId: 'ing-chicken',
+        name: 'Chicken thigh',
+        displayQuantity: '500g',
+        neededByRelative: 'Today',
+        dueToday: true,
+      }),
+      createShoppingItem({
+        ingredientId: 'ing-yoghurt',
+        name: 'Greek yoghurt',
+        displayQuantity: '',
+        neededByRelative: 'Today',
+        dueToday: true,
+        restock: true,
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Ran out')).toBeInTheDocument()
   },
 }
 

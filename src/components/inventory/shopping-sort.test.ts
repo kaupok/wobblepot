@@ -76,6 +76,20 @@ describe('buildUrgencyGroups', () => {
     expect(groups[0]!.items.map((i) => i.name)).toEqual(['Today thing'])
   })
 
+  it('puts a ran-out staple, needed today, in Today', () => {
+    const groups = buildUrgencyGroups([
+      item('Later thing', { neededByDate: '2026-03-01|later' }),
+      {
+        ...item('Greek yoghurt', { neededByDate: '2026-02-16|today' }),
+        displayQuantity: '',
+        restock: true,
+      },
+    ])
+
+    expect(groups.map((g) => g.bucket)).toEqual(['today', 'later'])
+    expect(groups[0]!.items.map((i) => i.name)).toEqual(['Greek yoghurt'])
+  })
+
   it('sorts by needed-by date within a bucket', () => {
     const groups = buildUrgencyGroups([
       item('Later in the week', { neededByDate: '2026-02-20|this-week' }),

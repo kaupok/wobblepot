@@ -131,6 +131,8 @@ export interface FridgeMealItem {
   name: string | null
   /** The source meal's day, `YYYY-MM-DD`; null unless `sourceEntryId` is set. */
   sourceDate: string | null
+  /** The source meal's image, for leftovers; absent or null otherwise. */
+  image?: MealImageFields | null
   /** What a leftover item takes from its source (HON-1394); null otherwise. */
   servings: number | null
   /** The source meal's slot. Sent by `/api/entries` only; null unless `sourceEntryId` is set. */
@@ -247,6 +249,8 @@ export interface PantryItemFull {
     id: string
     name: string
     category: string
+    /** `herb`, `sauce`, `paste`…: the fridge meal picker hides seasonings by it. */
+    subcategory?: string | null
     defaultUnit: 'g' | 'piece'
   }
 }

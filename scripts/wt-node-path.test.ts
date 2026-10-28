@@ -177,6 +177,7 @@ describe('orchestrator use_repo_node (HON-1307)', () => {
   it('puts the .nvmrc Node first on PATH for the workers it spawns', () => {
     nvmNode('v41.2.0')
     copyIn('scripts/orchestrator.sh')
+    copyIn('scripts/orchestrator-deferred.sh')
 
     const r = spawnSync(
       '/bin/bash',

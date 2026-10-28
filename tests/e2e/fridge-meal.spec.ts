@@ -115,7 +115,7 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     await page.getByRole('menuitem', { name: 'Fridge meal' }).click()
 
     const picker = page.getByRole('dialog', { name: 'Fridge meal' })
-    const search = picker.getByLabel('Search the pantry')
+    const search = picker.getByLabel('What are you having?')
     await search.fill(run)
     await picker.getByRole('button', { name: `Add: ${cucumberName}` }).click()
     // An add clears the search and focuses it (HON-1287), so search again.
@@ -123,17 +123,20 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     await expect(search).toBeFocused()
     await search.fill(run)
     await picker.getByRole('button', { name: `Add: ${paprikaName}` }).click()
-    await picker.getByLabel('Something else').fill('store meatballs')
-    await picker.getByRole('button', { name: 'Add', exact: true }).click()
+    // Enter takes words that name no pantry item as they are.
+    await search.fill('store meatballs')
+    await search.press('Enter')
     await picker.getByRole('button', { name: 'Save' }).click()
     await expect(picker).toHaveCount(0)
 
+    // The items are the card's name, with the first letter in capitals.
     const items = [cucumberName, paprikaName, 'store meatballs']
-    await expect(card.getByRole('heading', { name: 'Fridge meal' })).toBeVisible()
-    await expect(card.getByRole('listitem')).toHaveText(items)
+    const name = `E${items.join(', ').slice(1)}`
+    await expect(card.getByRole('heading', { name })).toBeVisible()
+    await expect(card.getByText('Nothing to buy')).toBeVisible()
 
     await page.reload()
-    await expect(card.getByRole('listitem')).toHaveText(items)
+    await expect(card.getByRole('heading', { name })).toBeVisible()
     // No recipe, so no cook view to open and no rating to give.
     await expect(card.getByRole('button', { name: /rate|thumbs/i })).toHaveCount(0)
 
@@ -232,16 +235,21 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
     await picker.getByRole('button', { name: 'Save' }).click()
     await expect(picker).toHaveCount(0)
 
-    // The fridge card names the source's slot and servings, and "planned".
-    await expect(card.getByRole('listitem')).toHaveText(
-      new RegExp(`^${meal!.name}, from .* at dinner · ${taken} servings · planned$`),
-    )
-    // The dinner cooks for the leftovers too (HON-1395's display).
-    const dinner = page.locator('[data-slot="card"]').filter({ hasText: meal!.name }).first()
+    // The leftovers' meal is the fridge card's name, and its line names the
+    // source's slot and servings, and "planned".
+    await expect(card.getByRole('heading', { name: meal!.name })).toBeVisible()
+    await expect(card).toContainText(new RegExp(`at dinner · ${taken} servings · planned`))
+    // The dinner cooks for the leftovers too (HON-1395's display). Its ⋯ is
+    // named by the meal alone, which tells it from the fridge card.
+    const dinnerMenu = page.getByRole('button', {
+      name: `More actions: ${meal!.name}`,
+      exact: true,
+    })
+    const dinner = page.locator('[data-slot="card"]').filter({ has: dinnerMenu })
     await expect(dinner).toContainText(`${taken} for dinner:`)
 
     // Lunch is off for the smoke household, so the action says so.
-    await dinner.getByRole('button', { name: `More actions: ${meal!.name}` }).click()
+    await dinnerMenu.click()
     const action = page.getByRole('menuitem', { name: /Cook for tomorrow's lunch too/ })
     await expect(action).toHaveAttribute('aria-disabled', 'true')
     await expect(action).toContainText('Lunch is off for that day.')

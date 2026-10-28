@@ -73,6 +73,7 @@ export async function TodayTimeline({
       neededByDate: item.neededByDate,
       neededByRelative: item.neededByRelative,
       purchased: item.purchased,
+      restock: item.restock,
       // Bucket against the household's day, not the server's (HON-762).
       urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
     })),

@@ -190,7 +190,9 @@ export function ShoppingSection({
    * rather than from the on-screen total, which still includes them.
    */
   const buildClipboardSections = useCallback((): ClipboardSection[] => {
-    const computedLine = (item: ShoppingItemData) => `${item.name} ${item.displayQuantity}`
+    // A ran-out staple with no amount (HON-1398) is the name alone.
+    const computedLine = (item: ShoppingItemData) =>
+      item.displayQuantity ? `${item.name} ${item.displayQuantity}` : item.name
     const customLine = (item: CustomItemData) => item.name
     const toBuy = (items: ShoppingItemData[]) => items.filter((item) => !item.purchased)
     const unchecked = (items: CustomItemData[]) => items.filter((item) => !item.checked)

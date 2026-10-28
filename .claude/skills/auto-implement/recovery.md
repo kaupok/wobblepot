@@ -4,7 +4,7 @@ Read a section when `SKILL.md` points to it. Each one names where the cycle goes
 
 ## Retry context
 
-When `scripts/orchestrator.sh` triages a failed worker as `RETRY`, hits the Neon-cap one-retry, or gives a stranded run its one finish attempt (HON-1065), it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728).
+When `scripts/orchestrator.sh` triages a failed worker as `RETRY`, hits the Neon-cap one-retry, or gives a stranded run its one finish attempt (HON-1065), it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728). A respawn after a network drop (HON-1414) has a shorter note: the phase, the commit count, the PR if one is open, and the path of a patch that holds the previous attempt's uncommitted work, if it had any.
 
 **If it is present, read it before anything else** and treat it as the first finding of this run: the previous attempt already paid for that failure once. `wt auto` has checked out the kept branch as-is, so pushed work is on disk. Establish where the previous attempt got to, in this order:
 
@@ -13,11 +13,12 @@ git log --oneline origin/main..HEAD                       # commits it already m
 gh pr list --head "$(git branch --show-current)" --state open --json number,url
 ```
 
+- **A patch is named** → apply it first with `git apply <path>`, before the checks below. The previous attempt never committed that work.
 - **Open PR for this branch** → run Phase 0, then 2.1 (the `In Review` exception there applies), skip 2.2–5, and resume at **6.1**, the start of Phase 6: review first, then the 6.5 CI wait. `ROUND` counts the PR's existing `<!-- claude-review -->` markers, so earlier rounds still count toward the cap.
 - **Commits, no PR** → run Phases 0–2.1 as normal, then look for the plan comment the previous attempt posted in 2.8 (`list_comments`). If there is one, reuse it instead of re-planning and do not post a second; continue Phase 3 from the first step the commits do not cover.
 - **No commits** → run the full cycle.
 
-On every path, fix the failure the note describes before redoing work that already landed. A retry has three sources: a failure triage judged transient, the Neon cap, and the one finish attempt after a strand (HON-1065), which gets no triage at all. So a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
+On every path, fix the failure the note describes before redoing work that already landed. A retry has four sources: a failure triage judged transient, the Neon cap, the one finish attempt after a strand (HON-1065), and the respawn after a network drop (HON-1414). The last two get no triage at all. So a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
 
 ## Gate stops (2.1)
 

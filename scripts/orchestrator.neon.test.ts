@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -73,6 +74,39 @@ describe('orchestrator.sh', () => {
 
       expect(selected).not.toContain('henritamm--hon-51-slug')
       expect(selected).toContain('auto--hon-51')
+    })
+
+    // HON-1415: a dead review:local branch held a cap slot no sweep freed. The
+    // stub `ps` reports pid 7 as a live e2e-local.sh run on this host.
+    it('selects dead e2e-local-* branches and keeps live or young ones', () => {
+      const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'neon-e2e-'))
+      fs.writeFileSync(path.join(bin, 'hostname'), '#!/bin/sh\necho box\n', { mode: 0o755 })
+      const ps =
+        '#!/bin/sh\ncase $2 in 7) echo "bash e2e-local.sh" ;; 8) ;; *) exec /bin/ps "$@" ;; esac\n'
+      fs.mkdirSync(path.join(bin, '.config', 'wobblepot'), { recursive: true })
+      fs.writeFileSync(path.join(bin, '.config', 'wobblepot', 'e2e-host-id'), '000001\n')
+      fs.writeFileSync(path.join(bin, 'ps'), ps, { mode: 0o755 })
+      const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
+      const json = JSON.stringify([
+        { name: 'e2e-local-box000001-20261028-114144-8', created_at: ago(0.1) },
+        { name: 'e2e-local-box000001-20261028-114144-7', created_at: ago(9) },
+        { name: 'e2e-local-other-20261028-114144-8', created_at: ago(1) },
+        { name: 'e2e-local-20261028-114144-8', created_at: ago(3), updated_at: ago(0) },
+      ])
+      const out = execFileSync('bash', [harness, 'neon-gc-select', json, ''], {
+        encoding: 'utf8',
+        env: harnessEnv({
+          PATH: `${bin}:${process.env.PATH}`,
+          HOME: bin,
+          E2E_GC_MIN_AGE_HOURS: '',
+        }),
+      })
+      fs.rmSync(bin, { recursive: true, force: true })
+
+      expect(out.split('\n').filter(Boolean)).toEqual([
+        'e2e-local-box000001-20261028-114144-8',
+        'e2e-local-20261028-114144-8',
+      ])
     })
   })
 

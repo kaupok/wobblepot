@@ -10,6 +10,7 @@ import {
   fridgeRecentMeals,
   plannedLeftoverItem,
 } from '@/stories/fridge-fixtures'
+import { createPantryItem } from '@/stories/fixtures'
 import { FridgeMealPicker } from './FridgeMealPicker'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
@@ -17,11 +18,14 @@ vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 let requests: { method: string; url: string; body: unknown }[]
 let saveStatus: number
 let saveBody: unknown
+// What `/api/entries/recent` lists for the slot; a test sets a planned source.
+let leftoverSources: typeof fridgeRecentMeals
 
 beforeEach(() => {
   requests = []
   saveStatus = 200
   saveBody = undefined
+  leftoverSources = fridgeRecentMeals
   vi.mocked(toast.error).mockClear()
   vi.stubGlobal(
     'fetch',
@@ -29,7 +33,7 @@ beforeEach(() => {
       const method = init?.method ?? 'GET'
       requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null })
       const [status, body] = url.startsWith('/api/entries/recent')
-        ? [200, { meals: [fridgePlannedSource, ...fridgeRecentMeals], defaultServings: 2 }]
+        ? [200, { meals: leftoverSources, defaultServings: 2 }]
         : [
             saveStatus,
             saveBody ?? (saveStatus === 200 ? { id: 'entry-new' } : { error: 'Refused' }),
@@ -107,21 +111,91 @@ const freeTextItem = (label: string): (typeof fridgeItems)[number] => ({
 const saves = () => requests.filter((r) => r.method !== 'GET')
 
 describe('FridgeMealPicker', () => {
-  it('opens with nothing chosen and offers the pantry, recent meals and free text', async () => {
+  it('opens with nothing chosen and offers the leftovers, then the pantry', async () => {
     const { dialog } = renderPicker()
 
     expect(dialog.getByText('Nothing added yet.')).toBeInTheDocument()
-    expect(dialog.getByRole('button', { name: 'Add: Butter' })).toBeInTheDocument()
+    expect(dialog.getByLabelText('What are you having?')).toBeInTheDocument()
     expect(
       await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' }),
     ).toBeInTheDocument()
-    expect(dialog.getByLabelText('Something else')).toBeInTheDocument()
+    expect(dialog.getByRole('button', { name: 'Add: Butter' })).toBeInTheDocument()
+    expect(dialog.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'In this meal',
+      'Leftovers',
+      'In the pantry',
+    ])
+  })
+
+  it('leaves staples and seasonings out of the pantry until they are searched for', async () => {
+    const { dialog, user } = renderPicker({
+      pantryItems: [
+        ...fridgePantryItems,
+        createPantryItem({
+          ingredientId: 'pepper',
+          ingredient: { id: 'pepper', name: 'Black pepper', category: 'spice', defaultUnit: 'g' },
+        }),
+        createPantryItem({
+          ingredientId: 'rice',
+          isStaple: true,
+          ingredient: { id: 'rice', name: 'Rice', category: 'carb', defaultUnit: 'g' },
+        }),
+        // A herb is a vegetable by category: only its subcategory says herb.
+        createPantryItem({
+          ingredientId: 'parsley',
+          ingredient: {
+            id: 'parsley',
+            name: 'Curly parsley',
+            category: 'vegetable',
+            subcategory: 'herb',
+            defaultUnit: 'g',
+          },
+        }),
+      ],
+    })
+
+    expect(dialog.getByRole('button', { name: 'Add: Cucumber' })).toBeInTheDocument()
+    expect(dialog.queryByRole('button', { name: 'Add: Black pepper' })).not.toBeInTheDocument()
+    expect(dialog.queryByRole('button', { name: 'Add: Rice' })).not.toBeInTheDocument()
+    expect(dialog.queryByRole('button', { name: 'Add: Curly parsley' })).not.toBeInTheDocument()
+
+    await user.type(dialog.getByLabelText('What are you having?'), 'pep')
+    expect(dialog.getByRole('button', { name: 'Add: Black pepper' })).toBeInTheDocument()
+    await user.clear(dialog.getByLabelText('What are you having?'))
+    await user.type(dialog.getByLabelText('What are you having?'), 'ric')
+    expect(dialog.getByRole('button', { name: 'Add: Rice' })).toBeInTheDocument()
+  })
+
+  it('filters the leftovers by the field too', async () => {
+    const { dialog, user } = renderPicker()
+    await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' })
+
+    await user.type(dialog.getByLabelText('What are you having?'), 'soup')
+
+    expect(
+      dialog.getByRole('button', { name: 'Add: Lentil soup, from Monday' }),
+    ).toBeInTheDocument()
+    expect(
+      dialog.queryByRole('button', { name: 'Add: Mash, from Tuesday' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('adds the pantry item that Enter names exactly, and the words otherwise', async () => {
+    const { dialog, user } = renderPicker()
+    const field = dialog.getByLabelText('What are you having?')
+
+    await user.type(field, 'cucumber{Enter}')
+    await user.type(field, 'pelmeenid{Enter}')
+
+    expect(chosen(dialog)).toEqual(['Cucumber pantry', 'pelmeenid'])
+    expect(field).toHaveValue('')
+    expect(field).toHaveFocus()
   })
 
   it('filters the pantry by the search, and drops an added item from the matches', async () => {
     const { dialog, user } = renderPicker()
 
-    await user.type(dialog.getByLabelText('Search the pantry'), 'cuc')
+    await user.type(dialog.getByLabelText('What are you having?'), 'cuc')
 
     const add = dialog.getByRole('button', { name: 'Add: Cucumber' })
     expect(dialog.queryByRole('button', { name: 'Add: Paprika' })).not.toBeInTheDocument()
@@ -136,7 +210,7 @@ describe('FridgeMealPicker', () => {
   // to the search, not to <body>.
   it('clears the search after a pantry chip add and moves focus to it', async () => {
     const { dialog, user } = renderPicker()
-    const search = dialog.getByLabelText('Search the pantry')
+    const search = dialog.getByLabelText('What are you having?')
 
     await user.type(search, 'pap')
     await user.click(dialog.getByRole('button', { name: 'Add: Paprika' }))
@@ -147,7 +221,7 @@ describe('FridgeMealPicker', () => {
     // The full list is back, less the item just added.
     expect(dialog.getByRole('button', { name: 'Add: Butter' })).toBeInTheDocument()
     expect(dialog.getByRole('button', { name: 'Add: Cucumber' })).toBeInTheDocument()
-    expect(dialog.queryByText(/Nothing in the pantry matches/)).not.toBeInTheDocument()
+    expect(dialog.queryByRole('button', { name: /^Add "/ })).not.toBeInTheDocument()
   })
 
   it('moves focus to the search after a leftovers chip add', async () => {
@@ -156,17 +230,16 @@ describe('FridgeMealPicker', () => {
     await user.click(await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' }))
 
     expect(chosen(dialog)).toEqual(['Mash, from Tuesday'])
-    expect(dialog.getByLabelText('Search the pantry')).toHaveFocus()
+    expect(dialog.getByLabelText('What are you having?')).toHaveFocus()
   })
 
   it("adds an unmatched search as the household's own words", async () => {
     const { dialog, onSaved, user } = renderPicker({
       pantryItems: fridgePantryItems.filter((p) => p.ingredientId !== 'cucumber'),
     })
-    const search = dialog.getByLabelText('Search the pantry')
+    const search = dialog.getByLabelText('What are you having?')
 
     await user.type(search, '  cucumber ')
-    expect(dialog.getByText('Nothing in the pantry matches "cucumber".')).toBeInTheDocument()
     await user.click(dialog.getByRole('button', { name: 'Add "cucumber"' }))
 
     expect(chosen(dialog)).toEqual(['cucumber'])
@@ -179,21 +252,22 @@ describe('FridgeMealPicker', () => {
 
   it('does not offer the words of a pantry item already in the meal', async () => {
     const { dialog, user } = renderPicker()
-    const search = dialog.getByLabelText('Search the pantry')
+    const search = dialog.getByLabelText('What are you having?')
 
     await user.type(search, 'cuc')
     await user.click(dialog.getByRole('button', { name: 'Add: Cucumber' }))
     await user.type(search, 'cucumber')
 
     expect(dialog.queryByRole('button', { name: 'Add "cucumber"' })).not.toBeInTheDocument()
-    expect(dialog.queryByText(/Nothing in the pantry matches/)).not.toBeInTheDocument()
+    // Enter on it adds nothing either: no free-text copy of a pantry item.
+    await user.keyboard('{Enter}')
     expect(chosen(dialog)).toEqual(['Cucumber pantry'])
   })
 
   it('cuts an unmatched search to the label limit', async () => {
     const { dialog, user } = renderPicker()
 
-    await user.type(dialog.getByLabelText('Search the pantry'), 'x'.repeat(90))
+    await user.type(dialog.getByLabelText('What are you having?'), 'x'.repeat(90))
     await user.click(dialog.getByRole('button', { name: /^Add "x+"$/ }))
 
     expect(chosen(dialog)).toEqual(['x'.repeat(80)])
@@ -203,7 +277,7 @@ describe('FridgeMealPicker', () => {
     const full = Array.from({ length: 30 }, (_, i) => freeTextItem(`thing ${i + 1}`))
     const { dialog, user } = renderPicker({ initialItems: full })
 
-    await user.type(dialog.getByLabelText('Search the pantry'), 'tofu')
+    await user.type(dialog.getByLabelText('What are you having?'), 'tofu')
     const add = dialog.getByRole('button', { name: 'Add "tofu"' })
     expect(add).toHaveAttribute('aria-disabled', 'true')
     await user.click(add)
@@ -241,12 +315,13 @@ describe('FridgeMealPicker', () => {
     expect(dialog.getByRole('button', { name: 'Add: Butter' })).toBeInTheDocument()
   })
 
-  it('says so when nothing in the pantry matches', async () => {
+  it('offers the words, and no pantry section, when nothing in the pantry matches', async () => {
     const { dialog, user } = renderPicker()
 
-    await user.type(dialog.getByLabelText('Search the pantry'), 'tofu')
+    await user.type(dialog.getByLabelText('What are you having?'), 'tofu')
 
-    expect(dialog.getByText('Nothing in the pantry matches "tofu".')).toBeInTheDocument()
+    expect(dialog.getByRole('button', { name: 'Add "tofu"' })).toBeInTheDocument()
+    expect(dialog.queryByRole('heading', { name: 'In the pantry' })).not.toBeInTheDocument()
   })
 
   it('creates the fridge meal in the slot with the items in the order added', async () => {
@@ -254,7 +329,7 @@ describe('FridgeMealPicker', () => {
 
     await user.click(await dialog.findByRole('button', { name: 'Add: Mash, from Tuesday' }))
     await user.click(dialog.getByRole('button', { name: 'Add: Cucumber' }))
-    await user.type(dialog.getByLabelText('Something else'), 'store meatballs{Enter}')
+    await user.type(dialog.getByLabelText('What are you having?'), 'store meatballs{Enter}')
     await user.click(dialog.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
@@ -349,6 +424,7 @@ describe('FridgeMealPicker', () => {
   // HON-1396: the list is the source rule's for this slot, so tonight's
   // planned dinner is a source for tomorrow's lunch.
   it("asks for the slot's sources and marks a planned one", async () => {
+    leftoverSources = [fridgePlannedSource, ...fridgeRecentMeals]
     const { dialog } = renderPicker({ date: '2026-10-22', mealType: 'lunch' })
 
     expect(
@@ -359,6 +435,7 @@ describe('FridgeMealPicker', () => {
   })
 
   it("starts a planned source at the household's servings and saves the servings set", async () => {
+    leftoverSources = [fridgePlannedSource, ...fridgeRecentMeals]
     const { dialog, onSaved, user } = renderPicker({ date: '2026-10-22', mealType: 'lunch' })
 
     await user.click(

@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { parseLocalDate, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 interface ShoppingItem {
@@ -17,6 +18,8 @@ interface ShoppingItem {
   neededByRelative: string
   purchased: boolean
   urgency: UrgencyBucket
+  /** A staple the household marked ran out (HON-1398); it can have no amount. */
+  restock?: boolean
 }
 
 interface UrgentShoppingProps {
@@ -79,6 +82,7 @@ export function UrgentShopping({
   compact = false,
 }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
+  const tShopping = useTranslations('shopping')
   const tUrgency = useTranslations('dates.urgency')
   const locale = useLocale()
   const labelId = useId()
@@ -219,7 +223,12 @@ export function UrgentShopping({
                     className="flex items-center justify-between gap-2 text-sm"
                   >
                     <span className="min-w-0 truncate">{item.name}</span>
-                    <span className="text-muted-foreground shrink-0">{item.displayQuantity}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {item.displayQuantity && (
+                        <span className="text-muted-foreground">{item.displayQuantity}</span>
+                      )}
+                      {item.restock && <Badge variant="warning">{tShopping('ranOut')}</Badge>}
+                    </span>
                   </li>
                 ))}
               </ul>

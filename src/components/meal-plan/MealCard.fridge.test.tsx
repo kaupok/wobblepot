@@ -64,8 +64,8 @@ function renderCard(props: { meal: typeof meal | null; onPicked?: () => void }) 
 
 async function addTextAndSave(user: ReturnType<typeof userEvent.setup>) {
   const dialog = within(await screen.findByRole('dialog', { name: 'Fridge meal' }))
-  await user.type(dialog.getByLabelText('Something else'), 'store meatballs')
-  await user.click(dialog.getByRole('button', { name: 'Add' }))
+  await user.type(dialog.getByLabelText('What are you having?'), 'store meatballs')
+  await user.click(dialog.getByRole('button', { name: 'Add "store meatballs"' }))
   await user.click(dialog.getByRole('button', { name: 'Save' }))
 }
 
