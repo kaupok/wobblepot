@@ -218,7 +218,11 @@ export const changeMealIngredients = defineTool({
     })
     if (Object.values(lists).some((list) => list.length > 0)) return unchanged('not_changed')
     // Every name resolved, yet a row went: two changes touch one ingredient.
-    if (resolved.changes.length !== rows.length) {
+    // A row that supersedes a restored change touches it too.
+    if (
+      resolved.changes.length !== rows.length ||
+      resolved.changes.some((c) => c.replacesChangeId !== null && dropped.has(c.replacesChangeId))
+    ) {
       throw new ToolInputError(
         'Two of the changes name the same ingredient of this meal. Name each ingredient once and call again. Nothing was changed.',
       )

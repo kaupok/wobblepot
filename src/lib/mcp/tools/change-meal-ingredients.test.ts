@@ -342,6 +342,23 @@ describe('change_meal_ingredients', () => {
     )
   })
 
+  it.each([
+    ['leaves out', { action: 'leave_out', ingredient: 'rice' }],
+    [
+      'replaces',
+      { action: 'replace', ingredients: ['rice'], with: 'broccoli', quantity: 300, unit: 'g' },
+    ],
+  ])('refuses a restore and a change that %s its replacement', async (_label, item) => {
+    vi.mocked(loadEntryForAi).mockResolvedValue(entry([POTATO_RICE]) as never)
+
+    const result = await call([{ action: 'restore', ingredient: 'potato' }, item])
+
+    expect(replaceEntryChanges).not.toHaveBeenCalled()
+    expect(errorText(result)).toBe(
+      'Two of the changes name the same ingredient of this meal. Name each ingredient once and call again. Nothing was changed.',
+    )
+  })
+
   it('asks for a check when an amount crosses into pieces by a guess, and writes nothing', async () => {
     const result = await call([{ action: 'add', ingredient: 'egg', quantity: 100, unit: 'g' }])
 
