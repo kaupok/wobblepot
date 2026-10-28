@@ -35,6 +35,19 @@ interface UsePurchaseToggleOptions {
 }
 
 /**
+ * The ingredient ids whose tick or untick is in flight. Several rows can be in
+ * flight at once, so the set is derived from the mutation cache rather than
+ * the single-observer `isPending`.
+ */
+export function usePendingPurchaseIds() {
+  const pendingIdList = useMutationState({
+    filters: { mutationKey: PURCHASE_TOGGLE_KEY, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as PurchaseToggleVariables).ingredientId,
+  })
+  return useMemo(() => new Set(pendingIdList), [pendingIdList])
+}
+
+/**
  * Ticks and unticks a computed shopping-list item: the tick puts the
  * ingredient in the pantry, the untick takes it back out. The checkbox updates
  * first and rolls back when the request fails.
@@ -122,13 +135,7 @@ export function usePurchaseToggle({
     },
   })
 
-  // Several rows can be in flight at once, so the pending set is derived from
-  // the mutation cache rather than the single-observer `isPending`.
-  const pendingIdList = useMutationState({
-    filters: { mutationKey: PURCHASE_TOGGLE_KEY, status: 'pending' },
-    select: (mutation) => (mutation.state.variables as PurchaseToggleVariables).ingredientId,
-  })
-  const pendingIds = useMemo(() => new Set(pendingIdList), [pendingIdList])
+  const pendingIds = usePendingPurchaseIds()
 
   const handleToggle = (ingredientId: string, purchased: boolean) => {
     if (pendingIds.has(ingredientId)) return

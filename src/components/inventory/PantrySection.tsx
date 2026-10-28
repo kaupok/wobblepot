@@ -34,6 +34,8 @@ const ADD_INPUT_SELECTOR = 'input'
 interface ToggleStapleVariables {
   id: string
   currentIsStaple: boolean
+  /** The row's quantity at the tap: with an amount, the star decides its list line. */
+  quantity: number | null
 }
 
 interface SetAmountVariables {
@@ -109,6 +111,12 @@ export function PantrySection({
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, isStaple: !currentIsStaple } : item)),
       )
+    },
+    // The list skips a staple unless it ran out (HON-1398), and an ordinary
+    // row at 0 or below the need has a line, so the star adds or removes one:
+    // re-read the list. A "have some" row (null) has no line either way.
+    onSuccess: (_data, { quantity }) => {
+      if (quantity !== null) onPantryQuantityChanged?.()
     },
     onError: (_error, { id, currentIsStaple }) => {
       onItemsChange((prev) =>
@@ -332,7 +340,11 @@ export function PantrySection({
   })
 
   const handleToggleStaple = (id: string, currentIsStaple: boolean) =>
-    toggleStapleMutation.mutate({ id, currentIsStaple })
+    toggleStapleMutation.mutate({
+      id,
+      currentIsStaple,
+      quantity: items.find((item) => item.id === id)?.quantity ?? null,
+    })
 
   const handleRemove = (item: PantryItemData) => removeMutation.mutate(item)
 
