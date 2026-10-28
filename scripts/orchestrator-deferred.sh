@@ -20,7 +20,8 @@
 # One entry per deferred worker, fields joined by DEFERRED_FS. Field 0 is the
 # kind (network | probe | linear) and field 1 the issue ID. Then:
 #   network, probe: reason (clean | timeout | error), uuid, branch, log file,
-#                   retried, title, exit code, duration in seconds
+#                   retried, title, exit code, duration in seconds, finishing
+#                   (WORKER_FINISHING), first deferred at (epoch)
 #   linear:         the failed steps (comment label queue), then the twelve
 #                   record_stranded arguments
 DEFERRED=()
@@ -34,6 +35,17 @@ NETWORK_CRASH=false
 # WORKER_*, so worker_duration_secs reads REPLAY_DURATION_SECS instead.
 REPLAYING=false
 REPLAY_DURATION_SECS=""
+REPLAY_DEFERRED_AT=""
+# WORKER_FINISHING of the outcome in hand: set by monitor_workers for a live
+# worker and by replay_deferred, so a network respawn of a finish attempt is
+# still one when a force stop drains it (HON-1077).
+OUTCOME_FINISHING=0
+# How long an outcome may wait for gh, in seconds. Past it, or with no gh at
+# all, waiting proves nothing: the outcome is recorded without the PR lookup,
+# as before HON-1414, so a gh that stays signed out cannot hold a worker slot
+# for good. 30 minutes is the longest wait `wt auto` spends on the Claude API
+# (WT_AUTO_NETWORK_WAIT).
+DEFER_MAX_AGE="${ORCHESTRATOR_DEFER_MAX_AGE:-1800}"
 # The Linear writes of a recorded strand that failed, as step names. Appended
 # by record_stranded, try_add_label, restore_queue_if_in_progress and
 # move_issue_unassigned; cleared and read only by strand_worker and the linear
@@ -49,6 +61,10 @@ worker_hit_network_crash() {
   local log_file="$1"
   [ -n "$log_file" ] && [ -f "$log_file" ] || return 1
   grep -qE "$NETWORK_CRASH_RE" <<<"$(tail -n 5 "$log_file" 2>/dev/null)"
+}
+
+gh_installed() {
+  command -v gh > /dev/null 2>&1
 }
 
 deferred_entry() {
@@ -70,11 +86,23 @@ defer_outcome() {
     kind=network
   fi
 
+  local now deferred_at
+  now=$(date +%s)
+  deferred_at="$now"
+  [ "$REPLAYING" = true ] && deferred_at="${REPLAY_DEFERRED_AT:-$now}"
+  # A network crash is always deferred once, so its replay waits a poll.
+  if [ "$WORKER_PR_PROBE_OK" != true ] && { [ "$kind" = probe ] || [ "$REPLAYING" = true ]; } &&
+     { ! gh_installed || { [ "$REPLAYING" = true ] && [ $((now - deferred_at)) -ge "$DEFER_MAX_AGE" ]; }; }; then
+    log WARN "[DEFERRED] $issue_id: gh is missing or has not answered for ${DEFER_MAX_AGE}s — recording the outcome without the PR lookup"
+    [ "$kind" = network ] && NETWORK_CRASH=true
+    return 1
+  fi
+
   # A network crash waits even when gh answered at once: the worker could not
   # reach the API, and a respawn now would likely die the same way.
   if [ "$WORKER_PR_PROBE_OK" != true ] || { [ "$kind" = network ] && [ "$REPLAYING" != true ]; }; then
     DEFERRED+=("$(deferred_entry "$kind" "$issue_id" "$reason" "$issue_uuid" "$branch" "$log_file" \
-      "$retried" "$title" "$exit_code" "$secs")")
+      "$retried" "$title" "$exit_code" "$secs" "${OUTCOME_FINISHING:-0}" "$deferred_at")")
     local why="the PR lookup failed"
     [ "$kind" = network ] && why="the worker lost the network"
     log WARN "[DEFERRED] $issue_id: $why — the outcome waits for a poll that reaches Linear and GitHub; worktree kept"
@@ -145,7 +173,7 @@ network_respawn() {
     "$(printf '%s\n' \
       "Retry context: the previous attempt stopped in phase $phase after $duration_str with $commits commit(s), because the network dropped (the API server could not be reached)." \
       "$pr_note" "$patch_note" \
-      "Continue the cycle from where it stopped.")" "0"
+      "Continue the cycle from where it stopped.")" "${OUTCOME_FINISHING:-0}"
   return 0
 }
 
@@ -186,6 +214,8 @@ replay_deferred() {
   LAST_OUTCOME_COMMITS=""
   REPLAYING=true
   REPLAY_DURATION_SECS="$secs"
+  OUTCOME_FINISHING="${fields[10]:-0}"
+  REPLAY_DEFERRED_AT="${fields[11]:-}"
   case "$reason" in
     clean) handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" ;;
     timeout) handle_timeout "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$secs" ;;
@@ -193,6 +223,8 @@ replay_deferred() {
   esac
   REPLAYING=false
   REPLAY_DURATION_SECS=""
+  REPLAY_DEFERRED_AT=""
+  OUTCOME_FINISHING=0
   NETWORK_CRASH=false
   check_lost_branch "$issue_id" "$branch" "$LAST_OUTCOME" "$LAST_OUTCOME_COMMITS"
   return 0

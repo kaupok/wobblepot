@@ -578,6 +578,7 @@ case "$MODE" in
     fi
     detect_phase() { echo "$PHASE"; }
     pr_ci_state() { echo "$CI_STATE"; }
+    gh_installed() { :; }  # ERROR is a gh that is installed but fails (HON-1414)
 
     # Seeded from the environment so record_success's clear of the cap
     # suppression list is observable on a shipping run (HON-616).

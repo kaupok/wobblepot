@@ -1025,6 +1025,7 @@ monitor_workers() {
     local finished=false
     LAST_OUTCOME=""
     LAST_OUTCOME_COMMITS=""
+    OUTCOME_FINISHING="${WORKER_FINISHING[$i]:-0}"
     local issue_id="${WORKER_ISSUES[$i]}"
     local issue_uuid="${WORKER_ISSUE_UUIDS[$i]}"
     local branch="${WORKER_BRANCHES[$i]}"
@@ -2088,7 +2089,7 @@ handle_error_exit() {
   fi
   defer_outcome error "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code" "$duration_secs" \
     && return 0
-  if [ "${commits:-0}" -eq 0 ] && [ -z "$WORKER_PR_NUMBER" ]; then
+  if [ "${commits:-0}" -eq 0 ] && [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi

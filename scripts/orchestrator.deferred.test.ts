@@ -191,6 +191,86 @@ describe('deferred outcomes (HON-1414)', () => {
     })
   })
 
+  // A missing or signed-out gh is not an outage: waiting for it would hold a
+  // worker slot for good and stop all spawning.
+  describe('a gh that does not come back', () => {
+    it('records the outcome at once, as before, when gh is not installed', () => {
+      const out = polls({ HARNESS_GH_MISSING: '1', HARNESS_RETRIED: '1' }, 'error', 3, 'ERROR')
+
+      expect(out).toContain('POLL:1:0:[]')
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('LABEL:Stranded')
+      expect(out).not.toContain('CLEANUP:')
+    })
+
+    it.each(['clean', 'timeout', 'error'] as Reason[])(
+      'records a %s outcome once gh has not answered for DEFER_MAX_AGE',
+      (reason) => {
+        const out = polls(
+          { HARNESS_DEFER_MAX_AGE: '0', HARNESS_RETRIED: '1' },
+          reason,
+          3,
+          'ERROR',
+          'ERROR',
+        )
+
+        expect(out).toContain('POLL:1:1:')
+        expect(out).toContain('has not answered for 0s')
+        expect(out).toContain('POLL:2:0:[]')
+        expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+        expect(out).not.toContain('CLEANUP:')
+        expect(out).not.toContain('HANDLE_FAILURE')
+      },
+    )
+
+    it('never sends a 0-commit run to the destructive triage without an answer from gh', () => {
+      const out = polls({ HARNESS_DEFER_MAX_AGE: '0' }, 'error', 0, 'ERROR', 'ERROR')
+
+      expect(out).toContain('POLL:2:0:[]')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).not.toContain('CLEANUP:')
+    })
+
+    it('records a network crash without gh outside the circuit breaker', () => {
+      const out = polls(
+        { ...NETWORK, HARNESS_GH_MISSING: '1', HARNESS_RETRIED: '1' },
+        'error',
+        3,
+        'ERROR',
+        'ERROR',
+      )
+
+      // The network crash still waits one poll before it is recorded.
+      expect(out).toContain('POLL:1:1:[{"issue":"HON-999","kind":"network"}]')
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).not.toContain('triage=RESPAWN')
+      expect(out.match(/CONSECUTIVE_FAILURES:\d+/g)).toEqual([
+        'CONSECUTIVE_FAILURES:0',
+        'CONSECUTIVE_FAILURES:0',
+      ])
+    })
+  })
+
+  describe('a finish attempt that lost the network', () => {
+    it('respawns as a finish attempt, so a force stop records its strand', () => {
+      const out = polls(
+        { ...NETWORK, HARNESS_RETRIED: '1', HARNESS_FINISHING: '1' },
+        'error',
+        3,
+        'ERROR',
+        'OPEN',
+      )
+
+      expect(out).toContain('triage=RESPAWN')
+      expect(out).toContain('WORKER_RETRIED:1')
+      expect(out).toContain('WORKER_FINISHING:1')
+    })
+
+    it('respawns an ordinary run as an ordinary run', () => {
+      expect(polls(NETWORK, 'error', 3, 'ERROR', 'OPEN')).toContain('WORKER_FINISHING:0')
+    })
+  })
+
   describe('uncommitted work', () => {
     const dirs: string[] = []
     afterEach(() => {

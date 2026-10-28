@@ -26,6 +26,9 @@
 #       HARNESS_LINEAR_DOWN        polls (comma list) whose `{ viewer }` fails
 #       HARNESS_NETWORK_RESPAWNED  seeds NETWORK_RESPAWNED
 #       HARNESS_SHUTTING_DOWN      seeds SHUTTING_DOWN
+#       HARNESS_GH_MISSING         1: gh is not installed
+#       HARNESS_DEFER_MAX_AGE      DEFER_MAX_AGE; 0 records on the first replay
+#       HARNESS_FINISHING          the ended worker was a finish attempt
 #
 #   restore-queue <state read: ok | fail> <move: ok | fail>
 #     The REAL restore_queue_if_in_progress and move_issue_unassigned, with the
@@ -155,6 +158,9 @@ case "$MODE" in
     get_worktree_path() { echo "${HARNESS_WT_PATH:-/nonexistent/orchestrator-deferred-worktree}"; }
 
     SHUTTING_DOWN="${HARNESS_SHUTTING_DOWN:-false}"
+    if [ -n "${HARNESS_GH_MISSING:-}" ]; then gh_installed() { return 1; }; else gh_installed() { :; }; fi
+    DEFER_MAX_AGE="${HARNESS_DEFER_MAX_AGE:-1800}"
+    OUTCOME_FINISHING="${HARNESS_FINISHING:-0}"
     NETWORK_RESPAWNED="${HARNESS_NETWORK_RESPAWNED:-}"
     RETRIED="${HARNESS_RETRIED:-0}"
     mkdir -p "$SPAWN_DIR/repo" "$SPAWN_DIR/scripts" "$SPAWN_DIR/logs" "$SPAWN_DIR/calls"
@@ -209,6 +215,7 @@ EOF
       n=$((n + 1))
     done
     echo "WORKER_RETRIED:${WORKER_RETRIED[*]}" >> "$MAIN_LOG"
+    echo "WORKER_FINISHING:${WORKER_FINISHING[*]}" >> "$MAIN_LOG"
     exit 0
     ;;
 esac
