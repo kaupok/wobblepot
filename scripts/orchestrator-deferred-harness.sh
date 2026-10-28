@@ -27,6 +27,11 @@
 #       HARNESS_NETWORK_RESPAWNED  seeds NETWORK_RESPAWNED
 #       HARNESS_SHUTTING_DOWN      seeds SHUTTING_DOWN
 #
+#   restore-queue <state read: ok | fail> <move: ok | fail>
+#     The REAL restore_queue_if_in_progress and move_issue_unassigned, with the
+#     Linear API stubbed to answer In Progress, or to fail, per argument. Prints
+#     LINEAR_WRITES_FAILED.
+#
 #   reload
 #     Seeds DEFERRED with entries that hold empty fields, runs the REAL
 #     export_deferred_state and restore_deferred_state, and prints each entry
@@ -55,6 +60,23 @@ bracket() {
 }
 
 case "$MODE" in
+  restore-queue)
+    READ="${ARGS[0]}"; MOVE="${ARGS[1]}"
+    linear_api() {
+      case "$1" in
+        *issueUpdate*) [ "$MOVE" = ok ] || return 1 ;;
+        *) [ "$READ" = ok ] || return 1
+           echo "{\"data\":{\"issue\":{\"state\":{\"id\":\"$STATE_IN_PROGRESS\"}}}}"
+           return 0 ;;
+      esac
+      echo '{"data":{}}'
+    }
+    LINEAR_WRITES_FAILED=""
+    restore_queue_if_in_progress uuid-999 HON-999
+    echo "LINEAR_WRITES_FAILED:[${LINEAR_WRITES_FAILED}]"
+    exit 0
+    ;;
+
   reload)
     DEFERRED=(
       "$(deferred_entry network HON-1 error uuid-1 branch-1 /logs/w1.log 0 "Title one" 1 60)"

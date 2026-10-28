@@ -300,6 +300,20 @@ describe('deferred outcomes (HON-1414)', () => {
       expect(out.indexOf('LABEL:Stranded')).toBeGreaterThan(out.indexOf('POLL:1:'))
     })
 
+    it.each([
+      ['the state read fails', 'fail', 'ok', '[ queue]'],
+      ['the move to Queued fails', 'ok', 'fail', '[ queue]'],
+      ['both answer', 'ok', 'ok', '[]'],
+    ])('marks the return to Queued for a retry when %s', (_name, read, move, failed) => {
+      const out = execFileSync('bash', [deferredHarness, 'restore-queue', read, move], {
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: harnessEnv(),
+      })
+
+      expect(out).toContain(`LINEAR_WRITES_FAILED:${failed}`)
+    })
+
     it('keeps the write deferred while the comment keeps failing', () => {
       const out = polls(
         { HARNESS_RETRIED: '1', HARNESS_COMMENT_FAILS: '2' },
@@ -349,6 +363,21 @@ describe('deferred outcomes (HON-1414)', () => {
       expect(after).toEqual(before)
       expect(out).toContain('RESPAWNED:HON-7')
       expect(out).toContain('LEFT_IN_ENV:unset')
+    })
+
+    // A replay in the poll that deferred the outcome would respawn a network
+    // crash at once, while the API is likely still down.
+    it('replays before monitor_workers, so a deferral waits a full poll', () => {
+      const source = fs.readFileSync(path.join(scriptsDir, 'orchestrator.sh'), 'utf8')
+      const main = shellFunctionBody(source, 'main')
+      const calls = main.match(/^\s*(process_deferred|monitor_workers)$/gm)?.map((l) => l.trim())
+
+      expect(calls).toEqual([
+        'process_deferred',
+        'monitor_workers',
+        'process_deferred',
+        'monitor_workers',
+      ])
     })
 
     it('replays on every poll, in the shutdown wait too', () => {

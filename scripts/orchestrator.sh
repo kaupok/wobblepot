@@ -2753,7 +2753,11 @@ move_issue_unassigned() {
   linear_api \
     'mutation($id: String!, $stateId: String!) {
       issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null }) { success }
-    }' "$vars" > /dev/null 2>&1 || log WARN "Failed to move $issue_id to $state_label"
+    }' "$vars" > /dev/null 2>&1 || {
+    log WARN "Failed to move $issue_id to $state_label"
+    # Read only by the strand path, where this move is the return to Queued.
+    LINEAR_WRITES_FAILED+=" queue"
+  }
 }
 
 # ─── Label management (best-effort) ─────────────────────────────────────────
@@ -3622,13 +3626,19 @@ main() {
         log INFO "═══ Orchestrator stopped ═══"
         exit 0
       fi
-      monitor_workers
       process_deferred
+      monitor_workers
       drain_if_forced
       write_status_file
       [ ${#WORKER_PIDS[@]} -gt 0 ] && interruptible_sleep "$SHUTDOWN_POLL_INTERVAL"
       continue
     fi
+
+    # Outcomes that waited for GitHub and Linear (HON-1414). Every poll, not
+    # only in the spawn gate, because the slots or the breaker can keep the
+    # gate shut. Before monitor_workers, so an outcome deferred on this poll
+    # waits a full poll interval before its replay.
+    process_deferred
 
     # Monitor running workers
     if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
@@ -3636,10 +3646,6 @@ main() {
       drain_if_forced
       report_worker_status
     fi
-    # Outcomes that waited for GitHub and Linear (HON-1414). Every poll, not
-    # only in the spawn gate, because the slots or the breaker can keep the
-    # gate shut.
-    process_deferred
 
     # Before the spawn gate: an idle poll is the one point where the process
     # may replace itself with the code on disk, and with workers running this

@@ -35,8 +35,9 @@ NETWORK_CRASH=false
 REPLAYING=false
 REPLAY_DURATION_SECS=""
 # The Linear writes of a recorded strand that failed, as step names. Appended
-# by record_stranded, try_add_label and restore_queue_if_in_progress; cleared
-# and read only by strand_worker and the linear replay.
+# by record_stranded, try_add_label, restore_queue_if_in_progress and
+# move_issue_unassigned; cleared and read only by strand_worker and the linear
+# replay.
 LINEAR_WRITES_FAILED=""
 
 # The marker HON-1413's wt_auto_network_drop (worktree-auto-run.sh) matches, in
@@ -197,8 +198,9 @@ replay_deferred() {
   return 0
 }
 
-# Once per poll, after monitor_workers. A cheap Linear query stands in for "the
-# network is back"; gh is asked by each replay's own probe.
+# Once per poll, before monitor_workers, so an outcome is never replayed on the
+# poll that deferred it. A cheap Linear query stands in for "the network is
+# back"; gh is asked by each replay's own probe.
 process_deferred() {
   [ ${#DEFERRED[@]} -gt 0 ] || return 0
   if ! linear_api '{ viewer { id } }' > /dev/null 2>&1; then
