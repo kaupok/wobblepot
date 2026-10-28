@@ -6,7 +6,7 @@ import {
   listHouseholdIngredients,
   updateHouseholdIngredient,
 } from '@/lib/ingredients/manage'
-import { createHouseholdMeal } from '@/lib/household-meals'
+import { createHouseholdMeal, deleteHouseholdMeal } from '@/lib/household-meals'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1264).
@@ -53,6 +53,14 @@ const mealWith = (householdId: string, ingredientId: string, name = 'Lovage soup
     servings: 2,
     components: [{ ingredientId, totalQuantity: 400 }],
   })
+
+/** A meal plan entry that uses the meal, as a past plan keeps it after the recipe is deleted. */
+async function planEntryFor(householdId: string, mealId: string) {
+  const plan = await prisma.mealPlan.create({ data: { householdId } })
+  await prisma.mealPlanEntry.create({
+    data: { planId: plan.id, mealId, date: new Date('2026-10-20'), mealType: 'dinner' },
+  })
+}
 
 describe('listHouseholdIngredients', () => {
   it("lists the household's rows by name, and no global or other household's row", async () => {
@@ -207,8 +215,23 @@ describe('updateHouseholdIngredient', () => {
 
     expect(result).toEqual({
       status: 'unit_locked',
-      uses: { meals: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
     })
+  })
+
+  it('keeps the unit locked while a deleted recipe uses the row, so a restore stays valid', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    const result = await updateHouseholdIngredient(alder, 'en', row.id, {
+      ...lovage,
+      defaultUnit: 'piece',
+      gramsPerPiece: 20,
+    })
+
+    expect(result).toMatchObject({ status: 'unit_locked' })
   })
 
   it('allows a unit change on a row nothing uses', async () => {
@@ -359,9 +382,49 @@ describe('deleteHouseholdIngredient', () => {
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
       status: 'in_use',
-      uses: { meals: 1, pantry: 1, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 1, shoppingList: 0, mealPlan: 0, extras: 0 },
     })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
+  })
+
+  it('deletes a row only a deleted recipe with no plan entry uses, with its component', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({ status: 'deleted' })
+    expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).toBeNull()
+    expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(0)
+  })
+
+  it('refuses a row a deleted recipe in the meal plan uses, counted apart from recipes', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await planEntryFor(alder, meal.id)
+    await deleteHouseholdMeal(alder, meal.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
+      status: 'in_use',
+      uses: { meals: 0, deletedMealsInPlan: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+    })
+    expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
+    expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(1)
+  })
+
+  it("refuses a row a live recipe uses, and keeps a deleted recipe's component too", async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    await mealWith(alder, row.id)
+    const gone = await mealWith(alder, row.id, 'Lovage pie')
+    await deleteHouseholdMeal(alder, gone.id)
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
+      status: 'in_use',
+      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+    })
+    expect(await prisma.mealComponent.count({ where: { mealId: gone.id } })).toBe(1)
   })
 
   it("returns not_found for another household's row and for a global row", async () => {
