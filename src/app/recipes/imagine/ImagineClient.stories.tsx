@@ -186,6 +186,29 @@ export const Generating: Story = {
   },
 }
 
+export const CancelWhileGenerating: Story = {
+  parameters: {
+    msw: { handlers: imaginePending },
+    docs: {
+      description: {
+        story:
+          'Cancel pressed while ideas load — the run stops and Cancel unmounts, so focus moves to the prompt field, not to the page (HON-1373).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const prompt = canvas.getByRole('textbox')
+    await userEvent.type(prompt, 'something with lentils')
+    await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
+    await userEvent.click(await canvas.findByRole('button', { name: /^cancel$/i }))
+
+    await expect(canvas.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
+    await expect(prompt).toHaveFocus()
+    await expect(prompt).not.toHaveAttribute('aria-disabled')
+  },
+}
+
 export const WithResults: Story = {
   parameters: {
     msw: { handlers: imagineSuccess },
