@@ -234,10 +234,11 @@ RELOAD_REJECTED_FINGERPRINT=""
 RELOAD_HELD_FINGERPRINT=""
 RELOAD_PENDING=false
 # Checkout freshness (HON-861). Pulling the main checkout is what makes the
-# reload above fire, and nothing else pulls it, so each poll checks whether
-# origin/main has orchestrator code the checkout lacks, fetching at most every
-# CHECKOUT_CHECK_INTERVAL seconds into CHECKOUT_ORIGIN_REF. CHECKOUT_WARNED_SHA
-# is the origin/main the WARN last named: one WARN per SHA, not one per poll.
+# reload above fire, so each poll checks whether origin/main is ahead of the
+# checkout, fetching at most every CHECKOUT_CHECK_INTERVAL seconds into
+# CHECKOUT_ORIGIN_REF, and fast-forwards it when that is safe (HON-1427).
+# CHECKOUT_WARNED_SHA is the origin/main the WARN last named: one WARN per SHA,
+# not one per poll.
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 # What runs out of the main checkout: this script, the worktree-claude.sh it
@@ -1688,6 +1689,9 @@ record_success() {
 
   log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
   note_outcome SUCCESS "$commits"
+  # A run that shipped usually merged to main: fetch on this loop pass, not up
+  # to CHECKOUT_CHECK_INTERVAL later, so the checkout gets its code (HON-1427).
+  CHECKOUT_LAST_CHECK=0
   notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
 
   # Track success for --once exit code
@@ -3416,19 +3420,55 @@ wait_for_environment() {
   done
 }
 
-# Warn when origin/main has orchestrator code the checkout lacks (CHECKOUT_CODE_PATHS). The reload
-# above only sees what is on disk, and the orchestrator and `wt` both run from
-# this checkout, so until someone pulls, a merged fix reaches neither the
-# orchestrator nor the workers it spawns. It never pulls: this checkout is also
-# a human's working directory.
+# Why check_checkout_behind must not fast-forward the checkout; prints nothing
+# when it may. Each reason is a session's work in progress there, which a pull
+# would mix origin/main into. An untracked file the merge would overwrite is
+# not checked here: the merge itself refuses, and its error is the reason.
+checkout_pull_blocker() {
+  local branch dirty ahead git_dir marker
+  branch=$(git -C "$REPO_ROOT" symbolic-ref --short --quiet HEAD 2>/dev/null)
+  [ -z "$branch" ] && { echo "the checkout has a detached HEAD"; return 0; }
+  [ "$branch" != main ] && { echo "the checkout is on branch $branch"; return 0; }
+  dirty=$(git -C "$REPO_ROOT" --no-optional-locks status --porcelain --untracked-files=no 2>/dev/null) \
+    || { echo "git status failed"; return 0; }
+  if [ -n "$dirty" ]; then
+    # Five names keep the WARN one readable line.
+    echo "uncommitted changes in $(printf '%s\n' "$dirty" | awk 'NR <= 5 { printf "%s%s", (NR > 1 ? ", " : ""), substr($0, 4) } END { if (NR > 5) printf " and %d more", NR - 5 }')"
+    return 0
+  fi
+  ahead=$(git -C "$REPO_ROOT" rev-list --count "$CHECKOUT_ORIGIN_REF..HEAD" 2>/dev/null) \
+    || { echo "git rev-list failed"; return 0; }
+  [ "$ahead" = 1 ] && { echo "1 local commit"; return 0; }
+  [ "$ahead" != 0 ] && { echo "$ahead local commits"; return 0; }
+  git_dir=$(git -C "$REPO_ROOT" rev-parse --absolute-git-dir 2>/dev/null) \
+    || { echo "git rev-parse failed"; return 0; }
+  for marker in MERGE_HEAD:merge rebase-merge:rebase rebase-apply:rebase \
+      CHERRY_PICK_HEAD:cherry-pick REVERT_HEAD:revert BISECT_LOG:bisect; do
+    [ -e "$git_dir/${marker%%:*}" ] && { echo "a ${marker#*:} is in progress"; return 0; }
+  done
+  return 0
+}
+
+# Fast-forward the checkout when origin/main is ahead of it, and warn when that
+# is not safe and origin/main has orchestrator code the checkout lacks
+# (CHECKOUT_CODE_PATHS). The reload above only sees what is on disk, and the
+# orchestrator and `wt` both run from this checkout, so until it is pulled, a
+# merged fix reaches neither the orchestrator nor the workers it spawns. Any
+# commit counts for the pull, not only code: sessions that read in the checkout
+# need current docs and skills. A running worker is safe: git writes each
+# changed file as a new inode, so its bash reads the old file to the end.
+#
+# The checkout is for reading and planning only (CLAUDE.md, and
+# guard-main-checkout.mts blocks edits there), so a reason checkout_pull_blocker
+# finds is a session mid-way through something; the pull waits for it to clear.
 #
 # The fetch goes into a ref of its own, CHECKOUT_ORIGIN_REF, with --refmap= so
 # git does not also update refs/remotes/origin/main: workers fetch that ref into
 # the same .git, and two fetches updating it at once fight over its lock. That
 # makes the check safe with workers running, which is when it matters — a busy
 # queue may not go idle for hours. The fetch runs at most every
-# CHECKOUT_CHECK_INTERVAL seconds; the counts are recomputed from the local ref
-# on every poll, so a pull clears the notice on the next one.
+# CHECKOUT_CHECK_INTERVAL seconds; the counts and the pull run from the local
+# ref on every poll, so a reason that clears is pulled on the next one.
 #
 # One WARN per origin/main SHA; the state goes into the status file for
 # `wt status` and `wt watch`, which a log line alone would not reach — `wt
@@ -3463,6 +3503,25 @@ check_checkout_behind() {
   behind_code=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" -- "${CHECKOUT_CODE_PATHS[@]}" 2>/dev/null) || return 0
   [[ "$behind" =~ ^[0-9]+$ ]] && [[ "$behind_code" =~ ^[0-9]+$ ]] || return 0
 
+  local blocker="" err="" rc=0
+  if [ "$behind" -gt 0 ]; then
+    blocker=$(checkout_pull_blocker)
+    if [ -z "$blocker" ]; then
+      # Merges the orchestrator's own ref, so refs/remotes/origin/main, which
+      # workers fetch, has no second writer here either.
+      err=$(run_with_timeout 30 git -C "$REPO_ROOT" -c gc.auto=0 -c maintenance.auto=false \
+        merge --ff-only --quiet "$CHECKOUT_ORIGIN_REF" 2>&1 >/dev/null) || rc=$?
+      if [ "$rc" -eq 0 ]; then
+        log INFO "Fast-forwarded the checkout to ${origin_sha:0:8} ($behind commit(s), $behind_code to orchestrator code)"
+        behind=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" 2>/dev/null) || return 0
+        behind_code=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" -- "${CHECKOUT_CODE_PATHS[@]}" 2>/dev/null) || return 0
+      else
+        err="${err%%$'\n'*}"
+        blocker="git merge --ff-only failed: ${err:-exit $rc}"
+      fi
+    fi
+  fi
+
   if [ "$behind_code" -eq 0 ]; then
     CHECKOUT_BEHIND=0
     CHECKOUT_BEHIND_CODE=0
@@ -3475,7 +3534,7 @@ check_checkout_behind() {
   CHECKOUT_ORIGIN_SHA="${origin_sha:0:8}"
   if [ "$origin_sha" != "$CHECKOUT_WARNED_SHA" ]; then
     CHECKOUT_WARNED_SHA="$origin_sha"
-    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Pull $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
+    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Not pulled: $blocker. Clear that, and the next poll pulls $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
   fi
   return 0
 }
