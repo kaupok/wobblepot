@@ -6,8 +6,9 @@ import type { PreparationSteps } from './types'
 
 /**
  * The cook view's ask field at 390px, in the real modal (HON-1377): a step's
- * indent leaves the Estonian field 173px for text, so each placeholder must
- * fit there. "Küsi selle sammu kohta" (172px) fit with no room to spare.
+ * indent leaves the Estonian field 173px for text here, and 151px on
+ * `pnpm review:local`, where the issue found the old "Küsi selle sammu kohta"
+ * (172px) cut off. So each placeholder must fit the narrower of the two.
  * `MealDetailModal.stories.tsx` is at its file-size cap, so these live here.
  */
 
@@ -44,10 +45,13 @@ type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
 
+/** The narrowest content box the issue measured for the field at 390px. */
+const NARROWEST_FIELD = 151
+
 /**
  * The field's placeholder shows in full: its text, in the field's font, is no
- * wider than the field's content box. `scrollWidth` does not see a
- * placeholder, so this measures it on a canvas.
+ * wider than the field's content box, nor than `NARROWEST_FIELD`.
+ * `scrollWidth` does not see a placeholder, so this measures it on a canvas.
  */
 async function expectPlaceholderFits(field: HTMLInputElement, placeholder: string) {
   await expect(field).toHaveAttribute('placeholder', placeholder)
@@ -57,7 +61,9 @@ async function expectPlaceholderFits(field: HTMLInputElement, placeholder: strin
   ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
   ctx.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing
   const inner = field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-  await expect(ctx.measureText(placeholder).width).toBeLessThanOrEqual(inner)
+  await expect(ctx.measureText(placeholder).width).toBeLessThanOrEqual(
+    Math.min(inner, NARROWEST_FIELD),
+  )
 }
 
 /** Open a row's panel with "Ask your own question", then check its field. */
