@@ -10,8 +10,9 @@
 # (neon_gc_orphan_names), so they cannot drift apart.
 #
 # A branch is dead when, with the gate E2E_GC_MIN_AGE_HOURS (default 2):
-#   - its <host> is this host and no process <pid> runs e2e-local.sh, at any
-#     age. A pid that another program now holds counts as dead;
+#   - its <host> is this host's tag and no process <pid> runs e2e-local.sh, at
+#     any age. A pid that another program now holds counts as dead; a ps that
+#     cannot run keeps the branch;
 #   - it has the old `e2e-local-<date>-<time>-<pid>` name and its created_at is
 #     at least the gate's hours ago. Not updated_at: Neon moves that on compute
 #     activity, so a dead branch looks young;
@@ -31,17 +32,20 @@ e2e_iso_to_epoch() {
   date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' "$ts" +%s 2>/dev/null || echo 0
 }
 
-# This host's tag in a branch name: `hostname -s`, lower-case, [a-z0-9] only
-# (no `-`, so the name splits into its fields), at most 12 characters. A longer
-# name keeps 6 and adds 6 digits of a checksum of the whole: a plain cut made
-# Kaupos-MacBook-Pro and Kaupos-MacBook-Air one tag.
+# This host's tag in a branch name: 6 characters of `hostname -s` (lower-case,
+# [a-z0-9] only, so the name splits on `-`) and a 6-digit machine id, made once
+# in ~/.config/wobblepot/e2e-host-id. A name alone is not unique: two Macs called
+# MacBook-Pro would each delete the other's live branch through the pid rule. A
+# missing id only makes this host's branches look foreign, which keeps them.
 e2e_local_host_tag() {
-  local tag
-  tag="$(hostname -s 2>/dev/null | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cd 'a-z0-9' || true)"
-  if [ "${#tag}" -gt 12 ]; then
-    tag="${tag:0:6}$(printf '%s' "$tag" | cksum | awk '{ printf "%06d", $1 % 1000000 }')"
+  local host id="" file="${HOME:-}/.config/wobblepot/e2e-host-id"
+  host="$(hostname -s 2>/dev/null | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cd 'a-z0-9' || true)"
+  if [ -n "${HOME:-}" ]; then
+    [ -s "$file" ] || { mkdir -p "${file%/*}" && printf '%06d\n' $(( (RANDOM * 32768 + RANDOM) % 1000000 )) > "$file"; } 2>/dev/null || true
+    id="$(LC_ALL=C tr -cd '0-9' 2>/dev/null < "$file" || true)"
   fi
-  echo "${tag:-host}"
+  [[ "$id" =~ ^[0-9]{6}$ ]] || id="$(printf '%06d' $(( (RANDOM * 32768 + RANDOM) % 1000000 )))"
+  echo "${host:0:6}${id}"
 }
 
 # True when ISO-8601 time $1 parses and is at least $2 hours ago.
@@ -61,6 +65,8 @@ e2e_local_branch_dead() {
       # Captured, not piped into `grep -q`: under pipefail an early grep exit
       # can fail ps with SIGPIPE, and a live run would read as dead.
       cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+      # A ps that cannot see this shell cannot prove the pid gone: keep it.
+      [ -n "$(ps -p "$$" -o command= 2>/dev/null || true)" ] || return 1
       case "$cmd" in *e2e-local.sh*) return 1 ;; *) return 0 ;; esac
     fi
   elif [[ "$rest" =~ ^[0-9]{8}-[0-9]{6}-[0-9]+$ ]]; then

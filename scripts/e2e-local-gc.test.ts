@@ -4,8 +4,9 @@
  * Runs the real script from a scratch repo root with `pnpm`, `hostname` and
  * `ps` stubbed on PATH. The stub `pnpm` answers `branches list` with
  * `$STUB_DIR/branches.json` and logs every call, so "deleted" is an assertion
- * on that log. The stub `ps` answers for a pid only when `$STUB_DIR/ps-<pid>`
- * exists. The rule itself is tested in e2e-branch-liveness.test.ts.
+ * on that log. The stub `ps` prints `$STUB_DIR/ps-<pid>` when it exists and
+ * asks the real `ps` otherwise. HOME holds the machine id 000042, so this host's
+ * tag is `buildb000042`. The rule itself is tested in e2e-branch-liveness.test.ts.
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -24,7 +25,7 @@ case "$*" in
 esac
 `,
   hostname: '#!/bin/sh\necho buildbox\n',
-  ps: '#!/bin/sh\n[ -f "$STUB_DIR/ps-$2" ] || exit 1\ncat "$STUB_DIR/ps-$2"\n',
+  ps: '#!/bin/sh\n[ -f "$STUB_DIR/ps-$2" ] && exec cat "$STUB_DIR/ps-$2"\nexec /bin/ps "$@"\n',
 }
 
 let root: string
@@ -40,6 +41,8 @@ beforeEach(() => {
     fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
   }
   fs.writeFileSync(path.join(root, '.env'), 'NEON_API_KEY=neon-key\nNEON_PROJECT_ID=neon-project\n')
+  fs.mkdirSync(path.join(root, '.config', 'wobblepot'), { recursive: true })
+  fs.writeFileSync(path.join(root, '.config', 'wobblepot', 'e2e-host-id'), '000042\n')
   for (const [name, body] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(root, 'bin', name), body, { mode: 0o755 })
   }
@@ -85,20 +88,24 @@ describe('e2e-local.sh gc', () => {
 
   it('deletes a branch from this host whose process is gone, a minute after it was made', () => {
     const { deleted } = gc([
-      { id: 'br-1', name: 'e2e-local-buildbox-20261028-150000-4242', created_at: hoursAgo(0.02) },
+      {
+        id: 'br-1',
+        name: 'e2e-local-buildb000042-20261028-150000-4242',
+        created_at: hoursAgo(0.02),
+      },
     ])
 
-    expect(deleted).toEqual(['e2e-local-buildbox-20261028-150000-4242'])
+    expect(deleted).toEqual(['e2e-local-buildb000042-20261028-150000-4242'])
   })
 
   it("never deletes a live run's branch, however old", () => {
     fs.writeFileSync(path.join(stubDir, 'ps-4242'), 'bash scripts/e2e-local.sh serve\n')
     const { stderr, deleted } = gc([
-      { id: 'br-1', name: 'e2e-local-buildbox-20261028-010000-4242', created_at: hoursAgo(14) },
+      { id: 'br-1', name: 'e2e-local-buildb000042-20261028-010000-4242', created_at: hoursAgo(14) },
     ])
 
     expect(deleted).toEqual([])
-    expect(stderr).toContain("GC: keeping 'e2e-local-buildbox-20261028-010000-4242'")
+    expect(stderr).toContain("GC: keeping 'e2e-local-buildb000042-20261028-010000-4242'")
   })
 
   it("keeps another host's review server that Neon saw active a minute ago", () => {
