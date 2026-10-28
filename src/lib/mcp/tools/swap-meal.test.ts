@@ -27,6 +27,14 @@ vi.mock('@/lib/household/excluded-ingredients', () => ({
     Promise.resolve(tags.includes('cilantro') ? ['ing-cilantro'] : []),
   ),
 }))
+// A chosen meal takes `plan_meal`'s check, not the suggestion pool (HON-1392);
+// `swap-meal.db.test.ts` runs both for real.
+vi.mock('@/lib/meal-planning/meal-allowed-for-slot', () => ({
+  isMealAllowedForSlot: vi.fn(),
+}))
+vi.mock('@/lib/meal-plans/last-planned', () => ({
+  findLastPlannedDate: vi.fn(),
+}))
 vi.mock('@/lib/meal-planning/pantry', () => ({
   getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
 }))
@@ -40,6 +48,8 @@ vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
 import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
+import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
+import { findLastPlannedDate } from '@/lib/meal-plans/last-planned'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
@@ -72,6 +82,8 @@ const MEALS: Record<string, { name: string; timeMinutes: number; kidFriendly: bo
   'meal-curry': { name: 'Chickpea curry', timeMinutes: 40, kidFriendly: false },
   'meal-soup': { name: 'Lentil soup', timeMinutes: 35, kidFriendly: true },
   'meal-salad': { name: 'Salmon salad', timeMinutes: 15, kidFriendly: false },
+  // Planned recently, so not in the pool.
+  'meal-recent': { name: 'Oven trout', timeMinutes: 30, kidFriendly: true },
 }
 
 function candidate(id: string, overrides: Record<string, unknown> = {}) {
@@ -124,6 +136,8 @@ describe('swap_meal', () => {
     vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([{ mealId: 'meal-recent' }] as never)
     vi.mocked(prisma.favoriteMeal.findMany).mockResolvedValue([{ mealId: 'meal-pasta' }] as never)
     vi.mocked(getCandidates).mockResolvedValue(POOL as never)
+    vi.mocked(isMealAllowedForSlot).mockResolvedValue('allowed')
+    vi.mocked(findLastPlannedDate).mockResolvedValue(null)
     vi.mocked(prisma.meal.findMany).mockImplementation((async ({ where }: never) => {
       const ids = (where as { id: { in: string[] } }).id.in
       return ids.map((id) => ({
@@ -191,6 +205,7 @@ describe('swap_meal', () => {
       }
       expect(output.outcome).toBe('suggestions')
       expect(output.meal).toEqual({ id: 'meal-current', name: 'Fish tacos' })
+      expect(result.structuredContent).toMatchObject({ lastPlannedOn: null })
 
       const app = await suggestForSlot(household, slot() as never, 'swap', 'en')
       expect(output.suggestions.map((s) => s.id)).toEqual(app.map((s) => s.id))
@@ -253,6 +268,7 @@ describe('swap_meal', () => {
         date: DATE,
         mealType: 'dinner',
         meal: { id: 'meal-soup', name: 'Lentil soup' },
+        lastPlannedOn: null,
         suggestions: [],
       })
       // The route test's "clears the rating when the meal is swapped" asserts
@@ -292,13 +308,32 @@ describe('swap_meal', () => {
       expect(prisma.mealPlanEntry.updateManyAndReturn).toHaveBeenCalledTimes(1)
     })
 
-    it('refuses a meal the suggestions would not offer, and changes nothing', async () => {
-      // Not in the pool: an allergen, the diet, or another meal type kept it out.
+    // The pool leaves out a meal planned in the last 14 days; a household
+    // that cooks from a rotation picks one on purpose (HON-1392).
+    it('swaps to a meal planned recently, which the suggestions leave out, and says when', async () => {
+      vi.mocked(findLastPlannedDate).mockResolvedValue('2026-10-20')
+
+      const result = await call({ date: DATE, mealType: 'dinner', mealId: 'meal-recent' })
+
+      expect(result.isError).toBeFalsy()
+      expect(result.structuredContent).toMatchObject({
+        outcome: 'swapped',
+        meal: { id: 'meal-recent', name: 'Oven trout' },
+        lastPlannedOn: '2026-10-20',
+      })
+      expect(isMealAllowedForSlot).toHaveBeenCalledWith(household, 'meal-recent', 'dinner')
+      expect(findLastPlannedDate).toHaveBeenCalledWith('household-a', 'meal-recent', DATE)
+      expect(prisma.mealPlanEntry.updateManyAndReturn).toHaveBeenCalledTimes(1)
+    })
+
+    it("refuses a meal outside the household's diet, allergens or avoided ingredients, and changes nothing", async () => {
+      vi.mocked(isMealAllowedForSlot).mockResolvedValue('ruledOut')
+
       const result = await call({ date: DATE, mealType: 'dinner', mealId: 'meal-peanut-stew' })
 
       expect(result.isError).toBe(true)
       expect(result.content[0]).toMatchObject({
-        text: expect.stringContaining('Nothing was changed.'),
+        text: "This meal does not fit the household's diet, allergens or avoided ingredients. Nothing was changed.",
       })
       expect(prisma.meal.findFirst).not.toHaveBeenCalled()
       expect(prisma.mealPlanEntry.updateManyAndReturn).not.toHaveBeenCalled()

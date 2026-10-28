@@ -6,9 +6,10 @@ import { mcpHousehold } from '@/test/mcp'
 import { swapMeal } from './swap-meal'
 import { getMealPlan } from './get-meal-plan'
 
-// A swap on a past slot logs what the household ate (HON-1382). Runs against
-// PGlite through the `unit-db` project, with no mocks, so the no-repeat rule
-// and the pantry are real rows. Vitest runs in UTC, so the household does too,
+// A swap on a past slot logs what the household ate (HON-1382); from today on,
+// a chosen meal may repeat (HON-1392). Runs against PGlite through the
+// `unit-db` project, with no mocks, so the no-repeat rule and the pantry are
+// real rows. Vitest runs in UTC, so the household does too,
 // and every date is relative to the real today. The mocked
 // `swap-meal.test.ts` covers the suggestions.
 
@@ -22,28 +23,35 @@ function day(offset: number): string {
 }
 
 /**
- * Alder has a plan, a trout dinner made of the trout in its pantry, a stew
- * dinner, a lunch-only salad, and 400 g of trout in the pantry.
+ * Alder avoids peanuts. It has a plan, a trout dinner made of the trout in its
+ * pantry, a stew dinner with carrot, a soup dinner, a shared dinner with
+ * peanut butter, a lunch-only salad, and 400 g of trout in the pantry. Birch
+ * is a second household with its own dinner.
  */
 async function world() {
-  await prisma.ingredient.create({
-    data: {
-      id: 'ing-trout',
-      name: 'glimmer trout',
-      category: 'protein',
-      defaultUnit: 'g',
-      calories: 1,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-    },
-  })
+  const ingredient = (id: string, data: Record<string, unknown> = {}) =>
+    prisma.ingredient.create({
+      data: {
+        id,
+        name: `glimmer ${id}`,
+        category: 'protein',
+        defaultUnit: 'g',
+        calories: 1,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        ...data,
+      },
+    })
+  await ingredient('ing-trout')
+  await ingredient('ing-carrot', { category: 'vegetable' })
+  await ingredient('ing-peanut', { category: 'spice', allergens: ['peanuts'] })
   const alder = await prisma.household.create({
     data: {
       name: 'Alder',
       locale: 'en',
       timezone: TIMEZONE,
-      preferences: { create: {} },
+      preferences: { create: { allergensToAvoid: ['peanuts'] } },
       mealPlans: { create: { id: 'plan-alder' } },
       pantryItems: { create: { ingredientId: 'ing-trout', quantity: 400 } },
     },
@@ -57,8 +65,28 @@ async function world() {
       components: { create: [{ ingredientId: 'ing-trout', quantityPerServing: 150 }] },
     },
   })
-  await prisma.meal.create({ data: { id: 'stew', name: 'Glimmer stew', suitableFor: ['dinner'] } })
+  await prisma.meal.create({
+    data: {
+      id: 'stew',
+      name: 'Glimmer stew',
+      suitableFor: ['dinner'],
+      components: { create: [{ ingredientId: 'ing-carrot', quantityPerServing: 100 }] },
+    },
+  })
+  await prisma.meal.create({ data: { id: 'soup', name: 'Glimmer soup', suitableFor: ['dinner'] } })
+  await prisma.meal.create({
+    data: {
+      id: 'satay',
+      name: 'Glimmer satay',
+      suitableFor: ['dinner'],
+      components: { create: [{ ingredientId: 'ing-peanut', quantityPerServing: 30 }] },
+    },
+  })
   await prisma.meal.create({ data: { id: 'salad', name: 'Glimmer salad', suitableFor: ['lunch'] } })
+  const birch = await prisma.household.create({ data: { name: 'Birch' } })
+  await prisma.meal.create({
+    data: { id: 'birch-pie', name: 'Glimmer pie', suitableFor: ['dinner'], householdId: birch.id },
+  })
 
   return mcpHousehold({
     id: alder.id,
@@ -150,14 +178,78 @@ describe('swap_meal on a past slot', () => {
 })
 
 describe('swap_meal on a slot from today on', () => {
-  it('still refuses a meal outside the suggestion pool', async () => {
+  it('swaps in a dinner planned 7 days earlier, and says when', async () => {
     const household = await world()
-    const date = day(0)
-    await dinner(day(-3), 'trout', 'completed')
+    const date = day(1)
+    await dinner(day(-7), 'trout', 'completed')
+    const entry = await prisma.mealPlanEntry.create({
+      data: {
+        planId: 'plan-alder',
+        date: parseLocalDate(date),
+        mealType: 'dinner',
+        mealId: 'stew',
+        servingOverride: 6,
+        // A change made on the stew: leave out the carrot.
+        changes: { create: [{ originalIngredientId: 'ing-carrot' }] },
+      },
+    })
+
+    const result = await call(household, { date, mealType: 'dinner', mealId: 'trout' })
+
+    expect(result).toEqual({
+      outcome: 'swapped',
+      date,
+      mealType: 'dinner',
+      meal: { id: 'trout', name: 'Glimmer trout' },
+      lastPlannedOn: day(-7),
+      suggestions: [],
+    })
+    // The app's swap: servings back on the household default, and the stew's
+    // ingredient changes gone with it.
+    expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
+      mealId: 'trout',
+      status: 'planned',
+      servingOverride: null,
+    })
+    expect(await prisma.mealPlanEntryComponent.count({ where: { entryId: entry.id } })).toBe(0)
+  })
+
+  it('answers lastPlannedOn null for a meal never planned before', async () => {
+    const household = await world()
+    const date = day(1)
+    await dinner(date, 'stew')
+
+    const result = await call(household, { date, mealType: 'dinner', mealId: 'soup' })
+
+    expect(result).toMatchObject({ outcome: 'swapped', lastPlannedOn: null })
+  })
+
+  it('still leaves a dinner planned 7 days earlier out of the suggestions', async () => {
+    const household = await world()
+    const date = day(1)
+    await dinner(day(-7), 'trout', 'completed')
+    await dinner(date, 'stew')
+
+    const result = await call(household, { date, mealType: 'dinner' })
+
+    // Satay has peanuts, the stew is the meal being replaced, and the trout
+    // was planned 7 days ago: the soup is all that is left.
+    expect(result).toMatchObject({ outcome: 'suggestions', lastPlannedOn: null })
+    expect(result.suggestions.map((meal) => meal.id)).toEqual(['soup'])
+  })
+
+  it.each([
+    ['satay', "This meal does not fit the household's diet, allergens or avoided ingredients."],
+    ['salad', 'This meal is not a dinner, so it cannot be planned for dinner.'],
+    ['birch-pie', 'No meal with this id. Use list_meals to find the meal.'],
+    ['missing', 'No meal with this id. Use list_meals to find the meal.'],
+  ])('refuses %s, and changes nothing', async (mealId, message) => {
+    const household = await world()
+    const date = day(1)
     const entry = await dinner(date, 'stew')
 
-    expect(await refusal(household, { date, mealType: 'dinner', mealId: 'trout' })).toContain(
-      'Wobblepot would not suggest this meal',
+    expect(await refusal(household, { date, mealType: 'dinner', mealId })).toBe(
+      `${message} Nothing was changed.`,
     )
     expect(await prisma.mealPlanEntry.findUnique({ where: { id: entry.id } })).toMatchObject({
       mealId: 'stew',
