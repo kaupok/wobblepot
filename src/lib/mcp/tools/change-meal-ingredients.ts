@@ -27,6 +27,9 @@ import { slotInput } from './plan-slot'
 
 const NAME_MAX = 100
 
+const AMOUNT_NOTE =
+  'This tool does not change an amount, so an ingredient in alreadyInMeal keeps the amount get_meal shows. To give an added ingredient a new amount, restore it and add it again in one call.'
+
 const ingredientName = z.string().trim().min(1).max(NAME_MAX)
 const mealIngredientName = ingredientName.describe(
   'An ingredient of this meal, with the name copied from get_meal.',
@@ -47,7 +50,7 @@ export const changeMealIngredients = defineTool({
   name: 'change_meal_ingredients',
   title: 'Replace, add or leave out a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. Copy ingredient names from get_meal, and give amounts for the meal\'s servings, as get_meal shows them. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal, notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. Copy ingredient names from get_meal, and give amounts for the meal\'s servings, as get_meal shows them. It does not change an amount: an ingredient that goes back to the recipe takes the recipe\'s amount, whatever amount you send, and applied shows that amount. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal (with a note: the tool does not change an amount), notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -111,8 +114,16 @@ export const changeMealIngredients = defineTool({
             .string()
             .nullable()
             .describe('The ingredient brought in; null for a leave-out or a restore.'),
-          quantity: z.number().nullable().describe("At the meal's servings."),
+          quantity: z
+            .number()
+            .nullable()
+            .describe("The amount saved, at the meal's servings; null for a vague recipe amount."),
           unit: unitOutput.nullable(),
+          backToRecipe: z
+            .boolean()
+            .describe(
+              "True when the replacement is the recipe's own ingredient: it went back to the recipe's amount, not the amount sent.",
+            ),
         }),
       )
       .describe('Empty unless outcome is changed.'),
@@ -124,6 +135,10 @@ export const changeMealIngredients = defineTool({
     alreadyInMeal: z
       .array(z.string())
       .describe('Ingredients to bring in that the meal or another change already has.'),
+    note: z
+      .string()
+      .nullable()
+      .describe('Why alreadyInMeal is not empty, and what to do instead; null otherwise.'),
     notChanged: z
       .array(z.string())
       .describe('Names to restore that no change of this meal fits, or that fit several.'),
@@ -222,6 +237,7 @@ export const changeMealIngredients = defineTool({
       meal: { id: slot.mealId, name: slot.mealName ?? '' },
       applied: [],
       ...lists,
+      note: lists.alreadyInMeal.length > 0 ? AMOUNT_NOTE : null,
       check,
       ingredients: mealIngredients(context, household, locale),
     })
@@ -278,12 +294,26 @@ export const changeMealIngredients = defineTool({
       applied: [
         ...resolved.changes.map((proposal, i) => {
           const replacement = proposal.replacement?.matched ? proposal.replacement : null
+          // Back to the recipe's own ingredient: no row is written, so the
+          // meal has the recipe's amount, not the one sent (`rowOf`).
+          const recipe =
+            replacement && replacement.ingredient.id === proposal.originalIngredientId
+              ? context.meal.components.find((c) => c.ingredientId === replacement.ingredient.id)
+              : undefined
+          const quantity = recipe
+            ? recipe.isVague && recipe.originalPhrase
+              ? null
+              : recipe.quantityPerServing * servings
+            : replacement
+              ? replacement.quantityPerServing * servings
+              : null
           return {
             action: rows[i]!.action,
             original: proposal.original?.name ?? null,
             replacement: replacement?.ingredient.name ?? null,
-            quantity: replacement ? replacement.quantityPerServing * servings : null,
-            unit: replacement ? displayUnit(replacement.ingredient) : null,
+            quantity,
+            unit: replacement ? displayUnit(recipe?.ingredient ?? replacement.ingredient) : null,
+            backToRecipe: !!recipe,
           }
         }),
         ...[...dropped.values()].map((name) => ({
@@ -292,9 +322,11 @@ export const changeMealIngredients = defineTool({
           replacement: null,
           quantity: null,
           unit: null,
+          backToRecipe: false,
         })),
       ],
       ...lists,
+      note: null,
       check: null,
       ingredients: mealIngredients(entry, household, locale),
     }
