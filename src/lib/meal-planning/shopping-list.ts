@@ -1,11 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit, type PieceDisplay } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
-import {
-  ingredientTranslationsInclude,
-  translateIngredient,
-  type WithIngredientTranslations,
-} from '@/lib/i18n/content'
+import { translateIngredient, type WithIngredientTranslations } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { cookServingsSelect, getCookServings } from './servings'
 import { applyEntryChanges } from './entry-components'
@@ -13,6 +9,7 @@ import { loadHouseholdServings } from '@/lib/household'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 import { extraAggregationEntries } from '@/lib/day-extras/shopping'
+import { pantryShoppingLines, shoppingIngredientArgs } from './pantry-shopping-lines'
 
 /**
  * Category configuration for shopping list grouping.
@@ -52,6 +49,8 @@ export interface ShoppingListItem {
   earliestNeededDate: Date // Earliest date this ingredient is needed
   isVague: boolean // True if any component contributing to this item was vague
   originalPhrase: string | null // The vague phrase if isVague is true
+  /** A staple the household marked ran out (HON-1398). With `shoppingQuantity` 0, the line has no amount. */
+  restock?: boolean
 }
 
 /**
@@ -197,22 +196,6 @@ export function aggregateComponents(
   return needed
 }
 
-/** An ingredient as the shopping list selects it, for a component and for a change's replacement. */
-function shoppingIngredientArgs(locale: Locale) {
-  return {
-    select: {
-      id: true,
-      name: true,
-      category: true,
-      defaultUnit: true,
-      gramsPerPiece: true,
-      measuredByVolume: true,
-      pieceDisplay: true,
-      ...ingredientTranslationsInclude(locale),
-    },
-  } as const
-}
-
 /**
  * The entry's own ingredient changes (HON-1243), merged over the meal's
  * components before aggregation, so a replaced cream buys yoghurt instead.
@@ -240,11 +223,7 @@ function shoppingChangesArgs(locale: Locale) {
  * 3. Compare against pantry stock
  * 4. Return grouped list of items to buy
  *
- * Pantry logic:
- * - Staple items: Skip entirely (always in stock)
- * - quantity = null: Skip (assume sufficient stock)
- * - quantity = 0: Need full amount (ran out)
- * - quantity > 0: Calculate difference
+ * Pantry logic: `pantryShoppingLines` (a staple at 0 is a restock line)
  *
  * @param planId - The meal plan ID
  * @param householdId - The household ID for pantry lookup
@@ -315,57 +294,10 @@ export async function computeShoppingList(
     locale,
   )
 
-  // 4. Get pantry items
-  const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId },
-  })
-  const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
+  // 4. Deduct the pantry (staples, ran-out items) from the need
+  const shoppingList = await pantryShoppingLines(needed, householdId, locale, startOfToday)
 
-  // 5. Calculate shopping quantities
-  const shoppingList: ShoppingListItem[] = []
-
-  for (const [
-    ingredientId,
-    { ingredient, quantity: neededQty, mealCount, earliestNeededDate, isVague, originalPhrase },
-  ] of needed) {
-    const pantry = pantryMap.get(ingredientId)
-
-    let shoppingQty: number
-
-    if (pantry?.isStaple) {
-      // Staple - always skip (don't include in list at all)
-      continue
-    } else if (!pantry) {
-      // Not in pantry - need full amount
-      shoppingQty = neededQty
-    } else if (pantry.quantity === null) {
-      // Have some, assume sufficient
-      shoppingQty = 0
-    } else if (pantry.quantity === 0) {
-      // Ran out - need full amount
-      shoppingQty = neededQty
-    } else {
-      // Have partial - calculate difference
-      shoppingQty = Math.max(0, neededQty - pantry.quantity)
-    }
-
-    // Only include if need to buy something
-    if (shoppingQty > 0) {
-      shoppingList.push({
-        ingredientId,
-        ingredient,
-        neededQuantity: neededQty,
-        pantryQuantity: pantry?.quantity ?? null,
-        shoppingQuantity: shoppingQty,
-        mealCount,
-        earliestNeededDate,
-        isVague,
-        originalPhrase,
-      })
-    }
-  }
-
-  // 6. Group by category
+  // 5. Group by category
   return groupByCategory(shoppingList)
 }
 
@@ -506,61 +438,14 @@ export async function computeRollingWindowShoppingList(
     locale,
   )
 
-  // 4. Get pantry items
-  const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId },
-  })
-  const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
-
-  // 5. Calculate shopping quantities
-  const shoppingList: ShoppingListItem[] = []
-
-  for (const [
-    ingredientId,
-    { ingredient, quantity: neededQty, mealCount, earliestNeededDate, isVague, originalPhrase },
-  ] of needed) {
-    const pantry = pantryMap.get(ingredientId)
-
-    let shoppingQty: number
-
-    if (pantry?.isStaple) {
-      // Staple - always skip (don't include in list at all)
-      continue
-    } else if (!pantry) {
-      // Not in pantry - need full amount
-      shoppingQty = neededQty
-    } else if (pantry.quantity === null) {
-      // Have some, assume sufficient
-      shoppingQty = 0
-    } else if (pantry.quantity === 0) {
-      // Ran out - need full amount
-      shoppingQty = neededQty
-    } else {
-      // Have partial - calculate difference
-      shoppingQty = Math.max(0, neededQty - pantry.quantity)
-    }
-
-    // Only include if need to buy something
-    if (shoppingQty > 0) {
-      shoppingList.push({
-        ingredientId,
-        ingredient,
-        neededQuantity: neededQty,
-        pantryQuantity: pantry?.quantity ?? null,
-        shoppingQuantity: shoppingQty,
-        mealCount,
-        earliestNeededDate,
-        isVague,
-        originalPhrase,
-      })
-    }
-  }
+  // 4. Deduct the pantry (staples, ran-out items) from the need
+  const shoppingList = await pantryShoppingLines(needed, householdId, locale, startOfToday)
 
   // Calculate actual end date for display (last day of window, inclusive)
   const displayEndDate = new Date(startOfToday)
   displayEndDate.setDate(displayEndDate.getDate() + days - 1)
 
-  // 6. Group by category and return with metadata
+  // 5. Group by category and return with metadata
   return {
     groups: groupByCategory(shoppingList),
     startDate: toDateString(startOfToday),

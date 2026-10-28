@@ -26,7 +26,37 @@ const vagueItem: ShoppingItemData = {
   isVague: true,
 }
 
+const ranOutItem: ShoppingItemData = {
+  ...baseItem,
+  ingredientId: 'ing-3',
+  name: 'Greek yoghurt',
+  displayQuantity: '',
+  restock: true,
+}
+
 describe('ShoppingItem', () => {
+  it('shows "Ran out" in place of the amount for a ran-out staple with no amount', () => {
+    render(<ShoppingItem item={ranOutItem} onToggle={vi.fn()} />)
+
+    const row = screen
+      .getByRole('checkbox', { name: 'Mark Greek yoghurt as purchased' })
+      .closest('label')!
+    expect(row).toHaveTextContent(/^Greek yoghurtRan outtomorrow$/)
+  })
+
+  it('shows the amount and "Ran out" for a ran-out staple a meal needs', () => {
+    render(<ShoppingItem item={{ ...ranOutItem, displayQuantity: '300g' }} onToggle={vi.fn()} />)
+
+    expect(screen.getByText('300g')).toBeInTheDocument()
+    expect(screen.getByText('Ran out')).toBeInTheDocument()
+  })
+
+  it('shows no "Ran out" tag on an ordinary line', () => {
+    render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
+
+    expect(screen.queryByText('Ran out')).not.toBeInTheDocument()
+  })
+
   it('renders item name and quantity', () => {
     render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
     expect(screen.getByText('Chicken breast')).toBeInTheDocument()

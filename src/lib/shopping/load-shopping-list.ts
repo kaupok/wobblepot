@@ -105,36 +105,45 @@ export async function loadShoppingList(
       totalItems++
       if (purchased) purchasedItems++
 
+      // A ran-out staple that nothing planned needs has no amount (HON-1398):
+      // the screens show its "Ran out" tag, never "0 g".
+      const noAmount = item.restock === true && item.shoppingQuantity === 0
+
       return {
         ingredientId: item.ingredientId,
         name: item.ingredient.name,
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
+        restock: item.restock ?? false,
         // `g`, `ml` or `piece`: `unit` stays the stored unit, and this is the one
         // every screen shows, so readers outside the UI (the MCP tools, HON-1151)
         // need not repeat the `measuredByVolume` rule.
         displayUnit: displayUnit(item.ingredient),
-        displayQuantity: formatShoppingLineQuantity(
-          item.shoppingQuantity,
-          item.ingredient,
-          locale,
-          item.isVague,
-          item.originalPhrase,
-          tVague,
-          pieceLabel,
-        ),
+        displayQuantity: noAmount
+          ? ''
+          : formatShoppingLineQuantity(
+              item.shoppingQuantity,
+              item.ingredient,
+              locale,
+              item.isVague,
+              item.originalPhrase,
+              tVague,
+              pieceLabel,
+            ),
         // The same need in the pantry screen's units, which stay in grams
         // (HON-1312): a ticked item hands it to the pantry's "needed" caption,
         // which then matches `load-pantry.ts` after a reload.
-        pantryDisplayQuantity: formatShoppingQuantity(
-          item.shoppingQuantity,
-          displayUnit(item.ingredient),
-          locale,
-          item.isVague,
-          item.originalPhrase,
-          tVague,
-          pieceLabel,
-        ),
+        pantryDisplayQuantity: noAmount
+          ? ''
+          : formatShoppingQuantity(
+              item.shoppingQuantity,
+              displayUnit(item.ingredient),
+              locale,
+              item.isVague,
+              item.originalPhrase,
+              tVague,
+              pieceLabel,
+            ),
         mealCount: item.mealCount,
         purchased,
         neededByDate: toDateString(item.earliestNeededDate),
@@ -290,15 +299,20 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
         name: item.ingredient.name,
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
-        displayQuantity: formatShoppingLineQuantity(
-          item.shoppingQuantity,
-          item.ingredient,
-          locale,
-          item.isVague,
-          item.originalPhrase,
-          tVague,
-          pieceLabel,
-        ),
+        restock: item.restock ?? false,
+        // No amount for a ran-out staple nothing planned needs, as in `loadShoppingList`.
+        displayQuantity:
+          item.restock && item.shoppingQuantity === 0
+            ? ''
+            : formatShoppingLineQuantity(
+                item.shoppingQuantity,
+                item.ingredient,
+                locale,
+                item.isVague,
+                item.originalPhrase,
+                tVague,
+                pieceLabel,
+              ),
         mealCount: item.mealCount,
         purchased,
         neededByDate: toDateString(item.earliestNeededDate),

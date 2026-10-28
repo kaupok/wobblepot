@@ -53,6 +53,45 @@ export const Unchecked: Story = {
   },
 }
 
+// A staple the household marked ran out that nothing planned needs
+// (HON-1398): the "Ran out" tag stands in for the amount.
+export const RanOut: Story = {
+  args: {
+    item: createShoppingItem({
+      name: 'Greek yoghurt',
+      displayQuantity: '',
+      neededByRelative: 'Today',
+      dueToday: true,
+      restock: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Ran out')).toBeInTheDocument()
+    await expect(canvas.getByText('Greek yoghurt').closest('label')).toHaveTextContent(
+      /^Greek yoghurtRan outToday$/,
+    )
+  },
+}
+
+// A ran-out staple a planned meal also needs: the amount and the tag.
+export const RanOutWithAmount: Story = {
+  args: {
+    item: createShoppingItem({
+      name: 'Eggs',
+      displayQuantity: '300g',
+      neededByRelative: 'Today',
+      dueToday: true,
+      restock: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('300g')).toBeInTheDocument()
+    await expect(canvas.getByText('Ran out')).toBeInTheDocument()
+  },
+}
+
 // Due today: the label takes the `warning` status token, the same one the
 // Today card uses for "Today" (HON-762).
 export const DueToday: Story = {

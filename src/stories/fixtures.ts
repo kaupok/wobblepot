@@ -1173,6 +1173,7 @@ export interface UrgentShoppingItemData {
   neededByRelative: string
   purchased: boolean
   urgency: UrgencyBucket
+  restock?: boolean
 }
 
 /**

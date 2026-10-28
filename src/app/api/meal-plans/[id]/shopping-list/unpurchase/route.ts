@@ -53,14 +53,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { ingredientId } = parsed.data
 
-    switch (await unpurchasePlanIngredient(household.id, planId, ingredientId)) {
+    const outcome = await unpurchasePlanIngredient(household.id, planId, ingredientId)
+    switch (outcome) {
       case 'not_in_pantry':
         return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
-      case 'staple':
-        return NextResponse.json(
-          { error: 'Cannot unpurchase staple items', reason: 'staple' },
-          { status: 400 },
-        )
       case 'too_old':
         return NextResponse.json(
           {
@@ -69,11 +65,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           },
           { status: 400 },
         )
+      // A staple stays in the pantry at 0 ("ran out") instead (HON-1398).
       case 'removed':
-        return NextResponse.json(
-          { success: true, ingredientId, action: 'removed' },
-          { status: 200 },
-        )
+      case 'ran_out':
+        return NextResponse.json({ success: true, ingredientId, action: outcome }, { status: 200 })
     }
   } catch (error) {
     if (error instanceof ShoppingPlanError) {

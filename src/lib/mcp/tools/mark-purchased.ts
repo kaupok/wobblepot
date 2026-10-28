@@ -14,7 +14,7 @@ const MAX_INGREDIENTS = 100
 export const markPurchased = defineTool({
   name: 'mark_purchased',
   title: 'Mark purchased',
-  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry as "have some", replacing any quantity the pantry had for it, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase, never for a staple, and never for a pantry item with a quantity the household entered after the purchase; the result says so for each item. Undoing a purchase does not bring back a quantity the purchase replaced: the result gives it as replacedQuantity.`,
+  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry as "have some", replacing any quantity the pantry had for it, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry; a staple stays a staple and goes back to ran out, so it is on the shopping list again. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase, and never for a pantry item with a quantity the household entered after the purchase; the result says so for each item. Undoing a purchase does not bring back a quantity the purchase replaced: the result gives it as replacedQuantity.`,
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientIds: ingredientIdsSchema
@@ -28,9 +28,9 @@ export const markPurchased = defineTool({
       z.object({
         ingredientId: z.string(),
         outcome: z
-          .enum(['in_pantry', 'removed', 'not_in_pantry', 'staple', 'too_old', 'has_quantity'])
+          .enum(['in_pantry', 'removed', 'not_in_pantry', 'ran_out', 'too_old', 'has_quantity'])
           .describe(
-            `in_pantry: bought and in the pantry. removed: taken back out of the pantry. not_in_pantry: it was not in the pantry. staple: a staple stays in the pantry. too_old: it was bought more than ${UNPURCHASE_WINDOW_DAYS} days ago, so it stays. has_quantity: the pantry has a quantity for it that the household entered, so it stays; the household can change it in the app.`,
+            `in_pantry: bought and in the pantry. removed: taken back out of the pantry. not_in_pantry: it was not in the pantry. ran_out: a staple stays in the pantry as ran out, so it is on the shopping list again. too_old: it was bought more than ${UNPURCHASE_WINDOW_DAYS} days ago, so it stays. has_quantity: the pantry has a quantity for it that the household entered, so it stays; the household can change it in the app.`,
           ),
         replacedQuantity: z
           .number()

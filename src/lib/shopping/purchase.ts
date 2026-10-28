@@ -181,13 +181,14 @@ export async function purchaseIngredients(
 /**
  * - `removed`: the pantry item is gone
  * - `not_in_pantry`: the household has no pantry item for it
- * - `staple`: a staple stays in the pantry
+ * - `ran_out`: a staple stays in the pantry, back at 0 ("ran out"), so it is
+ *   on the shopping list again (HON-1398)
  * - `too_old`: the pantry item is older than {@link UNPURCHASE_WINDOW_DAYS}, so
  *   it was not this purchase
  * - `has_quantity`: the pantry item has a quantity above 0, so it was not
  *   a purchase; returned only with `keepWithQuantity`
  */
-export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_old' | 'has_quantity'
+export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'ran_out' | 'too_old' | 'has_quantity'
 
 /**
  * Takes a recently purchased ingredient back out of the household's pantry.
@@ -201,6 +202,9 @@ export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_ol
  * `mark_purchased` MCP tool sets it, so an assistant cannot delete a quantity
  * the household entered and the tool stays non-destructive (HON-1154). The
  * app's own undo does not, unchanged.
+ *
+ * A staple keeps its row and its flag: the undo sets it back to 0, so it
+ * comes back on the list as a ran-out line (HON-1398).
  */
 export async function unpurchaseIngredient(
   householdId: string,
@@ -223,7 +227,6 @@ export async function unpurchaseIngredient(
   })
 
   if (!pantryItem) return 'not_in_pantry'
-  if (pantryItem.isStaple) return 'staple'
   if (options.keepWithQuantity && pantryItem.quantity !== null && pantryItem.quantity > 0) {
     return 'has_quantity'
   }
@@ -231,6 +234,11 @@ export async function unpurchaseIngredient(
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
   if (pantryItem.updatedAt < cutoffDate) return 'too_old'
+
+  if (pantryItem.isStaple) {
+    await prisma.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: 0 } })
+    return 'ran_out'
+  }
 
   await prisma.pantryItem.delete({
     where: { id: pantryItem.id },

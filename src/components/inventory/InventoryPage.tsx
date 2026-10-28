@@ -93,8 +93,15 @@ export function InventoryPage({
     [locale],
   )
 
+  // Undo takes the row out of the pantry; a staple stays, back at 0 ("ran
+  // out"), as `unpurchaseIngredient` leaves it (HON-1398).
   const handleItemUnpurchased = useCallback((ingredientId: string) => {
-    setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))
+    setPantryItems((prev) =>
+      prev.flatMap((item) => {
+        if (item.ingredient.id !== ingredientId) return [item]
+        return item.isStaple ? [{ ...item, quantity: 0 }] : []
+      }),
+    )
   }, [])
 
   // Tell the shopping list a pantry row went or came back (Undo), so it unticks

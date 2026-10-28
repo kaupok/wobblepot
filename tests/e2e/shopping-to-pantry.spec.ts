@@ -49,6 +49,8 @@ interface ShoppingListItem {
   purchased: boolean
   /** What to buy: the meals' need less the pantry's stock. */
   quantity: number
+  /** A staple the household marked ran out (HON-1398). */
+  restock: boolean
 }
 
 interface PantryRow {
@@ -352,6 +354,27 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // Re-assert the URL after the effect has had a render to fire in: a
       // reconcile would have replaced it back to `?days=7` by now.
       await expect(page).toHaveURL(/[?&]days=14\b/)
+
+      // A staple the household marked ran out goes on the list with no planned
+      // meal (HON-1398). The pantry has no "Ran out" button yet, so the API
+      // creates it: an ingredient no meal here uses, as a staple at 0.
+      const staple = await findReplacement(
+        page.request,
+        new Set([...meal!.components.map((c) => c.ingredientId), replacement.id]),
+      )
+      const stapleResponse = await page.request.post('/api/pantry', {
+        data: { ingredientId: staple.id, quantity: 0, isStaple: true },
+      })
+      expect(stapleResponse.status(), 'Creating the ran-out staple failed').toBe(201)
+      createdPantryIds.push(staple.id)
+      expect(
+        (await shoppingItems(page.request)).find((item) => item.ingredientId === staple.id),
+      ).toMatchObject({ quantity: 0, restock: true })
+      await page.reload()
+      const stapleRow = page.locator('label', {
+        has: page.getByRole('checkbox', { name: `Mark ${staple.name} as purchased` }),
+      })
+      await expect(stapleRow).toContainText('Ran out')
 
       // Completing the entry charges the replacement, never the original
       // (HON-1243). Stock both: the replacement afresh, the original only when

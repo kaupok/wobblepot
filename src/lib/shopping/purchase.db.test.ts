@@ -278,13 +278,30 @@ describe('unpurchaseIngredient', () => {
     expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('not_in_pantry')
   })
 
-  it('keeps a staple', async () => {
+  it('sets a recently bought staple back to ran out and keeps it a staple', async () => {
     const { alder } = await world()
     await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId: 'ing-rice', isStaple: true },
+      data: { householdId: alder.id, ingredientId: 'ing-rice', quantity: 0, isStaple: true },
+    })
+    await purchaseIngredients(alder, ['ing-rice'])
+    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: null, isStaple: true })
+
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('ran_out')
+    expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: 0, isStaple: true })
+  })
+
+  it('keeps a staple bought more than 7 days ago as it is', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: {
+        householdId: alder.id,
+        ingredientId: 'ing-rice',
+        isStaple: true,
+        updatedAt: daysAgo(8),
+      },
     })
 
-    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('staple')
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('too_old')
     expect(await pantryRow(alder.id, 'ing-rice')).toEqual({ quantity: null, isStaple: true })
   })
 
@@ -418,7 +435,7 @@ describe('unpurchasePlanIngredient', () => {
       data: { householdId: alder.id, ingredientId: 'ing-rice', isStaple: true },
     })
 
-    expect(await unpurchasePlanIngredient(alder.id, 'plan-alder', 'ing-rice')).toBe('staple')
+    expect(await unpurchasePlanIngredient(alder.id, 'plan-alder', 'ing-rice')).toBe('ran_out')
     expect(await unpurchasePlanIngredient(alder.id, 'plan-alder', 'ing-milk')).toBe('not_in_pantry')
   })
 
