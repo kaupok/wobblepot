@@ -48,9 +48,13 @@ vi.mock('@/lib/meal-images/storage', () => ({
 
 vi.mock('@/lib/household-meals', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/household-meals')>()),
-  getHouseholdMeal: vi.fn(),
   updateHouseholdMeal: vi.fn(),
   deleteHouseholdMeal: vi.fn(),
+}))
+
+vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-meals-read')>()),
+  getHouseholdMeal: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
@@ -58,12 +62,8 @@ import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { discardMealImage } from '@/lib/meal-images/storage'
-import {
-  deleteHouseholdMeal,
-  getHouseholdMeal,
-  HouseholdMealError,
-  updateHouseholdMeal,
-} from '@/lib/household-meals'
+import { deleteHouseholdMeal, HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
+import { getHouseholdMeal } from '@/lib/household-meals-read'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)

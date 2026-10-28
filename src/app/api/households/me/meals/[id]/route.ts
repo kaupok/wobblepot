@@ -3,12 +3,8 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import {
-  deleteHouseholdMeal,
-  getHouseholdMeal,
-  HouseholdMealError,
-  updateHouseholdMeal,
-} from '@/lib/household-meals'
+import { deleteHouseholdMeal, HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
+import { getHouseholdMeal } from '@/lib/household-meals-read'
 import { captureApiError } from '@/lib/errors'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'

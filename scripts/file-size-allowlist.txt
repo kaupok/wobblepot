@@ -87,7 +87,7 @@
 5501 src/lib/auth.test.ts
 7137 src/lib/auth.ts
 6189 src/lib/household-meals.db.test.ts
-7728 src/lib/household-meals.ts
+5664 src/lib/household-meals.ts
 7010 src/lib/meal-images/generate.test.ts
 7928 src/lib/meal-planning/candidates.test.ts
 11019 src/lib/meal-planning/shopping-list.test.ts

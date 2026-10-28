@@ -1,52 +1,22 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import { HouseholdMealError } from '@/lib/household-meal-error'
+import { INGREDIENT_NUTRITION_SELECT, summarise } from '@/lib/household-meals-read'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
-import { presentMealImage } from '@/lib/meal-images/present'
 import { gramsOf } from '@/lib/meal-images/prompt'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
-import type { Locale } from '@/lib/i18n/locales'
+
+export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meal-error'
 
 /**
- * A household's own recipes, behind `GET` and `POST
- * /api/households/me/meals`, `GET`, `PATCH` and `DELETE
- * /api/households/me/meals/[id]` (HON-1210), and the `/recipes` server
- * prefetch. The routes own the session, the membership and body validation;
- * these functions own every query and every rule that acts on rows, and are
- * tested against a database in `household-meals.db.test.ts`.
+ * The writes to a household's own recipes, behind `POST
+ * /api/households/me/meals`, `PATCH` and `DELETE
+ * /api/households/me/meals/[id]` (HON-1210). The reads live in
+ * `household-meals-read.ts`. The routes own the session, the membership and
+ * body validation; these functions own every query and every rule that acts
+ * on rows, and are tested against a database in `household-meals.db.test.ts`.
  */
-
-/**
- * Why a household meal read or write was refused. The routes map each one to
- * its status:
- *
- * - `mealNotFound`: no such meal in this household (404). A library meal and
- *   another household's meal answer this too, and so does a deleted one on
- *   update and delete, and so does one deleted longer ago than the restore
- *   window on restore.
- * - `mealNotDeleted`: a restore names a live recipe (409, HON-1336).
- * - `ingredientsNotFound`: a component names an ingredient that does not
- *   exist or belongs to another household, so its id is not revealed (400,
- *   HON-889). `missingIds` names them.
- */
-export type HouseholdMealRefusal = 'mealNotFound' | 'mealNotDeleted' | 'ingredientsNotFound'
-
-export class HouseholdMealError extends Error {
-  constructor(
-    readonly reason: HouseholdMealRefusal,
-    readonly missingIds: string[] = [],
-  ) {
-    super(`Household meal refused: ${reason}`)
-    this.name = 'HouseholdMealError'
-  }
-}
 
 /** One validated component, as `mealComponentsSchema` outputs it. */
 export interface HouseholdMealComponentInput {
@@ -81,190 +51,6 @@ export interface HouseholdMealPatch {
   suitableFor?: MealType[]
   servings?: number
   components?: HouseholdMealComponentInput[]
-}
-
-export interface ListHouseholdMealsOptions {
-  householdId: string
-  /** Resolved household locale (`resolveHouseholdLocale`). */
-  locale: Locale
-  search?: string | null
-  cursor?: string | null
-  limit?: number
-  includeDeleted?: boolean
-}
-
-export const HOUSEHOLD_MEALS_DEFAULT_LIMIT = 30
-
-/**
- * One page of a household's recipe library, newest first, keyset-paginated by
- * meal id. Shared by `GET /api/households/me/meals` and the `/recipes` server
- * prefetch (HON-770), so the page the server hydrates is the page the client
- * would have fetched.
- */
-export async function listHouseholdMeals({
-  householdId,
-  locale,
-  search = null,
-  cursor = null,
-  limit = HOUSEHOLD_MEALS_DEFAULT_LIMIT,
-  includeDeleted = false,
-}: ListHouseholdMealsOptions) {
-  const baseQuery = {
-    where: {
-      householdId,
-      ...(includeDeleted ? {} : { deletedAt: null }),
-      ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      sourceUrl: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      servings: true,
-      imageUrl: true,
-      imageStatus: true,
-      imageHue: true,
-      imagePromptVersion: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          isVague: true,
-          originalPhrase: true,
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              defaultUnit: true,
-              measuredByVolume: true,
-              pieceDisplay: true,
-              gramsPerPiece: true,
-              calories: true,
-              protein: true,
-              carbs: true,
-              fat: true,
-              allergens: true,
-              proteinType: true,
-              ...ingredientTranslationsInclude(locale),
-            },
-          },
-        },
-      },
-      favoritedBy: {
-        where: { householdId },
-        select: { id: true },
-      },
-      ...mealTranslationsInclude(locale),
-    },
-    orderBy: [{ updatedAt: 'desc' as const }, { id: 'desc' as const }],
-    take: limit + 1,
-  }
-
-  // Prisma 7 answers an unknown cursor with no rows, so the page is empty and
-  // `nextCursor` is `null`; the client ends the list (HON-1232).
-  const meals = await prisma.meal.findMany({
-    ...baseQuery,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-  })
-
-  const hasNext = meals.length > limit
-  const pageMeals = hasNext ? meals.slice(0, limit) : meals
-  const nextCursor = hasNext ? (pageMeals.at(-1)?.id ?? null) : null
-
-  const mealsWithNutrition = pageMeals.map((meal) => {
-    const nutrition = computeMealNutrition(meal.components)
-
-    const allergens = [...new Set(meal.components.flatMap((comp) => comp.ingredient.allergens))]
-    const translatedMeal = translateMeal(meal, locale)
-
-    return {
-      id: translatedMeal.id,
-      name: translatedMeal.name,
-      description: translatedMeal.description,
-      preparationNotes: translatedMeal.preparationNotes,
-      sourceUrl: meal.sourceUrl,
-      timeMinutes: translatedMeal.timeMinutes,
-      kidFriendly: translatedMeal.kidFriendly,
-      primaryProteinType: translatedMeal.primaryProteinType,
-      suitableFor: translatedMeal.suitableFor,
-      servings: meal.servings,
-      isCustom: true,
-      isFavorite: meal.favoritedBy.length > 0,
-      ...presentMealImage(meal),
-      deletedAt: meal.deletedAt,
-      createdAt: meal.createdAt,
-      updatedAt: meal.updatedAt,
-      components: meal.components.map((comp) => {
-        const translatedIngredient = translateIngredient(comp.ingredient, locale)
-        return {
-          ingredientId: comp.ingredientId,
-          quantityPerServing: comp.quantityPerServing,
-          isVague: comp.isVague,
-          originalPhrase: comp.originalPhrase,
-          ingredient: {
-            id: translatedIngredient.id,
-            name: translatedIngredient.name,
-            category: translatedIngredient.category,
-            defaultUnit: translatedIngredient.defaultUnit,
-            measuredByVolume: translatedIngredient.measuredByVolume,
-            pieceDisplay: translatedIngredient.pieceDisplay,
-            gramsPerPiece: translatedIngredient.gramsPerPiece,
-          },
-        }
-      }),
-      nutrition: {
-        calories: Math.round(nutrition.calories),
-        protein: Math.round(nutrition.protein),
-        carbs: Math.round(nutrition.carbs),
-        fat: Math.round(nutrition.fat),
-      },
-      allergens,
-    }
-  })
-
-  return { meals: mealsWithNutrition, nextCursor }
-}
-
-const INGREDIENT_NUTRITION_SELECT = {
-  id: true,
-  name: true,
-  category: true,
-  defaultUnit: true,
-  measuredByVolume: true,
-  pieceDisplay: true,
-  gramsPerPiece: true,
-  calories: true,
-  protein: true,
-  carbs: true,
-  fat: true,
-  allergens: true,
-} as const
-
-/** Rounded macros and the deduplicated allergens of a meal's components. */
-function summarise(
-  components: (Parameters<typeof computeMealNutrition>[0][number] & {
-    ingredient: { allergens: Allergen[] }
-  })[],
-) {
-  const nutrition = computeMealNutrition(components)
-  return {
-    nutrition: {
-      calories: Math.round(nutrition.calories),
-      protein: Math.round(nutrition.protein),
-      carbs: Math.round(nutrition.carbs),
-      fat: Math.round(nutrition.fat),
-    },
-    allergens: [...new Set(components.flatMap((comp) => comp.ingredient.allergens))],
-  }
 }
 
 /**
@@ -411,93 +197,6 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
         gramsPerPiece: comp.ingredient.gramsPerPiece,
       },
     })),
-    ...summarise(meal.components),
-  }
-}
-
-/**
- * One of the household's recipes in the household's locale, with its
- * nutrition and allergens. A deleted recipe is still returned, with its
- * `deletedAt`, so a past plan entry can open it.
- */
-export async function getHouseholdMeal(householdId: string, mealId: string, locale: Locale) {
-  const meal = await prisma.meal.findFirst({
-    where: { id: mealId, householdId },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      sourceUrl: true,
-      timeMinutes: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      suitableFor: true,
-      servings: true,
-      deletedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      components: {
-        select: {
-          ingredientId: true,
-          quantityPerServing: true,
-          isVague: true,
-          originalPhrase: true,
-          ingredient: {
-            select: { ...INGREDIENT_NUTRITION_SELECT, ...ingredientTranslationsInclude(locale) },
-          },
-        },
-      },
-      favoritedBy: {
-        where: { householdId },
-        select: { id: true },
-      },
-      ...mealTranslationsInclude(locale),
-    },
-  })
-
-  if (!meal) throw new HouseholdMealError('mealNotFound')
-
-  const translatedMeal = translateMeal(meal, locale)
-
-  return {
-    id: translatedMeal.id,
-    name: translatedMeal.name,
-    description: translatedMeal.description,
-    preparationNotes: translatedMeal.preparationNotes,
-    sourceUrl: meal.sourceUrl,
-    timeMinutes: translatedMeal.timeMinutes,
-    kidFriendly: translatedMeal.kidFriendly,
-    primaryProteinType: translatedMeal.primaryProteinType,
-    suitableFor: translatedMeal.suitableFor,
-    servings: meal.servings,
-    isCustom: true,
-    isFavorite: meal.favoritedBy.length > 0,
-    deletedAt: meal.deletedAt,
-    createdAt: meal.createdAt,
-    updatedAt: meal.updatedAt,
-    components: meal.components.map((comp) => {
-      const translatedIngredient = translateIngredient(comp.ingredient, locale)
-      return {
-        ingredientId: comp.ingredientId,
-        quantityPerServing: comp.quantityPerServing,
-        isVague: comp.isVague,
-        originalPhrase: comp.originalPhrase,
-        ingredient: {
-          id: translatedIngredient.id,
-          name: translatedIngredient.name,
-          category: translatedIngredient.category,
-          defaultUnit: translatedIngredient.defaultUnit,
-          measuredByVolume: translatedIngredient.measuredByVolume,
-          pieceDisplay: translatedIngredient.pieceDisplay,
-          gramsPerPiece: translatedIngredient.gramsPerPiece,
-          calories: comp.ingredient.calories,
-          protein: comp.ingredient.protein,
-          carbs: comp.ingredient.carbs,
-          fat: comp.ingredient.fat,
-        },
-      }
-    }),
     ...summarise(meal.components),
   }
 }

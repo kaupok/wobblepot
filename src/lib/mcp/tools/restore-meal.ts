@@ -1,6 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
-import { getHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
+import { HouseholdMealError } from '@/lib/household-meal-error'
+import { getHouseholdMeal } from '@/lib/household-meals-read'
 import { restoreHouseholdMeal } from '@/lib/deleted-household-meals'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
