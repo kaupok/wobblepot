@@ -311,6 +311,7 @@ function PickerForm({
                     label,
                     name: null,
                     sourceDate: null,
+                    servings: null,
                   },
                 }))}
                 disabled={isFull}
