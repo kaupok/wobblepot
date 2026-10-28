@@ -9,7 +9,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { resolveProposals, type AdjustContext } from '@/lib/meal-planning/adjust-entry'
 import { fittingComponents } from '@/lib/meal-planning/adjust-proposal'
 import { MAX_QUANTITY_PER_SERVING } from '@/lib/meal-planning/components-schema'
-import { staleChangeIds } from '@/lib/meal-planning/entry-components'
+import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
 import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
@@ -181,9 +181,18 @@ export const changeMealIngredients = defineTool({
       )
     }
 
+    // The rows apply to the meal after the restores, so a call can restore an
+    // added ingredient and add it again at a new amount. The write still
+    // reads the stored changes from `context`.
+    const kept = context.changes.filter((change) => !dropped.has(change.id))
+    const restored = {
+      ...context,
+      changes: kept,
+      components: applyEntryChanges(context.meal.components, kept),
+    }
     const resolved = await resolveProposals(
       rows.map((r) => r.row),
-      context,
+      restored,
       household.id,
       locale,
     )
