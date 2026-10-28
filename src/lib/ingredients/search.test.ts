@@ -22,6 +22,7 @@ function hit(id: string, name: string, similarity: number): IngredientSearchResu
     protein: 0,
     carbs: 0,
     fat: 0,
+    proteinType: null,
     similarity,
   }
 }

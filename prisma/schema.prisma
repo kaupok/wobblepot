@@ -681,19 +681,23 @@ model IngredientTranslation {
 }
 
 model Meal {
-  id                 String      @id @default(cuid())
-  name               String
-  description        String?
-  preparationNotes   String?
-  sourceUrl          String?
-  timeMinutes        Int?
-  kidFriendly        Boolean     @default(false)
-  primaryProteinType ProteinType @default(none)
-  suitableFor        MealType[]
-  servings           Int         @default(4)
-  householdId        String?
-  deletedAt          DateTime?
-  household          Household?  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id                  String       @id @default(cuid())
+  name                String
+  description         String?
+  preparationNotes    String?
+  sourceUrl           String?
+  timeMinutes         Int?
+  kidFriendly         Boolean      @default(false)
+  primaryProteinType  ProteinType  @default(none)
+  /// The household's chosen main protein (HON-1386). Null means automatic.
+  /// Valid only while a non-vague component's ingredient carries it;
+  /// `primaryProteinType` holds the effective value every reader uses.
+  proteinTypeOverride ProteinType?
+  suitableFor         MealType[]
+  servings            Int          @default(4)
+  householdId         String?
+  deletedAt           DateTime?
+  household           Household?   @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   // Generated hero illustration (HON-726). One per meal, shared by every
   // household that sees it. Reset by `clearMealImage` whenever the meal's

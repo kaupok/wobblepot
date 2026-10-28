@@ -1,6 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { MealFormDetails } from './MealFormDetails'
+import type { MainProteinState } from './use-main-protein'
+
+/** One protein type in the ingredients: no choice to make, so no select. */
+const singleProtein: MainProteinState = {
+  visible: false,
+  options: ['poultry'],
+  automatic: 'poultry',
+  choice: null,
+  setChoice: fn(),
+}
 
 const meta = {
   title: 'Feature/Household/MealFormDetails',
@@ -11,7 +21,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Second section of the meal form — meal-type checkboxes (breakfast/lunch/dinner), prep time, and kid-friendly toggle. Controlled inputs only; toggle logic lives in `MealForm`.',
+          'Second section of the meal form — meal-type checkboxes (breakfast/lunch/dinner), prep time, kid-friendly toggle, and the "Main protein" select when the ingredients carry two or more protein types (HON-1386). Controlled inputs only; toggle logic lives in `MealForm`, the protein choice in `useMainProtein`.',
       },
     },
   },
@@ -23,6 +33,7 @@ const meta = {
     onMealTypeToggle: fn(),
     onTimeMinutesChange: fn(),
     onKidFriendlyChange: fn(),
+    mainProtein: singleProtein,
   },
 } satisfies Meta<typeof MealFormDetails>
 
@@ -72,5 +83,68 @@ export const Disabled: Story = {
         story: 'All controls disabled — used while the meal mutation is in flight.',
       },
     },
+  },
+}
+
+export const MainProteinChoice: Story = {
+  args: {
+    mainProtein: {
+      visible: true,
+      options: ['beef', 'legume'],
+      automatic: 'legume',
+      choice: null,
+      setChoice: fn(),
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Beef mince with kidney beans: the beans carry more protein, so automatic reads "Legumes (automatic)". Choosing Beef hands it to the form.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const select = canvas.getByRole('combobox', { name: 'Main protein' })
+    await expect(select).toHaveTextContent('Legumes (automatic)')
+
+    await userEvent.click(select)
+    const listbox = within(canvasElement.ownerDocument.body).getByRole('listbox')
+    await expect(
+      within(listbox)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Legumes (automatic)', 'Beef', 'Legumes'])
+    await userEvent.click(within(listbox).getByRole('option', { name: 'Beef' }))
+    await expect(args.mainProtein.setChoice).toHaveBeenCalledWith('beef')
+    // The axe gate runs after play; let the closing listbox leave the page.
+    await waitFor(() =>
+      expect(within(canvasElement.ownerDocument.body).queryByRole('listbox')).toBeNull(),
+    )
+  },
+}
+
+export const MainProteinChosen: Story = {
+  args: {
+    mainProtein: {
+      visible: true,
+      options: ['beef', 'legume'],
+      automatic: 'legume',
+      choice: 'beef',
+      setChoice: fn(),
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A saved choice of Beef, as the edit form reopens it.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('combobox', { name: 'Main protein' }),
+    ).toHaveTextContent('Beef')
   },
 }

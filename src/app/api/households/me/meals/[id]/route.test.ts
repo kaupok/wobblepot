@@ -348,6 +348,34 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
+  it('passes a chosen main protein, and null for automatic, to the lib', async () => {
+    mockUpdate.mockResolvedValue({ meal: updated, discardedImageUrl: null } as never)
+
+    await patch({ proteinTypeOverride: 'beef' })
+    await patch({ proteinTypeOverride: null })
+
+    expect(mockUpdate).toHaveBeenNthCalledWith(1, 'household-123', 'meal-1', {
+      proteinTypeOverride: 'beef',
+    })
+    expect(mockUpdate).toHaveBeenNthCalledWith(2, 'household-123', 'meal-1', {
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('returns 400 with a code when no ingredient carries the chosen protein', async () => {
+    mockUpdate.mockRejectedValue(new HouseholdMealError('proteinTypeNotInRecipe'))
+
+    const response = await patch({ proteinTypeOverride: 'fish' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'No ingredient carries that protein',
+      code: 'proteinTypeNotInRecipe',
+    })
+    expect(mockDiscardMealImage).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
   it('returns 500 with the { error } JSON shape and deletes no blob when the update throws', async () => {
     const error = new Error('transaction rolled back')
     mockUpdate.mockRejectedValue(error)

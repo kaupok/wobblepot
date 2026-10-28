@@ -465,6 +465,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
             protein: 0,
             carbs: 0,
             fat: 0,
+            proteinType: null,
           },
           convertedQuantity: 2,
           isVague: false,

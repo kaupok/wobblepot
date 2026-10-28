@@ -38,6 +38,7 @@ function matched(
       protein: 0,
       carbs: 0,
       fat: 0,
+      proteinType: null,
     },
     convertedQuantity: 1,
     isVague: false,

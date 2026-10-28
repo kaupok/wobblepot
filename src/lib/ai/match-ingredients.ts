@@ -1,4 +1,4 @@
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import {
   getVagueDefault,
   checkGuardrail,
@@ -45,6 +45,7 @@ export interface MatchedIngredient {
     protein: number
     carbs: number
     fat: number
+    proteinType: ProteinType | null
   }
   /** Quantity converted to the ingredient's default unit */
   convertedQuantity: number
@@ -346,6 +347,7 @@ export async function matchIngredients(
           protein: match.protein,
           carbs: match.carbs,
           fat: match.fat,
+          proteinType: match.proteinType,
         },
         convertedQuantity,
         quantityWarning,

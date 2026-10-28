@@ -66,6 +66,7 @@ function matchedIngredient(
       protein: 31,
       carbs: 0,
       fat: 3.6,
+      proteinType: 'poultry' as const,
     },
     convertedQuantity: overrides.convertedQuantity ?? 500,
     isVague: overrides.isVague ?? false,
@@ -132,6 +133,8 @@ describe('convertToPrefilledData', () => {
     const first = result.prefilledIngredients[0]!
     expect(first.type).toBe('matched')
     expect(first.ingredient?.id).toBe('ing-chicken')
+    // The form's "Main protein" choice reads it (HON-1386).
+    expect(first.ingredient?.proteinType).toBe('poultry')
     expect(first.convertedQuantity).toBe(500)
     expect(first.isVague).toBe(false)
     expect((first as { lowConfidence?: boolean }).lowConfidence).toBeUndefined()

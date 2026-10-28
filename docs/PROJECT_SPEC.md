@@ -217,6 +217,8 @@ enum ProteinType {
 
 **Derivation logic:** See `deriveProteinType` in `src/lib/meal-planning/protein.ts`
 
+**Main protein (household recipes):** the recipe form's "Main protein" select stores `Meal.proteinTypeOverride`, offered when the ingredients carry two or more protein types (HON-1386). A choice holds only while a non-vague ingredient carries that type; a write that leaves it unsupported clears it. `primaryProteinType` stays the effective value every reader uses: the choice, else the derived one (`resolveProteinType`). Library meals have no choice.
+
 **Which slots:** `computeRequiredSlots` in `src/lib/meal-planning/slots.ts` places the required fish and legume dinners at relative positions in the range, by dietary type, and only when the range has at least `MIN_DAYS_FOR_BALANCE` dinner days. The count does not scale with the range: a 14-day range gets the same number of required slots as a 7-day one.
 
 **Empty pool handling:** If a required slot's candidate pool is empty (due to allergens, exclusions, or recent history), generation stops with a 422 `insufficient_candidates` before the model is called (`src/lib/ai/generate-plan.ts`). It does not skip the slot.

@@ -21,11 +21,12 @@ vi.mock('@/components/household/MealForm', () => ({
     meal,
     onSuccess,
   }: {
-    meal?: { name: string }
+    meal?: { name: string; proteinTypeOverride?: string | null }
     onSuccess: (meal: { id: string }) => void
   }) => (
     <div>
       <div data-testid="meal-form">{meal?.name}</div>
+      <div data-testid="main-protein">{meal?.proteinTypeOverride ?? 'automatic'}</div>
       <button onClick={() => onSuccess({ id: 'meal-1' })}>Save</button>
     </div>
   ),
@@ -42,6 +43,7 @@ const mealResponse = {
   suitableFor: ['dinner'],
   servings: 4,
   components: [],
+  proteinTypeOverride: 'beef',
   // Fields the route returns but the form does not own.
   isFavorite: true,
   nutrition: { calories: 500, protein: 30, carbs: 40, fat: 20 },
@@ -91,6 +93,8 @@ describe('EditRecipeClient', () => {
     renderClient()
 
     expect(await screen.findByTestId('meal-form')).toHaveTextContent('Chicken and rice')
+    // The stored main protein reaches the form, so a reopened recipe shows it (HON-1386).
+    expect(screen.getByTestId('main-protein')).toHaveTextContent('beef')
     expect(mockFetch).toHaveBeenCalledWith('/api/households/me/meals/meal-1', undefined)
   })
 

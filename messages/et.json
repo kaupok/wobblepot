@@ -764,6 +764,7 @@
         "updateFailed": "Retsepti uuendamine ebaõnnestus",
         "duplicateIngredients": "Iga koostisosa saab kasutada ainult üks kord. Eemalda või ühenda korduvad read",
         "ingredientsMissing": "Üks selle retsepti koostisosa ei ole enam olemas. Eemalda see ja lisa uuesti",
+        "proteinTypeNotInRecipe": "Selles retseptis pole selle valguga koostisosa",
         "tooManyIngredients": "Retseptil saab olla kuni {max} koostisosa",
         "noIngredients": "Lisa vähemalt üks koostisosa",
         "invalidQuantity": "Kogus peab olema suurem kui 0: {names}{more, plural, =0 {} one { +# veel} other { +# veel}}",
@@ -789,7 +790,10 @@
         "suitableForLabel": "Sobib",
         "timeMinutesLabel": "Valmistusaeg minutites (vabatahtlik)",
         "timeMinutesPlaceholder": "Näiteks: 30",
-        "kidFriendlyLabel": "Lastesõbralik"
+        "kidFriendlyLabel": "Lastesõbralik",
+        "mainProteinLabel": "Peamine valguallikas",
+        "mainProteinAutomatic": "{protein} (automaatne)",
+        "mainProteinHint": "Määrab retsepti kaardil näidatava valgu. Automaatne valib kõige valgurikkama koostisosa."
       },
       "componentList": {
         "perServing": "{quantity} portsjoni kohta",

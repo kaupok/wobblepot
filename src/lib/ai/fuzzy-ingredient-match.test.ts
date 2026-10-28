@@ -123,6 +123,7 @@ const makeRow = (overrides: Partial<FuzzyIngredientMatch> = {}): FuzzyIngredient
   protein: 0,
   carbs: 0,
   fat: 0,
+  proteinType: null,
   similarity: 0.9,
   source: 'global',
   ...overrides,

@@ -1,7 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
-import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { resolveProteinType } from '@/lib/meal-planning/protein'
 import { findExisting, ingredientData, normaliseIngredientName } from './create'
 import type { HouseholdIngredient, IngredientUses } from './household-ingredient'
 import type { NewIngredientInput } from './new-ingredient'
@@ -121,12 +121,18 @@ export async function updateHouseholdIngredient(
   return { status: 'updated', ingredient }
 }
 
+/**
+ * Re-resolves the protein of every meal that uses the ingredient. A chosen
+ * main protein survives a protein-grams edit, and is cleared when the
+ * ingredient's type moves away from it (HON-1386).
+ */
 async function rederiveMealProteinTypes(tx: Prisma.TransactionClient, ingredientId: string) {
   const meals = await tx.meal.findMany({
     where: { components: { some: { ingredientId } } },
     select: {
       id: true,
       primaryProteinType: true,
+      proteinTypeOverride: true,
       components: {
         select: {
           quantityPerServing: true,
@@ -139,9 +145,12 @@ async function rederiveMealProteinTypes(tx: Prisma.TransactionClient, ingredient
     },
   })
   for (const meal of meals) {
-    const primaryProteinType = deriveProteinType(meal.components)
-    if (primaryProteinType !== meal.primaryProteinType) {
-      await tx.meal.update({ where: { id: meal.id }, data: { primaryProteinType } })
+    const protein = resolveProteinType(meal.components, meal.proteinTypeOverride)
+    if (
+      protein.primaryProteinType !== meal.primaryProteinType ||
+      protein.proteinTypeOverride !== meal.proteinTypeOverride
+    ) {
+      await tx.meal.update({ where: { id: meal.id }, data: protein })
     }
   }
 }

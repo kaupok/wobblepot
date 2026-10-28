@@ -1,4 +1,4 @@
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
 import { captureClientError } from '@/lib/errors-client'
@@ -29,6 +29,7 @@ interface MatchedIngredient {
     protein?: number
     carbs?: number
     fat?: number
+    proteinType?: ProteinType | null
   }
   convertedQuantity: number
   isVague: boolean
@@ -129,6 +130,7 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
           protein: ingredient.ingredient.protein,
           carbs: ingredient.ingredient.carbs,
           fat: ingredient.ingredient.fat,
+          proteinType: ingredient.ingredient.proteinType,
         },
         convertedQuantity: ingredient.convertedQuantity,
         isVague: ingredient.isVague,
@@ -153,6 +155,7 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
         protein: ingredient.ingredient.protein,
         carbs: ingredient.ingredient.carbs,
         fat: ingredient.ingredient.fat,
+        proteinType: ingredient.ingredient.proteinType,
       },
       convertedQuantity: ingredient.convertedQuantity,
       isVague: ingredient.isVague,

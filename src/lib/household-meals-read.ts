@@ -183,6 +183,7 @@ export const INGREDIENT_NUTRITION_SELECT = {
   carbs: true,
   fat: true,
   allergens: true,
+  proteinType: true,
 } as const
 
 /** Rounded macros and the deduplicated allergens of a meal's components. */
@@ -220,6 +221,7 @@ export async function getHouseholdMeal(householdId: string, mealId: string, loca
       timeMinutes: true,
       kidFriendly: true,
       primaryProteinType: true,
+      proteinTypeOverride: true,
       suitableFor: true,
       servings: true,
       deletedAt: true,
@@ -257,6 +259,7 @@ export async function getHouseholdMeal(householdId: string, mealId: string, loca
     timeMinutes: translatedMeal.timeMinutes,
     kidFriendly: translatedMeal.kidFriendly,
     primaryProteinType: translatedMeal.primaryProteinType,
+    proteinTypeOverride: meal.proteinTypeOverride,
     suitableFor: translatedMeal.suitableFor,
     servings: meal.servings,
     isCustom: true,
@@ -283,6 +286,7 @@ export async function getHouseholdMeal(householdId: string, mealId: string, loca
           protein: comp.ingredient.protein,
           carbs: comp.ingredient.carbs,
           fat: comp.ingredient.fat,
+          proteinType: comp.ingredient.proteinType,
         },
       }
     }),

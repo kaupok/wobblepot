@@ -392,6 +392,7 @@ describe('getHouseholdMeal', () => {
       protein: 31,
       carbs: 10,
       fat: 5,
+      proteinType: 'poultry',
     })
   })
 

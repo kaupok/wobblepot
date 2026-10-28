@@ -287,6 +287,59 @@ describe('updateHouseholdIngredient', () => {
     expect(saved.primaryProteinType).toBe('pork')
     expect(await vegetarian()).not.toContain(meal.id)
   })
+
+  // HON-1386: 75 g mince (26 g protein / 100 g) and 400 g beans (8.7 g) over 3
+  // servings derive Legumes; the household chose Beef.
+  async function beefAndBeans() {
+    const { alder } = await world()
+    const mince = {
+      ...lovage,
+      name: 'Mince',
+      category: 'protein',
+      proteinType: 'beef',
+      protein: 26,
+    } as const
+    const minceRow = await createHouseholdIngredient(alder, 'en', mince)
+    const beans = await createHouseholdIngredient(alder, 'en', {
+      ...lovage,
+      name: 'Kidney beans',
+      category: 'legume',
+      proteinType: 'legume',
+      protein: 8.7,
+    })
+    const meal = await createHouseholdMeal(alder, {
+      name: 'Mince and beans',
+      kidFriendly: true,
+      suitableFor: ['dinner'],
+      servings: 3,
+      components: [
+        { ingredientId: minceRow.id, totalQuantity: 75 },
+        { ingredientId: beans.id, totalQuantity: 400 },
+      ],
+      proteinTypeOverride: 'beef',
+    })
+    return { alder, mince, minceRow, meal }
+  }
+
+  it("clears the chosen main protein when the ingredient's protein type moves away from it", async () => {
+    const { alder, mince, minceRow, meal } = await beefAndBeans()
+
+    await updateHouseholdIngredient(alder, 'en', minceRow.id, { ...mince, proteinType: 'pork' })
+
+    const saved = await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+    expect(saved.proteinTypeOverride).toBeNull()
+    expect(saved.primaryProteinType).toBe('legume')
+  })
+
+  it('keeps the chosen main protein when only the protein grams change', async () => {
+    const { alder, mince, minceRow, meal } = await beefAndBeans()
+
+    await updateHouseholdIngredient(alder, 'en', minceRow.id, { ...mince, protein: 20 })
+
+    const saved = await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })
+    expect(saved.proteinTypeOverride).toBe('beef')
+    expect(saved.primaryProteinType).toBe('beef')
+  })
 })
 
 describe('deleteHouseholdIngredient', () => {

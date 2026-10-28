@@ -1,7 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
 import { findSynonymMatches, type SynonymMatch } from '@/lib/ingredient-synonym-match'
 
@@ -46,6 +46,7 @@ export interface IngredientSearchResult {
   protein: number
   carbs: number
   fat: number
+  proteinType: ProteinType | null
   similarity: number
   /** The other English name the term matched; absent on a row found by its own name. */
   matchedAs?: string
@@ -103,6 +104,7 @@ export async function searchIngredients({
         i.protein,
         i.carbs,
         i.fat,
+        i."proteinType",
         ${match.score} as similarity
       FROM "ingredient" i
       ${match.join}
@@ -128,6 +130,7 @@ export async function searchIngredients({
             i.protein,
             i.carbs,
             i.fat,
+            i."proteinType",
             ${match.score} as similarity
           FROM "ingredient" i
           ${match.join}

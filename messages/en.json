@@ -764,6 +764,7 @@
         "updateFailed": "Failed to update recipe",
         "duplicateIngredients": "Each ingredient can only be used once. Remove or merge the repeated rows",
         "ingredientsMissing": "An ingredient in this recipe no longer exists. Remove it and add it again",
+        "proteinTypeNotInRecipe": "This recipe has no ingredient with that protein",
         "tooManyIngredients": "A recipe can have at most {max} ingredients",
         "noIngredients": "Add at least one ingredient",
         "invalidQuantity": "Quantity must be greater than 0: {names}{more, plural, =0 {} other { +# more}}",
@@ -789,7 +790,10 @@
         "suitableForLabel": "Suitable for",
         "timeMinutesLabel": "Prep time in minutes (optional)",
         "timeMinutesPlaceholder": "For example: 30",
-        "kidFriendlyLabel": "Kid-friendly"
+        "kidFriendlyLabel": "Kid-friendly",
+        "mainProteinLabel": "Main protein",
+        "mainProteinAutomatic": "{protein} (automatic)",
+        "mainProteinHint": "Sets the protein badge on the recipe. Automatic uses the ingredient with the most protein."
       },
       "componentList": {
         "perServing": "{quantity} per serving",

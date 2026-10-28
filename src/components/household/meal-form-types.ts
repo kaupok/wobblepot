@@ -1,4 +1,4 @@
-import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
 import { displayUnit, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
@@ -45,6 +45,7 @@ export interface PrefilledIngredient {
     protein?: number
     carbs?: number
     fat?: number
+    proteinType?: ProteinType | null
   }
   convertedQuantity?: number
   isVague?: boolean
@@ -86,8 +87,11 @@ export interface MealFormData {
       protein?: number
       carbs?: number
       fat?: number
+      proteinType?: ProteinType | null
     }
   }[]
+  /** The household's chosen main protein; null or absent is automatic (HON-1386). */
+  proteinTypeOverride?: ProteinType | null
   // Enhanced prefilled ingredients (for recipe import with match states)
   prefilledIngredients?: PrefilledIngredient[]
   // Original recipe text (for import mode - allows user to reference while editing)

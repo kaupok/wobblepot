@@ -362,6 +362,38 @@ describe('POST /api/households/me/meals', () => {
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
+  it('passes a chosen main protein to the lib', async () => {
+    mockCreate.mockResolvedValue({ id: 'meal-new' } as never)
+
+    await post({ ...validBody, proteinTypeOverride: 'beef' })
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      'household-123',
+      expect.objectContaining({ proteinTypeOverride: 'beef' }),
+    )
+  })
+
+  it('rejects none as a chosen main protein', async () => {
+    const response = await post({ ...validBody, proteinTypeOverride: 'none' })
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).details.proteinTypeOverride).toHaveLength(1)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 with a code when no ingredient carries the chosen protein', async () => {
+    mockCreate.mockRejectedValue(new HouseholdMealError('proteinTypeNotInRecipe'))
+
+    const response = await post({ ...validBody, proteinTypeOverride: 'fish' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'No ingredient carries that protein',
+      code: 'proteinTypeNotInRecipe',
+    })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
   it('returns 500 and reports the error when the lib throws', async () => {
     const error = new Error('connection lost')
     mockCreate.mockRejectedValue(error)

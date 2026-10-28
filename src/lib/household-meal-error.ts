@@ -10,8 +10,11 @@
  * - `ingredientsNotFound`: a component names an ingredient that does not
  *   exist or belongs to another household, so its id is not revealed (400,
  *   HON-889). `missingIds` names them.
+ * - `proteinTypeNotInRecipe`: the chosen main protein is `none`, or no
+ *   non-vague component's ingredient carries it (400, HON-1386).
  */
-export type HouseholdMealRefusal = 'mealNotFound' | 'mealNotDeleted' | 'ingredientsNotFound'
+export type HouseholdMealRefusal =
+  'mealNotFound' | 'mealNotDeleted' | 'ingredientsNotFound' | 'proteinTypeNotInRecipe'
 
 export class HouseholdMealError extends Error {
   constructor(

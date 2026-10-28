@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { deriveProteinType, type ComponentForProtein } from './protein'
+import {
+  deriveProteinType,
+  distinctProteinTypes,
+  isProteinOverrideValid,
+  resolveProteinType,
+  type ComponentForProtein,
+} from './protein'
 
 describe('deriveProteinType', () => {
   it('returns "none" for empty components', () => {
@@ -140,5 +146,74 @@ describe('deriveProteinType', () => {
       },
     ]
     expect(deriveProteinType(components)).toBe('poultry')
+  })
+})
+
+// Beef mince with kidney beans, per serving: 25 g mince (26 g protein / 100 g)
+// gives 6.5 g, 133 g beans (8.7 g / 100 g) gives 11.6 g, so beans win.
+const mince: ComponentForProtein = {
+  quantityPerServing: 25,
+  ingredient: { defaultUnit: 'g', proteinType: 'beef', protein: 26 },
+}
+const beans: ComponentForProtein = {
+  quantityPerServing: 133,
+  ingredient: { defaultUnit: 'g', proteinType: 'legume', protein: 8.7 },
+}
+const buckwheat: ComponentForProtein = {
+  quantityPerServing: 60,
+  ingredient: { defaultUnit: 'g', proteinType: null, protein: 13 },
+}
+
+describe('resolveProteinType', () => {
+  it('lets a valid override win over the derived value', () => {
+    expect(resolveProteinType([mince, beans, buckwheat], 'beef')).toEqual({
+      primaryProteinType: 'beef',
+      proteinTypeOverride: 'beef',
+    })
+  })
+
+  it('clears an override no component carries and stores the derived value', () => {
+    expect(resolveProteinType([mince, beans], 'fish')).toEqual({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('does not count a vague component as carrying the override', () => {
+    const vagueMince = { ...mince, isVague: true }
+    expect(resolveProteinType([vagueMince, beans], 'beef')).toEqual({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+
+  it('gives the derived value with no override', () => {
+    expect(resolveProteinType([mince, beans], null)).toEqual({
+      primaryProteinType: 'legume',
+      proteinTypeOverride: null,
+    })
+  })
+})
+
+describe('isProteinOverrideValid', () => {
+  it('rejects none even when an ingredient has no protein type', () => {
+    expect(isProteinOverrideValid([buckwheat], 'none')).toBe(false)
+  })
+
+  it('accepts a type a non-vague component carries', () => {
+    expect(isProteinOverrideValid([mince, beans], 'beef')).toBe(true)
+  })
+})
+
+describe('distinctProteinTypes', () => {
+  it('lists each non-vague protein type once, in recipe order', () => {
+    expect(distinctProteinTypes([mince, buckwheat, beans, { ...mince }])).toEqual([
+      'beef',
+      'legume',
+    ])
+  })
+
+  it('skips vague components', () => {
+    expect(distinctProteinTypes([{ ...mince, isVague: true }, beans])).toEqual(['legume'])
   })
 })

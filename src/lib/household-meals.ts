@@ -2,12 +2,18 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import { HouseholdMealError } from '@/lib/household-meal-error'
+import {
+  findComponentIngredients,
+  type HouseholdMealComponentInput,
+} from '@/lib/household-meal-ingredients'
+import { assertProteinOverride, resolveStoredMealProtein } from '@/lib/household-meal-protein'
 import { INGREDIENT_NUTRITION_SELECT, summarise } from '@/lib/household-meals-read'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { gramsOf } from '@/lib/meal-images/prompt'
-import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { resolveProteinType } from '@/lib/meal-planning/protein'
 
 export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meal-error'
+export type { HouseholdMealComponentInput } from '@/lib/household-meal-ingredients'
 
 /**
  * The writes to a household's own recipes, behind `POST
@@ -17,15 +23,6 @@ export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-m
  * body validation; these functions own every query and every rule that acts
  * on rows, and are tested against a database in `household-meals.db.test.ts`.
  */
-
-/** One validated component, as `mealComponentsSchema` outputs it. */
-export interface HouseholdMealComponentInput {
-  ingredientId: string
-  /** The recipe's total, in the ingredient's default unit; 0 for a vague row. */
-  totalQuantity: number
-  isVague?: boolean
-  originalPhrase?: string | null
-}
 
 /** The validated body of a create. */
 export interface HouseholdMealCreateInput {
@@ -38,6 +35,8 @@ export interface HouseholdMealCreateInput {
   suitableFor: MealType[]
   servings: number
   components: HouseholdMealComponentInput[]
+  /** The household's chosen main protein (HON-1386); absent or null is automatic. */
+  proteinTypeOverride?: ProteinType | null
 }
 
 /** The validated body of an update. A key that is present but null clears the field. */
@@ -51,45 +50,8 @@ export interface HouseholdMealPatch {
   suitableFor?: MealType[]
   servings?: number
   components?: HouseholdMealComponentInput[]
-}
-
-/**
- * The components' ingredients, if every one is global or the household's own.
- * Another household's ingredient reads as not found, so its id is not
- * revealed (HON-889). Repeated ids were already rejected by
- * `mealComponentsSchema`.
- */
-async function findComponentIngredients(
-  householdId: string,
-  components: HouseholdMealComponentInput[],
-) {
-  const ingredientIds = components.map((c) => c.ingredientId)
-  const ingredients = await prisma.ingredient.findMany({
-    where: {
-      id: { in: ingredientIds },
-      OR: [{ householdId: null }, { householdId }],
-    },
-    select: {
-      id: true,
-      proteinType: true,
-      protein: true,
-      // For the image ranking in `updateHouseholdMeal`, which orders by grams
-      // as the prompt does.
-      defaultUnit: true,
-      gramsPerPiece: true,
-      densityGPerMl: true,
-    },
-  })
-
-  if (ingredients.length !== ingredientIds.length) {
-    const foundIds = new Set(ingredients.map((i) => i.id))
-    throw new HouseholdMealError(
-      'ingredientsNotFound',
-      ingredientIds.filter((id) => !foundIds.has(id)),
-    )
-  }
-
-  return new Map(ingredients.map((i) => [i.id, i]))
+  /** Absent keeps the stored choice, null clears it, a value sets it. */
+  proteinTypeOverride?: ProteinType | null
 }
 
 /**
@@ -106,7 +68,7 @@ export async function findOwnMealByName(householdId: string, name: string) {
 
 /**
  * Store a new recipe for the household, with each component's total divided
- * by `servings` and the primary protein derived from the ingredients. It
+ * by `servings` and the primary protein by `resolveProteinType`. It
  * writes no translation rows: a household's recipe is stored in the language
  * it was typed in.
  */
@@ -114,12 +76,13 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
   const { components, servings } = input
   const ingredientMap = await findComponentIngredients(householdId, components)
 
-  const primaryProteinType = deriveProteinType(
-    components.map((c) => ({
-      quantityPerServing: c.totalQuantity / servings,
-      ingredient: ingredientMap.get(c.ingredientId)!,
-    })),
-  )
+  const proteinComponents = components.map((c) => ({
+    quantityPerServing: c.totalQuantity / servings,
+    isVague: c.isVague,
+    ingredient: ingredientMap.get(c.ingredientId)!,
+  }))
+  const override = input.proteinTypeOverride ?? null
+  assertProteinOverride(proteinComponents, override)
 
   const meal = await prisma.meal.create({
     data: {
@@ -131,7 +94,7 @@ export async function createHouseholdMeal(householdId: string, input: HouseholdM
       kidFriendly: input.kidFriendly,
       suitableFor: input.suitableFor,
       servings,
-      primaryProteinType,
+      ...resolveProteinType(proteinComponents, override),
       householdId,
       components: {
         create: components.map((c) => ({
@@ -250,11 +213,30 @@ export async function updateHouseholdMeal(
     suitableFor,
     servings,
     components,
+    proteinTypeOverride,
   } = patch
 
   // This half only reads the ingredient table, so it stays out of the write
   // transaction below — a refusal here must not open one.
   const ingredientMap = components ? await findComponentIngredients(householdId, components) : null
+
+  // A chosen main protein is checked against the sent components, else the
+  // stored ones, before any write (HON-1386). With components, it resolves
+  // in the transaction below.
+  if (components && ingredientMap) {
+    assertProteinOverride(
+      components.map((c) => ({
+        quantityPerServing: c.totalQuantity,
+        isVague: c.isVague,
+        ingredient: ingredientMap.get(c.ingredientId)!,
+      })),
+      proteinTypeOverride,
+    )
+  }
+  const storedProtein =
+    proteinTypeOverride !== undefined && !components
+      ? await resolveStoredMealProtein(id, proteinTypeOverride)
+      : null
 
   // Build update data
   const updateData: {
@@ -267,6 +249,7 @@ export async function updateHouseholdMeal(
     suitableFor?: MealType[]
     servings?: number
     primaryProteinType?: ProteinType
+    proteinTypeOverride?: ProteinType | null
   } = {}
 
   if (name !== undefined) updateData.name = name
@@ -277,6 +260,7 @@ export async function updateHouseholdMeal(
   if (kidFriendly !== undefined) updateData.kidFriendly = kidFriendly
   if (suitableFor !== undefined) updateData.suitableFor = suitableFor
   if (servings !== undefined) updateData.servings = servings
+  if (storedProtein) Object.assign(updateData, storedProtein)
 
   // Use transaction to update meal and components atomically
   const { meal, discardedImageUrl, imageInvalidated } = await prisma.$transaction(async (tx) => {
@@ -318,6 +302,7 @@ export async function updateHouseholdMeal(
           where: { id },
           select: {
             servings: true,
+            proteinTypeOverride: true,
             components: { select: { ingredientId: true, quantityPerServing: true } },
           },
         })
@@ -344,12 +329,20 @@ export async function updateHouseholdMeal(
     if (components && current && ingredientMap) {
       componentServings = servings ?? current.servings
 
-      // Derive primary protein type from ingredients
+      // New components re-resolve the protein: the sent choice, else the
+      // stored one, which is dropped if its ingredient is gone (HON-1386).
       const componentData = components.map((c) => ({
         quantityPerServing: c.totalQuantity / componentServings,
+        isVague: c.isVague,
         ingredient: ingredientMap.get(c.ingredientId)!,
       }))
-      updateData.primaryProteinType = deriveProteinType(componentData)
+      Object.assign(
+        updateData,
+        resolveProteinType(
+          componentData,
+          proteinTypeOverride === undefined ? current.proteinTypeOverride : proteinTypeOverride,
+        ),
+      )
 
       // The prep-tips prompt renders one line per component from its
       // ingredient and its `quantityPerServing` — the same division applied

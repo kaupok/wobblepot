@@ -10,6 +10,7 @@ import { discardMealImage } from '@/lib/meal-images/storage'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
+import { proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
 
 const ROUTE = '/api/households/me/meals/[id]'
 
@@ -32,6 +33,7 @@ const updateMealSchema = z.object({
     .optional(),
   servings: z.number().int().positive().max(50).optional(),
   components: mealComponentsSchema.optional(),
+  proteinTypeOverride: proteinTypeOverrideSchema.optional(),
 })
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -134,6 +136,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error instanceof HouseholdMealError) {
       if (error.reason === 'mealNotFound') {
         return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
+      }
+      if (error.reason === 'proteinTypeNotInRecipe') {
+        return NextResponse.json(
+          { error: 'No ingredient carries that protein', code: 'proteinTypeNotInRecipe' },
+          { status: 400 },
+        )
       }
       return NextResponse.json(
         { error: 'Some ingredients not found', missingIds: error.missingIds },

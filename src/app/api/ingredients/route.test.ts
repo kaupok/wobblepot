@@ -73,6 +73,7 @@ const potato = {
   protein: 2,
   carbs: 17,
   fat: 0.1,
+  proteinType: null,
   similarity: 1,
 } as const
 

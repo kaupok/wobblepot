@@ -18,6 +18,7 @@ function row(id: string, name: string, similarity: number): FuzzyIngredientMatch
     protein: 1,
     carbs: 4,
     fat: 0,
+    proteinType: null,
   }
 }
 

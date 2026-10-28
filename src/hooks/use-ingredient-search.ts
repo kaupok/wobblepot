@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { useDebouncedValue } from './use-debounced-value'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 
 /**
  * A single ingredient row as returned by `GET /api/ingredients`. This is the
@@ -22,6 +22,8 @@ export interface IngredientResult {
   protein?: number
   carbs?: number
   fat?: number
+  /** For the recipe form's main-protein choice (HON-1386). */
+  proteinType?: ProteinType | null
   /**
    * The other English name the search term matched ("all-purpose flour" for
    * plain flour), shown in brackets in the dropdown (HON-1100). Absent on
