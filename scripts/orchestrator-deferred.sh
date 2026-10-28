@@ -22,8 +22,10 @@
 #   network, probe: reason (clean | timeout | error), uuid, branch, log file,
 #                   retried, title, exit code, duration in seconds, finishing
 #                   (WORKER_FINISHING), first deferred at (epoch)
-#   linear:         the failed steps (comment label queue), then the twelve
-#                   record_stranded arguments
+#   linear:         the failed steps (comment label queue), the twelve
+#                   record_stranded arguments, first deferred at (epoch), and
+#                   the comment marker (HON-1452). An entry from older code
+#                   ends after the twelve; its age starts at the replay.
 DEFERRED=()
 DEFERRED_FS=$'\x1f'
 # Issues that had their network respawn, comma-separated: one each.
@@ -36,6 +38,13 @@ NETWORK_CRASH=false
 REPLAYING=false
 REPLAY_DURATION_SECS=""
 REPLAY_DEFERRED_AT=""
+# The linear replay's own age, apart from REPLAY_DEFERRED_AT: a write that
+# fails during an outcome replay is new and gets the full DEFER_MAX_AGE.
+REPLAY_LINEAR_AT=""
+# The marker post_stranded_comment put in the last comment body; a replay sets
+# REPLAY_COMMENT_MARKER to look for it before it posts again (HON-1452).
+STRANDED_MARKER=""
+REPLAY_COMMENT_MARKER=""
 # WORKER_FINISHING of the outcome in hand: set by monitor_workers for a live
 # worker and by replay_deferred, so a network respawn of a finish attempt is
 # still one when a force stop drains it (HON-1077).
@@ -54,6 +63,9 @@ LINEAR_WRITES_FAILED=""
 # true during settle_deferred_at_exit: a write that still fails is logged for
 # a human instead of deferred again.
 DEFER_FINAL=false
+# Set by linear_api when Linear says the entity does not exist: the issue was
+# deleted, so a retry can never land. Cleared with LINEAR_WRITES_FAILED.
+LINEAR_ENTITY_GONE=false
 
 # The marker HON-1413's wt_auto_network_drop (worktree-auto-run.sh) matches, in
 # the same scope: the last lines of the log. A worker that quotes the marker in
@@ -115,6 +127,12 @@ defer_outcome() {
   [ "$kind" = network ] || return 1
   NETWORK_CRASH=true
   [ "$WORKER_PR_MERGED" = true ] && return 1
+  # A human closed the PR: a respawn would find no open PR and open a new one
+  # for work closed on purpose (HON-1452). The handler records the strand.
+  if [ "$WORKER_PR_STATE" = CLOSED ]; then
+    log INFO "[DEFERRED] $issue_id: PR ${WORKER_PR_REF} was closed — no network respawn"
+    return 1
+  fi
   network_respawn "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$secs"
 }
 
@@ -180,18 +198,65 @@ network_respawn() {
   return 0
 }
 
+# Called by record_stranded for its comment. The body ends in a marker that
+# names this run. A replay reuses the marker and looks for it first, because a
+# post whose curl timed out after Linear took it is on the issue (HON-1452).
+# A failed lookup counts as a failed comment: posting blind risks the duplicate.
+post_stranded_comment() {
+  local issue_uuid="$1" issue_id="$2" body="$3" tmp
+  STRANDED_MARKER="${REPLAY_COMMENT_MARKER:-$(date +%s)-$$-$RANDOM}"
+  body+=$'\n\n'"<!-- orchestrator-run:$STRANDED_MARKER -->"
+  if [ -n "$REPLAY_COMMENT_MARKER" ]; then
+    # A file, not $(…): linear_api must set LINEAR_ENTITY_GONE in this shell.
+    tmp=$(mktemp "${TMPDIR:-/tmp}/orchestrator-comments.XXXXXXXX")
+    if ! linear_api 'query($id: String!) { issue(id: $id) { comments(first: 250) { nodes { body } } } }' \
+         "$(jq -n --arg id "$issue_uuid" '{id: $id}')" > "$tmp" 2>/dev/null; then
+      rm -f "$tmp"
+      log WARN "Could not read the comments of $issue_id"
+      LINEAR_WRITES_FAILED+=" comment"
+      return 0
+    fi
+    if jq -e --arg m "orchestrator-run:$STRANDED_MARKER" \
+         'any(.data.issue.comments.nodes[]?; .body | contains($m))' "$tmp" > /dev/null 2>&1; then
+      rm -f "$tmp"
+      log INFO "$issue_id already has the stranded comment — not posting it again"
+      return 0
+    fi
+    rm -f "$tmp"
+  fi
+  linear_api \
+    'mutation($issueId: String!, $body: String!) {
+      commentCreate(input: { issueId: $issueId, body: $body }) { success }
+    }' "$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')" > /dev/null 2>&1 || {
+    log WARN "Failed to comment on $issue_id"
+    LINEAR_WRITES_FAILED+=" comment"
+  }
+}
+
 # Called by strand_worker after it records a strand for a human: keep the
 # Linear writes that failed, so the next poll that reaches Linear makes them.
+# A write that can never land is dropped with one ERROR, so a human makes it:
+# the issue is gone, or the write has failed for DEFER_MAX_AGE (HON-1452).
 # Usage: defer_linear_writes <record_stranded's twelve arguments>
 defer_linear_writes() {
   [ -n "$LINEAR_WRITES_FAILED" ] || return 0
-  local steps="${LINEAR_WRITES_FAILED# }"
+  local steps="${LINEAR_WRITES_FAILED# }" now deferred_at
+  now=$(date +%s)
+  deferred_at="${REPLAY_LINEAR_AT:-$now}"
   # At exit nothing replays the entry, so a human makes the write.
   if [ "$DEFER_FINAL" = true ]; then
     log ERROR "[DEFERRED] $2: Linear writes still fail at exit ($steps) — make them by hand"
     return 0
   fi
-  DEFERRED+=("$(deferred_entry linear "$2" "$steps" "$@")")
+  if [ "$LINEAR_ENTITY_GONE" = true ]; then
+    log ERROR "[DEFERRED] $2: Linear says the issue does not exist — dropping its Linear writes ($steps)"
+    return 0
+  fi
+  if [ -n "$REPLAY_LINEAR_AT" ] && [ $((now - deferred_at)) -ge "$DEFER_MAX_AGE" ]; then
+    log ERROR "[DEFERRED] $2: Linear writes still fail after ${DEFER_MAX_AGE}s ($steps) — dropped; make them by hand"
+    return 0
+  fi
+  DEFERRED+=("$(deferred_entry linear "$2" "$steps" "$@" "$deferred_at" "$STRANDED_MARKER")")
   log WARN "[DEFERRED] $2: Linear writes failed ($steps) — retrying them on the next poll that reaches Linear"
   return 0
 }
@@ -203,15 +268,22 @@ replay_deferred() {
   log INFO "Replaying the deferred outcome of $issue_id ($kind)"
 
   if [ "$kind" = linear ]; then
-    local steps=" ${fields[2]} " args=("${fields[@]:3}")
+    local steps=" ${fields[2]} " args=("${fields[@]:3:12}")
     # Twelve arguments; a trailing empty one is lost in the split.
     while [ ${#args[@]} -lt 12 ]; do args+=(""); done
     LINEAR_WRITES_FAILED=""
+    LINEAR_ENTITY_GONE=false
+    # An entry from older code has neither: its age starts now, with no marker.
+    REPLAY_LINEAR_AT="${fields[15]:-$(date +%s)}"
+    REPLAY_COMMENT_MARKER="${fields[16]:-}"
+    STRANDED_MARKER="$REPLAY_COMMENT_MARKER"
     local rs_steps="${steps/ queue / }"
     rs_steps="${rs_steps# }"; rs_steps="${rs_steps% }"
     [ -z "$rs_steps" ] || record_stranded "${args[@]}" "$rs_steps"
     case "$steps" in *" queue "*) restore_queue_if_in_progress "${args[0]}" "$issue_id" ;; esac
     defer_linear_writes "${args[@]}"
+    REPLAY_LINEAR_AT=""
+    REPLAY_COMMENT_MARKER=""
     return 0
   fi
 
