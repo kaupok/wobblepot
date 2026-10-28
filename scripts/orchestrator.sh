@@ -256,6 +256,7 @@ CHECKOUT_BEHIND_CODE=0
 CHECKOUT_ORIGIN_SHA=""
 CHECKOUT_CHECKED_AT=""
 CHECKOUT_WARNED_SHA=""
+CHECKOUT_NOT_PULLED=""
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -561,7 +562,9 @@ write_status_file() {
       --argjson behind_code "$CHECKOUT_BEHIND_CODE" \
       --arg origin_main "$CHECKOUT_ORIGIN_SHA" \
       --arg checked_at "$CHECKOUT_CHECKED_AT" \
-      '{behind: $behind, behind_code: $behind_code, origin_main: $origin_main, checked_at: $checked_at}' 2>/dev/null) \
+      --arg not_pulled "$CHECKOUT_NOT_PULLED" \
+      '{behind: $behind, behind_code: $behind_code, origin_main: $origin_main, checked_at: $checked_at}
+       + (if $not_pulled != "" then {not_pulled: $not_pulled} else {} end)' 2>/dev/null) \
       || checkout_json="null"
   fi
 
@@ -3526,12 +3529,14 @@ check_checkout_behind() {
     CHECKOUT_BEHIND=0
     CHECKOUT_BEHIND_CODE=0
     CHECKOUT_ORIGIN_SHA=""
+    CHECKOUT_NOT_PULLED=""
     return 0
   fi
 
   CHECKOUT_BEHIND="$behind"
   CHECKOUT_BEHIND_CODE="$behind_code"
   CHECKOUT_ORIGIN_SHA="${origin_sha:0:8}"
+  CHECKOUT_NOT_PULLED="$blocker"
   if [ "$origin_sha" != "$CHECKOUT_WARNED_SHA" ]; then
     CHECKOUT_WARNED_SHA="$origin_sha"
     log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Not pulled: $blocker. Clear that, and the next poll pulls $REPO_ROOT; the orchestrator reloads itself once its running workers finish"

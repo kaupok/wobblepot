@@ -312,9 +312,9 @@ A merged orchestrator change takes effect once the orchestrator has pulled the m
   - a merge, rebase, cherry-pick, revert or bisect is in progress;
   - `git merge --ff-only` fails, for example because it would overwrite an untracked file.
 
-  When that leaves it behind on orchestrator code, it logs one `WARN Checkout is behind origin/main … Not pulled: <reason>. Clear that, …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. The pull is retried every poll from the local ref, so once you clear the reason, the next poll pulls and the notice clears. Until then, the workers the orchestrator spawns also run the old code, because `worktree-claude.sh` runs from the same checkout.
+  When that leaves it behind on orchestrator code, it logs one `WARN Checkout is behind origin/main … Not pulled: <reason>. Clear that, …` per new `origin/main` SHA and records the counts and the reason (`checkout.not_pulled`) in `orchestrator-status.json`. `wt status` prints them with the reason, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. The pull is retried every poll from the local ref, so once you clear the reason, the next poll pulls and the notice clears. Until then, the workers the orchestrator spawns also run the old code, because `worktree-claude.sh` runs from the same checkout.
 
-So after an orchestrator PR merges, there is nothing to do, unless the log names a reason the checkout was not pulled.
+So after an orchestrator PR merges, there is nothing to do, unless `wt status` or the log names a reason the checkout was not pulled.
 
 ### Design: Dumb Dispatcher, Smart Workers
 

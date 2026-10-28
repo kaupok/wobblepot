@@ -241,6 +241,25 @@ describe('keep the main checkout current (HON-861, HON-1427)', () => {
       expect(head(clone)).toBe(before)
       expect(git(clone, 'branch', '--show-current')).toBe('side')
       expect(notPulled(out)).toBe('the checkout is on branch side')
+      expect(polls(out)).toEqual([
+        expect.objectContaining({ not_pulled: 'the checkout is on branch side' }),
+      ])
+    })
+
+    it('records the new reason when it changes, and drops it once pulled (HON-1428)', () => {
+      const { origin, clone, between } = makeFixture({ scripts: 1 }, [
+        `if [ "$1" = 2 ]; then git -C "$CLONE" checkout -q main && git -C "$CLONE" -c user.name=t -c user.email=t@t commit -q --allow-empty -m local; fi`,
+        `if [ "$1" = 3 ]; then git -C "$CLONE" reset -q --hard HEAD~1; fi`,
+      ])
+      onSide(clone)
+      const out = check(clone, 3, {}, between)
+
+      expect(polls(out)).toEqual([
+        expect.objectContaining({ not_pulled: 'the checkout is on branch side' }),
+        expect.objectContaining({ not_pulled: '1 local commit' }),
+        null,
+      ])
+      expect(head(clone)).toBe(head(origin))
     })
 
     it('when main has a local commit', () => {
@@ -304,6 +323,22 @@ describe('keep the main checkout current (HON-861, HON-1427)', () => {
         }),
       ).toBe(
         'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish',
+      )
+    })
+
+    it('names the reason the orchestrator did not pull it (HON-1428)', () => {
+      expect(
+        notice({
+          checkout: {
+            behind: 3,
+            behind_code: 2,
+            origin_main: 'abcd1234',
+            checked_at: 'x',
+            not_pulled: 'the checkout is on branch side',
+          },
+        }),
+      ).toBe(
+        'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 changing orchestrator.sh or worktree-claude.sh, not pulled: the checkout is on branch side. Clear that, and the orchestrator pulls it on its next poll',
       )
     })
 
