@@ -1183,15 +1183,23 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     // does not read as the step moving.
     const offsetOf = (el: Element) => box(el).top - box(scroller).top + scroller.scrollTop
 
+    // The menu hands focus to Close as it closes. Typed before then, the
+    // rest of the keys would land on Close and shut the panel (HON-1381).
+    await waitFor(() => expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus())
     await within(panel).findByText(longAnswer)
+    // The answer shows before its stream closes, and the panel drops a submit
+    // until then (HON-1381), so wait for Send to take one.
+    const send = within(panel).getByRole('button', { name: 'Send' })
+    await waitFor(() => expect(send).toHaveAttribute('aria-disabled', 'false'))
+    await expect(status).toHaveAttribute('aria-busy', 'false')
     const answeredHeight = box(status).height
     const answeredOffset = offsetOf(nextStep)
 
     // The follow-up is typed in the panel's field (HON-1022).
-    await userEvent.type(
-      within(panel).getByRole('textbox', { name: 'Your question' }),
-      "How do I know it's done?{Enter}",
-    )
+    const field = within(panel).getByRole('textbox', { name: 'Your question' })
+    await userEvent.type(field, "How do I know it's done?{Enter}")
+    // Only a submit the panel took clears the field.
+    await waitFor(() => expect(field).toHaveValue(''))
     await within(status).findByText('Thinking…')
     // The old answer stays, muted, under its own question.
     await expect(within(status).getByText(longAnswer)).toHaveClass('text-muted-foreground')
