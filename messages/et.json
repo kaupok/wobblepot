@@ -302,9 +302,7 @@
       "select": "Vali",
       "selecting": "Valin…",
       "ratedUp": "Sinu hinnang: pöial üles",
-      "ratedDown": "Sinu hinnang: pöial alla",
-      "showIngredients": "Näita koostisosi",
-      "hideIngredients": "Peida koostisosad"
+      "ratedDown": "Sinu hinnang: pöial alla"
     },
     "selector": {
       "swapTitle": "Vali teine toit",
@@ -325,7 +323,6 @@
       "searchPlaceholder": "Otsi retseptide hulgast…",
       "searchAria": "Otsi retseptide hulgast",
       "myRecipesOnly": "Ainult minu retseptid",
-      "suggestions": "Soovitused",
       "searchResults": "Otsingutulemused ({count})",
       "searchResultsNoCount": "Otsingutulemused",
       "myRecipesHeader": "Minu retseptid ({count})",

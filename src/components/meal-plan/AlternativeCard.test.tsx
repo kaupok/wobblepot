@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { AlternativeCard } from './AlternativeCard'
@@ -43,34 +43,29 @@ const mockMeal: AlternativeMeal = {
   },
 }
 
+function renderCard(props: Partial<ComponentProps<typeof AlternativeCard>> = {}) {
+  return render(
+    <AlternativeCard
+      meal={mockMeal}
+      householdServings={3}
+      onSelect={vi.fn()}
+      isSelecting={false}
+      onOpen={vi.fn()}
+      {...props}
+    />,
+  )
+}
+
 describe('AlternativeCard', () => {
   describe('rendering', () => {
     it('renders meal name', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard()
 
       expect(screen.getByText('Chicken Rice Bowl')).toBeInTheDocument()
     })
 
     it('leaves out the meal-type badges: the dialog title names the slot (HON-945)', () => {
-      render(
-        <AlternativeCard
-          meal={{ ...mockMeal, suitableFor: ['breakfast', 'dinner'] }}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard({ meal: { ...mockMeal, suitableFor: ['breakfast', 'dinner'] } })
 
       expect(screen.queryByText('Breakfast')).not.toBeInTheDocument()
       expect(screen.queryByText('Dinner')).not.toBeInTheDocument()
@@ -78,217 +73,89 @@ describe('AlternativeCard', () => {
     })
 
     it('renders time when provided', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard()
 
       expect(screen.getByText('30 min')).toBeInTheDocument()
     })
 
-    it('renders full nutrition summary', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+    // HON-1352: the cook view, one tap away on the name, carries both.
+    it('shows no nutrition and no ingredient list', () => {
+      renderCard()
 
-      expect(screen.getByText('450 kcal')).toBeInTheDocument()
-      expect(screen.getByText('35g')).toBeInTheDocument()
-      expect(screen.getByText('40g')).toBeInTheDocument()
-      expect(screen.getByText('12g')).toBeInTheDocument()
+      expect(screen.queryByText('450 kcal')).not.toBeInTheDocument()
+      expect(screen.queryByText('35g')).not.toBeInTheDocument()
+      expect(screen.queryByText('Chicken Breast')).not.toBeInTheDocument()
+      expect(screen.queryByText('Rice')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /ingredients/i })).not.toBeInTheDocument()
     })
 
     it('renders kid-friendly badge when true', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard()
 
       expect(screen.getByText('Kid-friendly')).toBeInTheDocument()
     })
 
     it('does not render kid-friendly badge when false', () => {
-      const meal = { ...mockMeal, kidFriendly: false }
-      render(
-        <AlternativeCard
-          meal={meal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard({ meal: { ...mockMeal, kidFriendly: false } })
 
       expect(screen.queryByText('Kid-friendly')).not.toBeInTheDocument()
     })
 
     it('renders protein type', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard()
 
       expect(screen.getByText('Poultry')).toBeInTheDocument()
     })
 
     it('renders Select button', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard()
 
       expect(screen.getByRole('button', { name: 'Select' })).toBeInTheDocument()
     })
   })
 
-  // HON-1115: the list sits closed behind one toggle that the grid owns.
-  describe('ingredients toggle', () => {
-    it('hides every ingredient name while closed', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+  // HON-1352: the name opens the cook view; Select stays the card's action.
+  describe('opening the cook view', () => {
+    it('opens the view from the name and gives the name focus first', () => {
+      const onOpen = vi.fn()
+      let focusedOnOpen: Element | null = null
+      onOpen.mockImplementation(() => {
+        focusedOnOpen = document.activeElement
+      })
+      renderCard({ onOpen })
 
-      expect(screen.queryByText('Chicken Breast')).not.toBeInTheDocument()
-      expect(screen.queryByText('Rice')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Show ingredients' })).toHaveAttribute(
-        'aria-expanded',
-        'false',
-      )
+      // `fireEvent`, not `userEvent`: Safari does not focus a button on a
+      // click, so the card must, or the view hands focus back to the body.
+      const name = screen.getByRole('button', { name: 'Chicken Rice Bowl' })
+      fireEvent.click(name)
+
+      expect(onOpen).toHaveBeenCalledTimes(1)
+      expect(focusedOnOpen).toBe(name)
     })
 
-    it('shows every ingredient name while open, and the toggle reads Hide', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={true}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+    it('does not open the view from a click elsewhere on the card', async () => {
+      const onOpen = vi.fn()
+      renderCard({ onOpen })
 
-      expect(screen.getByText('Chicken Breast')).toBeInTheDocument()
-      expect(screen.getByText('Rice')).toBeInTheDocument()
-      const toggle = screen.getByRole('button', { name: 'Hide ingredients' })
-      expect(toggle).toHaveAttribute('aria-expanded', 'true')
-      expect(toggle).toHaveAttribute('aria-controls')
+      await userEvent.click(screen.getByText('Poultry'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+
+      expect(onOpen).not.toHaveBeenCalled()
     })
 
-    it('asks the grid to open the lists when the toggle is clicked', async () => {
-      const onIngredientsOpenChange = vi.fn()
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={onIngredientsOpenChange}
-        />,
-      )
+    it('rings the name itself: the card is not a click target', () => {
+      renderCard()
 
-      await userEvent.click(screen.getByRole('button', { name: 'Show ingredients' }))
-
-      expect(onIngredientsOpenChange).toHaveBeenCalledWith(true)
-    })
-
-    it('renders no toggle for a meal with no ingredients', () => {
-      render(
-        <AlternativeCard
-          meal={{ ...mockMeal, components: [] }}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
-
-      expect(screen.queryByRole('button', { name: /ingredients/ })).not.toBeInTheDocument()
-    })
-
-    it('keeps keyboard focus on the toggle after it opens and closes the list', async () => {
-      function Controlled() {
-        const [open, setOpen] = useState(false)
-        return (
-          <AlternativeCard
-            meal={mockMeal}
-            householdServings={3}
-            onSelect={vi.fn()}
-            isSelecting={false}
-            ingredientsOpen={open}
-            onIngredientsOpenChange={setOpen}
-          />
-        )
-      }
-      const user = userEvent.setup()
-      render(<Controlled />)
-
-      const toggle = screen.getByRole('button', { name: 'Show ingredients' })
-      toggle.focus()
-      await user.keyboard('{Enter}')
-      expect(screen.getByText('Rice')).toBeInTheDocument()
-      expect(toggle).toHaveAccessibleName('Hide ingredients')
-      expect(document.activeElement).toBe(toggle)
-
-      await user.keyboard('{Enter}')
-      expect(screen.queryByText('Rice')).not.toBeInTheDocument()
-      expect(document.activeElement).toBe(toggle)
+      const name = screen.getByRole('button', { name: 'Chicken Rice Bowl' })
+      expect(name).not.toHaveAttribute('data-slot', 'card-target')
+      expect(name).toHaveClass('focus-visible:ring-3')
     })
   })
 
   describe('selection', () => {
     it('calls onSelect with meal id when Select is clicked', async () => {
       const onSelect = vi.fn()
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={onSelect}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard({ onSelect })
 
       await userEvent.click(screen.getByRole('button', { name: 'Select' }))
 
@@ -296,31 +163,13 @@ describe('AlternativeCard', () => {
     })
 
     it('shows Selecting… when isSelecting is true', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={true}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard({ isSelecting: true })
 
       expect(screen.getByRole('button', { name: 'Selecting…' })).toBeInTheDocument()
     })
 
     it('disables Select button when isSelecting is true', () => {
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={true}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+      renderCard({ isSelecting: true })
 
       expect(screen.getByRole('button', { name: 'Selecting…' })).toBeDisabled()
     })
@@ -328,27 +177,20 @@ describe('AlternativeCard', () => {
 
   // HON-750: the dialog's cards are tall, so the image sits below the content.
   describe('meal image', () => {
-    it('puts the image below the ingredients toggle and above the Select button', () => {
-      render(
-        <AlternativeCard
-          meal={{
-            ...mockMeal,
-            imageStatus: 'ready',
-            imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
-            imageHue: 40,
-          }}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+    it('puts the image below the name and above the Select button', () => {
+      renderCard({
+        meal: {
+          ...mockMeal,
+          imageStatus: 'ready',
+          imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
+          imageHue: 40,
+        },
+      })
 
       const image = screen.getByTestId('meal-card-image')
-      const toggle = screen.getByRole('button', { name: 'Show ingredients' })
+      const name = screen.getByRole('button', { name: 'Chicken Rice Bowl' })
       const select = screen.getByRole('button', { name: 'Select' })
-      expect(toggle.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(name.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
       expect(image.compareDocumentPosition(select)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
       expect(image).not.toHaveClass('absolute')
     })
@@ -356,17 +198,7 @@ describe('AlternativeCard', () => {
 
   // HON-340: the card says when the household's own ratings moved the suggestion.
   describe('rating reason', () => {
-    const renderWith = (meal: AlternativeMeal) =>
-      render(
-        <AlternativeCard
-          meal={meal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={false}
-          onIngredientsOpenChange={vi.fn()}
-        />,
-      )
+    const renderWith = (meal: AlternativeMeal) => renderCard({ meal })
 
     it('says the household rated a liked meal up', () => {
       renderWith({ ...mockMeal, ratingSignal: 'liked' })
@@ -385,44 +217,32 @@ describe('AlternativeCard', () => {
   })
 
   describe('pantry availability badge (HON-816)', () => {
-    const renderCard = (pantryIngredients?: PantryIngredient[]) =>
-      render(
-        <AlternativeCard
-          meal={mockMeal}
-          householdServings={3}
-          onSelect={vi.fn()}
-          isSelecting={false}
-          ingredientsOpen={true}
-          onIngredientsOpenChange={vi.fn()}
-          pantryIngredients={pantryIngredients}
-        />,
-      )
+    const renderWithPantry = (pantryIngredients?: PantryIngredient[]) =>
+      renderCard({ pantryIngredients })
 
-    it('counts the rows marked missing', () => {
-      renderCard([{ ingredientId: 'ingredient-1', isStaple: false }])
+    it('counts the missing ingredients', () => {
+      renderWithPantry([{ ingredientId: 'ingredient-1', isStaple: false }])
 
       expect(screen.getByText('1 ingredient to buy')).toBeInTheDocument()
-      expect(screen.getAllByText(', not available')).toHaveLength(1)
     })
 
     it('says so when every ingredient is in the pantry or a staple', () => {
-      renderCard([
+      renderWithPantry([
         { ingredientId: 'ingredient-1', isStaple: false },
         { ingredientId: 'ingredient-2', isStaple: true },
       ])
 
       expect(screen.getByText('Have all ingredients')).toBeInTheDocument()
-      expect(screen.queryByText(', not available')).not.toBeInTheDocument()
     })
 
     it('shows no badge without pantry data', () => {
-      renderCard()
+      renderWithPantry()
 
       expect(screen.queryByText(/ingredients? to buy|Have all ingredients/)).not.toBeInTheDocument()
     })
 
     it('shows no badge when the pantry holds only staples (HON-769 defaults)', () => {
-      renderCard([{ ingredientId: 'salt', isStaple: true }])
+      renderWithPantry([{ ingredientId: 'salt', isStaple: true }])
 
       expect(screen.queryByText(/ingredients? to buy|Have all ingredients/)).not.toBeInTheDocument()
     })

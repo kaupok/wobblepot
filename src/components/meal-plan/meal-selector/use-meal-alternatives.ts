@@ -13,6 +13,7 @@ interface LibraryMeal extends MealImageFields {
   id: string
   name: string
   description: string | null
+  preparationNotes: string | null
   timeMinutes: number | null
   kidFriendly: boolean
   primaryProteinType: ProteinType
@@ -39,6 +40,7 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     id: meal.id,
     name: meal.name,
     description: meal.description,
+    preparationNotes: meal.preparationNotes,
     timeMinutes: meal.timeMinutes,
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,

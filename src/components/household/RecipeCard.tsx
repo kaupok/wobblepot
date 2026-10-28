@@ -68,11 +68,12 @@ export function RecipeCard({ meal, titleActions, onOpen }: RecipeCardProps) {
             any width: uncoloured names only, it doubled a phone card
             (HON-784) and left an empty band above the image beside a
             longer list on desktop (HON-819). The cook view carries the list
-            with quantities. */}
+            with quantities, and nutrition too (HON-1352). */}
         <MealCardBase
           meal={meal}
           nameHeadingTag="h2"
           ingredients="never"
+          nutrition="hide"
           ownRecipe="hide"
           onNameClick={open}
           nameButtonRef={nameButtonRef}

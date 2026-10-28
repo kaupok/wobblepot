@@ -46,14 +46,17 @@ vi.mock('./meal-selector/use-meal-alternatives', () => ({
 vi.mock('./meal-selector/AlternativesList', () => ({
   AlternativesList: ({
     error,
+    header,
     emptyState,
     onSelect,
   }: {
     error: string | null
+    header?: React.ReactNode
     emptyState: React.ReactNode
     onSelect: (mealId: string) => void
   }) => (
     <div>
+      {header && <p data-testid="list-header">{header}</p>}
       {error && <p role="alert">{error}</p>}
       {emptyState}
       <button onClick={() => onSelect('meal-2')}>pick meal</button>
@@ -515,5 +518,37 @@ describe('MealSelectorModal initial view', () => {
     rerender(view(false, 'library'))
     rerender(view(true, 'imagine'))
     expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
+  })
+})
+
+// HON-1352: suggestions are what the picker opens on, so they take no label.
+describe('MealSelectorModal list header', () => {
+  afterEach(() => {
+    hookState.isSearchMode = false
+    hookState.isMyRecipesBrowseMode = false
+  })
+
+  it('shows no label above the suggestions', () => {
+    renderModal()
+
+    expect(screen.queryByTestId('list-header')).not.toBeInTheDocument()
+  })
+
+  it('keeps the search results label', () => {
+    hookState.isSearchMode = true
+    renderModal()
+
+    expect(screen.getByTestId('list-header')).toHaveTextContent(
+      etMessages['meal-plan'].selector.searchResults.replace('{count}', '0'),
+    )
+  })
+
+  it('keeps the My recipes label', () => {
+    hookState.isMyRecipesBrowseMode = true
+    renderModal()
+
+    expect(screen.getByTestId('list-header')).toHaveTextContent(
+      etMessages['meal-plan'].selector.myRecipesHeaderNoCount,
+    )
   })
 })

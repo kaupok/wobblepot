@@ -45,9 +45,9 @@ function servingsSent(): unknown[] {
     .map(([, init]) => JSON.parse((init as RequestInit).body as string).servings)
 }
 
-function renderModal(open = true) {
+function renderModal(open = true, shown: MealData = meal) {
   const { wrapper } = createQueryWrapper()
-  const props = { meal, householdServings: 2.5, onOpenChange: vi.fn() }
+  const props = { meal: shown, householdServings: 2.5, onOpenChange: vi.fn() }
   const view = render(<RecipeDetailModal {...props} open={open} />, { wrapper })
   return {
     ...view,
@@ -150,6 +150,16 @@ describe('RecipeDetailModal', () => {
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Edit')
     expect(items[0]).toHaveAttribute('href', '/recipes/meal-1/edit')
+  })
+
+  // HON-1352: the picker opens library meals here, which are not the household's to edit.
+  it('has no More actions for a library meal, whose only item would be Edit', async () => {
+    renderModal(true, { ...meal, isCustom: false })
+    const dialog = await screen.findByRole('dialog')
+
+    expect(await within(dialog).findByText(STEPS.steps[0]!)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /More actions/ })).toBeNull()
+    expect(within(dialog).queryByRole('link', { name: 'Edit' })).toBeNull()
   })
 
   it('ticks a step on screen only', async () => {

@@ -29,7 +29,7 @@ const meta = {
     isLoading: false,
     householdServings: 4,
     onSelect: fn(),
-    header: 'Suggested for you',
+    header: 'Search results (3)',
   },
 } satisfies Meta<typeof AlternativesList>
 
@@ -39,30 +39,17 @@ type Story = StoryObj<typeof meta>
 export const Populated: Story = {}
 
 /**
- * One toggle for the grid (HON-1115): "Show ingredients" on any card opens the
- * lists on every card, and "Hide ingredients" on any card closes them all.
+ * The cards carry no nutrition and no ingredient list: the household picks on
+ * the badges, the name, the time and the to-buy count, and the name opens the
+ * cook view, which carries both (HON-1352).
  */
-export const IngredientsToggleOpensAllCards: Story = {
+export const CompactCards: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.queryAllByRole('list')).toHaveLength(0)
-
-    const showToggles = canvas.getAllByRole('button', { name: 'Show ingredients' })
-    await expect(showToggles).toHaveLength(3)
-    await userEvent.click(showToggles[1]!)
-
-    const lists = canvas.getAllByRole('list')
-    await expect(lists).toHaveLength(3)
-    for (const list of lists) await expect(list).toBeVisible()
-    const hideToggles = canvas.getAllByRole('button', { name: 'Hide ingredients' })
-    await expect(hideToggles).toHaveLength(3)
-    for (const toggle of hideToggles) await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(hideToggles[1]).toHaveFocus()
-
-    await userEvent.click(hideToggles[2]!)
-    await expect(canvas.queryAllByRole('list')).toHaveLength(0)
-    for (const toggle of canvas.getAllByRole('button', { name: 'Show ingredients' }))
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(canvas.queryByText(/kcal/)).toBeNull()
+    await expect(canvas.queryByRole('button', { name: /ingredients/i })).toBeNull()
+    await expect(canvas.getAllByText('30 min')).toHaveLength(3)
   },
 }
 
@@ -81,16 +68,13 @@ export const Loading: Story = {
     docs: {
       description: {
         story:
-          'Three skeleton cards stand in for the grid: text bars, the closed "Show ingredients" toggle and a button bar, with no 3:2 image block, since most library meals have no image (HON-943) and the lists start closed (HON-1115). No header is rendered.',
+          'Three skeleton cards stand in for the grid: text bars and a button bar, with no 3:2 image block, since most library meals have no image (HON-943), and no ingredient bars, since the cards have no list (HON-1352). No header is rendered.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll('[data-slot="card"]')).toHaveLength(3)
     await expect(canvasElement.querySelector('[data-shape="flush"]')).toBeNull()
-    await expect(
-      canvasElement.querySelectorAll('[data-testid="ingredients-toggle-skeleton"]'),
-    ).toHaveLength(3)
     await expect(canvasElement.querySelector('[data-testid="ingredient-list-skeleton"]')).toBeNull()
   },
 }

@@ -78,6 +78,36 @@ describe('MealCardBase', () => {
 
       expect(zeroHtml).toBe(unknown.container.innerHTML)
     })
+
+    // HON-1352: the time ends the first badge row, after the protein badge.
+    it('ends the first badge row, after the kid-friendly and protein badges', () => {
+      render(<MealCardBase meal={{ ...mockMeal, timeMinutes: 25 }} />)
+
+      const time = screen.getByText('25 min')
+      const row = screen.getByText('Fish').closest('div')!
+      expect(row).toContainElement(screen.getByText('Kid-friendly'))
+      expect(row.lastElementChild).toBe(time)
+      expect(time).toHaveClass('ml-auto')
+      expect(row.compareDocumentPosition(screen.getByRole('heading'))).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    })
+  })
+
+  // HON-1352: the picker and My recipes hide it; the imagine cards keep it.
+  describe('nutrition', () => {
+    it('shows the summary by default', () => {
+      render(<MealCardBase meal={mockMeal} />)
+
+      expect(screen.getByText('500 kcal')).toBeInTheDocument()
+    })
+
+    it("leaves the summary out with nutrition='hide'", () => {
+      render(<MealCardBase meal={mockMeal} nutrition="hide" />)
+
+      expect(screen.queryByText('500 kcal')).not.toBeInTheDocument()
+      expect(screen.queryByText('35g')).not.toBeInTheDocument()
+    })
   })
 
   describe('meal name', () => {

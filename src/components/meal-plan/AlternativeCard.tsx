@@ -1,18 +1,17 @@
 'use client'
 
-import { useMemo } from 'react'
-import { ChevronDown, ChevronRight, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { useMemo, useRef } from 'react'
+import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Body } from '@/components/ui/typography'
 import {
   AvailabilityIndicator,
   computeMealAvailability,
   hasPantryData,
 } from './AvailabilityIndicator'
-import { MealCardBase, MealIngredientNames } from './MealCardBase'
+import { MealCardBase } from './MealCardBase'
 import { MealImageCard } from './MealImageCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
 
@@ -22,23 +21,32 @@ interface AlternativeCardProps {
   onSelect: (mealId: string) => void
   isSelecting: boolean
   pantryIngredients?: PantryIngredient[]
-  /**
-   * Whether the ingredient list shows. `AlternativesList` owns it, so one toggle
-   * opens or closes the lists on every card in the grid (HON-1115).
-   */
-  ingredientsOpen: boolean
-  onIngredientsOpenChange: (open: boolean) => void
+  /** Opens the cook view for this meal over the picker (HON-1352). */
+  onOpen: () => void
 }
 
+/**
+ * One meal in the picker's grid. The household picks on the badges, the name,
+ * the time and the to-buy count, so the card carries no nutrition and no
+ * ingredient list: the cook view, opened from the name, shows both with
+ * quantities (HON-1352). Only the name opens it; Select is the card's action.
+ */
 export function AlternativeCard({
   meal,
   onSelect,
   isSelecting,
   pantryIngredients,
-  ingredientsOpen,
-  onIngredientsOpenChange,
+  onOpen,
 }: AlternativeCardProps) {
   const t = useTranslations('meal-plan.alternative')
+  const nameButtonRef = useRef<HTMLButtonElement>(null)
+
+  // The view hands focus back to whatever had it as it opened, so give it the
+  // name first, as `RecipeCard` does.
+  function open() {
+    nameButtonRef.current?.focus({ preventScroll: true })
+    onOpen()
+  }
   // Same gate as the ingredient rows in `MealCardBase`, so a staples-only
   // pantry shows neither the marks nor a badge counting everything missing.
   const availability = useMemo(
@@ -80,6 +88,10 @@ export function AlternativeCard({
           nameHeadingTag="h3"
           mealTypes="hide"
           ingredients="never"
+          nutrition="hide"
+          onNameClick={open}
+          nameTarget="name"
+          nameButtonRef={nameButtonRef}
         />
         {/* Why this suggestion ranked where it did, when the household's own ratings moved it (HON-340). */}
         {meal.ratingSignal && (
@@ -100,33 +112,6 @@ export function AlternativeCard({
           <div className="mt-2 flex flex-wrap items-center gap-1">
             <AvailabilityIndicator availability={availability} />
           </div>
-        )}
-        {/* The list is detail the user wants only sometimes, so it starts
-            closed under the badge (HON-1115). The trigger stays mounted in both
-            states, so keyboard focus stays on it. */}
-        {meal.components.length > 0 && (
-          <Collapsible
-            open={ingredientsOpen}
-            onOpenChange={onIngredientsOpenChange}
-            className="mt-2"
-          >
-            {/* `inline-flex` in a block parent: as wide as its label. */}
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm">
-                {ingredientsOpen ? (
-                  <ChevronDown aria-hidden="true" />
-                ) : (
-                  <ChevronRight aria-hidden="true" />
-                )}
-                {t(ingredientsOpen ? 'hideIngredients' : 'showIngredients')}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="pt-1.5">
-                <MealIngredientNames meal={meal} pantryIngredients={pantryIngredients} />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
         )}
       </CardContent>
     </MealImageCard>

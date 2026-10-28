@@ -56,13 +56,19 @@ interface MealCardBaseProps {
    * for the recipe library: there the list is uncoloured names only, it made a
    * phone card nearly two screens tall (HON-784) and a desktop card nearly one
    * viewport (HON-819), and the edit page and meal detail carry the full list
-   * with quantities. The meal picker's alternatives grid passes `'never'` too and
-   * renders `MealIngredientNames` itself, behind one "Show ingredients" toggle
-   * for the whole grid (HON-1115). The imagine panel and results keep
-   * `'always'`, left unchanged by HON-784's scope decision even though they pass
-   * no pantry data.
+   * with quantities. The meal picker's alternatives grid passes `'never'` too:
+   * the cook view, one tap away on the name, lists them (HON-1352). The imagine
+   * panel and results keep `'always'`, left unchanged by HON-784's scope
+   * decision even though they pass no pantry data.
    */
   ingredients?: 'always' | 'never'
+  /**
+   * Whether the nutrition summary renders. `'hide'` is for the meal picker and
+   * My recipes, where the household picks on the name, the badges and the time,
+   * and the cook view one tap away carries nutrition (HON-1352). The imagine
+   * cards keep `'show'`, because an imagined meal is new to the user.
+   */
+  nutrition?: 'show' | 'hide'
   /**
    * Whether the `suitableFor` slot badges render. `'hide'` is for the meal
    * selector, whose title already names the slot being filled, so "Breakfast"
@@ -91,13 +97,21 @@ interface MealCardBaseProps {
    * ring and underlines the name on a hover anywhere on the card.
    */
   onNameClick?: () => void
+  /**
+   * Who draws the name button's focus ring. `'card'` (the default) is for an
+   * `interactive` card, which rings itself around its `card-target`. `'name'`
+   * is for a card only the name opens, the meal picker's (HON-1352), whose
+   * Select is the card's action: the button rings itself and the name
+   * underlines on a hover over the name only.
+   */
+  nameTarget?: 'card' | 'name'
   /** The name's button, when `onNameClick` makes one. */
   nameButtonRef?: Ref<HTMLButtonElement>
 }
 
 /**
  * Shared meal card content used by both My Recipes and Add meal modal.
- * Renders: slot, kid-friendly and protein badges, name (with the own-recipe icon), description, nutrition, prep time, ingredient list.
+ * Renders: slot, kid-friendly, protein and prep-time badges, name (with the own-recipe icon), description, nutrition, ingredient list.
  * Does NOT include Card wrapper or action buttons — consumers provide their own layout.
  */
 export function MealCardBase({
@@ -105,10 +119,12 @@ export function MealCardBase({
   pantryIngredients,
   nameHeadingTag = 'h4',
   ingredients = 'always',
+  nutrition = 'show',
   mealTypes = 'show',
   ownRecipe = 'show',
   titleActions,
   onNameClick,
+  nameTarget = 'card',
   nameButtonRef,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
@@ -118,12 +134,22 @@ export function MealCardBase({
     <div className="flex flex-col gap-1.5">
       {/* 0. Slot, kid-friendly and protein badges — the card's first row, as
           on the planner card, so a meal says when it fits and what it is
-          before its name. */}
+          before its name. The prep time ends the row at its right edge
+          (HON-1352): a `surface` badge, the page background on the tint,
+          because the time is a fact about cooking, not the meal's own colour. */}
       <div className="flex flex-wrap items-center gap-1.5">
         {mealTypes === 'show' &&
           meal.suitableFor?.map((type) => <MealTypeBadge key={type} mealType={type} />)}
         {meal.kidFriendly && <KidFriendlyBadge compact />}
         <ProteinBadge proteinType={meal.primaryProteinType} />
+        {/* `> 0`, not truthiness: `0 && …` renders a stray "0", and a zero-minute
+            meal has no prep time worth a badge (HON-711). */}
+        {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+          <Badge variant="surface" className="ml-auto">
+            <Clock aria-hidden="true" />
+            {tDetail('timeMinutes', { count: meal.timeMinutes })}
+          </Badge>
+        )}
       </div>
 
       {/* 1. Meal name — Section, not Title: the page or dialog title above owns
@@ -139,15 +165,22 @@ export function MealCardBase({
                 <button
                   ref={nameButtonRef}
                   type="button"
-                  data-slot="card-target"
+                  data-slot={nameTarget === 'card' ? 'card-target' : undefined}
                   aria-labelledby={nameId}
-                  className="absolute inset-0 cursor-pointer outline-none"
+                  className={cn(
+                    'absolute inset-0 cursor-pointer outline-none',
+                    nameTarget === 'name' &&
+                      'peer focus-visible:ring-ring/50 rounded-sm focus-visible:ring-3',
+                  )}
                   onClick={onNameClick}
                 />
                 <span
                   id={nameId}
                   aria-hidden="true"
-                  className="underline-offset-2 group-hover/card:underline"
+                  className={cn(
+                    'underline-offset-2',
+                    nameTarget === 'card' ? 'group-hover/card:underline' : 'peer-hover:underline',
+                  )}
                 >
                   {meal.name}
                 </span>
@@ -184,20 +217,9 @@ export function MealCardBase({
         </a>
       )}
 
-      {/* 3. Nutrition summary */}
-      <NutritionSummary nutrition={meal.nutrition} components={meal.components} />
-
-      {/* 4. Prep time — a `surface` badge, the page background on the tint:
-          the time is a fact about cooking, not the meal's own colour. */}
-      {/* `> 0`, not truthiness: `0 && …` renders a stray "0", and a zero-minute meal
-          has no prep time worth a badge (HON-711). */}
-      {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="surface">
-            <Clock aria-hidden="true" />
-            {tDetail('timeMinutes', { count: meal.timeMinutes })}
-          </Badge>
-        </div>
+      {/* 3. Nutrition summary, left out with `nutrition="hide"`. */}
+      {nutrition === 'show' && (
+        <NutritionSummary nutrition={meal.nutrition} components={meal.components} />
       )}
 
       {/* 6. Ingredient list, left out entirely with `ingredients="never"`. */}
@@ -218,10 +240,9 @@ interface MealIngredientNamesProps {
  * A meal's ingredient names, one per row. Names only and muted without pantry
  * data. With it, each row's icon, hidden state text and colour say whether the
  * pantry has it: colour is never the only cue (HON-816). Staples count as
- * available. `MealCardBase` renders it for `ingredients="always"`; the meal
- * picker's `AlternativeCard` renders it behind its own toggle (HON-1115).
+ * available. `MealCardBase` renders it for `ingredients="always"`.
  */
-export function MealIngredientNames({ meal, pantryIngredients }: MealIngredientNamesProps) {
+function MealIngredientNames({ meal, pantryIngredients }: MealIngredientNamesProps) {
   const tAvailability = useTranslations('meal-plan.availability')
   const availability =
     hasPantryData(pantryIngredients) && pantryIngredients

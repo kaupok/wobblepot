@@ -87,6 +87,7 @@ async function meal(
     ...data
   }: {
     householdId?: string
+    preparationNotes?: string
     suitableFor?: MealType[]
     primaryProteinType?: ProteinType
     kidFriendly?: boolean
@@ -164,6 +165,20 @@ describe('loadMeals', () => {
 
     expect(flags['meal-alder']).toEqual([true, true])
     expect(flags['meal-porridge']).toEqual([false, false])
+  })
+
+  // HON-1352: the picker's cook view shows them, as My recipes' does.
+  it("carries a recipe's own notes", async () => {
+    const { alder } = await world()
+    await prisma.meal.update({
+      where: { id: 'meal-alder' },
+      data: { preparationNotes: 'Brown the meat in two batches.' },
+    })
+
+    const byId = Object.fromEntries((await load(alder)).meals.map((m) => [m.id, m]))
+
+    expect(byId['meal-alder']!.preparationNotes).toBe('Brown the meat in two batches.')
+    expect(byId['meal-porridge']!.preparationNotes).toBeNull()
   })
 
   it('filters by meal type, protein type and kid-friendliness', async () => {

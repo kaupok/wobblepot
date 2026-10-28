@@ -327,7 +327,9 @@ export function MealSelectorModal({
       ? hasLoadedList
         ? tSelector('searchResults', { count: total })
         : tSelector('searchResultsNoCount')
-      : tSelector('suggestions')
+      : // Suggestions are what the picker opens on, so a label says nothing
+        // (HON-1352).
+        undefined
 
   // Each mode owns whether an empty list is worth explaining yet — search stays
   // silent until a response has actually arrived.

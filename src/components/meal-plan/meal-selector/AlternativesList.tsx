@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
+import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
 import { AlternativeCard } from '../AlternativeCard'
 import type { AlternativeMeal, PantryIngredient } from '../types'
 
@@ -16,14 +17,14 @@ import type { AlternativeMeal, PantryIngredient } from '../types'
  * 3:2 band either (HON-943, DESIGN.md → Imagery).
  */
 export function AlternativeSkeleton({
-  ingredients = 'toggle',
+  ingredients = 'none',
 }: {
   /**
-   * `'toggle'` mirrors a closed `AlternativeCard`: one bar for the "Show
-   * ingredients" button (HON-1115). `'list'` keeps the ingredient bars, for the
-   * imagine panel, whose cards still show their list.
+   * `'none'` mirrors `AlternativeCard`, which has no ingredient list
+   * (HON-1352). `'list'` keeps the ingredient bars, for the imagine panel,
+   * whose cards still show their list.
    */
-  ingredients?: 'toggle' | 'list'
+  ingredients?: 'none' | 'list'
 }) {
   return (
     <Card size="sm" className="flex h-full flex-col">
@@ -34,10 +35,7 @@ export function AlternativeSkeleton({
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-5 w-20" />
         </div>
-        {ingredients === 'toggle' ? (
-          // The ghost `sm` toggle: `h-8`, as wide as "Show ingredients".
-          <Skeleton data-testid="ingredients-toggle-skeleton" className="h-8 w-36" />
-        ) : (
+        {ingredients === 'list' && (
           <div data-testid="ingredient-list-skeleton" className="flex flex-col gap-1">
             <Skeleton className="h-5 w-28" />
             <Skeleton className="ml-4 h-4 w-20" />
@@ -62,8 +60,9 @@ export interface AlternativesListProps {
   /** Selection error; suppresses the header, grid and empty state while shown. */
   error?: string | null
   /**
-   * Section label above the grid. The three-way "suggestions / search results /
-   * my recipes" copy depends on modal mode, so the caller renders it.
+   * Section label above the grid: "search results" or "my recipes", which
+   * depends on modal mode, so the caller renders it. Suggestions take none
+   * (HON-1352).
    */
   header?: ReactNode
   /** Rendered in place of the grid when `meals` is empty. Caller picks the copy. */
@@ -72,7 +71,7 @@ export interface AlternativesListProps {
   /** Id of the meal whose select request is in flight, if any. */
   selectingId?: string | null
   onSelect: (mealId: string) => void
-  /** When provided, the to-buy badge shows and ingredient lists are colour-coded by pantry availability. */
+  /** When provided, each card shows the to-buy badge. */
   pantryIngredients?: PantryIngredient[]
   hasMore?: boolean
   isLoadingMore?: boolean
@@ -84,7 +83,8 @@ export interface AlternativesListProps {
 
 /**
  * Grid of selectable meal alternatives with skeleton, error, empty and
- * load-more states. Purely presentational — the caller owns data fetching.
+ * load-more states. The caller owns data fetching; the list owns the cook
+ * view a card's name opens over the picker (HON-1352).
  */
 export function AlternativesList({
   meals,
@@ -102,11 +102,10 @@ export function AlternativesList({
   loadingLabel,
   onLoadMore,
 }: AlternativesListProps) {
-  // One state for the grid: the user opens the lists to compare the meals, and
-  // a card opening alone would stretch its row (HON-1115). Cards that "Load
-  // more" adds take it too. It starts closed each time the dialog opens,
-  // because `DialogContent` unmounts on close.
-  const [ingredientsOpen, setIngredientsOpen] = useState(false)
+  // The meal in the cook view. Kept after it closes, so the view can animate
+  // out and hand focus back to the card's name, as on My recipes (HON-1338).
+  const [viewedMeal, setViewedMeal] = useState<AlternativeMeal | null>(null)
+  const [isViewOpen, setIsViewOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -145,8 +144,10 @@ export function AlternativesList({
                 onSelect={onSelect}
                 isSelecting={selectingId === meal.id}
                 pantryIngredients={pantryIngredients}
-                ingredientsOpen={ingredientsOpen}
-                onIngredientsOpenChange={setIngredientsOpen}
+                onOpen={() => {
+                  setViewedMeal(meal)
+                  setIsViewOpen(true)
+                }}
               />
             ))}
           </div>
@@ -161,6 +162,15 @@ export function AlternativesList({
         </div>
       ) : (
         emptyState
+      )}
+
+      {viewedMeal && (
+        <RecipeDetailModal
+          meal={viewedMeal}
+          householdServings={householdServings}
+          open={isViewOpen}
+          onOpenChange={setIsViewOpen}
+        />
       )}
     </>
   )
