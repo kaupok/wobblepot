@@ -34,7 +34,7 @@ const ADD_INPUT_SELECTOR = 'input'
 interface ToggleStapleVariables {
   id: string
   currentIsStaple: boolean
-  /** The row's quantity at the tap: at 0 the star decides its restock line. */
+  /** The row's quantity at the tap: with an amount, the star decides its list line. */
   quantity: number | null
 }
 
@@ -112,10 +112,11 @@ export function PantrySection({
         prev.map((item) => (item.id === id ? { ...item, isStaple: !currentIsStaple } : item)),
       )
     },
-    // A staple at 0 is on the shopping list and an ordinary row at 0 is not
-    // (HON-1398), so the star adds or removes a line: re-read the list.
+    // The list skips a staple unless it ran out (HON-1398), and an ordinary
+    // row at 0 or below the need has a line, so the star adds or removes one:
+    // re-read the list. A "have some" row (null) has no line either way.
     onSuccess: (_data, { quantity }) => {
-      if (quantity === 0) onPantryQuantityChanged?.()
+      if (quantity !== null) onPantryQuantityChanged?.()
     },
     onError: (_error, { id, currentIsStaple }) => {
       onItemsChange((prev) =>

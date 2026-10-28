@@ -5,9 +5,10 @@ import { makeItem, renderStateful } from './PantrySection.fixtures'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
-// A staple at 0 is on the shopping list and an ordinary row at 0 is not
-// (HON-1398), so the star at 0 adds or removes a restock line. The list is
-// the server's, so the star re-reads it (HON-1439).
+// The list skips a staple unless it ran out (HON-1398), and an ordinary row at
+// 0 or below the need has a line (`pantry-shopping-lines.ts`). So the star on
+// a row with an amount adds or removes a line, and re-reads the list
+// (HON-1439). A "have some" row (null) has no line either way.
 describe('PantrySection star re-reads the shopping list', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -44,10 +45,20 @@ describe('PantrySection star re-reads the shopping list', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
   })
 
-  it('does not re-read the list for a row above 0', async () => {
+  it('re-reads the list once the star lands on a row with an amount', async () => {
+    stubPatch()
+    const refresh = vi.fn()
+    renderStateful([makeItem({ quantity: 20 })], refresh)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as staple' }))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not re-read the list for a "have some" row', async () => {
     const fetchMock = stubPatch()
     const refresh = vi.fn()
-    renderStateful([makeItem({ quantity: 2 })], refresh)
+    renderStateful([makeItem({ quantity: null })], refresh)
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark as staple' }))
 
