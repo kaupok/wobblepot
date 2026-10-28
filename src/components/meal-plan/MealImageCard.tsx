@@ -265,6 +265,12 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
   footer?: ReactNode
   /** `bottom` only: a plain `bg-muted` box holds the image's slot while `generating` (HON-1364). */
   reserveWhileGenerating?: boolean
+  /**
+   * The surface while no image shows, missing or failed to load: the fridge
+   * meal's fixed tint, so it is never the plain card (docs/DESIGN.md → "A
+   * fridge meal names its food").
+   */
+  fallbackSurface?: 'fridge'
 }
 
 /**
@@ -301,6 +307,7 @@ export function MealImageCard({
   overlayPlacement,
   footer,
   reserveWhileGenerating = false,
+  fallbackSurface,
   className,
   style,
   children,
@@ -347,7 +354,8 @@ export function MealImageCard({
     <Card
       // `neutral` keeps the geometry and the title cap below, but not the
       // colour: globals.css gives it the tint's lightness at zero chroma.
-      data-meal-surface={tinted ? '' : hasImage ? 'neutral' : undefined}
+      data-meal-surface={tinted ? '' : hasImage ? 'neutral' : fallbackSurface}
+      data-meal-image={hasImage ? '' : undefined}
       data-meal-overlay={hasOverlay ? '' : undefined}
       className={cn(
         hasImage && 'relative isolate overflow-hidden',

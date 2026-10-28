@@ -192,8 +192,9 @@ export function FridgeMealCard({
     <>
       <MealImageCard
         meal={{ ...leftoverImage, name }}
-        // No leftovers' picture: the fixed fridge tint, not the plain card.
-        {...(!leftoverImage && { 'data-meal-surface': 'fridge' })}
+        // No leftovers' picture, or one that fails to load: the fixed fridge
+        // tint, not the plain card.
+        fallbackSurface="fridge"
         trailingActions
         size="sm"
         interactive={!isCompleted}
@@ -267,7 +268,7 @@ export function FridgeMealCard({
             <div
               className={cn(
                 'flex min-h-14 min-w-0 flex-col @md/meal-image:min-h-26',
-                mealImageTitleWidth(true, { image: !!leftoverImage }),
+                mealImageTitleWidth(true),
               )}
             >
               <div className="relative flex min-h-8 w-fit items-center">
