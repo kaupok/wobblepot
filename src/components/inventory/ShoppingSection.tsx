@@ -41,6 +41,7 @@ import {
 } from './shopping-sort'
 import { useCopyShoppingList } from './use-copy-shopping-list'
 import { useCustomShoppingItems } from './use-custom-shopping-items'
+import { useKeptTickedRows } from './use-kept-ticked-rows'
 import { usePantryChanges, type PantryChange } from './use-pantry-changes'
 import { usePurchaseToggle } from './use-purchase-toggle'
 
@@ -87,6 +88,8 @@ export function ShoppingSection({
   const tUrgency = useTranslations('dates.urgency')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
   const [sortMode, setSortMode] = useState<SortMode>(DEFAULT_SORT_MODE)
+  // The server's groups plus the ticked rows a re-read left out (HON-1439).
+  const { displayGroups, keep } = useKeptTickedRows(groups, purchasedIds)
 
   const {
     customItems,
@@ -116,23 +119,32 @@ export function ShoppingSection({
     localStorage.setItem(SORT_STORAGE_KEY, value)
   }
 
-  const totalComputedItems = groups.reduce((sum, group) => sum + group.items.length, 0)
-  const purchasedComputedCount = purchasedIds.size
-  const totalItems = totalComputedItems + customItems.length
-  const totalPurchased = purchasedComputedCount + checkedCustomCount
-
   // Enhance items with current purchased state
   const enhancedGroups = useMemo(
     () =>
-      groups.map((group) => ({
+      displayGroups.map((group) => ({
         ...group,
         items: group.items.map((item) => ({
           ...item,
           purchased: purchasedIds.has(item.ingredientId),
         })),
       })),
-    [groups, purchasedIds],
+    [displayGroups, purchasedIds],
   )
+
+  const unpurchasedComputedCount = useMemo(
+    () =>
+      enhancedGroups.reduce(
+        (sum, group) => sum + group.items.filter((item) => !item.purchased).length,
+        0,
+      ),
+    [enhancedGroups],
+  )
+  // Counted from the rows on screen, not `purchasedIds`: an id can outlive its
+  // row, and "bought" must never count a row the household cannot see.
+  const totalComputedItems = enhancedGroups.reduce((sum, group) => sum + group.items.length, 0)
+  const totalItems = totalComputedItems + customItems.length
+  const totalPurchased = totalComputedItems - unpurchasedComputedCount + checkedCustomCount
 
   // Only the active mode's grouping is computed; the others stay empty.
   const urgencyGroups = useMemo(
@@ -259,13 +271,18 @@ export function ShoppingSection({
 
   const { copied, handleCopy } = useCopyShoppingList(buildClipboardSections, startDate, endDate)
 
-  const { pendingIds, handleToggle } = usePurchaseToggle({
-    groups,
+  const { pendingIds, handleToggle: togglePurchase } = usePurchaseToggle({
+    groups: displayGroups,
     windowDays,
     setPurchasedIds,
     onItemPurchased,
     onItemUnpurchased,
   })
+
+  const handleToggle = (ingredientId: string, purchased: boolean) => {
+    if (purchased) keep(ingredientId)
+    togglePurchase(ingredientId, purchased)
+  }
 
   const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0
 
@@ -283,14 +300,6 @@ export function ShoppingSection({
   // `allPurchased` covers every list that has items and has them all accounted
   // for, so what's left for this gate is the list with no items at all.
   // Without it the header would offer to copy an empty list.
-  const unpurchasedComputedCount = useMemo(
-    () =>
-      enhancedGroups.reduce(
-        (sum, group) => sum + group.items.filter((item) => !item.purchased).length,
-        0,
-      ),
-    [enhancedGroups],
-  )
   const hasItemsToCopy = unpurchasedComputedCount + uncheckedCustomCount > 0
 
   // An empty or fully bought list keeps the sheet and its Add field, with one
