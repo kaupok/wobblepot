@@ -5,6 +5,12 @@ interface QuantityFormatOptions {
   maximumFractionDigits?: number
   /** Override the minimum fraction digits. Defaults to 0. */
   minimumFractionDigits?: number
+  /**
+   * Group thousands ("1,800" in en). Defaults to true. Off for a number a
+   * field opens on, or that the household types back: `parseLocalizedNumber`
+   * reads "1,800" as 1.8.
+   */
+  useGrouping?: boolean
 }
 
 /**
@@ -19,6 +25,7 @@ export function formatQuantity(
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: options.maximumFractionDigits ?? 1,
     minimumFractionDigits: options.minimumFractionDigits ?? 0,
+    useGrouping: options.useGrouping ?? true,
   }).format(value)
 }
 

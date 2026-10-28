@@ -8,6 +8,7 @@ import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 
 export interface PantryItemData {
   id: string
@@ -16,6 +17,11 @@ export interface PantryItemData {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
+    /**
+     * The unit the pantry shows an amount in. `loadPantry`, `POST /api/pantry`
+     * and a purchase send it; a fixture may leave it out.
+     */
+    displayUnit?: DisplayUnit
   }
   quantity: number | null
   isStaple: boolean

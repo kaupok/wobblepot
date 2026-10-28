@@ -234,7 +234,11 @@ describe('POST /api/pantry', () => {
   })
 
   it('returns 409 with the existing id when the ingredient is already in the pantry', async () => {
-    mockCreatePantryItem.mockResolvedValue({ status: 'exists', existingId: 'existing-item' })
+    mockCreatePantryItem.mockResolvedValue({
+      status: 'exists',
+      existingId: 'existing-item',
+      isStaple: false,
+    })
 
     const response = await post({ ingredientId: 'ing-456' })
 
@@ -251,11 +255,18 @@ describe('POST /api/pantry', () => {
     const response = await post({ ingredientId: 'ing-456', quantity: 500, isStaple: true })
 
     expect(response.status).toBe(201)
-    // `measuredByVolume` is the MCP tool's; the route does not return it.
+    // The row shows an amount in `displayUnit`: olive oil is measured by
+    // volume, so millilitres, as `loadPantry` reports it (HON-1402).
     expect(await response.json()).toEqual({
       id: 'pantry-new',
       ingredientId: 'ing-456',
-      ingredient: { id: 'ing-456', name: 'Olive oil', category: 'fat', defaultUnit: 'g' },
+      ingredient: {
+        id: 'ing-456',
+        name: 'Olive oil',
+        category: 'fat',
+        defaultUnit: 'g',
+        displayUnit: 'ml',
+      },
       quantity: 500,
       isStaple: true,
       updatedAt: '2024-01-10T00:00:00.000Z',

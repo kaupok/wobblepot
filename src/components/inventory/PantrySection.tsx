@@ -17,7 +17,8 @@ import { PantryItemRow } from './PantryItemRow'
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
 const RAN_OUT_KEY = ['pantry', 'ran-out'] as const
-// "Ran out" and "Have it" share one queue, so a quick second tap that undoes
+const AMOUNT_KEY = ['pantry', 'amount'] as const
+// "Ran out", "Have it" and an amount share one queue, so a quick second tap that undoes
 // the first lands after it on the server. Each `onMutate` still runs at once;
 // only the request waits.
 const QUANTITY_SCOPE = { id: 'pantry-quantity' }
@@ -26,12 +27,18 @@ const haveItSelector = (id: string) => `[data-have-it="${id}"]`
 const ranOutSelector = (id: string) => `[data-ran-out="${id}"]`
 const stapleSelector = (id: string) => `[data-staple="${id}"]`
 const removeSelector = (id: string) => `[data-remove="${id}"]`
+const amountSelector = (id: string) => `[data-amount="${id}"]`
 // The add search is the section's only input.
 const ADD_INPUT_SELECTOR = 'input'
 
 interface ToggleStapleVariables {
   id: string
   currentIsStaple: boolean
+}
+
+interface SetAmountVariables {
+  item: PantryItemData
+  quantity: number | null
 }
 
 interface PantrySectionProps {
@@ -47,7 +54,7 @@ interface PantrySectionProps {
   /** The toast's Undo put a removed row back, so the shopping list reverts. */
   onPantryItemRestored?: (ingredientId: string) => void
   /**
-   * A row's quantity changed on the server ("Ran out", "Have it"). The
+   * A row's quantity changed on the server ("Ran out", "Have it", an amount). The
    * shopping list buys a row at 0 and skips one at null, so the parent
    * re-reads it.
    */
@@ -208,6 +215,44 @@ export function PantrySection({
     },
   })
 
+  // An On hand row's amount (HON-1402): `null` is "have some", above 0 an
+  // amount the shopping list subtracts. A 0 is "Ran out": the row moves, so
+  // focus goes to its "Have it", which then restores the amount it had.
+  const amountMutation = useMutation({
+    mutationKey: AMOUNT_KEY,
+    scope: QUANTITY_SCOPE,
+    mutationFn: ({ item, quantity }: SetAmountVariables) =>
+      apiFetch(
+        `/api/pantry/${item.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity }),
+        },
+        tPantry('errors.updateFailed'),
+      ),
+    onMutate: ({ item, quantity }) => {
+      if (quantity === 0) {
+        quantityBeforeRanOut.current.set(item.id, item.quantity)
+        focusAfterRender.current = haveItSelector(item.id)
+      }
+      onItemsChange((prev) => prev.map((row) => (row.id === item.id ? { ...row, quantity } : row)))
+    },
+    onSuccess: () => onPantryQuantityChanged?.(),
+    onError: (_error, { item }) => {
+      // A 0 that failed brings the row back to On hand, and its "Have it"
+      // unmounts, so follow the row to its amount.
+      const haveIt = sectionRef.current?.querySelector(haveItSelector(item.id))
+      if (haveIt && haveIt === document.activeElement) {
+        focusAfterRender.current = amountSelector(item.id)
+      }
+      onItemsChange((prev) =>
+        prev.map((row) => (row.id === item.id ? { ...row, quantity: item.quantity } : row)),
+      )
+      toast.error(tPantry('errors.updateFailed'))
+    },
+  })
+
   // Undo creates the row again: the route has no restore, so the new row has a
   // new id. The removed item's "needed" fields fill what the response lacks.
   const restoreMutation = useMutation({
@@ -299,6 +344,9 @@ export function PantrySection({
 
   const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
+  const handleSetAmount = (item: PantryItemData, quantity: number | null) =>
+    amountMutation.mutate({ item, quantity })
+
   const handleItemAdded = (newItem: PantryItemData) => {
     // Into its sorted place, as a purchase lands, rather than at the end (HON-920)
     onItemsChange((prev) => [...prev, newItem].sort(comparePantryItems(locale)))
@@ -351,6 +399,7 @@ export function PantrySection({
                 onRemove={handleRemove}
                 onRanOut={handleRanOut}
                 onHaveIt={handleHaveIt}
+                onSetAmount={handleSetAmount}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}

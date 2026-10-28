@@ -9,9 +9,10 @@ import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 
 /**
- * The two pantry states the app shows (HON-1201). The routes still accept an
- * amount, but the pantry page never writes one, so an amount from an assistant
- * would be a state the household cannot see or correct.
+ * The quantity each status writes when no amount comes with it. An amount
+ * replaces `have_some`'s null: the pantry page shows and edits it, so the
+ * household can see and correct what an assistant wrote (HON-1402, which partly
+ * reverses HON-1201).
  */
 const STATUS_QUANTITY = { have_some: null, ran_out: 0 } as const
 
@@ -29,17 +30,26 @@ export const setPantryStatus = defineTool({
   name: 'set_pantry_status',
   title: 'Set pantry status',
   description:
-    'Records whether the household has an ingredient at home. have_some: it is in the pantry, amount unknown. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. A staple stays a staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. Wobblepot does not track amounts, so an amount the user mentions is not stored.',
+    'Records whether the household has an ingredient at home, and how much. have_some: it is in the pantry, with an amount or without one. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. A staple stays a staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. With have_some, pass amount when the user says how much there is, in the unit get_pantry reports: the shopping list then asks for that much less, and completing a meal takes its ingredients off it. A staple takes no amount.',
   annotations: WRITE_ANNOTATIONS,
-  inputSchema: z.object({
-    ingredientId: z
-      .string()
-      .min(1)
-      .describe('The ingredientId of the ingredient, from get_pantry or get_shopping_list.'),
-    status: z
-      .enum(['have_some', 'ran_out'])
-      .describe('have_some: at home, amount unknown. ran_out: used up.'),
-  }),
+  inputSchema: z
+    .object({
+      ingredientId: z
+        .string()
+        .min(1)
+        .describe('The ingredientId of the ingredient, from get_pantry or get_shopping_list.'),
+      status: z.enum(['have_some', 'ran_out']).describe('have_some: at home. ran_out: used up.'),
+      amount: z
+        .number()
+        .positive()
+        .optional()
+        .describe(
+          'How much is at home, in the unit get_pantry reports for the ingredient. Only with have_some. Leave out when the amount is unknown.',
+        ),
+    })
+    .refine((i) => i.amount === undefined || i.status === 'have_some', {
+      message: 'Give amount only with status have_some.',
+    }),
   outputSchema: z.object({
     outcome: z
       .enum(['created', 'updated'])
@@ -50,13 +60,15 @@ export const setPantryStatus = defineTool({
       quantity: z
         .number()
         .nullable()
-        .describe('null: have some. 0: ran out. The same field get_pantry reports.'),
+        .describe(
+          'null: have some, amount unknown. Above 0: the amount at home, in unit. 0: ran out. The same field get_pantry reports.',
+        ),
       unit: z.string(),
       isStaple: z.boolean(),
     }),
   }),
-  run: async (household, { ingredientId, status }) => {
-    const quantity = STATUS_QUANTITY[status]
+  run: async (household, { ingredientId, status, amount }) => {
+    const quantity = amount ?? STATUS_QUANTITY[status]
     const created = await createPantryItem(household, { ingredientId, quantity, isStaple: false })
 
     if (created.status === 'ingredient_not_found') {
@@ -66,6 +78,14 @@ export const setPantryStatus = defineTool({
     }
     if (created.status === 'created') {
       return { outcome: 'created' as const, item: itemOutput(created.item) }
+    }
+
+    // Completing a meal never takes a staple off, so an amount on one would
+    // never change.
+    if (created.isStaple && amount !== undefined) {
+      throw new ToolInputError(
+        'This ingredient is a staple, and a staple takes no amount. Call again without amount to record that the household has it. Nothing was changed.',
+      )
     }
 
     // Only the quantity changes, so a staple stays a staple.

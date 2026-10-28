@@ -30,6 +30,12 @@ describe('formatQuantity', () => {
       '0.50',
     )
   })
+
+  it('groups thousands unless told not to', () => {
+    expect(formatQuantity(1800, 'en')).toBe('1,800')
+    expect(formatQuantity(1800, 'en', { useGrouping: false })).toBe('1800')
+    expect(formatQuantity(18000.5, 'et', { useGrouping: false })).toBe('18000,5')
+  })
 })
 
 describe('formatInteger', () => {

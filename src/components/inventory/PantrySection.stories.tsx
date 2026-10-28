@@ -69,7 +69,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row not at 0 has a "Ran out" that sets it to 0; a row at 0 has a "Have it" that sets it back to "have some". A staple at 0 stays under Staples and says "Ran out" under its name. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row not at 0 has a "Ran out" that sets it to 0; a row at 0 has a "Have it" that sets it back to "have some". An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples and says "Ran out" under its name. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -298,6 +298,104 @@ export const MarkRanOut: Story = {
 }
 
 /** Answers the Undo's POST with the posted row, named from the story's items. */
+// One On hand row holds an amount, the rest are "have some" (HON-1402).
+const withAmounts: PantryItemData[] = [
+  ...staples,
+  createPantryItemData({
+    ingredient: ingredient('trout', 'Whole trout', 'protein'),
+    quantity: 1800,
+  }),
+  ...onHand,
+]
+
+export const Amounts: Story = {
+  args: { items: withAmounts },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits under the name, so on a phone the name keeps its width; the control is 32px with a 44px target, as "Ran out" is, and the row does not overflow.',
+      },
+    },
+  },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const amount = canvas.getByRole('button', { name: 'Amount: Whole trout, 1800\u00a0g' })
+    await expect(amount).toHaveTextContent('1800 g')
+    await expect(canvas.getByRole('button', { name: 'Add amount: Garlic' })).toBeInTheDocument()
+    await expect(canvas.getAllByRole('button', { name: /^Add amount:/ })).toHaveLength(3)
+    await expect(canvas.queryByRole('button', { name: /^(Add amount|Amount): Salt/ })).toBeNull()
+
+    await expect(Math.round(amount.getBoundingClientRect().height)).toBe(32)
+    const after = getComputedStyle(amount, '::after')
+    await expect(after.top).toBe('-6px')
+    await expect(after.bottom).toBe('-6px')
+    for (const button of canvas.getAllByRole('button', { name: /^(Add amount|Amount):/ })) {
+      const row = button.closest('.p-3') as HTMLElement
+      await expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth)
+    }
+  },
+}
+
+export const EnterAmount: Story = {
+  parameters: {
+    msw: { handlers: [patchHandler] },
+    docs: {
+      description: {
+        story:
+          '"Add amount" opens one field under the row, with the decimal keypad on a phone. Text that is not a number shows "Enter a number" and saves nothing; "1800" saves, shows "1800 g" and puts focus back on the control.',
+      },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Add amount: Short-grain rice' }))
+    const field = canvas.getByRole('textbox', { name: 'How much do you have?' })
+    await expect(field).toHaveFocus()
+    await expect(field).toHaveAttribute('inputmode', 'decimal')
+
+    await userEvent.type(field, 'abc')
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    await expect(canvas.getByRole('alert')).toHaveTextContent('Enter a number')
+    await expect(args.onPantryQuantityChanged).not.toHaveBeenCalled()
+
+    await userEvent.clear(field)
+    await userEvent.type(field, '1800')
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+
+    const amount = await canvas.findByRole('button', {
+      name: 'Amount: Short-grain rice, 1800\u00a0g',
+    })
+    await waitFor(() => expect(amount).toHaveFocus())
+    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
+  },
+}
+
+export const EnterAmountOpen: Story = {
+  args: { items: withAmounts },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The field open on a row with an amount: it opens on the amount, with the hint under it. Checked by axe with the error showing.',
+      },
+    },
+  },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Amount: Whole trout, 1800\u00a0g' }))
+    const field = canvas.getByRole('textbox', { name: 'How much do you have?' })
+    await expect(field).toHaveValue('1800')
+    await expect(canvas.getByText('Leave empty if you do not know')).toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, '-1')
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    await expect(canvas.getByRole('alert')).toHaveTextContent('Enter a number')
+  },
+}
+
 const restoreHandler = http.post('/api/pantry', async ({ request }) => {
   const body = (await request.json()) as {
     ingredientId: string

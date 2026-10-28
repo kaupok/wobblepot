@@ -378,6 +378,7 @@ secret can't turn the promotion gate into a silent green).
 | `tests/e2e/utils/db-helpers.ts`           | `/api/e2e-seed` client + `e2eBaseURL()`                                 |
 | `tests/e2e/utils/e2e-support.ts`          | `/api/e2e-support` back-channel client + purge-cron trigger             |
 | `tests/e2e/utils/fixtures.ts`             | Seeded-fixture credentials (skip locally / fail loudly on remote tiers) |
+| `tests/e2e/utils/shopping-pantry-api.ts`  | Shopping list, pantry and entry reads for `shopping-to-pantry.spec.ts`  |
 | `tests/e2e/utils/mail-helpers.ts`         | Reading outbound email (Resend backend, back-channel fallback)          |
 | `tests/e2e/utils/shared-fixture-specs.ts` | Specs that sign in as a seeded fixture (the `shared-fixture` project)   |
 | `playwright.config.ts`                    | Top-level config (CI-aware webServer + baseURL, projects)               |
