@@ -8,7 +8,7 @@ The PR reviewer (`scripts/pr-review.sh`) checks these four rules on every round.
 
 Run it once per cycle. Do not re-run it after the 4.5 fixes: the PR review in 6.3 checks them.
 
-A non-zero exit leaves no file. Run it once more. A second failure → print `[auto-implement] Local review failed; continuing — the 6.3 PR review still gates the merge` and go on with the other 4.3 items.
+A large diff can outrun the 600 s cap, as 6.3 notes. Past 600 s, background it and wait in this turn for the findings file, as `batched.md` does; a slow review does not get faster on a retry. A non-zero exit leaves no file: run it once more, unless the first run hit the cap. A second failure, or a wait that ends with no file → print `[auto-implement] Local review failed; continuing — the 6.3 PR review still gates the merge` and go on with the other 4.3 items.
 
 Each item names the source of its rule. Read the rule there, not here: a copy drifts from the reviewer prompt. `scripts/review-checklist-gate.test.ts` fails when a phrase quoted here leaves its source.
 

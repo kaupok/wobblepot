@@ -80,6 +80,14 @@ beforeAll(() => {
   write('src/components/Widget.test.tsx', 'it("x", () => {})\n')
   git('add', '.')
   git('commit', '-q', '-m', 'change')
+  // main moves on after the branch point, so its tip and the merge base differ, and a
+  // file changed only on main must stay out of the review.
+  git('checkout', '-q', 'main')
+  write('README.md', 'main moved on\n')
+  git('add', '.')
+  git('commit', '-q', '-m', 'main moves on')
+  git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+  git('checkout', '-q', 'feature')
   // Uncommitted work is reviewed too: 4.3 runs before Phase 5 commits.
   write('src/lib/new-thing.ts', 'export const n = 1\n')
 
@@ -188,11 +196,11 @@ describe('pr-review.sh --local', () => {
   })
 
   it('reviews committed, uncommitted and untracked changes against the merge base', () => {
-    const base = execFileSync('git', ['rev-parse', 'origin/main'], {
-      cwd: repo,
-      encoding: 'utf8',
-    }).trim()
-    expect(local.prompt).toContain(`git diff ${base}\n`)
+    const rev = (ref: string) =>
+      execFileSync('git', ['rev-parse', ref], { cwd: repo, encoding: 'utf8' }).trim()
+    // The branch point is the commit before main moved on, not main's tip.
+    expect(local.prompt).toContain(`git diff ${rev('main~1')}\n`)
+    expect(local.prompt).not.toContain(rev('origin/main'))
     expect(local.prompt).toContain('git ls-files --others --exclude-standard')
     expect(local.prompt).not.toMatch(/\bgh (pr|api) /)
   })
