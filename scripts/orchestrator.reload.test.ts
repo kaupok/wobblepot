@@ -10,21 +10,41 @@ const reloadHarness = path.join(scriptsDir, 'orchestrator-reload-harness.sh')
 const reloadLib = path.join(scriptsDir, 'orchestrator-reload.sh')
 
 /**
+ * PIDs whose command line holds `dir`: the spawn_worker wrapper subshells,
+ * which keep the harness's argv, and the stub workers under `dir/scripts`.
+ */
+function processesIn(dir: string): number[] {
+  const res = spawnSync('pgrep', ['-f', dir], { encoding: 'utf8' })
+  return res.stdout.split('\n').filter(Boolean).map(Number)
+}
+
+/**
  * The old image starts three stub workers through the real spawn_worker, then
  * reloads; every scenario but `version` performs a real exec into the new
  * image, which adopts them. Returns the combined output and the exit status.
+ * Throws if a worker outlives the harness, after killing it: each one left
+ * behind polls for its release file forever (HON-1460).
  */
 function runReload(scenario: 'exits' | 'timeout' | 'stop' | 'budget' | 'version' | 'stop-mid') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon1457-reload-'))
+  let leftover: number[] = []
   try {
     const res = spawnSync('bash', [reloadHarness, 'reload', scenario, dir], {
       encoding: 'utf8',
       timeout: 60_000,
       env: harnessEnv(),
     })
+    // Checked at once: a stub still running here would find its release file
+    // gone after the rmSync below.
+    leftover = processesIn(dir)
     return { out: stripTimestamps(res.stdout), status: res.status, stderr: res.stderr }
   } finally {
+    // Runs on a harness timeout too, which kills the harness but not its workers.
+    spawnSync('pkill', ['-KILL', '-f', dir])
     fs.rmSync(dir, { recursive: true, force: true })
+    if (leftover.length > 0) {
+      throw new Error(`${scenario}: ${leftover.length} worker process(es) outlived the harness`)
+    }
   }
 }
 
