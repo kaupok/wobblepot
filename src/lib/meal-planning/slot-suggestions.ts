@@ -21,7 +21,6 @@ import {
   type CandidateFilters,
   type CandidateMeal,
   getCandidates,
-  NO_REPEAT_DAYS,
 } from '@/lib/meal-planning/candidates'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -61,9 +60,10 @@ const SUGGESTION_COUNT = 3
 
 /**
  * Every meal the slot may take: the household's hard filters (dietary type,
- * allergens, excluded ingredients, meals planned in the no-repeat window), and
- * in `swap` mode not the meal already there. The suggestions are the top of
- * this pool, so a meal outside it is one they would never offer.
+ * allergens, excluded ingredients), and in `swap` mode not the meal already
+ * there. A meal planned recently stays in, because a family plans from a
+ * rotation of its usual meals on purpose (HON-1393). The suggestions are the
+ * top of this pool, so a meal outside it is one they would never offer.
  *
  * No protein-type filter: generation places its fish and legume dinners by
  * position in a range that is not stored, so a slot cannot know whether it was
@@ -77,24 +77,10 @@ export async function loadSlotCandidates(
 ): Promise<CandidateMeal[]> {
   const preferences = household.preferences
 
-  // Entries from plans within the NO_REPEAT_DAYS window
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - NO_REPEAT_DAYS)
-
-  const [recentEntries, favorites] = await Promise.all([
-    prisma.mealPlanEntry.findMany({
-      where: {
-        plan: { householdId: household.id },
-        date: { gte: cutoffDate },
-        mealId: { not: null },
-      },
-      select: { mealId: true },
-    }),
-    prisma.favoriteMeal.findMany({
-      where: { householdId: household.id },
-      select: { mealId: true },
-    }),
-  ])
+  const favorites = await prisma.favoriteMeal.findMany({
+    where: { householdId: household.id },
+    select: { mealId: true },
+  })
 
   const filters: CandidateFilters = {
     mealType: entry.mealType,
@@ -103,7 +89,6 @@ export async function loadSlotCandidates(
       household.id,
       preferences?.excludedIngredients ?? [],
     ),
-    recentMealIds: [...new Set(recentEntries.map((e) => e.mealId!).filter(Boolean))],
     dietaryType: preferences?.dietaryType ?? null,
     householdId: household.id,
     favoriteMealIds: favorites.map((f) => f.mealId),

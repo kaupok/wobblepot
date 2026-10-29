@@ -1394,10 +1394,6 @@ export const SwapDropsCachedSteps: Story = {
   },
 }
 
-// Per-entry suggestion POST counts, so the second card's list can be shown to
-// refetch after the first card swaps.
-const planSuggestionRequests: Record<string, number> = {}
-
 // POSTs served while re-selecting the meal already on the entry.
 let reselectStepsRequests = 0
 
@@ -1508,85 +1504,6 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     const reopened = await body.findByRole('dialog')
     await expect(within(reopened).getByText(/roasting tin/i)).toBeInTheDocument()
     await expect(reselectStepsRequests).toBe(1)
-  },
-}
-
-/**
- * The suggestions cache has to be dropped for the whole plan, not just the
- * entry that was swapped. Both suggestion routes filter candidates through
- * `recentMealIds` — every meal the household planned within `NO_REPEAT_DAYS`,
- * excluded by `candidates.ts:128` — so planning a meal on Monday removes it
- * from Tuesday's candidate set too. Every card shares one `QueryClient` and the
- * key is held at `staleTime: Infinity`, so a per-entry removal would leave
- * Tuesday still offering the meal just planned for Monday, and picking it would
- * plan the same dinner twice in one week (review round 2 on PR #785).
- */
-export const SwapDropsSuggestionsForSiblingEntries: Story = {
-  args: { meal: mealFixture, status: 'planned' },
-  parameters: {
-    msw: {
-      handlers: [
-        http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
-          HttpResponse.json({ ok: true }),
-        ),
-        http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', ({ params }) => {
-          const entryId = String(params.entryId)
-          const call = (planSuggestionRequests[entryId] ?? 0) + 1
-          planSuggestionRequests[entryId] = call
-          return HttpResponse.json({ alternatives: swapAlternatives(call) })
-        }),
-      ],
-    },
-  },
-  // Two cards on one plan, sharing the page's QueryClient exactly as the
-  // timeline renders them.
-  render: (args) => (
-    <div className="flex flex-col gap-4">
-      <div data-testid="monday">
-        <MealCard {...args} entryId="entry-monday" />
-      </div>
-      <div data-testid="tuesday">
-        <MealCard {...args} entryId="entry-tuesday" />
-      </div>
-    </div>
-  ),
-  play: async ({ canvasElement }) => {
-    planSuggestionRequests['entry-monday'] = 0
-    planSuggestionRequests['entry-tuesday'] = 0
-    const canvas = within(canvasElement)
-    const body = within(document.body)
-
-    const monday = within(canvas.getByTestId('monday'))
-    const tuesday = within(canvas.getByTestId('tuesday'))
-
-    const openSwap = async (card: ReturnType<typeof within>) => {
-      await userEvent.click(card.getByRole('button', { name: /more actions/i }))
-      await userEvent.click(await body.findByRole('menuitem', { name: 'Choose a recipe' }))
-      return body.findByRole('dialog')
-    }
-    const closeSwap = async () => {
-      await userEvent.keyboard('{Escape}')
-      await awaitDialogClosed()
-    }
-
-    // Tuesday caches a list that still offers the stir-fry.
-    const tuesdayFirst = await openSwap(tuesday)
-    await within(tuesdayFirst).findByText('Beef stir-fry', undefined, ROUND_TRIP)
-    await closeSwap()
-
-    // Monday takes the stir-fry.
-    const mondaySwap = await openSwap(monday)
-    await within(mondaySwap).findByText('Beef stir-fry', undefined, ROUND_TRIP)
-    await userEvent.click(within(mondaySwap).getByRole('button', { name: /^select$/i }))
-    // Select closes the dialog only once its PATCH resolves.
-    await awaitDialogClosed(ROUND_TRIP.timeout)
-
-    // Tuesday must refetch rather than replay — the stir-fry is Monday's
-    // dinner now, and offering it here would plan it twice in one week.
-    const tuesdaySecond = await openSwap(tuesday)
-    await within(tuesdaySecond).findByText('Mushroom risotto', undefined, ROUND_TRIP)
-    await expect(within(tuesdaySecond).queryByText('Beef stir-fry')).not.toBeInTheDocument()
-    await expect(planSuggestionRequests['entry-tuesday']).toBe(2)
   },
 }
 

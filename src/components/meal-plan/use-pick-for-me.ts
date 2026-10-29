@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import type { MealType } from '@/generated/prisma/enums'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { rateLimitResetAt } from '@/lib/ai/error-codes'
 import { track } from '@/lib/analytics'
 import { ApiError, apiFetch } from '@/lib/api'
@@ -91,7 +90,6 @@ export function usePickForMe({
   onSwapUndone,
 }: UsePickForMeOptions) {
   const router = useRouter()
-  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const tSelector = useTranslations('meal-plan.selector')
   const tErrors = useTranslations('meal-plan.errors')
@@ -117,7 +115,6 @@ export function usePickForMe({
       })
     },
     onSuccess: () => {
-      dropSuggestionCache()
       router.refresh()
     },
     onError: (err) => {
@@ -159,9 +156,6 @@ export function usePickForMe({
       return { entryId: cleared.entryId, mealId: top.id, mealName: top.name, cleared }
     },
     onSuccess: (picked) => {
-      // The placed meal joins the plan's `recentMealIds`, so every other
-      // card's cached suggestions may now offer it twice (HON-682).
-      dropSuggestionCache()
       onPicked?.()
       router.refresh()
       void track('meal_plan:slot_filled', {
@@ -198,7 +192,6 @@ export function usePickForMe({
       patchEntry(entryId, { mealId, servingOverride, status, rating }),
     onSuccess: (_data, { from }) => {
       onSwapUndone?.(from)
-      dropSuggestionCache()
       router.refresh()
     },
     onError: (err) => {
@@ -227,9 +220,6 @@ export function usePickForMe({
     },
     onSuccess: (swapped) => {
       onSwapped?.(swapped.toMealId)
-      // The meal that left may now be suggested elsewhere, and the one that
-      // came may not (HON-682).
-      dropSuggestionCache()
       router.refresh()
       void track('meal_plan:meal_swapped', {
         plan_id: planId,

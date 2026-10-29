@@ -10,7 +10,7 @@ import { swapMeal } from './swap-meal'
 
 // A swap on a past slot logs what the household ate (HON-1382); from today on,
 // a chosen meal may repeat (HON-1392). Runs against PGlite through the
-// `unit-db` project, with no mocks, so the no-repeat rule and the pantry are
+// `unit-db` project, with no mocks, so the plan entries and the pantry are
 // real rows. Vitest runs in UTC, so the household does too,
 // and every date is relative to the real today. The mocked
 // `swap-meal.test.ts` covers the suggestions.
@@ -279,7 +279,8 @@ describe('swap_meal on a slot from today on', () => {
     expect(result).toMatchObject({ outcome: 'swapped', lastPlannedOn: null, nextPlannedOn: null })
   })
 
-  it('still leaves a dinner planned 7 days earlier out of the suggestions', async () => {
+  // A household plans from a rotation on purpose, so a recent dinner is offered (HON-1393).
+  it('suggests a dinner planned 7 days earlier, but not the meal being replaced', async () => {
     const household = await world()
     const date = day(1)
     await dinner(day(-7), 'trout', 'completed')
@@ -287,14 +288,13 @@ describe('swap_meal on a slot from today on', () => {
 
     const result = await call(household, { date, mealType: 'dinner' })
 
-    // Satay has peanuts, the stew is the meal being replaced, and the trout
-    // was planned 7 days ago: the soup is all that is left.
+    // Satay has peanuts and the stew is the meal being replaced.
     expect(result).toMatchObject({
       outcome: 'suggestions',
       lastPlannedOn: null,
       nextPlannedOn: null,
     })
-    expect(result.suggestions.map((meal) => meal.id)).toEqual(['soup'])
+    expect(result.suggestions.map((meal) => meal.id).sort()).toEqual(['soup', 'trout'])
   })
 
   it.each([

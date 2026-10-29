@@ -1,5 +1,5 @@
 import type { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
-import { type CandidateMeal, getCandidates, NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
+import { type CandidateMeal, getCandidates } from '@/lib/meal-planning/candidates'
 import type { MealSlot } from '@/lib/meal-planning/slots'
 import { prisma } from '@/lib/prisma'
 
@@ -38,27 +38,6 @@ export function capPool(
 }
 
 /**
- * Get recent meal IDs used in the last NO_REPEAT_DAYS for a household.
- */
-export async function getRecentMealIds(householdId: string): Promise<string[]> {
-  // Normalize to local midnight to match database date storage
-  const cutoffDate = new Date()
-  cutoffDate.setHours(0, 0, 0, 0)
-  cutoffDate.setDate(cutoffDate.getDate() - NO_REPEAT_DAYS)
-
-  const recentEntries = await prisma.mealPlanEntry.findMany({
-    where: {
-      plan: { householdId },
-      date: { gte: cutoffDate },
-      mealId: { not: null },
-    },
-    select: { mealId: true },
-  })
-
-  return recentEntries.map((e) => e.mealId).filter((id): id is string => id !== null)
-}
-
-/**
  * Get favorite meal IDs for a household.
  */
 export async function getFavoriteMealIds(householdId: string): Promise<string[]> {
@@ -76,9 +55,15 @@ export interface LoadCandidatePoolsOptions {
   householdId: string
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
-  recentMealIds: string[]
   dietaryType: DietaryType | null
   favoriteMealIds: string[]
+  /**
+   * Dinners already planned in the range, which the new entries keep beside them. They are left
+   * out of the dinner pools, because one plan has no dinner twice and `validatePlan` sees only
+   * the new entries. A meal planned outside the range stays in: a family plans from a rotation
+   * on purpose (HON-1393).
+   */
+  keptDinnerIds?: string[]
 }
 
 export interface LoadCandidatePoolsResult {
@@ -105,10 +90,13 @@ export async function loadCandidatePools({
   householdId,
   allergensToAvoid,
   excludedIngredientIds,
-  recentMealIds,
   dietaryType,
   favoriteMealIds,
+  keptDinnerIds = [],
 }: LoadCandidatePoolsOptions): Promise<LoadCandidatePoolsResult> {
+  const kept = new Set(keptDinnerIds)
+  const notKept = (candidates: CandidateMeal[]) => candidates.filter((c) => !kept.has(c.id))
+
   // Collect unique meal types to query candidates for
   const uniqueMealTypes = [...new Set(slots.map((s) => s.mealType))]
 
@@ -121,12 +109,14 @@ export async function loadCandidatePools({
         mealType,
         allergensToAvoid,
         excludedIngredientIds,
-        recentMealIds,
         dietaryType,
         householdId,
         favoriteMealIds,
       })
-      candidatesByMealType.set(mealType, capPool(candidates))
+      candidatesByMealType.set(
+        mealType,
+        capPool(mealType === 'dinner' ? notKept(candidates) : candidates),
+      )
     }),
   )
 
@@ -137,7 +127,6 @@ export async function loadCandidatePools({
       mealType: 'dinner',
       allergensToAvoid,
       excludedIngredientIds,
-      recentMealIds,
       dietaryType,
       primaryProteinType: 'fish',
       householdId,
@@ -147,7 +136,6 @@ export async function loadCandidatePools({
       mealType: 'dinner',
       allergensToAvoid,
       excludedIngredientIds,
-      recentMealIds,
       dietaryType,
       primaryProteinType: 'legume',
       householdId,
@@ -156,8 +144,8 @@ export async function loadCandidatePools({
   ])
 
   // Build protein-specific pools first
-  const fishPool = capPool(fishCandidates)
-  const legumePool = capPool(legumeCandidates)
+  const fishPool = capPool(notKept(fishCandidates))
+  const legumePool = capPool(notKept(legumeCandidates))
 
   // Exclude protein-specific pool meals from "any" pool to reserve them for required slots.
   const reservedMealIds = new Set([...fishPool.map((m) => m.id), ...legumePool.map((m) => m.id)])

@@ -6,28 +6,20 @@ import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    mealPlanEntry: { findMany: vi.fn() },
     favoriteMeal: { findMany: vi.fn() },
   },
 }))
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
 }))
 
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { prisma } from '@/lib/prisma'
 
-import {
-  capPool,
-  getFavoriteMealIds,
-  getRecentMealIds,
-  loadCandidatePools,
-} from './plan-candidates'
+import { capPool, getFavoriteMealIds, loadCandidatePools } from './plan-candidates'
 
 const mockGetCandidates = vi.mocked(getCandidates)
-const mockEntryFindMany = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockFavoriteFindMany = vi.mocked(prisma.favoriteMeal.findMany)
 
 function createCandidate(overrides: Partial<CandidateMeal> = {}): CandidateMeal {
@@ -63,7 +55,6 @@ const baseOptions = {
   householdId: 'household-1',
   allergensToAvoid: [],
   excludedIngredientIds: [],
-  recentMealIds: [],
   dietaryType: null,
   favoriteMealIds: [],
 }
@@ -97,18 +88,6 @@ describe('capPool', () => {
 
   it('honours an explicit limit', () => {
     expect(capPool(createMeals(20), 6)).toHaveLength(6)
-  })
-})
-
-describe('getRecentMealIds', () => {
-  it('drops null meal ids from recent entries', async () => {
-    mockEntryFindMany.mockResolvedValueOnce([
-      { mealId: 'a' },
-      { mealId: null },
-      { mealId: 'b' },
-    ] as never)
-
-    await expect(getRecentMealIds('household-1')).resolves.toEqual(['a', 'b'])
   })
 })
 
@@ -194,7 +173,6 @@ describe('loadCandidatePools', () => {
       householdId: 'household-9',
       allergensToAvoid: ['dairy'],
       excludedIngredientIds: ['ing-1'],
-      recentMealIds: ['meal-recent'],
       dietaryType: 'vegetarian',
       favoriteMealIds: ['meal-fav'],
     })
@@ -204,7 +182,6 @@ describe('loadCandidatePools', () => {
         householdId: 'household-9',
         allergensToAvoid: ['dairy'],
         excludedIngredientIds: ['ing-1'],
-        recentMealIds: ['meal-recent'],
         dietaryType: 'vegetarian',
         favoriteMealIds: ['meal-fav'],
       })

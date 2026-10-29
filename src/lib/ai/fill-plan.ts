@@ -10,7 +10,7 @@ import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
 import { prisma } from '@/lib/prisma'
 
 import { PLANNING_MODEL } from './models'
-import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
+import { getFavoriteMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
   slotKey,
@@ -114,9 +114,15 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     weekendMealTypes,
   })
 
-  // Get recent meal IDs to exclude, favorite meal IDs for prioritization, and pantry ingredients
-  const [recentMealIds, favoriteMealIds, pantryIngredients] = await Promise.all([
-    getRecentMealIds(householdId),
+  // Dinners already in the range stay beside the new entries, so they are not planned again
+  // (HON-1393). `validatePlan` checks only the new entries.
+  const rangeDates = new Set(dates.map(toDateString))
+  const keptDinnerIds = existingPlan.entries.flatMap((e) =>
+    e.mealType === 'dinner' && e.mealId && rangeDates.has(toDateString(e.date)) ? [e.mealId] : [],
+  )
+
+  // Favorite meal IDs for prioritization, and pantry ingredients
+  const [favoriteMealIds, pantryIngredients] = await Promise.all([
     getFavoriteMealIds(householdId),
     getPantryIngredientNames(householdId),
   ])
@@ -126,9 +132,9 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     householdId,
     allergensToAvoid,
     excludedIngredientIds,
-    recentMealIds,
     dietaryType,
     favoriteMealIds,
+    keptDinnerIds,
   })
 
   // Validate required pools have candidates

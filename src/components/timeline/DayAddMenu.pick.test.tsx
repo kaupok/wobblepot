@@ -152,22 +152,23 @@ describe('DayAddMenu: Pick for me', () => {
     })
   })
 
-  it('deletes the entry, drops the suggestion cache and refreshes on Undo', async () => {
+  it("deletes the entry and refreshes on Undo, keeping other cards' suggestions", async () => {
     const { queryClient } = renderSlot()
     // Another card's cached list, as `MealSelectorModal` keys it.
     const otherCard = ['meal-suggestions', 'plan-1', 'entry-3', 'swap']
 
     await pickForMe()
     const [, options] = await pickedToast()
-    // The test client collects unobserved queries at once; this one must stay
-    // until Undo drops it.
+    // The test client collects unobserved queries at once; keep this one so
+    // the test can see that Undo leaves it. A placed meal no longer changes
+    // another slot's suggestions (HON-1393).
     queryClient.setQueryDefaults(otherCard, { gcTime: Infinity })
     queryClient.setQueryData(otherCard, [{ id: 'meal-7' }])
     refresh.mockClear()
     clickUndo(options)
 
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
-    expect(queryClient.getQueryData(otherCard)).toBeUndefined()
+    expect(queryClient.getQueryData(otherCard)).toEqual([{ id: 'meal-7' }])
     expect(requests.at(-1)).toEqual({
       method: 'DELETE',
       url: `${ENTRIES_URL}/entry-9`,

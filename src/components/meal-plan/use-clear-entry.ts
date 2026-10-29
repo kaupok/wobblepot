@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import type { MealType } from '@/generated/prisma/enums'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import type { FridgeItemInput } from '@/lib/meal-plans/fridge-items'
 
@@ -68,7 +67,6 @@ interface UseClearEntryOptions {
  */
 export function useClearEntry({ planId, entryId, name, onCleared }: UseClearEntryOptions) {
   const router = useRouter()
-  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
 
   // Undo posts the cleared entry to the create route. It runs after this card
@@ -88,7 +86,6 @@ export function useClearEntry({ planId, entryId, name, onCleared }: UseClearEntr
         tCard('undoFailed'),
       ),
     onSuccess: () => {
-      dropSuggestionCache()
       router.refresh()
     },
     onError: (err) => {
@@ -117,9 +114,6 @@ export function useClearEntry({ planId, entryId, name, onCleared }: UseClearEntr
         method: 'DELETE',
       }),
     onSuccess: (_data, entry) => {
-      // Clearing frees this entry's meal to be suggested elsewhere again, so
-      // every other card's cached list is now wrong in the other direction.
-      dropSuggestionCache()
       onCleared?.()
       router.refresh()
       toast(tCard('cleared', { name }), {
