@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST } from './route'
 
-// The matching and the writes live in `@/lib/shopping/custom-items`, tested
-// against a database in `custom-items.db.test.ts`. This file mocks that module
-// at the seam and asserts what the route owns: the session, the household, the
+// The matching and the writes live in `@/lib/shopping/custom-items` and
+// `@/lib/pantry/staple-ran-out`, tested against a database in their
+// `.db.test.ts` files. This file mocks those modules at the seam and asserts what the route owns: the session, the household, the
 // body, and the status each outcome maps to (HON-1208).
 
 vi.mock('next/headers', () => ({
@@ -28,15 +28,21 @@ vi.mock('@/lib/shopping/custom-items', async (importOriginal) => ({
   addCustomShoppingItem: vi.fn(),
 }))
 
+vi.mock('@/lib/pantry/staple-ran-out', () => ({
+  markStapleRanOutByName: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
+import { markStapleRanOutByName } from '@/lib/pantry/staple-ran-out'
 import { addCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockAdd = vi.mocked(addCustomShoppingItem)
+const mockMarkStaple = vi.mocked(markStapleRanOutByName)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -86,6 +92,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetSession.mockResolvedValue(mockSession)
   mockGetMembership.mockResolvedValue(membership)
+  mockMarkStaple.mockResolvedValue({ status: 'no_match' })
 })
 
 describe('POST /api/shopping-list/custom', () => {
@@ -141,6 +148,42 @@ describe('POST /api/shopping-list/custom', () => {
 
     expect(await answer(post({ name: '  Salt  ' }))).toEqual({ status: 201, body: { item } })
     expect(mockAdd).toHaveBeenCalledWith(household, 'Salt')
+  })
+
+  it('marks a staple ran out by its name and returns 200, with no custom item', async () => {
+    mockMarkStaple.mockResolvedValue({
+      status: 'staple_ran_out',
+      pantryItemId: 'pantry-milk',
+      ingredientName: 'Piim',
+    })
+
+    expect(await answer(post({ name: '  piim ' }))).toEqual({
+      status: 200,
+      body: { status: 'staple_ran_out', pantryItemId: 'pantry-milk', ingredientName: 'Piim' },
+    })
+    expect(mockMarkStaple).toHaveBeenCalledWith(household, 'piim')
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns 409 with no custom item when an open item stands for the staple', async () => {
+    mockMarkStaple.mockResolvedValue({ status: 'on_list' })
+
+    expect(await answer(post({ name: 'milk' }))).toEqual({
+      status: 409,
+      body: { error: 'Item already exists' },
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 and reports the error when the staple check throws', async () => {
+    const error = new Error('DB down')
+    mockMarkStaple.mockRejectedValue(error)
+
+    expect(await answer(post({ name: 'Salt' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to create item' },
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('returns 200 with the item when a checked item is reopened', async () => {

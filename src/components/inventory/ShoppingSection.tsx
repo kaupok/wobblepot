@@ -67,6 +67,8 @@ interface ShoppingSectionProps {
   /** Pantry rows removed or put back (Undo), by ingredient id: `usePantryChanges`. */
   externalPantryChanges?: Map<string, PantryChange>
   onExternalPantryChangesProcessed?: (listStale: boolean) => void
+  /** "Add item" marked a staple ran out (HON-1400), by its pantry item id. */
+  onStapleRanOut?: (pantryItemId: string) => void
 }
 
 export function ShoppingSection({
@@ -81,6 +83,7 @@ export function ShoppingSection({
   onItemUnpurchased,
   externalPantryChanges,
   onExternalPantryChangesProcessed,
+  onStapleRanOut,
 }: ShoppingSectionProps) {
   const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
@@ -378,7 +381,11 @@ export function ShoppingSection({
       <Card data-surface="note" data-testid="shopping-sheet">
         <CardContent>
           <div className="flex flex-col gap-6">
-            <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
+            <CustomItemInput
+              onItemAdded={handleCustomItemAdded}
+              onStapleRanOut={onStapleRanOut}
+              disabled={isPending}
+            />
             {emptyLine && <Body variant="muted">{emptyLine}</Body>}
 
             {/* `totalItems > 0`, here and for urgency: an empty mode wrapper is

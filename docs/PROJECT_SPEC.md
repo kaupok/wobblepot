@@ -97,6 +97,8 @@ An ingredient with `pieceDisplay` shows its grams as pieces, so a cook reads "¾
 
 A staple skips the list for a planned meal, as long as the household has some. A staple at `0` ("ran out") goes on the list now, with or without a planned meal: with the planned amount when a meal or extra needs it, and with no amount when nothing does. Either way the line is a restock line (`restock: true`), needed today, tagged "Ran out" (HON-1398). An ordinary item at `0` goes on the list only when a planned meal or extra needs it.
 
+The household can also mark a staple ran out from the shopping list's "Add item" (HON-1400). While it types, a dropdown suggests the staples whose name, in the household's language or in English, contains the text; picking one sets it to `0`. A name sent with Enter that is exactly a staple's (case and outer space ignored) does the same, with a toast, in place of a custom item. Only an exact name connects, so "milk chocolate" stays a custom item. A staple that an open custom item on the list already stands for (linked to its ingredient, or with its name) is left alone, so the list never shows the item twice: the dropdown leaves it out, and Enter on its name says it is already on the list.
+
 ---
 
 ## User Flows

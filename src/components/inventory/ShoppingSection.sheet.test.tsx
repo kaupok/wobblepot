@@ -31,13 +31,13 @@ describe('ShoppingSection note sheet', () => {
     const sheet = screen.getByTestId('shopping-sheet')
     expect(sheet).toHaveAttribute('data-surface', 'note')
     expect(
-      within(sheet).getByRole('textbox', { name: 'Add custom item to shopping list' }),
+      within(sheet).getByRole('combobox', { name: 'Add custom item to shopping list' }),
     ).toBeInTheDocument()
     expect(within(sheet).getByText('Carrot')).toBeInTheDocument()
     expect(within(sheet).getByText('Beef')).toBeInTheDocument()
 
     expect(within(sheet).queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
-    expect(within(sheet).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('combobox', { name: 'Time window' })).not.toBeInTheDocument()
     expect(within(sheet).queryByText('3 items')).not.toBeInTheDocument()
   })
 
@@ -77,13 +77,15 @@ describe('ShoppingSection note sheet', () => {
  * item (HON-1354).
  */
 describe('ShoppingSection empty list', () => {
-  const addField = () => screen.getByRole('textbox', { name: 'Add custom item to shopping list' })
+  const addField = () => screen.getByRole('combobox', { name: 'Add custom item to shopping list' })
 
   afterEach(() => {
     vi.mocked(fetch).mockReset()
   })
 
   function mockAdd(name: string) {
+    // The Add field reads the staples when it takes focus (HON-1400).
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ staples: [] }))
     vi.mocked(fetch).mockResolvedValueOnce(
       Response.json({
         item: {
@@ -129,9 +131,9 @@ describe('ShoppingSection empty list', () => {
       expect(screen.getByRole('combobox', { name: 'Time window' })).toBeInTheDocument()
       const sheet = screen.getByTestId('shopping-sheet')
       expect(sheet).toHaveAttribute('data-surface', 'note')
-      expect(within(sheet).getByRole('textbox', { name: 'Add custom item to shopping list' })).toBe(
-        addField(),
-      )
+      expect(
+        within(sheet).getByRole('combobox', { name: 'Add custom item to shopping list' }),
+      ).toBe(addField())
       expect(within(sheet).getByText(line)).toBeInTheDocument()
       expect(screen.queryByRole('link', { name: 'Generate plan' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Copy list' })).not.toBeInTheDocument()

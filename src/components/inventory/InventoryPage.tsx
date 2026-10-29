@@ -125,6 +125,18 @@ export function InventoryPage({
   // "Have it" takes a ran-out row off the list: recompute it, as a removal does.
   const handlePantryQuantityChanged = useCallback(() => router.refresh(), [router])
 
+  // "Add item" marked a staple ran out: the pantry column shows it at none
+  // left, and the re-read list carries its ran-out line (HON-1400).
+  const handleStapleRanOut = useCallback(
+    (pantryItemId: string) => {
+      setPantryItems((prev) =>
+        prev.map((item) => (item.id === pantryItemId ? { ...item, quantity: 0 } : item)),
+      )
+      router.refresh()
+    },
+    [router],
+  )
+
   const handlePantryChangesProcessed = useCallback(
     (listStale: boolean) => {
       // Clear the map after ShoppingSection has processed it
@@ -182,6 +194,7 @@ export function InventoryPage({
               onItemUnpurchased={handleItemUnpurchased}
               externalPantryChanges={pantryChanges}
               onExternalPantryChangesProcessed={handlePantryChangesProcessed}
+              onStapleRanOut={handleStapleRanOut}
             />
           )}
         </div>
