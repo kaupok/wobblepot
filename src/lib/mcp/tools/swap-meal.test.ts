@@ -34,6 +34,7 @@ vi.mock('@/lib/meal-planning/meal-allowed-for-slot', () => ({
 }))
 vi.mock('@/lib/meal-plans/last-planned', () => ({
   findLastPlannedDate: vi.fn(),
+  findNextPlannedDate: vi.fn(),
 }))
 vi.mock('@/lib/meal-planning/pantry', () => ({
   getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
@@ -49,7 +50,7 @@ import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
-import { findLastPlannedDate } from '@/lib/meal-plans/last-planned'
+import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
@@ -138,6 +139,7 @@ describe('swap_meal', () => {
     vi.mocked(getCandidates).mockResolvedValue(POOL as never)
     vi.mocked(isMealAllowedForSlot).mockResolvedValue('allowed')
     vi.mocked(findLastPlannedDate).mockResolvedValue(null)
+    vi.mocked(findNextPlannedDate).mockResolvedValue(null)
     vi.mocked(prisma.meal.findMany).mockImplementation((async ({ where }: never) => {
       const ids = (where as { id: { in: string[] } }).id.in
       return ids.map((id) => ({
@@ -269,6 +271,7 @@ describe('swap_meal', () => {
         mealType: 'dinner',
         meal: { id: 'meal-soup', name: 'Lentil soup' },
         lastPlannedOn: null,
+        nextPlannedOn: null,
         suggestions: [],
       })
       // The route test's "clears the rating when the meal is swapped" asserts

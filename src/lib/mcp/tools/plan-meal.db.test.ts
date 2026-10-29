@@ -113,6 +113,7 @@ describe('plan_meal', () => {
       mealType: 'dinner',
       meal: { id: 'stew', name: 'Glimmer stew' },
       lastPlannedOn: null,
+      nextPlannedOn: null,
     })
     const plan = await getMealPlan.run(household, { from: date, to: date }, CALLER)
     expect(plan.entries).toEqual([
@@ -145,6 +146,23 @@ describe('plan_meal', () => {
     expect(result.outcome).toBe('planned')
     expect(result.lastPlannedOn).toBe(earlier)
     expect(await entryCount(household.id)).toBe(2)
+  })
+
+  it('plans a meal already planned on a later day, and says when', async () => {
+    const household = await world()
+    const later = day(3)
+    await prisma.mealPlanEntry.create({
+      data: {
+        planId: 'plan-alder',
+        date: parseLocalDate(later),
+        mealType: 'dinner',
+        mealId: 'stew',
+      },
+    })
+
+    const result = await call(household, { date: day(2), mealType: 'dinner', mealId: 'stew' })
+
+    expect(result).toMatchObject({ outcome: 'planned', lastPlannedOn: null, nextPlannedOn: later })
   })
 
   it('replaces an empty picker placeholder', async () => {
