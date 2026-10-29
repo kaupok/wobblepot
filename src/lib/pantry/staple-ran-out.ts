@@ -23,12 +23,11 @@ export interface PantryStaple {
 }
 
 /**
- * The household's staples, except one an open custom item on the list
- * already stands for, by its ingredient link or its name in either language:
- * marking that one ran out would put the item on the list twice. A household
- * has few staples, so the client filters them as the household types.
+ * Every staple of the household, and whether an open custom item on the list
+ * already stands for it, by its ingredient link or its name in either
+ * language: marking that one ran out would put the item on the list twice.
  */
-export async function listPantryStaples(household: Household): Promise<PantryStaple[]> {
+async function loadStaples(household: Household): Promise<(PantryStaple & { onList: boolean })[]> {
   const locale = resolveHouseholdLocale(household)
   const [rows, openCustomItems] = await Promise.all([
     prisma.pantryItem.findMany({
@@ -48,29 +47,43 @@ export async function listPantryStaples(household: Household): Promise<PantrySta
   const onListIngredients = new Set(openCustomItems.map((item) => item.ingredientId))
   const onListNames = new Set(openCustomItems.map((item) => item.name.trim().toLowerCase()))
   return rows
-    .filter((row) => !onListIngredients.has(row.ingredientId))
-    .map((row) => ({
-      id: row.id,
-      name: translateIngredient(row.ingredient, locale).name,
-      englishName: row.ingredient.name,
-      quantity: row.quantity,
-    }))
-    .filter(
-      (s) =>
-        !onListNames.has(s.name.toLowerCase()) && !onListNames.has(s.englishName.toLowerCase()),
-    )
+    .map((row) => {
+      const name = translateIngredient(row.ingredient, locale).name
+      const englishName = row.ingredient.name
+      return {
+        id: row.id,
+        name,
+        englishName,
+        quantity: row.quantity,
+        onList:
+          onListIngredients.has(row.ingredientId) ||
+          onListNames.has(name.toLowerCase()) ||
+          onListNames.has(englishName.toLowerCase()),
+      }
+    })
     .sort((a, b) => a.name.localeCompare(b.name, locale))
+}
+
+/**
+ * The household's staples the dropdown may offer: not those an open custom
+ * item stands for (`loadStaples`). A household has few staples, so the client
+ * filters them as the household types.
+ */
+export async function listPantryStaples(household: Household): Promise<PantryStaple[]> {
+  const staples = await loadStaples(household)
+  return staples.filter((s) => !s.onList).map(({ onList: _onList, ...staple }) => staple)
 }
 
 /**
  * - `staple_ran_out`: the name is a staple's, and the staple is now ran out
  *   (`quantity: 0`). A staple that was ran out already is not written again.
- * - `no_match`: no staple has this name, or an open custom item stands for
- *   the staple already; the caller makes the custom item, or reports it is on
- *   the list.
+ * - `on_list`: the name is a staple's, but an open custom item stands for it
+ *   already, so nothing changes; the caller says it is on the list.
+ * - `no_match`: no staple has this name; the caller makes a custom item.
  */
 export type MarkStapleRanOutOutcome =
   | { status: 'staple_ran_out'; pantryItemId: string; ingredientName: string }
+  | { status: 'on_list' }
   | { status: 'no_match' }
 
 /**
@@ -84,11 +97,12 @@ export async function markStapleRanOutByName(
   name: string,
 ): Promise<MarkStapleRanOutOutcome> {
   const typed = name.trim().toLowerCase()
-  const staples = await listPantryStaples(household)
+  const staples = await loadStaples(household)
   const staple = staples.find(
     (s) => s.name.toLowerCase() === typed || s.englishName.toLowerCase() === typed,
   )
   if (!staple) return { status: 'no_match' }
+  if (staple.onList) return { status: 'on_list' }
 
   // A write bumps `@updatedAt`, so a staple at 0 already is left alone.
   if (staple.quantity !== 0) {

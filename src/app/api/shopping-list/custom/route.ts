@@ -21,7 +21,8 @@ const createSchema = z.object({
  *
  * A name that is exactly one of the household's staples marks that staple
  * ran out in place of a custom item, and returns 200 with
- * `{ status: 'staple_ran_out', pantryItemId, ingredientName }` (HON-1400).
+ * `{ status: 'staple_ran_out', pantryItemId, ingredientName }` (HON-1400),
+ * or 409 when an open custom item stands for that staple already.
  * Only this route does it: the MCP tool and the day extras keep making items.
  */
 export async function POST(request: Request) {
@@ -63,6 +64,10 @@ export async function POST(request: Request) {
     const staple = await markStapleRanOutByName(household, name)
     if (staple.status === 'staple_ran_out') {
       return NextResponse.json(staple, { status: 200 })
+    }
+    // An open custom item stands for the staple: on the list already.
+    if (staple.status === 'on_list') {
+      return NextResponse.json({ error: 'Item already exists' }, { status: 409 })
     }
 
     const outcome = await addCustomShoppingItem(household, name)

@@ -165,6 +165,16 @@ describe('POST /api/shopping-list/custom', () => {
     expect(mockAdd).not.toHaveBeenCalled()
   })
 
+  it('returns 409 with no custom item when an open item stands for the staple', async () => {
+    mockMarkStaple.mockResolvedValue({ status: 'on_list' })
+
+    expect(await answer(post({ name: 'milk' }))).toEqual({
+      status: 409,
+      body: { error: 'Item already exists' },
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('returns 500 and reports the error when the staple check throws', async () => {
     const error = new Error('DB down')
     mockMarkStaple.mockRejectedValue(error)

@@ -126,10 +126,10 @@ describe('markStapleRanOutByName', () => {
   it('leaves the staple alone when an open custom item links its ingredient', async () => {
     const { alder, alderMilk } = await world()
     await prisma.customShoppingItem.create({
-      data: { householdId: alder.id, name: 'Whole milk', ingredientId: 'ing-milk' },
+      data: { householdId: alder.id, name: 'Organic milk', ingredientId: 'ing-milk' },
     })
 
-    expect(await markStapleRanOutByName(alder, 'milk')).toEqual({ status: 'no_match' })
+    expect(await markStapleRanOutByName(alder, 'milk')).toEqual({ status: 'on_list' })
     expect(await quantityOf(alderMilk)).toBeNull()
   })
 
@@ -137,7 +137,7 @@ describe('markStapleRanOutByName', () => {
     const { birch, birchMilk } = await world()
     await prisma.customShoppingItem.create({ data: { householdId: birch.id, name: 'Milk' } })
 
-    expect(await markStapleRanOutByName(birch, 'piim')).toEqual({ status: 'no_match' })
+    expect(await markStapleRanOutByName(birch, 'piim')).toEqual({ status: 'on_list' })
     expect(await quantityOf(birchMilk)).toBeNull()
   })
 
