@@ -8,6 +8,7 @@ The branch model, recovery procedures, and what enforces the rules. The steps fo
 - [Committing, Opening and Merging a PR](#committing-opening-and-merging-a-pr)
 - [Recovery Procedures](#recovery-procedures)
 - [Migration Immutability](#migration-immutability)
+- [Blame and Bulk Commits](#blame-and-bulk-commits)
 - [What Enforces What](#what-enforces-what)
 
 ## Branch Naming Convention
@@ -111,6 +112,10 @@ A migration file is frozen once it is on `main`. By then staging and production 
 - **Run it locally** with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. Fetch first: a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
 
 A migration that never applied anywhere holds no checksum, so the revert rule does not cover it: see [`RUNBOOKS/database-recovery.md`](RUNBOOKS/database-recovery.md).
+
+## Blame and Bulk Commits
+
+`.git-blame-ignore-revs` lists commits that `git blame` skips, such as the repository-wide import sort (HON-1461). GitHub's blame view reads the file automatically. A local `git blame` reads it after `git config blame.ignoreRevsFile .git-blame-ignore-revs`. After a mechanical commit that touches many files merges, add its full squash SHA on `main` with a comment line, because the branch SHA does not survive the squash.
 
 ## What Enforces What
 
