@@ -112,6 +112,7 @@ test.describe('MCP server', () => {
         add_shopping_item: false,
         check_shopping_item: false,
         set_pantry_status: false,
+        set_staple: false,
         swap_meal: false,
         rate_meal: false,
         adjust_meal: false,
