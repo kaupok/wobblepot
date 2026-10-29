@@ -155,7 +155,9 @@ export function MealSelectorModal({
     entryId,
     mealType,
     mode,
-    search: debouncedSearch,
+    // An empty box searches nothing at once; after a close the old term
+    // would otherwise live on for the 300 ms debounce.
+    search: searchQuery === '' ? '' : debouncedSearch,
     myRecipesOnly,
   })
 
