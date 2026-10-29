@@ -23,33 +23,51 @@ export interface PantryStaple {
 }
 
 /**
- * The household's staples. A household has few, so the client filters them
- * as the household types.
+ * The household's staples, except one an open custom item on the list
+ * already stands for, by its ingredient link or its name in either language:
+ * marking that one ran out would put the item on the list twice. A household
+ * has few staples, so the client filters them as the household types.
  */
 export async function listPantryStaples(household: Household): Promise<PantryStaple[]> {
   const locale = resolveHouseholdLocale(household)
-  const rows = await prisma.pantryItem.findMany({
-    where: { householdId: household.id, isStaple: true },
-    select: {
-      id: true,
-      quantity: true,
-      ingredient: { select: { name: true, ...ingredientTranslationsInclude(locale) } },
-    },
-  })
+  const [rows, openCustomItems] = await Promise.all([
+    prisma.pantryItem.findMany({
+      where: { householdId: household.id, isStaple: true },
+      select: {
+        id: true,
+        ingredientId: true,
+        quantity: true,
+        ingredient: { select: { name: true, ...ingredientTranslationsInclude(locale) } },
+      },
+    }),
+    prisma.customShoppingItem.findMany({
+      where: { householdId: household.id, checked: false },
+      select: { name: true, ingredientId: true },
+    }),
+  ])
+  const onListIngredients = new Set(openCustomItems.map((item) => item.ingredientId))
+  const onListNames = new Set(openCustomItems.map((item) => item.name.trim().toLowerCase()))
   return rows
+    .filter((row) => !onListIngredients.has(row.ingredientId))
     .map((row) => ({
       id: row.id,
       name: translateIngredient(row.ingredient, locale).name,
       englishName: row.ingredient.name,
       quantity: row.quantity,
     }))
+    .filter(
+      (s) =>
+        !onListNames.has(s.name.toLowerCase()) && !onListNames.has(s.englishName.toLowerCase()),
+    )
     .sort((a, b) => a.name.localeCompare(b.name, locale))
 }
 
 /**
  * - `staple_ran_out`: the name is a staple's, and the staple is now ran out
  *   (`quantity: 0`). A staple that was ran out already is not written again.
- * - `no_match`: no staple has this name; the caller makes a custom item.
+ * - `no_match`: no staple has this name, or an open custom item stands for
+ *   the staple already; the caller makes the custom item, or reports it is on
+ *   the list.
  */
 export type MarkStapleRanOutOutcome =
   | { status: 'staple_ran_out'; pantryItemId: string; ingredientName: string }

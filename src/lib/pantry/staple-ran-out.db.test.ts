@@ -123,6 +123,36 @@ describe('markStapleRanOutByName', () => {
     expect(await quantityOf(alderMilk)).toBeNull()
   })
 
+  it('leaves the staple alone when an open custom item links its ingredient', async () => {
+    const { alder, alderMilk } = await world()
+    await prisma.customShoppingItem.create({
+      data: { householdId: alder.id, name: 'Whole milk', ingredientId: 'ing-milk' },
+    })
+
+    expect(await markStapleRanOutByName(alder, 'milk')).toEqual({ status: 'no_match' })
+    expect(await quantityOf(alderMilk)).toBeNull()
+  })
+
+  it('leaves the staple alone when an open custom item has its name', async () => {
+    const { birch, birchMilk } = await world()
+    await prisma.customShoppingItem.create({ data: { householdId: birch.id, name: 'Milk' } })
+
+    expect(await markStapleRanOutByName(birch, 'piim')).toEqual({ status: 'no_match' })
+    expect(await quantityOf(birchMilk)).toBeNull()
+  })
+
+  it('marks the staple ran out when its custom item is checked off', async () => {
+    const { alder, alderMilk } = await world()
+    await prisma.customShoppingItem.create({
+      data: { householdId: alder.id, name: 'Milk', ingredientId: 'ing-milk', checked: true },
+    })
+
+    expect(await markStapleRanOutByName(alder, 'milk')).toMatchObject({
+      status: 'staple_ran_out',
+    })
+    expect(await quantityOf(alderMilk)).toBe(0)
+  })
+
   it('leaves the staple at "have some" once the ran-out line is marked purchased', async () => {
     const { alder, alderMilk } = await world()
     await markStapleRanOutByName(alder, 'milk')
@@ -140,6 +170,15 @@ describe('listPantryStaples', () => {
     expect(await listPantryStaples(birch)).toEqual([
       { id: birchMilk, name: 'Piim', englishName: 'Milk', quantity: null },
     ])
+  })
+
+  it('leaves out a staple an open custom item stands for', async () => {
+    const { alder } = await world()
+    await prisma.customShoppingItem.create({
+      data: { householdId: alder.id, name: 'Milk for the cake', ingredientId: 'ing-milk' },
+    })
+
+    expect(await listPantryStaples(alder)).toEqual([])
   })
 
   it('leaves out ordinary pantry items', async () => {
