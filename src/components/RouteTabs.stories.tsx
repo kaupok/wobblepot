@@ -17,6 +17,14 @@ const FOUR_ESTONIAN_TABS = [
   { key: 'data', href: '/account/data', label: 'Sinu andmed' },
 ]
 
+// The Household tabs in Estonian: about 420px of labels.
+const FOUR_ESTONIAN_HOUSEHOLD_TABS = [
+  { key: 'members', href: '/household', label: 'Liikmed' },
+  { key: 'mealPreferences', href: '/household/meal-preferences', label: 'Toidueelistused' },
+  { key: 'ingredients', href: '/household/ingredients', label: 'Koostisosad' },
+  { key: 'settings', href: '/household/settings', label: 'Seaded' },
+]
+
 const meta = {
   title: 'Components/RouteTabs',
   component: RouteTabs,
@@ -27,7 +35,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'A row of tabs, each a route (HON-1229, shared in HON-1256): My account uses it, and the household page will. The current tab (exact path match) has `aria-current="page"`, the foreground colour and a 2px underline in the primary colour; the others are muted and turn primary on hover over 150ms. Each tab is at least 44px tall and keeps its natural width. When the row does not fit, it scrolls sideways and the page does not; the 1px rule runs under every tab while it scrolls, and the current tab scrolls into view on load.',
+          'A row of tabs, each a route (HON-1229, shared in HON-1256): My account uses it, and the household page will. The current tab (exact path match) has `aria-current="page"`, the foreground colour and a 2px underline in the primary colour; the others are muted and turn primary on hover over 150ms. Each tab is at least 44px tall and keeps its natural width. When the row does not fit, it scrolls sideways and the page does not; the 1px rule runs under every tab while it scrolls, and the current tab scrolls into view on load, clear of the edge fades. The scrollbar is hidden, so each edge with tabs past it fades out (HON-1468); the fade stops above the underline and lets taps through.',
       },
     },
   },
@@ -38,7 +46,35 @@ type Story = StoryObj<typeof meta>
 
 function parts(canvasElement: HTMLElement, name: string) {
   const nav = within(canvasElement).getByRole('navigation', { name })
-  return { nav, list: nav.querySelector('ul')!, links: within(nav).getAllByRole('link') }
+  const fade = (edge: 'start' | 'end') =>
+    nav.parentElement!.querySelector<HTMLElement>(`[data-edge="${edge}"]`)!
+  return { nav, list: nav.querySelector('ul')!, links: within(nav).getAllByRole('link'), fade }
+}
+
+/**
+ * The row's edge fades in a narrow column: the end fades while tabs are past
+ * it, a tap through the fade lands on the tab under it, the underline runs
+ * below the fade, and at the end of the row the fade moves to the start.
+ */
+async function expectEdgeFades(canvasElement: HTMLElement, name: string) {
+  const { nav, links, fade } = parts(canvasElement, name)
+  await waitFor(() => expect(fade('end')).toHaveAttribute('data-visible', 'true'))
+  await expect(fade('start')).toHaveAttribute('data-visible', 'false')
+  const fadeBox = fade('end').getBoundingClientRect()
+  await expect(Math.round(fadeBox.right)).toBe(Math.round(nav.getBoundingClientRect().right))
+  // A tap at the fade's middle reaches the tab beneath it.
+  const hit = document.elementFromPoint(
+    fadeBox.left + fadeBox.width / 2,
+    fadeBox.top + fadeBox.height / 2,
+  )
+  await expect(links).toContain(hit?.closest('a'))
+  // The 2px underline sits below the fade.
+  const current = within(nav).getByRole('link', { current: 'page' })
+  await expect(fadeBox.bottom).toBeLessThanOrEqual(current.getBoundingClientRect().bottom - 2)
+
+  nav.scrollLeft = nav.scrollWidth
+  await waitFor(() => expect(fade('end')).toHaveAttribute('data-visible', 'false'))
+  await expect(fade('start')).toHaveAttribute('data-visible', 'true')
 }
 
 /**
@@ -98,6 +134,44 @@ export const FourEstonianTabsAtPhoneWidth: Story = {
     for (const link of links) {
       await expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
+    await expectEdgeFades(canvasElement, 'Konto osad')
+  },
+}
+
+const phone390: Pick<Story, 'parameters' | 'decorators'> = {
+  parameters: { viewport: { defaultViewport: 'mobileIphone' } },
+  decorators: [
+    (Story) => (
+      // 390px wide, less the page's `px-4` on each side.
+      <div className="w-[358px]">
+        <Story />
+      </div>
+    ),
+  ],
+}
+
+/**
+ * My account in Estonian at 390px: "Sinu andmed" starts wholly past the edge,
+ * and the end fade says the row goes on (HON-1468).
+ */
+export const EstonianAccountTabsAt390: Story = {
+  ...phone390,
+  args: { tabs: FOUR_ESTONIAN_TABS, label: 'Konto osad' },
+  play: async ({ canvasElement }) => {
+    await expectEdgeFades(canvasElement, 'Konto osad')
+  },
+}
+
+/**
+ * Household in Estonian at 390px: "Seaded" starts wholly past the edge, and
+ * the end fade says the row goes on (HON-1468).
+ */
+export const EstonianHouseholdTabsAt390: Story = {
+  ...phone390,
+  parameters: { ...phone390.parameters, nextjs: { navigation: { pathname: '/household' } } },
+  args: { tabs: FOUR_ESTONIAN_HOUSEHOLD_TABS, label: 'Leibkonna osad' },
+  play: async ({ canvasElement }) => {
+    await expectEdgeFades(canvasElement, 'Leibkonna osad')
   },
 }
 
@@ -117,5 +191,9 @@ export const CurrentTabStartsOutOfView: Story = {
     await expect(current).toHaveTextContent('Sinu andmed')
     await waitFor(() => expect(isInView(nav, current)).toBe(true))
     await expect(nav.scrollLeft).toBeGreaterThan(0)
+    // At the end of the row: the fade moves to the start edge.
+    const { fade } = parts(canvasElement, 'Konto osad')
+    await waitFor(() => expect(fade('start')).toHaveAttribute('data-visible', 'true'))
+    await expect(fade('end')).toHaveAttribute('data-visible', 'false')
   },
 }
