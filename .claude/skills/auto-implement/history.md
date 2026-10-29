@@ -77,6 +77,14 @@ HON-936 measured the HON-1230 cut: review rounds per PR rose from 1.19 to 2.12. 
 
 `pre-pr-checks.md` points to each rule's source and does not copy it, so it cannot drift from the reviewer. `scripts/review-checklist-gate.test.ts` fails when a quoted phrase leaves `scripts/pr-review.sh` or `ai-eval.md`. HON-1289 measures the effect.
 
+## Local review in 4.3 (HON-1404)
+
+Rounds stayed high after HON-1260. Data from 94 completed worker runs, 2026-10-20 to 2026-10-28, from the worker transcripts: 44 runs needed 1 review round (median 21 min), 22 needed 2 (30 min), 22 needed 3 (52 min), and 6 needed 4 or more (61 min). 53% of runs needed 2 or more rounds, about 1.9 per PR. Each extra round costs about 12 minutes (the fix, the checks, the push, a CI cycle and one more review) and $1 to $1.50.
+
+The old 4.3 was a self-review. The agent that wrote the code read `git diff --stat` and the files it chose, in its own context, and did not compare the diff with the acceptance criteria. On 14 recent PRs that needed 2 or more rounds, the largest group of round 1 findings was real bugs that a reader without that context finds (PR #1415, PR #1398, PR #1423, PR #1419, PR #1387), then Spec findings on 5 PRs. So 4.3 now runs `scripts/pr-review.sh --local <ID>`: a fresh session with the PR reviewer's prompt, the full diff and the Spec check, before the PR opens. It costs about 1.5 minutes and $1, so it pays when it saves one round in about 8 runs.
+
+The local mode reviews the working tree against the merge base with origin/main, untracked files included, not only `origin/main...HEAD`: 4.3 runs before Phase 5 commits. It leaves out the PR-body and driven-screen checks, because no body exists yet, and it posts nothing, so it is not a round. `scripts/pr-review-base.sh` holds the one copy of the base prompt, and `scripts/pr-review-local.test.ts` runs both modes and fails when a shared section differs. Phase 6 is unchanged and still gates the merge. If rounds per PR do not go down after about 10 runs, revert the 4.3 change and keep the local mode.
+
 ## Deferrals file is truncated at 4.4
 
 `scripts/orchestrator.sh` retries a failed worker once on the same issue, `/tmp` outlives the worktree teardown, and 2.1 passes that retry through. An append-only file would double every block on the second attempt and spend the 3-issue cap on copies that 6.8's Linear duplicate check cannot catch, because they are not filed yet. The file is the single sink for every deferral in the run: Phase 5, the CI waits and up to three review rounds sit between 4.4 and 6.8, so in-context state does not carry deferrals across that span.

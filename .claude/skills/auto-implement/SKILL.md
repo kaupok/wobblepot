@@ -25,7 +25,7 @@ Sibling files, read when they apply and before acting:
 - `regular-repo.md`: 0.1 finds no worktree
 - `templates.md`: 2.6 (Explore prompt), 2.7 (plan), 7.4 (Linear summary), 7.6 (filing report)
 - `recovery.md`: retry context, 2.1 stops, CI failures, a missing review
-- `pre-pr-checks.md`: 4.3, the reviewer's recurring rules, before the PR opens
+- `pre-pr-checks.md`: 4.3, the local review and the reviewer's recurring rules, before the PR opens
 - `batched.md`: batched plans, or a verification that outruns the 600 s cap
 - `review-cap.md`: `ROUND` ≥ 3, `not actioned:` notes, the 6.7 hand-off
 - `deferral.md`: filing a deferred finding or a follow-up (2.8, 3.2, 6.8)
@@ -210,7 +210,7 @@ git ls-files --others --exclude-standard
 
 ### 4.2 Get the diffs
 
-Read sizes, not full diffs; `scripts/pr-review.sh` reads the full diff in 6.3.
+Read sizes, not full diffs; the 4.3 local review reads the full diff.
 
 ```bash
 git diff --stat origin/main...HEAD
@@ -220,11 +220,17 @@ git diff --stat
 
 Then `git diff origin/main...HEAD -- <file>` (or `--cached`, or unstaged) only for files 4.3 must judge. Read untracked files with Read.
 
-### 4.3 Review the changes for
+### 4.3 Review the changes
 
-Read `docs/TYPOGRAPHY.md` only if typography components changed.
+Run the PR reviewer's prompt on the local changes, in the foreground with `timeout: 600000`, then read the file. It posts nothing; a failure: `pre-pr-checks.md` → Local review.
 
-- **Bugs, security, types, performance, CLAUDE.md patterns, test and story coverage**
+```bash
+./scripts/pr-review.sh --local <ID>
+cat /tmp/auto-implement-local-review-<ID>.md
+```
+
+Then check, reading `docs/TYPOGRAPHY.md` only if typography components changed:
+
 - **E2E drift**: a page, route URL, dialog, or heading/button/link copy changed → `grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`, and for copy `grep -rn "<exact old copy>" tests/e2e/`; update the specs
 - **Driven screens**: a screen changed → after 4.5, run `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens"; keep its `Driven:` lines
 - **Shared-primitive coupling**: run `/plan-issue` step 7b's greps against the **old** literal; every Mirror moved, `loading.tsx` skeletons included
@@ -232,7 +238,7 @@ Read `docs/TYPOGRAPHY.md` only if typography components changed.
 
 ### 4.4 Triage issues
 
-Sort each finding into **Address Now**, **Defer** or **Skip**. Truncate the deferrals file first, because `/tmp` outlives a worker and a retry would double every block:
+Triage the local review's findings by the 6.4 rules; they are not a round, because `ROUND` counts PR comments only. Sort each finding into **Address Now**, **Defer** or **Skip**. Truncate the deferrals file first, because `/tmp` outlives a worker and a retry would double every block:
 
 ```bash
 DEFERRALS=/tmp/auto-implement-deferrals-<ID>.md

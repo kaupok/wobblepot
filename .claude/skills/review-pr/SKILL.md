@@ -41,6 +41,8 @@ PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
+`./scripts/pr-review.sh --local <ISSUE_ID>` runs the same prompt on the branch's local changes before a PR exists, writes the summary to `/tmp/auto-implement-local-review-<ISSUE_ID>.md` and posts nothing (`/auto-implement` 4.3).
+
 This runs synchronously. The script handles model selection (`REVIEW_MODEL` from `scripts/models.sh`, overridable with `CLAUDE_REVIEW_MODEL`), locking, and prompt formatting.
 
 It spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
