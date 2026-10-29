@@ -99,6 +99,7 @@ function pickDay<
 
 /** What `freshStepsRow` reads from a library meal loaded with its steps. */
 type MealWithStepsRows<Row> = WithMealTranslations<{ name: string }> & {
+  servings: number
   timeMinutes: number | null
   preparationSteps: readonly Row[]
   components: readonly {
@@ -112,8 +113,9 @@ type MealWithStepsRows<Row> = WithMealTranslations<{ name: string }> & {
 }
 
 /**
- * The meal's stored steps row in `rowLocale`, or null when there is none or it
- * is stale. Fresh means written from the inputs the prompt would read now, in
+ * The meal's stored steps row in `rowLocale` at its own `servings`, the row
+ * `pnpm steps:library` writes, or null when there is none or it is stale. Rows
+ * at other counts are the recipe cook view's (HON-1379). Fresh means written from the inputs the prompt would read now, in
  * the row's own locale: the English row is checked against the English names.
  * The landing demo and the public sample weeks (`src/lib/meal-plans`) both
  * read steps through this.
@@ -122,7 +124,9 @@ export function freshStepsRow<Row extends { locale: string; servings: number; in
   meal: MealWithStepsRows<Row>,
   rowLocale: string,
 ): Row | null {
-  const row = meal.preparationSteps.find((candidate) => candidate.locale === rowLocale)
+  const row = meal.preparationSteps.find(
+    (candidate) => candidate.locale === rowLocale && candidate.servings === meal.servings,
+  )
   if (!row) return null
   const shown = translateMeal(meal, rowLocale)
   const expected = stepsInputHash({

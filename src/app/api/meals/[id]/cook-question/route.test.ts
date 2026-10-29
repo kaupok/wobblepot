@@ -238,7 +238,7 @@ describe('POST /api/meals/[id]/cook-question', () => {
 
     expect(response.status).toBe(404)
     expect((await response.json()).code).toBe('meal_not_found')
-    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-1', 'en')
+    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-1', 'en', 4)
     expect(mockCheckRateLimit).not.toHaveBeenCalled()
     expect(mockStreamText).not.toHaveBeenCalled()
   })

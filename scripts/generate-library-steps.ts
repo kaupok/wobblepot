@@ -4,7 +4,8 @@
  * The signed-out home page shows three library meals a day and opens each in
  * the cook view, steps included. A public page must never call the AI, so the
  * steps are written ahead of time, here, into `MealPreparationSteps`: one row
- * per meal and locale, for the meal's own `servings`. The page only picks
+ * per meal and locale, for the meal's own `servings`. Rows at other counts are
+ * the recipe cook view's (HON-1379), and this leaves them alone. The page only picks
  * meals that have a fresh row (`src/lib/landing/load-demo-day.ts`). The
  * migration workflows run this after the seed; by hand it fills a database
  * ahead of a deploy or past the per-run cap.
@@ -77,7 +78,9 @@ export interface StepsCandidate {
   name: string
   /** The hash the prompt inputs give today, per locale (`stepsInputHash`). */
   inputHashes: Partial<Record<Locale, string>>
-  preparationSteps: { locale: string; inputHash: string }[]
+  /** The meal's own servings, the count its row is written at. */
+  servings: number
+  preparationSteps: { locale: string; servings: number; inputHash: string }[]
 }
 
 export interface StepsJob {
@@ -87,7 +90,10 @@ export interface StepsJob {
   reason: 'missing' | 'stale'
 }
 
-/** The (meal, locale) pairs with no row, or a row written from other inputs. */
+/**
+ * The (meal, locale) pairs with no row at the meal's own servings, or a row
+ * there written from other inputs.
+ */
 export function selectWork(
   meals: readonly StepsCandidate[],
   locales: readonly Locale[],
@@ -95,7 +101,9 @@ export function selectWork(
   const jobs: StepsJob[] = []
   for (const meal of meals) {
     for (const locale of locales) {
-      const row = meal.preparationSteps.find((r) => r.locale === locale)
+      const row = meal.preparationSteps.find(
+        (r) => r.locale === locale && r.servings === meal.servings,
+      )
       if (!row) jobs.push({ mealId: meal.id, name: meal.name, locale, reason: 'missing' })
       else if (row.inputHash !== meal.inputHashes[locale])
         jobs.push({ mealId: meal.id, name: meal.name, locale, reason: 'stale' })
@@ -125,7 +133,7 @@ async function main() {
     include: {
       translations: true,
       components: { include: { ingredient: { include: { translations: true } } } },
-      preparationSteps: { select: { locale: true, inputHash: true } },
+      preparationSteps: { select: { locale: true, servings: true, inputHash: true } },
     },
     orderBy: { name: 'asc' },
   })
@@ -150,6 +158,7 @@ async function main() {
   const candidates = meals.map((meal) => ({
     id: meal.id,
     name: meal.name,
+    servings: meal.servings,
     inputHashes: Object.fromEntries(
       args.locales.map((locale) => [locale, requestFor(meal, locale).inputHash]),
     ),
@@ -206,20 +215,12 @@ async function main() {
       outputTokens: result.usage.outputTokens ?? 0,
     })
     spent += cost
+    const key = { mealId: meal.id, locale: job.locale, servings: meal.servings }
+    const fields = { steps: JSON.stringify(result.object), inputHash }
     await prisma.mealPreparationSteps.upsert({
-      where: { mealId_locale: { mealId: meal.id, locale: job.locale } },
-      create: {
-        mealId: meal.id,
-        locale: job.locale,
-        servings: meal.servings,
-        steps: JSON.stringify(result.object),
-        inputHash,
-      },
-      update: {
-        servings: meal.servings,
-        steps: JSON.stringify(result.object),
-        inputHash,
-      },
+      where: { mealId_locale_servings: key },
+      create: { ...key, ...fields },
+      update: fields,
     })
     written++
     console.log(`${result.object.steps?.length ?? 0} steps ($${cost.toFixed(3)})`)
