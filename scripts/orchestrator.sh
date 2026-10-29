@@ -535,6 +535,9 @@ ORCHESTRATOR_START_TIME=""
 LAST_LOOP_AT=""
 
 write_status_file() {
+  # started_at: BSD `date -r <epoch>` first, then GNU `date -d @<epoch>`,
+  # where `-r` names a file. Without the second, Linux showed every worker,
+  # adopted ones too, as started now (HON-1457).
   local workers_json="[]"
 
   if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
@@ -547,7 +550,8 @@ write_status_file() {
         --arg title "${WORKER_TITLES[$i]}" \
         --argjson pid "${WORKER_PIDS[$i]}" \
         --arg branch "${WORKER_BRANCHES[$i]}" \
-        --arg started_at "$(date -r "${WORKER_START_TIMES[$i]}" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+        --arg started_at "$(date -r "${WORKER_START_TIMES[$i]}" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+          || date -u -d "@${WORKER_START_TIMES[$i]}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" \
         --arg log_file "${WORKER_LOGS[$i]}" \
         --argjson retried "$([ "${WORKER_RETRIED[$i]}" = "1" ] && echo true || echo false)" \
         '{issue: $issue, title: $title, pid: $pid, branch: $branch, started_at: $started_at, log_file: $log_file, retried: $retried}')

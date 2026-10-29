@@ -25,9 +25,13 @@
 #                lines, then ZOMBIES counts adopted PIDs left as zombies.
 #                Also spawns HON-4 alongside the adopted three.
 #       timeout  monitor_workers once; HON-1 started past WORKER_TIMEOUT.
-#       stop     The REAL shutdown handler takes one SIGTERM, HON-1 exits 0 and
-#                is handled, then a second SIGTERM and the REAL drain_if_forced
-#                drains the rest (exit 1).
+#       stop     Takes `wt stop`'s snapshot of the status file, as cmd_stop
+#                does before its first signal. The REAL shutdown handler takes
+#                one SIGTERM, HON-1 exits 0 and is handled, then a second
+#                SIGTERM and the REAL drain_if_forced drains the rest (exit 1).
+#                ORPHANS_BEFORE / ORPHANS_AFTER are the issues `wt stop`'s REAL
+#                stop_drain_orphans reports as still running before the force
+#                drain and after it.
 #
 # <dir> is a scratch dir the test creates and removes. Each stub worker waits
 # for <dir>/release-<issue>, then exits with the code written there.
@@ -165,15 +169,21 @@ EOF
         release HON-1 0; release HON-2 0; release HON-3 0
         ;;
       stop)
+        snapshot=$(bash -c 'source "$1"; stop_drain_snapshot "$2"' _ "$HARNESS_DIR/wt-stop-check.sh" "$STATUS_FILE")
+        orphans() {
+          bash -c 'source "$1"; stop_drain_orphans "$2"' _ "$HARNESS_DIR/wt-stop-check.sh" "$snapshot" \
+            | cut -f1 | tr '\n' ' '
+        }
         kill -TERM $$
         echo "SHUTTING_DOWN:$SHUTTING_DOWN FORCE:$FORCE_SHUTDOWN"
         release HON-1 0
         sleep 0.5
         monitor_workers
         echo "LEFT:${#WORKER_PIDS[@]}"
+        echo "ORPHANS_BEFORE:$(orphans)"
         kill -TERM $$
         echo "SHUTTING_DOWN:$SHUTTING_DOWN FORCE:$FORCE_SHUTDOWN"
-        trap 'cat "$MAIN_LOG"; rm -f "$SEEN_SKIPS_FILE"' EXIT
+        trap 'echo "ORPHANS_AFTER:$(orphans)"; cat "$MAIN_LOG"; rm -f "$SEEN_SKIPS_FILE"' EXIT
         drain_if_forced
         ;;
     esac

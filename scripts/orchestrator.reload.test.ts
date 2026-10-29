@@ -139,6 +139,10 @@ describe('HON-1457 reload hands running workers to the new image', () => {
     expect(out).toContain('CLEANUP:auto/hon-3:true')
     expect(out).toContain('RESTORE_QUEUED:HON-3')
     expect(status).toBe(1)
+    // `wt stop`'s own drain check sees the adopted workers through the
+    // status file, and finds none left once the drain ran.
+    expect(field(out, 'ORPHANS_BEFORE')).toBe('HON-2 HON-3 ')
+    expect(field(out, 'ORPHANS_AFTER')).toBe('')
   }, 60_000)
 
   it('falls back to drain, then reload, when the new code refuses the handoff version', () => {
