@@ -1,6 +1,8 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 
 import { auth } from '@/lib/auth'
 import { getQueryClient } from '@/lib/get-query-client'
@@ -17,6 +19,11 @@ import {
   mealsQueryKey,
 } from './meals-query'
 import { RecipesPageClient } from './RecipesPageClient'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('recipes')
+  return { title: t('metaTitle') }
+}
 
 export default async function RecipesPage() {
   const session = await auth.api.getSession({
