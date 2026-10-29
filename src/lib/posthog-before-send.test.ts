@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
 
 describe('postHogBeforeSend', () => {

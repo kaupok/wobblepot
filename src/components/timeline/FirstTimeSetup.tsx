@@ -1,14 +1,16 @@
 'use client'
 
-import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
-import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
+import { useRef } from 'react'
+
 import { FieldError } from '@/components/FieldError'
+import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Body, Heading } from '@/components/ui/typography'
 import { useGenerateFirstPlan } from '@/hooks/use-generate-first-plan'
+
 import { FirstPlanChoices } from './FirstPlanChoices'
 
 interface FirstTimeSetupProps {

@@ -1,6 +1,7 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { groupOf, makeItem, renderSection, renderStateful } from './PantrySection.fixtures'
 
 // `toast` is callable (the Undo toast) and carries `error` / `success`.

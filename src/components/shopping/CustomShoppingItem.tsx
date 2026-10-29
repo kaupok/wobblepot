@@ -2,13 +2,15 @@
 
 import { Trash2, Unlink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+import { Body } from '@/components/ui/typography'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { cn } from '@/lib/utils'
+
 import type { CustomItemData } from './CustomItemInput'
 
 interface CustomShoppingItemProps {

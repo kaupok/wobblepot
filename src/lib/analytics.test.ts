@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
 import { markPostHogLoaded } from '@/lib/posthog-client-state'
 

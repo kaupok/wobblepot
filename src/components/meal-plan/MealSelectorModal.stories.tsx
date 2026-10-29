@@ -1,7 +1,8 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
+import { useState } from 'react'
 import { expect, fn, mocked, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
@@ -19,6 +20,7 @@ import {
   rateLimitedSuggestionsHandlers,
   rateLimitedUntilSuggestionsHandlers,
 } from '@/stories/msw-handlers'
+
 import { MealSelectorModal } from './MealSelectorModal'
 
 const meta = {

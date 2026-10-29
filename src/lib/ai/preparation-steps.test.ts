@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
   buildFullStepsPrompt,
   buildStepsFromNotesPrompt,
   buildStepsFromNotesRequest,
   formatIngredientsList,
-  notesStepsSchema,
   type NotesPrepStepsPromptInput,
+  notesStepsSchema,
   type PrepStepsPromptInput,
 } from './preparation-steps'
-import { estonianVoiceForPrepSteps, englishVoiceForPrepSteps } from './prompts'
+import { englishVoiceForPrepSteps, estonianVoiceForPrepSteps } from './prompts'
 
 function fullInput(overrides: Partial<PrepStepsPromptInput> = {}): PrepStepsPromptInput {
   return {

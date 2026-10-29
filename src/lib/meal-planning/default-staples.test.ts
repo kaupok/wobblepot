@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
 import { DEFAULT_STAPLE_NAMES, seedDefaultStaples } from './default-staples'
 
 function mockTx({

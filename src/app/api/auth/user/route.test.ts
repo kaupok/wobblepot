@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { DELETE } from './route'
 
 // The sole-owner check and the soft-delete live in `@/lib/auth/account`,
@@ -48,10 +49,10 @@ vi.mock('@/lib/emails/account-deletion-requested', () => ({
 
 import { auth } from '@/lib/auth'
 import { AccountDeletionError, requestAccountDeletion } from '@/lib/auth/account'
+import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { captureApiError } from '@/lib/errors'
-import { resend, isEmailConfigured } from '@/lib/resend'
-import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
+import { isEmailConfigured, resend } from '@/lib/resend'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockRequestDeletion = vi.mocked(requestAccountDeletion)

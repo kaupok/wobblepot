@@ -1,9 +1,10 @@
 import 'server-only'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
-import { resolveEmailLocale } from '@/lib/emails/locale'
-import { generateEmailChangedEmail } from '@/lib/emails/email-changed'
-import { clearReminderConfirmation } from '@/lib/weekly-reminder'
+
 import { CHANGE_EMAIL_REQUEST_TYPE } from '@/lib/email-verification'
+import { generateEmailChangedEmail } from '@/lib/emails/email-changed'
+import { resolveEmailLocale } from '@/lib/emails/locale'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
+import { clearReminderConfirmation } from '@/lib/weekly-reminder'
 
 /**
  * Account email change (HON-1137).

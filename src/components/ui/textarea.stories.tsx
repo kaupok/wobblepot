@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+
 import { Label } from './label'
 import { Textarea } from './textarea'
 

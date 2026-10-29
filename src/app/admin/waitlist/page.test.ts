@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { getSession } from '@/lib/session'
 import { listConfirmedWaitlistRequests } from '@/lib/waitlist'
+
 import AdminWaitlistPage, { generateMetadata } from './page'
 
 vi.mock('@/lib/session', () => ({

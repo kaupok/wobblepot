@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+
+import { SettingsSection } from '@/components/SettingsSection'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -13,8 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Body } from '@/components/ui/typography'
-import { PUBLIC_LOCALES, type Locale } from '@/lib/i18n/locales'
-import { SettingsSection } from '@/components/SettingsSection'
+import { type Locale, PUBLIC_LOCALES } from '@/lib/i18n/locales'
 
 // Get all IANA timezones
 const TIMEZONES = Intl.supportedValuesOf('timeZone')

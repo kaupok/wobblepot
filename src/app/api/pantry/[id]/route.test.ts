@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, PATCH } from './route'
 
 // Every query lives in `@/lib/pantry/pantry-items`, tested against a database
 // in `pantry-items.db.test.ts`. This file mocks that module at the seam and
@@ -29,8 +30,8 @@ vi.mock('@/lib/pantry/pantry-items', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { deletePantryItem, updatePantryItem } from '@/lib/pantry/pantry-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

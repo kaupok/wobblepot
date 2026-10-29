@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { MealType } from '@/generated/prisma/enums'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { DayAddMenu } from './DayAddMenu'
 
 // One "+ Add" menu per day: the routes for each empty slot, then Extra

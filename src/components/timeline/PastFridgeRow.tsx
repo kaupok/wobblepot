@@ -1,20 +1,22 @@
 'use client'
 
-import { useId } from 'react'
-import { useTranslations } from 'next-intl'
 import { Check, SkipForward, Trash2, Undo2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
+import { useId } from 'react'
+
 import { FridgeCompleteDialog } from '@/components/meal-plan/fridge-meal/FridgeCompleteDialog'
 import {
   toFridgeItemInput,
   useFridgeItemText,
 } from '@/components/meal-plan/fridge-meal/use-fridge-item-text'
-import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
-import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { FridgeMealItem, MealStatus, PantryItemFull } from '@/components/meal-plan/types'
+import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
+import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
+import { Button } from '@/components/ui/button'
+import { Body } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+
 import { usePastRowFocus } from './use-past-row-focus'
 
 interface PastFridgeRowProps {

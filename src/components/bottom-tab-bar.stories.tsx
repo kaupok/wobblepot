@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import { createSession } from '@/stories/fixtures'
+
 import { BottomTabBar } from './bottom-tab-bar'
 
 const authedSession = createSession()

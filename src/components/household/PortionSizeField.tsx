@@ -1,12 +1,13 @@
 'use client'
 
-import { useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChoiceChips } from '@/components/ui/choice-chips'
-import { NumberInput } from '@/components/ui/number-input'
-import { Label } from '@/components/ui/label'
-import { Body } from '@/components/ui/typography'
+import { useId, useState } from 'react'
+
 import { FieldError } from '@/components/FieldError'
+import { ChoiceChips } from '@/components/ui/choice-chips'
+import { Label } from '@/components/ui/label'
+import { NumberInput } from '@/components/ui/number-input'
+import { Body } from '@/components/ui/typography'
 
 export const PORTION_PRESETS: Array<{
   key: 'small' | 'regular' | 'large' | 'extraLarge'

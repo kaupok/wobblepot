@@ -1,9 +1,11 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
-import { Prisma, type CustomShoppingItem } from '@/generated/prisma/client'
+
+import { type CustomShoppingItem, Prisma } from '@/generated/prisma/client'
 import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Items a household adds to its shopping list by hand, shared by

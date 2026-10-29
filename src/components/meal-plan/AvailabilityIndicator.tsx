@@ -1,6 +1,8 @@
 import { useTranslations } from 'next-intl'
+
 import { Badge } from '@/components/ui/badge'
 import { Body } from '@/components/ui/typography'
+
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {

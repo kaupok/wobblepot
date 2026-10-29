@@ -1,9 +1,10 @@
+import { plugin as shadcn } from '@shadcn/lint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
-import testingLibrary from 'eslint-plugin-testing-library'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import storybook from 'eslint-plugin-storybook'
-import { plugin as shadcn } from '@shadcn/lint'
+import testingLibrary from 'eslint-plugin-testing-library'
 
 // `shadcn/no-restyle` (HON-674) classifies a class through its own Tailwind
 // grammar, which does not read our `@theme` spacing tokens or `@utility` names
@@ -91,6 +92,17 @@ const config = defineConfig([
         },
       ],
     },
+  },
+
+  // One import order, so no diff reorders imports by hand. ESLint, not a
+  // Prettier plugin: Prettier's rationale calls sorting imports a transform
+  // that side effects make unsafe. Side-effect imports (`import './globals.css'`)
+  // move to the top of the block but keep their own order. `eslint --fix` in
+  // lint-staged applies it on commit (HON-1461); HON-1462 adds the one-time
+  // sort to .git-blame-ignore-revs.
+  {
+    plugins: { 'simple-import-sort': simpleImportSort },
+    rules: { 'simple-import-sort/imports': 'error' },
   },
 
   // @shadcn/lint (HON-673, HON-674). All six rules as CI errors. The first five

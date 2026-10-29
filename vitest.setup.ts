@@ -1,5 +1,6 @@
-import { Fragment, createElement, type ReactNode } from 'react'
+import { createElement, Fragment, type ReactNode } from 'react'
 import { afterEach, vi } from 'vitest'
+
 import enMessages from './messages/en.json'
 
 // next-intl provider context isn't set up in unit tests by default. Most tests

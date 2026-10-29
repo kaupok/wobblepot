@@ -1,20 +1,22 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { Check, Info, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Check, X, Info } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+
+import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
+import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
+import type { IngredientResult } from '@/hooks/use-ingredient-search'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { DEFAULT_VAGUE_PHRASE } from '@/lib/vague-quantities'
+
+import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
 import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
-import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
-import type { IngredientResult } from '@/hooks/use-ingredient-search'
-import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 
 // Defined by the search hook that produces it; re-exported here so recipe-row
 // callers keep a single import for the row's types.

@@ -2,9 +2,12 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
 import { CASE_SCHEMAS, TASKS } from './case-schema'
 import {
+  type AiSample,
   describeDraft,
   draftFromSample,
   importSample,
@@ -12,7 +15,6 @@ import {
   OUT_OF_SCOPE_MESSAGE,
   parseCaseId,
   parseSampleText,
-  type AiSample,
 } from './import-sample'
 import { loadCases } from './load-cases'
 

@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { WINDOW_STORAGE_KEY } from './use-shopping-window'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
+import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 const routerPush = vi.fn()
 const routerReplace = vi.fn()

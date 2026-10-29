@@ -2,22 +2,23 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
-  scriptsDir,
-  orchestrator,
-  worktreeClaude,
   e2eLocal,
   harness,
-  models,
-  prReview,
   harnessEnv,
-  stripTimestamps,
-  shellFunctionBody,
   launchLine,
+  models,
+  orchestrator,
+  prReview,
   runHarness,
   runHarnessEnv,
+  scriptsDir,
+  shellFunctionBody,
+  stripTimestamps,
+  worktreeClaude,
 } from './orchestrator-test-harness'
 
 // The worker's MCP flags: .mcp.json's linear-server and playwright entries only (HON-1238).

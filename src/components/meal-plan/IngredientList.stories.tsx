@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { createMealComponent, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
+
 import { IngredientList } from './IngredientList'
 import type { PantryIngredient } from './types'
 

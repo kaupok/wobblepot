@@ -1,4 +1,10 @@
-import { MealType } from '@/generated/prisma/enums'
+import type {
+  IngredientAlternative,
+  IngredientResult,
+  MealComponent as MealFormComponent,
+  PrefilledIngredient,
+} from '@/components/household/meal-form-types'
+import type { MealData as HouseholdMealData } from '@/components/household/MealList'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
 import type {
   AlternativeMeal,
@@ -10,13 +16,6 @@ import type {
   PlanEntry,
   TimelineDay,
 } from '@/components/meal-plan/types'
-import type {
-  IngredientAlternative,
-  IngredientResult,
-  MealComponent as MealFormComponent,
-  PrefilledIngredient,
-} from '@/components/household/meal-form-types'
-import type { MealData as HouseholdMealData } from '@/components/household/MealList'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import type {
@@ -26,8 +25,9 @@ import type {
 } from '@/components/recipes/IngredientRow'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
-import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+import { MealType } from '@/generated/prisma/enums'
 import type { Session } from '@/lib/auth'
+import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import type { Member, MemberInvite, MemberPreferences } from '@/types/member'
 
 type IngredientShape = MealComponent['ingredient']

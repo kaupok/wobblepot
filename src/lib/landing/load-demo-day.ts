@@ -1,12 +1,10 @@
 import 'server-only'
+
 import { unstable_cache } from 'next/cache'
-import type { MealType, ProteinType } from '@/generated/prisma/enums'
+
 import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
-import { prisma } from '@/lib/prisma'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { parsePreparationSteps } from '@/lib/preparation-steps'
-import { presentMealImage } from '@/lib/meal-images/present'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -16,6 +14,11 @@ import {
   type WithMealTranslations,
 } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { presentMealImage } from '@/lib/meal-images/present'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { parsePreparationSteps } from '@/lib/preparation-steps'
+import { prisma } from '@/lib/prisma'
+
 import { stepsInputHash } from './steps-input-hash'
 
 /**

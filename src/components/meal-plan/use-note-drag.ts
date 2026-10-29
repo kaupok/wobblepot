@@ -1,15 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+
 import { apiFetch } from '@/lib/api'
+
 import {
   clampNotePosition,
-  toNotePosition,
   type NoteBounds,
   type NotePosition,
+  toNotePosition,
 } from './note-placement'
 
 /** A press that moves less than this is a click, and opens the editor. */

@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import type { ComponentProps } from 'react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import type { ComponentProps } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { AlternativeCard } from './AlternativeCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
 

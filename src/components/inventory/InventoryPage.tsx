@@ -1,20 +1,22 @@
 'use client'
 
-import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useState } from 'react'
+
+import type { PantryItemData } from '@/components/pantry/PantryItem'
+import type { CustomItemData } from '@/components/shopping/CustomItemInput'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { Heading } from '@/components/ui/typography'
 import type { IngredientCategory } from '@/generated/prisma/enums'
+import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
+import { cn } from '@/lib/utils'
+
 import { PantrySection } from './PantrySection'
+import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { ShoppingSection } from './ShoppingSection'
 import type { PantryChange } from './use-pantry-changes'
-import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
-import { cn } from '@/lib/utils'
-import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
-import { Heading } from '@/components/ui/typography'
-import type { PantryItemData } from '@/components/pantry/PantryItem'
-import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
-import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 
 interface ShoppingListGroup {
   category: IngredientCategory

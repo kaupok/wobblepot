@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import {
   purchaseIngredients,
@@ -6,7 +7,8 @@ import {
   unpurchaseIngredient,
   unpurchasePlanIngredient,
 } from '@/lib/shopping/purchase'
-import { daysAgo, DAY_MS, pantryRow, refusalOf, world } from './purchase.fixtures'
+
+import { DAY_MS, daysAgo, pantryRow, refusalOf, world } from './purchase.fixtures'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma, changed through `./purchase`, and read back with Prisma

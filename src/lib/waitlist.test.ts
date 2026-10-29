@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/env', () => ({
   serverEnv: { NEXT_PUBLIC_APP_NAME: 'Wobblepot' },
@@ -34,16 +34,17 @@ vi.mock('@/lib/resend', () => ({
 
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
+import { captureApiError } from '@/lib/errors'
+import { prisma } from '@/lib/prisma'
+
 import {
   clearWaitlistForNewUser,
-  confirmWaitlistToken,
   confirmedCutoff,
+  confirmWaitlistToken,
   processWaitlistRequest,
   purgeExpiredWaitlistRequests,
   unconfirmedCutoff,
 } from './waitlist'
-import { prisma } from '@/lib/prisma'
-import { captureApiError } from '@/lib/errors'
 
 const mockFindUnique = vi.mocked(prisma.waitlistRequest.findUnique)
 const mockUpdateMany = vi.mocked(prisma.waitlistRequest.updateMany)

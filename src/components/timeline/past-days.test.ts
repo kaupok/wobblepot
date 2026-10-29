@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { buildPastDays } from './past-days'
+import { describe, expect, it } from 'vitest'
+
 import { createExpectedMealTypes, createMeal, createPlanEntry } from '@/stories/fixtures'
+
+import { buildPastDays } from './past-days'
 
 // A Wednesday. The 11th and 12th are the weekend before it.
 const today = '2026-04-15'

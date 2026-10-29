@@ -1,6 +1,8 @@
 import 'server-only'
+
 import { waitUntil } from '@vercel/functions'
 import { PostHog } from 'posthog-node'
+
 import { serverEnv } from '@/lib/env'
 import { redactUrlProperties, sanitizeEventProperties } from '@/lib/redact'
 

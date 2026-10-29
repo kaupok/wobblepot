@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { requireAdmin } from '@/lib/auth-helpers'
 import { captureApiError } from '@/lib/errors'
 import { listConfirmedWaitlistRequests } from '@/lib/waitlist'

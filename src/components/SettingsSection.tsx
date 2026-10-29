@@ -1,15 +1,16 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { type ReactNode, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
-import { ApiError, apiFetch } from '@/lib/api'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError, apiFetch } from '@/lib/api'
 import { sameValues, type SettingsValue } from '@/lib/settings-values'
 
 export interface SectionFieldState {

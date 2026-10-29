@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The ranking behind `/regenerate` (`swap`) and `/suggestions` (`add`). These
 // tests moved here from the two route tests when the routes went off Prisma
@@ -32,14 +32,15 @@ vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
   return { ...actual, randomScoreJitter: vi.fn(() => 0) }
 })
 
-import { prisma } from '@/lib/prisma'
-import { getCandidates } from '@/lib/meal-planning/candidates'
 import { randomScoreJitter } from '@/lib/meal-planning/candidate-score'
+import { getCandidates } from '@/lib/meal-planning/candidates'
+import { prisma } from '@/lib/prisma'
+
 import {
-  suggestForSlot,
   type SlotSuggestionEntry,
   type SlotSuggestionHousehold,
   type SlotSuggestionMode,
+  suggestForSlot,
 } from './slot-suggestions'
 
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)

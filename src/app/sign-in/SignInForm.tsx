@@ -1,25 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { useAuthErrorMessage } from '@/lib/auth-errors-client'
-import { getOAuthErrorKey } from '@/lib/auth-errors'
-import { getValidReturnUrl } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
+import { useEffect, useState } from 'react'
+
 import {
   AuthMethodDivider,
-  GoogleSignInButton,
   googleErrorCallbackURL,
+  GoogleSignInButton,
 } from '@/components/auth/GoogleSignInButton'
+import { FieldError } from '@/components/FieldError'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Body, Heading } from '@/components/ui/typography'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { authClient } from '@/lib/auth-client'
+import { getOAuthErrorKey } from '@/lib/auth-errors'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
+import { getValidReturnUrl } from '@/lib/utils'
 
 /**
  * True when sign-in returned `{ redirect: true, url }`. A plain sign-in

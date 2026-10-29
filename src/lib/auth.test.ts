@@ -1,29 +1,31 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { getOAuthState } from 'better-auth/api'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
+import { joinHouseholdFromSignUp } from '@/lib/household-invite'
+import { getPosthogServer } from '@/lib/posthog-server'
+import { claimInviteCode, linkUsedBy, releaseClaim, validateInviteCode } from '@/lib/signup-codes'
+import { clearWaitlistForNewUser } from '@/lib/waitlist'
+
 import {
   afterEmailSignUp,
   afterOAuthCallback,
   afterOAuthSignUp,
   assertOAuthUserCreation,
-  auth,
   assertTermsAccepted,
+  assertValidAccountNameUpdate,
+  auth,
+  beforeOAuthUserCreate,
   beforeSocialSignIn,
   GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE,
-  ID_TOKEN_SIGN_IN_MESSAGE,
-  beforeOAuthUserCreate,
-  assertValidAccountNameUpdate,
-  INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
+  ID_TOKEN_SIGN_IN_MESSAGE,
+  INVALID_ACCOUNT_NAME_MESSAGE,
   stampTermsConsent,
   TERMS_NOT_ACCEPTED_MESSAGE,
 } from './auth'
-import { CURRENT_TERMS_VERSION } from './consent'
 import { isPasswordBreached } from './breached-password'
-import { claimInviteCode, linkUsedBy, releaseClaim, validateInviteCode } from '@/lib/signup-codes'
-import { getPosthogServer } from '@/lib/posthog-server'
-import { clearWaitlistForNewUser } from '@/lib/waitlist'
-import { joinHouseholdFromSignUp } from '@/lib/household-invite'
-import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
+import { CURRENT_TERMS_VERSION } from './consent'
 
 vi.mock('./breached-password', () => ({
   isPasswordBreached: vi.fn(),

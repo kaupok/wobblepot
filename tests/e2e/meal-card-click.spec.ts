@@ -1,8 +1,9 @@
 // ROUTES: / · COMPONENTS: MealCard, MealImageCard, MealDetailModal
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A day and slot of its own: modal-focus-restore plants its cards on day 10
 // (breakfast and dinner) and note-placement on day 12 (lunch), in the same

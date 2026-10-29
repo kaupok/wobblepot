@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
 import type { ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
+
 import enMessages from '../../messages/en.json'
 
 // `next/og` compiles the element tree through satori + resvg (WASM). That does

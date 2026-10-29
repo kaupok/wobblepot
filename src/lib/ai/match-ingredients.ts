@@ -1,28 +1,29 @@
 import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
-import {
-  getVagueDefault,
-  checkGuardrail,
-  MIXED_VAGUE_PHRASE,
-  type VagueQuantityResult,
-} from '@/lib/vague-quantities'
 import { applyIngredientAlias, findSynonym } from '@/lib/ingredient-aliases'
 import {
-  normalizeIngredientName,
   extractLastWord,
+  normalizeIngredientName,
   pluralize,
   singularize,
 } from '@/lib/normalize-ingredient'
-import type { ExtractedIngredient } from './recipe-schema'
-import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
-import { convertQuantity, isReasonableQuantity, DEFAULT_GRAMS_PER_PIECE } from './recipe-quantities'
-import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import {
+  checkGuardrail,
+  getVagueDefault,
+  MIXED_VAGUE_PHRASE,
+  type VagueQuantityResult,
+} from '@/lib/vague-quantities'
+
 import {
   catalogueFormName,
+  type FormGuardResult,
   guardFormMatch,
   hasForm,
   removedForms,
-  type FormGuardResult,
 } from './form-modifier-guard'
+import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
+import { convertQuantity, DEFAULT_GRAMS_PER_PIECE, isReasonableQuantity } from './recipe-quantities'
+import type { ExtractedIngredient } from './recipe-schema'
 
 /**
  * Result of matching an ingredient against the database.

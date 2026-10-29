@@ -1,9 +1,11 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
 import { PGlite } from '@electric-sql/pglite'
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm'
 import { PrismaPGlite } from 'pglite-prisma-adapter'
 import { beforeEach } from 'vitest'
+
 import { PrismaClient } from '@/generated/prisma/client'
 
 // Setup file for the `unit-db` project (HON-1186): `*.db.test.ts` files run

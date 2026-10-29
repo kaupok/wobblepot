@@ -1,16 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
-  getNextMonday,
-  toDateString,
-  parseLocalDate,
-  isMonday,
   getCurrentWeekMonday,
-  isSunday,
   getDaysRemaining,
+  getNextMonday,
   getRemainingWeekDates,
-  getTodayInTimezone,
   getStartOfTodayInTimezone,
+  getTodayInTimezone,
   getUrgencyBucket,
+  isMonday,
+  isSunday,
+  parseLocalDate,
+  toDateString,
 } from './dates'
 
 describe('dates utilities', () => {

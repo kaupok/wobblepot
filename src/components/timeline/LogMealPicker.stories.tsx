@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { defaultHandlers } from '@/stories/msw-handlers'
+
 import { MealType } from '@/generated/prisma/enums'
+import { defaultHandlers } from '@/stories/msw-handlers'
+
 import { LogMealPicker } from './LogMealPicker'
 
 const meta = {

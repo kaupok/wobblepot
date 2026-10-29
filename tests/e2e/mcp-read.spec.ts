@@ -1,10 +1,11 @@
 // ROUTES: /api/mcp, /api/auth/oauth2/*, /consent · COMPONENTS: ConsentCard
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
-import { connectMcpClient } from './utils/oauth'
 import { mcpCall, mcpCallTool } from './utils/mcp'
+import { connectMcpClient } from './utils/oauth'
+import { signIn } from './utils/test-helpers'
 
 /**
  * The read-only MCP server (HON-1151), called the way an MCP client calls it:

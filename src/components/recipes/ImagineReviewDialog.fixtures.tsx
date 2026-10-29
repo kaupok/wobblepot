@@ -1,10 +1,12 @@
 import { render } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import type { ReviewMealData } from './ImagineReviewDialog'
-import { createQueryWrapper } from '@/test/query-wrapper'
 
 // A test file that uses these calls `vi.unmock('next-intl')` first: the copy
 // is resolved against the real catalog in a real locale.

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { PATCH } from './route'
 
 // The fridge-meal fields of the entry PATCH (HON-1277). The persistence is

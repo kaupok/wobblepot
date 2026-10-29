@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { JudgeV2Findings } from './judge'
 import type { MealImageMeal } from './prompt'
-import { vesselSchema, type Vessel } from './vessel'
+import { type Vessel, vesselSchema } from './vessel'
 
 // Never call the real APIs: both SDK entry points are mocked, and the providers
 // are stubs that only record the model id they were asked for.
@@ -56,17 +57,18 @@ vi.mock('./footprint', () => ({
 }))
 
 import { APICallError, generateImage, generateObject, RetryError } from 'ai'
+
 import { canonicalForEstimate, fitFootprint } from './footprint'
 import {
   classifyVessel,
   generateMealImage,
   IMAGE_FALLBACK_USD,
-  VESSEL_SAMPLES,
   MealImageUnavailableError,
   RATE_LIMIT_BACKOFF_MS,
   rateLimitDelayMs,
   RETRY_MIN_REMAINING_MS,
   TRANSIENT_RETRY_MS,
+  VESSEL_SAMPLES,
 } from './generate'
 
 const mockGenerateImage = vi.mocked(generateImage)

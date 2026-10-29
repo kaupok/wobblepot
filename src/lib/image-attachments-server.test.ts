@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
-import { readImageAttachments } from './image-attachments-server'
+import { describe, expect, it } from 'vitest'
+
 import { MAX_ATTACHED_IMAGE_SIZE } from './image-attachments'
+import { readImageAttachments } from './image-attachments-server'
 
 function form(...entries: (File | string)[]) {
   const formData = new FormData()

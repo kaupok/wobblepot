@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, POST } from './route'
 
 // The member list and the add live in `@/lib/household/members`, tested

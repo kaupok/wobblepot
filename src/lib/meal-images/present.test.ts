@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
-import { MEAL_IMAGE_PROMPT_VERSION } from './prompt'
+import { describe, expect, it } from 'vitest'
+
 import { presentMealImage } from './present'
+import { MEAL_IMAGE_PROMPT_VERSION } from './prompt'
 
 const URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1-abc.png'
 

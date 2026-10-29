@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
+
+import type { SampleMealInput } from '@/lib/meal-plans/build-sample-week'
+import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
 import MealPlanPage, { generateMetadata } from './page'
-import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
-import type { SampleMealInput } from '@/lib/meal-plans/build-sample-week'
 
 vi.mock('next-intl/server', async () => {
   const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')

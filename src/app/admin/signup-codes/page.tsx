@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getSession } from '@/lib/session'
+
+import { Body, Heading } from '@/components/ui/typography'
 import { isAdmin } from '@/lib/auth-helpers'
+import { getSession } from '@/lib/session'
 import { listSignupCodes } from '@/lib/signup-codes'
-import { Heading, Body } from '@/components/ui/typography'
+
 import { SignupCodesClient } from './SignupCodesClient'
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { formatQuantity, formatInteger } from './format-number'
+import { describe, expect, it } from 'vitest'
+
+import { formatInteger, formatQuantity } from './format-number'
 
 describe('formatQuantity', () => {
   it('uses a period as decimal separator in en', () => {

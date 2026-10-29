@@ -1,7 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 
 /** The window `cookedLast28Days` counts: today and the 27 days before it. */
 export const COOKED_WINDOW_DAYS = 28

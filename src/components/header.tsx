@@ -1,8 +1,10 @@
 import { getTranslations } from 'next-intl/server'
-import { getSession, getCachedMembership } from '@/lib/session'
-import { isAdminIfConfigured } from '@/lib/auth-helpers'
+
 import { ADMIN_LINKS } from '@/lib/admin-links'
+import { isAdminIfConfigured } from '@/lib/auth-helpers'
 import { countPastMealsToMark } from '@/lib/meal-planning/past-meals'
+import { getCachedMembership, getSession } from '@/lib/session'
+
 import { HeaderChrome } from './header-chrome'
 
 /**

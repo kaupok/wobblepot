@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
 import { useLocale } from 'next-intl'
+import type { ReactNode } from 'react'
+
 import { Body, Heading } from '@/components/ui/typography'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'

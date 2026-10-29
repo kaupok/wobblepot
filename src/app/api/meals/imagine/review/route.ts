@@ -1,23 +1,24 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { reviewMealQuantities, type ReviewIngredient } from '@/lib/ai/review-quantities'
+
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { REVIEW_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { type ReviewIngredient, reviewMealQuantities } from '@/lib/ai/review-quantities'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
   AiCostCapExceededError,
   assertUnderCap,
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { withRequestId } from '@/lib/request-id'
-// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
-import { REVIEW_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * Bounds on what one review may carry into the prompt: the ingredient count and

@@ -1,15 +1,12 @@
 import 'server-only'
+
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { type LanguageModelUsage, streamText } from 'ai'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { streamText, type LanguageModelUsage } from 'ai'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { aiErrorStatusCode } from '@/lib/ai/error-status'
-import { serverEnv } from '@/lib/env'
-import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
+
 import { COOK_QUESTION_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import type { buildCookQuestionRequest } from '@/lib/ai/cook-question'
-import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import {
   clipText,
   COOK_QUESTION_EQUIPMENT_ITEM_MAX_LENGTH,
@@ -17,9 +14,12 @@ import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '@/lib/ai/cook-question-limits'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
+import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import type { CookQuestionErrorCode } from '@/lib/ai/error-codes'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
+import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
 import { logAiSample } from '@/lib/ai/sampling'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -27,8 +27,10 @@ import {
   respondCapExceeded,
   toAiUsageStats,
 } from '@/lib/ai/usage'
+import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import type { CookQuestionErrorCode } from '@/lib/ai/error-codes'
+import { getServerFlag } from '@/lib/feature-flags'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 /**
  * What the two cook-question routes share: a planned entry's

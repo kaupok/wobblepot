@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { getTranslations } from 'next-intl/server'
+
 import { getAppIcons } from '@/lib/app-icons'
 import { clientEnv } from '@/lib/env'
 

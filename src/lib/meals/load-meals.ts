@@ -1,7 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { Prisma } from '@/generated/prisma/client'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   ingredientTranslationsInclude,
   isDefaultLocale,
@@ -11,15 +12,15 @@ import {
 } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { presentMealImage } from '@/lib/meal-images/present'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import {
   compareLongestSinceCooked,
   loadMealHistory,
-  NO_HISTORY,
   type MealHistory,
+  NO_HISTORY,
 } from '@/lib/meal-plans/meal-history'
+import { prisma } from '@/lib/prisma'
 
 export const MEALS_DEFAULT_LIMIT = 20
 export const MEALS_MAX_LIMIT = 50

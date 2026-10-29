@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The reminder write lives in `saveReminder` (`@/lib/weekly-reminder`), tested
 // against a database in `weekly-reminder.db.test.ts`. This file mocks that
@@ -28,11 +28,12 @@ vi.mock('@/lib/weekly-reminder', async (importOriginal) => ({
   sendReminderConfirmEmail: vi.fn(),
 }))
 
-import { PATCH } from './route'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { saveReminder, sendReminderConfirmEmail } from '@/lib/weekly-reminder'
+
+import { PATCH } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockSave = vi.mocked(saveReminder)

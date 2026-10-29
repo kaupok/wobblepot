@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { createHouseholdMealListData } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { createHouseholdMealListData } from '@/stories/fixtures'
 import { RecipeCard } from './RecipeCard'
 
 const TODAY = '2026-10-28'

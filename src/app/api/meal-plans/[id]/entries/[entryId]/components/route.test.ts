@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // Every rule and query lives in `@/lib/meal-plans/entry-changes`, tested
@@ -28,8 +29,8 @@ vi.mock('@/lib/meal-plans/entry-changes', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   addEntryChange,
   EntryChangeError,

@@ -1,17 +1,20 @@
 import 'server-only'
-import { redirect } from 'next/navigation'
+
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import type { ComponentProps } from 'react'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
-import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
-import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
+
 import type { InventoryPage } from '@/components/inventory/InventoryPage'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import { toShoppingItemData } from './shopping-item-transform'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
+import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
+
 import { toPantryItemData } from './pantry-item-transform'
 import { getShoppingEmptyStateVariant } from './shopping-empty-state-variant'
+import { toShoppingItemData } from './shopping-item-transform'
 
 export type InventoryPageData = Omit<ComponentProps<typeof InventoryPage>, 'view'>
 

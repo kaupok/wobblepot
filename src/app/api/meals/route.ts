@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { NextRequest, NextResponse } from 'next/server'
+
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadMeals, MEALS_DEFAULT_LIMIT, type MealSource } from '@/lib/meals/load-meals'
 
 /**

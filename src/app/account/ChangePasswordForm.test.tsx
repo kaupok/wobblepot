@@ -1,9 +1,11 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { authClient } from '@/lib/auth-client'
 import { dropFocusToBody } from '@/test/focus'
+
 import { ChangePasswordForm } from './ChangePasswordForm'
 
 vi.mock('@/lib/auth-client', () => ({

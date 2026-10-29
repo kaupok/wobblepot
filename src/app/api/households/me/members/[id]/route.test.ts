@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET, PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, GET, PATCH } from './route'
 
 // The member reads and changes live in `@/lib/household/members`, tested
 // against a database in `members.db.test.ts`: the refusals and the prep-tips
@@ -37,9 +38,9 @@ import { getHouseholdMembership } from '@/lib/household'
 import {
   getHouseholdMember,
   MemberChangeError,
+  type MemberChangeRefusal,
   removeMember,
   updateMember,
-  type MemberChangeRefusal,
 } from '@/lib/household/members'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

@@ -1,13 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, waitFor, within } from 'storybook/test'
 import { MoreHorizontal } from 'lucide-react'
-import { MealType, ProteinType } from '@/generated/prisma/enums'
+import { expect, waitFor, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
 import { CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
+import { MealType, ProteinType } from '@/generated/prisma/enums'
 import { cn } from '@/lib/utils'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, lemonGarlicChickenPantry } from '@/stories/fixtures'
+
 import { MealCardBase, type MealCardBaseData } from './MealCardBase'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The query lives in `@/lib/waitlist` (`listConfirmedWaitlistRequests`),
 // tested against a database in `waitlist.db.test.ts`. This file mocks it at
@@ -18,6 +18,7 @@ vi.mock('@/lib/waitlist', async (importOriginal) => ({
 
 import { auth } from '@/lib/auth'
 import { listConfirmedWaitlistRequests, type WaitlistRow } from '@/lib/waitlist'
+
 import { GET } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)

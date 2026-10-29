@@ -1,7 +1,9 @@
 import { createTranslator, type Messages } from 'next-intl'
+
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 
 /**
  * Catalog access for email templates.

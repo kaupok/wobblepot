@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
 import { HouseholdTabs } from './HouseholdTabs'
 
 vi.mock('next/navigation', () => ({

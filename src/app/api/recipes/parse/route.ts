@@ -1,31 +1,32 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import {
+  RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS,
+  RECIPE_PARSE_AI_BUDGET_MS,
+} from '@/lib/ai/budgets'
+import type { RecipeImportErrorCode, RecipeParseErrorCode } from '@/lib/ai/error-codes'
 import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
-import { translateMatchResults } from '@/lib/ai/translate-match-results'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
 import {
   AiCostCapExceededError,
   assertUnderCap,
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
-import { withRequestId } from '@/lib/request-id'
-import { getServerFlag } from '@/lib/feature-flags'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import type { RecipeImportErrorCode, RecipeParseErrorCode } from '@/lib/ai/error-codes'
-import { readImageAttachments, type EncodedImage } from '@/lib/image-attachments-server'
-// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
-import {
-  RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS,
-  RECIPE_PARSE_AI_BUDGET_MS,
-} from '@/lib/ai/budgets'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { type EncodedImage, readImageAttachments } from '@/lib/image-attachments-server'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * Failure body for this route: English prose for logs and PostHog error capture,

@@ -1,19 +1,20 @@
 // ROUTES: /shopping, /sign-in · COMPONENTS: InventoryPage, ShoppingSection, ShoppingListHeader, ShoppingItem, PantrySection, PantryItem, PantryAmountControl
 // API: /api/meal-plans/[id]/entries/[entryId]/components (HON-1243)
-import { test, expect, type APIRequestContext } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { type APIRequestContext, expect, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
 import {
+  type EntrySummary,
   escapeRegExp,
   findReplacement,
   listEntries,
+  type MealSummary,
   pantryRows,
   shoppingItems,
   toBuy,
-  type EntrySummary,
-  type MealSummary,
 } from './utils/shopping-pantry-api'
+import { signIn } from './utils/test-helpers'
 
 /**
  * Shopping list → mark purchased → pantry receives the item (HON-479).

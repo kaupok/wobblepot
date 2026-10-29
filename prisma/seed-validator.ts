@@ -15,24 +15,24 @@
  * Run: pnpm db:validate
  */
 
-import { baseIngredients, baseMeals } from './seed'
-import { newIngredients, newMeals } from './seed-expansion'
-import { comprehensiveIngredients } from './seed-comprehensive'
-import { importCoverageIngredients } from './seed-import-coverage'
-import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
-import { checkMealSlugCollisions } from './seed-meal-slugs'
-import {
-  ingredientTranslationsEt,
-  type IngredientTranslationEt,
-} from './seed-ingredient-translations-et'
+import { INGREDIENT_GROUPS } from '../src/lib/household/ingredient-groups'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
-import { validateIngredientAliases } from './validate-ingredient-aliases'
-import { INGREDIENT_GROUPS } from '../src/lib/household/ingredient-groups'
-import { validateIngredientGroups } from './validate-ingredient-groups'
-import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
-import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
+import { baseIngredients, baseMeals } from './seed'
+import { comprehensiveIngredients } from './seed-comprehensive'
+import { newIngredients, newMeals } from './seed-expansion'
+import { importCoverageIngredients } from './seed-import-coverage'
+import {
+  type IngredientTranslationEt,
+  ingredientTranslationsEt,
+} from './seed-ingredient-translations-et'
+import { checkMealSlugCollisions } from './seed-meal-slugs'
+import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translations-et'
 import type { IngredientInput } from './seed-types'
+import { validateIngredientAliases } from './validate-ingredient-aliases'
+import { validateIngredientGroups } from './validate-ingredient-groups'
+import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
+import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
 
 // ============================================
 // TYPES

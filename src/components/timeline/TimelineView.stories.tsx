@@ -1,8 +1,12 @@
-import { useEffect, useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { getRouter } from '@storybook/nextjs-vite/navigation.mock'
+import { type ComponentProps, useEffect, useState } from 'react'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { awaitDialogClosed } from '@/stories/a11y-helpers'
 import {
   createExpectedMealTypes,
   createPlanEntry,
@@ -11,10 +15,8 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
-import { awaitDialogClosed } from '@/stories/a11y-helpers'
 import { delayedGenerateHandlers } from '@/stories/msw-handlers'
-import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+
 import { TimelineView } from './TimelineView'
 
 const baseEntries = [

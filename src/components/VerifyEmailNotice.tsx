@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { ApiError } from '@/lib/api'
-import { EMAIL_VERIFICATION_CALLBACK_URL, type VerificationLanding } from '@/lib/email-verification'
+import { useEffect, useRef } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
-import { FieldError } from '@/components/FieldError'
-import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { useClearLandingParams } from '@/hooks/use-clear-landing-params'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
+import { EMAIL_VERIFICATION_CALLBACK_URL, type VerificationLanding } from '@/lib/email-verification'
 
 interface VerifyEmailNoticeProps {
   email: string

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -17,10 +17,10 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+import { auth } from '@/lib/auth'
+import { getLocale } from '@/lib/i18n/get-locale'
 import { prisma } from '@/lib/prisma'
 import { getCachedMembership, getHasHousehold, getHouseholdIdForUser } from '@/lib/session'
-import { getLocale } from '@/lib/i18n/get-locale'
-import { auth } from '@/lib/auth'
 
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockCount = vi.mocked(prisma.householdMember.count)

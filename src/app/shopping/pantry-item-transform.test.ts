@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { toPantryItemData, type PantryApiItem } from './pantry-item-transform'
+import { describe, expect, it } from 'vitest'
+
+import { type PantryApiItem, toPantryItemData } from './pantry-item-transform'
 
 function apiItem(overrides: Partial<PantryApiItem> = {}): PantryApiItem {
   return {

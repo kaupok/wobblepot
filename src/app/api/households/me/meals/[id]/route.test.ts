@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { GET, PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, GET, PATCH } from './route'
 
 // The read, update and delete queries, and the rules for when an edit clears
 // the cached tips and the image, live in `@/lib/household-meals`, tested
@@ -58,12 +59,12 @@ vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { discardMealImage } from '@/lib/meal-images/storage'
+import { getHouseholdMembership } from '@/lib/household'
 import { deleteHouseholdMeal, HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
 import { getHouseholdMeal } from '@/lib/household-meals-read'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
+import { discardMealImage } from '@/lib/meal-images/storage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)

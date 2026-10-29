@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { Card, CardContent } from '@/components/ui/card'
+
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealHueStyle } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'

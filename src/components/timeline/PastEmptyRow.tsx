@@ -1,10 +1,12 @@
 'use client'
 
 import { useId } from 'react'
-import { Body } from '@/components/ui/typography'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
+
 import type { PantryItemFull } from '@/components/meal-plan/types'
+import { Body } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+
 import { DayAddMenu } from './DayAddMenu'
 import type { LogMode } from './EmptySlotController'
 

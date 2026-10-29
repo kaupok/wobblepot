@@ -1,9 +1,12 @@
-import { delay, http, HttpResponse, type HttpHandler } from 'msw'
-import { MealType, type ProteinType } from '@/generated/prisma/enums'
+import { delay, http, type HttpHandler, HttpResponse } from 'msw'
+
+import type { IngredientResult } from '@/components/household/meal-form-types'
 import type { AlternativeMeal, MealComponent, NutritionData } from '@/components/meal-plan/types'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import type { IngredientResult } from '@/components/household/meal-form-types'
+import { MealType, type ProteinType } from '@/generated/prisma/enums'
 import type { Member } from '@/types/member'
+
+import { extraSearchResults } from './day-extra-fixtures'
 import {
   createChildMember,
   createManualMemberWithInvite,
@@ -15,7 +18,6 @@ import {
   misoSalmonAlternative,
 } from './fixtures'
 import { FRIDGE_DEFAULT_SERVINGS, fridgeRecentMeals } from './fridge-fixtures'
-import { extraSearchResults } from './day-extra-fixtures'
 
 /**
  * Shape returned by `GET /api/meals`. Kept local because `MealSelectorModal`

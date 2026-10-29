@@ -1,6 +1,6 @@
-import { isWeekday } from '@/lib/meal-planning/dates'
 import type { ExpectedMealTypes, PlanEntry } from '@/components/meal-plan/types'
 import type { MealType } from '@/generated/prisma/enums'
+import { isWeekday } from '@/lib/meal-planning/dates'
 
 const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
 

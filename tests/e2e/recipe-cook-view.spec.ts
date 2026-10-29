@@ -1,9 +1,10 @@
 // ROUTES: /recipes · COMPONENTS: MealList, RecipeCard, RecipeDetailModal, CookViewDialog
 // API: /api/meals/[id]/preparation-steps (HON-1338)
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 async function signInAsSmoke(page: Page) {
   const { email, password } = smokeFixture()

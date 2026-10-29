@@ -1,9 +1,22 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Check, Copy, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { IngredientCategory } from '@/generated/prisma/enums'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import type { PantryItemData } from '@/components/pantry/PantryItem'
+import {
+  CATEGORY_EMOJI,
+  CategoryGroup,
+  CUSTOM_ITEMS_EMOJI,
+} from '@/components/shopping/CategoryGroup'
+import { type CustomItemData, CustomItemInput } from '@/components/shopping/CustomItemInput'
+import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
+import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { URGENCY_KEYS, UrgencyGroup } from '@/components/shopping/UrgencyGroup'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { RowGroup } from '@/components/ui/row-group'
 import {
   Select,
   SelectContent,
@@ -11,38 +24,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { RowGroup } from '@/components/ui/row-group'
 import { Body } from '@/components/ui/typography'
-import {
-  CategoryGroup,
-  CATEGORY_EMOJI,
-  CUSTOM_ITEMS_EMOJI,
-} from '@/components/shopping/CategoryGroup'
-import { UrgencyGroup, URGENCY_KEYS } from '@/components/shopping/UrgencyGroup'
-import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
-import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
-import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
-import { GroupHeading } from './GroupHeading'
-import type { ShoppingEmptyStateVariant } from './ShoppingEmptyState'
-import { ShoppingListHeader } from './ShoppingListHeader'
-import type { PantryItemData } from '@/components/pantry/PantryItem'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import type { Locale } from '@/lib/i18n/locales'
 import type { ClipboardSection } from '@/lib/shopping/format-clipboard'
+
+import { GroupHeading } from './GroupHeading'
 import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
   DEFAULT_SORT_MODE,
   getInitialSortMode,
-  splitCustomItems,
   SORT_STORAGE_KEY,
   type SortMode,
+  splitCustomItems,
 } from './shopping-sort'
+import type { ShoppingEmptyStateVariant } from './ShoppingEmptyState'
+import { ShoppingListHeader } from './ShoppingListHeader'
 import { useCopyShoppingList } from './use-copy-shopping-list'
 import { useCustomShoppingItems } from './use-custom-shopping-items'
 import { useKeptTickedRows } from './use-kept-ticked-rows'
-import { usePantryChanges, type PantryChange } from './use-pantry-changes'
+import { type PantryChange, usePantryChanges } from './use-pantry-changes'
 import { usePurchaseToggle } from './use-purchase-toggle'
 
 interface ShoppingListGroup {

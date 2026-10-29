@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
+import { stepsInputHash } from '@/lib/landing/steps-input-hash'
 import {
   freshRecipeSteps,
   loadRecipeForSteps,
-  recipeStepsRequest,
   RecipeStepsError,
-  saveRecipeSteps,
   type RecipeStepsRefusal,
+  recipeStepsRequest,
+  saveRecipeSteps,
 } from '@/lib/meals/recipe-steps'
-import { stepsInputHash } from '@/lib/landing/steps-input-hash'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and read or changed through the lib functions (HON-1338).

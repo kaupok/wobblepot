@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { act, render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
+
+import { ForgotPasswordForm } from './ForgotPasswordForm'
 
 // Mock auth client
 vi.mock('@/lib/auth-client', () => ({

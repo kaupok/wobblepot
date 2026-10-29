@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { reminderConfirmState, REMINDER_CONFIRM_TTL_DAYS } from '@/lib/weekly-reminder'
+import type { ReactNode } from 'react'
+
 import { Card, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
+import { REMINDER_CONFIRM_TTL_DAYS, reminderConfirmState } from '@/lib/weekly-reminder'
+
 import { ConfirmReminderForm } from './ConfirmReminderForm'
 
 export async function generateMetadata(): Promise<Metadata> {

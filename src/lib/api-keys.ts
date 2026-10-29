@@ -1,8 +1,10 @@
 import 'server-only'
+
 import { createHash, randomBytes } from 'node:crypto'
+
 import { Prisma } from '@/generated/prisma/client'
-import { prisma } from '@/lib/prisma'
 import { getPosthogServer } from '@/lib/posthog-server'
+import { prisma } from '@/lib/prisma'
 import { sanitizeEventProperties } from '@/lib/redact'
 
 /**

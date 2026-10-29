@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
@@ -23,16 +23,17 @@ vi.mock('@/lib/meal-plans/entry-changes', async (importOriginal) => ({
 }))
 vi.mock('@/lib/meal-plans/entry-context', () => ({ loadEntryForAi: vi.fn() }))
 
-import { prisma } from '@/lib/prisma'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
+import { getServerFlag } from '@/lib/feature-flags'
+import { runTool, TOOL_FAILED_MESSAGE, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { loadAdjustContext, proposeAdjustment } from '@/lib/meal-planning/adjust-entry'
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
 import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
+import { prisma } from '@/lib/prisma'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
-import { runTool, TOOL_FAILED_MESSAGE, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+
 import { adjustMeal } from './adjust-meal'
 
 const household = mcpHousehold({ id: 'household-a' })

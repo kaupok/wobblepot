@@ -1,8 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { createTranslator, type Messages } from 'next-intl'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { Locale } from '@/lib/i18n/locales'
+
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
-import type { Locale } from '@/lib/i18n/locales'
 import manifest from './manifest'
 
 const { localeRef, env } = vi.hoisted(() => ({

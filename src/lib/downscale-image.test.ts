@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { downscaleImage, DOWNSCALE_SKIP_BYTES } from './downscale-image'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DOWNSCALE_SKIP_BYTES, downscaleImage } from './downscale-image'
 
 function photo(bytes: number, name = 'page.png', type = 'image/png') {
   return new File([new Uint8Array(bytes)], name, { type, lastModified: 1234 })

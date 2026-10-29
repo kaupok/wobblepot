@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
+import { useEffect, useSyncExternalStore } from 'react'
 
 type Theme = 'light' | 'dark'
 

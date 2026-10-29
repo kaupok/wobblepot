@@ -1,17 +1,19 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { ProteinType } from '@/generated/prisma/enums'
+
 import {
-  SCORE_JITTER_RANGE,
-  SIMILARITY_WEIGHTS,
-  SIMILAR_PREP_TIME_MINUTES,
-  SLOT_FIT_WEIGHTS,
   randomScoreJitter,
   ratingSignal,
   ratingTerm,
+  type ScorableCandidate,
+  SCORE_JITTER_RANGE,
   scoreCandidate,
   scoreJitter,
-  type ScorableCandidate,
+  SIMILAR_PREP_TIME_MINUTES,
+  SIMILARITY_WEIGHTS,
+  SLOT_FIT_WEIGHTS,
 } from './candidate-score'
-import type { ProteinType } from '@/generated/prisma/enums'
 
 interface PoolMeal extends ScorableCandidate {
   id: string

@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
 import { NumberInput } from './number-input'
 
 function ControlledHarness({

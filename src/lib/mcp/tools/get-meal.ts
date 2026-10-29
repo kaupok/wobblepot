@@ -1,19 +1,22 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { defineTool, type McpHousehold, ToolInputError } from '@/lib/mcp/context'
+import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
-import { defineTool, ToolInputError, type McpHousehold } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
+
 import { findPlanSlot, slotInput } from './plan-slot'
 import { MAIN_PROTEIN_HELP, mainProteinOf, mainProteinOutput } from './recipe-input'
 

@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { ApiKeysSection, NewApiKey, type ApiKeyRow } from './ApiKeysSection'
+
+import { type ApiKeyRow, ApiKeysSection, NewApiKey } from './ApiKeysSection'
 
 const LIST = '*/api/auth/user/api-keys'
 const DELETE_ONE = '*/api/auth/user/api-keys/:id'

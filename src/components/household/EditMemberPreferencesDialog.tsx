@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+import { toast } from 'sonner'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Body } from '@/components/ui/typography'
 import {
   Dialog,
   DialogContent,
@@ -16,10 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { Member } from '@/types/member'
-import { FieldError } from '@/components/FieldError'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Body } from '@/components/ui/typography'
 import { ApiError, apiFetch } from '@/lib/api'
-import { PortionSizeField, isValidPortion } from './PortionSizeField'
+import type { Member } from '@/types/member'
+
+import { isValidPortion, PortionSizeField } from './PortionSizeField'
 
 // A member without an account has one name: a display name set before
 // HON-1021 is shown in the Name field and folded into it on save.

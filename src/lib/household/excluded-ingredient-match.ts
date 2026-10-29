@@ -1,6 +1,6 @@
-import { findSynonym } from '@/lib/ingredient-aliases'
-import { isDefaultLocale } from '@/lib/i18n/locales'
 import { INGREDIENT_GROUPS } from '@/lib/household/ingredient-groups'
+import { isDefaultLocale } from '@/lib/i18n/locales'
+import { findSynonym } from '@/lib/ingredient-aliases'
 
 /**
  * The rule that turns a household's "Ingredients to avoid" tags into

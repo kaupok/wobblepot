@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { parseArgs, PROMPT_VARIANTS, renderContactSheet, variantPrompt } from './spike-meal-colour'
-import { V3_PROMPT_SUFFIX } from './spike-meal-images'
+
 import { DEFAULT_HUE_OPTIONS } from '../src/lib/meal-images/colour'
 import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
+import { parseArgs, PROMPT_VARIANTS, renderContactSheet, variantPrompt } from './spike-meal-colour'
+import { V3_PROMPT_SUFFIX } from './spike-meal-images'
 
 describe('HON-743: meal colour spike', () => {
   it('parses args and rejects a bad limit', () => {

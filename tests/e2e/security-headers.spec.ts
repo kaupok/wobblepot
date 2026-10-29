@@ -1,5 +1,5 @@
 // ROUTES: / · COMPONENTS: src/proxy.ts (CSP)
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * Real-response CSP check (HON-561). `src/proxy.test.ts` unit-tests the

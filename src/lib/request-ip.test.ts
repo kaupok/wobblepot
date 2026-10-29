@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { getClientIp } from './request-ip'
 
 function makeRequest(headers: Record<string, string>): Request {

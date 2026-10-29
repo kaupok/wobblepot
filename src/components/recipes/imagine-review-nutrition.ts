@@ -2,6 +2,7 @@ import type { PrefilledIngredient } from '@/components/household/meal-form-types
 import type { NutritionData } from '@/components/meal-plan/types'
 import { convertToPrefilledData, type ImaginedMealResponse } from '@/lib/imagine-utils'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+
 import type { IngredientRowData } from './IngredientRow'
 
 /**

@@ -1,15 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactNode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The global next-intl mock resolves against the English catalog only; an
 // Estonian household needs the real provider (see vitest.setup.ts).
 vi.unmock('next-intl')
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import etMessages from '../../../messages/et.json'
+
 import type { MealType } from '@/generated/prisma/enums'
-import type { MealFormData } from './meal-form-types'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import etMessages from '../../../messages/et.json'
+import type { MealFormData } from './meal-form-types'
 import { useMealForm } from './use-meal-form'
 
 vi.mock('sonner', () => ({

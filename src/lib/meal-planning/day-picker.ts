@@ -1,6 +1,7 @@
-import { toDateString } from './dates'
-import { formatDayMonth, formatDayShort, type DatesTranslator } from '@/lib/i18n/format-dates'
+import { type DatesTranslator, formatDayMonth, formatDayShort } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
+
+import { toDateString } from './dates'
 
 export interface DayOption {
   label: string

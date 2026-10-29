@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, POST } from './route'
 
 // Every query lives in `@/lib/meals/favorite`, tested against a database in
 // `favorite.db.test.ts`. This file mocks that module at the seam and asserts
@@ -29,8 +30,8 @@ vi.mock('@/lib/meals/favorite', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { addFavorite, FavoriteError, removeFavorite } from '@/lib/meals/favorite'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

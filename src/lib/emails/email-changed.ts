@@ -1,8 +1,9 @@
 import { serverEnv } from '@/lib/env'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
-import { emailTranslator } from './i18n'
+
 import { escapeHtml } from './escape-html'
+import { emailTranslator } from './i18n'
 
 /**
  * Account email change, the notice to the old address (HON-1137).

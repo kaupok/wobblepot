@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and deleted through `discardPlaceholder` (HON-1251).

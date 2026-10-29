@@ -1,19 +1,21 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
-import { cookServingsSelect, getSavedCookServings, sumPortions } from '@/lib/meal-planning/servings'
+
+import { EntryRating, MealPlanEntryStatus } from '@/generated/prisma/enums'
+import {
+  applyEntryChanges,
+  changeSetKey,
+  ENTRY_CHANGES_FOR_DEDUCTION,
+} from '@/lib/meal-planning/entry-components'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
+import { cookServingsSelect, getSavedCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   clearChangesOnSwap,
   findSwapMeal,
   swapEntryData,
   writeSwappedEntry,
 } from '@/lib/meal-planning/swap-entry'
-import {
-  applyEntryChanges,
-  changeSetKey,
-  ENTRY_CHANGES_FOR_DEDUCTION,
-} from '@/lib/meal-planning/entry-components'
+import { prisma } from '@/lib/prisma'
+
 import { completeFridgeEntry } from './fridge-meal'
 
 /**

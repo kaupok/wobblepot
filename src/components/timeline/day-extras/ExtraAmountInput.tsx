@@ -1,11 +1,12 @@
 'use client'
 
-import { useId } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId } from 'react'
+
 import { Label } from '@/components/ui/label'
 import { NumberInput } from '@/components/ui/number-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { displayUnit, type DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { type DisplayUnit, displayUnit } from '@/lib/i18n/format-shopping-quantity'
 
 interface ExtraAmountInputProps {
   /** The ingredient, or its display unit when the extra is saved already. */

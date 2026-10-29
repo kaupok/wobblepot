@@ -1,13 +1,14 @@
 'use client'
 
-import { useId } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { useId } from 'react'
+
 import { Label } from '@/components/ui/label'
 import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { Allergen } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 
 export const ALLERGEN_VALUES: readonly Allergen[] = [
   'gluten',

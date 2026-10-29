@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent, type PointerEvent } from 'react'
+import { type MouseEvent, type PointerEvent, useRef, useState } from 'react'
 
 /**
  * Lets a tap open a Radix `Tooltip`. Radix opens a tooltip on hover and on

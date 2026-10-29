@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { harnessEnv, orchestrator, scriptsDir, stripTimestamps } from './orchestrator-test-harness'

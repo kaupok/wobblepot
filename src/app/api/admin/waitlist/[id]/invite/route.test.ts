@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The queries live in `@/lib/waitlist` (`prepareWaitlistInvite`,
 // `discardWaitlistInviteCode`, `markWaitlistInvited`), tested against a
@@ -42,10 +42,11 @@ import { captureApiError } from '@/lib/errors'
 import {
   discardWaitlistInviteCode,
   markWaitlistInvited,
+  type PreparedWaitlistInvite,
   prepareWaitlistInvite,
   WaitlistError,
-  type PreparedWaitlistInvite,
 } from '@/lib/waitlist'
+
 import { POST } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)

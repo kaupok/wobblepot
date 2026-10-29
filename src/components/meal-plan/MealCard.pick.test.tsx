@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { toast, type ExternalToast } from 'sonner'
+import { type ExternalToast, toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { MealCard } from './MealCard'
 
 // The cleared card kept its note, so its entry exists: "Pick for me" asks the

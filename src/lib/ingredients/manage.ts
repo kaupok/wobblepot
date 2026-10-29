@@ -1,8 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { Prisma } from '@/generated/prisma/client'
-import { resolveProteinType } from '@/lib/meal-planning/protein'
 import { restoreWindowStart } from '@/lib/deleted-household-meals'
+import { resolveProteinType } from '@/lib/meal-planning/protein'
+import { prisma } from '@/lib/prisma'
+
 import { findExisting, ingredientData, normaliseIngredientName } from './create'
 import type { HouseholdIngredient, IngredientUses } from './household-ingredient'
 import type { NewIngredientInput } from './new-ingredient'

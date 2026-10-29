@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useTheme } from 'next-themes'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { useThemeToggle } from './use-theme-toggle'
 
 vi.mock('next-themes', () => ({

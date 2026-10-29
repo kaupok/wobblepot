@@ -1,17 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Heading } from '@/components/ui/typography'
-import { RowGroup } from '@/components/ui/row-group'
-import { PastMealRow } from './PastMealRow'
-import { PastFridgeRow } from './PastFridgeRow'
-import { PastEmptyRow } from './PastEmptyRow'
-import type { LogMode } from './EmptySlotController'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+
 import type { PantryItemFull, TimelineDay } from '@/components/meal-plan/types'
+import { Button } from '@/components/ui/button'
+import { RowGroup } from '@/components/ui/row-group'
+import { Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+
+import type { LogMode } from './EmptySlotController'
+import { PastEmptyRow } from './PastEmptyRow'
+import { PastFridgeRow } from './PastFridgeRow'
+import { PastMealRow } from './PastMealRow'
 
 interface PastMealsListProps {
   /** From `buildPastDays`: every past day with a row or an empty slot, newest first. */

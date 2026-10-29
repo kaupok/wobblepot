@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { useState } from 'react'
 import { expect, fn, within } from 'storybook/test'
-import { NumberInput } from './number-input'
+
 import { Label } from './label'
+import { NumberInput } from './number-input'
 
 // Controlled wrapper — React-Query-free state harness so stories can exercise
 // the draft-preservation and external-sync contracts.

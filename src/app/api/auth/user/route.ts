@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+import type { AccountDeletionErrorCode } from '@/lib/account-deletion-error-codes'
 import { auth } from '@/lib/auth'
 import { AccountDeletionError, requestAccountDeletion } from '@/lib/auth/account'
-import { captureApiError } from '@/lib/errors'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 import { resolveEmailLocale } from '@/lib/emails/locale'
+import { captureApiError } from '@/lib/errors'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 import { PRIVACY_EMAIL } from '@/lib/support'
-import type { AccountDeletionErrorCode } from '@/lib/account-deletion-error-codes'
 
 /**
  * Sends the deletion-confirmation email. Best-effort: the soft-delete is

@@ -1,7 +1,8 @@
 'use client'
 
-import { useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+
 import type { FridgeMealItem } from '../types'
 import { useFridgeItemText } from './use-fridge-item-text'
 

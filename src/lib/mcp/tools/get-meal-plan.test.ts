@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
@@ -6,11 +6,12 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
 vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
 
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadDayExtras } from '@/lib/day-extras/day-extras'
-import { toDateString } from '@/lib/meal-planning/dates'
-import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
+import { toDateString } from '@/lib/meal-planning/dates'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { getMealPlan } from './get-meal-plan'
 
 type Entries = Awaited<ReturnType<typeof loadPlanEntries>>['entries']

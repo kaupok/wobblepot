@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import { mixedExtras } from '@/stories/day-extra-fixtures'
 import {
   createPlanEntry,
   createTimelineDay,
@@ -8,7 +10,7 @@ import {
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
 import { slowCreateEntryHandlers } from '@/stories/msw-handlers'
-import { mixedExtras } from '@/stories/day-extra-fixtures'
+
 import { TimelineDayCard } from './TimelineDayCard'
 
 const meta = {

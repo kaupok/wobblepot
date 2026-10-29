@@ -1,6 +1,7 @@
 import { serverEnv } from '@/lib/env'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
-import { emailTranslator, type EmailNamespace } from './i18n'
+
+import { type EmailNamespace, emailTranslator } from './i18n'
 
 /**
  * Account email verification (HON-1155).

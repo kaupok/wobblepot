@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getPantryIngredientNames, compareIngredientIds } from './pantry'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { compareIngredientIds, getPantryIngredientNames } from './pantry'
 
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({

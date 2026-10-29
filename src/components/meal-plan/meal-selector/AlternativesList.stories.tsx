@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { misoSalmonAlternative } from '@/stories/fixtures'
+
 import { Body } from '@/components/ui/typography'
+import { misoSalmonAlternative } from '@/stories/fixtures'
+
 import type { AlternativeMeal } from '../types'
 import { AlternativesList } from './AlternativesList'
 

@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
+
 import { TimelineDayCard } from '@/components/timeline/TimelineDayCard'
+import { MealType } from '@/generated/prisma/enums'
+import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 import {
   createMeal,
   createMealComponent,
@@ -11,7 +13,6 @@ import {
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
-import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 
 /**
  * Everything this meal needs is in {@link lemonGarlicChickenPantry} — chicken

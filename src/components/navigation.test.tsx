@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
 import { usePathname } from 'next/navigation'
+import { describe, expect, it, vi } from 'vitest'
+
 import { NavigationLeft, NavigationRight } from './navigation'
 
 vi.mock('next/navigation', () => ({

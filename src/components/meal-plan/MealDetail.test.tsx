@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+
 import { createMeal, createMealComponent } from '@/stories/fixtures'
+
 import { MealDetail } from './MealDetail'
 import type { PantryIngredient } from './types'
 

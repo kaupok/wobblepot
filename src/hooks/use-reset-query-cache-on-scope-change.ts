@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
 import type { QueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 
 export interface QueryCacheScope {
   userId?: string | null

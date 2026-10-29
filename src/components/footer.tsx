@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Body } from '@/components/ui/typography'
+
 import { CookieSettingsTrigger } from '@/components/CookieSettingsTrigger'
+import { Body } from '@/components/ui/typography'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
 export function Footer() {

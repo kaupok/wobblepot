@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 // `t.rich` (consent-checkbox label) returns React elements, which the default
 // vitest next-intl mock (a plain string-resolver) cannot handle. Use the real
 // provider so the `<terms>`/`<privacy>` markup actually renders anchors.
@@ -7,10 +7,12 @@ vi.unmock('next-intl')
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { dropFocusToBody } from '@/test/focus'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { SignUpForm } from './SignUpForm'
-import { dropFocusToBody } from '@/test/focus'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()

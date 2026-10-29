@@ -1,6 +1,7 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { HouseholdMealError } from '@/lib/household-meal-error'
+import { prisma } from '@/lib/prisma'
 
 /** One validated component, as `mealComponentsSchema` outputs it. */
 export interface HouseholdMealComponentInput {

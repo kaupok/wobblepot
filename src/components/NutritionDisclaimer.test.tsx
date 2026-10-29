@@ -1,10 +1,11 @@
 // Use the real next-intl in this file: the global mock in vitest.setup.ts
 // hardcodes English; this suite asserts locale-switched rendering.
-import { vi, describe, it, expect } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { PropsWithChildren } from 'react'
+
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
 import { NutritionDisclaimer } from './NutritionDisclaimer'

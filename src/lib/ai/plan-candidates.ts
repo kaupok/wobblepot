@@ -1,8 +1,9 @@
-import { prisma } from '@/lib/prisma'
-import { getCandidates, NO_REPEAT_DAYS, type CandidateMeal } from '@/lib/meal-planning/candidates'
-import type { MealSlot } from '@/lib/meal-planning/slots'
-import type { CandidatePools } from './types'
 import type { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
+import { type CandidateMeal, getCandidates, NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
+import type { MealSlot } from '@/lib/meal-planning/slots'
+import { prisma } from '@/lib/prisma'
+
+import type { CandidatePools } from './types'
 
 const CANDIDATE_POOL_LIMIT = 50
 

@@ -1,13 +1,15 @@
 import 'server-only'
+
 import { APIError } from 'better-auth/api'
 import { nanoid } from 'nanoid'
-import { prisma, type PrismaClientType } from '@/lib/prisma'
-import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
+
+import { type FlagKey, getServerFlag } from '@/lib/feature-flags'
 import {
   findHouseholdInvite,
   getHouseholdInviteCodeFromBody,
   getInviteValidity,
 } from '@/lib/household-invite'
+import { prisma, type PrismaClientType } from '@/lib/prisma'
 
 export const INVITE_CODE_REQUIRED_MESSAGE = 'An invite code is required.'
 export const INVITE_CODE_INVALID_MESSAGE = 'This invite code is invalid, expired, or already used.'

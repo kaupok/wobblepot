@@ -1,22 +1,25 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { translateIngredient } from '@/lib/i18n/content'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { type McpHousehold, ToolInputError } from '@/lib/mcp/context'
 import {
+  type AdjustContext,
   AdjustEntryError,
   loadAdjustContext,
-  type AdjustContext,
 } from '@/lib/meal-planning/adjust-entry'
 import {
-  buildChangeSet,
   type AcceptedProposal,
   type AdjustProposal,
+  buildChangeSet,
   type MatchedReplacement,
 } from '@/lib/meal-planning/adjust-proposal'
 import { staleChangeIds } from '@/lib/meal-planning/entry-components'
 import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
-import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
+
 import { findPlanSlot, type SlotMealType } from './plan-slot'
 
 /**

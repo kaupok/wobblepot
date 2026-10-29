@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // Which recipes are listed lives in `listRecentlyDeletedHouseholdMeals`,
@@ -27,9 +28,9 @@ vi.mock('@/lib/deleted-household-meals', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { listRecentlyDeletedHouseholdMeals } from '@/lib/deleted-household-meals'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

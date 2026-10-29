@@ -1,7 +1,8 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -9,12 +10,13 @@ import {
   openViaTrigger,
   pressEscape,
 } from '@/stories/a11y-helpers'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import {
   createMeal,
   lemonGarlicChickenComponentsFull,
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import { MealDetailModal } from './MealDetailModal'
 import type { PreparationSteps } from './types'
 

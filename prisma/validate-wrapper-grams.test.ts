@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
+import { describe, expect, it } from 'vitest'
+
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import type { IngredientInput } from './seed-types'
+import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
 
 const row = (overrides: Partial<IngredientInput>): IngredientInput => ({
   name: 'test wrappers',

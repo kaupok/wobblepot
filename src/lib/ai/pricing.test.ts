@@ -1,13 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { estimateCostUsd, MODEL_PRICES } from './pricing'
+import { describe, expect, it } from 'vitest'
+
 import {
+  COOK_QUESTION_MODEL,
+  IMAGINE_MODEL,
   PLANNING_MODEL,
   RECIPE_MODEL,
-  STEPS_MODEL,
-  IMAGINE_MODEL,
   REVIEW_MODEL,
-  COOK_QUESTION_MODEL,
+  STEPS_MODEL,
 } from './models'
+import { estimateCostUsd, MODEL_PRICES } from './pricing'
 
 describe('estimateCostUsd', () => {
   it('charges 1M input tokens at the table rate', () => {

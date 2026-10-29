@@ -1,5 +1,6 @@
 // ROUTES: /, /household/meal-preferences · COMPONENTS: Header, MealsToPlanForm
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
 import { signUpWithHousehold } from './utils/test-helpers'
 
 /**

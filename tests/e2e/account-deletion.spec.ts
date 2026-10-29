@@ -1,6 +1,6 @@
 // ROUTES: /sign-up, /onboarding, /account/data, /sign-in, / · COMPONENTS: DeleteAccountDialog, AccountDataPage, SignInForm, Header (User menu)
-import { test, expect, type Page } from '@playwright/test'
-import { signUpWithHousehold } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import {
   expectUserExists,
   expirePurgeWindow,
@@ -10,6 +10,7 @@ import {
   type UserState,
 } from './utils/e2e-support'
 import { canReadEmail, findRecentEmail } from './utils/mail-helpers'
+import { signUpWithHousehold } from './utils/test-helpers'
 
 /**
  * Account deletion end-to-end against the HON-481 grace window (HON-479).

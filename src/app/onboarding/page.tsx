@@ -1,9 +1,11 @@
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { parseVerificationLanding } from '@/lib/email-verification'
+import { redirect } from 'next/navigation'
+
 import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
+import { auth } from '@/lib/auth'
+import { parseVerificationLanding } from '@/lib/email-verification'
+import { getHouseholdMembership } from '@/lib/household'
+
 import { OnboardingFlow } from './OnboardingFlow'
 
 export default async function OnboardingPage({

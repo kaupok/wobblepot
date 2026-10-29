@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTranslator, type Messages } from 'next-intl'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { Locale } from '@/lib/i18n/locales'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import type { Locale } from '@/lib/i18n/locales'
 
 const { localeRef } = vi.hoisted(() => ({ localeRef: { current: 'en' as Locale } }))
 
@@ -29,7 +31,8 @@ vi.mock('@/lib/status/probes', () => ({
   computeOverall: vi.fn(),
 }))
 
-import { getStatusSnapshot, computeOverall } from '@/lib/status/probes'
+import { computeOverall, getStatusSnapshot } from '@/lib/status/probes'
+
 import StatusPage from './page'
 
 const mockGetSnapshot = vi.mocked(getStatusSnapshot)

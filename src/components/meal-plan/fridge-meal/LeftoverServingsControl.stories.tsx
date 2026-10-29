@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { LeftoverServingsControl } from './LeftoverServingsControl'
 
 const meta = {

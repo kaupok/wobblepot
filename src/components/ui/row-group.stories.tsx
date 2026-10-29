@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect } from 'storybook/test'
+
 import { Body, Heading } from '@/components/ui/typography'
+
 import { Card, CardContent } from './card'
 import { RowGroup } from './row-group'
 

@@ -1,13 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import Link from 'next/link'
-import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
+import {
+  RecentlyDeletedMeals,
+  recentlyDeletedMealsQueryKey,
+} from '@/components/household/RecentlyDeletedMeals'
+import type { MealImageFields } from '@/components/meal-plan/MealImageCard'
+import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
@@ -15,16 +21,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
-import { ApiError, apiFetch } from '@/lib/api'
-import type { MealImageFields } from '@/components/meal-plan/MealImageCard'
-import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
-import { RecipeCard } from './RecipeCard'
-import {
-  RecentlyDeletedMeals,
-  recentlyDeletedMealsQueryKey,
-} from '@/components/household/RecentlyDeletedMeals'
+import { Body } from '@/components/ui/typography'
 import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
+import { ApiError, apiFetch } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
+import { RecipeCard } from './RecipeCard'
 
 export interface MealData extends MealImageFields {
   id: string

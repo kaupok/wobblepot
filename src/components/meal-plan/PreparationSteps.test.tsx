@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+
+import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
+
 import { PreparationEquipment, PreparationSteps } from './PreparationSteps'
 import { sampleTips } from './PreparationSteps.ask.fixtures'
-import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 
 // The steps' cook question tests are in PreparationSteps.ask.test.tsx and
 // PreparationSteps.ask-panel.test.tsx.

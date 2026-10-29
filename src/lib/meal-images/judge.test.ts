@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   applyJudgeFilters,
   buildJudgeV2Prompt,
   computePassV2,
   dropListedExtras,
   dropServingware,
-  visibleIngredients,
   type JudgeV2Findings,
+  visibleIngredients,
 } from './judge'
 import type { MealImageComponent, MealImageMeal } from './prompt'
 

@@ -1,9 +1,10 @@
 'use client'
 
+import { BookOpen, type LucideIcon, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { BookOpen, Users, type LucideIcon } from 'lucide-react'
+
 import { isNavItemActive } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 

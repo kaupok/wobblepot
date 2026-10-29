@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
@@ -9,9 +9,10 @@ vi.mock('@/lib/meals/load-meals', () => ({
   MEALS_MAX_LIMIT: 50,
 }))
 
+import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { loadMeals, type LoadMealsResult } from '@/lib/meals/load-meals'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
-import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
+
 import { listMeals } from './list-meals'
 
 const household = mcpHousehold({ id: 'household-1' })

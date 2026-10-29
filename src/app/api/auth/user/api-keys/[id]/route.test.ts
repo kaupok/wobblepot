@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -14,9 +14,10 @@ vi.mock('@/lib/api-keys', () => ({
   getApiKeyViewer: vi.fn(),
 }))
 
+import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
+
 import { DELETE } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

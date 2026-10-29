@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { useCookQuestion, type CookQuestionAskInput } from './use-cook-question'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../messages/en.json'
+import { type CookQuestionAskInput, useCookQuestion } from './use-cook-question'
 
 vi.mock('@/lib/analytics', () => ({
   track: vi.fn(() => Promise.resolve()),

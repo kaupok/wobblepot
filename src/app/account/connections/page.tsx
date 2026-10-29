@@ -1,13 +1,14 @@
-import { Heading, Body, Ol, Li } from '@/components/ui/typography'
 import { Separator } from '@/components/ui/separator'
-import { ConnectedAssistantsList } from './ConnectedAssistantsList'
-import { ApiKeysSection } from './ApiKeysSection'
-import { McpServerUrl } from './McpServerUrl'
+import { Body, Heading, Li, Ol } from '@/components/ui/typography'
+import { listApiKeys } from '@/lib/api-keys'
 import { getServerBaseURL } from '@/lib/env'
 import { listMcpConsents } from '@/lib/mcp/consents'
-import { listApiKeys } from '@/lib/api-keys'
 import { getMcpResource } from '@/lib/mcp/oauth'
+
 import { accountTabMetadata, requireAccountMember } from '../account-member'
+import { ApiKeysSection } from './ApiKeysSection'
+import { ConnectedAssistantsList } from './ConnectedAssistantsList'
+import { McpServerUrl } from './McpServerUrl'
 
 /** The source of truth for the Claude steps, which move when Claude's menus do. */
 const CLAUDE_CONNECTOR_HELP_URL =

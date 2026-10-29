@@ -1,10 +1,11 @@
 import 'server-only'
-import { defineTool } from '@/lib/mcp/context'
+
 import {
   readShoppingList,
   shoppingListInputSchema,
   shoppingListOutputSchema,
 } from '@/lib/api/v1/shopping-list'
+import { defineTool } from '@/lib/mcp/context'
 
 /** The read is shared with `GET /api/v1/shopping-list` (HON-1220). */
 export const getShoppingList = defineTool({

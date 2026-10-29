@@ -1,13 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import type { IngredientCategory } from '@/generated/prisma/enums'
+
 import {
-  VAGUE_PHRASES,
-  isVaguePhrase,
+  checkGuardrail,
   extractVaguePhrase,
   getVagueCategory,
   getVagueDefault,
-  checkGuardrail,
+  isVaguePhrase,
+  VAGUE_PHRASES,
 } from './vague-quantities'
-import type { IngredientCategory } from '@/generated/prisma/enums'
 
 describe('VAGUE_PHRASES', () => {
   it('includes common vague quantity phrases', () => {

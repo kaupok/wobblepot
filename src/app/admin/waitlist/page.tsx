@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getSession } from '@/lib/session'
+
+import { Body, Heading } from '@/components/ui/typography'
 import { isAdmin } from '@/lib/auth-helpers'
+import { getSession } from '@/lib/session'
 import { listConfirmedWaitlistRequests } from '@/lib/waitlist'
-import { Heading, Body } from '@/components/ui/typography'
+
 import { WaitlistClient } from './WaitlistClient'
 
 // Admin pages are English-only (decided 2026-10-06), so the copy here is

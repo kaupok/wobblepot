@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { LABEL_GAP_PX, placeMiddleLabel } from './use-macro-legend-placement'
 
 const place = (rowWidth: number, partCentre: number, labelWidths: [number, number, number]) =>

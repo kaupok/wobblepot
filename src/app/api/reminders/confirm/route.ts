@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { captureApiError } from '@/lib/errors'
 import { confirmReminderToken } from '@/lib/weekly-reminder'
 

@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { computeRollingWindowShoppingList, computeShoppingList } from './shopping-list'
-import { getStartOfTodayInTimezone } from './dates'
+import { describe, expect, it } from 'vitest'
+
 import { createEntry } from '@/lib/meal-plans/create-entry'
+import { prisma } from '@/lib/prisma'
+
+import { getStartOfTodayInTimezone } from './dates'
+import { computeRollingWindowShoppingList, computeShoppingList } from './shopping-list'
 
 // A fridge meal adds nothing to the shopping list (HON-1277). Runs against
 // PGlite through the `unit-db` project, with no mocks.

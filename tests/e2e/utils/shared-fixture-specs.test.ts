@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, it, expect } from 'vitest'
+
+import { describe, expect, it } from 'vitest'
+
 import {
   findFixtureSpecDrift,
   SHARED_FIXTURE_SPECS,

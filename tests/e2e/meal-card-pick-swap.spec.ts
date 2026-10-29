@@ -1,8 +1,9 @@
 // ROUTES: / · COMPONENTS: MealCard, MealCardMenu, AddMealMenu
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A day and slot of its own: the other card specs plant theirs on days 9 to
 // 13, in the same household, in parallel. Past the shopping list's 7-day

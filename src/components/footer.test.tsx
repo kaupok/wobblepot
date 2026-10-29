@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { Footer } from '@/components/footer'
 
 function renderFooter(consent: AnalyticsConsent) {

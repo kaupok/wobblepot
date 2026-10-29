@@ -1,7 +1,8 @@
 // ROUTES: /sign-up, /onboarding, /account, /sign-in, /api/auth/verify-email · COMPONENTS: SignUpForm, AccountProfilePage, OnboardingPage, VerifyEmailNotice, SignInForm
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+import { expectUserExists, fetchUserState, fetchVerifyEmailPath } from './utils/e2e-support'
 import { grantEssentialCookieConsent, signUp, signUpWithHousehold } from './utils/test-helpers'
-import { fetchUserState, fetchVerifyEmailPath, expectUserExists } from './utils/e2e-support'
 
 /**
  * Account email verification (HON-1155).

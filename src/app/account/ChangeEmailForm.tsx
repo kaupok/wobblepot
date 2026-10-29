@@ -1,18 +1,19 @@
 'use client'
 
-import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { ApiError } from '@/lib/api'
-import { CHANGE_EMAIL_CALLBACK_URL, type ChangeEmailLanding } from '@/lib/email-verification'
+import { useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { FieldError } from '@/components/FieldError'
-import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { useClearLandingParams } from '@/hooks/use-clear-landing-params'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
+import { CHANGE_EMAIL_CALLBACK_URL, type ChangeEmailLanding } from '@/lib/email-verification'
 
 /** The params the email-change link's redirect adds to `/account`. */
 const LANDING_PARAMS = ['emailChanged', 'error'] as const

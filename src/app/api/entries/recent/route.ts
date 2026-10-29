@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { loadLeftoverSources } from '@/lib/meal-plans/recent-meals'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import { sumPortions } from '@/lib/meal-planning/servings'
+import { loadLeftoverSources } from '@/lib/meal-plans/recent-meals'
 
 const slotSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),

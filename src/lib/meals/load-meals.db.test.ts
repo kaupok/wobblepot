@@ -1,8 +1,9 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { loadMeals, type LoadMealsFilters } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks,
 // so the filters, the pg_trgm search and the ordering run as in production.

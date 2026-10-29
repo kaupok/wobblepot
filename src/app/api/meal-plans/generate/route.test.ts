@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -55,19 +56,19 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { generateMealPlan, createEmptyPlan } from '@/lib/ai/generate-plan'
 import { fillEmptySlots } from '@/lib/ai/fill-plan'
+import { createEmptyPlan, generateMealPlan } from '@/lib/ai/generate-plan'
 import {
-  MealPlanValidationError,
   InsufficientCandidatesError,
+  MealPlanValidationError,
   NoEmptySlotsError,
 } from '@/lib/ai/types'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

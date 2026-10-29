@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
 import { User } from 'lucide-react'
+import { expect, within } from 'storybook/test'
+
 import { Body } from '@/components/ui/typography'
+
 import { AttentionDot } from './attention-dot'
 
 const meta = {

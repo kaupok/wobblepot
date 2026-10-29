@@ -17,18 +17,19 @@
  */
 
 import { z } from 'zod'
+
 import type { BenchCase } from './case-schema'
 import {
   buildJudgePrompt,
   combineVerdicts,
-  other,
-  pairsToJudge,
-  toPick,
-  JudgeVerdictSchema,
   type JudgeCall,
   type JudgedPair,
   type JudgedTask,
   type JudgeResult,
+  JudgeVerdictSchema,
+  other,
+  pairsToJudge,
+  toPick,
 } from './judge'
 import type { Role, RunResult } from './runner'
 

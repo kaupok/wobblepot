@@ -1,23 +1,25 @@
-import { describe, it, expect } from 'vitest'
-import {
-  buildMealPlanPrompt,
-  localeInstruction,
-  estonianVoiceForImagineMeal,
-  estonianVoiceForRecipeParse,
-  estonianVoiceForPrepSteps,
-  englishVoiceForPrepSteps,
-  britishEnglish,
-} from './prompts'
+import { describe, expect, it } from 'vitest'
+
+import { IngredientCategory, ProteinType } from '@/generated/prisma/enums'
+import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
+
+import { buildCookQuestionPrompt } from './cook-question'
 import { buildImagineRequest } from './imagine-request'
 import { buildFullStepsPrompt, buildStepsFromNotesPrompt } from './preparation-steps'
-import { buildCookQuestionPrompt } from './cook-question'
+import {
+  britishEnglish,
+  buildMealPlanPrompt,
+  englishVoiceForPrepSteps,
+  estonianVoiceForImagineMeal,
+  estonianVoiceForPrepSteps,
+  estonianVoiceForRecipeParse,
+  localeInstruction,
+} from './prompts'
 import { buildRecipeExtractionPrompt } from './recipe-prompt'
 import { buildReviewRequest } from './review-request'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
-import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
-import type { CandidateMeal } from '@/lib/meal-planning/candidates'
-import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
 
 // Helper to create a date
 function date(dateStr: string): Date {

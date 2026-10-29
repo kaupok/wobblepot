@@ -1,6 +1,7 @@
-import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { type ComponentProps, useState } from 'react'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { AllergenPicker } from './AllergenPicker'
 
 /** Controlled wrapper, so ticking a chip moves the value in the canvas. */

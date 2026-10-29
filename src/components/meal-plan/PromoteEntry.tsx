@@ -1,11 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useRef, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
+
 import { PromoteEntryDialog } from './PromoteEntryDialog'
-import { usePromoteEntry } from './use-promote-entry'
 import type { EntryChange } from './types'
+import { usePromoteEntry } from './use-promote-entry'
 
 interface PromoteEntryProps {
   planId: string

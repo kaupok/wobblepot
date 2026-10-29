@@ -1,11 +1,13 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { loadDayExtras } from '@/lib/day-extras/day-extras'
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
-import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
+
 import type { DayExtraView } from '@/components/meal-plan/types'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
+import { type McpHousehold, ToolInputError } from '@/lib/mcp/context'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 
 /**
  * The household's meal plan by date and meal type: the body of the

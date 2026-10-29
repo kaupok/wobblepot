@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { describe, expect, it } from 'vitest'
+
 import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
-import { setMealStatus } from './set-meal-status'
+
 import { getMealPlan } from './get-meal-plan'
 import { getPantry } from './get-pantry'
 import { rateMeal } from './rate-meal'
+import { setMealStatus } from './set-meal-status'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1330).
 // Vitest runs in UTC, so the household does too, and every date is relative

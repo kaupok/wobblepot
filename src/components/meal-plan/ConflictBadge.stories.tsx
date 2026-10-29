@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import { Card, CardContent } from '@/components/ui/card'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
+
 import { ConflictBadge, ConflictBadges } from './ConflictBadge'
 import { mealHueStyle } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'
-import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 const meta = {
   title: 'Meal plan/ConflictBadge',

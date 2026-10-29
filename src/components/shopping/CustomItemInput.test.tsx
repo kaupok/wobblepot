@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CustomItemInput } from './CustomItemInput'
 import { toast } from 'sonner'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { CustomItemInput } from './CustomItemInput'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 

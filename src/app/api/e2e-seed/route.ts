@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { deleteUnusedSignupCode, mintE2eSignupCode } from '@/lib/signup-codes'
-import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
+
 import { captureApiError } from '@/lib/errors'
+import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
+import { deleteUnusedSignupCode, mintE2eSignupCode } from '@/lib/signup-codes'
 
 /**
  * Test-only seed endpoint for E2E tests. Mints a single-use invite code

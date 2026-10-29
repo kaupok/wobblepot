@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import type { FuzzyIngredientMatch } from './fuzzy-ingredient-match'
+import { describe, expect, it } from 'vitest'
+
 import { catalogueFormName, guardFormMatch, hasForm, removedForms } from './form-modifier-guard'
+import type { FuzzyIngredientMatch } from './fuzzy-ingredient-match'
 
 function row(id: string, name: string, similarity: number): FuzzyIngredientMatch {
   return {

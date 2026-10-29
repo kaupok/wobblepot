@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+
 import { buildRecipeExtractionPrompt, buildRecipeRequest } from './recipe-prompt'
 
 // Each build makes a new Zod schema, and two instances never deep-equal, so

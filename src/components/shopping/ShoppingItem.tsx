@@ -1,10 +1,11 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Body } from '@/components/ui/typography'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
 export interface ShoppingItemData {

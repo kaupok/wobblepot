@@ -1,10 +1,11 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
+import { Mail, MoreHorizontal, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { Mail, MoreHorizontal, Trash2 } from 'lucide-react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -15,9 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Body } from '@/components/ui/typography'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { ApiError, apiFetch } from '@/lib/api'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { Member, MemberInvite } from '@/types/member'
+
 import { PORTION_PRESETS } from './PortionSizeField'
 
 interface MemberRowProps {

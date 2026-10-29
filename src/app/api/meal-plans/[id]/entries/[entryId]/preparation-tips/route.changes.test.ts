@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // What the entry's own ingredient changes do to the prompt (HON-1243,
@@ -53,15 +54,16 @@ vi.mock('@/lib/ai/sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { generateObject } from 'ai'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap } from '@/lib/ai/usage'
-import { getServerFlag } from '@/lib/feature-flags'
+
 import { STEPS_MODEL } from '@/lib/ai/models'
 import { buildFullStepsRequest } from '@/lib/ai/preparation-steps'
+import { assertUnderCap } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
+import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockLoadEntry = vi.mocked(loadEntryForAi)
 const mockGenerateObject = vi.mocked(generateObject)

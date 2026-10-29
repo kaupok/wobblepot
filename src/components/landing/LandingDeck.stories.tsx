@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
-import { createMeal } from '@/stories/fixtures'
-import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
-import { assertDesignRules, castsShadow } from '@/stories/design-rules'
+
 import type { DemoDay } from '@/lib/landing/load-demo-day'
+import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { assertDesignRules, castsShadow } from '@/stories/design-rules'
+import { createMeal } from '@/stories/fixtures'
+
 import { LandingDeck } from './LandingDeck'
 
 const day: DemoDay = {

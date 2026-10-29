@@ -1,38 +1,41 @@
 import 'server-only'
+
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { serverEnv } from '@/lib/env'
-import { ADJUST_MODEL } from '@/lib/ai/models'
+
+import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import {
+  type AdjustRecipeChange,
   buildAdjustRecipeRequest,
   MAX_ADJUST_CHANGES,
-  type AdjustRecipeChange,
 } from '@/lib/ai/adjust-recipe'
-import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
+import { type MatchedIngredient, matchIngredients } from '@/lib/ai/match-ingredients'
+import { ADJUST_MODEL } from '@/lib/ai/models'
 import { translateMatchResults } from '@/lib/ai/translate-match-results'
 import {
+  type AiUsageStats,
   recordAiUsage,
   toAiUsageStats,
   withUsageOnFailure,
-  type AiUsageStats,
 } from '@/lib/ai/usage'
+import { serverEnv } from '@/lib/env'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
-import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import {
   EntryContextError,
   loadEntryForAi,
   loadPantryNamesForAi,
 } from '@/lib/meal-plans/entry-context'
-import { staleChangeIds } from './entry-components'
-import { getCookServings, sumPortions } from './servings'
+
 import {
-  resolveChanges,
-  unresolvedOriginals,
   type AdjustProposal,
   type AdjustReplacement,
-  storableQuantity,
+  resolveChanges,
   type ResolvedChange,
+  storableQuantity,
+  unresolvedOriginals,
 } from './adjust-proposal'
+import { staleChangeIds } from './entry-components'
+import { getCookServings, sumPortions } from './servings'
 
 /**
  * "Adjust recipe" (HON-1244): an instruction becomes proposed changes to one

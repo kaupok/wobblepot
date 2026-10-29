@@ -1,5 +1,5 @@
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // `next/font/google` is a build-time SWC transform; calling the real loader in
 // Vitest throws. The layout only reads `.variable` off the result.
@@ -43,11 +43,13 @@ vi.mock('@/components/bottom-tab-bar', () => ({ BottomTabBar: () => null }))
 vi.mock('@/components/theme-provider', () => ({ ThemeProvider: () => null }))
 vi.mock('@/components/ConsentProvider', () => ({ ConsentProvider: () => null }))
 
-import { getSession, getHouseholdIdForUser } from '@/lib/session'
-import { readConsentCookieServer } from '@/lib/consent.server'
-import { getLocale } from '@/lib/i18n/get-locale'
 import { getMessages, getTranslations } from 'next-intl/server'
+
+import { readConsentCookieServer } from '@/lib/consent.server'
 import { bootstrapFlags } from '@/lib/feature-flags'
+import { getLocale } from '@/lib/i18n/get-locale'
+import { getHouseholdIdForUser, getSession } from '@/lib/session'
+
 import RootLayout, { generateMetadata } from './layout'
 
 const mockGetSession = vi.mocked(getSession)

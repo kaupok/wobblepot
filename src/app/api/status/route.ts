@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getStatusSnapshot, computeOverall, type ProbeResult } from '@/lib/status/probes'
+
 import { captureApiError } from '@/lib/errors'
+import { computeOverall, getStatusSnapshot, type ProbeResult } from '@/lib/status/probes'
 
 export const dynamic = 'force-dynamic'
 

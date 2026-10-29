@@ -1,24 +1,25 @@
 'use client'
 
-import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  getStartDateOptions,
-  getDaysCountOptions,
-  computeEndDate,
-} from '@/lib/meal-planning/day-picker'
-import type { Locale } from '@/lib/i18n/locales'
-import type { DatesTranslator } from '@/lib/i18n/format-dates'
-import { track } from '@/lib/analytics'
-import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
-import { ApiError, apiFetch } from '@/lib/api'
+import { useState } from 'react'
+
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
   rateLimitMessage,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
+import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
+import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
+import type { DatesTranslator } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import {
+  computeEndDate,
+  getDaysCountOptions,
+  getStartDateOptions,
+} from '@/lib/meal-planning/day-picker'
 
 /**
  * How long the client waits before giving up on `/api/meal-plans/generate`.

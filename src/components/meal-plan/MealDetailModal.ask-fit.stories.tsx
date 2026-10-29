@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { createMeal } from '@/stories/fixtures'
+
 import { MealDetailModal } from './MealDetailModal'
 import type { PreparationSteps } from './types'
 

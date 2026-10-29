@@ -1,11 +1,13 @@
 import 'server-only'
+
 import { nanoid } from 'nanoid'
-import { prisma } from '@/lib/prisma'
+
+import { generateWaitlistConfirmEmail } from '@/lib/emails/waitlist-confirm'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
-import { generateWaitlistConfirmEmail } from '@/lib/emails/waitlist-confirm'
 import type { Locale } from '@/lib/i18n/locales'
+import { prisma } from '@/lib/prisma'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 
 /**
  * The invite waitlist (HON-846): a visitor without an invite code leaves an

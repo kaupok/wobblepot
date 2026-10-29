@@ -3,6 +3,7 @@
  * body's Verified / Not verified lists. Split from review-checklist-gate.test.ts.
  */
 import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { heredoc, prReview, read, repoRoot } from './review-checklist-gate.fixtures'

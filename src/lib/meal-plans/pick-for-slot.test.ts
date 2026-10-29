@@ -12,10 +12,11 @@ vi.mock('@/lib/meal-plans/create-entry', async (importOriginal) => ({
   createEntry: vi.fn(),
 }))
 
+import type { AlternativeMeal } from '@/components/meal-plan/types'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
+
 import { NoSuggestionsError, pickMealForSlot } from './pick-for-slot'
-import type { AlternativeMeal } from '@/components/meal-plan/types'
 
 const mockSuggestForSlot = vi.mocked(suggestForSlot)
 const mockCreateEntry = vi.mocked(createEntry)

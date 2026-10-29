@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { getSession } from '@/lib/session'
-import { getHouseholdMembership } from '@/lib/household'
+
 import { type VerificationLanding, verificationLandingSearch } from '@/lib/email-verification'
+import { getHouseholdMembership } from '@/lib/household'
+import { getSession } from '@/lib/session'
+
 import type { AccountTab } from './tabs'
 
 /**

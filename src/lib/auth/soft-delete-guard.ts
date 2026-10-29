@@ -1,4 +1,5 @@
 import { APIError } from 'better-auth/api'
+
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 
 /**

@@ -1,13 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { ProteinType } from '@/generated/prisma/enums'
+
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
+import type { ProteinType } from '@/generated/prisma/enums'
 import {
+  type ComponentForProtein,
   deriveProteinType,
   distinctProteinTypes,
-  type ComponentForProtein,
 } from '@/lib/meal-planning/protein'
+
 import type { MealComponent } from './meal-form-types'
 
 interface UseMainProteinOptions {

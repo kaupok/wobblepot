@@ -1,18 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
 import type { BenchCase } from './case-schema'
 import {
+  combineVerdicts,
   JUDGE_MODEL,
   JUDGED_TASKS,
-  combineVerdicts,
+  type JudgedPair,
   runJudge,
   summarizeJudge,
-  type JudgedPair,
   type Winner,
 } from './judge'
 import { loadCases } from './load-cases'
 import type { CallRecord, Role, RunResult } from './runner'
-import { loadStarterCases, mockModelFactory, type MockCall, type MockResponse } from './test-utils'
+import { loadStarterCases, type MockCall, mockModelFactory, type MockResponse } from './test-utils'
 
 const MODEL: Record<Role, string> = {
   baseline: 'claude-sonnet-5',

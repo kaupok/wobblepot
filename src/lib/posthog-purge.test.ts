@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const env = vi.hoisted(() => ({
   NEXT_PUBLIC_POSTHOG_KEY: undefined as string | undefined,
@@ -13,8 +13,9 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { deletePosthogPersons } from './posthog-purge'
 import { captureApiError } from '@/lib/errors'
+
+import { deletePosthogPersons } from './posthog-purge'
 
 const mockCapture = vi.mocked(captureApiError)
 const fetchMock = vi.fn()

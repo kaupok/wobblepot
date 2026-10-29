@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({ prisma: { apiKey: { update: vi.fn() } } }))
 
 import { createHash } from 'node:crypto'
+
 import { prisma } from '@/lib/prisma'
+
 import { API_KEY_PATTERN, apiKeyStart, generateApiKey, hashApiKey, verifyApiKey } from './api-keys'
 
 describe('API key format (HON-1220)', () => {

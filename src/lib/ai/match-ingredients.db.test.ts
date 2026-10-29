@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
-import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
+
+import { type IngredientMatchResult, matchIngredients } from './match-ingredients'
 import type { ExtractedIngredient } from './recipe-schema'
 
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks:

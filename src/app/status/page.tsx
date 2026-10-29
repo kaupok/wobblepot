@@ -1,20 +1,21 @@
+import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
-import {
-  getStatusSnapshot,
-  computeOverall,
-  type OverallStatus,
-  type ProbeStatus,
-} from '@/lib/status/probes'
-import { Heading, Body } from '@/components/ui/typography'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Badge } from '@/components/ui/badge'
-import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Body, Heading } from '@/components/ui/typography'
 import { formatDateTime } from '@/lib/i18n/format-dates'
 import { getLocale } from '@/lib/i18n/get-locale'
 import type { Locale } from '@/lib/i18n/locales'
+import {
+  computeOverall,
+  getStatusSnapshot,
+  type OverallStatus,
+  type ProbeStatus,
+} from '@/lib/status/probes'
+import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta.status')

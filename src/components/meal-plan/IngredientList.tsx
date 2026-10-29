@@ -1,22 +1,24 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useMemo } from 'react'
+
 import { Checkbox } from '@/components/ui/checkbox'
+import { Body, Heading, Li, Ul } from '@/components/ui/typography'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
+import { formatPieceFraction, recipePieceCount } from '@/lib/i18n/format-piece-quantity'
+import { displayUnit, formatMeasure, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
+import type { Locale } from '@/lib/i18n/locales'
+import { cn } from '@/lib/utils'
+
+import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import {
+  AddIngredientButton,
   EntryChangeRowActions,
   LeftOutRow,
   StaleChangeRow,
-  AddIngredientButton,
 } from './IngredientChangeRows'
-import { Body, Heading, Ul, Li } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
-import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
-import { displayUnit, formatMeasure, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
-import { formatPieceFraction, recipePieceCount } from '@/lib/i18n/format-piece-quantity'
-import type { Locale } from '@/lib/i18n/locales'
-import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { EntryChange, MealAvailability, MealComponent, PantryIngredient } from './types'
 
 /**

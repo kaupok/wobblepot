@@ -1,25 +1,25 @@
 'use client'
 
-import { useCallback, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
-import { AlternativesList } from './meal-selector/AlternativesList'
-import { ImaginePanel } from './meal-selector/ImaginePanel'
-import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
+import type { MealType } from '@/generated/prisma/enums'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import {
   formatAbsoluteDate,
@@ -29,9 +29,11 @@ import {
 } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { toast } from 'sonner'
+
+import { AlternativesList } from './meal-selector/AlternativesList'
+import { ImaginePanel } from './meal-selector/ImaginePanel'
+import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
 import type { PantryIngredient } from './types'
-import type { MealType } from '@/generated/prisma/enums'
 
 /**
  * Breadcrumb for a failed plan-entry PATCH. The PATCH route sets an English

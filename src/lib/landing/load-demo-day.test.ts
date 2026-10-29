@@ -1,5 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
+
 import { loadDemoDay, pickDemoMeals } from './load-demo-day'
 import { stepsInputHash } from './steps-input-hash'
 
@@ -34,8 +36,8 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
-import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
+import { prisma } from '@/lib/prisma'
 
 const findMany = vi.mocked(prisma.meal.findMany)
 

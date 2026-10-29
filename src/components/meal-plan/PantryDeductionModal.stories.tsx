@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -13,6 +14,7 @@ import {
   lemonGarlicChickenComponents,
   lemonGarlicChickenComponentsFull,
 } from '@/stories/fixtures'
+
 import { PantryDeductionModal } from './PantryDeductionModal'
 
 const pantryItems = [

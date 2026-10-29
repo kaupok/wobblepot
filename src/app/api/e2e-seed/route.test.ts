@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The queries live in `@/lib/signup-codes`, tested against a database in
 // `signup-codes.db.test.ts`. This file mocks them at the seam and asserts the

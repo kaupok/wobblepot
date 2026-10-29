@@ -1,4 +1,5 @@
-import { WOBBLEPOT_BOT_USER_AGENT, checkRobotsAllowed } from '@/lib/robots'
+import { checkRobotsAllowed, WOBBLEPOT_BOT_USER_AGENT } from '@/lib/robots'
+
 import { RecipeParseError } from './recipe-errors'
 
 /**

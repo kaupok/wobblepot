@@ -1,22 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import {
-  getCandidates,
-  NO_REPEAT_DAYS,
-  type CandidateFilters,
-  type CandidateMeal,
-} from '@/lib/meal-planning/candidates'
-import { toDateString } from '@/lib/meal-planning/dates'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+
+import type { AlternativeMeal } from '@/components/meal-plan/types'
+import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
-import {
-  SIMILARITY_WEIGHTS,
-  SLOT_FIT_WEIGHTS,
-  randomScoreJitter,
-  ratingSignal,
-  scoreCandidate,
-} from '@/lib/meal-planning/candidate-score'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -24,8 +10,23 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { presentMealImage } from '@/lib/meal-images/present'
-import type { Allergen, DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
-import type { AlternativeMeal } from '@/components/meal-plan/types'
+import {
+  randomScoreJitter,
+  ratingSignal,
+  scoreCandidate,
+  SIMILARITY_WEIGHTS,
+  SLOT_FIT_WEIGHTS,
+} from '@/lib/meal-planning/candidate-score'
+import {
+  type CandidateFilters,
+  type CandidateMeal,
+  getCandidates,
+  NO_REPEAT_DAYS,
+} from '@/lib/meal-planning/candidates'
+import { toDateString } from '@/lib/meal-planning/dates'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Which list a slot gets, the same choice `use-meal-alternatives.ts` makes:

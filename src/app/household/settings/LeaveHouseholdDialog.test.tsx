@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Real provider, so the Estonian assertion reads the et catalog rather than
 // the global mock's English one.
 vi.unmock('next-intl')
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { dropFocusToBody } from '@/test/focus'
 import { LeaveHouseholdDialog } from './LeaveHouseholdDialog'
 
 const push = vi.fn()

@@ -1,7 +1,8 @@
 import { serverEnv } from '@/lib/env'
-import { LEGAL_ENTITY_NAME } from '@/lib/support'
-import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { formatLongDate } from '@/lib/i18n/format-dates'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { LEGAL_ENTITY_NAME } from '@/lib/support'
+
 import { emailTranslator } from './i18n'
 
 /**

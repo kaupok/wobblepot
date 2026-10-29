@@ -1,11 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
+  clampNotePosition,
   NOTE_EDGE_INSET,
   NOTE_SCATTER_RANGE,
-  clampNotePosition,
+  type NoteBounds,
   noteScatter,
   toNotePosition,
-  type NoteBounds,
 } from './note-placement'
 
 describe('noteScatter', () => {

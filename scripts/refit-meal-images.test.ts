@@ -1,20 +1,22 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
+
 import type { FittedImage } from '../src/lib/meal-images/footprint'
 import type { Vessel, VesselEstimate } from '../src/lib/meal-images/vessel'
 import {
+  type Db,
   fileNameFor,
   mediaTypeOf,
   parseArgs,
   refit,
+  type RefitMeal,
   renderSummary,
   run,
-  storedEstimate,
-  type Db,
-  type RefitMeal,
   type RunDeps,
+  storedEstimate,
 } from './refit-meal-images'
 
 const UPDATED = new Date('2026-09-01T00:00:00Z')

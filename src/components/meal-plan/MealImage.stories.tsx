@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import { MealImage } from './MealImage'
 
 const meta = {

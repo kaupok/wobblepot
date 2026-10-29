@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useState } from 'react'
+
+import { SettingsSection } from '@/components/SettingsSection'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,7 +21,6 @@ import {
   REMINDER_WEEKDAYS,
   type ReminderWeekday,
 } from '@/lib/weekly-reminder-schedule'
-import { SettingsSection } from '@/components/SettingsSection'
 
 type ReminderValues = { weekday: ReminderWeekday | null }
 

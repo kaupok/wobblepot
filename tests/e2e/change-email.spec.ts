@@ -1,7 +1,8 @@
 // ROUTES: /account, /sign-in, /api/auth/change-email, /api/auth/verify-email · COMPONENTS: AccountProfilePage, ChangeEmailForm, SignInForm
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+import { expectUserExists, fetchChangeEmailPath, fetchUserState } from './utils/e2e-support'
 import { generateUniqueEmail, signIn, signOut, signUpWithHousehold } from './utils/test-helpers'
-import { fetchChangeEmailPath, fetchUserState, expectUserExists } from './utils/e2e-support'
 
 /**
  * Account email change (HON-1137).

@@ -1,5 +1,5 @@
 // ROUTES: /account/connections, /profile, /invite/[code], /admin/signup-codes, /does-not-exist, / · COMPONENTS: src/proxy.ts (PROTECTED_PREFIXES)
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * Anonymous requests to a protected route must get a real 307 from the proxy,

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCheckRobotsAllowed = vi.fn()
 vi.mock('@/lib/robots', () => ({
@@ -7,13 +7,13 @@ vi.mock('@/lib/robots', () => ({
   checkRobotsAllowed: (url: string) => mockCheckRobotsAllowed(url),
 }))
 
+import { RecipeParseError } from './recipe-errors'
 import {
-  stripHtmlToText,
   extractJsonLdRecipe,
   fetchRecipeFromUrl,
   ROBOTS_DISALLOWED_MESSAGE,
+  stripHtmlToText,
 } from './recipe-fetch'
-import { RecipeParseError } from './recipe-errors'
 
 describe('stripHtmlToText', () => {
   it('strips HTML tags', () => {

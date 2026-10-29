@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import { beforeEach, describe, expect, it } from 'vitest'
+
 import { useClearLandingParams } from './use-clear-landing-params'
 
 describe('useClearLandingParams', () => {

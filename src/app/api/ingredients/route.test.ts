@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, POST } from './route'
 
 // The queries and the ranking live in `@/lib/ingredients/search`, tested
@@ -40,11 +41,11 @@ vi.mock('@/lib/ingredients/search', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import { createHouseholdIngredient } from '@/lib/ingredients/create'
 import { searchIngredients } from '@/lib/ingredients/search'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { createHouseholdIngredient } from '@/lib/ingredients/create'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

@@ -2,8 +2,11 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
+
 import type { Task } from './case-schema'
+import type { JudgedPair, JudgeResult } from './judge'
 import {
   buildCheckReport,
   buildReport,
@@ -19,7 +22,6 @@ import {
 } from './report'
 import type { CallRecord, Role, RunResult } from './runner'
 import { TASK_SPECS } from './tasks'
-import type { JudgedPair, JudgeResult } from './judge'
 
 function call(
   task: Task,

@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
 }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 
+import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
-import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
+
 import { getShoppingList } from './get-shopping-list'
 
 const household = mcpHousehold({ id: 'household-1' })

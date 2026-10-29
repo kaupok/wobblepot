@@ -1,6 +1,7 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { Toaster } from 'sonner'
+
 import { AiUsageToast } from './AiUsageToast'
 
 const withSonner: Decorator = (Story) => {

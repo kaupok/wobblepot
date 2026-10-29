@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST, GET } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { GET, POST } from './route'
 
 // Every query and the owner rule live in `@/lib/household-invite`, tested
 // against a database in `household-invite.db.test.ts`. This file mocks that
@@ -29,8 +30,8 @@ vi.mock('@/lib/household-invite', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   createHouseholdInvite,
   HouseholdInviteError,

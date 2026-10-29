@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { RowGroup } from '@/components/ui/row-group'
 import { createPantryItemData } from '@/stories/fixtures'
+
 import { PantryItem } from './PantryItem'
 
 const meta = {

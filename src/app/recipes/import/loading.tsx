@@ -1,5 +1,5 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // Mirrors `RecipeImportClient`: same container and centred `max-w-2xl` column,
 // top-aligned, no bordered wrapper (HON-779).

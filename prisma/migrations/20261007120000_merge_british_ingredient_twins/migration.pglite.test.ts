@@ -1,9 +1,10 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
 import { PGlite } from '@electric-sql/pglite'
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 // Runs the merge on Postgres (PGlite, in process) after every earlier
 // migration, against a small household data set that hits each rule: a recipe

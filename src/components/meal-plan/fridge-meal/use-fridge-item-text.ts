@@ -1,11 +1,13 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
+
 import { formatDayLong } from '@/lib/i18n/format-dates'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { FridgeItemInput } from '@/lib/meal-plans/fridge-items'
+
 import type { FridgeMealItem } from '../types'
 
 /** What the client knows of an item: the stored row, or one added in the picker. */

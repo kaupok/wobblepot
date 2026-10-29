@@ -1,9 +1,11 @@
 /* eslint-disable shadcn/no-inline-styles -- ImageResponse renders through satori, which has no Tailwind and no stylesheet: inline styles are the only way to style this route. */
 import { ImageResponse } from 'next/og'
-import enMessages from '../../../../../messages/en.json'
+
 import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
 import { SAMPLE_PIN_SIZE } from '@/lib/meal-plans/pinterest'
 import { findSampleWeek } from '@/lib/meal-plans/sample-weeks'
+
+import enMessages from '../../../../../messages/en.json'
 
 /**
  * A sample week's Pinterest image (HON-1148): 1000 × 1500, the 2:3 ratio

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGet = vi.fn()
 const mockSet = vi.fn()
@@ -8,7 +8,7 @@ vi.mock('@/lib/upstash', () => ({
   getRedis: () => ({ get: mockGet, set: mockSet }),
 }))
 
-import { checkRobotsAllowed, WOBBLEPOT_BOT_USER_AGENT, WOBBLEPOT_BOT_TOKEN } from './robots'
+import { checkRobotsAllowed, WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT } from './robots'
 
 describe('checkRobotsAllowed', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>

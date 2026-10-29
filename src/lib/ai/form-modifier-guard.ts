@@ -1,4 +1,5 @@
 import { singularize } from '@/lib/normalize-ingredient'
+
 import type { FuzzyIngredientMatch } from './fuzzy-ingredient-match'
 import { LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 

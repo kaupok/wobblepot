@@ -9,6 +9,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import { loadPlanEntries } from './load-plan-entries'
 
 const cashews = {

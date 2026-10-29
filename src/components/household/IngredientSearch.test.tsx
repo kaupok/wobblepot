@@ -1,9 +1,11 @@
-import type { ComponentProps } from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import type { ComponentProps } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { IngredientSearch } from './IngredientSearch'
 import type { IngredientResult } from './meal-form-types'
 

@@ -1,8 +1,9 @@
 import { act, render, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { PostHogProvider } from '@/components/PostHogProvider'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 
 // Hoisted mocks — vi.mock factories run before top-level `const` bindings.

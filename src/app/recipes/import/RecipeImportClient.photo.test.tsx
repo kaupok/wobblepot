@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Photo import (HON-1274). Its own file, so `RecipeImportClient.test.tsx`
 // stays under the file-size cap. Copy is resolved against the real catalogs.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { RecipeImportClient } from './RecipeImportClient'
 
 // Passes every file through except `big.jpg`, which comes back as the file a

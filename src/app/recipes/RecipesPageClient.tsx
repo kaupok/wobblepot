@@ -1,23 +1,25 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Sparkles } from 'lucide-react'
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
+import { type MealData, MealList } from '@/components/household/MealList'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Heading, Body } from '@/components/ui/typography'
-import { MealList, type MealData } from '@/components/household/MealList'
+import { Body, Heading } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
-import { RecipesGridSkeleton } from './RecipesGridSkeleton'
+
 import {
   getNextMealsPageParam,
   mealsInitialPageParam,
-  mealsQueryKey,
   type MealsPage,
+  mealsQueryKey,
 } from './meals-query'
+import { RecipesGridSkeleton } from './RecipesGridSkeleton'
 
 interface RecipesPageClientProps {
   /** The household's portions summed (HON-1040): a recipe's cook view opens at it. */

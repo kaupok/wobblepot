@@ -1,14 +1,16 @@
 'use client'
 
 import { useMutation } from '@tanstack/react-query'
-import { ThumbsUp, ThumbsDown, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
+
 import type { EntryRating } from './types'
 
 interface MealRatingPromptProps {

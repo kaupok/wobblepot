@@ -1,5 +1,7 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { translateIngredientNames } from '@/lib/ai/translate-match-results'
@@ -9,6 +11,7 @@ import { DAY_EXTRA_LABEL_MAX, DAY_EXTRA_QUANTITY_MAX } from '@/lib/day-extras/sc
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+
 import { amountWarning } from './amount-warning'
 import { MEASURED_UNITS } from './measured-units'
 import { MAX_DAYS_AHEAD, writableDays } from './plan-slot'

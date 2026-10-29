@@ -1,37 +1,41 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useId, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
-import { useRouter } from 'next/navigation'
-import { MealSelectorModal } from './MealSelectorModal'
-import { MealCardMenu } from './MealCardMenu'
+import type { MealType } from '@/generated/prisma/enums'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
+import { useMealImageFields } from '@/hooks/use-meal-image'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
+import { cn } from '@/lib/utils'
+
 import { AddMealMenu, type AddMealView } from './AddMealMenu'
-import { FridgeMealPicker } from './fridge-meal/FridgeMealPicker'
-import { usePickForMe } from './use-pick-for-me'
-import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
-import { PantryDeductionModal } from './PantryDeductionModal'
 import {
   AvailabilityIndicator,
   computeMealAvailability,
   hasPantryData,
 } from './AvailabilityIndicator'
-import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
-import { StickyNote } from './StickyNote'
-import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
-import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
-import { MealTypeBadge } from './MealTypeBadge'
-import { noteScatter } from './note-placement'
-import { useNoteDrag } from './use-note-drag'
-import { MyRecipeIcon } from './MyRecipeIcon'
-import { ProteinBadge } from './ProteinBadge'
-import { ConflictBadges } from './ConflictBadge'
 import { ChangedBadge } from './ChangedBadge'
-import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './use-leftover-lunches'
+import { ConflictBadges } from './ConflictBadge'
+import { FridgeMealPicker } from './fridge-meal/FridgeMealPicker'
 import type { LeftoverLunchOption } from './leftover-lunch-option'
+import { MealCardMenu } from './MealCardMenu'
+import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
+import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
+import { MealSelectorModal } from './MealSelectorModal'
+import { MealTypeBadge } from './MealTypeBadge'
+import { MyRecipeIcon } from './MyRecipeIcon'
+import { noteScatter } from './note-placement'
+import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
+import { PantryDeductionModal } from './PantryDeductionModal'
+import { ProteinBadge } from './ProteinBadge'
+import { StickyNote } from './StickyNote'
 import type {
   EntryChange,
   EntryRating,
@@ -42,15 +46,13 @@ import type {
   PantryItemFull,
   PreparationSteps,
 } from './types'
-import type { MealType } from '@/generated/prisma/enums'
-import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
-import { useMealImageFields } from '@/hooks/use-meal-image'
-import { useEntryStatus } from './use-entry-status'
 import { useClearEntry } from './use-clear-entry'
 import { DESCRIPTION_CLAMP, useDescriptionLines } from './use-description-lines'
-import { cn } from '@/lib/utils'
+import { useEntryStatus } from './use-entry-status'
+import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './use-leftover-lunches'
 import { useMealCardClick } from './use-meal-card-click'
+import { useNoteDrag } from './use-note-drag'
+import { usePickForMe } from './use-pick-for-me'
 
 interface MealCardProps {
   entryId: string

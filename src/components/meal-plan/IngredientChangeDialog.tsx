@@ -1,7 +1,9 @@
 'use client'
 
-import { useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId, useState } from 'react'
+
+import { IngredientSearch } from '@/components/household/IngredientSearch'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,12 +16,12 @@ import {
 import { Label } from '@/components/ui/label'
 import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
-import { IngredientSearch } from '@/components/household/IngredientSearch'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
-import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { MAX_QUANTITY_PER_SERVING } from '@/lib/meal-planning/components-schema'
+
 import type { MealComponent } from './types'
 
 interface IngredientChangeDialogProps {

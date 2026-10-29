@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { StrictMode, useState } from 'react'
-import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { usePantryChanges, type PantryChange } from './use-pantry-changes'
+import { StrictMode, useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
+import { type PantryChange, usePantryChanges } from './use-pantry-changes'
 
 /** The shopping list's ticks and the parent's change map, as the page holds them. */
 function useTicks(initial: string[], onProcessed: (listStale: boolean) => void) {

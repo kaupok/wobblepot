@@ -1,9 +1,10 @@
 import 'server-only'
+
 import { API_KEY_PATTERN, isActiveApiKeyUser, verifyApiKey } from '@/lib/api-keys'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
-import { NO_HOUSEHOLD_MESSAGE, ToolInputError, type McpHousehold } from '@/lib/mcp/context'
-import { checkRateLimit, retryAfterSeconds, type RateLimitResult } from '@/lib/rate-limit'
+import { type McpHousehold, NO_HOUSEHOLD_MESSAGE, ToolInputError } from '@/lib/mcp/context'
+import { checkRateLimit, type RateLimitResult, retryAfterSeconds } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 
 /**

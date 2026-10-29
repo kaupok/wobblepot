@@ -1,8 +1,9 @@
-import { prisma } from '@/lib/prisma'
+import { ToolInputError } from '@/lib/mcp/context'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
-import { ToolInputError } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold } from '@/test/mcp'
+
 import { planFridgeMeal } from './plan-fridge-meal'
 
 // Shared setup of the `plan_fridge_meal` db tests (HON-1281, HON-1394). Vitest

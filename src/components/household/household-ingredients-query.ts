@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+
 import type { HouseholdIngredient } from '@/lib/ingredients/household-ingredient'
 
 export type HouseholdIngredientsResponse = { ingredients: HouseholdIngredient[] }

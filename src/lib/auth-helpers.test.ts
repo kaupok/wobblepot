@@ -1,4 +1,5 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { isAdmin, isAdminIfConfigured } from './auth-helpers'
 
 const sessionFor = (email: string | undefined): Parameters<typeof isAdmin>[0] =>

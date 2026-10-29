@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { AlreadyInHouseholdError, createHousehold } from '@/lib/household-claim'
 import { DEFAULT_STAPLE_NAMES } from '@/lib/meal-planning/default-staples'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written through `createHousehold` and read back with Prisma. The

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { confirmWaitlistToken } from '@/lib/waitlist'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
+import { confirmWaitlistToken } from '@/lib/waitlist'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('auth.requestInvite')

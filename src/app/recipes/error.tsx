@@ -1,10 +1,11 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
-import { ErrorDetails } from '@/components/ErrorDetails'
 import { useEffect } from 'react'
+
+import { ErrorDetails } from '@/components/ErrorDetails'
+import { Button } from '@/components/ui/button'
+import { Body, Heading } from '@/components/ui/typography'
 import { captureClientError } from '@/lib/errors-client'
 
 export default function RecipesError({

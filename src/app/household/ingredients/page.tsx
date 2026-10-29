@@ -1,11 +1,13 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
-import { getQueryClient } from '@/lib/get-query-client'
-import { listHouseholdIngredients } from '@/lib/ingredients/manage'
-import { HouseholdIngredientList } from '@/components/household/HouseholdIngredientList'
+
 import {
   HOUSEHOLD_INGREDIENTS_QUERY_KEY,
   type HouseholdIngredientsResponse,
 } from '@/components/household/household-ingredients-query'
+import { HouseholdIngredientList } from '@/components/household/HouseholdIngredientList'
+import { getQueryClient } from '@/lib/get-query-client'
+import { listHouseholdIngredients } from '@/lib/ingredients/manage'
+
 import { householdTabMetadata, requireHouseholdMember } from '../household-member'
 
 export function generateMetadata() {

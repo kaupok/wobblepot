@@ -1,16 +1,17 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import {
-  orchestrator,
-  worktreeClaude,
   harness,
   harnessEnv,
-  stripTimestamps,
-  shellFunctionBody,
+  orchestrator,
   runHarness,
   runHarnessEnv,
+  shellFunctionBody,
+  stripTimestamps,
+  worktreeClaude,
 } from './orchestrator-test-harness'
 
 describe('orchestrator.sh', () => {

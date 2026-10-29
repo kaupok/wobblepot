@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import type { Locale } from '@/lib/i18n/locales'
+import { awaitDialogClosed } from '@/stories/a11y-helpers'
 import {
   createExpectedMealTypes,
   createMeal,
@@ -9,9 +12,8 @@ import {
   lemonGarlicChickenPantryItems,
   timelineTodayDate,
 } from '@/stories/fixtures'
-import { awaitDialogClosed } from '@/stories/a11y-helpers'
 import { defaultHandlers } from '@/stories/msw-handlers'
-import type { Locale } from '@/lib/i18n/locales'
+
 import { buildPastDays } from './past-days'
 import { PastMealsList } from './PastMealsList'
 

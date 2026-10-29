@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Keep the real exports: `withUsageOnFailure` needs the real
 // `NoObjectGeneratedError.isInstance` on every rejected call.
@@ -20,11 +20,12 @@ vi.mock('./sampling', () => ({
 }))
 
 import { generateObject } from 'ai'
-import { reviewMealQuantities, type ReviewIngredient } from './review-quantities'
+
 import { REVIEW_MODEL } from './models'
+import { type ReviewIngredient, reviewMealQuantities } from './review-quantities'
 import { buildReviewRequest } from './review-request'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 import { logAiSample } from './sampling'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from './usage-fixture'
 
 const mockGenerateObject = vi.mocked(generateObject)
 const mockLogAiSample = vi.mocked(logAiSample)

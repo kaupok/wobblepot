@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, waitFor, within } from 'storybook/test'
+
 import { RouteTabs } from './RouteTabs'
 
 const THREE_TABS = [

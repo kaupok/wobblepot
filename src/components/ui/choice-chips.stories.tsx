@@ -1,6 +1,7 @@
-import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { type ComponentProps, useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { ChoiceChips } from './choice-chips'
 
 const MEMBER_TYPES = [

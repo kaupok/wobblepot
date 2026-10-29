@@ -128,6 +128,7 @@
     "dotenv": "18.0.8",
     "eslint": "10.13.0",
     "eslint-config-next": "16.4.2",
+    "eslint-plugin-simple-import-sort": "14.0.0",
     "eslint-plugin-storybook": "10.6.3",
     "eslint-plugin-testing-library": "7.16.2",
     "husky": "9.1.7",
@@ -168,11 +169,11 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "*.{ts,tsx,mts,js,jsx,mjs,cjs}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "*.{css,md,mdx,json,mjs,cjs,mts}": [
+    "*.{css,md,mdx,json}": [
       "prettier --write"
     ]
   },

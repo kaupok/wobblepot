@@ -1,12 +1,14 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+
 import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { RowGroup } from '@/components/ui/row-group'
-import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
-import { CustomShoppingItem } from './CustomShoppingItem'
+import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+
 import type { CustomItemData } from './CustomItemInput'
+import { CustomShoppingItem } from './CustomShoppingItem'
+import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
 /**
  * Bucket → `dates.urgency` key. Exported so the clipboard export in

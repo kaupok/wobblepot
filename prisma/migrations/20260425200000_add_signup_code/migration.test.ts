@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
 
 // Atomicity contract: the unique index on `code` plus the row-level UPDATE
 // predicate in `validateAndClaimInviteCode` are what prevent double-use under

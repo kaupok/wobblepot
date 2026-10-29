@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Header } from './header'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import enMessages from '../../messages/en.json'
+import { Header } from './header'
 
 // Resolve `getTranslations('nav')` against the real en catalog so the RSC
 // Server Component renders the expected chrome strings without pulling in the

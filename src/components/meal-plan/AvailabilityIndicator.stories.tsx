@@ -1,7 +1,9 @@
-import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { CSSProperties } from 'react'
 import { expect, within } from 'storybook/test'
+
 import { Heading } from '@/components/ui/typography'
+
 import { AvailabilityIndicator, AvailabilityStatus } from './AvailabilityIndicator'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'

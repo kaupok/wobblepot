@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import {
   assertEmailUnverified,
   E2eSupportError,
+  type E2eSupportRefusal,
   expirePurge,
   findPendingResetToken,
   readHouseholdState,
   readUserState,
-  type E2eSupportRefusal,
 } from '@/lib/auth/e2e-support'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 

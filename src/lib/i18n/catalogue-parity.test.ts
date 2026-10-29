@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
 import {
-  parse,
-  TYPE,
   type MessageFormatElement,
+  parse,
   type PluralElement,
+  TYPE,
 } from '@formatjs/icu-messageformat-parser'
+import { describe, expect, it } from 'vitest'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 

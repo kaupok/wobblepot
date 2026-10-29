@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations`.
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
-import { NextIntlClientProvider } from 'next-intl'
-import { useState, type ReactNode } from 'react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
+import { type ReactNode, useState } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { IngredientRow, type IngredientRowData, type MatchedIngredientData } from './IngredientRow'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {

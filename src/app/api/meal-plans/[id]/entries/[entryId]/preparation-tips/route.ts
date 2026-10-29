@@ -1,19 +1,16 @@
-import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { aiErrorStatusCode } from '@/lib/ai/error-status'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { serverEnv } from '@/lib/env'
-import { STEPS_MODEL } from '@/lib/ai/models'
+import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+import type { PreparationSteps } from '@/components/meal-plan/types'
 import { STEPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import type { PreparationStepsErrorCode } from '@/lib/ai/error-codes'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
+import { STEPS_MODEL } from '@/lib/ai/models'
 import { buildFullStepsRequest, buildStepsFromNotesRequest } from '@/lib/ai/preparation-steps'
-import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -22,19 +19,23 @@ import {
   toAiUsageStats,
   withUsageOnFailure,
 } from '@/lib/ai/usage'
-import { withRequestId } from '@/lib/request-id'
+import { auth } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
-import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   cachePreparationTips,
   EntryContextError,
   loadEntryForAi,
 } from '@/lib/meal-plans/entry-context'
-import type { PreparationSteps } from '@/components/meal-plan/types'
-import type { PreparationStepsErrorCode } from '@/lib/ai/error-codes'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * `code` is what `useMealSteps` renders from, via `PREPARATION_STEPS_ERROR_KEYS`;

@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react'
-import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { type RefObject, useCallback, useEffect, useId, useRef, useState } from 'react'
+
+import { type AddMealChoice, MEAL_ROUTES } from '@/components/meal-plan/AddMealMenu'
+import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,17 +20,16 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MEAL_ROUTES, type AddMealChoice } from '@/components/meal-plan/AddMealMenu'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
-import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+
+import { AddExtra } from './day-extras/AddExtra'
 import {
   EmptySlotController,
   type EmptySlotHandle,
   type EmptySlotPending,
   type LogMode,
 } from './EmptySlotController'
-import { AddExtra } from './day-extras/AddExtra'
 
 interface DayAddMenuProps {
   planId: string

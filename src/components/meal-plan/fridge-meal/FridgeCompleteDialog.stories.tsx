@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -9,6 +10,7 @@ import {
   pressEscape,
 } from '@/stories/a11y-helpers'
 import { fridgeItems } from '@/stories/fridge-fixtures'
+
 import { FridgeCompleteDialog } from './FridgeCompleteDialog'
 
 const meta = {

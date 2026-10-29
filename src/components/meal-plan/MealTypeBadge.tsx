@@ -1,8 +1,8 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 
 /**
  * The slot a planner card fills — Breakfast, Lunch or Dinner — as the first

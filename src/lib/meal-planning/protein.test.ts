@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
+  type ComponentForProtein,
   deriveProteinType,
   distinctProteinTypes,
   isProteinOverrideValid,
   resolveProteinType,
-  type ComponentForProtein,
 } from './protein'
 
 describe('deriveProteinType', () => {

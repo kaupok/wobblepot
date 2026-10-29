@@ -1,7 +1,15 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
+import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
 import { mealHueStyle } from './MealImageCard'
+import {
+  type CookQuestionControls,
+  PreparationEquipment,
+  PreparationSteps,
+} from './PreparationSteps'
 import {
   askMenusArgs,
   cookQuestion,
@@ -11,12 +19,6 @@ import {
   pickFromAskMenu,
   STEP_2,
 } from './PreparationSteps.fixtures'
-import {
-  PreparationEquipment,
-  PreparationSteps,
-  type CookQuestionControls,
-} from './PreparationSteps'
-import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
 const meta = {
   title: 'Meal plan/PreparationSteps/Ask menus',

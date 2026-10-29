@@ -1,5 +1,5 @@
-import type { Unit } from '@/generated/prisma/enums'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import type { Unit } from '@/generated/prisma/enums'
 
 /**
  * One item as `/api/shopping-list` returns it: everything `ShoppingItem` renders,

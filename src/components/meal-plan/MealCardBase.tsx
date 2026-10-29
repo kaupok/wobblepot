@@ -1,20 +1,22 @@
 'use client'
 
-import { useId, type ReactNode, type Ref } from 'react'
 import { Check, Clock, ExternalLink, Minus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { type ReactNode, type Ref, useId } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
+import type { MealType } from '@/generated/prisma/enums'
 import { cn } from '@/lib/utils'
+
 import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndicator'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
-import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
+import { type MealImageFields, mealImageTitleWidth } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
 import { MyRecipeIcon } from './MyRecipeIcon'
-import { ProteinBadge } from './ProteinBadge'
 import { NutritionSummary } from './NutritionSummary'
+import { ProteinBadge } from './ProteinBadge'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
-import type { MealType } from '@/generated/prisma/enums'
 
 /**
  * The image fields are read by the `MealImageCard` a caller wraps this in, not

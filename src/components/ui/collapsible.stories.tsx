@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { ChevronDownIcon } from 'lucide-react'
+
 import { Button } from './button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible'
 

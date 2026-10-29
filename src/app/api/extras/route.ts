@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { createDayExtra } from '@/lib/day-extras/day-extras'
 import { createDayExtraSchema } from '@/lib/day-extras/schemas'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 /** Adds an extra to a day (HON-1309): `{ date, ingredientId, quantity? }` or `{ date, label }`. */
 export async function POST(request: Request) {

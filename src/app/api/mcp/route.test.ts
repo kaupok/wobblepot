@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { ORIGIN } = vi.hoisted(() => ({ ORIGIN: 'http://localhost:3000' }))
 
@@ -43,23 +43,25 @@ vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
 }))
 
 import { requireMcpAuth } from '@better-auth/mcp'
-import { loadMcpCaller, McpGrantError } from '@/lib/mcp/grant'
-import { purchaseIngredients } from '@/lib/shopping/purchase'
-import { checkRateLimit } from '@/lib/rate-limit'
+
 import { captureApiError } from '@/lib/errors'
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
-import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { loadPantry } from '@/lib/meal-planning/load-pantry'
-import { loadMeals } from '@/lib/meals/load-meals'
 import { listMembersForAssistant } from '@/lib/household/members'
 import { NO_HOUSEHOLD_MESSAGE, TOOL_FAILED_MESSAGE, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { loadMcpCaller, McpGrantError } from '@/lib/mcp/grant'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { loadMeals } from '@/lib/meals/load-meals'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+import { purchaseIngredients } from '@/lib/shopping/purchase'
 import {
   legacyMcpRequest,
   mcpHousehold,
   mcpRequest,
-  readMcpBody,
   type McpToolResultBody,
+  readMcpBody,
 } from '@/test/mcp'
+
 import { GET, OPTIONS, POST } from './route'
 import { WRITE_TOOL_ARGS } from './route.fixtures'
 

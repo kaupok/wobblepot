@@ -1,8 +1,9 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
 import { serverEnv } from '@/lib/env'
+import { prisma } from '@/lib/prisma'
 import { getRedis } from '@/lib/upstash'
 
 export type ProbeStatus = 'ok' | 'down'

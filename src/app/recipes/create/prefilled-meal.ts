@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
+
 import type {
   IngredientAlternative,
   PrefilledIngredient,
 } from '@/components/household/meal-form-types'
+import { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
 const alternativeSchema = z.object({
   id: z.string(),

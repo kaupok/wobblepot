@@ -1,4 +1,4 @@
-import { formatQuantity, formatInteger } from './format-number'
+import { formatInteger, formatQuantity } from './format-number'
 import type { Locale } from './locales'
 import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
 

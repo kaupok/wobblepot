@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+
 import { InfoTip } from './info-tip'
 
 const TEXT = 'Includes estimates for vague quantities'

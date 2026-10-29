@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { BookOpen, type LucideIcon, Refrigerator, Sparkles, Wand } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { BookOpen, Refrigerator, Sparkles, Wand, type LucideIcon } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
+
 import {
   DropdownMenu,
   DropdownMenuContent,

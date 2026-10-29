@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { FridgeMealCard } from './FridgeMealCard'
 
 const refresh = vi.fn()

@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { HeaderActions } from './header-actions'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { Session } from '@/lib/auth'
+
+import { HeaderActions } from './header-actions'
 
 const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
 

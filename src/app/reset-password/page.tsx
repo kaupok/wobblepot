@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
-import { ResetPasswordForm } from './ResetPasswordForm'
+import { Suspense } from 'react'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
+
+import { ResetPasswordForm } from './ResetPasswordForm'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('auth.resetPassword')

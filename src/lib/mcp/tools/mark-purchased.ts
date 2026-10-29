@@ -1,12 +1,14 @@
 import 'server-only'
+
 import { z } from 'zod'
+
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import {
   ingredientIdsSchema,
   purchaseIngredients,
   UNPURCHASE_WINDOW_DAYS,
   unpurchaseIngredient,
 } from '@/lib/shopping/purchase'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 
 /** One call marks at most this many items, so a transaction stays short. */
 const MAX_INGREDIENTS = 100

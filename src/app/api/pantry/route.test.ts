@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, POST } from './route'
 
 // The read lives in `@/lib/meal-planning/load-pantry` and the write in
@@ -34,8 +35,8 @@ vi.mock('@/lib/pantry/pantry-items', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { createPantryItem } from '@/lib/pantry/pantry-items'
 

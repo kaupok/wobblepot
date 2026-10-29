@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import {
+  type DisplayUnit,
   displayUnit,
   formatMeasure,
   formatShoppingQuantity as format,
   formatVolume,
   formatWeight,
   withPieceUnit,
-  type DisplayUnit,
 } from './format-shopping-quantity'
 import type { Locale } from './locales'
 import type { VaguePhraseKey } from './vague-phrase'

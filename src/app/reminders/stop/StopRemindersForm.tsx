@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { ApiError, apiFetch } from '@/lib/api'
+import { useEffect, useRef } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Card, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
+import { Body, Heading } from '@/components/ui/typography'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError, apiFetch } from '@/lib/api'
 
 /**
  * The stop page's one button (HON-1084). It POSTs the token to

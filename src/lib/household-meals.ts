@@ -1,5 +1,5 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import { HouseholdMealError } from '@/lib/household-meal-error'
 import {
@@ -11,6 +11,7 @@ import { INGREDIENT_NUTRITION_SELECT, summarise } from '@/lib/household-meals-re
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { gramsOf } from '@/lib/meal-images/prompt'
 import { resolveProteinType } from '@/lib/meal-planning/protein'
+import { prisma } from '@/lib/prisma'
 
 export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meal-error'
 export type { HouseholdMealComponentInput } from '@/lib/household-meal-ingredients'

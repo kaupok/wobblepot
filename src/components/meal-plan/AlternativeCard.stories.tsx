@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import { toDateString } from '@/lib/meal-planning/dates'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { misoSalmonAlternative } from '@/stories/fixtures'
-import { toDateString } from '@/lib/meal-planning/dates'
+
 import { AlternativeCard } from './AlternativeCard'
 import type { PantryIngredient } from './types'
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -17,9 +17,10 @@ vi.mock('@/lib/api-keys', () => ({
   MAX_API_KEY_EXPIRY_DAYS: 365,
 }))
 
+import { createApiKey, getApiKeyViewer, listApiKeys } from '@/lib/api-keys'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { createApiKey, getApiKeyViewer, listApiKeys } from '@/lib/api-keys'
+
 import { GET, POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

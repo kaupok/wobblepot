@@ -1,7 +1,9 @@
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
+
 import { ImagineClient } from './ImagineClient'
 
 export default async function ImagineMealPage() {

@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
+
 import { Card, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
+
 import { StopRemindersForm } from './StopRemindersForm'
 
 export async function generateMetadata(): Promise<Metadata> {

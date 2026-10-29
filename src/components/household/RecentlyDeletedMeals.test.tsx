@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('@/lib/api', async (importOriginal) => ({
@@ -9,10 +10,11 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 }))
 
 import { apiFetch } from '@/lib/api'
+
 import {
+  type DeletedMeal,
   RecentlyDeletedMeals,
   recentlyDeletedMealsQueryKey,
-  type DeletedMeal,
 } from './RecentlyDeletedMeals'
 
 const mockApiFetch = vi.mocked(apiFetch)

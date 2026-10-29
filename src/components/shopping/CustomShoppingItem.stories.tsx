@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import { createCustomItem } from '@/stories/fixtures'
+
 import { CustomShoppingItem } from './CustomShoppingItem'
 
 // WHY: Checked / pending / disabled items intentionally render dimmer text

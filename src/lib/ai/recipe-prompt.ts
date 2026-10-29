@@ -1,7 +1,8 @@
-import { VAGUE_PHRASES } from '@/lib/vague-quantities'
-import { localeInstruction, britishEnglish, estonianVoiceForRecipeParse } from './prompts'
-import { buildRecipeExtractionSchema } from './recipe-schema'
 import type { EncodedImage } from '@/lib/image-attachments-server'
+import { VAGUE_PHRASES } from '@/lib/vague-quantities'
+
+import { britishEnglish, estonianVoiceForRecipeParse, localeInstruction } from './prompts'
+import { buildRecipeExtractionSchema } from './recipe-schema'
 
 /**
  * Build the prompt for recipe extraction.

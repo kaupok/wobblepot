@@ -1,9 +1,11 @@
-import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { vi } from 'vitest'
-import { PantrySection } from './PantrySection'
-import { createQueryWrapper } from '@/test/query-wrapper'
+
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { PantrySection } from './PantrySection'
 
 export function makeItem(overrides: Partial<PantryItemData> = {}): PantryItemData {
   return {

@@ -1,7 +1,9 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { Prisma } from '@/generated/prisma/client'
 import { toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+
 import type { FridgeItemInput } from './fridge-items'
 import { toItemRows } from './fridge-meal'
 

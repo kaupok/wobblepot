@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The work after the response is `processWaitlistRequest` in `@/lib/waitlist`:
 // its queries are tested against a database in `waitlist.db.test.ts`, its
@@ -34,11 +34,12 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { POST } from './route'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
-import { processWaitlistRequest } from '@/lib/waitlist'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { processWaitlistRequest } from '@/lib/waitlist'
+
+import { POST } from './route'
 
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockGetServerFlag = vi.mocked(getServerFlag)

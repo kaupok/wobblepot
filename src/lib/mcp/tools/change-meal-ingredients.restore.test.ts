@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The restore action (the app's Undo) and a replace that takes an ingredient
 // back to the recipe, through the real resolve pipeline with the entry read,
@@ -32,21 +32,22 @@ vi.mock('@/lib/meal-plans/entry-changes', async (importOriginal) => ({
   replaceEntryChanges: vi.fn(),
 }))
 
-import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
+import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
+
 import {
-  BROCCOLI,
-  NO_CARROT,
-  POTATO_RICE,
-  TROUT,
   arrangeMocks,
+  BROCCOLI,
   call,
   change,
   component,
   entry,
   ingredient,
+  NO_CARROT,
   output,
+  POTATO_RICE,
   row,
+  TROUT,
 } from './change-meal-ingredients.fixtures'
 
 describe('change_meal_ingredients: restore and back to the recipe', () => {

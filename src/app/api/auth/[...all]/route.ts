@@ -1,6 +1,7 @@
-import { auth } from '@/lib/auth'
 import { toNextJsHandler } from 'better-auth/next-js'
-import { checkRateLimit, retryAfterSeconds, type RateLimitFeature } from '@/lib/rate-limit'
+
+import { auth } from '@/lib/auth'
+import { checkRateLimit, type RateLimitFeature, retryAfterSeconds } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { timeSignupStep } from '@/lib/signup-timing'
 

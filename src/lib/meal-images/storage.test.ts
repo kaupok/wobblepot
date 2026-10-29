@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@vercel/blob', () => ({
   put: vi.fn(),
@@ -10,7 +10,9 @@ vi.mock('@/lib/errors', () => ({
 }))
 
 import { del, put } from '@vercel/blob'
+
 import { captureApiError } from '@/lib/errors'
+
 import { deleteMealImage, discardMealImage, putMealImage } from './storage'
 
 const mockPut = vi.mocked(put)

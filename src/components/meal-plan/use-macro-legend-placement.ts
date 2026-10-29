@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useState, type RefObject } from 'react'
+import { type RefObject, useLayoutEffect, useState } from 'react'
 
 /** The least room between two legend labels, in px (HON-1114). */
 export const LABEL_GAP_PX = 16

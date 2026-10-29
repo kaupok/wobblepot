@@ -1,16 +1,18 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations`.
 vi.unmock('next-intl')
+import { render, screen, within } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
-import { render, screen, within } from '@testing-library/react'
-import { NextIntlClientProvider } from 'next-intl'
+
+import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { getLaterItemsSummary, UrgentShopping } from './UrgentShopping'
-import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 
 const TODAY = '2026-09-22'
 

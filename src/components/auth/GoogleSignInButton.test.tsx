@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { AuthMethodDivider, GoogleSignInButton, googleErrorCallbackURL } from './GoogleSignInButton'
+
+import { AuthMethodDivider, googleErrorCallbackURL, GoogleSignInButton } from './GoogleSignInButton'
 
 describe('GoogleSignInButton', () => {
   it('is a plain button that calls onClick', async () => {

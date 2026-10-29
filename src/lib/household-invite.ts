@@ -1,9 +1,11 @@
 import 'server-only'
+
 import { nanoid } from 'nanoid'
-import { prisma, type PrismaClientType } from '@/lib/prisma'
+
 import { getServerBaseURL } from '@/lib/env'
 import { inviteMembershipClaim, runHouseholdClaim } from '@/lib/household-claim'
 import { householdInvitePath } from '@/lib/household-invite-link'
+import { prisma, type PrismaClientType } from '@/lib/prisma'
 
 /**
  * An owner's household invites, behind `GET` and `POST

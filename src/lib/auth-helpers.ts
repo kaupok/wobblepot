@@ -1,8 +1,10 @@
 import 'server-only'
-import { NextResponse } from 'next/server'
+
 import { headers } from 'next/headers'
-import { serverEnv } from '@/lib/env'
+import { NextResponse } from 'next/server'
+
 import { auth, type Session } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 
 /**
  * Beta admin gate. The launch ships with a single admin (one person on the

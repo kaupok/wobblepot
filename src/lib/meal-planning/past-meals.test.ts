@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: { mealPlanEntry: { count: vi.fn() } },
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import { countPastMealsToMark, getPastMealsRange } from './past-meals'
 
 describe('getPastMealsRange', () => {

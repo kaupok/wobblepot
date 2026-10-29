@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { type IngredientSearch, searchIngredients, SYNONYM_SCORE } from '@/lib/ingredients/search'
 import { prisma } from '@/lib/prisma'
-import { searchIngredients, SYNONYM_SCORE, type IngredientSearch } from '@/lib/ingredients/search'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // the real `similarity()` from pg_trgm. The migrations seed only part of the

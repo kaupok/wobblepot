@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { CookieBanner } from '@/components/CookieBanner'
 
 interface CookieBannerStoryArgs {

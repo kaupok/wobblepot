@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   CHANGE_EMAIL_CALLBACK_URL,
   EMAIL_VERIFICATION_CALLBACK_URL,
   parseChangeEmailLanding,
   parseVerificationLanding,
-  verificationLandingSearch,
   type VerificationLanding,
+  verificationLandingSearch,
 } from './email-verification'
 
 describe('parseVerificationLanding', () => {

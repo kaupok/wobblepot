@@ -1,4 +1,5 @@
 import { Prisma } from '@/generated/prisma/client'
+
 import { isDefaultLocale } from './locales'
 
 interface IngredientNameMatchSql {

@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // The failure copy has to be resolved against a real catalog in a real locale;
 // the global mock always answers from English, which would make the Estonian
 // assertions below pass whether or not the leak is fixed (HON-700).
 vi.unmock('next-intl')
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { RecipeImportClient } from './RecipeImportClient'
 
 // Mock next/navigation

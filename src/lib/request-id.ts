@@ -1,7 +1,10 @@
 import 'server-only'
+
 import { AsyncLocalStorage } from 'node:async_hooks'
+
 import { headers } from 'next/headers'
-import { clientSessionProperties, type ClientSessionProperties } from '@/lib/posthog-cookie'
+
+import { type ClientSessionProperties, clientSessionProperties } from '@/lib/posthog-cookie'
 
 const storage = new AsyncLocalStorage<string>()
 

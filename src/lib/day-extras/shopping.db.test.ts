@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+
 import { createDayExtra } from './day-extras'
 
 // Day extras on the household's shopping list (HON-1309), against PGlite

@@ -1,9 +1,10 @@
 'use client'
 
-import { useId, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useId, useState } from 'react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,11 +17,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body, Heading } from '@/components/ui/typography'
+import type { MealType } from '@/generated/prisma/enums'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { FrequentMeal } from '@/lib/meal-plans/past-logging'
-import type { MealType } from '@/generated/prisma/enums'
 
 /** Recipes the library lists at once; a search reaches the rest. */
 const LIBRARY_PAGE_SIZE = 20

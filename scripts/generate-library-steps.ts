@@ -27,9 +27,12 @@
  */
 
 import 'dotenv/config'
+
 import { pathToFileURL } from 'node:url'
+
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
+
 import { STEPS_MODEL } from '../src/lib/ai/models'
 import { buildFullStepsRequest } from '../src/lib/ai/preparation-steps'
 import { estimateCostUsd } from '../src/lib/ai/pricing'

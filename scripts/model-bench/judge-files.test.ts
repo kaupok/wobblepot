@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
 import type { BenchCase } from './case-schema'
 import { JUDGED_TASKS, type JudgedPair } from './judge'
 import { exportJudgePairs, importJudgeVerdicts, type JudgeKey } from './judge-files'

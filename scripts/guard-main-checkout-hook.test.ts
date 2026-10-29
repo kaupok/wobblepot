@@ -12,12 +12,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import {
   checkBashCommand,
   checkFileWrite,
-  MAIN_CHECKOUT_OPT_IN,
   type GuardContext,
+  MAIN_CHECKOUT_OPT_IN,
 } from '../.claude/hooks/guard-main-checkout.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')

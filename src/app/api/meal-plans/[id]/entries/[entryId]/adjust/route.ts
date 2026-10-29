@@ -1,25 +1,26 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { aiErrorStatusCode } from '@/lib/ai/error-status'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+
 import { ADJUST_AI_BUDGET_MS } from '@/lib/ai/budgets'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
+import type { AdjustRecipeErrorCode } from '@/lib/ai/error-codes'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
-import { withRequestId } from '@/lib/request-id'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { ADJUST_INSTRUCTION_MAX_LENGTH } from '@/lib/meal-planning/components-schema'
 import {
   AdjustEntryError,
+  type AdjustEntryRefusal,
   loadAdjustContext,
   proposeAdjustment,
-  type AdjustEntryRefusal,
 } from '@/lib/meal-planning/adjust-entry'
-import type { AdjustRecipeErrorCode } from '@/lib/ai/error-codes'
+import { ADJUST_INSTRUCTION_MAX_LENGTH } from '@/lib/meal-planning/components-schema'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * `code` is what `useAdjustRecipe` renders from, via `ADJUST_RECIPE_ERROR_KEYS`;

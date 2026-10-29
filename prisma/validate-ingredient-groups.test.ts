@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { validateIngredientGroups } from './validate-ingredient-groups'
+import { describe, expect, it } from 'vitest'
+
 import { INGREDIENT_GROUPS } from '../src/lib/household/ingredient-groups'
 import { baseIngredients } from './seed'
-import { newIngredients } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
+import { newIngredients } from './seed-expansion'
 import { importCoverageIngredients } from './seed-import-coverage'
+import { validateIngredientGroups } from './validate-ingredient-groups'
 
 const pool = new Set(['frankfurter', 'hot dog', 'smoked sausage'])
 

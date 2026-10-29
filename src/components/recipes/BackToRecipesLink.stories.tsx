@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import { Heading } from '@/components/ui/typography'
+
 import { BackToRecipesLink, BackToRecipesLinkSkeleton } from './BackToRecipesLink'
 
 const meta = {

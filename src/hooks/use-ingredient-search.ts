@@ -1,9 +1,11 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
-import { useDebouncedValue } from './use-debounced-value'
+
 import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
+import { apiFetch } from '@/lib/api'
+
+import { useDebouncedValue } from './use-debounced-value'
 
 /**
  * A single ingredient row as returned by `GET /api/ingredients`. This is the

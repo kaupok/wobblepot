@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Moon, Sun, User } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
+import { useState } from 'react'
+
+import { AttentionDot } from '@/components/attention-dot'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,11 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
-import type { Session } from '@/lib/auth'
 import type { AdminMenuLink } from '@/lib/admin-links'
+import type { Session } from '@/lib/auth'
+import { authClient } from '@/lib/auth-client'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface HeaderActionsProps {

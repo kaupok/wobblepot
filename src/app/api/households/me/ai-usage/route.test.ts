@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -17,9 +17,10 @@ vi.mock('@/lib/ai/usage', () => ({
   getMonthBoundaries: vi.fn(),
 }))
 
+import { getMonthBoundaries, getMonthSpendUsd } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { getMonthSpendUsd, getMonthBoundaries } from '@/lib/ai/usage'
+
 import { GET } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

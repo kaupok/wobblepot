@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -63,15 +64,15 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { checkRateLimit } from '@/lib/rate-limit'
 import { imagineMeals, ImagineNoSafeMealsError } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
-import { loadIngredientNutrition } from '@/lib/meals/imagine-persist'
 import { translateMatchResults } from '@/lib/ai/translate-match-results'
 import { assertUnderCap } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
+import { loadIngredientNutrition } from '@/lib/meals/imagine-persist'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

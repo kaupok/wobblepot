@@ -1,9 +1,10 @@
 // ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine, /api/meal-plans/[id]/entries, /api/meals, /api/ingredients, /api/pantry · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, MealSelectorModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, InlineAddItem, ImagineClient
-import { test, expect } from '@playwright/test'
-import { signUpWithHousehold } from './utils/test-helpers'
-import { sumPortions } from '../../src/lib/meal-planning/servings'
-import { mealTranslationsEt } from '../../prisma/seed-meal-translations-et'
+import { expect, test } from '@playwright/test'
+
 import { ingredientTranslationsEt } from '../../prisma/seed-ingredient-translations-et'
+import { mealTranslationsEt } from '../../prisma/seed-meal-translations-et'
+import { sumPortions } from '../../src/lib/meal-planning/servings'
+import { signUpWithHousehold } from './utils/test-helpers'
 
 /**
  * HON-547 — the automated proof that Estonian renders across the core flow.

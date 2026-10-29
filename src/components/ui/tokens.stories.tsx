@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { AlertTriangle, Check, Info, ThumbsDown } from 'lucide-react'
 import { expect, within } from 'storybook/test'
+
 import { Body, Heading } from './typography'
 
 /**

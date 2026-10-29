@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { http, HttpResponse, delay } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
+
 import { ImaginePanel } from './ImaginePanel'
 
 const imaginedMeal = (id: string, name: string): ImaginedMealResponse => ({

@@ -8,9 +8,10 @@
  */
 
 import { generateObject } from 'ai'
-import { buildAdjustRecipeRequest, type AdjustRecipeOutput } from '../../src/lib/ai/adjust-recipe'
-import { normalizeFoodName } from '../../src/lib/ai/forbidden-foods'
+
+import { type AdjustRecipeOutput, buildAdjustRecipeRequest } from '../../src/lib/ai/adjust-recipe'
 import { ADJUST_AI_BUDGET_MS } from '../../src/lib/ai/budgets'
+import { normalizeFoodName } from '../../src/lib/ai/forbidden-foods'
 import { ADJUST_MODEL } from '../../src/lib/ai/models'
 import { resolveChanges } from '../../src/lib/meal-planning/adjust-proposal'
 import type { AdjustCase } from './case-schema'

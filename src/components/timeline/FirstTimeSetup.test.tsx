@@ -1,15 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // The global next-intl mock in vitest.setup.ts resolves every key against the
 // English catalog, so it cannot tell a translated string from an untranslated
 // one — which is the entire bug under test here (HON-725). Use the real
 // provider so the `et` assertions below are meaningful.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
 import { FirstTimeSetup } from './FirstTimeSetup'
 
 vi.mock('next/navigation', () => ({

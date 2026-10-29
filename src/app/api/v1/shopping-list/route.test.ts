@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/api-keys', () => ({
   API_KEY_PATTERN: /^wp_[A-Za-z0-9]{32}$/,
@@ -18,6 +18,7 @@ import { runTool } from '@/lib/mcp/context'
 import { getShoppingList } from '@/lib/mcp/tools/get-shopping-list'
 import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { GET } from './route'
 
 const KEY = 'wp_abcdefghijklmnopqrstuvwxyz012345'

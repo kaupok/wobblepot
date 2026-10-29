@@ -1,16 +1,18 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
 import { deleteEntriesInRange, updateEntry } from '@/lib/meal-plans/entries'
 import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
+import { FRIDGE_ITEM_LABEL_MAX, fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import {
   FridgeItemNotFoundError,
   setFridgeItems,
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
+import { prisma } from '@/lib/prisma'
 import { isWeekPlanned } from '@/lib/weekly-reminder'
-import { FRIDGE_ITEM_LABEL_MAX, fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+
 import { readEntry, world } from './entries.fixtures'
 
 // Fridge meals (HON-1277) against PGlite, with no mocks. `ing-apple` plays the

@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { InventoryPage } from './InventoryPage'
 import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
 

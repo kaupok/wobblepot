@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+
 import { noindexHeaders } from './src/lib/indexing'
 import { postHogRewrites } from './src/lib/posthog-proxy'
 import { uploadSourcemaps } from './src/lib/posthog-sourcemaps'

@@ -1,8 +1,9 @@
 import { render, waitFor } from '@testing-library/react'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { PostHog } from 'posthog-js'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { PostHogProvider } from '@/components/PostHogProvider'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
 
 // HON-1002: this file runs the real posthog-js, not a mock, because the bug is
 // in what the SDK writes to storage. PostHogProvider.test.tsx covers the calls.

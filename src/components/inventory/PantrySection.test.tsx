@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { afterEach, describe, it, expect, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { PantrySection } from './PantrySection'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { PantrySection } from './PantrySection'
 import { makeItem, renderSection } from './PantrySection.fixtures'
 
 // `toast` is callable (the Undo toast) and carries `error` / `success`.

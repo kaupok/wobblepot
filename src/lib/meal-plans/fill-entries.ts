@@ -1,7 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { slotKey } from '@/lib/ai/slot-key'
+
 import type { MealType } from '@/generated/prisma/enums'
+import { slotKey } from '@/lib/ai/slot-key'
+import { prisma } from '@/lib/prisma'
 
 /** A meal the fill puts in a slot. */
 export interface FilledSlot {

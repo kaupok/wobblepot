@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { ComponentList } from './ComponentList'

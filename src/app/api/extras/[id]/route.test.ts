@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, PATCH } from './route'
 
 // Every query lives in `@/lib/day-extras/day-extras`, tested against a
 // database in `day-extras.db.test.ts`. This file asserts what the route owns
@@ -27,9 +28,9 @@ vi.mock('@/lib/day-extras/day-extras', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { deleteDayExtra, updateDayExtraQuantity } from '@/lib/day-extras/day-extras'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

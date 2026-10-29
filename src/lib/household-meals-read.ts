@@ -1,5 +1,5 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { Allergen } from '@/generated/prisma/enums'
 import { HouseholdMealError } from '@/lib/household-meal-error'
 import {
@@ -8,10 +8,11 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import type { Locale } from '@/lib/i18n/locales'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import type { Locale } from '@/lib/i18n/locales'
 import { loadMealHistory, NO_HISTORY } from '@/lib/meal-plans/meal-history'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The read side of a household's own recipes: the list behind `GET

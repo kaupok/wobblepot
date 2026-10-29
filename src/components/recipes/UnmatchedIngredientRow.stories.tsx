@@ -1,13 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { createUnmatchedIngredientRowData, ingredientResults } from '@/stories/fixtures'
+import { expectWithinHorizontally } from '@/stories/layout-helpers'
 import {
   emptyIngredientsHandlers,
   loadingIngredientsHandlers,
   synonymIngredientsHandlers,
 } from '@/stories/msw-handlers'
-import { expectWithinHorizontally } from '@/stories/layout-helpers'
+
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 
 const meta = {

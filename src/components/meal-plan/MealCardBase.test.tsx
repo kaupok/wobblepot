@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
-import { MealCardBase } from './MealCardBase'
+import { describe, expect, it } from 'vitest'
+
 import type { MealCardBaseData } from './MealCardBase'
+import { MealCardBase } from './MealCardBase'
 import type { PantryIngredient } from './types'
 
 const mockMeal: MealCardBaseData = {

@@ -1,6 +1,6 @@
-import { prisma } from '@/lib/prisma'
 import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Minimum similarity score for fuzzy ingredient matching.

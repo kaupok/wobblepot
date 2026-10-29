@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
-import { createCustomItem, createShoppingItem } from '@/stories/fixtures'
+
 import { RowGroup } from '@/components/ui/row-group'
+import { createCustomItem, createShoppingItem } from '@/stories/fixtures'
+
 import { CustomShoppingItem } from './CustomShoppingItem'
 import { ShoppingItem } from './ShoppingItem'
 import { ShoppingItemSkeleton } from './ShoppingItemSkeleton'

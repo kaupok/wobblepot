@@ -1,23 +1,25 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { toast } from 'sonner'
-import { renderToString } from 'react-dom/server'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../../messages/en.json'
-import etMessages from '../../../../messages/et.json'
-import { HouseholdDetailsForm } from './HouseholdDetailsForm'
+import { renderToString } from 'react-dom/server'
+import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
-  OWNER_ONLY_NOTICE,
   defaultHousehold,
   fail,
   mockFetch,
   ok,
+  OWNER_ONLY_NOTICE,
   renderSettings,
   section,
   stubPointerApis,
 } from '@/test/household-settings'
+
+import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
+import { HouseholdDetailsForm } from './HouseholdDetailsForm'
 
 vi.unmock('next-intl')
 

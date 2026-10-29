@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@/lib/utils'
 import React from 'react'
+
+import { cn } from '@/lib/utils'
 
 // Variant type exports for type reusability
 export type HeadingVariant = 'hero' | 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'

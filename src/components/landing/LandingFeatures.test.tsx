@@ -1,14 +1,16 @@
 // Use the real next-intl in this file: the global mock in vitest.setup.ts
 // renders English only and leaves `{multiplier, number}` unformatted, and this
 // suite checks the portion labels and the Estonian section.
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { PropsWithChildren } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { LandingFeatures } from './LandingFeatures'
 
 function renderFeatures(locale: 'en' | 'et' = 'en') {

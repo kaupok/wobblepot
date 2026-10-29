@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
-import type { Ref } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
 import { MoreHorizontal, NotebookPen, Sparkles } from 'lucide-react'
-import { apiFetch } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import type { Ref } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,18 +15,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
-import { useMealSteps } from '@/hooks/use-meal-steps'
 import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
+import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealImage } from '@/hooks/use-meal-image'
+import { useMealSteps } from '@/hooks/use-meal-steps'
+import { apiFetch } from '@/lib/api'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
+
+import { ConflictBadges } from './ConflictBadge'
 import { CookViewDialog } from './CookViewDialog'
 import { MealDetail } from './MealDetail'
-import { ConflictBadges } from './ConflictBadge'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
+import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 import { useAdjustSection } from './use-adjust-section'
 import type { SharedLeftover } from './use-leftover-lunches'
-import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
-import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 export interface MealDetailModalHandle {
   /**

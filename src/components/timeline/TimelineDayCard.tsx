@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { MealCard } from '@/components/meal-plan/MealCard'
-import { FridgeMealCard } from '@/components/meal-plan/fridge-meal/FridgeMealCard'
-import { Body, Heading } from '@/components/ui/typography'
-import { DayAddMenu } from './DayAddMenu'
-import { DayExtrasRow } from './day-extras/DayExtrasRow'
 import { useTranslations } from 'next-intl'
-import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import { useEffect, useRef } from 'react'
+
+import { FridgeMealCard } from '@/components/meal-plan/fridge-meal/FridgeMealCard'
 import type { LeftoverLunchOption } from '@/components/meal-plan/leftover-lunch-option'
+import { MealCard } from '@/components/meal-plan/MealCard'
+import type { PantryIngredient, PantryItemFull, TimelineDay } from '@/components/meal-plan/types'
+import { Body, Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+
+import { DayExtrasRow } from './day-extras/DayExtrasRow'
+import { DayAddMenu } from './DayAddMenu'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
 

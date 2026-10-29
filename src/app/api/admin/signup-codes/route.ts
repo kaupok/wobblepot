@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { requireAdmin } from '@/lib/auth-helpers'
-import { createSignupCode, listSignupCodes } from '@/lib/signup-codes'
 import { captureApiError } from '@/lib/errors'
+import { createSignupCode, listSignupCodes } from '@/lib/signup-codes'
 
 const NOTE_MAX_LENGTH = 200
 

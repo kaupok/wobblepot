@@ -1,8 +1,11 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
-import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
+import { EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
+
 import { findPlanSlot, slotInput } from './plan-slot'
 
 const COOKED =

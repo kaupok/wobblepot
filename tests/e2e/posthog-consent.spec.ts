@@ -1,7 +1,8 @@
 // ROUTES: / · COMPONENTS: CookieBanner, PostHogProvider
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { test, expect, type Page } from '@playwright/test'
+
+import { expect, type Page, test } from '@playwright/test'
 
 // The browser SDK goes through the same-origin `/ingest` proxy (HON-985); the
 // `posthog.com` arm still catches a regression back to direct calls.

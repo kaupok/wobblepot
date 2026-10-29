@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { getStartDateOptions, getDaysCountOptions, computeEndDate } from './day-picker'
+import { describe, expect, it } from 'vitest'
+
 import type { DatesTranslator } from '@/lib/i18n/format-dates'
+
+import { computeEndDate, getDaysCountOptions, getStartDateOptions } from './day-picker'
 
 const enT: DatesTranslator = (key, params) => {
   if (key === 'inDays' && params?.count !== undefined) return `In ${params.count} days`

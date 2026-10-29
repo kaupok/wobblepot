@@ -1,5 +1,5 @@
-import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
 import { displayUnit, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 

@@ -1,4 +1,5 @@
 import type { Prisma } from '@/generated/prisma/client'
+
 import { getStartOfTodayInTimezone } from './dates'
 
 /**

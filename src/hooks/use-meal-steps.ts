@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { apiFetch } from '@/lib/api'
-import { isRetryableStepsError, stepsErrorMessage } from './steps-error'
-import type { Locale } from '@/lib/i18n/locales'
+import { useCallback, useRef, useState } from 'react'
+
 import type { PreparationSteps } from '@/components/meal-plan/types'
+import { apiFetch } from '@/lib/api'
+import type { Locale } from '@/lib/i18n/locales'
+
+import { isRetryableStepsError, stepsErrorMessage } from './steps-error'
 
 interface UseMealStepsOptions {
   planId: string

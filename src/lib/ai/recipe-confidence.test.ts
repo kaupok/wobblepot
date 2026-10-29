@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { SIMILARITY_THRESHOLD } from './fuzzy-ingredient-match'
 import {
   evaluateRecipeConfidence,
   LOW_CONFIDENCE_THRESHOLD,
   VERY_LOW_CONFIDENCE_THRESHOLD,
 } from './recipe-confidence'
-import { SIMILARITY_THRESHOLD } from './fuzzy-ingredient-match'
 import type { RecipeExtraction } from './recipe-schema'
 
 describe('evaluateRecipeConfidence', () => {

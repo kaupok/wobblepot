@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { UrgencyGroup } from './UrgencyGroup'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { ShoppingItemData } from './ShoppingItem'
+import { UrgencyGroup } from './UrgencyGroup'
 
 const items: ShoppingItemData[] = [
   {

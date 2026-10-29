@@ -1,10 +1,11 @@
 'use client'
 
-import { useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
 import { Plus, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { type FormEvent, useId, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,13 +18,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body, Heading } from '@/components/ui/typography'
+import type { MealType } from '@/generated/prisma/enums'
 import { ApiError, apiFetch } from '@/lib/api'
 import { FRIDGE_ITEM_LABEL_MAX, FRIDGE_ITEMS_MAX } from '@/lib/meal-plans/fridge-items'
 import type { LeftoverSource } from '@/lib/meal-plans/recent-meals'
-import type { MealType } from '@/generated/prisma/enums'
+
 import type { FridgeMealItem, PantryItemFull } from '../types'
-import { toFridgeItemInput, useFridgeItemText, type FridgeItemShown } from './use-fridge-item-text'
 import { LeftoverServingsControl } from './LeftoverServingsControl'
+import { type FridgeItemShown, toFridgeItemInput, useFridgeItemText } from './use-fridge-item-text'
 
 /** Pantry matches shown at once, so a full pantry does not push the rest away. */
 const PANTRY_MATCHES_SHOWN = 8

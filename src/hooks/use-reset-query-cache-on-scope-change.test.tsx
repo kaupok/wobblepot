@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
 import {
-  useResetQueryCacheOnScopeChange,
   type QueryCacheScope,
+  useResetQueryCacheOnScopeChange,
 } from './use-reset-query-cache-on-scope-change'
 
 // The production client's staleTime, so a mount with cached data does not

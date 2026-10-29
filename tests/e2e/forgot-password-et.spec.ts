@@ -1,9 +1,10 @@
 // ROUTES: /sign-up, /onboarding, /forgot-password, /reset-password, /sign-in · COMPONENTS: ForgotPasswordForm, ResetPasswordForm, SignInForm
-import { test, expect } from '@playwright/test'
-import { signIn, signUpWithHousehold } from './utils/test-helpers'
+import { expect, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { generateStrongPassword } from './utils/fixtures'
 import { canReadEmail, resolveResetUrl } from './utils/mail-helpers'
+import { signIn, signUpWithHousehold } from './utils/test-helpers'
 
 /**
  * Forgot password for a user whose household locale is `et` (HON-704).

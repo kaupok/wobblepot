@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth', () => ({
   auth: { $context: Promise.resolve({ secret: 'test-secret' }) },
@@ -16,7 +16,9 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { verifyOAuthQueryParams } from '@better-auth/oauth-provider'
+
 import { prisma } from '@/lib/prisma'
+
 import {
   isSignedOAuthRequest,
   loadConsentRequest,

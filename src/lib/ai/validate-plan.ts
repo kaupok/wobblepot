@@ -1,6 +1,7 @@
 import { toDateString } from '@/lib/meal-planning/dates'
 import type { SlotRequirement } from '@/lib/meal-planning/slots'
-import type { HydratedPlanEntry, ValidationResult, ValidationError } from './types'
+
+import type { HydratedPlanEntry, ValidationError, ValidationResult } from './types'
 
 /**
  * Create a unique key for a slot (date + mealType).

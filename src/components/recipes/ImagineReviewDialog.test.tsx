@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
-import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+
+import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { ImagineReviewDialog } from './ImagineReviewDialog'
 import { buildMeal, renderInLocale } from './ImagineReviewDialog.fixtures'
-import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 
 describe('ImagineReviewDialog locale formatting', () => {
   describe('macros', () => {

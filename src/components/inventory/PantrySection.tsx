@@ -1,16 +1,18 @@
 'use client'
 
+import { useMutation, useMutationState } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useRef } from 'react'
-import { useMutation, useMutationState } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useLocale, useTranslations } from 'next-intl'
-import { Body, Heading } from '@/components/ui/typography'
-import { RowGroup } from '@/components/ui/row-group'
+
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
-import { apiFetch, ApiError } from '@/lib/api'
-import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { RowGroup } from '@/components/ui/row-group'
+import { Body, Heading } from '@/components/ui/typography'
+import { ApiError, apiFetch } from '@/lib/api'
+import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
+
 import { GroupHeading } from './GroupHeading'
 import { PantryItemRow } from './PantryItemRow'
 

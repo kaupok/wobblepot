@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { getHouseholdMeal } from '@/lib/household-meals-read'
-import { loadMeals } from '@/lib/meals/load-meals'
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { describe, expect, it } from 'vitest'
+
 import {
   createHouseholdMeal,
+  type HouseholdMealCreateInput,
   HouseholdMealError,
   updateHouseholdMeal,
-  type HouseholdMealCreateInput,
 } from '@/lib/household-meals'
+import { getHouseholdMeal } from '@/lib/household-meals-read'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { loadMeals } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 // The household's chosen main protein (HON-1386), against PGlite with no
 // mocks. 75 g beef mince (26 g protein / 100 g) and 400 g kidney beans

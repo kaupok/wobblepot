@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import {
-  GLOBAL_ERROR_MESSAGES,
   detectClientLocale,
+  GLOBAL_ERROR_MESSAGES,
   globalErrorTranslator,
 } from './global-error-messages'
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // What the export holds and redacts lives in `@/lib/auth/export`, tested
@@ -33,9 +34,9 @@ vi.mock('@/lib/auth/export', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { captureApiError } from '@/lib/errors'
 import { exportUserData, type UserDataExport } from '@/lib/auth/export'
+import { captureApiError } from '@/lib/errors'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)

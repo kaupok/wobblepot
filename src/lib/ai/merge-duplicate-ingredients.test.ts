@@ -1,15 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // The matcher module imports the Prisma client for its search; the merge
 // itself reads nothing.
 vi.mock('@/lib/prisma', () => ({ prisma: { $queryRaw: vi.fn() } }))
 
-import { mergeDuplicateIngredients } from './match-ingredients'
 import type {
   IngredientMatchResult,
   MatchedIngredient,
   UnmatchedIngredient,
 } from './match-ingredients'
+import { mergeDuplicateIngredients } from './match-ingredients'
 
 describe('mergeDuplicateIngredients', () => {
   const makeMatched = (overrides: Partial<MatchedIngredient> = {}): MatchedIngredient => ({

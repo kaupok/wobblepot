@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { asVesselEstimate, vesselConsensus } from './vessel'
 
 describe('HON-1024: vessel estimate', () => {

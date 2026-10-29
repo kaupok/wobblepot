@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // A meal with the household's notes gets full steps, with the notes as input
@@ -53,18 +54,19 @@ vi.mock('@/lib/ai/sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { cachePreparationTips, loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { generateObject } from 'ai'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { getServerFlag } from '@/lib/feature-flags'
-import { logAiSample } from '@/lib/ai/sampling'
+
 import { STEPS_MODEL } from '@/lib/ai/models'
 import { buildFullStepsRequest, buildStepsFromNotesRequest } from '@/lib/ai/preparation-steps'
+import { logAiSample } from '@/lib/ai/sampling'
+import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from '@/lib/ai/usage-fixture'
+import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
+import { cachePreparationTips, loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { serializePreparationSteps } from '@/lib/preparation-steps'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockLoadEntry = vi.mocked(loadEntryForAi)
 const mockGenerateObject = vi.mocked(generateObject)

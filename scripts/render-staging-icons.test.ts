@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
+
 import { addStagingDot, buildIco } from './render-staging-icons'
 
 const root = path.resolve(__dirname, '..')

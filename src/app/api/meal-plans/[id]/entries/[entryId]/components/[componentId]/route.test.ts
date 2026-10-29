@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { DELETE } from './route'
 
 // The rules live in `@/lib/meal-plans/entry-changes` (`entry-changes.db.test.ts`);
@@ -26,8 +27,8 @@ vi.mock('@/lib/meal-plans/entry-changes', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { EntryChangeError, removeEntryChange } from '@/lib/meal-plans/entry-changes'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

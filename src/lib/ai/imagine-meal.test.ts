@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Keep the real exports: `withUsageOnFailure` needs the real
 // `NoObjectGeneratedError.isInstance` on every rejected call.
@@ -19,19 +19,20 @@ vi.mock('./sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
-import { generateObject } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import {
-  imagineMeals,
-  ImaginedMealsSchema,
-  ImagineNoSafeMealsError,
-  type ImaginedMeal,
-} from './imagine-meal'
+import { generateObject } from 'ai'
+
 import { HON_859_IMAGINE_RUNS, type RecordedMeal } from './imagine-fixtures'
+import {
+  type ImaginedMeal,
+  ImaginedMealsSchema,
+  imagineMeals,
+  ImagineNoSafeMealsError,
+} from './imagine-meal'
 import { buildImagineRequest } from './imagine-request'
-import { logAiSample } from './sampling'
 import { IMAGINE_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
+import { logAiSample } from './sampling'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from './usage-fixture'
 
 const mockGenerateObject = vi.mocked(generateObject)
 const mockCreateAnthropic = vi.mocked(createAnthropic)

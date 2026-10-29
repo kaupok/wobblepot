@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit } from '@/lib/rate-limit'

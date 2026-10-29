@@ -1,10 +1,11 @@
 import 'server-only'
+
 import { Prisma } from '@/generated/prisma/client'
-import { prisma } from '@/lib/prisma'
-import { MealType, type Allergen } from '@/generated/prisma/enums'
+import { type Allergen, MealType } from '@/generated/prisma/enums'
 import type { Locale } from '@/lib/i18n/locales'
 import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
 import { PORTION_BY_TYPE } from '@/lib/meal-planning/servings'
+import { prisma } from '@/lib/prisma'
 
 /**
  * One user belongs to at most one household. The schema enforces that: a

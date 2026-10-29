@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 
 vi.mock('@/lib/meal-planning/dates', () => ({
   // Bucket by a marker embedded in the date string so tests stay date-independent.
@@ -12,8 +13,8 @@ import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
   getInitialSortMode,
-  splitCustomItems,
   SORT_STORAGE_KEY,
+  splitCustomItems,
 } from './shopping-sort'
 
 function item(

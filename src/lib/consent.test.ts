@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   CURRENT_TERMS_VERSION,
-  POLICY_LAST_UPDATED,
-  POLICY_LAST_UPDATED_DISPLAY,
   decisionToGranted,
   grantedToDecision,
   parseConsentDecision,
+  POLICY_LAST_UPDATED,
+  POLICY_LAST_UPDATED_DISPLAY,
 } from '@/lib/consent'
 
 describe('parseConsentDecision', () => {

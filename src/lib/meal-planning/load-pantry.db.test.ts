@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it, vi } from 'vitest'
+
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { loadPantry, type PantryHousehold } from '@/lib/meal-planning/load-pantry'
+import { prisma } from '@/lib/prisma'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 

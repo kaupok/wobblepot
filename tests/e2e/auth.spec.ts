@@ -1,15 +1,16 @@
 // ROUTES: /sign-up, /sign-in, /onboarding, /, /account, /recipes, /recipes/import, /recipes/create · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu), RecipesPageClient, MealList, RecipeImportClient
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+import { e2eBaseURL } from './utils/db-helpers'
 import {
+  createHousehold,
   generateUniqueEmail,
-  signUp,
   signIn,
   signOut,
-  createHousehold,
-  TEST_PASSWORD,
+  signUp,
   TEST_NAME,
+  TEST_PASSWORD,
 } from './utils/test-helpers'
-import { e2eBaseURL } from './utils/db-helpers'
 
 test.describe('Authentication flows', () => {
   test('sign up -> onboarding -> create household -> view home', async ({ page }) => {

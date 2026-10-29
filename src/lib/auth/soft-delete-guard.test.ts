@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -8,8 +8,9 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-import { assertUserNotSoftDeleted, SOFT_DELETED_SIGN_IN_MESSAGE } from './soft-delete-guard'
 import { prisma } from '@/lib/prisma'
+
+import { assertUserNotSoftDeleted, SOFT_DELETED_SIGN_IN_MESSAGE } from './soft-delete-guard'
 
 const mockFindUnique = vi.mocked(prisma.user.findUnique)
 

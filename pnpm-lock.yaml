@@ -216,6 +216,9 @@ importers:
       eslint-config-next:
         specifier: 16.4.2
         version: 16.4.2(@typescript-eslint/parser@8.72.0(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3)
+      eslint-plugin-simple-import-sort:
+        specifier: 14.0.0
+        version: 14.0.0(eslint@10.13.0(jiti@2.7.0))
       eslint-plugin-storybook:
         specifier: 10.6.3
         version: 10.6.3(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3)
@@ -3833,6 +3836,11 @@ packages:
     engines: {node: '>=4'}
     peerDependencies:
       eslint: ^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7
+
+  eslint-plugin-simple-import-sort@14.0.0:
+    resolution: {integrity: sha512-NUJO0+XFCkk+o5EsAJruTgnfMEpeWrPWeJS15UVF60GgXmqz1BJ9/3hzlvG7lkL8Bubzos5cCLptThbFfPnSMQ==}
+    peerDependencies:
+      eslint: '>=5.0.0'
 
   eslint-plugin-storybook@10.6.3:
     resolution: {integrity: sha512-AmM0vKC6iaw6geKS3gAwLMnjIsfXxddYcm+zPSRX98TbFm1gAHHeYZtOCm4iEu5fcLIdeUlmDmHihqMVjSw+lw==}
@@ -9502,6 +9510,10 @@ snapshots:
       semver: 6.3.1
       string.prototype.matchall: 4.1.0
       string.prototype.repeat: 1.0.0
+
+  eslint-plugin-simple-import-sort@14.0.0(eslint@10.13.0(jiti@2.7.0)):
+    dependencies:
+      eslint: 10.13.0(jiti@2.7.0)
 
   eslint-plugin-storybook@10.6.3(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3):
     dependencies:

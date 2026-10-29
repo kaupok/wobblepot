@@ -1,4 +1,5 @@
 import type { PostHogConfig } from 'posthog-js'
+
 import { POSTHOG_URL_MASKING, postHogBeforeSend } from '@/lib/posthog-before-send'
 import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 

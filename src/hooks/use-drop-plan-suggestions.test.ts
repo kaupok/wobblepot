@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
-import { renderHook } from '@testing-library/react'
 import { QueryClient } from '@tanstack/react-query'
+import { renderHook } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { useDropPlanSuggestions } from './use-drop-plan-suggestions'
 
 function seed(client: QueryClient) {

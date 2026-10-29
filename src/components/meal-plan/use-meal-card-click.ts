@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, type RefObject } from 'react'
+import { type RefObject, useRef } from 'react'
+
 import { CARD_CLICK_IGNORE } from './card-click'
 
 /**

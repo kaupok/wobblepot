@@ -1,7 +1,8 @@
 import * as addonA11yAnnotations from '@storybook/addon-a11y/preview'
 import { setProjectAnnotations } from '@storybook/nextjs-vite'
-import { page } from 'vitest/browser'
 import { beforeAll } from 'vitest'
+import { page } from 'vitest/browser'
+
 import * as previewAnnotations from './preview'
 
 // Mobile-first default; matches `.storybook/preview.tsx` → `initialGlobals.viewport`.

@@ -2,14 +2,15 @@
 
 import { Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Badge } from '@/components/ui/badge'
-import { CardContent, CardHeader } from '@/components/ui/card'
-import { Body, Heading, Li, Ul } from '@/components/ui/typography'
+
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { CardContent, CardHeader } from '@/components/ui/card'
+import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import type { SampleDay } from '@/lib/meal-plans/build-sample-week'
+import { cn } from '@/lib/utils'
 
 /**
  * One day of a public sample week (`/meal-plans/<slug>`, HON-1085): the

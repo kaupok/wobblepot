@@ -1,7 +1,9 @@
 import { createTranslator, type Messages } from 'next-intl'
+
+import { isKnownLocale, type Locale } from '@/lib/i18n/locales'
+
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
-import { isKnownLocale, type Locale } from '@/lib/i18n/locales'
 
 // Vitest alias target for `next-intl/server` in the `unit-db` project only
 // (HON-1208). Under Vitest the package resolves to its client build, whose

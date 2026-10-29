@@ -1,15 +1,16 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { prisma } from '@/lib/prisma'
+
+import type { Prisma } from '@/generated/prisma/client'
+import type { MealType } from '@/generated/prisma/enums'
 import { serverEnv } from '@/lib/env'
-import { computeRequiredSlots, computeMealSlots } from '@/lib/meal-planning/slots'
 import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
+import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
+import { prisma } from '@/lib/prisma'
+
 import { PLANNING_MODEL } from './models'
-import { buildMealPlanRequest } from './prompts'
-import { logAiSample } from './sampling'
-import { toAiUsageStats, withUsageOnFailure } from './usage'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
@@ -17,14 +18,15 @@ import {
   validateAIResponseStructure,
   validateAndRepairPlan,
 } from './plan-helpers'
+import { buildMealPlanRequest } from './prompts'
+import { logAiSample } from './sampling'
 import {
-  InsufficientCandidatesError,
+  type CreateEmptyPlanOptions,
   type GeneratePlanOptions,
   type GeneratePlanResult,
-  type CreateEmptyPlanOptions,
+  InsufficientCandidatesError,
 } from './types'
-import type { Prisma } from '@/generated/prisma/client'
-import type { MealType } from '@/generated/prisma/enums'
+import { toAiUsageStats, withUsageOnFailure } from './usage'
 
 const ENTRY_INCLUDE = {
   meal: { include: { components: { include: { ingredient: true } } } },

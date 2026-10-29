@@ -1,11 +1,12 @@
-import { prisma } from '@/lib/prisma'
+import type { MealType } from '@/generated/prisma/enums'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
-import { validatePlan } from './validate-plan'
+import { prisma } from '@/lib/prisma'
+
 import { repairPlan } from './repair-plan'
 import { slotKey } from './slot-key'
-import { MealPlanValidationError, type CandidatePools, type HydratedPlanEntry } from './types'
-import type { MealType } from '@/generated/prisma/enums'
+import { type CandidatePools, type HydratedPlanEntry, MealPlanValidationError } from './types'
+import { validatePlan } from './validate-plan'
 
 export { slotKey }
 

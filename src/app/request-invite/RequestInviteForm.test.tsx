@@ -1,15 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // `t.rich` (the privacy link) returns React elements, which the default
 // next-intl test mock cannot handle; use the real provider.
 vi.unmock('next-intl')
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { RequestInviteForm } from './RequestInviteForm'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { dropFocusToBody } from '@/test/focus'
 
 const fetchMock = vi.fn()
 

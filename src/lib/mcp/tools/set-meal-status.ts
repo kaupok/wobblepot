@@ -1,12 +1,15 @@
 import 'server-only'
+
 import { z } from 'zod'
-import {
-  EntryUpdateError,
-  updateEntry,
-  type EntryPatch,
-  type EntryUpdateRefusal,
-} from '@/lib/meal-plans/entries'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import {
+  type EntryPatch,
+  EntryUpdateError,
+  type EntryUpdateRefusal,
+  updateEntry,
+} from '@/lib/meal-plans/entries'
+
 import { findPlanSlot, slotInput } from './plan-slot'
 
 const statusSchema = z.enum(['cooked', 'skipped', 'planned'])

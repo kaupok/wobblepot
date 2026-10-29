@@ -1,32 +1,33 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { generateMealPlan, createEmptyPlan } from '@/lib/ai/generate-plan'
+
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
 import { fillEmptySlots } from '@/lib/ai/fill-plan'
+import { createEmptyPlan, generateMealPlan } from '@/lib/ai/generate-plan'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
-  MealPlanValidationError,
   InsufficientCandidatesError,
+  MealPlanValidationError,
   NoEmptySlotsError,
 } from '@/lib/ai/types'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import {
   AiCostCapExceededError,
   assertUnderCap,
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
-import { withRequestId } from '@/lib/request-id'
-import { getServerFlag } from '@/lib/feature-flags'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
-// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
-import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 

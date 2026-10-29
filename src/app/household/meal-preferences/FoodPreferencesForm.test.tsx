@@ -1,20 +1,22 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
-import { FoodPreferencesForm } from './FoodPreferencesForm'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
 import {
-  OWNER_ONLY_NOTICE,
-  deferFetch,
   defaultPreferences,
+  deferFetch,
   fail,
   mockFetch,
   ok,
+  OWNER_ONLY_NOTICE,
   renderSettings,
   section,
   stubPointerApis,
 } from '@/test/household-settings'
+
+import { FoodPreferencesForm } from './FoodPreferencesForm'
 
 // The global next-intl mock has no `t.rich`, which the allergen notice needs.
 // `renderSettings` wraps in a real provider with the English catalogue.

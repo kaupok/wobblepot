@@ -1,5 +1,7 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { translateIngredientNames } from '@/lib/ai/translate-match-results'
@@ -9,8 +11,8 @@ import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context
 import {
   createPantryItem,
   findPantryIngredient,
-  updatePantryItem,
   type PantryItemWithIngredient,
+  updatePantryItem,
 } from '@/lib/pantry/pantry-items'
 
 type Ingredient = PantryItemWithIngredient['ingredient']

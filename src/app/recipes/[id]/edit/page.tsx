@@ -1,7 +1,9 @@
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
+
 import { EditRecipeClient } from './EditRecipeClient'
 
 export default async function EditRecipePage({ params }: { params: Promise<{ id: string }> }) {

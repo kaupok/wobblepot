@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { extractResetUrl, findRecentEmail, canReadEmail, resolveResetUrl } from './mail-helpers'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { canReadEmail, extractResetUrl, findRecentEmail, resolveResetUrl } from './mail-helpers'
 
 /**
  * The Resend backend never runs in tier 1 CI (no `RESEND_TEST_API_KEY` there),

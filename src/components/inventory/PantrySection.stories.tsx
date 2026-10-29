@@ -1,10 +1,12 @@
-import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
+import { type ComponentProps, useState } from 'react'
 import { toast, Toaster } from 'sonner'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { createPantryItemData } from '@/stories/fixtures'
+
 import { PantrySection } from './PantrySection'
 
 type Ingredient = PantryItemData['ingredient']

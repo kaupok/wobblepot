@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
-import { MobileNav } from './mobile-nav'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { Session } from '@/lib/auth'
+
+import { MobileNav } from './mobile-nav'
 
 const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
 

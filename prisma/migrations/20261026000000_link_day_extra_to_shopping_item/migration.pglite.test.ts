@@ -1,9 +1,10 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
 import { PGlite } from '@electric-sql/pglite'
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 // Runs the link backfill on Postgres (PGlite, in process) after every earlier
 // migration: a free-text extra links the manual item created within 10 seconds

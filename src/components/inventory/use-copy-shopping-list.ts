@@ -1,15 +1,16 @@
 'use client'
 
+import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useLocale, useTranslations } from 'next-intl'
+
 import { track } from '@/lib/analytics'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import {
-  formatShoppingListForClipboard,
   type ClipboardSection,
+  formatShoppingListForClipboard,
 } from '@/lib/shopping/format-clipboard'
 
 /**

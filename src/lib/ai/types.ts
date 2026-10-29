@@ -1,4 +1,5 @@
 import { z } from 'zod'
+
 import type {
   Allergen,
   DietaryType,
@@ -8,6 +9,7 @@ import type {
 } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
+
 import type { AiUsageStats } from './usage-mapping'
 
 /**

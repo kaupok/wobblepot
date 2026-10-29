@@ -1,44 +1,46 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { Check, Loader2, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
+import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
+import { FieldError } from '@/components/FieldError'
+import type { PrefilledIngredient } from '@/components/household/MealForm'
+import { MealCardBase } from '@/components/meal-plan/MealCardBase'
+import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
+import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
+import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
+import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
-import { Heading, Body } from '@/components/ui/typography'
-import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
-import type { PrefilledIngredient } from '@/components/household/MealForm'
-import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
-import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
-import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
-import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { downscaleImage } from '@/lib/downscale-image'
+import { Textarea } from '@/components/ui/textarea'
+import { Body, Heading } from '@/components/ui/typography'
 import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
-import type { Locale } from '@/lib/i18n/locales'
-import {
-  convertToPrefilledData,
-  reviewImaginedMeal,
-  type ImaginedMealResponse,
-  withSavableTimeMinutes,
-} from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import { ApiError, apiFetch } from '@/lib/api'
+import { downscaleImage } from '@/lib/downscale-image'
+import type { Locale } from '@/lib/i18n/locales'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import {
-  IMAGINE_ROUTE,
+  convertToPrefilledData,
+  type ImaginedMealResponse,
+  reviewImaginedMeal,
+  withSavableTimeMinutes,
+} from '@/lib/imagine-utils'
+
+import {
   clearImagineSession,
+  IMAGINE_ROUTE,
   loadImagineSession,
   saveImagineSession,
 } from './imagine-session'
-import { FieldError } from '@/components/FieldError'
-import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
 
 const recipeHref = (mealId: string) => `/recipes/${mealId}/edit`
 

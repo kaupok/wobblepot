@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createRef, useState } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef, useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import type { MealData, PreparationSteps } from './types'
 

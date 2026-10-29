@@ -1,7 +1,10 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import { ALLERGEN_VALUES } from '@/components/household/AllergenPicker'
 import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,8 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Toggle } from '@/components/ui/toggle'
-import { FieldError } from '@/components/FieldError'
-import { ALLERGEN_VALUES } from '@/components/household/AllergenPicker'
+import type { Allergen, IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { HouseholdIngredient } from '@/lib/ingredients/household-ingredient'
 import {
@@ -24,12 +26,11 @@ import {
   INGREDIENT_CATEGORIES,
   isProteinTypedCategory,
   NEW_INGREDIENT_NAME_MAX,
-  NUTRITION_MAX,
-  PROTEIN_TYPES_BY_CATEGORY,
   type NewIngredientInput,
+  NUTRITION_MAX,
   type NutritionField,
+  PROTEIN_TYPES_BY_CATEGORY,
 } from '@/lib/ingredients/new-ingredient'
-import type { Allergen, IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 
 /**
  * The fields of a household ingredient: name, category, protein type, unit,

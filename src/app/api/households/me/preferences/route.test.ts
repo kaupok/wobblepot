@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, PATCH } from './route'
 
 // The preferences save and the conflict count live in
@@ -31,8 +32,8 @@ vi.mock('@/lib/household/preferences', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   countConflictingPlannedEntries,
   matchExcludedIngredients,

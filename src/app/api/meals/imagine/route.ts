@@ -1,37 +1,38 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { IMAGINE_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import type { ImagineErrorCode } from '@/lib/ai/error-codes'
 import {
+  type ImagineConstraintViolation,
   imagineMeals,
   ImagineNoSafeMealsError,
-  type ImagineConstraintViolation,
 } from '@/lib/ai/imagine-meal'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
-import { translateMatchResults } from '@/lib/ai/translate-match-results'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { imaginedIngredientText } from '@/lib/ai/imagine-request'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
+import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
 import {
   AiCostCapExceededError,
   assertUnderCap,
   recordAiUsage,
   respondCapExceeded,
 } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { getPosthogServer } from '@/lib/posthog-server'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { deriveProteinType } from '@/lib/meal-planning/protein'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { type EncodedImage, readImageAttachments } from '@/lib/image-attachments-server'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { withRequestId } from '@/lib/request-id'
-import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
-import { readImageAttachments, type EncodedImage } from '@/lib/image-attachments-server'
+import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { loadIngredientNutrition } from '@/lib/meals/imagine-persist'
-import type { ImagineErrorCode } from '@/lib/ai/error-codes'
-// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
-import { IMAGINE_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { getPosthogServer } from '@/lib/posthog-server'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),

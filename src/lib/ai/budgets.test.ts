@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import * as budgets from './budgets'
 
 /** The `maxDuration` every AI route declares, in milliseconds. */

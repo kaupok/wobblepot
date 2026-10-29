@@ -9,16 +9,17 @@
  */
 
 import {
-  NoObjectGeneratedError,
-  wrapLanguageModel,
   type LanguageModel,
   type LanguageModelUsage,
+  NoObjectGeneratedError,
+  wrapLanguageModel,
 } from 'ai'
-import { toAiUsageStats, type AiUsageStats } from '../../src/lib/ai/usage-mapping'
+
 import { estimateCostUsd } from '../../src/lib/ai/pricing'
+import { type AiUsageStats, toAiUsageStats } from '../../src/lib/ai/usage-mapping'
 import type { BenchCase, Task } from './case-schema'
-import { errorScores, prepareCase, type PreparedCase } from './tasks'
 import type { Scores } from './scorers'
+import { errorScores, prepareCase, type PreparedCase } from './tasks'
 
 export type Role = 'baseline' | 'candidate'
 

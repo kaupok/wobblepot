@@ -1,14 +1,13 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { serverEnv } from '@/lib/env'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
-import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { NextResponse } from 'next/server'
+
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
+import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { withRequestId } from '@/lib/request-id'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   claimMealImage,
   loadMealForImage,
@@ -18,6 +17,8 @@ import {
 } from '@/lib/meal-images/persist'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { drawClaimedMealImage } from '@/lib/meal-images/start'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * POST /api/meals/[id]/image — lazily generate a meal's hero illustration

@@ -1,13 +1,14 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
-  worktreeClaude,
-  shellFunctionBody,
   runHarness,
   runHarnessEnv,
+  shellFunctionBody,
+  worktreeClaude,
 } from './orchestrator-test-harness'
 
 describe('orchestrator.sh', () => {

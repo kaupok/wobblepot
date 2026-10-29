@@ -1,11 +1,12 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { Prisma } from '@/generated/prisma/client'
 import type { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
 import { loadHouseholdServings } from '@/lib/household'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
+import { sumPortions } from '@/lib/meal-planning/servings'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Persistence for household preferences, behind

@@ -1,21 +1,22 @@
-import { NextResponse } from 'next/server'
 import { createEmailVerificationToken } from 'better-auth/api'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import {
+  assertEmailUnverified,
+  E2eSupportError,
+  type E2eSupportRefusal,
+  expirePurge,
+  findPendingResetToken,
+  readHouseholdState,
+  readUserState,
+} from '@/lib/auth/e2e-support'
 import {
   CHANGE_EMAIL_CALLBACK_URL,
   CHANGE_EMAIL_REQUEST_TYPE,
   EMAIL_VERIFICATION_CALLBACK_URL,
   EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
 } from '@/lib/email-verification'
-import {
-  assertEmailUnverified,
-  E2eSupportError,
-  expirePurge,
-  findPendingResetToken,
-  readHouseholdState,
-  readUserState,
-  type E2eSupportRefusal,
-} from '@/lib/auth/e2e-support'
 import { captureApiError } from '@/lib/errors'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 

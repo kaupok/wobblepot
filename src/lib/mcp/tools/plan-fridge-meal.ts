@@ -1,23 +1,26 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
+import { fridgeItemOutputSchema, toFridgeItemOutput } from '@/lib/api/v1/meal-plan'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
+import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import {
   FridgeItemNotFoundError,
   setFridgeItems,
   SetFridgeItemsError,
 } from '@/lib/meal-plans/fridge-meal'
-import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
 import {
   findLeftoverSourceProblem,
   type LeftoverSourceProblem,
   RECENT_MEALS_DAYS,
 } from '@/lib/meal-plans/recent-meals'
-import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
-import { fridgeItemOutputSchema, toFridgeItemOutput } from '@/lib/api/v1/meal-plan'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
+
 import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 
 /**

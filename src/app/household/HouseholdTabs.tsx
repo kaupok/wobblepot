@@ -1,7 +1,9 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+
 import { RouteTabs } from '@/components/RouteTabs'
+
 import { HOUSEHOLD_TABS } from './tabs'
 
 /**

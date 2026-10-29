@@ -1,7 +1,8 @@
-import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { CheckIcon, Clock, Pencil } from 'lucide-react'
+import type { CSSProperties } from 'react'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { Badge } from './badge'
 
 const meta = {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -19,9 +19,10 @@ vi.mock('@/lib/request-id', () => ({
   getClientSession: vi.fn(async () => ({})),
 }))
 
-import { prisma } from '@/lib/prisma'
 import { getPosthogServer } from '@/lib/posthog-server'
+import { prisma } from '@/lib/prisma'
 import { getClientSession, getRequestId } from '@/lib/request-id'
+
 import {
   AiCostCapExceededError,
   assertUnderCap,

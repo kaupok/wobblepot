@@ -1,9 +1,10 @@
 'use client'
 
-import { useId } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId } from 'react'
+
 import { ChoiceChips } from '@/components/ui/choice-chips'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import type { DayOption, DaysCountOption } from '@/lib/meal-planning/day-picker'
 
 interface FirstPlanChoicesProps {

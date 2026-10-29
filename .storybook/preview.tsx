@@ -1,13 +1,14 @@
-import { useLayoutEffect, useState } from 'react'
+import '../src/app/globals.css'
+
 import type { Decorator, Preview } from '@storybook/nextjs-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { NextIntlClientProvider } from 'next-intl'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { setupWorker } from 'msw/browser'
 import { mswLoader } from 'msw-storybook-addon/csf3'
-import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { NextIntlClientProvider } from 'next-intl'
+import { useLayoutEffect, useState } from 'react'
 import { sb } from 'storybook/test'
-import '../src/app/globals.css'
+import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
 
 // Spy, not stub: the real `track` still runs (and no-ops, since PostHog is
 // never initialised here), but play functions can assert on it with
@@ -17,9 +18,9 @@ sb.mock(import('../src/lib/analytics.ts'), { spy: true })
 
 // MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
 // Per-story overrides go on `parameters.msw.handlers` in the story file.
-import { defaultHandlers } from '../src/stories/msw-handlers'
 import enMessages from '../messages/en.json'
 import etMessages from '../messages/et.json'
+import { defaultHandlers } from '../src/stories/msw-handlers'
 
 const messagesByLocale = { en: enMessages, et: etMessages } as const
 type StorybookLocale = keyof typeof messagesByLocale

@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import axe from 'axe-core'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
+
 import { TimelineView } from '@/components/timeline/TimelineView'
+import { MealType } from '@/generated/prisma/enums'
+import { assertFocusInDialog, assertTabStaysInDialog, pressEscape } from '@/stories/a11y-helpers'
 import {
   createExpectedMealTypes,
   createPlanEntry,
@@ -11,7 +13,7 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
-import { assertFocusInDialog, assertTabStaysInDialog, pressEscape } from '@/stories/a11y-helpers'
+
 import { GeneratingOverlay } from './GeneratingOverlay'
 
 const meta = {

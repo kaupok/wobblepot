@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
+import { describe, expect, it } from 'vitest'
+
 import { entry, readEntry, world } from '@/lib/meal-plans/entries.fixtures'
+import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 // `fill-plan.test.ts` covers which entries `fillEmptySlots` passes in.

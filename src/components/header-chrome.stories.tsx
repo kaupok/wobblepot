@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { Body, Heading } from '@/components/ui/typography'
 import { createSession } from '@/stories/fixtures'
+
 import { HeaderChrome } from './header-chrome'
 
 const authedSession = createSession()

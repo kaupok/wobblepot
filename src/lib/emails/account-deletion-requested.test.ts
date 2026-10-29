@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
 import { generateAccountDeletionRequestedEmail } from './account-deletion-requested'
 
 // Mock the env module (mirrors reset-password.test.ts)

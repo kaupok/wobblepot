@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
+
 import { McpServerUrl } from './McpServerUrl'
 
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))

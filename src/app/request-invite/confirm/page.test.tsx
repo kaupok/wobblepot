@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { confirmWaitlistToken } from '@/lib/waitlist'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
 import ConfirmInviteRequestPage, { generateMetadata } from './page'
-import { confirmWaitlistToken } from '@/lib/waitlist'
 
 let translationLocale: 'en' | 'et' = 'en'
 

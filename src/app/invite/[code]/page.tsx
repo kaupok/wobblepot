@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
+
+import { countAccountHoldingMembers, getHouseholdMembership } from '@/lib/household'
 import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import { getSession } from '@/lib/session'
-import { countAccountHoldingMembers, getHouseholdMembership } from '@/lib/household'
+
 import { JoinHouseholdCard } from './JoinHouseholdCard'
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,4 +1,5 @@
 import { ProteinType } from '@/generated/prisma/enums'
+
 import { componentGramsPerServing } from './nutrition'
 
 /**

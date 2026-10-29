@@ -1,7 +1,8 @@
-import { describe, it, expect, expectTypeOf } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+
 import type { MealType } from '@/generated/prisma/enums'
-import { prisma } from '@/lib/prisma'
 import { loadMealPlan, MealPlanReadError, type MealPlanReadRefusal } from '@/lib/meal-plans/plans'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and read through `loadMealPlan` (HON-1206). The route

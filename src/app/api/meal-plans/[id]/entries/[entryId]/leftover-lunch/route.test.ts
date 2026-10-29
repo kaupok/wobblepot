@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // "Cook for tomorrow's lunch too" (HON-1396). The rules are `addLeftoverLunch`,
@@ -27,8 +28,8 @@ vi.mock('@/lib/meal-plans/leftover-lunch', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { addLeftoverLunch, LeftoverLunchError } from '@/lib/meal-plans/leftover-lunch'
 

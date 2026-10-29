@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { listRecentlyDeletedHouseholdMeals } from '@/lib/deleted-household-meals'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { createMeal } from './create-meal'
 import { deleteMeal } from './delete-meal'
 import { getMeal } from './get-meal'

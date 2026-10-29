@@ -1,5 +1,5 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // Mirrors `ImagineClient`: same container and a column that fills the page width
 // (the results grid needs it, HON-1367), top-aligned, no bordered wrapper (HON-779).

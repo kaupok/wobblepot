@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { fn, within } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
+
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import { MealType } from '@/generated/prisma/enums'
 import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 
 const meta = {

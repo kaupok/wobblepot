@@ -1,16 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { authClient } from '@/lib/auth-client'
-import { getAuthErrorKey } from '@/lib/auth-errors'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { authClient } from '@/lib/auth-client'
+import { getAuthErrorKey } from '@/lib/auth-errors'
 
 const MIN_PASSWORD_LENGTH = 12
 

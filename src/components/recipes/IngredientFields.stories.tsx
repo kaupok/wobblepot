@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { speltPasta } from '@/components/household/ingredient-fixtures'
+
 import {
+  type IngredientDraftInitial,
   IngredientFields,
   useIngredientDraft,
-  type IngredientDraftInitial,
 } from './IngredientFields'
 
 function IngredientFieldsHarness({ initial }: { initial: IngredientDraftInitial }) {

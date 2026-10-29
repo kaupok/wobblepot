@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { ingredientInputSchema } from '@/lib/ingredients/schema'
+
 import type { NewIngredientInput } from '@/lib/ingredients/new-ingredient'
+import { ingredientInputSchema } from '@/lib/ingredients/schema'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 /**

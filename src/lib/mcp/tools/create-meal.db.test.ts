@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { listHouseholdMeals } from '@/lib/household-meals-read'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold } from '@/test/mcp'
+
 import { createMeal } from './create-meal'
 import { getMeal } from './get-meal'
 

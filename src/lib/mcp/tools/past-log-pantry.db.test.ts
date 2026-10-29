@@ -1,11 +1,13 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold } from '@/test/mcp'
-import { planMeal } from './plan-meal'
+
 import { planFridgeMeal } from './plan-fridge-meal'
-import { swapMeal } from './swap-meal'
+import { planMeal } from './plan-meal'
 import { setMealStatus } from './set-meal-status'
+import { swapMeal } from './swap-meal'
 
 // A meal logged on a past day is saved as already charged, so setting it back
 // to planned and then cooked never charges the pantry for it (HON-1391).

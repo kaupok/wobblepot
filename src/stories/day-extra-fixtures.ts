@@ -1,5 +1,6 @@
 import type { DayExtraView } from '@/components/meal-plan/types'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
+
 import { timelineTodayDate } from './fixtures'
 
 // The day extras scenario (HON-1309): wine for dinner, a bag of chips for

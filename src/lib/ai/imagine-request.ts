@@ -1,8 +1,10 @@
 import { z } from 'zod'
-import { localeInstruction, britishEnglish, estonianVoiceForImagineMeal } from './prompts'
-import type { FoodViolation } from './forbidden-foods'
+
 import { formatQuantity } from '@/lib/i18n/format-number'
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from '@/lib/i18n/locales'
+
+import type { FoodViolation } from './forbidden-foods'
+import { britishEnglish, estonianVoiceForImagineMeal, localeInstruction } from './prompts'
 
 /**
  * Schema for a single ingredient in an imagined meal.

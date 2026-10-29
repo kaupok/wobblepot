@@ -1,22 +1,24 @@
 'use client'
 
-import { useId, useState } from 'react'
-import { useTranslations } from 'next-intl'
 import { Check, SkipForward, Trash2, Undo2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
+import { useId, useState } from 'react'
+
 import { MealRatingInline } from '@/components/meal-plan/MealRating'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
-import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
-import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type {
   EntryRating,
   MealData,
   MealStatus,
   PantryItemFull,
 } from '@/components/meal-plan/types'
+import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
+import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
+import { Button } from '@/components/ui/button'
+import { Body } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+
 import { usePastRowFocus } from './use-past-row-focus'
 
 interface PastMealRowProps {

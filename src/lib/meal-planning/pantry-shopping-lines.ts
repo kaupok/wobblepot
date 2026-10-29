@@ -1,6 +1,7 @@
-import { prisma } from '@/lib/prisma'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import type { Locale } from '@/lib/i18n/locales'
+import { prisma } from '@/lib/prisma'
+
 import type { NeededIngredient, ShoppingListItem } from './shopping-list'
 
 /** An ingredient as the shopping list selects it, for a component and for a change's replacement. */

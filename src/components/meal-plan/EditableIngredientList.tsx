@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState, type ComponentProps } from 'react'
-import { IngredientList, type IngredientChangeControls } from './IngredientList'
+import { type ComponentProps, useRef, useState } from 'react'
+
 import { IngredientChangeDialog } from './IngredientChangeDialog'
-import { useEntryChanges } from './use-entry-changes'
+import { type IngredientChangeControls, IngredientList } from './IngredientList'
 import type { MealComponent } from './types'
+import { useEntryChanges } from './use-entry-changes'
 
 interface EditableIngredientListProps extends Omit<
   ComponentProps<typeof IngredientList>,

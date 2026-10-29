@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { CookieSettingsTrigger } from '@/components/CookieSettingsTrigger'
 
 function renderWithConsent(value: AnalyticsConsent) {

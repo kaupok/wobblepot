@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 vi.mock('next/headers', () => ({
@@ -25,8 +26,8 @@ vi.mock('@/lib/meal-plans/recent-meals', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadLeftoverSources } from '@/lib/meal-plans/recent-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

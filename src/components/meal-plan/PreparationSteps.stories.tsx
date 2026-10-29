@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
+
 import { mealHueStyle } from './MealImageCard'
-import { fullTips } from './PreparationSteps.fixtures'
 import { PreparationEquipment, PreparationSteps } from './PreparationSteps'
+import { fullTips } from './PreparationSteps.fixtures'
 
 const meta = {
   title: 'Meal plan/PreparationSteps',

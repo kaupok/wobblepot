@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { auth } from '@/lib/auth'
-import { MAX_HOUSEHOLD_MEMBERS, getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership, MAX_HOUSEHOLD_MEMBERS } from '@/lib/household'
 import { addMember, listHouseholdMembers, MemberChangeError } from '@/lib/household/members'
 
 const createManualMemberSchema = z.object({

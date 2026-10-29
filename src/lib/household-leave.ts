@@ -1,11 +1,12 @@
 import 'server-only'
+
 import type { Prisma } from '@/generated/prisma/client'
-import { countAccountHoldingMembers } from '@/lib/household'
-import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
-import { discardMealImage } from '@/lib/meal-images/storage'
-import { getPosthogServer } from '@/lib/posthog-server'
-import { deletePosthogPersons } from '@/lib/posthog-purge'
 import { captureApiError } from '@/lib/errors'
+import { countAccountHoldingMembers } from '@/lib/household'
+import { discardMealImage } from '@/lib/meal-images/storage'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
+import { getPosthogServer } from '@/lib/posthog-server'
 
 /** The user has no household membership to leave. */
 export class NotInHouseholdError extends Error {

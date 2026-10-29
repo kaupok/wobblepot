@@ -19,10 +19,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+
 import { z } from 'zod'
-import { SAMPLE_PREFIX, type AiSampleCallSite } from '../../src/lib/ai/sampling'
+
+import { type AiSampleCallSite, SAMPLE_PREFIX } from '../../src/lib/ai/sampling'
 import { DEFAULT_LOCALE, KNOWN_LOCALES } from '../../src/lib/i18n/locales'
-import { TASKS, type Task } from './case-schema'
+import { type Task, TASKS } from './case-schema'
 import { DRAFT_SUFFIX } from './load-cases'
 
 /** A sample this command cannot turn into a draft; the message says why. */

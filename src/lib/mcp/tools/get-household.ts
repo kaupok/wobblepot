@@ -1,10 +1,12 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { Allergen, DietaryType, MealType } from '@/generated/prisma/enums'
 import { matchExcludedIngredients } from '@/lib/household/excluded-ingredients'
 import { listMembersForAssistant } from '@/lib/household/members'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import { defineTool } from '@/lib/mcp/context'
+import { sumPortions } from '@/lib/meal-planning/servings'
 
 export const SERVINGS_RULE =
   "The sum of the members' portion sizes, rounded to the nearest 0.5, at least 1. A planned entry's own servings, when set, win."

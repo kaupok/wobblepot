@@ -1,22 +1,24 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
-import enMessages from '../../../../messages/en.json'
-import etMessages from '../../../../messages/et.json'
-import { FoodPreferencesForm } from './FoodPreferencesForm'
-import { MealsToPlanForm } from './MealsToPlanForm'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
-  OWNER_ONLY_NOTICE,
-  deferFetch,
   defaultPreferences,
+  deferFetch,
   fail,
   mockFetch,
   ok,
+  OWNER_ONLY_NOTICE,
   renderSettings,
   section,
   stubPointerApis,
 } from '@/test/household-settings'
+
+import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
+import { FoodPreferencesForm } from './FoodPreferencesForm'
+import { MealsToPlanForm } from './MealsToPlanForm'
 
 vi.unmock('next-intl')
 

@@ -1,7 +1,8 @@
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import type { ExpectedMealTypes, PlanEntry, TimelineDay } from '@/components/meal-plan/types'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import type { ExpectedMealTypes, PlanEntry, TimelineDay } from '@/components/meal-plan/types'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+
 import { daySlots } from './day-slots'
 
 interface PastDaysRange {

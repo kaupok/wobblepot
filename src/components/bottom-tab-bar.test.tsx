@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
-import { BottomTabBar } from './bottom-tab-bar'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { Session } from '@/lib/auth'
+
+import { BottomTabBar } from './bottom-tab-bar'
 
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(),

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { ProfileNameForm } from './ProfileNameForm'
 
 // `authClient.updateUser()` posts to `/api/auth/update-user` on the absolute

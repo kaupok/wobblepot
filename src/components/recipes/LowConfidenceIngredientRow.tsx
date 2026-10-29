@@ -1,9 +1,10 @@
 'use client'
 
+import { HelpCircle, Info, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { HelpCircle, X, Info } from 'lucide-react'
+
+import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import {
   Select,
   SelectContent,
@@ -11,12 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatAmountWithUnit, formatUnit } from '@/components/household/meal-form-types'
+import { Body } from '@/components/ui/typography'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+
+import type { IngredientRowData, LowConfidenceIngredientData } from './IngredientRow'
 import { QuantityControls } from './QuantityControls'
-import type { LowConfidenceIngredientData, IngredientRowData } from './IngredientRow'
 
 interface LowConfidenceIngredientRowProps {
   data: LowConfidenceIngredientData

@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { authClient } from '@/lib/auth-client'
-import { ApiError, apiFetch } from '@/lib/api'
-import { Button, buttonVariants } from '@/components/ui/button'
+
+import { FieldError } from '@/components/FieldError'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,12 +18,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
+import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
+import { translateErrorCode } from '@/lib/ai/error-codes'
+import { ApiError, apiFetch } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
 import { formatLongDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import { translateErrorCode } from '@/lib/ai/error-codes'
-import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface DeleteAccountDialogProps {

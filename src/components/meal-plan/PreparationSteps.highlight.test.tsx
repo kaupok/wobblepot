@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationSteps } from './PreparationSteps'
+import { useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
+import { PreparationSteps } from './PreparationSteps'
 
 const STEPS = ['Chop vegetables', 'Heat oil in pan', 'Cook for 10 minutes']
 

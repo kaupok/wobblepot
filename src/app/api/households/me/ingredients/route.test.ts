@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // The query lives in `@/lib/ingredients/manage` (`manage.db.test.ts`); this
@@ -26,9 +27,9 @@ vi.mock('@/lib/ingredients/manage', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import type { HouseholdIngredient } from '@/lib/ingredients/household-ingredient'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import type { HouseholdIngredient } from '@/lib/ingredients/household-ingredient'
 import { listHouseholdIngredients } from '@/lib/ingredients/manage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

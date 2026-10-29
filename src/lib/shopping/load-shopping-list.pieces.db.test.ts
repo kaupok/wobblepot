@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { PieceDisplay } from '@/generated/prisma/enums'
+import { prisma } from '@/lib/prisma'
 import { loadPlanShoppingList, loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 // Vegetables a shopper picks one by one show as whole pieces on the shopping

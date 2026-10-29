@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+
 import type { MealStatus } from '@/components/meal-plan/types'
 
 interface UsePastRowFocusOptions {

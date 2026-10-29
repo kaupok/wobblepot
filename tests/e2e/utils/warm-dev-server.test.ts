@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { shouldWarmDevServer, warmRoutes, WARM_ROUTES } from './warm-dev-server'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { shouldWarmDevServer, WARM_ROUTES, warmRoutes } from './warm-dev-server'
 
 describe('shouldWarmDevServer', () => {
   it('warms a plain local run', () => {

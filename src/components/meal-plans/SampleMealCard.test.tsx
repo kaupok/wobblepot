@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { SampleDay } from '@/lib/meal-plans/build-sample-week'
+
 import { SampleMealCard } from './SampleMealCard'
 
 vi.mock('@/components/meal-plan/MealImage', () => ({ MealImage: () => null }))

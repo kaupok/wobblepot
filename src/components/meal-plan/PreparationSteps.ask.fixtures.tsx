@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { afterEach, beforeEach, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationSteps, type CookQuestionControls } from './PreparationSteps'
+import { useState } from 'react'
+import { afterEach, beforeEach, vi } from 'vitest'
+
 import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
+import { type CookQuestionControls, PreparationSteps } from './PreparationSteps'
 
 // Shared by the PreparationSteps tests. The steps' cook question tests are
 // split across PreparationSteps.ask.test.tsx and .ask-panel.test.tsx.

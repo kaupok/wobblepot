@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // The query lives in `@/lib/meals/load-meals`, tested against a database in
@@ -29,8 +30,8 @@ vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadMeals, type LoadMealsResult } from '@/lib/meals/load-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

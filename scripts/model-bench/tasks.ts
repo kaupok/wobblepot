@@ -11,22 +11,14 @@
  */
 
 import {
+  type FinishReason,
   generateObject,
   generateText,
-  NoObjectGeneratedError,
-  type FinishReason,
   type LanguageModel,
   type LanguageModelUsage,
+  NoObjectGeneratedError,
 } from 'ai'
-import { buildMealPlanRequest } from '../../src/lib/ai/prompts'
-import { buildRecipeRequest } from '../../src/lib/ai/recipe-prompt'
-import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
-import { buildReviewRequest } from '../../src/lib/ai/review-request'
-import {
-  buildFullStepsRequest,
-  buildStepsFromNotesRequest,
-} from '../../src/lib/ai/preparation-steps'
-import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
+
 import {
   COOK_QUESTION_AI_BUDGET_MS,
   IMAGINE_AI_BUDGET_MS,
@@ -35,6 +27,8 @@ import {
   REVIEW_AI_BUDGET_MS,
   STEPS_AI_BUDGET_MS,
 } from '../../src/lib/ai/budgets'
+import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
+import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
 import {
   COOK_QUESTION_MODEL,
   IMAGINE_MODEL,
@@ -43,20 +37,27 @@ import {
   REVIEW_MODEL,
   STEPS_MODEL,
 } from '../../src/lib/ai/models'
+import {
+  buildFullStepsRequest,
+  buildStepsFromNotesRequest,
+} from '../../src/lib/ai/preparation-steps'
+import { buildMealPlanRequest } from '../../src/lib/ai/prompts'
+import { buildRecipeRequest } from '../../src/lib/ai/recipe-prompt'
+import { buildReviewRequest } from '../../src/lib/ai/review-request'
+import { adjust } from './adjust'
 import type { BenchCase, CaseOf, Task } from './case-schema'
 import { requestTexts, textOf } from './request-texts'
-import { adjust } from './adjust'
 import {
+  COOK_QUESTION_MAX_SENTENCES,
+  COOK_QUESTION_MAX_WORDS,
   derivePlanContext,
   scoreCookQuestion,
   scoreImagine,
   scorePlan,
   scoreRecipe,
   scoreReview,
-  scoreTips,
-  COOK_QUESTION_MAX_SENTENCES,
-  COOK_QUESTION_MAX_WORDS,
   type Scores,
+  scoreTips,
 } from './scorers'
 
 export interface MetricDef {

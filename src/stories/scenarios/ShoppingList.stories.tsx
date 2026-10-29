@@ -1,17 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useTranslations } from 'next-intl'
 import { expect, fn, within } from 'storybook/test'
+
+import { GroupHeading } from '@/components/inventory/GroupHeading'
+import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
+import { ShoppingSection } from '@/components/inventory/ShoppingSection'
+import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
 import { CategoryGroup, CUSTOM_ITEMS_EMOJI } from '@/components/shopping/CategoryGroup'
+import { type CustomItemData, CustomItemInput } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
-import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
-import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
-import { ShoppingSection } from '@/components/inventory/ShoppingSection'
-import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
-import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
+import type { IngredientCategory } from '@/generated/prisma/enums'
+import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 import {
   customShoppingItems,
   dairyShoppingItems,
@@ -19,7 +21,6 @@ import {
   proteinShoppingItems,
   shoppingItemsByUrgency,
 } from '@/stories/fixtures'
-import { assertDesignRules, SCENARIO_RULES } from '@/stories/design-rules'
 
 // WHY: Purchased and checked-off rows intentionally render dimmer text to
 // reinforce their inactive state — the checkbox and strikethrough already

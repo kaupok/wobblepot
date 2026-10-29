@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it, vi } from 'vitest'
+
 import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no
 // module mocks; one test spies on the transaction to make a clear fail.

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 
 vi.mock('@/lib/errors-client', () => ({
@@ -6,12 +7,13 @@ vi.mock('@/lib/errors-client', () => ({
 }))
 
 import { captureClientError } from '@/lib/errors-client'
+
 import {
   convertToPrefilledData,
+  type ImaginedMealResponse,
   reviewImaginedMeal,
   savableTimeMinutes,
   withSavableTimeMinutes,
-  type ImaginedMealResponse,
 } from './imagine-utils'
 
 const mockCaptureClientError = vi.mocked(captureClientError)

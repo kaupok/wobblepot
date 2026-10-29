@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis'
+
 import { serverEnv } from '@/lib/env'
 
 let redisSingleton: Redis | null = null

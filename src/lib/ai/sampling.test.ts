@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockMkdir = vi.fn()
 const mockAppendFile = vi.fn()
@@ -17,10 +17,10 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 })
 
 import {
+  type AiSampleInput,
   DEFAULT_LOCALE_SAMPLE_RATE,
   logAiSample,
   SAMPLE_PREFIX,
-  type AiSampleInput,
 } from './sampling'
 
 const baseSample: AiSampleInput = {

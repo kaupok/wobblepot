@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { toShoppingItemData, type ShoppingListApiItem } from './shopping-item-transform'
+import { describe, expect, it } from 'vitest'
+
+import { type ShoppingListApiItem, toShoppingItemData } from './shopping-item-transform'
 
 function apiItem(overrides: Partial<ShoppingListApiItem> = {}): ShoppingListApiItem {
   return {

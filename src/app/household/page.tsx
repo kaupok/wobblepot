@@ -1,8 +1,10 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
-import { listHouseholdMembers } from '@/lib/household'
-import { getQueryClient } from '@/lib/get-query-client'
+
 import { MemberList } from '@/components/household/MemberList'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
+import { getQueryClient } from '@/lib/get-query-client'
+import { listHouseholdMembers } from '@/lib/household'
+
 import { householdTabMetadata, requireHouseholdMember } from './household-member'
 
 export function generateMetadata() {

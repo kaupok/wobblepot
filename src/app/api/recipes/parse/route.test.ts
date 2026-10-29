@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Stub the env module so the real Zod validation (and any transitively-imported
 // serverEnv reads, e.g. from @/lib/ai/usage) don't run in the node test env.
@@ -71,16 +71,16 @@ vi.mock('@/lib/ai/translate-match-results', () => ({
   translateMatchResults: vi.fn(async (results: unknown) => results),
 }))
 
+import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
+import { RecipeParseError } from '@/lib/ai/recipe-errors'
+import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
+import { assertUnderCap } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { type FlagKey, getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap } from '@/lib/ai/usage'
-import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
-import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
-import { RecipeParseError } from '@/lib/ai/recipe-errors'
-import { captureApiError } from '@/lib/errors'
-import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
-import { translateMatchResults } from '@/lib/ai/translate-match-results'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

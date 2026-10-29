@@ -1,12 +1,13 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
 import type { LowConfidenceIngredientData } from './IngredientRow'
+import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'en' ? enMessages : etMessages

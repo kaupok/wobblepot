@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
 import {
   deleteEntry,
   EntryUpdateError,
-  updateEntry,
   type EntryUpdateRefusal,
+  updateEntry,
 } from '@/lib/meal-plans/entries'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import {

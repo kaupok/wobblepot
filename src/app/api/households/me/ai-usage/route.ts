@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { NextResponse } from 'next/server'
+
 import { getMonthBoundaries, getMonthSpendUsd } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 export async function GET() {
   const session = await auth.api.getSession({

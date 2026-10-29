@@ -1,16 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { MealStatus, PantryItemFull } from '@/components/meal-plan/types'
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
 import { toast } from 'sonner'
+
 import { track } from '@/lib/analytics'
+
 import { PastMealRow } from './PastMealRow'
 
 const meal = createMeal()

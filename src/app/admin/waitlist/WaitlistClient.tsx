@@ -1,16 +1,17 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { apiFetch, ApiError } from '@/lib/api'
-import { formatDateTime } from '@/lib/i18n/format-dates'
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
-import type { WaitlistRow } from '@/lib/waitlist'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body, Heading } from '@/components/ui/typography'
+import { ApiError, apiFetch } from '@/lib/api'
+import { formatDateTime } from '@/lib/i18n/format-dates'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import type { WaitlistRow } from '@/lib/waitlist'
 
 interface WaitlistResponse {
   requests: WaitlistRow[]

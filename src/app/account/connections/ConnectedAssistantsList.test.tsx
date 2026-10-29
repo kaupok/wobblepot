@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { apiFetch } from '@/lib/api'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { ConnectedAssistantsList, type ConnectedAssistant } from './ConnectedAssistantsList'
+
+import { type ConnectedAssistant, ConnectedAssistantsList } from './ConnectedAssistantsList'
 
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),

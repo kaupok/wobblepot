@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createEmptyPlan } from '@/lib/ai/generate-plan'
+import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
+import { prisma } from '@/lib/prisma'
+
 import { createDayExtra, deleteDayExtra, loadDayExtras, updateDayExtraQuantity } from './day-extras'
 
 // Day extras (HON-1309), against PGlite through the `unit-db` project, with no

@@ -1,5 +1,5 @@
 // ROUTES: /meal-plans/[slug], /meal-plans/[slug]/pin.png, /robots.txt, /sitemap.xml · COMPONENTS: SampleMealCard, SampleShoppingList, src/proxy.ts (PUBLIC_ROUTES)
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * The public sample meal plans (HON-1085) must open for an anonymous visitor

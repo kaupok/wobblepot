@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { createCustomItem, createShoppingItem, shoppingItemsByUrgency } from '@/stories/fixtures'
+
 import { Card, CardContent } from '@/components/ui/card'
+import { createCustomItem, createShoppingItem, shoppingItemsByUrgency } from '@/stories/fixtures'
+
 import { UrgencyGroup } from './UrgencyGroup'
 
 // WHY: Purchased items within a group intentionally render dimmer text to

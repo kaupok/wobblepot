@@ -1,16 +1,17 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body, Heading } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 import { formatLongDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import { SCOPE_MESSAGE_KEYS, knownScopes } from '@/lib/mcp/oauth'
+import { knownScopes, SCOPE_MESSAGE_KEYS } from '@/lib/mcp/oauth'
 
 /** One row of `GET /api/auth/user/mcp-consents` (`McpConsentSummary` on the server). */
 export interface ConnectedAssistant {

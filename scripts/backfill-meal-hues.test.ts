@@ -1,18 +1,20 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
+
 import type { HueResult } from '../src/lib/meal-images/colour'
 import {
+  type Db,
   formatBaseline,
   hueHistogram,
   meanShares,
   parseArgs,
   rehue,
+  type RehueMeal,
   renderHistogram,
   run,
-  type Db,
-  type RehueMeal,
   type RunDeps,
 } from './backfill-meal-hues'
 

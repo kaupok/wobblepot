@@ -1,7 +1,8 @@
 // ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantrySection, InlineAddItem
-import { test, expect } from '@playwright/test'
-import { signUpWithHousehold } from './utils/test-helpers'
+import { expect, test } from '@playwright/test'
+
 import { sumPortions } from '../../src/lib/meal-planning/servings'
+import { signUpWithHousehold } from './utils/test-helpers'
 
 // WHY: Large enough that `quantityPerServing × householdServings` can never deplete
 // it to 0, so the row survives the post-decrement `deleteMany` cleanup the

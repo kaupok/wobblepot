@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { findUsersDueForPurge } from '@/lib/auth/purge-user'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 // The cascade itself is covered against a mocked client in `purge-user.test.ts`.

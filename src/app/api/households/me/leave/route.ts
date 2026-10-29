@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { runHouseholdClaim } from '@/lib/household-claim'
 import {
   afterHouseholdLeft,
@@ -8,7 +10,6 @@ import {
   NotInHouseholdError,
   OwnerHasOtherAccountsError,
 } from '@/lib/household-leave'
-import { captureApiError } from '@/lib/errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const ROUTE = '/api/households/me/leave'

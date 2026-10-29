@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+
+import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,7 +15,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Body } from '@/components/ui/typography'
-import { useAnalyticsConsent } from '@/components/ConsentProvider'
 
 export function CookieSettingsTrigger() {
   const t = useTranslations('consent.settings')

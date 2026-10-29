@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { expect } from 'vitest'
 
 export const scriptsDir = path.dirname(fileURLToPath(import.meta.url))

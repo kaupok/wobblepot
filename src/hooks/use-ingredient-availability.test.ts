@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { useIngredientAvailability } from './use-ingredient-availability'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { useIngredientAvailability } from './use-ingredient-availability'
 
 vi.mock('sonner', () => ({
   toast: {

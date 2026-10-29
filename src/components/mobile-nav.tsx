@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { Moon, Sun, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Moon, Sun, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
+import { useState } from 'react'
+
+import { AttentionDot } from '@/components/attention-dot'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
-import type { Session } from '@/lib/auth'
 import type { AdminMenuLink } from '@/lib/admin-links'
+import type { Session } from '@/lib/auth'
+import { authClient } from '@/lib/auth-client'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface MobileNavProps {

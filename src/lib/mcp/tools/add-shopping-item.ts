@@ -1,7 +1,9 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { addCustomShoppingItem, customItemNameSchema } from '@/lib/shopping/custom-items'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { addCustomShoppingItem, customItemNameSchema } from '@/lib/shopping/custom-items'
 
 export const addShoppingItem = defineTool({
   name: 'add_shopping_item',

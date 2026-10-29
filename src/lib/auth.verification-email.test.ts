@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createEmailVerificationToken } from 'better-auth/api'
-import { sendAccountVerificationEmail } from './auth'
-import { resend, isEmailConfigured } from '@/lib/resend'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { resolveEmailLocale } from '@/lib/emails/locale'
+import { isEmailConfigured, resend } from '@/lib/resend'
+
+import { sendAccountVerificationEmail } from './auth'
 
 // Split from `auth.test.ts` (file-size cap). The mail callback behind
 // `emailVerification.sendVerificationEmail`: sign-up verification (HON-1155)

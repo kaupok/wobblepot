@@ -1,10 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { loadInventory } from './load-inventory'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+
+import { loadInventory } from './load-inventory'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),

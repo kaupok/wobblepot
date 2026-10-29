@@ -1,9 +1,11 @@
 'use client'
 
 import { forwardRef, useState } from 'react'
-import { Input } from './input'
+
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { cn } from '@/lib/utils'
+
+import { Input } from './input'
 
 type InheritedInputProps = Omit<
   React.ComponentProps<'input'>,

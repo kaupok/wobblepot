@@ -1,13 +1,14 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { Prisma } from '@/generated/prisma/client'
 import { MAX_HOUSEHOLD_MEMBERS } from '@/lib/household'
-import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 import {
-  writeMemberPreferences,
   type MemberPreferencesPatch,
   type PreferencesMember,
+  writeMemberPreferences,
 } from '@/lib/household/preferences'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Persistence and rules for household members, behind

@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { Textarea } from '@/components/ui/textarea'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { AttachImages, type AttachedImage } from './AttachImages'
+
+import { type AttachedImage, AttachImages } from './AttachImages'
 
 // A real 1×1 PNG so the thumbnails render as images rather than broken-image
 // placeholders — the previews are the whole point of the populated stories.

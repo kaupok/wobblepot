@@ -1,16 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { authClient } from '@/lib/auth-client'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
+import { authClient } from '@/lib/auth-client'
 
 /**
  * Edits the account name (`User.name`). A household member with a linked

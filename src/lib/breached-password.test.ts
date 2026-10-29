@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { isPasswordBreached } from './breached-password'
 
 // SHA-1("password") = 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8

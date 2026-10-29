@@ -1,16 +1,17 @@
-import { Heading, Body } from '@/components/ui/typography'
 import { Separator } from '@/components/ui/separator'
-import { ProfileNameForm } from './ProfileNameForm'
-import { ChangePasswordForm } from './ChangePasswordForm'
-import { ChangeEmailForm } from './ChangeEmailForm'
-import { SetPassword } from './SetPassword'
-import { SignInMethods } from './SignInMethods'
+import { Body, Heading } from '@/components/ui/typography'
 import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
 import { parseChangeEmailLanding, parseVerificationLanding } from '@/lib/email-verification'
-import { hasPasswordAccount, parseGoogleLinkLanding } from '@/lib/sign-in-methods'
-import { getSignInAccounts } from '@/lib/session'
 import { isGoogleAuthConfigured } from '@/lib/env'
+import { getSignInAccounts } from '@/lib/session'
+import { hasPasswordAccount, parseGoogleLinkLanding } from '@/lib/sign-in-methods'
+
 import { accountTabMetadata, requireAccountMember } from './account-member'
+import { ChangeEmailForm } from './ChangeEmailForm'
+import { ChangePasswordForm } from './ChangePasswordForm'
+import { ProfileNameForm } from './ProfileNameForm'
+import { SetPassword } from './SetPassword'
+import { SignInMethods } from './SignInMethods'
 
 export function generateMetadata() {
   return accountTabMetadata('profile')

@@ -1,9 +1,10 @@
 // ROUTES: /forgot-password, /reset-password, /sign-in · COMPONENTS: ForgotPasswordForm, ResetPasswordForm, SignInForm, Header (User menu)
-import { test, expect, type Page } from '@playwright/test'
-import { signIn, signOut } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { forgotPasswordFixture, generateStrongPassword } from './utils/fixtures'
 import { canReadEmail, resolveResetUrl } from './utils/mail-helpers'
+import { signIn, signOut } from './utils/test-helpers'
 
 /**
  * Forgot password → reset → sign in (HON-479).

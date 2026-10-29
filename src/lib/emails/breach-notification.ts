@@ -1,7 +1,8 @@
 import { serverEnv } from '@/lib/env'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
-import { emailTranslator } from './i18n'
+
 import { escapeHtml } from './escape-html'
+import { emailTranslator } from './i18n'
 
 /**
  * Data Breach Notification Email Template (GDPR Art. 34)

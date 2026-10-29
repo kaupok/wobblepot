@@ -31,8 +31,9 @@
  *     `console.error` only.
  */
 
-import { mkdir, appendFile } from 'node:fs/promises'
+import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
+
 import { isDefaultLocale } from '@/lib/i18n/locales'
 
 export type AiSampleCallSite =

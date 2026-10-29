@@ -1,40 +1,42 @@
 'use client'
 
-import { useState, useMemo, useCallback, useId, useRef } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, ChevronDown, ChevronRight, Clock, Check, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
-import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
-import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
-import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
-import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
-import { IngredientRow, type IngredientRowData } from './IngredientRow'
-import type { IngredientResult } from './IngredientRow'
-import { computeReviewNutrition, initIngredientRows } from './imagine-review-nutrition'
+import { Check, ChevronDown, ChevronRight, Clock, Loader2, Users } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
 import {
   buildFinalComponents,
   formatAmountWithUnit,
   mealComponentErrorMessage,
 } from '@/components/household/meal-form-types'
-import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
+import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
+import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Body } from '@/components/ui/typography'
+import type { MealType } from '@/generated/prisma/enums'
 import { ApiError, apiFetch } from '@/lib/api'
-import { savableTimeMinutes } from '@/lib/imagine-utils'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
-import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import type { Locale } from '@/lib/i18n/locales'
-import type { MealType } from '@/generated/prisma/enums'
-import { FieldError } from '@/components/FieldError'
+import { savableTimeMinutes } from '@/lib/imagine-utils'
+import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
+
+import { computeReviewNutrition, initIngredientRows } from './imagine-review-nutrition'
+import type { IngredientResult } from './IngredientRow'
+import { IngredientRow, type IngredientRowData } from './IngredientRow'
 
 export interface ReviewMealData {
   name: string

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The real resolve pipeline (`resolveProposals`, `buildChangeSet`), with the
 // entry read, the catalogue and the write mocked: what this file asserts is
@@ -34,27 +34,29 @@ vi.mock('@/lib/meal-plans/entry-changes', async (importOriginal) => ({
 }))
 
 import { generateObject } from 'ai'
+
+import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
+import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
-import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
-import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
-import { EntryChangeError, replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
+
 import { changeMealIngredients } from './change-meal-ingredients'
 import {
-  DATE,
-  NO_CARROT,
-  POTATO_RICE,
-  TROUT,
   arrangeMocks,
   call,
   component,
+  DATE,
   entry,
   errorText,
+  NO_CARROT,
   output,
+  POTATO_RICE,
   row,
   slot,
+  TROUT,
 } from './change-meal-ingredients.fixtures'
 
 describe('change_meal_ingredients', () => {

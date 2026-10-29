@@ -1,5 +1,5 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /**
  * The create and edit pages' placeholder: the route `loading.tsx` files and the

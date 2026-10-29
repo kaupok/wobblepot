@@ -1,14 +1,16 @@
 import { vi } from 'vitest'
+
+import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { convertQuantity } from '@/lib/ai/recipe-quantities'
+import { runTool } from '@/lib/mcp/context'
+import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
+import { replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
+import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
-import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
-import { convertQuantity } from '@/lib/ai/recipe-quantities'
-import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
-import { replaceEntryChanges } from '@/lib/meal-plans/entry-changes'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
-import { runTool } from '@/lib/mcp/context'
 import { mcpHousehold, WRITE_SCOPES } from '@/test/mcp'
+
 import { changeMealIngredients } from './change-meal-ingredients'
 
 // Shared fixtures of the `change_meal_ingredients` tests: a planned trout for

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
+
 import { requireAdmin } from '@/lib/auth-helpers'
-import { revokeSignupCode, SignupCodeError } from '@/lib/signup-codes'
 import { captureApiError } from '@/lib/errors'
+import { revokeSignupCode, SignupCodeError } from '@/lib/signup-codes'
 
 export async function DELETE(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()

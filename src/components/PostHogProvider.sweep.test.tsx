@@ -1,7 +1,8 @@
 import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { PostHogProvider } from '@/components/PostHogProvider'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
 
 // HON-1051: a browser without a loaded client and with consent `false` still
 // loses the stored identity, and posthog-js is never imported to do it. The

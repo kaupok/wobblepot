@@ -11,12 +11,14 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MODEL_PRICES } from '../../src/lib/ai/pricing'
+
 import { IMAGINE_MODEL, STEPS_MODEL } from '../../src/lib/ai/models'
+import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { CASES_DIR } from './load-cases'
 import { main, type MainDeps } from './run'
-import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
+import { type MockCall, mockModelFactory, type MockResponse, starterCasesDir } from './test-utils'
 
 /**
  * When on, the full-tips request carries an edited `pitfalls` `.describe()` and

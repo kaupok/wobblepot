@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, PATCH } from './route'
 
 // The entry rules and every query live in `@/lib/meal-plans/entries`, tested
 // against a database in `entries.db.test.ts`. This file mocks that module at
@@ -33,14 +34,14 @@ vi.mock('@/lib/meal-plans/entries', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { discardPlaceholder } from '@/lib/meal-plans/discard-placeholder'
 import {
   deleteEntry,
   EntryUpdateError,
-  updateEntry,
   type EntryUpdateRefusal,
+  updateEntry,
 } from '@/lib/meal-plans/entries'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

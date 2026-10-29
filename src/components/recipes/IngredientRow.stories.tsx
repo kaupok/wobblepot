@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import {
   createLowConfidenceIngredientRowData,
   createMatchedIngredientRowData,
   createUnmatchedIngredientRowData,
 } from '@/stories/fixtures'
 import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
+
 import { IngredientRow } from './IngredientRow'
 
 // Drive a controlled React input the way React expects — see the note in

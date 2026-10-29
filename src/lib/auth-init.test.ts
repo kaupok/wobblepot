@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // No `vi.mock('@/lib/prisma')` here on purpose: this file runs the global mock
 // in `vitest.setup.ts`, which is what every test that loads auth transitively

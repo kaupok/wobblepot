@@ -13,10 +13,12 @@
  */
 
 import 'dotenv/config'
+
 import { readFileSync } from 'fs'
-import { prisma } from '../../src/lib/prisma'
+
 import { applyIngredientAlias } from '../../src/lib/ingredient-aliases'
-import { normalizeIngredientName, extractLastWord } from '../../src/lib/normalize-ingredient'
+import { extractLastWord, normalizeIngredientName } from '../../src/lib/normalize-ingredient'
+import { prisma } from '../../src/lib/prisma'
 
 // ============================================
 // TYPES

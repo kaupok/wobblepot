@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { stubPointerApis } from '@/test/household-settings'
-import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
-import type { UnmatchedIngredientData } from './IngredientRow'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { imaginedIngredientText } from '@/lib/ai/imagine-request'
+import { stubPointerApis } from '@/test/household-settings'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import type { UnmatchedIngredientData } from './IngredientRow'
+import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 
 function data(extractedName: string): UnmatchedIngredientData {
   return {

@@ -1,13 +1,15 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { ThemeProvider } from 'next-themes'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
-import { http, HttpResponse } from 'msw'
+
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
   awaitDialogClosed,
 } from '@/stories/a11y-helpers'
 import { createSession } from '@/stories/fixtures'
+
 import { MobileNav } from './mobile-nav'
 
 const authedSession = createSession()

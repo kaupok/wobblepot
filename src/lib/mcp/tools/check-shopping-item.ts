@@ -1,7 +1,9 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { updateCustomShoppingItem } from '@/lib/shopping/custom-items'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { updateCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 export const checkShoppingItem = defineTool({
   name: 'check_shopping_item',

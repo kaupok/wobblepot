@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { seedTargetHost, seedTargetLine } from './seed-target'
 
 describe('seedTargetHost', () => {

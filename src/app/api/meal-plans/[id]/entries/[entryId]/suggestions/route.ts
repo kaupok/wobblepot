@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
-import { captureApiError } from '@/lib/errors'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
  * POST /api/meal-plans/[id]/entries/[entryId]/suggestions

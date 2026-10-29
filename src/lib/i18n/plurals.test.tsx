@@ -1,10 +1,11 @@
 // Use the real next-intl in this file: the global mock in vitest.setup.ts
 // returns the catalog string verbatim and never resolves ICU plural rules.
-import { vi, describe, it, expect } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { renderHook } from '@testing-library/react'
 import { NextIntlClientProvider, useTranslations } from 'next-intl'
 import type { PropsWithChildren } from 'react'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 

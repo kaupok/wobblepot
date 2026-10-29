@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { Badge, badgeVariants } from './badge'
 
 // A synthetic hover does not reach CSS `:hover` in a browser story, so the

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { ShoppingSection } from './ShoppingSection'
-import { WINDOW_STORAGE_KEY } from './use-shopping-window'
+
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import {
@@ -10,6 +9,9 @@ import {
   produceShoppingItems,
   proteinShoppingItems,
 } from '@/stories/fixtures'
+
+import { ShoppingSection } from './ShoppingSection'
+import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 

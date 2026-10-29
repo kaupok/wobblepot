@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { toast } from 'sonner'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
+
+import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
 
 // Mock sonner
 vi.mock('sonner', () => ({

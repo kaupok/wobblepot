@@ -1,30 +1,32 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Loader2, Sparkles, ArrowLeft } from 'lucide-react'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { useEffect, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
-import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { withReviewNutrition } from '@/components/recipes/imagine-review-nutrition'
-import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import type { MealType } from '@/generated/prisma/enums'
 import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
+import { ApiError, apiFetch } from '@/lib/api'
+import { downscaleImage } from '@/lib/downscale-image'
 import type { Locale } from '@/lib/i18n/locales'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import {
   convertToPrefilledData,
-  reviewImaginedMeal,
   type ImaginedMealResponse,
+  reviewImaginedMeal,
   withSavableTimeMinutes,
 } from '@/lib/imagine-utils'
-import { ApiError, apiFetch } from '@/lib/api'
+
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
-import { FieldError } from '@/components/FieldError'
-import { downscaleImage } from '@/lib/downscale-image'
-import type { MealType } from '@/generated/prisma/enums'
 
 export interface ImaginePanelProps {
   /** The slot being filled. Picks a placeholder example that fits the meal (HON-944). */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { descriptionLines } from './use-description-lines'
 
 // The desktop text block: two 28px name lines plus two 24px description

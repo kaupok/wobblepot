@@ -1,8 +1,10 @@
 'use client'
 
-import { useId, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useId, useState } from 'react'
+
+import { IngredientSearch } from '@/components/household/IngredientSearch'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -15,25 +17,25 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
-import { IngredientSearch } from '@/components/household/IngredientSearch'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import {
+  type DisplayUnit,
   displayUnit,
   formatMeasure,
   withPieceUnit,
-  type DisplayUnit,
 } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import {
+  type AdjustProposal,
   buildChangeSet,
   pickedQuantity,
-  type AdjustProposal,
 } from '@/lib/meal-planning/adjust-proposal'
-import type { NewEntryChange } from './use-entry-changes'
+
 import type { EntryChange } from './types'
+import type { NewEntryChange } from './use-entry-changes'
 
 interface AdjustReviewDialogProps {
   open: boolean

@@ -1,5 +1,5 @@
-import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
 // Types for the parsed recipe response from the API
 interface IngredientAlternative {

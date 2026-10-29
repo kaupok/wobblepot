@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { loadMeals } from '@/lib/meals/load-meals'
-import { loadSlotCandidates } from '@/lib/meal-planning/slot-suggestions'
-import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
+
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
+import { loadSlotCandidates } from '@/lib/meal-planning/slot-suggestions'
+import { loadMeals } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 // The planning reads with a household's "Ingredients to avoid" (HON-1321).
 // Runs against PGlite through the `unit-db` project, with no mocks. The

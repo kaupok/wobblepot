@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+
 import { INGREDIENT_SYNONYMS } from '@/lib/ingredient-aliases'
+
 import { ingredientTranslationsEt } from '../../seed-ingredient-translations-et'
 
 // The merge list lives in three places that must agree: this migration, the

@@ -1,9 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+
 import type { Prisma } from '@/generated/prisma/client'
-import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
+import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import type { EntryChangeInput, EntryChangeSetInput } from '@/lib/meal-planning/components-schema'
+import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Persistence for a planned entry's own ingredient changes (HON-1243), behind

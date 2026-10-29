@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { MAX_SERVINGS, MIN_SERVINGS } from '@/lib/meal-planning/servings'
+import { cn } from '@/lib/utils'
 
 interface ServingControlProps {
   servings: number

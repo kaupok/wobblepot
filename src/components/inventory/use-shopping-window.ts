@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect } from 'react'
 
 /** The only definition. Stories and tests import it rather than re-declaring it. */
 export const WINDOW_STORAGE_KEY = 'shopping-list-window-days'

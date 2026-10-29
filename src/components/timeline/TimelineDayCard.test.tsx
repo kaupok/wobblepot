@@ -1,12 +1,14 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { TimelineDayCard } from './TimelineDayCard'
+import { describe, expect, it, vi } from 'vitest'
+
 import { Header } from '@/components/header'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
-import enMessages from '../../../messages/en.json'
 import type { TimelineDay } from '@/components/meal-plan/types'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import enMessages from '../../../messages/en.json'
+import { TimelineDayCard } from './TimelineDayCard'
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({

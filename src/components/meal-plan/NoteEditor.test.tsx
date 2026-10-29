@@ -1,9 +1,11 @@
-import { createRef } from 'react'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { createRef } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 
 // Mock fetch

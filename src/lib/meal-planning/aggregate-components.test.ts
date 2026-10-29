@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
+
 import { aggregateComponents, type AggregationComponent } from './shopping-list'
 
 // shopping-list.ts imports Prisma for its two database functions; this pure

@@ -1,19 +1,21 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
+import { useMemo } from 'react'
+
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
-import { displayUnit, type DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
-import type { MealComponent, PantryItemFull, PantryDeductionItem } from './types'
+import { type DisplayUnit, displayUnit } from '@/lib/i18n/format-shopping-quantity'
+
+import type { MealComponent, PantryDeductionItem, PantryItemFull } from './types'
 
 interface PantryDeductionModalProps {
   open: boolean

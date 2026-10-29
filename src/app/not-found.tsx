@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
+
 import { Button } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('errors.notFound')

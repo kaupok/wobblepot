@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * Seeded-fixture credentials for `@smoke` specs (pattern (b), HON-560).

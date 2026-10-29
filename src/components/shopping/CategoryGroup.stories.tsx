@@ -1,13 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import { Card, CardContent } from '@/components/ui/card'
 import {
   createShoppingItem,
   customShoppingItems,
   dairyShoppingItems,
-  proteinShoppingItems,
   produceShoppingItems,
+  proteinShoppingItems,
 } from '@/stories/fixtures'
-import { Card, CardContent } from '@/components/ui/card'
+
 import { CategoryGroup } from './CategoryGroup'
 
 // WHY: Purchased / checked custom items within a group intentionally render

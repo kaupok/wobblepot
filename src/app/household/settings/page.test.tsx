@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import HouseholdSettingsPage, { generateMetadata } from './page'
-import HouseholdLayout from '../layout'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { accountSession as session, membershipWithMemberCount } from '@/test/account-page'
+
 import enMessages from '../../../../messages/en.json'
+import HouseholdLayout from '../layout'
+import HouseholdSettingsPage, { generateMetadata } from './page'
 
 vi.mock('next-intl/server', async () => ({
   getTranslations: vi.fn((await import('@/test/account-page')).catalogTranslations),
