@@ -1,10 +1,17 @@
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 
 import { CreateRecipeClient } from './CreateRecipeClient'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('recipes.form')
+  return { title: t('metaTitleCreate') }
+}
 
 export default async function CreateRecipePage() {
   const session = await auth.api.getSession({

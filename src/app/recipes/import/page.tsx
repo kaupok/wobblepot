@@ -1,10 +1,17 @@
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 
 import { RecipeImportClient } from './RecipeImportClient'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('recipes.import')
+  return { title: t('metaTitle') }
+}
 
 export default async function RecipeImportPage() {
   const session = await auth.api.getSession({

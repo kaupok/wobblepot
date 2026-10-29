@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
@@ -16,6 +17,11 @@ import { getPastMealsRange } from '@/lib/meal-planning/past-meals'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import { loadFrequentMeals, loadRecentFridgeLabels } from '@/lib/meal-plans/past-logging'
 import { getSession } from '@/lib/session'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('pastMeals')
+  return { title: t('metaTitle') }
+}
 
 /**
  * The past days, newest first, where the household marks meals cooked or

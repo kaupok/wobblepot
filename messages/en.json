@@ -105,7 +105,8 @@
       "errorHeading": "Something went wrong",
       "errorBody": "We couldn't load your shopping list. Please try again.",
       "errorCta": "Go to dashboard"
-    }
+    },
+    "metaTitle": "Shopping list"
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
@@ -151,7 +152,8 @@
       "removed": "{name} removed from pantry",
       "added": "{name} added to pantry"
     },
-    "alreadyInPantry": "{name} is already in your pantry"
+    "alreadyInPantry": "{name} is already in your pantry",
+    "metaTitle": "Pantry"
   },
   "today": {
     "pageTitle": "Meal plan",
@@ -689,7 +691,8 @@
       "noMatch": "No recipe matches \"{query}\".",
       "saveFailed": "Couldn't save the meal. Please try again.",
       "cancel": "Cancel"
-    }
+    },
+    "metaTitle": "Past meals"
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
@@ -743,7 +746,8 @@
         "imagineTimeout": "Generating meal ideas took too long. Please try again.",
         "imagineNoSafeMeals": "None of the ideas fit your household's allergies and diet. Try describing a different meal.",
         "generationDisabled": "Imagining meals is turned off right now. Please try again later."
-      }
+      },
+      "metaTitle": "Imagine a meal"
     },
     "import": {
       "title": "Add recipe",
@@ -791,12 +795,14 @@
         "photoNoRecipe": "We could not find a recipe in the photo. For ideas from a photo of a dish, use <link>Imagine a meal</link>.",
         "parseTimeout": "Reading that recipe took too long. Please try again.",
         "providerUnavailable": "The recipe service is temporarily unavailable. Please try again in a moment."
-      }
+      },
+      "metaTitle": "Add recipe"
     },
     "edit": {
       "mealNotFound": "Recipe not found",
       "loadFailed": "Failed to load recipe",
-      "backToRecipes": "Back to recipes"
+      "backToRecipes": "Back to recipes",
+      "metaTitle": "Edit recipe"
     },
     "form": {
       "titleEdit": "Edit recipe",
@@ -876,7 +882,8 @@
         "aria": "Search ingredients to add",
         "noResults": "No ingredients found",
         "added": "Added"
-      }
+      },
+      "metaTitleCreate": "Create recipe"
     },
     "ingredientRow": {
       "removeAria": "Remove ingredient",
@@ -1996,7 +2003,8 @@
       "createFailed": "We couldn't create your household. Try again."
     },
     "reminderOptIn": "Email me on Sundays when next week is not planned yet",
-    "reminderOptInConfirmNote": "We email you a link first. The reminder starts after you open it and confirm."
+    "reminderOptInConfirmNote": "We email you a link first. The reminder starts after you open it and confirm.",
+    "metaTitle": "Welcome"
   },
   "enums": {
     "MealType": {
