@@ -117,7 +117,11 @@ describe('create_meal', () => {
 
     // The Recipes page lists the household's recipes through this read
     // (`GET /api/households/me/meals`).
-    const page = await listHouseholdMeals({ householdId: household.id, locale: 'en' })
+    const page = await listHouseholdMeals({
+      householdId: household.id,
+      locale: 'en',
+      today: '2026-01-01',
+    })
     expect(page.meals.map((m) => [m.id, m.name, m.servings, m.timeMinutes])).toEqual([
       [result.meal!.id, 'Glimmer lasagne', 4, 60],
     ])

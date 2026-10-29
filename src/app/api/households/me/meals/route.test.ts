@@ -144,12 +144,19 @@ describe('GET /api/households/me/meals', () => {
 
   it('asks for the first page of 30 live meals in the household locale by default', async () => {
     mockList.mockResolvedValue({ meals: [], nextCursor: null })
+    // 22:30 UTC on 1 March is already 2 March in Tallinn (UTC+2).
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-03-01T22:30:00Z') })
 
-    await get()
+    try {
+      await get()
+    } finally {
+      vi.useRealTimers()
+    }
 
     expect(mockList).toHaveBeenCalledWith({
       householdId: 'household-123',
       locale: 'et',
+      today: '2026-03-02',
       search: null,
       cursor: null,
       limit: 30,
@@ -165,6 +172,7 @@ describe('GET /api/households/me/meals', () => {
     expect(mockList).toHaveBeenCalledWith({
       householdId: 'household-123',
       locale: 'et',
+      today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       search: 'curry',
       cursor: 'meal-9',
       limit: 10,

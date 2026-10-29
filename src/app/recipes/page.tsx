@@ -7,6 +7,7 @@ import { listHouseholdMeals } from '@/lib/household-meals-read'
 import { getQueryClient } from '@/lib/get-query-client'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { sumPortions } from '@/lib/meal-planning/servings'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { RecipesPageClient } from './RecipesPageClient'
 import {
   getNextMealsPageParam,
@@ -43,6 +44,7 @@ export default async function RecipesPage() {
       const page = await listHouseholdMeals({
         householdId: membership.household.id,
         locale: resolveHouseholdLocale(membership.household),
+        today: getTodayInTimezone(membership.household.timezone),
       })
       // Round-trip through JSON so the cached page has the wire shape the
       // client's `apiFetch` produces (dates as ISO strings, not `Date`).

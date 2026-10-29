@@ -394,6 +394,8 @@
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
       "doneCooking": "Done cooking",
+      "cookedInWindow": "Cooked {count, plural, one {# time} other {# times}} in 4 weeks, last on {date}",
+      "lastCookedOn": "Last cooked on {date}",
       "moreActions": "More actions: {name}",
       "ariaDetailsFor": "Details for {mealName}"
     },

@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from 'react'
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { MoreHorizontal, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Body } from '@/components/ui/typography'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,9 @@ import type { MealData } from '@/components/meal-plan/types'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useRecipeSteps } from '@/hooks/use-recipe-steps'
 import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
+import { formatDateDisplay } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 interface RecipeDetailModalProps {
   meal: MealData
@@ -24,6 +28,11 @@ interface RecipeDetailModalProps {
   householdServings: number
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * The household's cook history of the recipe, from My recipes (HON-1389).
+   * Absent from the picker, so its view shows no history line.
+   */
+  history?: { lastCookedOn: string | null; cookedLast28Days: number }
 }
 
 /** "How to prepare" never shows: the steps load as the view opens. */
@@ -44,8 +53,11 @@ export function RecipeDetailModal({
   householdServings,
   open,
   onOpenChange,
+  history,
 }: RecipeDetailModalProps) {
   const tDetail = useTranslations('meal-plan.detail')
+  const tAlternative = useTranslations('meal-plan.alternative')
+  const locale = useLocale() as Locale
   const tList = useTranslations('recipes.list')
   const [servings, setServings] = useState(householdServings)
   const image = useMealImage({ meal, open })
@@ -108,6 +120,17 @@ export function RecipeDetailModal({
     [householdServings],
   )
 
+  let historyLine: string | null = null
+  if (history) {
+    const date =
+      history.lastCookedOn && formatDateDisplay(parseLocalDate(history.lastCookedOn), locale)
+    historyLine = !date
+      ? tAlternative('notCookedYet')
+      : history.cookedLast28Days > 0
+        ? tDetail('cookedInWindow', { count: history.cookedLast28Days, date })
+        : tDetail('lastCookedOn', { date })
+  }
+
   return (
     <CookViewDialog
       meal={meal}
@@ -146,6 +169,13 @@ export function RecipeDetailModal({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : undefined
+          }
+          note={
+            historyLine && (
+              <Body variant="small" tone="muted">
+                {historyLine}
+              </Body>
+            )
           }
           householdServings={householdServings}
           servings={servings}
