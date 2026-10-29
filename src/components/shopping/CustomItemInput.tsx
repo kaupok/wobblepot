@@ -186,6 +186,9 @@ export function CustomItemInput({ onItemAdded, onStapleRanOut, disabled }: Custo
       } else if (outcome) {
         onItemAdded(outcome.item)
         setValue('')
+        // The new item may stand for a staple, which the server then leaves
+        // out of the list: read it again, as focus stays in the field.
+        void refetchStaples()
         inputRef.current?.focus()
       }
     },

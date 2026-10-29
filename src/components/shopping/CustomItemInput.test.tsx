@@ -223,6 +223,45 @@ describe('CustomItemInput', () => {
       expect(screen.queryByRole('option', { name: /Milk/ })).not.toBeInTheDocument()
     })
 
+    it('reads the staples again after an item is added, so one on the list is not offered', async () => {
+      let staplesReads = 0
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url !== '/api/pantry/staples') {
+            return reply(
+              {
+                item: {
+                  id: 'item-1',
+                  name: 'Organic milk',
+                  checked: false,
+                  ingredientId: 'ing-milk',
+                  ingredient: { category: 'dairy' },
+                  createdAt: '2026-10-29T09:00:00.000Z',
+                },
+              },
+              201,
+            )
+          }
+          staplesReads += 1
+          // The server leaves Milk out once "Organic milk" stands for it.
+          return reply({ staples: staplesReads === 1 ? [milk] : [] }, 200)
+        }),
+      )
+      const user = userEvent.setup()
+      const onItemAdded = vi.fn()
+      renderInput({ onItemAdded })
+
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'Organic milk{Enter}')
+      await vi.waitFor(() => expect(onItemAdded).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(staplesReads).toBe(2))
+
+      await user.type(input, 'mil')
+
+      expect(screen.queryByRole('option', { name: /Milk/ })).not.toBeInTheDocument()
+    })
+
     it('moves with the arrow keys and picks the active staple on Enter', async () => {
       const fetchMock = respondWith({ ok: true }, 200, [milk, oliveOil])
       const user = userEvent.setup()
