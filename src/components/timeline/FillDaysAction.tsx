@@ -155,7 +155,7 @@ export function FillDaysAction({ planId, startDate, onFilled }: FillDaysActionPr
               {tFill('label', { dateRange: dateRangeLabel })}
             </Body>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-25" aria-label={tFill('ariaDays')}>
+              <SelectTrigger aria-label={tFill('ariaDays')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
