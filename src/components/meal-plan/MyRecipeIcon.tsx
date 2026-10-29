@@ -20,13 +20,17 @@ interface MyRecipeIconProps {
  * recipe and not a category like the slot or the protein (HON-973). The cards
  * and the cook view use the same mark (HON-1023). The icon is the one the
  * header and tab bar use for My recipes, so the mark and the destination match.
- * Place it after the name with a no-break space, so it wraps with the last word.
+ * Place it after the name with a no-break space. Where the name wraps (the cook
+ * view), also put the last word and the icon in one `whitespace-nowrap` span:
+ * the browser breaks before the button's inline-flex box even after a
+ * no-break space (HON-1469).
  *
  * The trigger is a focusable button, so the tooltip opens on keyboard focus as
  * well as on hover, and its label is the accessible name without the tooltip.
  * On the cards it is `icon-xs` with a 14px icon. Never nest it in another
  * button or link, and keep it out of the element a dialog's `aria-labelledby`
- * points to, so the dialog's name stays the meal name.
+ * points to, so the dialog's name stays the meal name. The cook view's title
+ * holds it, so that dialog takes `aria-label` instead.
  */
 export function MyRecipeIcon({ size = 'default' }: MyRecipeIconProps) {
   const t = useTranslations('meal-plan.card')

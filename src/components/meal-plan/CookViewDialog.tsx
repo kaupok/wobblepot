@@ -126,11 +126,20 @@ export function CookViewDialog({
     }
   }, [titleEl])
 
+  // For "My recipe", the name split before its last word, so the icon can
+  // hold on to that word; null without the icon. A one-word name has an empty
+  // head.
+  const nameParts = meal.isCustom ? /^(.*?)(\S*)\s*$/s.exec(meal.name) : null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={contentRef}
         size="fullscreen"
+        // With the icon inside the title, the title's text would name the
+        // dialog "<meal> My recipe", so the dialog takes the meal name alone.
+        // Radix spreads these after its own `aria-labelledby`.
+        {...(nameParts && { 'aria-label': meal.name, 'aria-labelledby': undefined })}
         data-meal-surface={surface}
         // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
         style={hue === null ? undefined : mealHueStyle(hue)}
@@ -204,23 +213,29 @@ export function CookViewDialog({
               onError={setBrokenUrl}
             />
           ) : null,
-          // "My recipe" follows the name, as on the cards (HON-1023), so the
-          // dialog's title is the span inside the heading: the icon's label
-          // stays out of the dialog's accessible name.
+          // "My recipe" follows the name, as on the cards (HON-1023), in one
+          // `nowrap` span with the name's last word: the browser breaks
+          // before the icon's inline-flex box even after a no-break space,
+          // which left the icon alone on a line (HON-1469).
           // The wrapper sets `--font-bricolage` for the brand face: the dialog
           // portals to <body>, outside any element that sets it.
           title: (
             <div className={displayFont.variable}>
               <Heading ref={setTitleEl} variant="display" face="brand">
                 <DialogTitle asChild>
-                  <span>{meal.name}</span>
+                  {nameParts ? (
+                    <span>
+                      {nameParts[1]}
+                      <span className="whitespace-nowrap">
+                        {nameParts[2]}
+                        {'\u00a0'}
+                        <MyRecipeIcon size="lg" />
+                      </span>
+                    </span>
+                  ) : (
+                    <span>{meal.name}</span>
+                  )}
                 </DialogTitle>
-                {meal.isCustom && (
-                  <>
-                    {' '}
-                    <MyRecipeIcon size="lg" />
-                  </>
-                )}
               </Heading>
               {belowTitle}
             </div>

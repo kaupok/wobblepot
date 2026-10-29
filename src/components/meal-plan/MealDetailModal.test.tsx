@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -181,17 +181,18 @@ describe('MealDetailModal cook view shell (HON-932)', () => {
     )
   })
 
-  it('marks an own recipe after the title, outside the dialog name (HON-1023)', () => {
+  it('marks an own recipe after the title, outside the dialog name (HON-1023, HON-1469)', () => {
     renderModal(vi.fn(), true, { ...meal, isCustom: true })
+    // The dialog's name is the meal name alone, without "My recipe".
     const dialog = screen.getByRole('dialog', { name: 'Lentil soup' })
-    const titleId = dialog.getAttribute('aria-labelledby')!
-    const title = document.getElementById(titleId)!
-    expect(title).toHaveTextContent(/^Lentil soup$/)
     const icon = screen.getByRole('button', { name: 'My recipe' })
     expect(icon).toHaveAttribute('data-size', 'icon-display')
-    expect(title).not.toContainElement(icon)
-    // The icon follows the name inside the heading, joined by a no-break space.
-    const heading = title.parentElement!
+    // The icon holds on to the last word: one nowrap span, joined by a
+    // no-break space, so it never wraps onto a line by itself.
+    const glue = icon.parentElement!
+    expect(glue).toHaveClass('whitespace-nowrap')
+    expect(glue.textContent).toBe('soup\u00a0')
+    const heading = within(dialog).getByRole('heading', { name: /^Lentil soup/ })
     expect(heading).toHaveAttribute('data-variant', 'display')
     expect(heading).toContainElement(icon)
     expect(heading.textContent).toBe('Lentil soup\u00a0')
