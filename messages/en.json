@@ -1589,7 +1589,7 @@
       "allergensAiNotice": "Allergens you tick here are sent to our AI provider so meal plans avoid them. See the <privacy>privacy policy</privacy> for details.",
       "restrictionsLabel": "Notes for the AI (optional)",
       "restrictionsPlaceholder": "e.g., Less salt for the kids. Favour high-protein dishes.",
-      "restrictionsHelp": "The AI follows these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Swap, the recipe list and a connected assistant's plan_meal do not check them. To keep an ingredient out of every meal, add it to Ingredients to avoid.",
+      "restrictionsHelp": "The AI follows these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Swap, the recipe list and meals a connected assistant plans do not check them. To keep an ingredient out of every meal, add it to Ingredients to avoid.",
       "excludedLabel": "Ingredients to avoid (optional)",
       "excludedPlaceholder": "e.g., cilantro, mushrooms",
       "excludedMatchesLabel": "What each ingredient to avoid excludes",
