@@ -2,20 +2,15 @@ import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toDateString } from '@/lib/meal-planning/dates'
+import { setCatalogLocale } from '@/test/catalog-translator'
 
 import enMessages from '../../../messages/en.json'
-import PastMealsPage from './page'
+import PastMealsPage, { generateMetadata } from './page'
 
-// Resolve `getTranslations('pastMeals')` → (key) → en.json.pastMeals[key].
-vi.mock('next-intl/server', () => ({
+// The real catalogs, in the locale `setCatalogLocale` picks (English by default).
+vi.mock('next-intl/server', async () => ({
   getLocale: vi.fn(async () => 'en'),
-  getTranslations: vi.fn(async (namespace: string) => {
-    let cursor: unknown = enMessages
-    for (const segment of namespace.split('.')) {
-      cursor = (cursor as Record<string, unknown>)?.[segment]
-    }
-    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
-  }),
+  getTranslations: vi.fn((await import('@/test/catalog-translator')).catalogTranslator),
 }))
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
@@ -231,5 +226,17 @@ describe('PastMealsPage', () => {
     render(await page())
 
     expect(screen.getByText(enMessages.pastMeals.empty)).toBeInTheDocument()
+  })
+})
+
+describe('PastMealsPage generateMetadata', () => {
+  afterEach(() => setCatalogLocale('en'))
+
+  it.each([
+    ['en', 'Past meals'],
+    ['et', 'Möödunud toidud'],
+  ] as const)('names the tab for a %s household', async (locale, title) => {
+    setCatalogLocale(locale)
+    expect(await generateMetadata()).toEqual({ title })
   })
 })

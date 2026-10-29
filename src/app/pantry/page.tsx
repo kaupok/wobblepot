@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
+
 import { InventoryPage } from '@/components/inventory/InventoryPage'
 
 import { loadInventory } from '../shopping/load-inventory'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('pantry')
+  return { title: t('metaTitle') }
+}
 
 interface PantryPageProps {
   searchParams: Promise<{ days?: string }>

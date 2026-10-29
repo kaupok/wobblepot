@@ -105,7 +105,8 @@
       "errorHeading": "Midagi läks valesti",
       "errorBody": "Poenimekirja ei õnnestunud laadida. Palun proovi uuesti.",
       "errorCta": "Mine avalehele"
-    }
+    },
+    "metaTitle": "Poenimekiri"
   },
   "pantry": {
     "ingredientCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}",
@@ -151,7 +152,8 @@
       "removed": "„{name}\" eemaldati sahvrist",
       "added": "„{name}\" lisati sahvrisse"
     },
-    "alreadyInPantry": "„{name}\" on juba sinu sahvris"
+    "alreadyInPantry": "„{name}\" on juba sinu sahvris",
+    "metaTitle": "Sahver"
   },
   "today": {
     "pageTitle": "Söögiplaan",
@@ -689,7 +691,8 @@
       "noMatch": "Ükski retsept ei vasta otsingule „{query}“.",
       "saveFailed": "Toitu ei õnnestunud salvestada. Palun proovi uuesti.",
       "cancel": "Tühista"
-    }
+    },
+    "metaTitle": "Möödunud toidud"
   },
   "recipes": {
     "metaTitle": "Minu retseptid",
@@ -744,7 +747,8 @@
         "imagineTimeout": "Toiduideede koostamine võttis liiga kaua aega. Palun proovi uuesti.",
         "imagineNoSafeMeals": "Ükski idee ei sobinud sinu leibkonna allergiate ja toitumisviisiga. Proovi kirjeldada mõnda teist rooga.",
         "generationDisabled": "Toiduideede koostamine on praegu välja lülitatud. Palun proovi hiljem uuesti."
-      }
+      },
+      "metaTitle": "Mõtle välja toit"
     },
     "import": {
       "title": "Lisa retsept",
@@ -792,12 +796,14 @@
         "photoNoRecipe": "Fotolt ei leidnud retsepti. Toidu foto põhjal ideede saamiseks kasuta <link>Mõtle välja toit</link>.",
         "parseTimeout": "Retsepti lugemine võttis liiga kaua aega. Palun proovi uuesti.",
         "providerUnavailable": "Retseptiteenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti."
-      }
+      },
+      "metaTitle": "Lisa retsept"
     },
     "edit": {
       "mealNotFound": "Retsepti ei leitud",
       "loadFailed": "Retsepti laadimine ebaõnnestus",
-      "backToRecipes": "Tagasi retseptide juurde"
+      "backToRecipes": "Tagasi retseptide juurde",
+      "metaTitle": "Muuda retsepti"
     },
     "form": {
       "titleEdit": "Muuda retsepti",
@@ -877,7 +883,8 @@
         "aria": "Otsi lisatavaid koostisosi",
         "noResults": "Koostisosi ei leitud",
         "added": "Lisatud"
-      }
+      },
+      "metaTitleCreate": "Loo retsept"
     },
     "ingredientRow": {
       "removeAria": "Eemalda koostisosa",
@@ -1997,7 +2004,8 @@
       "createFailed": "Leibkonna loomine ei õnnestunud. Proovi uuesti."
     },
     "reminderOptIn": "Saada mulle pühapäeviti e-kiri, kui järgmine nädal on veel planeerimata",
-    "reminderOptInConfirmNote": "Saadame sulle kõigepealt e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud ja kinnitanud."
+    "reminderOptInConfirmNote": "Saadame sulle kõigepealt e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud ja kinnitanud.",
+    "metaTitle": "Tere tulemast"
   },
   "enums": {
     "MealType": {

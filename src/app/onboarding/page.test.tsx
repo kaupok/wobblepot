@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import OnboardingPage from './page'
+import { setCatalogLocale } from '@/test/catalog-translator'
+
+import OnboardingPage, { generateMetadata } from './page'
+
+vi.mock('next-intl/server', async () => ({
+  getTranslations: vi.fn((await import('@/test/catalog-translator')).catalogTranslator),
+}))
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -102,5 +108,17 @@ describe('OnboardingPage', () => {
     await expect(OnboardingPage(props())).rejects.toThrow(
       'NEXT_REDIRECT:/sign-in?returnUrl=/onboarding',
     )
+  })
+})
+
+describe('OnboardingPage generateMetadata', () => {
+  afterEach(() => setCatalogLocale('en'))
+
+  it.each([
+    ['en', 'Welcome'],
+    ['et', 'Tere tulemast'],
+  ] as const)('names the tab for a %s household', async (locale, title) => {
+    setCatalogLocale(locale)
+    expect(await generateMetadata()).toEqual({ title })
   })
 })

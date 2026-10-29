@@ -1,5 +1,7 @@
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 
 import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
 import { auth } from '@/lib/auth'
@@ -7,6 +9,11 @@ import { parseVerificationLanding } from '@/lib/email-verification'
 import { getHouseholdMembership } from '@/lib/household'
 
 import { OnboardingFlow } from './OnboardingFlow'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('onboarding')
+  return { title: t('metaTitle') }
+}
 
 export default async function OnboardingPage({
   searchParams,
