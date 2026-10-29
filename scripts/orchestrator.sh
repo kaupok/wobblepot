@@ -40,11 +40,12 @@ PID_FILE="$WORKTREE_BASE/orchestrator.pid"
 LINEAR_API_URL="https://api.linear.app/graphql"
 # The code this process is running, for reload_if_code_changed's fingerprint.
 # Only files bash has READ into this process belong here: this script and
-# anything it sources at load time (models.sh, orchestrator-deferred.sh).
+# anything it sources at load time (models.sh, orchestrator-deferred.sh,
+# orchestrator-reload.sh).
 # worktree-claude.sh is not one:
 # spawn_worker runs it as a fresh process per worker, so it is always current.
 # A new `source` line must add its file here — orchestrator.loop.test.ts pins that.
-ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh" "$SCRIPT_DIR/orchestrator-deferred.sh")
+ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh" "$SCRIPT_DIR/orchestrator-deferred.sh" "$SCRIPT_DIR/orchestrator-reload.sh")
 # The workflow's model IDs; this script reads TRIAGE_MODEL and TRIAGE_EFFORT
 # (HON-730), and AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL for a `Small` issue
 # (HON-1193).
@@ -53,6 +54,9 @@ source "$SCRIPT_DIR/models.sh"
 # Outcomes that wait for GitHub and Linear to answer (HON-1414).
 # shellcheck source=./orchestrator-deferred.sh
 source "$SCRIPT_DIR/orchestrator-deferred.sh"
+# The code reload and its worker handoff (HON-861, HON-1457).
+# shellcheck source=./orchestrator-reload.sh
+source "$SCRIPT_DIR/orchestrator-reload.sh"
 
 # Linear workflow state IDs (Honkadori workspace)
 STATE_BACKLOG="035a5cef-88de-4334-98a0-b908f61d26a7"
@@ -225,7 +229,8 @@ CAP_REQUEUE_COOLDOWN="${ORCHESTRATOR_CAP_REQUEUE_COOLDOWN:-1800}"
 # version that failed `bash -n`, so its WARN is logged once rather than every
 # poll, and RELOAD_HELD_FINGERPRINT the last one held back for not being
 # committed on main (logged once the same way). RELOAD_PENDING is true while a
-# loadable change waits for running workers to finish; the spawn gate claims
+# loadable change waits for running workers to finish, which happens only when
+# the new code refuses the worker handoff (HON-1457); the spawn gate claims
 # nothing meanwhile, or a busy queue would never let the count reach 0.
 # RELOADED is true in an image started by reload_if_code_changed.
 RELOADED=false
@@ -243,13 +248,13 @@ CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 # What runs out of the main checkout: this script, the worktree-claude.sh it
 # spawns every worker through, every file either of them sources (models.sh,
-# orchestrator-deferred.sh, and worktree-claude.sh's worktree-auto-run.sh,
+# orchestrator-deferred.sh, orchestrator-reload.sh, and worktree-claude.sh's worktree-auto-run.sh,
 # wt-stop-check.sh and e2e-branch-liveness.sh), and the repo-node-bin.sh both
 # of them run to pick the .nvmrc Node (HON-1307). checkout-code-paths.test.ts
 # fails when a sourced file is missing here (HON-1416). Everything else under
 # scripts/ runs from the worker's own worktree, which branches from a fresh
 # origin/main, so a commit there leaves nothing stale to warn about.
-CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh scripts/orchestrator-deferred.sh scripts/worktree-auto-run.sh scripts/wt-stop-check.sh scripts/e2e-branch-liveness.sh .claude/hooks/repo-node-bin.sh)
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh scripts/orchestrator-deferred.sh scripts/orchestrator-reload.sh scripts/worktree-auto-run.sh scripts/wt-stop-check.sh scripts/e2e-branch-liveness.sh .claude/hooks/repo-node-bin.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_CODE=0
@@ -513,7 +518,8 @@ rotate_logs() {
 
   # Prune worker logs older than the retention window. Each worker gets its own
   # file (spawn_worker), so without this the directory grows without bound.
-  find "$LOG_DIR" -maxdepth 1 -name 'worker-*.log' -type f \
+  # worker-*.log* also takes a .exit file a stopped run left unread.
+  find "$LOG_DIR" -maxdepth 1 -name 'worker-*.log*' -type f \
     -mtime "+${WORKER_LOG_MAX_AGE_DAYS}" -delete 2>/dev/null || true
 }
 
@@ -529,6 +535,9 @@ ORCHESTRATOR_START_TIME=""
 LAST_LOOP_AT=""
 
 write_status_file() {
+  # started_at: BSD `date -r <epoch>` first, then GNU `date -d @<epoch>`,
+  # where `-r` names a file. Without the second, Linux showed every worker,
+  # adopted ones too, as started now (HON-1457).
   local workers_json="[]"
 
   if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
@@ -541,7 +550,8 @@ write_status_file() {
         --arg title "${WORKER_TITLES[$i]}" \
         --argjson pid "${WORKER_PIDS[$i]}" \
         --arg branch "${WORKER_BRANCHES[$i]}" \
-        --arg started_at "$(date -r "${WORKER_START_TIMES[$i]}" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+        --arg started_at "$(date -r "${WORKER_START_TIMES[$i]}" -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+          || date -u -d "@${WORKER_START_TIMES[$i]}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" \
         --arg log_file "${WORKER_LOGS[$i]}" \
         --argjson retried "$([ "${WORKER_RETRIED[$i]}" = "1" ] && echo true || echo false)" \
         '{issue: $issue, title: $title, pid: $pid, branch: $branch, started_at: $started_at, log_file: $log_file, retried: $retried}')
@@ -993,9 +1003,19 @@ spawn_worker() {
   # retry's prompt (HON-728). It is set on EVERY spawn, empty on a first
   # attempt, so a value inherited from the operator's shell can never dress a
   # first attempt up as a retry.
-  ORCHESTRATOR_MAX_WORKERS="$MAX_WORKERS" NEON_BRANCH_CAP="$NEON_BRANCH_CAP" \
-    ORCHESTRATOR_RETRY_CONTEXT="$retry_context" \
-    "$SCRIPT_DIR/worktree-claude.sh" auto ${tier_args[@]+"${tier_args[@]}"} "$wt_arg" > "$log_file" 2>&1 &
+  #
+  # The subshell writes the exit code next to the log, because a reload execs
+  # this process and the new image cannot `wait` for a child it did not start
+  # (HON-1457). $! is the subshell; kill_process_tree reaches the worker below.
+  # `|| rc=$?`, because the subshell inherits `set -e`, which would end it on a
+  # non-zero exit before the write.
+  (
+    rc=0
+    ORCHESTRATOR_MAX_WORKERS="$MAX_WORKERS" NEON_BRANCH_CAP="$NEON_BRANCH_CAP" \
+      ORCHESTRATOR_RETRY_CONTEXT="$retry_context" \
+      "$SCRIPT_DIR/worktree-claude.sh" auto ${tier_args[@]+"${tier_args[@]}"} "$wt_arg" || rc=$?
+    echo "$rc" > "$log_file.exit"
+  ) > "$log_file" 2>&1 &
   local pid=$!
 
   WORKER_PIDS+=("$pid")
@@ -1079,9 +1099,14 @@ monitor_workers() {
         finished=true
       fi
     else
-      # Process exited
-      local exit_code=0
-      wait "$pid" 2>/dev/null || exit_code=$?
+      # Process exited. The code comes from spawn_worker's exit file, because
+      # a worker adopted across a reload is not in this image's job table, so
+      # `wait` cannot report it (HON-1457). No file is a death before the
+      # write: an error exit, so handle_error_exit's stranding checks run.
+      # `wait` still runs, to clear an own child's job entry.
+      local exit_code=1
+      wait "$pid" 2>/dev/null || true
+      read_exit_file "$log_file"
 
       if [ "$exit_code" -eq 0 ]; then
         log INFO "Worker $issue_id (PID $pid) exited cleanly (exit 0)"
@@ -1112,6 +1137,16 @@ monitor_workers() {
     j=$((j - 1))
     remove_worker "${to_remove[$j]}"
   done
+}
+
+# Set exit_code from $1.exit, written by spawn_worker's subshell, and delete
+# the file. Leaves exit_code alone when the file is missing or not a number.
+read_exit_file() {
+  local code=""
+  code=$(cat "$1.exit" 2>/dev/null) || code=""
+  [[ "$code" =~ ^[0-9]+$ ]] && exit_code="$code"
+  rm -f "$1.exit"
+  return 0
 }
 
 # ─── Report worker status ────────────────────────────────────────────────
@@ -3226,200 +3261,8 @@ validate_environment() {
   fi
 }
 
-# ─── Code reload and checkout freshness (HON-861) ────────────────────────────
-# The orchestrator runs for days and merges changes to its own code, but bash
-# loads a script once: on 2026-09-30 it spent a day polling Todo after PR #931
-# had switched it to Queued, because nobody ran `wt stop` / `wt start`. So an
-# idle poll re-execs the script when the code on disk has changed, and warns
-# when the checkout it runs from is behind origin/main — the pull that makes a
-# merged fix reach the disk is still a human's to make.
-
-# A checksum of ORCHESTRATOR_CODE_FILES, or nothing when one is unreadable (a
-# checkout mid-switch), which callers treat as "not now". cksum because it is
-# POSIX: macOS and Linux spell every sha tool differently.
-code_fingerprint() {
-  local f
-  for f in "${ORCHESTRATOR_CODE_FILES[@]}"; do
-    [ -r "$f" ] || return 0
-  done
-  cat "${ORCHESTRATOR_CODE_FILES[@]}" 2>/dev/null | cksum | awk '{print $1 "-" $2}' || true
-}
-
-# The exec itself, alone in a function so the test harness can observe a reload
-# without replacing its own process.
-reload_exec() {
-  exec "$@"
-}
-
-# True when every code file is tracked, unmodified, and checked out on `main`.
-# The main checkout is also the operator's working copy, so what is on disk
-# there may be a half-finished edit or another branch; only committed main is
-# code this process should pick up unattended. Each file is asked from its own
-# directory, so an absolute path never has to match git's view of the toplevel
-# (macOS /var vs /private/var).
-code_is_committed_main() {
-  local f dir name
-  for f in "${ORCHESTRATOR_CODE_FILES[@]}"; do
-    dir=$(dirname "$f"); name=$(basename "$f")
-    [ "$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)" = main ] || return 1
-    git -C "$dir" ls-files --error-unmatch -- "$name" >/dev/null 2>&1 || return 1
-    git -C "$dir" diff --quiet HEAD -- "$name" >/dev/null 2>&1 || return 1
-  done
-  return 0
-}
-
-# Re-exec this script in place when its code on disk differs from what this
-# process loaded. Called on every poll. It execs only when idle, because
-# WORKER_PIDS and the per-worker arrays exist only in memory and a new image
-# would lose track of running workers. With workers running it sets
-# RELOAD_PENDING instead, and the spawn gate stops claiming so the count can
-# actually reach 0: the loop refills a freed slot in the same poll, so under a
-# busy queue "wait for idle" alone would wait forever. `--once` never reloads.
-#
-# Only code committed on main is loaded (code_is_committed_main), and only code
-# that passes `bash -n`. Neither refusal blocks claims.
-#
-# exec keeps the PID, so orchestrator.pid, `wt stop` and the nohup redirections
-# from cmd_start stay valid; acquire_lock accepts its own PID. Bash does not run
-# the EXIT trap on exec, so the lock and status file survive, and the one thing
-# that would leak — SEEN_SKIPS_FILE, which the new image re-creates — is removed
-# here first.
-#
-# Breaker state is CARRIED across, not a reason to skip the reload: skipping only
-# while the breaker is engaged would still zero a counter sitting at 2, and a
-# fault that fails every issue would then never trip it. So CONSECUTIVE_FAILURES
-# and PAUSED_UNTIL travel in ORCHESTRATOR_RELOAD_* variables, with the other
-# state a restart would lose and a reload should not: GATED_ISSUES and
-# CAP_REQUEUED_ISSUES (they bound retry loops), the start time (`wt watch`'s run
-# window) and the last behind-origin WARN. restore_reload_state reads them back.
-reload_if_code_changed() {
-  [ "$RUN_ONCE" = true ] && return 0
-  [ "$SHUTTING_DOWN" = true ] && return 0
-  [ -n "$CODE_FINGERPRINT" ] || return 0
-
-  local new_fp=""
-  new_fp=$(code_fingerprint) || new_fp=""
-  if [ -z "$new_fp" ] || [ "$new_fp" = "$CODE_FINGERPRINT" ] \
-     || [ "$new_fp" = "$RELOAD_REJECTED_FINGERPRINT" ]; then
-    RELOAD_PENDING=false
-    return 0
-  fi
-
-  # Not held for good: committing the same content later must still reload,
-  # so this only rate-limits the log line.
-  if ! code_is_committed_main; then
-    RELOAD_PENDING=false
-    if [ "$new_fp" != "$RELOAD_HELD_FINGERPRINT" ]; then
-      RELOAD_HELD_FINGERPRINT="$new_fp"
-      log INFO "Orchestrator code changed on disk but is not committed on main; not reloading it (loaded $CODE_FINGERPRINT, on disk $new_fp)"
-    fi
-    return 0
-  fi
-
-  # A reload that cannot start must not replace code that runs. One WARN per
-  # rejected version; the next edit gets its own check.
-  local f bad=""
-  for f in "${ORCHESTRATOR_CODE_FILES[@]}"; do
-    "$BASH" -n "$f" 2>/dev/null || bad+="${bad:+, }$(basename "$f")"
-  done
-  if [ -n "$bad" ]; then
-    RELOAD_PENDING=false
-    RELOAD_REJECTED_FINGERPRINT="$new_fp"
-    log WARN "Orchestrator code changed on disk but fails bash -n ($bad); keeping the running code (loaded $CODE_FINGERPRINT, on disk $new_fp)"
-    return 0
-  fi
-
-  if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
-    if [ "$RELOAD_PENDING" != true ]; then
-      log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); claiming nothing new until ${#WORKER_PIDS[@]} running worker(s) finish, then reloading"
-    fi
-    RELOAD_PENDING=true
-    return 0
-  fi
-
-  # bash -n passing says nothing about a file that changed again while it ran
-  # (a pull still writing). Wait for the next poll rather than exec a moving target.
-  local settled_fp=""
-  settled_fp=$(code_fingerprint) || settled_fp=""
-  [ "$settled_fp" = "$new_fp" ] || return 0
-
-  # The check at the top ran before the fingerprint and `bash -n` calls, and a
-  # signal that lands during them only sets the flag. The new image starts with
-  # it cleared, so exec'ing now would lose the signal (HON-1067).
-  [ "$SHUTTING_DOWN" = true ] && return 0
-
-  log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); reloading in place (PID $$)"
-
-  export ORCHESTRATOR_RELOAD_FINGERPRINT="$CODE_FINGERPRINT"
-  export ORCHESTRATOR_RELOAD_START_TIME="$ORCHESTRATOR_START_TIME"
-  export ORCHESTRATOR_RELOAD_FAILURES="$CONSECUTIVE_FAILURES"
-  export ORCHESTRATOR_RELOAD_PAUSED_UNTIL="$PAUSED_UNTIL"
-  export ORCHESTRATOR_RELOAD_GATED="$GATED_ISSUES"
-  export ORCHESTRATOR_RELOAD_CAP_REQUEUED="$CAP_REQUEUED_ISSUES"
-  export ORCHESTRATOR_RELOAD_CHECKOUT_WARNED="$CHECKOUT_WARNED_SHA"
-  export_deferred_state
-  rm -f "$SEEN_SKIPS_FILE"
-
-  # execfail: without it a failed exec kills a non-interactive shell outright,
-  # which is the one outcome this function exists to rule out.
-  local rc=0
-  shopt -s execfail
-  reload_exec "$BASH" "$SCRIPT_DIR/orchestrator.sh" ${ORCHESTRATOR_ARGS[@]+"${ORCHESTRATOR_ARGS[@]}"} || rc=$?
-  shopt -u execfail
-
-  # Only reached when the exec failed: carry on as the old image.
-  unset ORCHESTRATOR_RELOAD_FINGERPRINT ORCHESTRATOR_RELOAD_START_TIME ORCHESTRATOR_RELOAD_FAILURES \
-    ORCHESTRATOR_RELOAD_PAUSED_UNTIL ORCHESTRATOR_RELOAD_GATED ORCHESTRATOR_RELOAD_CAP_REQUEUED \
-    ORCHESTRATOR_RELOAD_CHECKOUT_WARNED ORCHESTRATOR_RELOAD_DEFERRED ORCHESTRATOR_RELOAD_NETWORK_RESPAWNED
-  SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX") || SEEN_SKIPS_FILE=/dev/null
-  RELOAD_REJECTED_FINGERPRINT="$new_fp"
-  RELOAD_PENDING=false
-  log ERROR "Reload failed (exec exit $rc); keeping the running code until the next change on disk"
-  return 0
-}
-
-# In an image started by reload_if_code_changed, take back the state the old
-# image handed over, then drop the variables so no worker inherits them. A value
-# that is not what the old image would have written is ignored, leaving the
-# fresh-start default.
-restore_reload_state() {
-  [ -n "${ORCHESTRATOR_RELOAD_FINGERPRINT:-}" ] || return 0
-  RELOADED=true
-
-  local previous="$ORCHESTRATOR_RELOAD_FINGERPRINT"
-  if [[ "${ORCHESTRATOR_RELOAD_FAILURES:-}" =~ ^[0-9]+$ ]]; then
-    CONSECUTIVE_FAILURES="$ORCHESTRATOR_RELOAD_FAILURES"
-  fi
-  if [[ "${ORCHESTRATOR_RELOAD_PAUSED_UNTIL:-}" =~ ^[0-9]+$ ]]; then
-    PAUSED_UNTIL="$ORCHESTRATOR_RELOAD_PAUSED_UNTIL"
-  fi
-  GATED_ISSUES="${ORCHESTRATOR_RELOAD_GATED:-}"
-  CAP_REQUEUED_ISSUES="${ORCHESTRATOR_RELOAD_CAP_REQUEUED:-}"
-  CHECKOUT_WARNED_SHA="${ORCHESTRATOR_RELOAD_CHECKOUT_WARNED:-}"
-  ORCHESTRATOR_START_TIME="${ORCHESTRATOR_RELOAD_START_TIME:-}"
-  restore_deferred_state
-
-  unset ORCHESTRATOR_RELOAD_FINGERPRINT ORCHESTRATOR_RELOAD_START_TIME ORCHESTRATOR_RELOAD_FAILURES \
-    ORCHESTRATOR_RELOAD_PAUSED_UNTIL ORCHESTRATOR_RELOAD_GATED ORCHESTRATOR_RELOAD_CAP_REQUEUED \
-    ORCHESTRATOR_RELOAD_CHECKOUT_WARNED
-
-  log INFO "Reloaded from $previous: circuit breaker failures=$CONSECUTIVE_FAILURES paused_until=$PAUSED_UNTIL, gated=[${GATED_ISSUES}] cap_requeued=[${CAP_REQUEUED_ISSUES}] deferred=${#DEFERRED[@]}"
-}
-
-# Only reachable after a reload: on a first start validate_environment exits.
-wait_for_environment() {
-  while true; do
-    log WARN "Reloaded code failed environment validation; retrying in ${POLL_INTERVAL}s instead of exiting"
-    interruptible_sleep "$POLL_INTERVAL"
-    # A reload only happens with no worker running, so there is nothing to wait
-    # for or drain: a signal here ends the run.
-    if [ "$SHUTTING_DOWN" = true ]; then
-      log INFO "═══ Orchestrator stopped ═══"
-      exit 0
-    fi
-    validate_environment && return 0
-  done
-}
+# ─── Checkout freshness (HON-861) ────────────────────────────────────────────
+# The code reload itself is in orchestrator-reload.sh.
 
 # Why check_checkout_behind must not fast-forward the checkout; prints nothing
 # when it may. Each reason is a session's work in progress there, which a pull
@@ -3537,7 +3380,7 @@ check_checkout_behind() {
   CHECKOUT_NOT_PULLED="$blocker"
   if [ "$origin_sha" != "$CHECKOUT_WARNED_SHA" ]; then
     CHECKOUT_WARNED_SHA="$origin_sha"
-    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Not pulled: $blocker. Clear that, and the next poll pulls $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
+    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Not pulled: $blocker. Clear that, and the next poll pulls $REPO_ROOT and reloads the orchestrator"
   fi
   return 0
 }
@@ -3577,7 +3420,8 @@ log_poll_summary() {
 # did not take the drain branch. The main loop clears it on such a pass.
 LAST_DRAIN_COUNT=""
 
-# Log the drain line when a reload starts to wait, and again only when the
+# Log the drain line when a reload starts to wait (only when the new code
+# refused the worker handoff, HON-1457), and again only when the
 # running worker count changes. reload_if_code_changed logs the INFO line that
 # marks the start; this line reports each change of the count.
 #
@@ -3666,9 +3510,10 @@ main() {
   # fails on an arbitrary issue an hour later (HON-616).
   #
   # A reload runs this gate again with the same flags, so it can only refuse
-  # there if the new code changed the rule itself — and then exiting loudly is
-  # the right answer, not a silent retry loop (HON-861).
-  check_branch_budget || exit 1
+  # there if the new code changed the rule itself — and then stopping loudly is
+  # the right answer, not a silent retry loop (HON-861). With adopted workers
+  # it stops once they finish, not at once (HON-1457).
+  check_branch_budget || exit_unless_adopted "The branch budget refused the reloaded code"
 
   validate_environment || wait_for_environment
   fetch_team_uuid
@@ -3712,10 +3557,11 @@ main() {
       report_worker_status
     fi
 
-    # Before the spawn gate: an idle poll is the one point where the process
-    # may replace itself with the code on disk, and with workers running this
-    # sets RELOAD_PENDING so the gate below stops refilling their slots. Both
-    # check the --once and shutdown conditions themselves (HON-861).
+    # Before the spawn gate: this is the one point where the process may
+    # replace itself with the code on disk, handing its workers to the new
+    # image. When the new code refuses the handoff, this sets RELOAD_PENDING
+    # so the gate below stops refilling their slots (HON-1457). Both check the
+    # --once and shutdown conditions themselves (HON-861).
     reload_if_code_changed
     check_checkout_behind
 

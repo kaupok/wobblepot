@@ -322,7 +322,7 @@ describe('keep the main checkout current (HON-861, HON-1427)', () => {
           checkout: { behind: 3, behind_code: 2, origin_main: 'abcd1234', checked_at: 'x' },
         }),
       ).toBe(
-        'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish',
+        'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself on its next poll',
       )
     })
 

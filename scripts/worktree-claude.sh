@@ -1288,7 +1288,7 @@ checkout_behind_notice() {
     | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_code) changing orchestrator.sh or worktree-claude.sh"
       + (if (.not_pulled // "") != ""
          then ", not pulled: \(.not_pulled). Clear that, and the orchestrator pulls it on its next poll"
-         else ": pull it, and the orchestrator reloads itself once its running workers finish" end)
+         else ": pull it, and the orchestrator reloads itself on its next poll" end)
   ' 2>/dev/null || true
 }
 

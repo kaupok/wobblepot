@@ -28,7 +28,7 @@
 5874 scripts/neon-cleanup.sh
 24962 scripts/orchestrator-outcome-harness.sh
 7876 scripts/orchestrator.failure.test.ts
-13845 scripts/orchestrator.loop.test.ts
+13640 scripts/orchestrator.loop.test.ts
 11319 scripts/orchestrator.neon.test.ts
 13221 scripts/orchestrator.outcomes.test.ts
 7097 scripts/orchestrator.phase.test.ts

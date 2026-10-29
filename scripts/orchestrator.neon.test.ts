@@ -599,7 +599,7 @@ describe('orchestrator.sh', () => {
       // "Orchestrator started". Being a race, it would refuse loudly on a slow
       // API day and silently on a fast one.
       const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
-      const gate = body.indexOf('check_branch_budget || exit 1')
+      const gate = body.indexOf('check_branch_budget || exit_unless_adopted')
       const validate = body.indexOf('\n  validate_environment')
       const fetchTeam = body.indexOf('\n  fetch_team_uuid')
       // write_status_file would otherwise run `jq --argjson max_workers "abc"`
@@ -618,7 +618,9 @@ describe('orchestrator.sh', () => {
       // the harness can drive.
       const source = fs.readFileSync(orchestrator, 'utf8')
 
-      expect(shellFunctionBody(source, 'main')).toContain('check_branch_budget || exit 1')
+      expect(shellFunctionBody(source, 'main')).toContain(
+        'check_branch_budget || exit_unless_adopted',
+      )
       expect(shellFunctionBody(source, 'main')).toContain('neon_branch_cap=$NEON_BRANCH_CAP')
     })
 

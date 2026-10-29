@@ -108,6 +108,26 @@ describe('stop_drain_orphans', () => {
     expect(run('stop_drain_orphans "$1"', {}, [`HON-1\t${pid}`]).out).toBe(`HON-1\t${pid}\n`)
   })
 
+  it("lists the wt auto shell under spawn_worker's exit-code wrapper, by the shell's PID", () => {
+    // The wrapper is a forked subshell, so its command names no claude (HON-1457).
+    const wrapper = spawn('bash', ['-c', 'exec -a "$WT" sleep 30 & wait'], {
+      env: { ...process.env, WT: worktreeClaude },
+      stdio: 'ignore',
+    })
+    children.push(wrapper)
+    let shell = ''
+    for (let i = 0; i < 50 && !shell; i++) {
+      shell = spawnSync('pgrep', ['-P', String(wrapper.pid)], { encoding: 'utf8' }).stdout.trim()
+      if (!shell) spawnSync('sleep', ['0.1'])
+    }
+    strays.push(Number(shell))
+
+    // The printed PID is the one the hint's `pkill -P` must take to reach claude.
+    expect(run('stop_drain_orphans "$1"', {}, [`HON-1\t${wrapper.pid}`]).out).toBe(
+      `HON-1\t${shell}\n`,
+    )
+  })
+
   it('skips a PID that now runs a different command', () => {
     const pid = start('sleep')
 

@@ -17,16 +17,23 @@ stop_drain_snapshot() {
 
 # The snapshot lines whose PID still runs `claude`. Checks the command, not only
 # the PID, so a PID the system gave to a new process does not count. The PID is
-# the `wt auto` shell (`worktree-claude.sh auto`), which matches, and `claude`
-# runs as its child so the shell can continue it after a network drop
-# (HON-1413).
+# spawn_worker's exit-code wrapper (HON-1457): a forked subshell, so `ps` shows
+# the orchestrator's own command. Its child is the `wt auto` shell
+# (`worktree-claude.sh auto`), which matches, so that child's PID is printed,
+# and `claude` runs as the child's child so the shell can continue it after a
+# network drop (HON-1413). A PID that matches itself is printed as is: a worker
+# from before the wrapper.
 stop_drain_orphans() {
-  local issue pid cmd
+  local issue pid cmd child
   while IFS=$'\t' read -r issue pid; do
     [ -z "$pid" ] && continue
     cmd=$(ps -p "$pid" -o command= 2>/dev/null) || continue
     case "$cmd" in
       *claude*) printf '%s\t%s\n' "$issue" "$pid" ;;
+      *)
+        child=$(pgrep -P "$pid" -f claude 2>/dev/null | head -1) || child=""
+        if [ -n "$child" ]; then printf '%s\t%s\n' "$issue" "$child"; fi
+        ;;
     esac
   done <<< "$1"
 }
