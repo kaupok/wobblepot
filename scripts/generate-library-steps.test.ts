@@ -6,6 +6,7 @@ const meal = (overrides: Partial<StepsCandidate> = {}): StepsCandidate => ({
   id: 'meal-1',
   name: 'Beef Bibimbap',
   inputHashes: { en: 'hash-en', et: 'hash-et' },
+  servings: 4,
   preparationSteps: [],
   ...overrides,
 })
@@ -21,12 +22,27 @@ describe('selectWork', () => {
   it('rewrites a row written from other inputs, and keeps a fresh one', () => {
     const candidate = meal({
       preparationSteps: [
-        { locale: 'en', inputHash: 'hash-en-before-the-edit' },
-        { locale: 'et', inputHash: 'hash-et' },
+        { locale: 'en', servings: 4, inputHash: 'hash-en-before-the-edit' },
+        { locale: 'et', servings: 4, inputHash: 'hash-et' },
       ],
     })
     expect(selectWork([candidate], ['en', 'et'])).toEqual([
       { mealId: 'meal-1', name: 'Beef Bibimbap', locale: 'en', reason: 'stale' },
+    ])
+  })
+
+  it("checks only the row at the meal's own servings, not the cook view's other counts", () => {
+    const candidate = meal({
+      preparationSteps: [
+        // The cook view's rows at other counts (HON-1379): fresh-looking, but not the demo's.
+        { locale: 'en', servings: 2, inputHash: 'hash-en' },
+        { locale: 'en', servings: 6, inputHash: 'hash-en' },
+        { locale: 'et', servings: 2.5, inputHash: 'hash-et' },
+        { locale: 'et', servings: 4, inputHash: 'hash-et' },
+      ],
+    })
+    expect(selectWork([candidate], ['en', 'et'])).toEqual([
+      { mealId: 'meal-1', name: 'Beef Bibimbap', locale: 'en', reason: 'missing' },
     ])
   })
 

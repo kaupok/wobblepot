@@ -44,10 +44,10 @@ const findMany = vi.mocked(prisma.meal.findMany)
 const steps = JSON.stringify({ steps: ['Toast the bread'], pitfalls: [] })
 
 /** The hash the loader expects for a meal as `libraryMeal` builds it. */
-function hashFor(name: string, locale: 'en' | 'et') {
+function hashFor(name: string, locale: 'en' | 'et', servings = 4) {
   return stepsInputHash({
     mealName: name,
-    servings: 4,
+    servings,
     timeMinutes: 10,
     components: [
       { name: locale === 'et' ? 'Muna' : 'Egg', quantityPerServing: 2, defaultUnit: 'piece' },
@@ -273,6 +273,30 @@ describe('loadDemoDay', () => {
       imageStatus: 'ready',
       preparationSteps: { some: { locale: { in: ['en'] } } },
     })
+  })
+
+  it("shows the row at the meal's own servings when the cook view stored other counts", async () => {
+    // Rows at 2 and 6, fresh for their own counts, ahead of the row at 4 (HON-1379).
+    const atCount = (servings: number) => ({
+      locale: 'en',
+      servings,
+      steps: JSON.stringify({ steps: [`Steps for ${servings}`], pitfalls: [] }),
+      inputHash: hashFor('Avocado toast', 'en', servings),
+    })
+    findMany.mockResolvedValue(
+      pool.map((meal, index) =>
+        index === 0
+          ? { ...meal, preparationSteps: [atCount(2), atCount(6), ...meal.preparationSteps] }
+          : meal,
+      ) as never,
+    )
+
+    const day = await loadDemoDay({ locale: 'en', date: '2026-10-02' })
+
+    const breakfast = day!.meals[0]!
+    expect(breakfast.meal.name).toBe('Avocado toast')
+    expect(breakfast.steps.steps).toEqual(['Toast the bread'])
+    expect(breakfast.servings).toBe(4)
   })
 
   it('reads the visitor locale with English as the fallback', async () => {

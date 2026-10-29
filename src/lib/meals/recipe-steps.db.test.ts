@@ -72,13 +72,13 @@ async function refusalOf(promise: Promise<unknown>): Promise<RecipeStepsRefusal>
 
 /** Stores steps for the pasta as the route would, at `servings` in `locale`. */
 async function storeAt(alder: string, servings: number, locale = 'en') {
-  const meal = await loadRecipeForSteps(alder, 'meal-pasta', locale)
+  const meal = await loadRecipeForSteps(alder, 'meal-pasta', locale, servings)
   const { inputHash } = recipeStepsRequest(meal, locale, servings)
   await saveRecipeSteps({ mealId: 'meal-pasta', locale, servings, inputHash }, STEPS)
 }
 
 async function freshAt(alder: string, servings: number, locale = 'en') {
-  const meal = await loadRecipeForSteps(alder, 'meal-pasta', locale)
+  const meal = await loadRecipeForSteps(alder, 'meal-pasta', locale, servings)
   return freshRecipeSteps(meal, recipeStepsRequest(meal, locale, servings).inputHash)
 }
 
@@ -86,7 +86,7 @@ describe('loadRecipeForSteps', () => {
   it("loads the household's own recipe with its components", async () => {
     const { alder } = await world()
 
-    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en')
+    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en', 4)
 
     expect(meal.name).toBe('Pasta')
     expect(meal.components.map((c) => c.quantityPerServing)).toEqual([100])
@@ -95,7 +95,7 @@ describe('loadRecipeForSteps', () => {
   it('loads a library meal with its components (HON-1351)', async () => {
     const { alder } = await world()
 
-    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en')
+    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en', 4)
 
     expect(meal.name).toBe('Porridge')
     expect(meal.householdId).toBeNull()
@@ -105,16 +105,16 @@ describe('loadRecipeForSteps', () => {
   it("refuses another household's recipe, a deleted meal and an unknown id", async () => {
     const { alder } = await world()
 
-    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-stew', 'en'))).toBe('not_found')
-    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-soup', 'en'))).toBe('not_found')
-    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-gruel', 'en'))).toBe('not_found')
-    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-nothing', 'en'))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-stew', 'en', 4))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-soup', 'en', 4))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-gruel', 'en', 4))).toBe('not_found')
+    expect(await refusalOf(loadRecipeForSteps(alder, 'meal-nothing', 'en', 4))).toBe('not_found')
   })
 
   it('names the meal and its ingredients in the locale', async () => {
     const { alder } = await world()
 
-    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'et')
+    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'et', 4)
     const { input } = recipeStepsRequest(meal, 'et', 2)
 
     expect(input.mealName).toBe('Pasta eesti keeles')
@@ -130,7 +130,7 @@ describe('recipeStepsRequest', () => {
       data: { preparationNotes: 'Bake for 20 minutes.' },
     })
 
-    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en')
+    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en', 4)
 
     expect(recipeStepsRequest(meal, 'en', 2).notes).toBe('Bake for 20 minutes.')
   })
@@ -142,7 +142,7 @@ describe('recipeStepsRequest', () => {
       data: { preparationNotes: 'Stir often.' },
     })
 
-    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en')
+    const meal = await loadRecipeForSteps(alder, 'meal-porridge', 'en', 4)
     const { input, notes, inputHash } = recipeStepsRequest(meal, 'en', 2)
 
     expect(notes).toBeNull()
@@ -163,15 +163,41 @@ describe('saveRecipeSteps and freshRecipeSteps', () => {
     expect(await freshAt(alder, 2.5)).toEqual(STEPS)
   })
 
-  it('reads nothing at other servings, and a serving change replaces the row', async () => {
+  it('reads nothing at other servings, and keeps a row per serving count (HON-1379)', async () => {
     const { alder } = await world()
     await storeAt(alder, 2)
 
     expect(await freshAt(alder, 4)).toBeNull()
 
     await storeAt(alder, 4)
-    const rows = await prisma.mealPreparationSteps.findMany({ where: { mealId: 'meal-pasta' } })
-    expect(rows.map((row) => row.servings)).toEqual([4])
+    const rows = await prisma.mealPreparationSteps.findMany({
+      where: { mealId: 'meal-pasta', locale: 'en' },
+      orderBy: { servings: 'asc' },
+    })
+    expect(rows.map((row) => row.servings)).toEqual([2, 4])
+    expect(await freshAt(alder, 2)).toEqual(STEPS)
+    expect(await freshAt(alder, 4)).toEqual(STEPS)
+  })
+
+  it('loads only the row at the servings asked for', async () => {
+    const { alder } = await world()
+    await storeAt(alder, 2)
+    await storeAt(alder, 4)
+
+    const meal = await loadRecipeForSteps(alder, 'meal-pasta', 'en', 2)
+
+    expect(meal.preparationSteps).toHaveLength(1)
+    expect(meal.preparationSteps[0]!.inputHash).toBe(recipeStepsRequest(meal, 'en', 2).inputHash)
+  })
+
+  it('replaces the row at the same servings', async () => {
+    const { alder } = await world()
+    await storeAt(alder, 2)
+    await prisma.meal.update({ where: { id: 'meal-pasta' }, data: { name: 'Pasta bake' } })
+    await storeAt(alder, 2)
+
+    expect(await prisma.mealPreparationSteps.count({ where: { mealId: 'meal-pasta' } })).toBe(1)
+    expect(await freshAt(alder, 2)).toEqual(STEPS)
   })
 
   it('keeps one row per locale', async () => {

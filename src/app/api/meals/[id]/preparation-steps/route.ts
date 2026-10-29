@@ -57,10 +57,10 @@ const bodySchema = z.object({
 /**
  * The steps for the recipe cook view (HON-1338), at the servings the view
  * shows: for one of the household's own recipes, or a library meal the meal
- * picker shows (HON-1351). Stored per meal and locale in
+ * picker shows (HON-1351). Stored per meal, locale and servings in
  * `MealPreparationSteps`, so a second open at the same servings makes no AI
- * call. A library meal's row is shared by every household, so only its own
- * servings are stored; another count is written each time. The same prompts
+ * call (HON-1379). A library meal's rows are shared by every household at
+ * that count. The same prompts
  * as a planned entry's, without what only an entry has: its ingredient
  * changes, its "Adjust recipe" note, its serving override.
  */
@@ -99,7 +99,7 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
   const locale = resolveHouseholdLocale(household)
 
   try {
-    const meal = await loadRecipeForSteps(household.id, mealId, locale)
+    const meal = await loadRecipeForSteps(household.id, mealId, locale, servings)
     const { input, notes, inputHash } = recipeStepsRequest(meal, locale, servings)
 
     // Before the rate limit: a reopen at the same servings is free.
@@ -198,12 +198,7 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
     // During a locale rollback the prompt ran in English while the household
     // still stores the rolled-back locale. Caching would leave English steps
     // under that locale once it is back, so serve them uncached (HON-921).
-    // A library meal's one row per locale is shared by every household, the
-    // landing demo and `pnpm steps:library`, so it is stored only at the
-    // meal's own servings: storing each household's count would make the
-    // households overwrite each other's row and pay for every open.
-    const storable = meal.householdId !== null || servings === meal.servings
-    if (locale === household.locale && storable) {
+    if (locale === household.locale) {
       await saveRecipeSteps({ mealId, locale, servings, inputHash }, tips)
     }
 

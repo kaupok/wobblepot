@@ -172,7 +172,7 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
 
     expect(response.status).toBe(404)
     expect((await response.json()).code).toBe('meal_not_found')
-    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-other', 'en')
+    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-other', 'en', 2)
     expect(mockGenerateObject).not.toHaveBeenCalled()
   })
 
@@ -299,7 +299,7 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
 
       expect(response.status).toBe(200)
       expect((await response.json()).tips).toEqual(FRESH)
-      expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-porridge', 'en')
+      expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-porridge', 'en', 4)
       const request = mockGenerateObject.mock.calls[0]![0] as { prompt: string; schema: unknown }
       expect(request.schema).toBe(fullStepsSchema)
       expect(request.prompt).toContain('Meal: Porridge')
@@ -331,14 +331,47 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
       expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
     })
 
-    it("serves but does not store steps at a count other than the meal's own", async () => {
-      mockLoadRecipe.mockResolvedValue(library({ preparationSteps: storedAt(library(), 4) }))
+    it("stores steps at a count other than the meal's own (HON-1379)", async () => {
+      mockLoadRecipe.mockResolvedValue(library())
 
       const response = await callPost({ servings: 2.5 }, 'meal-porridge')
 
       expect((await response.json()).tips).toEqual(FRESH)
       expect(mockGenerateObject).toHaveBeenCalledTimes(1)
-      expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
+      expect(mockSaveRecipeSteps).toHaveBeenCalledWith(
+        expect.objectContaining({ mealId: 'meal-porridge', locale: 'en', servings: 2.5 }),
+        FRESH,
+      )
+    })
+
+    it('gives households at 2 and 4 servings each a cache hit on their second open', async () => {
+      // The table, one row per servings, as the loader reads it back.
+      const rows = new Map<number, { inputHash: string; steps: string }>()
+      mockLoadRecipe.mockImplementation(async (_householdId, _mealId, _locale, servings) => {
+        const row = rows.get(servings)
+        return library({ preparationSteps: row ? [row] : [] })
+      })
+      mockSaveRecipeSteps.mockImplementation(async (row, steps) => {
+        rows.set(row.servings, { inputHash: row.inputHash, steps: JSON.stringify(steps) })
+      })
+      const openAs = (householdId: string, servings: number) => {
+        mockGetMembership.mockResolvedValue({
+          household: { ...membership().household, id: householdId },
+        } as never)
+        return callPost({ servings }, 'meal-porridge')
+      }
+
+      await openAs('household-small', 2)
+      await openAs('household-large', 4)
+      expect(mockGenerateObject).toHaveBeenCalledTimes(2)
+
+      const small = await openAs('household-small', 2)
+      const large = await openAs('household-large', 4)
+
+      expect((await small.json()).tips).toEqual(FRESH)
+      expect((await large.json()).tips).toEqual(FRESH)
+      expect(mockGenerateObject).toHaveBeenCalledTimes(2)
+      expect([...rows.keys()]).toEqual([2, 4])
     })
   })
 
@@ -348,7 +381,7 @@ describe('POST /api/meals/[id]/preparation-steps', () => {
     const response = await callPost({ servings: 2 })
 
     expect((await response.json()).tips).toEqual(FRESH)
-    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-1', 'en')
+    expect(mockLoadRecipe).toHaveBeenCalledWith('household-1', 'meal-1', 'en', 2)
     expect(mockSaveRecipeSteps).not.toHaveBeenCalled()
   })
 

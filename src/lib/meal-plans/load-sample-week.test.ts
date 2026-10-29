@@ -27,10 +27,10 @@ const WEEK: SampleWeek = {
 
 const steps = JSON.stringify({ steps: ['Whisk the eggs.'], pitfalls: [] })
 
-function hashFor(name: string) {
+function hashFor(name: string, servings = 4) {
   return stepsInputHash({
     mealName: name,
-    servings: 4,
+    servings,
     timeMinutes: 10,
     components: [{ name: 'egg', quantityPerServing: 2, defaultUnit: 'piece' }],
     locale: 'en',
@@ -43,6 +43,7 @@ function libraryMeal(name: string, overrides: Record<string, unknown> = {}) {
     name,
     description: `${name}, the description`,
     preparationNotes: null,
+    servings: 4,
     timeMinutes: 10,
     kidFriendly: true,
     primaryProteinType: 'eggs',
@@ -114,6 +115,27 @@ describe('readSampleWeek', () => {
     const meals = await readSampleWeek(WEEK)
     expect(meals[0]!.steps).toEqual(['Whisk the eggs.'])
     expect(meals[1]!.steps).toBeNull()
+  })
+
+  it("carries the row at the meal's own servings when the cook view stored other counts", async () => {
+    // Rows at 2 and 6, fresh for their own counts, ahead of the row at 4 (HON-1379).
+    const atCount = (servings: number) => ({
+      locale: 'en',
+      servings,
+      steps: JSON.stringify({ steps: [`Steps for ${servings}`], pitfalls: [] }),
+      inputHash: hashFor('Omelette', servings),
+    })
+    findMany.mockResolvedValue([
+      libraryMeal('Omelette', {
+        preparationSteps: [
+          atCount(2),
+          atCount(6),
+          { locale: 'en', servings: 4, steps, inputHash: hashFor('Omelette') },
+        ],
+      }),
+    ] as never)
+    const [omelette] = await readSampleWeek(WEEK)
+    expect(omelette!.steps).toEqual(['Whisk the eggs.'])
   })
 
   it('presents an image from an older prompt version as absent', async () => {

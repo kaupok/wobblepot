@@ -18,9 +18,10 @@ import { prisma } from '@/lib/prisma'
 /**
  * The reads and the write around `POST /api/meals/[id]/preparation-steps`: the
  * steps in the recipe cook view, for a household recipe or a library meal,
- * cached in `MealPreparationSteps` per meal and locale (HON-1338, HON-1351). A
- * library meal's row is the one `pnpm steps:library` writes, shared by every
- * household. Tested against a database in `recipe-steps.db.test.ts`.
+ * cached in `MealPreparationSteps` per meal, locale and serving count
+ * (HON-1338, HON-1351, HON-1379). A library meal's rows are shared by every
+ * household; the one at its own servings is the one `pnpm steps:library`
+ * writes. Tested against a database in `recipe-steps.db.test.ts`.
  */
 
 export type RecipeStepsRefusal = 'not_found'
@@ -36,12 +37,17 @@ export class RecipeStepsError extends Error {
  * A meal the household can see, by the meal picker's rule (`visibleMealWhere`):
  * one of its own recipes or a library meal, not deleted. With its components,
  * the translation rows for `locale` (none for English), and its stored steps
- * row in `locale`, if any.
+ * row in `locale` at `servings`, if any.
  *
  * Throws `not_found` for another household's recipe, a deleted meal, or no
  * meal at all.
  */
-export async function loadRecipeForSteps(householdId: string, mealId: string, locale: string) {
+export async function loadRecipeForSteps(
+  householdId: string,
+  mealId: string,
+  locale: string,
+  servings: number,
+) {
   const meal = await prisma.meal.findFirst({
     where: { id: mealId, ...visibleMealWhere(householdId) },
     include: {
@@ -58,7 +64,7 @@ export async function loadRecipeForSteps(householdId: string, mealId: string, lo
           },
         },
       },
-      preparationSteps: { where: { locale }, select: { inputHash: true, steps: true } },
+      preparationSteps: { where: { locale, servings }, select: { inputHash: true, steps: true } },
     },
   })
   if (!meal) throw new RecipeStepsError('not_found')
@@ -107,9 +113,8 @@ export function recipeStepsInputHash(input: StepsRequestInput, notes: string | n
 }
 
 /**
- * The stored steps when they were written from `inputHash`, else null. The
- * hash covers the servings, so steps for another count are stale. A row with
- * no `steps` array is stale too, as `parseCachedPreparationSteps` treats one.
+ * The stored steps when they were written from `inputHash`, else null. A row
+ * with no `steps` array is stale, as `parseCachedPreparationSteps` treats one.
  */
 export function freshRecipeSteps(meal: LoadedRecipe, inputHash: string): PreparationSteps | null {
   const row = meal.preparationSteps[0]
@@ -118,19 +123,16 @@ export function freshRecipeSteps(meal: LoadedRecipe, inputHash: string): Prepara
   return steps && Array.isArray(steps.steps) ? steps : null
 }
 
-/** Stores the steps for the meal and locale, replacing the row there was. */
+/** Stores the steps for the meal, locale and servings, replacing the row there was. */
 export async function saveRecipeSteps(
   row: { mealId: string; locale: string; servings: number; inputHash: string },
   steps: PreparationSteps,
 ): Promise<void> {
-  const fields = {
-    servings: row.servings,
-    steps: JSON.stringify(steps),
-    inputHash: row.inputHash,
-  }
+  const key = { mealId: row.mealId, locale: row.locale, servings: row.servings }
+  const fields = { steps: JSON.stringify(steps), inputHash: row.inputHash }
   await prisma.mealPreparationSteps.upsert({
-    where: { mealId_locale: { mealId: row.mealId, locale: row.locale } },
-    create: { mealId: row.mealId, locale: row.locale, ...fields },
+    where: { mealId_locale_servings: key },
+    create: { ...key, ...fields },
     update: fields,
   })
 }

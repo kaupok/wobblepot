@@ -84,7 +84,7 @@ async function handlePOST(request: Request, { params }: { params: Promise<{ id: 
   try {
     // The household's own recipe or a library meal. Another household's
     // recipe and a deleted meal throw.
-    const meal = await loadRecipeForSteps(household.id, mealId, locale)
+    const meal = await loadRecipeForSteps(household.id, mealId, locale, servings)
 
     const refused = await guardCookQuestion(household.id, session.user.id)
     if (refused) return refused
