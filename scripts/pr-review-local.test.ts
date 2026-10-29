@@ -250,6 +250,21 @@ describe('pr-review.sh --local', () => {
     expect(fs.existsSync(OUT_FILE)).toBe(false)
   })
 
+  it('removes an earlier findings file when it stops before the review', () => {
+    fs.writeFileSync(OUT_FILE, 'an earlier run\n')
+    const tip = execFileSync('git', ['rev-parse', 'origin/main'], {
+      cwd: repo,
+      encoding: 'utf8',
+    }).trim()
+    git('update-ref', '-d', 'refs/remotes/origin/main')
+    try {
+      expect(run(['--local', ISSUE_ID]).status).toBe(1)
+    } finally {
+      git('update-ref', 'refs/remotes/origin/main', tip)
+    }
+    expect(fs.existsSync(OUT_FILE)).toBe(false)
+  })
+
   it('rejects an issue ID the Spec gate cannot read', () => {
     expect(run(['--local', 'ENG-12']).status).toBe(1)
     expect(run(['--local']).status).toBe(1)

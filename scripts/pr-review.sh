@@ -63,6 +63,9 @@ if [ "$1" = "--local" ]; then
   fi
   LOCAL_ISSUE_ID=$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')
   OUT_FILE="/tmp/auto-implement-local-review-${LOCAL_ISSUE_ID}.md"
+  # Remove an earlier run's file first, so no exit below leaves it to be read as
+  # this run's review.
+  rm -f "$OUT_FILE"
   LABEL="the local changes for ${LOCAL_ISSUE_ID}"
 else
   PR_NUMBER="$1"
@@ -546,8 +549,7 @@ if [ "$MODE" = pr ]; then
 else
   # The summary is the reviewer's final answer on stdout. Write it beside the target
   # and move it in only when it carries the marker, so a failed run never leaves a
-  # stale or partial file that reads as this run's review.
-  rm -f "$OUT_FILE"
+  # partial file that reads as this run's review.
   "${REVIEWER[@]}" > "$OUT_FILE.tmp" || EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ] && ! grep -q '^<!-- claude-review -->' "$OUT_FILE.tmp"; then
     echo -e "${RED}The reviewer printed no <!-- claude-review --> summary${NC}"
