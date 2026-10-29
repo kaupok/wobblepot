@@ -193,7 +193,7 @@ describe('InventoryPage view', () => {
     expect(column.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
     expect(column.getByRole('combobox', { name: 'Time window' })).toBeInTheDocument()
     const sheet = within(column.getByTestId('shopping-sheet'))
-    expect(sheet.getByRole('textbox', { name: 'Add custom item to shopping list' })).toBeVisible()
+    expect(sheet.getByRole('combobox', { name: 'Add custom item to shopping list' })).toBeVisible()
     expect(sheet.getByText(line)).toBeInTheDocument()
     expect(screen.queryByText('No meal plan yet')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Generate plan' })).not.toBeInTheDocument()
@@ -201,6 +201,8 @@ describe('InventoryPage view', () => {
 
   it('adds an item from the no-plan state without a reload', async () => {
     const user = userEvent.setup()
+    // The Add field reads the staples when it takes focus (HON-1400).
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ staples: [] }))
     vi.mocked(fetch).mockResolvedValueOnce(
       Response.json({
         item: {
@@ -216,7 +218,7 @@ describe('InventoryPage view', () => {
     renderPage({ emptyStateVariant: 'no-plan', windowDays: 7 })
 
     await user.type(
-      screen.getByRole('textbox', { name: 'Add custom item to shopping list' }),
+      screen.getByRole('combobox', { name: 'Add custom item to shopping list' }),
       'Coffee{Enter}',
     )
 
@@ -238,7 +240,7 @@ describe('InventoryPage view', () => {
     expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
     expect(container.querySelector('[data-surface]')).toBeNull()
     expect(
-      screen.queryByRole('textbox', { name: 'Add custom item to shopping list' }),
+      screen.queryByRole('combobox', { name: 'Add custom item to shopping list' }),
     ).not.toBeInTheDocument()
   })
 
@@ -479,5 +481,41 @@ describe('InventoryPage view', () => {
       '/api/pantry/pantry-avocado',
       expect.objectContaining({ method: 'PATCH', body: '{"quantity":null}' }),
     )
+  })
+
+  it('shows a staple typed in Add item as ran out in the pantry and re-reads the list', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ staples: [] }))
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        status: 'staple_ran_out',
+        pantryItemId: 'pantry-milk',
+        ingredientName: 'Milk',
+      }),
+    )
+
+    renderPage({
+      view: 'shopping',
+      pantryItems: [
+        {
+          id: 'pantry-milk',
+          ingredient: { id: 'milk', name: 'Milk', category: 'dairy', defaultUnit: 'g' },
+          quantity: null,
+          isStaple: true,
+          updatedAt: '2026-10-21T00:00:00.000Z',
+        },
+      ],
+      emptyStateVariant: 'nothing-needed',
+      windowDays: 7,
+    })
+    expect(screen.queryByRole('button', { name: 'Have it: Milk' })).not.toBeInTheDocument()
+
+    await user.type(
+      screen.getByRole('combobox', { name: 'Add custom item to shopping list' }),
+      'milk{Enter}',
+    )
+
+    await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('button', { name: 'Have it: Milk' })).toBeInTheDocument()
   })
 })

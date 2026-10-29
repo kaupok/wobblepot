@@ -97,7 +97,7 @@ async function expectEmptySheet(canvasElement: HTMLElement, line: string) {
   const canvas = within(canvasElement)
   await expect(canvas.getByRole('heading', { name: 'Shopping list' })).toBeInTheDocument()
   const sheet = within(canvas.getByTestId('shopping-sheet'))
-  await expect(sheet.getByRole('textbox', ADD_FIELD)).toBeVisible()
+  await expect(sheet.getByRole('combobox', ADD_FIELD)).toBeVisible()
   await expect(sheet.getByText(line)).toBeVisible()
   await expect(canvas.queryByRole('button', { name: 'Copy list' })).not.toBeInTheDocument()
   await expect(canvas.queryByRole('link', { name: 'Generate plan' })).not.toBeInTheDocument()
@@ -169,7 +169,7 @@ export const AddFromEmpty: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByRole('textbox', ADD_FIELD), 'Coffee{Enter}')
+    await userEvent.type(canvas.getByRole('combobox', ADD_FIELD), 'Coffee{Enter}')
     const sheet = within(canvas.getByTestId('shopping-sheet'))
     await waitFor(() => expect(sheet.getByText('Coffee')).toBeVisible())
     await expect(sheet.queryByText('Your shopping list is empty.')).not.toBeInTheDocument()

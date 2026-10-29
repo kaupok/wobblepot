@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
+import { markStapleRanOutByName } from '@/lib/pantry/staple-ran-out'
 import { addCustomShoppingItem, customItemNameSchema } from '@/lib/shopping/custom-items'
 
 const createSchema = z.object({
@@ -17,6 +18,11 @@ const createSchema = z.object({
  * Create a custom shopping list item. Auto-matches against the ingredient DB
  * using fuzzy search. Returns the created item with match info.
  * The `add_shopping_item` MCP tool calls the same `addCustomShoppingItem`.
+ *
+ * A name that is exactly one of the household's staples marks that staple
+ * ran out in place of a custom item, and returns 200 with
+ * `{ status: 'staple_ran_out', pantryItemId, ingredientName }` (HON-1400).
+ * Only this route does it: the MCP tool and the day extras keep making items.
  */
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -54,6 +60,11 @@ export async function POST(request: Request) {
   const { name } = parsed.data
 
   try {
+    const staple = await markStapleRanOutByName(household, name)
+    if (staple.status === 'staple_ran_out') {
+      return NextResponse.json(staple, { status: 200 })
+    }
+
     const outcome = await addCustomShoppingItem(household, name)
     switch (outcome.status) {
       case 'created':

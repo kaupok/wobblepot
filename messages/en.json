@@ -85,6 +85,9 @@
     "statePurchased": "purchased",
     "neededByTooltip": "Needed by {date}",
     "ranOut": "Ran out",
+    "stapleSuggestionsLabel": "Staples",
+    "stapleSuggestionHint": "Mark ran out",
+    "stapleRanOutToast": "{name} marked as ran out",
     "ariaUnlink": "Unlink {name} from ingredient",
     "unlinkTooltip": "Unlink from ingredient",
     "ariaRemove": "Remove {name}",
@@ -92,6 +95,7 @@
     "errors": {
       "alreadyOnList": "Item already on the list",
       "addFailed": "Failed to add item",
+      "markRanOutFailed": "Couldn't mark the staple as ran out",
       "updateFailed": "Failed to update item",
       "unlinkFailed": "Failed to unlink item",
       "removeFailed": "Failed to remove item",

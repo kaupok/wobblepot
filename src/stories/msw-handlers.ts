@@ -1,8 +1,6 @@
 import { delay, http, type HttpHandler, HttpResponse } from 'msw'
 
-import type { IngredientResult } from '@/components/household/meal-form-types'
 import type { AlternativeMeal, MealComponent, NutritionData } from '@/components/meal-plan/types'
-import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { MealType, type ProteinType } from '@/generated/prisma/enums'
 import type { Member } from '@/types/member'
 
@@ -18,6 +16,9 @@ import {
   misoSalmonAlternative,
 } from './fixtures'
 import { FRIDGE_DEFAULT_SERVINGS, fridgeRecentMeals } from './fridge-fixtures'
+import { pantryHandlers } from './msw-pantry-handlers'
+
+export { conflictPantryHandlers, errorPantryHandlers } from './msw-pantry-handlers'
 
 /**
  * Shape returned by `GET /api/meals`. Kept local because `MealSelectorModal`
@@ -254,41 +255,7 @@ export const defaultHandlers: HttpHandler[] = [
   http.post('/api/households/me/meals/:id/restore', ({ params }) =>
     HttpResponse.json({ id: params.id, deletedAt: null }),
   ),
-  // Pantry CRUD — used by `InlineAddItem` (POST) and `PantryItem` (PATCH for
-  // toggle-staple, DELETE for remove).
-  http.post('/api/pantry', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as {
-      ingredientId?: string
-      isStaple?: boolean
-    }
-    const ingredientId = body.ingredientId ?? 'new-ingredient'
-    const catalogEntry: IngredientResult | undefined = (
-      ingredientResults as Record<string, IngredientResult>
-    )[ingredientId]
-    const ingredient: PantryItemData['ingredient'] = catalogEntry
-      ? {
-          id: catalogEntry.id,
-          name: catalogEntry.name,
-          category: catalogEntry.category,
-          defaultUnit: catalogEntry.defaultUnit,
-        }
-      : {
-          id: ingredientId,
-          name: ingredientId,
-          category: 'condiment',
-          defaultUnit: 'g',
-        }
-    const item: PantryItemData = {
-      id: `pantry-${ingredientId}-${Date.now()}`,
-      ingredient,
-      quantity: null,
-      isStaple: body.isStaple ?? false,
-      updatedAt: new Date().toISOString(),
-    }
-    return HttpResponse.json(item)
-  }),
-  http.patch('/api/pantry/:id', () => HttpResponse.json({ ok: true })),
-  http.delete('/api/pantry/:id', () => HttpResponse.json({ ok: true })),
+  ...pantryHandlers,
   // Meal plan generation — used by `FillDaysAction` (fill-empty) and
   // `FirstTimeSetup` (generate).
   http.post('/api/meal-plans/generate', () => HttpResponse.json({ planId: 'plan-1', ok: true })),
@@ -576,32 +543,6 @@ export const loadingIngredientsHandlers: HttpHandler[] = [
     await delay('infinite')
     return HttpResponse.json({ ingredients: [] })
   }),
-]
-
-/**
- * Return 500 errors for pantry CRUD endpoints. Use for stories that exercise
- * the rollback / error-toast path on add / toggle-staple / remove.
- */
-export const errorPantryHandlers: HttpHandler[] = [
-  http.post('/api/pantry', () =>
-    HttpResponse.json({ error: 'Failed to add item' }, { status: 500 }),
-  ),
-  http.patch('/api/pantry/:id', () =>
-    HttpResponse.json({ error: 'Failed to update item' }, { status: 500 }),
-  ),
-  http.delete('/api/pantry/:id', () =>
-    HttpResponse.json({ error: 'Failed to remove item' }, { status: 500 }),
-  ),
-]
-
-/**
- * Return a 409 conflict for `POST /api/pantry`. The component surfaces this as
- * an "already in your pantry" toast without firing `onItemAdded`.
- */
-export const conflictPantryHandlers: HttpHandler[] = [
-  http.post('/api/pantry', () =>
-    HttpResponse.json({ error: 'Already in pantry' }, { status: 409 }),
-  ),
 ]
 
 /**

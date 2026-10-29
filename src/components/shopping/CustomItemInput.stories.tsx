@@ -15,12 +15,13 @@ const meta = {
     docs: {
       description: {
         component:
-          'Text input for adding custom items to the shopping list. POSTs to `/api/shopping-list/custom` (MSW-backed in Storybook). Empty/whitespace input is a no-op.',
+          'Text input for adding custom items to the shopping list. POSTs to `/api/shopping-list/custom` (MSW-backed in Storybook). Empty/whitespace input is a no-op. While the household types, a dropdown suggests its staples (`GET /api/pantry/staples`); picking one marks it ran out with `PATCH /api/pantry/:id`, and a typed staple name sent with Enter does the same on the server (HON-1400).',
       },
     },
   },
   args: {
     onItemAdded: fn(),
+    onStapleRanOut: fn(),
   },
   decorators: [
     (Story) => (
@@ -86,11 +87,12 @@ export const ServerError: Story = {
   name: 'Error (server 500)',
   parameters: {
     msw: {
+      // First: MSW answers with the first matching handler.
       handlers: [
-        ...defaultHandlers,
         http.post('/api/shopping-list/custom', () =>
           HttpResponse.json({ error: 'Failed to add item' }, { status: 500 }),
         ),
+        ...defaultHandlers,
       ],
     },
     docs: {
@@ -99,5 +101,56 @@ export const ServerError: Story = {
           'Submit fires a request; server returns 500. Component surfaces a toast (out-of-canvas) and leaves the input populated.',
       },
     },
+  },
+}
+
+// The default MSW staples are Milk and Olive oil.
+export const SuggestsStaple: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const input = canvas.getByRole('combobox', { name: 'Add custom item to shopping list' })
+    await userEvent.type(input, 'mil')
+
+    const option = await canvas.findByRole('option', { name: /Milk/ })
+    await expect(canvas.getByRole('listbox', { name: 'Staples' })).toBeVisible()
+    await expect(canvas.queryByRole('option', { name: /Olive oil/ })).not.toBeInTheDocument()
+
+    await userEvent.keyboard('{ArrowDown}')
+    await expect(option).toHaveAttribute('aria-selected', 'true')
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(args.onStapleRanOut).toHaveBeenCalledWith('pantry-milk'))
+    await expect(args.onItemAdded).not.toHaveBeenCalled()
+    await expect(input).toHaveValue('')
+  },
+}
+
+export const StapleTypedExactly: Story = {
+  name: 'Staple typed exactly (Enter)',
+  parameters: {
+    msw: {
+      // First: MSW answers with the first matching handler.
+      handlers: [
+        http.post('/api/shopping-list/custom', () =>
+          HttpResponse.json({
+            status: 'staple_ran_out',
+            pantryItemId: 'pantry-milk',
+            ingredientName: 'Milk',
+          }),
+        ),
+        ...defaultHandlers,
+      ],
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const input = canvas.getByRole('combobox', { name: 'Add custom item to shopping list' })
+    await userEvent.type(input, 'Milk')
+    await canvas.findByRole('listbox', { name: 'Staples' })
+    // Enter with no option active sends the name; the server matches it.
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(args.onStapleRanOut).toHaveBeenCalledWith('pantry-milk'))
+    await expect(args.onItemAdded).not.toHaveBeenCalled()
   },
 }

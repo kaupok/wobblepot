@@ -85,6 +85,9 @@
     "statePurchased": "ostetud",
     "neededByTooltip": "Vaja {date}-ks",
     "ranOut": "Otsas",
+    "stapleSuggestionsLabel": "Põhitooted",
+    "stapleSuggestionHint": "Märgi otsas olevaks",
+    "stapleRanOutToast": "Märgitud otsas olevaks: {name}",
     "ariaUnlink": "Eemalda „{name}\" ühendus koostisosaga",
     "unlinkTooltip": "Eemalda ühendus koostisosaga",
     "ariaRemove": "Eemalda „{name}\"",
@@ -92,6 +95,7 @@
     "errors": {
       "alreadyOnList": "See toode on juba nimekirjas",
       "addFailed": "Toote lisamine ebaõnnestus",
+      "markRanOutFailed": "Põhitoodet ei õnnestunud otsas olevaks märkida",
       "updateFailed": "Toote uuendamine ebaõnnestus",
       "unlinkFailed": "Ühenduse eemaldamine ebaõnnestus",
       "removeFailed": "Toote eemaldamine ebaõnnestus",
