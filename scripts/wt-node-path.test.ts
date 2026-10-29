@@ -178,6 +178,7 @@ describe('orchestrator use_repo_node (HON-1307)', () => {
     nvmNode('v41.2.0')
     copyIn('scripts/orchestrator.sh')
     copyIn('scripts/orchestrator-deferred.sh')
+    copyIn('scripts/orchestrator-reload.sh')
 
     const r = spawnSync(
       '/bin/bash',

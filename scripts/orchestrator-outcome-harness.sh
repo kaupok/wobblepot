@@ -427,14 +427,14 @@
 #     stubbed to print EXEC:<argv>, SKIPS_FILE and the ORCHESTRATOR_RELOAD_*
 #     hand-over, then exit. The stand-in is committed on `main` in a fixture
 #     repo, and each change is committed unless the scenario says otherwise.
-#     Scenarios: changed, unchanged, worker (a tracked PID throughout),
-#     worker-drains (the worker finishes before poll 3), once (--once),
+#     Scenarios: changed, unchanged, once (--once),
 #     shutdown, shutdown-mid (the signal lands during poll 1's checks), syntax (the change fails bash -n), uncommitted (edited, not
 #     committed), branch (committed on a branch other than main), exec-fails
 #     (reload_exec returns 126) and round-trip, which performs a REAL exec into
 #     `reload-restored` with [state-dir] as its scratch dir. Every poll prints
 #     PENDING:<n>:<RELOAD_PENDING>; a run that never exec'd then prints NO_EXEC,
-#     SKIPS_FILE and LEFT_IN_ENV, then the log.
+#     SKIPS_FILE and LEFT_IN_ENV, then the log. A reload with workers running
+#     is in orchestrator-reload-harness.sh (HON-1457).
 #
 #   reload-restored <old-pid> <state-dir>                           (HON-861)
 #     The exec'd image: prints both PIDs, runs the REAL acquire_lock against a
@@ -1416,9 +1416,11 @@ EOF
       WORKER_TITLES+=("$issue")
       echo "WORKER_PID:$issue:$!"
     }
-    # Exits with $2 once the first signal has landed.
+    # Exits with $2 once the first signal has landed, writing the exit file
+    # spawn_worker's wrapper writes (HON-1457).
     released_worker() {
-      start_worker "$1" bash -c 'while [ ! -e "$1" ]; do sleep 0.05; done; exit "$2"' _ "$SCRATCH/release" "$2"
+      start_worker "$1" bash -c 'while [ ! -e "$1" ]; do sleep 0.05; done; echo "$2" > "$3.exit"; exit "$2"' \
+        _ "$SCRATCH/release" "$2" "$SCRATCH/$1.log"
     }
     # Ignores SIGTERM, as a worker mid-command can; only the SIGKILL ends it.
     stubborn_worker() {
@@ -1887,7 +1889,6 @@ EOF
     }
     case "$SCENARIO" in
       changed|round-trip) commit_change 'echo v2' ;;
-      worker|worker-drains) WORKER_PIDS=(12345); commit_change 'echo v2' ;;
       once)        RUN_ONCE=true; commit_change 'echo v2' ;;
       shutdown)    SHUTTING_DOWN=true; commit_change 'echo v2' ;;
       shutdown-mid)
@@ -1916,9 +1917,7 @@ EOF
     esac
 
     # Three polls: a WARN or a reload attempt must happen once, not per poll.
-    # worker-drains finishes its worker before the third.
     for _poll in 1 2 3; do
-      if [ "$SCENARIO" = "worker-drains" ] && [ "$_poll" = 3 ]; then WORKER_PIDS=(); fi
       reload_if_code_changed
       echo "PENDING:$_poll:$RELOAD_PENDING"
     done
@@ -2049,7 +2048,7 @@ EOF
     # through the REAL note_outcome; check_lost_branch records its arguments.
     HOW="$A1"
     STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
-    trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE"' EXIT
+    trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE" "$STATUS_FILE.log.exit"' EXIT
     publish() {
       [ -n "${HARNESS_OUTCOME:-}" ] && note_outcome "$HARNESS_OUTCOME" "${HARNESS_COMMITS:-0}"
       return 0
@@ -2071,7 +2070,9 @@ EOF
     WORKER_ISSUES=(HON-999)
     WORKER_ISSUE_UUIDS=(uuid-999)
     WORKER_BRANCHES=(test-branch)
-    WORKER_LOGS=(/nonexistent/worker.log)
+    # The exit file spawn_worker's wrapper writes next to the log (HON-1457).
+    WORKER_LOGS=("$STATUS_FILE.log")
+    case "$HOW" in exit0) echo 0 > "$STATUS_FILE.log.exit" ;; exit1) echo 1 > "$STATUS_FILE.log.exit" ;; esac
     WORKER_RETRIED=(0)
     WORKER_TITLES=("Fixture title")
     WORKER_FINISHING=(0)

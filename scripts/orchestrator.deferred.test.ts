@@ -489,7 +489,8 @@ describe('deferred outcomes (HON-1414)', () => {
     })
 
     it('is wired into reload_if_code_changed and restore_reload_state', () => {
-      const source = fs.readFileSync(path.join(scriptsDir, 'orchestrator.sh'), 'utf8')
+      // The reload moved to orchestrator-reload.sh (HON-1457).
+      const source = fs.readFileSync(path.join(scriptsDir, 'orchestrator-reload.sh'), 'utf8')
 
       expect(source).toMatch(/\n {2}export_deferred_state\n/)
       expect(source).toMatch(/\n {2}restore_deferred_state\n/)

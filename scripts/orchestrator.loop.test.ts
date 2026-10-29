@@ -1108,29 +1108,9 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('reloading in place')
     })
 
-    it('holds the reload while a worker runs, and stops claiming so the workers can drain', () => {
-      const out = reload('worker')
-
-      // Its bookkeeping exists only in memory; a new image would lose it.
-      expect(out).toContain('NO_EXEC')
-      expect(out).toContain('SKIPS_FILE:present')
-      // RELOAD_PENDING is what the spawn gate reads. Without it the loop refills
-      // a freed slot in the same poll and a busy queue never reaches 0 workers.
-      expect(out).toContain('PENDING:1:true')
-      expect(out).toContain('PENDING:3:true')
-      expect(
-        out.match(/claiming nothing new until 1 running worker\(s\) finish, then reloading/g),
-      ).toHaveLength(1)
-    })
-
-    it('reloads on the first poll after the last worker finishes', () => {
-      const out = reload('worker-drains')
-
-      expect(out).toContain('PENDING:2:true')
-      expect(out).toMatch(
-        /^EXEC:\S*bash \S*\/scripts\/orchestrator\.sh --max-workers 2 --poll-interval 30$/m,
-      )
-    })
+    // A reload with workers running hands them to the new image, or drains
+    // them when the new code refuses the handoff: orchestrator.reload.test.ts
+    // (HON-1457).
 
     it.each([
       ['uncommitted', 'an edit that is not committed'],
