@@ -45,9 +45,13 @@ function servingsSent(): unknown[] {
     .map(([, init]) => JSON.parse((init as RequestInit).body as string).servings)
 }
 
-function renderModal(open = true, shown: MealData = meal) {
+function renderModal(
+  open = true,
+  shown: MealData = meal,
+  history?: { lastCookedOn: string | null; cookedLast28Days: number },
+) {
   const { wrapper } = createQueryWrapper()
-  const props = { meal: shown, householdServings: 2.5, onOpenChange: vi.fn() }
+  const props = { meal: shown, householdServings: 2.5, onOpenChange: vi.fn(), history }
   const view = render(<RecipeDetailModal {...props} open={open} />, { wrapper })
   return {
     ...view,
@@ -173,5 +177,31 @@ describe('RecipeDetailModal', () => {
 
     expect(step).toHaveAttribute('aria-pressed', 'true')
     expect(mockFetch.mock.calls.length).toBe(callsBefore)
+  })
+
+  // HON-1389: My recipes passes the row's history; the picker passes none.
+  it.each([
+    [
+      { lastCookedOn: '2026-10-16', cookedLast28Days: 3 },
+      'Cooked 3 times in 4 weeks, last on Fri, Oct 16',
+    ],
+    [
+      { lastCookedOn: '2026-10-16', cookedLast28Days: 1 },
+      'Cooked 1 time in 4 weeks, last on Fri, Oct 16',
+    ],
+    [{ lastCookedOn: '2026-08-01', cookedLast28Days: 0 }, 'Last cooked on Sat, Aug 1'],
+    [{ lastCookedOn: null, cookedLast28Days: 0 }, 'Not cooked yet'],
+  ])('shows the cook history %o as "%s"', async (history, expected) => {
+    renderModal(true, meal, history)
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).getByText(expected)).toBeInTheDocument()
+  })
+
+  it('shows no cook history without one', async () => {
+    renderModal()
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).queryByText(/cooked/i)).toBeNull()
   })
 })

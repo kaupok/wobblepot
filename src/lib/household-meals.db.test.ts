@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import type { Allergen, ProteinType } from '@/generated/prisma/enums'
-import { getHouseholdMeal, listHouseholdMeals } from '@/lib/household-meals-read'
+import {
+  getHouseholdMeal,
+  listHouseholdMeals,
+  type ListHouseholdMealsOptions,
+} from '@/lib/household-meals-read'
 import {
   createHouseholdMeal,
   deleteHouseholdMeal,
@@ -196,10 +200,14 @@ const CURRY_AS_STORED = {
 }
 
 describe('listHouseholdMeals', () => {
+  // These cases seed no plan entries, so the date does not matter.
+  const list = (options: Omit<ListHouseholdMealsOptions, 'today'>) =>
+    listHouseholdMeals({ ...options, today: '2026-01-01' })
+
   it("lists the household's live meals, newest first, with nutrition and allergens", async () => {
     const { alder } = await world()
 
-    const { meals, nextCursor } = await listHouseholdMeals({ householdId: alder, locale: 'en' })
+    const { meals, nextCursor } = await list({ householdId: alder, locale: 'en' })
 
     expect(meals.map((meal) => meal.id)).toEqual(['meal-curry', 'meal-omelette'])
     expect(nextCursor).toBeNull()
@@ -213,12 +221,12 @@ describe('listHouseholdMeals', () => {
   it('includes the deleted meal only when asked, and filters by a case-insensitive search', async () => {
     const { alder } = await world()
 
-    const withDeleted = await listHouseholdMeals({
+    const withDeleted = await list({
       householdId: alder,
       locale: 'en',
       includeDeleted: true,
     })
-    const searched = await listHouseholdMeals({ householdId: alder, locale: 'en', search: 'CURRY' })
+    const searched = await list({ householdId: alder, locale: 'en', search: 'CURRY' })
 
     expect(withDeleted.meals.map((meal) => meal.id)).toEqual([
       'meal-curry',
@@ -231,8 +239,8 @@ describe('listHouseholdMeals', () => {
   it('pages by cursor', async () => {
     const { alder } = await world()
 
-    const first = await listHouseholdMeals({ householdId: alder, locale: 'en', limit: 1 })
-    const second = await listHouseholdMeals({
+    const first = await list({ householdId: alder, locale: 'en', limit: 1 })
+    const second = await list({
       householdId: alder,
       locale: 'en',
       limit: 1,
@@ -252,7 +260,7 @@ describe('listHouseholdMeals', () => {
   it('answers an unknown cursor with an empty page', async () => {
     const { alder } = await world()
 
-    const stale = await listHouseholdMeals({
+    const stale = await list({
       householdId: alder,
       locale: 'en',
       limit: 1,
@@ -265,7 +273,7 @@ describe('listHouseholdMeals', () => {
   it('translates the meal and its ingredients into the household locale', async () => {
     const { alder } = await world()
 
-    const { meals } = await listHouseholdMeals({ householdId: alder, locale: 'et' })
+    const { meals } = await list({ householdId: alder, locale: 'et' })
 
     expect(meals[0]).toMatchObject({ name: 'Kanakarri', description: 'Mahe' })
     expect(meals[0]!.components.map((c) => c.ingredient.name)).toEqual(['Kana', 'rice'])

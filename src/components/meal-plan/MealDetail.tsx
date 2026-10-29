@@ -49,7 +49,7 @@ interface MealDetailProps {
   title?: ReactNode
   /** Actions on the meal, at the right end of the title row (HON-966) */
   titleActions?: ReactNode
-  /** The plan entry's note (`NoteEditor`), below the meta row */
+  /** Below the meta row: the plan entry's note (`NoteEditor`), or a recipe's cook history */
   note?: ReactNode
   householdServings: number
   /** Status of the plan entry this meal belongs to */

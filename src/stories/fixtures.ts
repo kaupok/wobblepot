@@ -1068,6 +1068,9 @@ export function createHouseholdMealListData(
     components: householdLemonGarlicComponents,
     nutrition: { calories: 520, protein: 42, carbs: 30, fat: 28 },
     allergens: [],
+    lastCookedOn: null,
+    cookedLast28Days: 0,
+    nextPlannedOn: null,
     ...overrides,
   }
 }

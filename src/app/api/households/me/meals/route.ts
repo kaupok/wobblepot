@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { createHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
 import { HOUSEHOLD_MEALS_DEFAULT_LIMIT, listHouseholdMeals } from '@/lib/household-meals-read'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { captureApiError } from '@/lib/errors'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
     const page = await listHouseholdMeals({
       householdId: membership.household.id,
       locale: resolveHouseholdLocale(membership.household),
+      today: getTodayInTimezone(membership.household.timezone),
       search,
       cursor,
       limit,

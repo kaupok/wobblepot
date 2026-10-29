@@ -3,6 +3,7 @@
 import { useRef, type ReactNode } from 'react'
 import { CardContent } from '@/components/ui/card'
 import { CARD_CLICK_IGNORE } from '@/components/meal-plan/card-click'
+import { CookedLine } from '@/components/meal-plan/CookedLine'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { MealImageCard } from '@/components/meal-plan/MealImageCard'
 import { useRecipeCardImage } from '@/hooks/use-recipe-card-image'
@@ -14,6 +15,8 @@ interface RecipeCardProps {
   titleActions: ReactNode
   /** Opens the cook view for this recipe (HON-1338). */
   onOpen: () => void
+  /** `YYYY-MM-DD` for the cooked line. Defaults to the browser's today; tests and stories pin it. */
+  today?: string
 }
 
 /**
@@ -25,7 +28,7 @@ interface RecipeCardProps {
  * A recipe whose image is still being drawn shows a plain box where the image
  * goes, and the image once it is ready, without a reload (HON-1364).
  */
-export function RecipeCard({ meal: payloadMeal, titleActions, onOpen }: RecipeCardProps) {
+export function RecipeCard({ meal: payloadMeal, titleActions, onOpen, today }: RecipeCardProps) {
   const meal = useRecipeCardImage(payloadMeal)
   const nameButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -85,6 +88,14 @@ export function RecipeCard({ meal: payloadMeal, titleActions, onOpen }: RecipeCa
           nameButtonRef={nameButtonRef}
           titleActions={titleActions}
         />
+        {/* What the household has not had lately, as on the picker's cards (HON-1389). */}
+        <div className="mt-2">
+          <CookedLine
+            lastCookedOn={meal.lastCookedOn}
+            nextPlannedOn={meal.nextPlannedOn}
+            today={today}
+          />
+        </div>
       </CardContent>
     </MealImageCard>
   )

@@ -394,6 +394,8 @@
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
       "doneCooking": "Söök on valmis",
+      "cookedInWindow": "Tehtud {count, plural, one {# kord} other {# korda}} 4 nädala jooksul, viimati {date}",
+      "lastCookedOn": "Viimati tehtud {date}",
       "moreActions": "Rohkem toiminguid: {name}",
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },

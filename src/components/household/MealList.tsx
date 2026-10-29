@@ -60,6 +60,10 @@ export interface MealData extends MealImageFields {
     fat: number
   }
   allergens: string[]
+  /** The household's cook history (`loadMealHistory`, HON-1389); dates are `YYYY-MM-DD`. */
+  lastCookedOn: string | null
+  cookedLast28Days: number
+  nextPlannedOn: string | null
 }
 
 interface MealListProps {
@@ -313,6 +317,7 @@ export function MealList({
           householdServings={householdServings}
           open={isViewOpen}
           onOpenChange={setIsViewOpen}
+          history={viewedMeal}
         />
       )}
 

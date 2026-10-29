@@ -11,6 +11,7 @@ import {
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import type { Locale } from '@/lib/i18n/locales'
+import { loadMealHistory, NO_HISTORY } from '@/lib/meal-plans/meal-history'
 
 /**
  * The read side of a household's own recipes: the list behind `GET
@@ -23,6 +24,8 @@ export interface ListHouseholdMealsOptions {
   householdId: string
   /** Resolved household locale (`resolveHouseholdLocale`). */
   locale: Locale
+  /** `YYYY-MM-DD` in the household's timezone, for each row's cook history. */
+  today: string
   search?: string | null
   cursor?: string | null
   limit?: number
@@ -40,6 +43,7 @@ export const HOUSEHOLD_MEALS_DEFAULT_LIMIT = 30
 export async function listHouseholdMeals({
   householdId,
   locale,
+  today,
   search = null,
   cursor = null,
   limit = HOUSEHOLD_MEALS_DEFAULT_LIMIT,
@@ -115,6 +119,11 @@ export async function listHouseholdMeals({
   const hasNext = meals.length > limit
   const pageMeals = hasNext ? meals.slice(0, limit) : meals
   const nextCursor = hasNext ? (pageMeals.at(-1)?.id ?? null) : null
+  const history = await loadMealHistory(
+    householdId,
+    pageMeals.map((meal) => meal.id),
+    today,
+  )
 
   const mealsWithNutrition = pageMeals.map((meal) => {
     const nutrition = computeMealNutrition(meal.components)
@@ -164,6 +173,7 @@ export async function listHouseholdMeals({
         fat: Math.round(nutrition.fat),
       },
       allergens,
+      ...(history.get(meal.id) ?? NO_HISTORY),
     }
   })
 

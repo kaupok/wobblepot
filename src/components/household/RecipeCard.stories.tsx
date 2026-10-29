@@ -71,6 +71,29 @@ export const WithImage: Story = {
   },
 }
 
+/**
+ * The household's cook history under the name, as on the picker's cards
+ * (HON-1389): "Cooked 12 days ago", and the next planned day.
+ */
+export const CookHistory: Story = {
+  args: {
+    meal: { ...meal, lastCookedOn: '2026-10-16', nextPlannedOn: '2026-10-31' },
+    today: '2026-10-28',
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText('Cooked 12 days ago · Planned: Sat, Oct 31'),
+    ).toBeVisible()
+  },
+}
+
+/** A recipe never cooked says so. */
+export const NotCookedYet: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Not cooked yet')).toBeVisible()
+  },
+}
+
 /** A control on the title row keeps its own action: the view stays shut. */
 export const ControlDoesNotOpen: Story = {
   play: async ({ args, canvasElement }) => {
