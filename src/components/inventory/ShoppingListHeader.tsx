@@ -58,9 +58,9 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
       </div>
       {/*
         Wraps because every control here is unshrinkable: `Button`'s cva base
-        is `shrink-0 whitespace-nowrap` and both selects have a fixed width.
-        The picker and the sort fit a 390px column together; Copy list and
-        Clear checked take the next line there.
+        is `shrink-0 whitespace-nowrap` and each select is as wide as its
+        value (the primitive's `w-fit`; a fixed width clipped the Estonian
+        labels, HON-1465). The row wraps when the controls do not fit.
       */}
       <div className="flex flex-wrap items-center gap-2">
         {/*
@@ -74,7 +74,7 @@ export function ShoppingListHeader({ windowDays, summary, children }: ShoppingLi
           stated — the summary no longer repeats it.
         */}
         <Select value={String(windowDays)} onValueChange={setWindowDays}>
-          <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaTimeWindow')}>
+          <SelectTrigger size="sm" aria-label={tShopping('ariaTimeWindow')}>
             <SelectValue>
               {windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')}
             </SelectValue>

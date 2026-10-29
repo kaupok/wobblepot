@@ -46,7 +46,7 @@ function ListControls() {
   return (
     <>
       <Select defaultValue="category">
-        <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
+        <SelectTrigger size="sm" aria-label={tShopping('ariaSort')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -65,6 +65,13 @@ function ListControls() {
       </Button>
     </>
   )
+}
+
+/** The trigger's value span shows its whole label: a fixed width clipped it (HON-1465). */
+function expectValueNotClipped(trigger: HTMLElement) {
+  const value = trigger.querySelector<HTMLElement>('[data-slot="select-value"]')
+  if (!value) throw new globalThis.Error('Expected the select value span')
+  expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
 }
 
 const meta = {
@@ -121,9 +128,17 @@ export const Populated: Story = {
     docs: {
       description: {
         story:
-          "`ShoppingSection`'s header at its busiest — the window picker plus all three list controls. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, both selects are `w-37.5`), so at the default 390px viewport the two selects share the first line and the buttons take the next. This is the case the wrap exists for.",
+          "`ShoppingSection`'s header at its busiest — the window picker plus all three list controls. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, each select is as wide as its value), so the row wraps onto a second line at the default 390px viewport. This is the case the wrap exists for.",
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const picker = canvas.getByRole('combobox', { name: /time window/i })
+    const sort = canvas.getByRole('combobox', { name: /sort/i })
+    await expect(picker).toHaveTextContent('Next 7 days')
+    await expect(sort).toHaveTextContent('By category')
+    for (const trigger of [picker, sort]) expectValueNotClipped(trigger)
   },
 }
 
@@ -213,5 +228,49 @@ export const WindowPickerNarrowsWithItemsOnScreen: Story = {
 
     expect(localStorage.getItem(WINDOW_STORAGE_KEY)).toBe('7')
     expect(getRouter().push).toHaveBeenCalledWith('/shopping?days=7')
+  },
+}
+
+export const PopulatedEstonian: Story = {
+  args: {
+    windowDays: 7,
+    summary: <Summary total={12} purchased={3} />,
+    children: <ListControls />,
+  },
+  globals: { locale: 'et' },
+  beforeEach: () => {
+    localStorage.setItem(WINDOW_STORAGE_KEY, '7')
+    return () => localStorage.removeItem(WINDOW_STORAGE_KEY)
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The busiest header in Estonian at 390px. "Järgmised 7 päeva" and "Kiireloomulisuse järgi" run longer than the English labels, and a fixed `w-37.5` trigger clipped both (HON-1465). Each select now sizes to its value, and the row wraps instead of overflowing.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const sort = canvas.getByRole('combobox', { name: 'Sorteeri tooteid' })
+    await userEvent.click(sort)
+    await userEvent.click(
+      await within(document.body).findByRole('option', { name: 'Kiireloomulisuse järgi' }),
+    )
+    await waitFor(() => {
+      expect(document.querySelectorAll('[role="listbox"]').length).toBe(0)
+    })
+
+    const picker = canvas.getByRole('combobox', { name: 'Ajavahemik' })
+    await expect(picker).toHaveTextContent('Järgmised 7 päeva')
+    await expect(sort).toHaveTextContent('Kiireloomulisuse järgi')
+    for (const trigger of [picker, sort]) expectValueNotClipped(trigger)
+    const row = picker.parentElement
+    if (!row) throw new globalThis.Error('Expected the controls row')
+    expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth)
+    const copy = canvas.getByRole('button', { name: /Kopeeri nimekiri/ })
+    expect(copy.getBoundingClientRect().right).toBeLessThanOrEqual(
+      row.getBoundingClientRect().right,
+    )
   },
 }

@@ -264,6 +264,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - Page titles above `text-xl` inside the app
 - Arbitrary font sizes (`text-[10px]`, `text-[13px]`)
 - A raw palette class (`text-green-600`) where an existing pairing or token exists
+- A fixed width on a control whose label is translated (a select trigger, a button): Estonian labels run longer and get clipped
 - Neutral chrome on a tinted surface: a grey-bordered `outline` badge, a grey select trigger or a grey separator inside a meal-tinted card or the shopping note. Everything inside the tint uses the tint's tokens, and `[data-meal-surface]` re-scopes `--border` and `--input` to the chip colour for exactly this reason — so a grey line there means something escaped the tokens (a raw `border-gray-*`, a hardcoded colour). Decided 2026-09-24, after a protein badge shipped with a grey ring on a coloured card.
 - A `dark:` override on a semantic token
 - Gradients, glows, blurred blobs, glass effects, colored side rails, decorative shadows (the `mask-image` fade that blends a meal image into its surface excepted)

@@ -238,6 +238,9 @@ export const Phone: Story = {
     for (const box of [select, button]) expect(box.top).toBeGreaterThanOrEqual(label.bottom)
     expect(select.right).toBeLessThanOrEqual(button.left)
     expect(button.top).toBeLessThan(select.bottom)
+    expectValueNotClipped(
+      within(canvasElement).getByRole('combobox', { name: /number of days to fill/i }),
+    )
   },
 }
 
@@ -252,6 +255,40 @@ export const Desktop: Story = {
     for (const box of [select, button]) {
       expect(box.top).toBeLessThan(label.bottom)
       expect(box.bottom).toBeGreaterThan(label.top)
+    }
+  },
+}
+
+/** The trigger's value span shows its whole label: a fixed width clipped it (HON-1465). */
+function expectValueNotClipped(trigger: HTMLElement) {
+  const value = trigger.querySelector<HTMLElement>('[data-slot="select-value"]')
+  if (!value) throw new globalThis.Error('Expected the select value span')
+  expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
+}
+
+/**
+ * 390px in Estonian. "7 päeva" is wider than the English "7 days", and a fixed
+ * `w-25` trigger clipped it to "7 päev" (HON-1465). The trigger now sizes to
+ * its value, and Generate still sits clear of it (HON-1127).
+ */
+export const PhoneEstonian: Story = {
+  args: { startDate: '2026-11-28' },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const select = canvas.getByRole('combobox', { name: 'Täidetavate päevade arv' })
+    const button = canvas.getByRole('button', { name: 'Loo' })
+    const value = select.querySelector<HTMLElement>('[data-slot="select-value"]')
+    if (!value) throw new globalThis.Error('Expected the select value span')
+    await expect(value).toHaveTextContent('7 päeva')
+    expectValueNotClipped(select)
+    const card = canvasElement.querySelector('.rounded-lg')
+    if (!card) throw new globalThis.Error('Expected the Fill bar card')
+    const selectBox = select.getBoundingClientRect()
+    const buttonBox = button.getBoundingClientRect()
+    expect(intersects(selectBox, buttonBox)).toBe(false)
+    for (const box of [selectBox, buttonBox]) {
+      expect(contains(card.getBoundingClientRect(), box)).toBe(true)
     }
   },
 }
