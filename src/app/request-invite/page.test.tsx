@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { getServerFlag } from '@/lib/feature-flags'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import RequestInvitePage, { generateMetadata } from './page'
-import { getServerFlag } from '@/lib/feature-flags'
-import { createQueryWrapper } from '@/test/query-wrapper'
 
 let translationLocale: 'en' | 'et' = 'en'
 const catalog = () => (translationLocale === 'et' ? etMessages : enMessages)

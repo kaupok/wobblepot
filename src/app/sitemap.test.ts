@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { POLICY_LAST_UPDATED } from '@/lib/consent'
 
 const env = vi.hoisted(() => ({ NEXT_PUBLIC_APP_ENV: 'production' }))

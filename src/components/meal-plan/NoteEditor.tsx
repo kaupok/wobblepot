@@ -1,23 +1,25 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useImperativeHandle,
   type ComponentProps,
   type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
 } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+
 import { StickyNote } from './StickyNote'
 
 const MAX_NOTE_LENGTH = 200

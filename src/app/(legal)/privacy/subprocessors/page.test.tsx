@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
 import axe from 'axe-core'
+import { describe, expect, it } from 'vitest'
+
 import SubprocessorsPage, { metadata } from './page'
 
 function renderedText(): string {

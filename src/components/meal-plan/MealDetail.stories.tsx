@@ -1,16 +1,18 @@
-import { useState, type ComponentProps } from 'react'
-import { MoreHorizontal } from 'lucide-react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { MoreHorizontal } from 'lucide-react'
+import { type ComponentProps, useState } from 'react'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import { Button } from '@/components/ui/button'
+import { Heading } from '@/components/ui/typography'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import {
   createMeal,
   lemonGarlicChickenComponentsFull,
   lemonGarlicChickenPantryWithOil,
 } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
-import { Button } from '@/components/ui/button'
-import { Heading } from '@/components/ui/typography'
+
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import type { PantryIngredient, PreparationSteps } from './types'

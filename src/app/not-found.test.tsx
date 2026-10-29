@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import NotFound from './not-found'
+
 import enMessages from '../../messages/en.json'
+import NotFound from './not-found'
 
 // Resolve `getTranslations('errors.notFound')` against the real en catalog so
 // the async server component renders without pulling in the next-intl request

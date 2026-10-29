@@ -1,17 +1,19 @@
 'use client'
 
-import { useId, useRef } from 'react'
-import { useTranslations } from 'next-intl'
 import { Check } from 'lucide-react'
-import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
+import { useId, useRef } from 'react'
+
+import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
-import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
-import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
 import { COOK_QUESTION_EQUIPMENT_MAX_ITEMS } from '@/lib/ai/cook-question-limits'
+import { type CookQuestionSubject, sameSubject } from '@/lib/ai/cook-question-subject'
+import { cn } from '@/lib/utils'
+
 import { CookQuestionMenu, type CookQuestionMenuProps } from './CookQuestionMenu'
-import { CookQuestionPanel, type CookQuestionControls } from './CookQuestionPanel'
+import { type CookQuestionControls, CookQuestionPanel } from './CookQuestionPanel'
 
 export type { CookQuestionControls }
 import { PreparationNotes } from './PreparationNotes'

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { Body, Code } from '@/components/ui/typography'
 import { track } from '@/lib/analytics'

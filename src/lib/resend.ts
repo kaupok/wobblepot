@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+
 import { clientEnv, serverEnv } from '@/lib/env'
 
 /**

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { toOgLocale } from './og-locale'
+import { describe, expect, it } from 'vitest'
+
 import { KNOWN_LOCALES } from './locales'
+import { toOgLocale } from './og-locale'
 
 describe('toOgLocale', () => {
   it('maps en to en_US', () => {

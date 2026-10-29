@@ -17,9 +17,10 @@
  * key prefix so its counter never collides with the primary.
  */
 
-import { Ratelimit, type Duration } from '@upstash/ratelimit'
-import { getRedis } from '@/lib/upstash'
+import { type Duration, Ratelimit } from '@upstash/ratelimit'
+
 import { captureApiError } from '@/lib/errors'
+import { getRedis } from '@/lib/upstash'
 
 // E2E bypass: allows CI to skip the IP-dimensioned rate limiter that would
 // otherwise trip on the shared GitHub-runner IP after ~5 sign-ups. Refuses

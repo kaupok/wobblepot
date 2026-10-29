@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { getRouter } from '@storybook/nextjs-vite/navigation.mock'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
-import { useTranslations } from 'next-intl'
 import { Copy, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
 import { ShoppingListHeader } from './ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 

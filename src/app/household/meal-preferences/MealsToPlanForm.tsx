@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+
+import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
+import { SettingsSection } from '@/components/SettingsSection'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
@@ -11,8 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
-import { SettingsSection } from '@/components/SettingsSection'
+
 import type { HouseholdPreferencesValues, MealType } from './preference-values'
 
 type MealsValues = Pick<HouseholdPreferencesValues, 'weekdayMealTypes' | 'weekendMealTypes'>

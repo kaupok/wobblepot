@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Body } from '@/components/ui/typography'
 import { ApiError, apiFetch } from '@/lib/api'
+
 import { LeftoverServingsControl } from './fridge-meal/LeftoverServingsControl'
 
 /** The refusals `POST …/leftover-lunch` answers with a `code`, as keys under `meal-plan.cookForLunch.errors`. */

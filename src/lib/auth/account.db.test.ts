@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { AccountDeletionError, requestAccountDeletion } from '@/lib/auth/account'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 

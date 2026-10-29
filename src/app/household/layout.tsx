@@ -1,5 +1,7 @@
 import { getTranslations } from 'next-intl/server'
+
 import { Heading } from '@/components/ui/typography'
+
 import { HouseholdTabs } from './HouseholdTabs'
 
 /**

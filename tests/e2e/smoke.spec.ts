@@ -1,7 +1,8 @@
 // ROUTES: /, /sign-in, /account · COMPONENTS: Header, Home (landing hero, phone closing call to action), LandingWeek, SignInForm, AccountProfilePage, TimelineView, FillDaysAction
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
+import { signIn } from './utils/test-helpers'
 
 /**
  * Staging-runnable smoke specs (HON-560). Everything in this file carries

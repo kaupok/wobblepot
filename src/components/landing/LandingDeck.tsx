@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Body, Heading } from '@/components/ui/typography'
-import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
+import { useEffect, useRef, useState } from 'react'
+
 import { DemoMealCard } from '@/components/landing/DemoMealCard'
 import { ShowcaseMealCard } from '@/components/landing/ShowcaseMealCard'
+import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
+import { Body, Heading } from '@/components/ui/typography'
 import type { DemoDay, DemoMeal } from '@/lib/landing/load-demo-day'
 import { cn } from '@/lib/utils'
 

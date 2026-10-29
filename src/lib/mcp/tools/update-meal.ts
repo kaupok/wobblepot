@@ -1,12 +1,15 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
 import { getHouseholdMeal } from '@/lib/household-meals-read'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { distinctProteinTypes, type ComponentForProtein } from '@/lib/meal-planning/protein'
+import { defineTool, type McpHousehold, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { discardMealImage } from '@/lib/meal-images/storage'
-import { defineTool, WRITE_ANNOTATIONS, type McpHousehold } from '@/lib/mcp/context'
+import { type ComponentForProtein, distinctProteinTypes } from '@/lib/meal-planning/protein'
+
 import {
   checkOutput,
   componentsOf,

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { useIngredientSearch, type IngredientResult } from './use-ingredient-search'
+
+import { type IngredientResult, useIngredientSearch } from './use-ingredient-search'
 
 const ingredients: IngredientResult[] = [
   { id: '1', name: 'Tomato', category: 'vegetable', defaultUnit: 'g' },

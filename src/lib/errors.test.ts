@@ -1,8 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { InsufficientCandidatesError, MealPlanValidationError } from '@/lib/ai/types'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
+
 import { captureApiError, captureExternalApiTimeout } from './errors'
 import { captureClientError } from './errors-client'
-import { markPostHogLoaded } from '@/lib/posthog-client-state'
-import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 
 const captureExceptionMock = vi.fn()
 const captureMock = vi.fn()

@@ -1,11 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import enMessages from '../../messages/en.json'
-import etMessages from '../../messages/et.json'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { createMeal } from '@/stories/fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import type { DemoDay } from '@/lib/landing/load-demo-day'
+
+import enMessages from '../../messages/en.json'
+import etMessages from '../../messages/et.json'
 import { LandingPage } from './LandingPage'
 
 // `getTranslations` through the real translator, as in `src/app/page.test.tsx`,

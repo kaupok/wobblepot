@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, waitFor } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import {
   createMeal,
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import { MealCard } from './MealCard'
 
 /**

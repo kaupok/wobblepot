@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and read through `loadSlotEntry` (HON-1206).

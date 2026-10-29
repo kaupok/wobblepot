@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useCookQuestion, type UseCookQuestionOptions } from '@/hooks/use-cook-question'
-import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
 import type { CookQuestionControls } from '@/components/meal-plan/PreparationSteps'
+import { useCookQuestion, type UseCookQuestionOptions } from '@/hooks/use-cook-question'
+import { type CookQuestionSubject, sameSubject } from '@/lib/ai/cook-question-subject'
 
 /**
  * Ask in the cook view: which panel is open and the question in it, as the

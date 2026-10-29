@@ -1,8 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
-import { useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { Allergen } from '@/generated/prisma/enums'
+
 import { AllergenPicker } from './AllergenPicker'
 
 function Harness({

@@ -1,10 +1,12 @@
-import type { ReactElement } from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render as rtlRender, screen, within, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { MealForm, type MealFormData } from './MealForm'
+import type { ReactElement } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { MealForm, type MealFormData } from './MealForm'
 
 /**
  * The form's ingredient search reads through `useIngredientSearch`, so every

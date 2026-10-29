@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { DELETE } from './route'
 
 // Every query and the owner rule live in `@/lib/household-invite`, tested
@@ -28,8 +29,8 @@ vi.mock('@/lib/household-invite', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { HouseholdInviteError, revokeHouseholdInvite } from '@/lib/household-invite'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

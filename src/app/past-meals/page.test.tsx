@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import PastMealsPage from './page'
-import enMessages from '../../../messages/en.json'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { toDateString } from '@/lib/meal-planning/dates'
+
+import enMessages from '../../../messages/en.json'
+import PastMealsPage from './page'
 
 // Resolve `getTranslations('pastMeals')` → (key) → en.json.pastMeals[key].
 vi.mock('next-intl/server', () => ({

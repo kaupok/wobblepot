@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+
 import { MealForm, type MealFormData } from '@/components/household/MealForm'
 import { track } from '@/lib/analytics'
 import { getValidReturnUrl } from '@/lib/utils'
+
 import { MealFormSkeleton } from './MealFormSkeleton'
 import { parsePrefilledMeal, type PrefilledMeal } from './prefilled-meal'
 

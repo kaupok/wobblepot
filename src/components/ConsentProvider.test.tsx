@@ -7,8 +7,10 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
-import enMessages from '../../messages/en.json'
+
 import { ConsentProvider, useAnalyticsConsent } from '@/components/ConsentProvider'
+
+import enMessages from '../../messages/en.json'
 
 function withIntl(children: ReactNode) {
   return (

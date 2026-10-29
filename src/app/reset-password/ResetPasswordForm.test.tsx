@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { act, render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { ResetPasswordForm } from './ResetPasswordForm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
+
+import { ResetPasswordForm } from './ResetPasswordForm'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()

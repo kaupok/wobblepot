@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef, useId } from 'react'
-import { Search, Plus, Loader2 } from 'lucide-react'
+import { Loader2, Plus, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useId, useRef, useState } from 'react'
+
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
-import { cn, scrollIntoViewNearest } from '@/lib/utils'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
-import { type IngredientResult } from './meal-form-types'
 import type { IngredientCategory } from '@/generated/prisma/enums'
+import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { cn, scrollIntoViewNearest } from '@/lib/utils'
+
+import { type IngredientResult } from './meal-form-types'
 
 function CategoryHint({ category }: { category: IngredientCategory }) {
   const label = useEnumLabel('IngredientCategory', category)

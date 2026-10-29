@@ -32,15 +32,16 @@
  */
 
 import 'dotenv/config'
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client'
 import { MealType } from '../src/generated/prisma/enums'
 import { extractHue } from '../src/lib/meal-images/colour'
 import type { FootprintFit } from '../src/lib/meal-images/footprint'
-import type { VesselEstimate } from '../src/lib/meal-images/vessel'
 import type { GeneratedMealImage, GenerateMealImageOptions } from '../src/lib/meal-images/generate'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import {
@@ -48,14 +49,15 @@ import {
   MEAL_IMAGE_PROMPT_VERSION,
   type MealImageMeal,
 } from '../src/lib/meal-images/prompt'
+import type { VesselEstimate } from '../src/lib/meal-images/vessel'
 import {
   extensionFor,
+  type JobResult,
   MODELS,
   renderContactSheet,
   slugify,
-  variantsFor,
-  type JobResult,
   type SpikeMeal,
+  variantsFor,
 } from './spike-meal-images'
 
 // ============================================

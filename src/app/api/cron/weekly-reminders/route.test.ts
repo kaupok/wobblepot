@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const VALID_SECRET = 'x'.repeat(32)
 
@@ -18,9 +18,10 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { GET } from './route'
 import { serverEnv } from '@/lib/env'
 import { sendWeeklyReminders } from '@/lib/weekly-reminder'
+
+import { GET } from './route'
 
 const mockSend = vi.mocked(sendWeeklyReminders)
 // Mutable mock env so individual tests can flip CRON_SECRET / app env.

@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
 import type { ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { SampleMealInput } from '@/lib/meal-plans/build-sample-week'
+import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
+import { SAMPLE_WEEKS } from '@/lib/meal-plans/sample-weeks'
+
 import enMessages from '../../../../../messages/en.json'
 import { GET } from './route'
-import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
-import type { SampleMealInput } from '@/lib/meal-plans/build-sample-week'
-import { SAMPLE_WEEKS } from '@/lib/meal-plans/sample-weeks'
 
 // `next/og` compiles the element through satori + resvg (WASM), which does not
 // run under jsdom (see src/app/opengraph-image.test.tsx). The mock keeps the

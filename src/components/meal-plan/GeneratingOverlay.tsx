@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, type RefObject } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { type RefObject, useEffect, useState } from 'react'
+
 import { Dialog, DialogDescription, DialogPortal, DialogTitle } from '@/components/ui/dialog'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 
 const PROGRESS_KEYS = ['progress1', 'progress2', 'progress3', 'progress4'] as const
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   buildSampleWeek,
   isoDuration,
-  serializeJsonLd,
   type SampleMealInput,
+  serializeJsonLd,
 } from './build-sample-week'
 import type { SampleWeek } from './sample-weeks'
 

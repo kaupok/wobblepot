@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // `ENABLED` is read once at module load, so each test sets the env, resets the
 // module cache, and re-imports to exercise the enabled / disabled branch.

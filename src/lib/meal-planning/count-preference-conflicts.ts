@@ -1,12 +1,13 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
+
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
+import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
 import {
   findPreferenceConflicts,
   type HouseholdFoodPreferences,
 } from '@/lib/meal-planning/preference-conflicts'
-import { applyEntryChanges } from '@/lib/meal-planning/entry-components'
+import { prisma } from '@/lib/prisma'
 
 /**
  * How many of the household's planned meals, from its today onward, break

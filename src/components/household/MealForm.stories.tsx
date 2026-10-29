@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   createIngredientResult,
   createLowConfidencePrefilledIngredient,
@@ -7,8 +8,9 @@ import {
   ingredientResults,
 } from '@/stories/fixtures'
 import { submittingMealFormHandlers } from '@/stories/msw-handlers'
-import { MealForm } from './MealForm'
+
 import type { MealFormData } from './meal-form-types'
+import { MealForm } from './MealForm'
 
 const editMeal: MealFormData = {
   id: 'meal-existing',

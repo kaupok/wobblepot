@@ -1,10 +1,12 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
+
+import type { DayExtraView } from '@/components/meal-plan/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,7 +22,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
-import type { DayExtraView } from '@/components/meal-plan/types'
+
 import { ExtraAmountInput } from './ExtraAmountInput'
 
 interface DayExtrasRowProps {

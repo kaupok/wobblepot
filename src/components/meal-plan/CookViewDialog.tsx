@@ -1,17 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
 import { useTranslations } from 'next-intl'
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Heading } from '@/components/ui/typography'
+import type { ReactNode, RefObject } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
 import { displayFont } from '@/components/landing/display-font'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Heading } from '@/components/ui/typography'
 import type { MealImageState } from '@/hooks/use-meal-image'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { cn } from '@/lib/utils'
+
 import { MealImage } from './MealImage'
-import { MyRecipeIcon } from './MyRecipeIcon'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
+import { MyRecipeIcon } from './MyRecipeIcon'
 
 /** What the shell hands its body: `MealDetail`'s `image` and `title`. */
 export interface CookViewParts {

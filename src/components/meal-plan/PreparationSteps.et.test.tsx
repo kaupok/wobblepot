@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Real next-intl, so the Estonian catalog is what renders. The global mock
 // resolves every key against en.json whatever the provider's locale.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { useMealSteps } from '@/hooks/use-meal-steps'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import etMessages from '../../../messages/et.json'
 import { PreparationEquipment, PreparationSteps } from './PreparationSteps'
 
 /** The English prose the tips route puts in `data.error` on an entry 404. */

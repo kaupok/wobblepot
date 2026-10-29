@@ -1,20 +1,22 @@
 'use client'
 
-import { useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useRef } from 'react'
+
 import { InfoTip } from '@/components/ui/info-tip'
 import { Body } from '@/components/ui/typography'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
+
 import {
-  MACROS,
+  type Macro,
   macroCarbsStyle,
   macroEnergyShares,
+  MACROS,
   macroSplitStyle,
-  type Macro,
 } from './macro-energy-shares'
-import type { NutritionData, MealComponent } from './types'
+import type { MealComponent, NutritionData } from './types'
 import { useMacroLegendPlacement } from './use-macro-legend-placement'
 
 export type NutritionSummarySize = 'default' | 'lg'

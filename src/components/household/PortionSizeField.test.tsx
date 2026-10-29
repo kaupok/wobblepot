@@ -1,14 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // The global next-intl mock does not format `{multiplier, number}`; the real
 // provider does, and the chip labels are what these tests read.
 vi.unmock('next-intl')
-import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+import { useState } from 'react'
+
 import enMessages from '../../../messages/en.json'
-import { PortionSizeField, isValidPortion } from './PortionSizeField'
+import { isValidPortion, PortionSizeField } from './PortionSizeField'
 
 function Harness({
   initial,

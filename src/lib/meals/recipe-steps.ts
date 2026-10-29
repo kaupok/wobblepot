@@ -1,6 +1,9 @@
 import 'server-only'
+
 import { createHash } from 'node:crypto'
-import { prisma } from '@/lib/prisma'
+
+import type { PreparationSteps } from '@/components/meal-plan/types'
+import type { StepsRequestInput } from '@/lib/ai/preparation-steps'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -10,8 +13,7 @@ import {
 import { stepsInputHash } from '@/lib/landing/steps-input-hash'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
 import { parsePreparationSteps } from '@/lib/preparation-steps'
-import type { StepsRequestInput } from '@/lib/ai/preparation-steps'
-import type { PreparationSteps } from '@/components/meal-plan/types'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The reads and the write around `POST /api/meals/[id]/preparation-steps`: the

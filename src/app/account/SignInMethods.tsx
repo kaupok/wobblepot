@@ -1,27 +1,28 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
-import { authClient } from '@/lib/auth-client'
-import { ApiError } from '@/lib/api'
-import {
-  GOOGLE_LINK_CALLBACK_URL,
-  GOOGLE_PROVIDER_ID,
-  SIGN_IN_ACCOUNTS_QUERY_KEY,
-  findGoogleAccount,
-  hasPasswordAccount,
-  toSignInAccounts,
-  type GoogleLinkLanding,
-  type SignInAccount,
-} from '@/lib/sign-in-methods'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
 import { Body, Heading } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
-import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { useClearLandingParams } from '@/hooks/use-clear-landing-params'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
+import {
+  findGoogleAccount,
+  GOOGLE_LINK_CALLBACK_URL,
+  GOOGLE_PROVIDER_ID,
+  type GoogleLinkLanding,
+  hasPasswordAccount,
+  SIGN_IN_ACCOUNTS_QUERY_KEY,
+  type SignInAccount,
+  toSignInAccounts,
+} from '@/lib/sign-in-methods'
 
 interface SignInMethodsProps {
   /** Read by the page on the server, so the list is right on the first paint. */

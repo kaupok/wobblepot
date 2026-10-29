@@ -1,15 +1,16 @@
-import { prisma } from '@/lib/prisma'
-import { IngredientCategory, Unit, type PieceDisplay } from '@/generated/prisma/enums'
-import { getStartOfTodayInTimezone, toDateString } from './dates'
+import { IngredientCategory, type PieceDisplay, Unit } from '@/generated/prisma/enums'
+import { extraAggregationEntries } from '@/lib/day-extras/shopping'
+import { loadHouseholdServings } from '@/lib/household'
 import { translateIngredient, type WithIngredientTranslations } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
-import { cookServingsSelect, getCookServings } from './servings'
-import { applyEntryChanges } from './entry-components'
-import { loadHouseholdServings } from '@/lib/household'
-import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
-import { extraAggregationEntries } from '@/lib/day-extras/shopping'
+import { prisma } from '@/lib/prisma'
+import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
+
+import { getStartOfTodayInTimezone, toDateString } from './dates'
+import { applyEntryChanges } from './entry-components'
 import { pantryShoppingLines, shoppingIngredientArgs } from './pantry-shopping-lines'
+import { cookServingsSelect, getCookServings } from './servings'
 
 /**
  * Category configuration for shopping list grouping.

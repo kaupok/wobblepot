@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The pipeline behind `POST .../adjust` (HON-1244), with the model, the entry
 // read and the catalogue match mocked: what this file asserts is the prompt
@@ -32,20 +32,22 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => ({
 }))
 
 import { generateObject } from 'ai'
+
+import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { ADJUST_MODEL } from '@/lib/ai/models'
+import { recordAiUsage } from '@/lib/ai/usage'
 import {
   EntryContextError,
   loadEntryForAi,
   loadPantryNamesForAi,
 } from '@/lib/meal-plans/entry-context'
-import { matchIngredients } from '@/lib/ai/match-ingredients'
-import { recordAiUsage } from '@/lib/ai/usage'
-import { ADJUST_MODEL } from '@/lib/ai/models'
+
 import {
+  type AdjustContext,
   AdjustEntryError,
   loadAdjustContext,
   proposeAdjustment,
   resolveProposals,
-  type AdjustContext,
 } from './adjust-entry'
 
 const mockGenerate = vi.mocked(generateObject)

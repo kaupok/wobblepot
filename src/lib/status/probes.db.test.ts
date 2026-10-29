@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { pingDatabase } from '@/lib/status/probes'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.

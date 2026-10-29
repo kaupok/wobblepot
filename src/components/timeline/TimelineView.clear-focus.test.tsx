@@ -1,13 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context.
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../messages/en.json'
+
+import type { ExpectedMealTypes, PlanEntry } from '@/components/meal-plan/types'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import enMessages from '../../../messages/en.json'
 import { TimelineView } from './TimelineView'
-import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
 
 // After Clear the card unmounts and focus with it, so the day's "+ Add" button
 // takes focus once the slot is empty (HON-1123, HON-1335). The real day card

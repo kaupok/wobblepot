@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import {
   cachePreparationTips,
   EntryContextError,
@@ -7,6 +7,7 @@ import {
   loadPantryNamesForAi,
   type PricedFrom,
 } from '@/lib/meal-plans/entry-context'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are
 // written with Prisma and read or changed through the lib functions (HON-1207).

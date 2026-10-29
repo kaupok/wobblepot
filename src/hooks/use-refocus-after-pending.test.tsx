@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+
 import { useRefocusAfterPending } from './use-refocus-after-pending'
 
 function setup() {

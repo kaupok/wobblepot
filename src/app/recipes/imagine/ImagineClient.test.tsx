@@ -1,17 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // The failure copy has to be resolved against a real catalog in a real locale;
 // the global mock always answers from English, which would pass whether or not
 // the leak is fixed.
 vi.unmock('next-intl')
-import { screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
+
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import type { ImaginedMealResponse } from '@/lib/imagine-utils'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { loadImagineSession, saveImagineSession } from './imagine-session'
 import { ImagineClient } from './ImagineClient'
 import { generate, renderInLocale } from './ImagineClient.fixtures'
-import { loadImagineSession, saveImagineSession } from './imagine-session'
-import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 

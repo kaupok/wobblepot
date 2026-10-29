@@ -1,9 +1,11 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
 import { Prisma } from '@/generated/prisma/client'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Adding an ingredient to the pantry, changing a pantry item and removing one,

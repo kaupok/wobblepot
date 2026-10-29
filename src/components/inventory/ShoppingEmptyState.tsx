@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Heading, Body } from '@/components/ui/typography'
+
 import { Button } from '@/components/ui/button'
+import { Body, Heading } from '@/components/ui/typography'
 
 /**
  * Why the shopping list has nothing to show. `error` replaces the list; the

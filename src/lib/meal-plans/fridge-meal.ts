@@ -1,8 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+
 import type { Prisma } from '@/generated/prisma/client'
+import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
+import { prisma } from '@/lib/prisma'
+
 import type { FridgeItemInput } from './fridge-items'
 
 /**

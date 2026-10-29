@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { listRecentlyDeletedHouseholdMeals } from '@/lib/deleted-household-meals'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 const ROUTE = '/api/households/me/meals/deleted'
 

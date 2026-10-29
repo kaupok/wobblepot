@@ -1,14 +1,15 @@
-import type { getHouseholdMembership } from '@/lib/household'
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
-import { loadPantry } from '@/lib/meal-planning/load-pantry'
-import { sumPortions } from '@/lib/meal-planning/servings'
-import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { loadDayExtras } from '@/lib/day-extras/day-extras'
-import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
+import type { ComponentProps } from 'react'
+
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
-import type { ComponentProps } from 'react'
+import { loadDayExtras } from '@/lib/day-extras/day-extras'
+import type { getHouseholdMembership } from '@/lib/household'
+import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { sumPortions } from '@/lib/meal-planning/servings'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 type TimelineShoppingItem = ComponentProps<typeof TimelineView>['shoppingItems'][number]
 

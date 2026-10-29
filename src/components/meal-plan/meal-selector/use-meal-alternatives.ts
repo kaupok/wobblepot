@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch } from '@/lib/api'
-import { rateLimitResetAt } from '@/lib/ai/error-codes'
-import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
-import type { MealImageFields } from '../MealImageCard'
+import { useCallback } from 'react'
+
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import { rateLimitResetAt } from '@/lib/ai/error-codes'
+import { ApiError, apiFetch } from '@/lib/api'
+
+import type { MealImageFields } from '../MealImageCard'
+import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
 
 /** Shape of a meal in the `/api/meals` response. */
 interface LibraryMeal extends MealImageFields {

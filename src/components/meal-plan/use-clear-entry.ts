@@ -1,13 +1,15 @@
 'use client'
 
-import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { ApiError, apiFetch } from '@/lib/api'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
-import type { FridgeItemInput } from '@/lib/meal-plans/fridge-items'
+import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
+
 import type { MealType } from '@/generated/prisma/enums'
+import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
+import { ApiError, apiFetch } from '@/lib/api'
+import type { FridgeItemInput } from '@/lib/meal-plans/fridge-items'
+
 import type { EntryRating } from './types'
 
 /**

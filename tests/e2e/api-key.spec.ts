@@ -1,5 +1,6 @@
 // ROUTES: /account/connections, /api/v1/meal-plan, /api/v1/shopping-list, /api/auth/user/api-keys · COMPONENTS: ApiKeysSection, NewApiKey, ApiKeyGuide
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
 import { grantEssentialCookieConsent, signUpWithHousehold } from './utils/test-helpers'
 
 /**

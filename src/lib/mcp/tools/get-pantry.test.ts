@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
 }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 
+import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
-import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
+
 import { getPantry } from './get-pantry'
 
 const household = mcpHousehold({ id: 'household-1' })

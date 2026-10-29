@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import { loadPlanShoppingList, loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { purchaseIngredients, unpurchaseIngredient } from '@/lib/shopping/purchase'
-import { NOW, ingredient, household, entry, itemsById } from './load-shopping-list.fixtures'
+
+import { entry, household, ingredient, itemsById, NOW } from './load-shopping-list.fixtures'
 
 // A staple the household marked ran out goes on the list (HON-1398). Runs
 // against PGlite through the `unit-db` project, with no mocks, through both

@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
 import { Star, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { cn } from '@/lib/utils'
+import { Body } from '@/components/ui/typography'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { cn } from '@/lib/utils'
 
 export interface PantryItemData {
   id: string

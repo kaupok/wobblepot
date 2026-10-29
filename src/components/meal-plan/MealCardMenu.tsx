@@ -1,7 +1,5 @@
 'use client'
 
-import { useId, useRef, useState, type RefObject } from 'react'
-import { useTranslations } from 'next-intl'
 import {
   Check,
   MoreHorizontal,
@@ -11,8 +9,10 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { type RefObject, useId, useRef, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MEAL_ROUTES, type AddMealChoice } from './AddMealMenu'
+import { Body } from '@/components/ui/typography'
+
+import { type AddMealChoice, MEAL_ROUTES } from './AddMealMenu'
 import { CookForLunchDialog } from './CookForLunchDialog'
 import type { LeftoverLunchOption } from './leftover-lunch-option'
 import type { MealStatus } from './types'

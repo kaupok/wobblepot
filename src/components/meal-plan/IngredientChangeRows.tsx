@@ -2,6 +2,7 @@
 
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -10,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Li } from '@/components/ui/typography'
+
 import type { IngredientChangeControls } from './IngredientList'
 import type { EntryChange, MealComponent } from './types'
 

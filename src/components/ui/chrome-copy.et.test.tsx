@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
 // Fixed chrome copy (Close, Loading, Cancel) comes from `common.*` inside the
 // primitives (HON-914). The global next-intl mock resolves against English
@@ -7,8 +7,10 @@ import type { ReactNode } from 'react'
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import etMessages from '../../../messages/et.json'
+
 import { TagInput } from '@/components/tag-input'
+
+import etMessages from '../../../messages/et.json'
 import { ConfirmDialog } from './confirm-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './dialog'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from './sheet'

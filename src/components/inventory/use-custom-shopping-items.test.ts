@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, renderHook, waitFor } from '@testing-library/react'
 import type { QueryClient } from '@tanstack/react-query'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { toast } from 'sonner'
+
 import { useCustomShoppingItems } from './use-custom-shopping-items'
 
 function customItem(name: string, overrides: Partial<CustomItemData> = {}): CustomItemData {

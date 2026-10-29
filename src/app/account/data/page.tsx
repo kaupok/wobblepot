@@ -1,9 +1,10 @@
-import { countAccountHoldingMembers } from '@/lib/household'
-import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { DeleteAccountDialog } from './DeleteAccountDialog'
+import { Body, Heading } from '@/components/ui/typography'
+import { countAccountHoldingMembers } from '@/lib/household'
+
 import { accountTabMetadata, requireAccountMember } from '../account-member'
+import { DeleteAccountDialog } from './DeleteAccountDialog'
 
 export function generateMetadata() {
   return accountTabMetadata('data')

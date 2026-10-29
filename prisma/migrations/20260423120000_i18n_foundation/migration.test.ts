@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
 
 // Cheap regression safeguard: Prisma cannot model partial unique indexes, so
 // the SQL must be hand-rolled and stay in this migration file forever. If a

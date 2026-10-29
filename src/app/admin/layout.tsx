@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
-import { getSession } from '@/lib/session'
+
 import { isAdmin } from '@/lib/auth-helpers'
+import { getSession } from '@/lib/session'
 
 // Gate the whole `/admin` segment here, outside any child `loading.tsx`.
 // A segment's `loading.tsx` wraps only its own `page.tsx` in Suspense, not a

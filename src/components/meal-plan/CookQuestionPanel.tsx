@@ -1,19 +1,20 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type RefObject } from 'react'
-import { useTranslations } from 'next-intl'
 import { Pencil, X } from 'lucide-react'
-import { Body } from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
+import { type RefObject, useEffect, useId, useRef, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { cn, scrollIntoViewNearest } from '@/lib/utils'
+import { Body } from '@/components/ui/typography'
 import type {
   CookQuestionActive,
   CookQuestionAskInput,
   CookQuestionError,
 } from '@/hooks/use-cook-question'
-import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { type CookQuestionSubject, sameSubject } from '@/lib/ai/cook-question-subject'
+import { cn, scrollIntoViewNearest } from '@/lib/utils'
 
 /**
  * The cook-question state, owned by the modal through `useCookQuestionPanel`,

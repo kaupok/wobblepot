@@ -6,9 +6,11 @@ vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../messages/en.json'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { CookieBanner } from '@/components/CookieBanner'
+
+import enMessages from '../../messages/en.json'
 
 function renderWithConsent(value: AnalyticsConsent, { hasTabBar }: { hasTabBar?: boolean } = {}) {
   return render(

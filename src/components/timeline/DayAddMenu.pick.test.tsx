@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { toast, type ExternalToast } from 'sonner'
+import { type ExternalToast, toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { DayAddMenu } from './DayAddMenu'
 
 // "Pick for me" places the slot's top suggestion in one request, and a toast

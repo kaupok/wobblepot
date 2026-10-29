@@ -1,8 +1,9 @@
 // ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PastEmptyRow, DayAddMenu, LogMealPicker, PantryDeductionModal, MealRatingInline, Header (User menu)
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A past day and slot of its own. The other specs on the smoke household plant
 // only on today and later days, so nothing else writes here.

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // The fridge-meal fields of the entry POST (HON-1277), and the leftover
@@ -33,8 +34,8 @@ vi.mock('@/lib/meal-plans/recent-meals', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { createEntry } from '@/lib/meal-plans/create-entry'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
 import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'

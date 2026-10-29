@@ -1,8 +1,9 @@
 // ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, DayAddMenu, EmptySlotController, AddMealMenu, MealCard, MealCardMenu, MealSelectorModal
-import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
-import { signIn, signUpWithHousehold } from './utils/test-helpers'
+import { type APIRequestContext, expect, type Locator, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn, signUpWithHousehold } from './utils/test-helpers'
 
 // The meal-card tests plant their own entries on this day. Past the shopping
 // list's 7-day window, so a planned meal here never shows up in

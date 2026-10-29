@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -7,8 +7,9 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-import { purgeExpiredOauthTokens } from './purge-expired-oauth-tokens'
 import { prisma } from '@/lib/prisma'
+
+import { purgeExpiredOauthTokens } from './purge-expired-oauth-tokens'
 
 const mockAccessDeleteMany = vi.mocked(prisma.oauthAccessToken.deleteMany)
 const mockRefreshDeleteMany = vi.mocked(prisma.oauthRefreshToken.deleteMany)

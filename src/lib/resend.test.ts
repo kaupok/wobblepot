@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The Resend client is cached on globalThis to survive Next.js HMR. That cache
 // outlives `vi.resetModules()`, so without an explicit clear, a test that

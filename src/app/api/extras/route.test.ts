@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // Every query lives in `@/lib/day-extras/day-extras`, tested against a
@@ -27,9 +28,9 @@ vi.mock('@/lib/day-extras/day-extras', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { createDayExtra } from '@/lib/day-extras/day-extras'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

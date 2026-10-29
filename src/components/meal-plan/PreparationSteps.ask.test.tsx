@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationSteps, type CookQuestionControls } from './PreparationSteps'
+import { describe, expect, it, vi } from 'vitest'
+
+import { type CookQuestionControls, PreparationSteps } from './PreparationSteps'
 import {
-  Harness,
   buttonName,
+  Harness,
   menuButton,
   openPanel,
   panel,

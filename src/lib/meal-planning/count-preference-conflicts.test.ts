@@ -6,6 +6,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import { countConflictingPlannedEntries } from './count-preference-conflicts'
 
 const mockFindMany = vi.mocked(prisma.mealPlanEntry.findMany)

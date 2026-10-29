@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import requestConfig from './request'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { getLocale } from './get-locale'
+import requestConfig from './request'
 
 vi.mock('next-intl/server', () => ({
   // The real `getRequestConfig` returns its callback unchanged.

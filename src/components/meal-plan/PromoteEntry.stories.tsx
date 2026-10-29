@@ -2,8 +2,9 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import type { EntryChange } from './types'
+
 import { PromoteEntry } from './PromoteEntry'
+import type { EntryChange } from './types'
 
 const PROMOTE = '/api/meal-plans/:planId/entries/:entryId/components/promote'
 

@@ -1,11 +1,12 @@
 'use client'
 
 import { QueryClientProvider } from '@tanstack/react-query'
-import { getQueryClient } from '@/lib/get-query-client'
-import { useResetQueryCacheOnScopeChange } from '@/hooks/use-reset-query-cache-on-scope-change'
+
 import { AiUsageToast } from '@/components/AiUsageToast'
 import { PostHogProvider } from '@/components/PostHogProvider'
+import { useResetQueryCacheOnScopeChange } from '@/hooks/use-reset-query-cache-on-scope-change'
 import type { BootstrapData } from '@/lib/feature-flags'
+import { getQueryClient } from '@/lib/get-query-client'
 
 interface ProvidersProps {
   children: React.ReactNode

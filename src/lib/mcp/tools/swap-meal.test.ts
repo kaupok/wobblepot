@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
@@ -46,14 +46,15 @@ vi.mock('@/lib/meal-planning/candidate-score', async (importOriginal) => {
   return { ...actual, randomScoreJitter: vi.fn(() => 0) }
 })
 
-import { prisma } from '@/lib/prisma'
-import { getCandidates } from '@/lib/meal-planning/candidates'
-import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
-import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
-import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
-import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { getCandidates } from '@/lib/meal-planning/candidates'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { isMealAllowedForSlot } from '@/lib/meal-planning/meal-allowed-for-slot'
+import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
+import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
+import { prisma } from '@/lib/prisma'
+import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
+
 import { swapMeal } from './swap-meal'
 
 const household = mcpHousehold({

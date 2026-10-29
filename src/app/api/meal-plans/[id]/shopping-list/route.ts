@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import {
   loadPlanShoppingList,
   ShoppingPlanError,
   type ShoppingPlanRefusal,
 } from '@/lib/shopping/load-shopping-list'
-import { captureApiError } from '@/lib/errors'
 
 const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
   planNotFound: { status: 404, error: 'Meal plan not found' },

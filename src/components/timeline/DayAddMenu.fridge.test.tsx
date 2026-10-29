@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { fridgePantryItems } from '@/stories/fridge-fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { DayAddMenu } from './DayAddMenu'
 
 // "Fridge meal" in an open slot (HON-1277): the picker creates the entry as it

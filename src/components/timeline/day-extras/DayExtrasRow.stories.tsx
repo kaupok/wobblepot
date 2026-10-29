@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
+
 import { chipsExtra, mixedExtras, wineExtra } from '@/stories/day-extra-fixtures'
+
 import { DayExtrasRow } from './DayExtrasRow'
 
 const meta = {

@@ -1,11 +1,14 @@
 import 'server-only'
+
 import { unstable_cache } from 'next/cache'
-import { prisma } from '@/lib/prisma'
+
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { freshStepsRow } from '@/lib/landing/load-demo-day'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { parsePreparationSteps } from '@/lib/preparation-steps'
-import { freshStepsRow } from '@/lib/landing/load-demo-day'
+import { prisma } from '@/lib/prisma'
+
 import type { SampleMealInput } from './build-sample-week'
 import type { SampleWeek } from './sample-weeks'
 

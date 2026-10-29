@@ -1,12 +1,14 @@
 import 'server-only'
+
 import { z } from 'zod'
-import {
-  createPantryItem,
-  updatePantryItem,
-  type PantryItemWithIngredient,
-} from '@/lib/pantry/pantry-items'
+
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import {
+  createPantryItem,
+  type PantryItemWithIngredient,
+  updatePantryItem,
+} from '@/lib/pantry/pantry-items'
 
 /**
  * The quantity each status writes when no amount comes with it. An amount

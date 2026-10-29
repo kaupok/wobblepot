@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { createTranslator, type Messages } from 'next-intl'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { Locale } from '@/lib/i18n/locales'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import type { Locale } from '@/lib/i18n/locales'
 import BotPage from './page'
 
 const { localeRef } = vi.hoisted(() => ({ localeRef: { current: 'en' as Locale } }))

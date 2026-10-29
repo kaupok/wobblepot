@@ -1,7 +1,8 @@
 import { verifyOAuthQueryParams } from '@better-auth/oauth-provider'
+
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { knownScopes, type McpScope } from '@/lib/mcp/oauth'
+import { prisma } from '@/lib/prisma'
 
 /** A page's `searchParams` as `URLSearchParams`, repeated keys kept. */
 export function toSearchParams(

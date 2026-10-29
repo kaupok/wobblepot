@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 
 /**
  * Drops every cached swap-suggestion list for a plan.

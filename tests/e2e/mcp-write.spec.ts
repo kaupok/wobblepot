@@ -1,10 +1,11 @@
 // ROUTES: /api/mcp, /api/auth/oauth2/*, /consent, /api/pantry, /api/entries, /api/meal-plans/*/entries · COMPONENTS: ConsentCard
-import { test, expect, type Page } from '@playwright/test'
-import { signIn, signUpWithHousehold } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
-import { connectMcpClient, WRITE_SCOPE } from './utils/oauth'
 import { mcpCallTool } from './utils/mcp'
+import { connectMcpClient, WRITE_SCOPE } from './utils/oauth'
+import { signIn, signUpWithHousehold } from './utils/test-helpers'
 
 /**
  * The MCP write scope (HON-1154), driven the way an MCP client drives it:

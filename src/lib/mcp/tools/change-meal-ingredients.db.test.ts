@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { mcpHousehold } from '@/test/mcp'
+
 import { changeMealIngredients } from './change-meal-ingredients'
 
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no

@@ -1,17 +1,19 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { auth } from '@/lib/auth'
-import { isGoogleAuthConfigured } from '@/lib/env'
-import { hasHouseholdMembership } from '@/lib/household'
-import { getServerFlag } from '@/lib/feature-flags'
-import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
-import { getHouseholdInviteCodeFromParams, householdInvitePath } from '@/lib/household-invite-link'
-import { SignUpForm, type SignUpHouseholdInvite } from './SignUpForm'
+import { Suspense } from 'react'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
+import { auth } from '@/lib/auth'
+import { isGoogleAuthConfigured } from '@/lib/env'
+import { getServerFlag } from '@/lib/feature-flags'
+import { hasHouseholdMembership } from '@/lib/household'
+import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
+import { getHouseholdInviteCodeFromParams, householdInvitePath } from '@/lib/household-invite-link'
+
+import { SignUpForm, type SignUpHouseholdInvite } from './SignUpForm'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('auth.signUp')

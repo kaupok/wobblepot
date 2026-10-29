@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { describe, expect, it } from 'vitest'
+
 import { ToolInputError } from '@/lib/mcp/context'
+import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold } from '@/test/mcp'
-import { swapMeal } from './swap-meal'
+
 import { getMealPlan } from './get-meal-plan'
+import { swapMeal } from './swap-meal'
 
 // A swap on a past slot logs what the household ate (HON-1382); from today on,
 // a chosen meal may repeat (HON-1392). Runs against PGlite through the

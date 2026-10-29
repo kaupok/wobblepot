@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { useMealSteps } from './use-meal-steps'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { PreparationSteps } from '@/components/meal-plan/types'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../messages/en.json'
+import { useMealSteps } from './use-meal-steps'
 
 const stepsErrors = enMessages['meal-plan'].steps.errors
 

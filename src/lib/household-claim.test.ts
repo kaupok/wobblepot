@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { Prisma } from '@/generated/prisma/client'
 
 vi.mock('@/lib/prisma', () => ({
@@ -8,14 +9,15 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import {
   AlreadyInHouseholdError,
-  InviteNoLongerClaimableError,
-  inviteMembershipClaim,
-  runHouseholdClaim,
   backoffDelayMs,
+  inviteMembershipClaim,
+  InviteNoLongerClaimableError,
   isMembershipConflict,
   MAX_CLAIM_ATTEMPTS,
+  runHouseholdClaim,
 } from './household-claim'
 
 const mockTransaction = vi.mocked(prisma.$transaction)

@@ -1,21 +1,23 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { APICallError, generateObject, NoObjectGeneratedError, RetryError } from 'ai'
-import { serverEnv } from '@/lib/env'
-import { RECIPE_MODEL } from './models'
-import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
+
 import type { MealType } from '@/generated/prisma/enums'
-import { logAiSample } from './sampling'
-import { RecipeParseError } from './recipe-errors'
-import type { RecipeExtraction } from './recipe-schema'
+import { serverEnv } from '@/lib/env'
+import type { EncodedImage } from '@/lib/image-attachments-server'
+
+import { type IngredientMatchResult, matchIngredients } from './match-ingredients'
+import { RECIPE_MODEL } from './models'
 import {
-  evaluateRecipeConfidence,
   type ConfidenceResult,
   type ConfidenceTier,
+  evaluateRecipeConfidence,
 } from './recipe-confidence'
+import { RecipeParseError } from './recipe-errors'
 import { buildRecipeRequest } from './recipe-prompt'
+import type { RecipeExtraction } from './recipe-schema'
+import { logAiSample } from './sampling'
 import { isAiBudgetTimeout } from './timeout'
-import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
-import type { EncodedImage } from '@/lib/image-attachments-server'
+import { type AiUsageStats, toAiUsageStats, withUsageOnFailure } from './usage'
 
 /**
  * Result of parsing recipe text, including confidence evaluation.

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { createIngredient, createMealComponent } from '@/stories/fixtures'
+
 import { IngredientList } from './IngredientList'
 import type { EntryChange } from './types'
 

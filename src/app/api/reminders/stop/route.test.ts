@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/weekly-reminder', () => ({
   stopRemindersByToken: vi.fn(),
@@ -8,8 +8,9 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { GET, POST } from './route'
 import { stopRemindersByToken } from '@/lib/weekly-reminder'
+
+import { GET, POST } from './route'
 
 const mockStop = vi.mocked(stopRemindersByToken)
 const BASE = 'http://localhost/api/reminders/stop'

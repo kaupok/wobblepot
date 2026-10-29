@@ -1,12 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+
 import type { IngredientCategory } from '@/generated/prisma/enums'
+import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { searchIngredients } from '@/lib/ingredients/search'
 import { createHouseholdIngredient } from '@/lib/ingredients/create'
+import { searchIngredients } from '@/lib/ingredients/search'
+
 import { ingredientRateLimited, parseIngredientBody } from './request'
 
 const DEFAULT_LIMIT = 10

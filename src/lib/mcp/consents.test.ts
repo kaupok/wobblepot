@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const capture = vi.fn()
 vi.mock('@/lib/posthog-server', () => ({
@@ -20,6 +20,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import { disconnectMcpClient, listMcpConsents, MCP_CLIENT_DISCONNECTED_EVENT } from './consents'
 
 const NOW = new Date('2026-10-12T12:00:00Z')

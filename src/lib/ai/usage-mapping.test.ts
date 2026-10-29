@@ -23,7 +23,7 @@
  * (HON-648) is read from `usage.inputTokenDetails` instead.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -45,13 +45,15 @@ vi.mock('@/lib/request-id', () => ({
 }))
 
 import type { LanguageModelUsage } from 'ai'
-import { prisma } from '@/lib/prisma'
+
 import { getPosthogServer } from '@/lib/posthog-server'
+import { prisma } from '@/lib/prisma'
 import { getRequestId } from '@/lib/request-id'
+
 import { REVIEW_MODEL } from './models'
 import { estimateCostUsd } from './pricing'
-import { USAGE_FIXTURE } from './usage-fixture'
 import { recordAiUsage, toAiUsageStats } from './usage'
+import { USAGE_FIXTURE } from './usage-fixture'
 
 const mockCreate = vi.mocked(prisma.aiUsage.create)
 const mockGetPosthogServer = vi.mocked(getPosthogServer)

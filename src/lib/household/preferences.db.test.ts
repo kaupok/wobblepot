@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { getHouseholdMembership } from '@/lib/household'
 import {
-  updateHouseholdPreferences,
-  writeMemberPreferences,
   type MemberPreferencesPatch,
   type PreferencesMember,
+  updateHouseholdPreferences,
+  writeMemberPreferences,
 } from '@/lib/household/preferences'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through the lib functions, and read

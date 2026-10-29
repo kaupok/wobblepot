@@ -1,17 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/posthog-server', () => ({
   getPosthogServer: vi.fn(),
 }))
 
 import { getPosthogServer } from '@/lib/posthog-server'
+
 import {
   bootstrapFlags,
   FLAG_CACHE_TTL_MS,
   FLAG_DEFAULTS,
+  type FlagKey,
   getServerFlag,
   resetFlagCacheForTests,
-  type FlagKey,
 } from './feature-flags'
 
 const mockedGetPosthogServer = vi.mocked(getPosthogServer)

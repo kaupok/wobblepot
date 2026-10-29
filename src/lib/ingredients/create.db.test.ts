@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it, vi } from 'vitest'
+
+import { createHouseholdMeal } from '@/lib/household-meals'
 import { createHouseholdIngredient, type NewIngredientInput } from '@/lib/ingredients/create'
 import { searchIngredients } from '@/lib/ingredients/search'
-import { createHouseholdMeal } from '@/lib/household-meals'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { prisma } from '@/lib/prisma'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1263).

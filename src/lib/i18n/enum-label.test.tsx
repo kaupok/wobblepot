@@ -1,12 +1,11 @@
 // Use the real next-intl in this file: the global mock in vitest.setup.ts
 // hardcodes English; this suite needs locale-switched lookups.
-import { vi, describe, it, expect } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { renderHook } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { PropsWithChildren } from 'react'
-import enMessages from '../../../messages/en.json'
-import etMessages from '../../../messages/et.json'
+
 import {
   Allergen,
   DietaryType,
@@ -17,7 +16,10 @@ import {
   ProteinType,
   Unit,
 } from '@/generated/prisma/enums'
-import { useEnumLabel, useVaguePhrase, type EnumName } from './enum-label'
+
+import enMessages from '../../../messages/en.json'
+import etMessages from '../../../messages/et.json'
+import { type EnumName, useEnumLabel, useVaguePhrase } from './enum-label'
 
 function makeWrapper(locale: 'en' | 'et') {
   const messages = locale === 'et' ? etMessages : enMessages

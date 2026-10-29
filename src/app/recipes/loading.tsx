@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+
 import { RecipesGridSkeleton } from './RecipesGridSkeleton'
 
 // Mirrors `RecipesPageClient`: same container, top-aligned, no bordered

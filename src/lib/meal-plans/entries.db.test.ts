@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import {
   deleteEntriesInRange,
   deleteEntry,
-  EntryUpdateError,
-  updateEntry,
   type EntryPatch,
+  EntryUpdateError,
   type EntryUpdateRefusal,
+  updateEntry,
 } from '@/lib/meal-plans/entries'
-import { entry, readEntry, world, type IngredientId } from '@/lib/meal-plans/entries.fixtures'
+import { entry, type IngredientId, readEntry, world } from '@/lib/meal-plans/entries.fixtures'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through the lib functions, and read

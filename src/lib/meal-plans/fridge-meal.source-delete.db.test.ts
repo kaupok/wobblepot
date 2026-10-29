@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { createEntry } from '@/lib/meal-plans/create-entry'
 import { deleteEntry } from '@/lib/meal-plans/entries'
-import { setFridgeItems } from '@/lib/meal-plans/fridge-meal'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import { setFridgeItems } from '@/lib/meal-plans/fridge-meal'
+import { prisma } from '@/lib/prisma'
+
 import { entry, world } from './entries.fixtures'
 
 // Deleting a leftover lunch's source after the dinner became a fridge meal

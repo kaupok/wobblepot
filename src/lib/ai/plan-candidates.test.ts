@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -15,8 +16,9 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
   NO_REPEAT_DAYS: 14,
 }))
 
-import { prisma } from '@/lib/prisma'
 import { getCandidates } from '@/lib/meal-planning/candidates'
+import { prisma } from '@/lib/prisma'
+
 import {
   capPool,
   getFavoriteMealIds,

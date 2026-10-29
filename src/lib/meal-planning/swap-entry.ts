@@ -1,7 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+
 import type { Prisma } from '@/generated/prisma/client'
+import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The rules for pointing a plan entry at another meal, shared by

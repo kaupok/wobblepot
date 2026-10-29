@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { QuantityControls } from './QuantityControls'
 
 // Drive a controlled React input the way React expects: use the native value

@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
-import { cn } from '@/lib/utils'
-import { mealHueStyle, useImageLoaded } from './MealImageCard'
+import { useState } from 'react'
+
 import type { MealImageStatus } from '@/generated/prisma/enums'
+import { cn } from '@/lib/utils'
+
+import { mealHueStyle, useImageLoaded } from './MealImageCard'
 
 /**
  * Rendered width of the hero in the cook view (HON-932). Below `lg` the view is

@@ -1,7 +1,8 @@
 import 'server-only'
+
 import type { ProteinType } from '@/generated/prisma/enums'
 import { HouseholdMealError } from '@/lib/household-meal-error'
-import { isProteinOverrideValid, type ComponentForProtein } from '@/lib/meal-planning/protein'
+import { type ComponentForProtein, isProteinOverrideValid } from '@/lib/meal-planning/protein'
 
 /**
  * The household's chosen main protein on a recipe write (HON-1386). A choice

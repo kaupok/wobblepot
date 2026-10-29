@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { SignupCodesClient, type SignupCodeRow } from './SignupCodesClient'
+
+import { type SignupCodeRow, SignupCodesClient } from './SignupCodesClient'
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },

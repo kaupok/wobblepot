@@ -1,21 +1,22 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
+import { describe, expect, it } from 'vitest'
+
 import type { Allergen, ProteinType } from '@/generated/prisma/enums'
+import {
+  createHouseholdMeal,
+  deleteHouseholdMeal,
+  type HouseholdMealCreateInput,
+  HouseholdMealError,
+  type HouseholdMealPatch,
+  type HouseholdMealRefusal,
+  updateHouseholdMeal,
+} from '@/lib/household-meals'
 import {
   getHouseholdMeal,
   listHouseholdMeals,
   type ListHouseholdMealsOptions,
 } from '@/lib/household-meals-read'
-import {
-  createHouseholdMeal,
-  deleteHouseholdMeal,
-  HouseholdMealError,
-  updateHouseholdMeal,
-  type HouseholdMealCreateInput,
-  type HouseholdMealPatch,
-  type HouseholdMealRefusal,
-} from '@/lib/household-meals'
+import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through the lib functions, and read

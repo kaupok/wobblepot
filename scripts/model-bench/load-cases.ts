@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CASE_SCHEMAS, type BenchCase, type Task } from './case-schema'
+
+import { type BenchCase, CASE_SCHEMAS, type Task } from './case-schema'
 
 /** `scripts/model-bench/cases`, resolved from this file so the cwd does not matter. */
 export const CASES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'cases')

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 // The real provider, so the Estonian case renders the et catalog rather than
 // the global mock's English fallback.
 vi.unmock('next-intl')
@@ -6,10 +6,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { dropFocusToBody } from '@/test/focus'
 import { ConsentCard } from './ConsentCard'
 
 vi.mock('@/lib/auth-client', () => ({

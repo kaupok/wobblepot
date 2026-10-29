@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
 import { exportUserData } from '@/lib/auth/export'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 /**
  * GET /api/auth/user/export

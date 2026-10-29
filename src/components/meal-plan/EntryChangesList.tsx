@@ -1,8 +1,10 @@
 'use client'
 
-import { useId } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId } from 'react'
+
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
+
 import type { EntryChange } from './types'
 
 interface EntryChangesListProps {

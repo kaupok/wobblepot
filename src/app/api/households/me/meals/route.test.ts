@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, POST } from './route'
 
 // The list and create queries live in `@/lib/household-meals`, tested against
@@ -51,11 +52,11 @@ vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { createHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
 import { listHouseholdMeals } from '@/lib/household-meals-read'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)

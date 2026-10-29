@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { ImagineClient } from './ImagineClient'
 
 // A test file that uses these calls `vi.unmock('next-intl')` first: the copy

@@ -1,11 +1,13 @@
 import { act, render, screen } from '@testing-library/react'
-import type { ReactElement, ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
+import type { ReactElement, ReactNode } from 'react'
 import { vi } from 'vitest'
+
+import type { HouseholdPreferencesValues } from '@/app/household/meal-preferences/preference-values'
+
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
 import { createQueryWrapper } from './query-wrapper'
-import type { HouseholdPreferencesValues } from '@/app/household/meal-preferences/preference-values'
 
 /**
  * Shared fixtures for the household settings form tests (HON-1257): the

@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { misoSalmonAlternative } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import type { AlternativeMeal } from '../types'
 import { AlternativeSkeleton, AlternativesList } from './AlternativesList'
 

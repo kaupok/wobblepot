@@ -1,4 +1,5 @@
 import { InventoryPage } from '@/components/inventory/InventoryPage'
+
 import { loadInventory } from '../shopping/load-inventory'
 
 interface PantryPageProps {

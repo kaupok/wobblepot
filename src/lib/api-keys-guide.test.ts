@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { apiV1Urls, homeAssistantExample } from './api-keys-guide'
 
 describe('apiV1Urls (HON-1228)', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/weekly-reminder', () => ({
   confirmReminderToken: vi.fn(),
@@ -8,9 +8,10 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { POST } from './route'
-import { confirmReminderToken } from '@/lib/weekly-reminder'
 import { captureApiError } from '@/lib/errors'
+import { confirmReminderToken } from '@/lib/weekly-reminder'
+
+import { POST } from './route'
 
 const mockConfirm = vi.mocked(confirmReminderToken)
 

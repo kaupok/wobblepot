@@ -1,20 +1,22 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
-import { Toaster, toast } from 'sonner'
+import { toast, Toaster } from 'sonner'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import {
   createMeal,
   lemonGarlicChickenComponents,
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
-import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
 import { defaultHandlers } from '@/stories/msw-handlers'
-import type { AlternativeMeal } from './types'
+
 import { MealCard } from './MealCard'
 import { MealCardSkeleton } from './MealCardSkeleton'
+import type { AlternativeMeal } from './types'
 
 const mealFixture = createMeal()
 

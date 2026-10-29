@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { macroEnergyShares, macroSplitStyle } from './macro-energy-shares'
 
 const sum = (shares: Record<string, number>) => Object.values(shares).reduce((a, b) => a + b, 0)

@@ -1,6 +1,7 @@
 import 'server-only'
+
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { suggestForSlot, type SlotSuggestionHousehold } from '@/lib/meal-planning/slot-suggestions'
+import { type SlotSuggestionHousehold, suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { createEntry } from '@/lib/meal-plans/create-entry'
 
 /** No meal passes the household's filters for the slot, so nothing was written. */

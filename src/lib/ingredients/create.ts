@@ -1,8 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { findSynonym } from '@/lib/ingredient-aliases'
+import { prisma } from '@/lib/prisma'
+
 import { isProteinTypedCategory, type NewIngredientInput } from './new-ingredient'
 
 export type { NewIngredientInput } from './new-ingredient'

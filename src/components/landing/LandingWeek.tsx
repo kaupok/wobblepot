@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useRef } from 'react'
+
 import { Body } from '@/components/ui/typography'
 import { formatDayShort } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'

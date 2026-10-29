@@ -1,13 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
+import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import {
   addEntryChange,
   EntryChangeError,
+  type EntryChangeRefusal,
   removeEntryChange,
   replaceEntryChanges,
-  type EntryChangeRefusal,
 } from '@/lib/meal-plans/entry-changes'
-import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 

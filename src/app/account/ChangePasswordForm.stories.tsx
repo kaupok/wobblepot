@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { ChangePasswordForm } from './ChangePasswordForm'
 
 // `authClient.changePassword()` posts to `/api/auth/change-password` on the

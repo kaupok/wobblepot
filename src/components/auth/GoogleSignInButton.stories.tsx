@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { AuthMethodDivider, GoogleSignInButton } from './GoogleSignInButton'
 
 const meta = {

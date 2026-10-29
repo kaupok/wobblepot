@@ -1,12 +1,14 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { useLocale, useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
+import { useMemo, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import {
   Select,
   SelectContent,
@@ -14,21 +16,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
+import { Body } from '@/components/ui/typography'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
-import { computeEndDate } from '@/lib/meal-planning/day-picker'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { formatDateRange } from '@/lib/i18n/format-dates'
-import type { Locale } from '@/lib/i18n/locales'
-import { track } from '@/lib/analytics'
-import { ApiError, apiFetch } from '@/lib/api'
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
   rateLimitMessage,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
-import { FieldError } from '@/components/FieldError'
+import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
+import { formatDateRange } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { computeEndDate } from '@/lib/meal-planning/day-picker'
 
 /**
  * How long the client waits before giving up on `/api/meal-plans/generate`.

@@ -1,9 +1,11 @@
 import 'server-only'
+
 import { after } from 'next/server'
-import { getPosthogServer } from '@/lib/posthog-server'
-import { getClientSession, getRequestId } from '@/lib/request-id'
+
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
+import { getPosthogServer } from '@/lib/posthog-server'
 import { getRelease, shouldSkipLocalCapture } from '@/lib/release'
+import { getClientSession, getRequestId } from '@/lib/request-id'
 
 export interface ApiErrorContext {
   /** Static route literal, e.g. `/api/meal-plans/generate`. Omitted for

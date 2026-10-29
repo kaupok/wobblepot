@@ -1,16 +1,18 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
+
 import { serverEnv } from '@/lib/env'
-import { IMAGINE_MODEL } from './models'
+
+import { type FoodViolation, partitionMeals, rulesForHousehold } from './forbidden-foods'
 import {
   buildImagineRequest,
   type HouseholdContext,
   type ImaginedMeal,
   type ImagineRequestInput,
 } from './imagine-request'
-import { partitionMeals, rulesForHousehold, type FoodViolation } from './forbidden-foods'
+import { IMAGINE_MODEL } from './models'
 import { logAiSample } from './sampling'
-import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
+import { type AiUsageStats, toAiUsageStats, withUsageOnFailure } from './usage'
 
 export {
   ImaginedMealsSchema,

@@ -1,10 +1,12 @@
 import { z } from 'zod'
+
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
+
 import {
-  localeInstruction,
   britishEnglish,
-  estonianVoiceForPrepSteps,
   englishVoiceForPrepSteps,
+  estonianVoiceForPrepSteps,
+  localeInstruction,
 } from './prompts'
 
 export const fullStepsSchema = z.object({

@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { Prisma } from '@/generated/prisma/client'
+
 import { ingredientNameMatchSql } from './ingredient-search-sql'
 
 /** Render a fragment as SQL text with `?` placeholders, plus its values. */

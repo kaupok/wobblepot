@@ -4,15 +4,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ApiError, apiFetch } from '@/lib/api'
+
 import {
   ADJUST_RECIPE_ERROR_KEYS,
   adjustRecipeFallbackKey,
   rateLimitMessage,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { Locale } from '@/lib/i18n/locales'
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
+
 import { ENTRY_CHANGE_ERROR_KEYS, type NewEntryChange } from './use-entry-changes'
 
 /** The answer of `POST .../entries/[entryId]/adjust`. */

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -60,21 +61,22 @@ vi.mock('@/lib/ai/sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
+import { generateObject } from 'ai'
+
+import { STEPS_MODEL } from '@/lib/ai/models'
+import { buildFullStepsRequest } from '@/lib/ai/preparation-steps'
+import { logAiSample } from '@/lib/ai/sampling'
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from '@/lib/ai/usage-fixture'
 import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import {
   cachePreparationTips,
   EntryContextError,
   loadEntryForAi,
 } from '@/lib/meal-plans/entry-context'
-import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { logAiSample } from '@/lib/ai/sampling'
-import { getServerFlag } from '@/lib/feature-flags'
-import { STEPS_MODEL } from '@/lib/ai/models'
-import { buildFullStepsRequest } from '@/lib/ai/preparation-steps'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

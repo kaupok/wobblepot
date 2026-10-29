@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -12,14 +14,13 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body, Code, Heading, Li, Ol, Pre } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
-import { apiFetch, ApiError } from '@/lib/api'
 import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import { apiV1Urls, homeAssistantExample } from '@/lib/api-keys-guide'
 import { formatLongDate } from '@/lib/i18n/format-dates'
-import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 
 /** One row of `GET /api/auth/user/api-keys` (`ApiKeySummary` on the server). */
 export interface ApiKeyRow {

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { baseIngredients, baseMeals } from '../../../prisma/seed'
-import { newIngredients, newMeals } from '../../../prisma/seed-expansion'
-import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
-import { importCoverageIngredients } from '../../../prisma/seed-import-coverage'
+
 import { WAITLIST_REF_PATTERN } from '@/lib/waitlist'
-import { SAMPLE_WEEKS, findSampleWeek, sampleWeekServings, type SampleWeek } from './sample-weeks'
+
+import { baseIngredients, baseMeals } from '../../../prisma/seed'
+import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
+import { newIngredients, newMeals } from '../../../prisma/seed-expansion'
+import { importCoverageIngredients } from '../../../prisma/seed-import-coverage'
+import { findSampleWeek, SAMPLE_WEEKS, type SampleWeek, sampleWeekServings } from './sample-weeks'
 
 interface SeedMeal {
   name: string

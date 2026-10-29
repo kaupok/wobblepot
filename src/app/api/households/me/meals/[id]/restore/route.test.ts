@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // The restore window and ownership rules live in `restoreHouseholdMeal`,
@@ -32,9 +33,9 @@ vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { restoreHouseholdMeal } from '@/lib/deleted-household-meals'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { HouseholdMealError } from '@/lib/household-meal-error'
 import { getHouseholdMeal } from '@/lib/household-meals-read'
 

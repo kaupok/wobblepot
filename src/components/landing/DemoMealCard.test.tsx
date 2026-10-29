@@ -1,8 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMeal } from '@/stories/fixtures'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { DemoMeal } from '@/lib/landing/load-demo-day'
+import { createMeal } from '@/stories/fixtures'
+
 import { DemoMealCard } from './DemoMealCard'
 
 vi.mock('@/components/meal-plan/MealImage', () => ({ MealImage: () => null }))

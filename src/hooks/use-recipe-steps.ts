@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
+import { useMemo } from 'react'
+
+import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
 import { apiFetch } from '@/lib/api'
 import type { Locale } from '@/lib/i18n/locales'
-import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
-import { useDebouncedValue } from './use-debounced-value'
+
 import { isRetryableStepsError, stepsErrorMessage } from './steps-error'
+import { useDebouncedValue } from './use-debounced-value'
 
 /**
  * How long the serving count must stay put before its steps are asked for, so

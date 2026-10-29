@@ -4,7 +4,7 @@
  * Client-safe: `SignInMethods` imports this, as does the page and
  * `getSignInAccounts` in `src/lib/session.ts`, so it holds no server imports.
  */
-import { getGoogleLinkErrorKey, type AuthErrorKey } from '@/lib/auth-errors'
+import { type AuthErrorKey, getGoogleLinkErrorKey } from '@/lib/auth-errors'
 
 /** Better Auth's `providerId` for an email and password account. */
 export const CREDENTIAL_PROVIDER_ID = 'credential'

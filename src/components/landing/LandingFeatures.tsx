@@ -1,19 +1,16 @@
 'use client'
 
-import type { ComponentType, ReactNode } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
-import { Body, Heading } from '@/components/ui/typography'
+import type { ComponentType, ReactNode } from 'react'
+
 import { MemberRow } from '@/components/household/MemberRow'
 import { LandingConnect } from '@/components/landing/LandingConnect'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import {
-  MealImageCard,
   mealHueStyle,
+  MealImageCard,
   mealImageTitleWidth,
 } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
@@ -21,9 +18,13 @@ import { MyRecipeIcon } from '@/components/meal-plan/MyRecipeIcon'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { ServingControl } from '@/components/meal-plan/ServingControl'
 import type { MealComponent, PantryIngredient } from '@/components/meal-plan/types'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { Body, Heading } from '@/components/ui/typography'
 import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import type { Locale } from '@/lib/i18n/locales'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { cn } from '@/lib/utils'
 import type { Member, MemberPreferences } from '@/types/member'
 

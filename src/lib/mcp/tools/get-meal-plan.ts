@@ -1,6 +1,7 @@
 import 'server-only'
-import { defineTool } from '@/lib/mcp/context'
+
 import { mealPlanInputSchema, mealPlanOutputSchema, readMealPlan } from '@/lib/api/v1/meal-plan'
+import { defineTool } from '@/lib/mcp/context'
 
 /** The read is shared with `GET /api/v1/meal-plan` (HON-1220). */
 export const getMealPlan = defineTool({

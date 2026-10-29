@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const VALID_SECRET = 'x'.repeat(32)
 
@@ -37,13 +37,14 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { GET } from './route'
-import { serverEnv } from '@/lib/env'
-import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
-import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
+import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
+import { serverEnv } from '@/lib/env'
 import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
+
+import { GET } from './route'
 
 const mockFindDue = vi.mocked(findUsersDueForPurge)
 const mockPurgeUser = vi.mocked(purgeUser)

@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/env', () => ({ getServerBaseURL: () => 'https://wobblepot.com' }))
 
-import { GET, OPTIONS } from './route'
 import { GET as GET_PATH_INSERTED } from './api/mcp/route'
+import { GET, OPTIONS } from './route'
 
 describe('GET /.well-known/oauth-protected-resource', () => {
   it('returns the MCP resource and this origin as its authorization server', async () => {

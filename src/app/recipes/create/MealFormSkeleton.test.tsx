@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { MealFormSkeleton } from './MealFormSkeleton'
+import { describe, expect, it } from 'vitest'
+
 import RecipeImportLoading from '../import/loading'
+import { MealFormSkeleton } from './MealFormSkeleton'
 
 // The skeletons copy the pages' centred column, so nothing shifts sideways
 // when the form arrives (HON-1368).

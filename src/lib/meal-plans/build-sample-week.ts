@@ -1,22 +1,23 @@
 import type { IngredientCategory, MealImageStatus } from '@/generated/prisma/enums'
 import { formatDayLong } from '@/lib/i18n/format-dates'
 import {
-  displayUnit,
-  formatShoppingQuantity,
-  withPieceUnit,
-} from '@/lib/i18n/format-shopping-quantity'
-import {
   formatPieceFraction,
   formatShoppingLineQuantity,
   recipePieceCount,
 } from '@/lib/i18n/format-piece-quantity'
+import {
+  displayUnit,
+  formatShoppingQuantity,
+  withPieceUnit,
+} from '@/lib/i18n/format-shopping-quantity'
 import type { VaguePhraseLabel } from '@/lib/i18n/vague-phrase'
 import {
   aggregateComponents,
-  groupByCategory,
   type AggregationComponent,
+  groupByCategory,
 } from '@/lib/meal-planning/shopping-list'
-import { sampleWeekServings, type SampleWeek } from './sample-weeks'
+
+import { type SampleWeek, sampleWeekServings } from './sample-weeks'
 
 /** The pages are English-only (HON-1073): every quantity and day name is formatted in `en`. */
 const LOCALE = 'en'

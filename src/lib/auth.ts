@@ -1,43 +1,44 @@
+import { cimd } from '@better-auth/cimd'
+import { fetchClientMetadataResource } from '@better-auth/cimd/node'
+import { mcp } from '@better-auth/mcp'
+import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { hashPassword } from 'better-auth/crypto'
 import { jwt } from 'better-auth/plugins'
-import { prismaAdapter } from '@better-auth/prisma-adapter'
-import { mcp } from '@better-auth/mcp'
-import { cimd } from '@better-auth/cimd'
-import { fetchClientMetadataResource } from '@better-auth/cimd/node'
-import { prisma } from '@/lib/prisma'
-import { serverEnv, getServerBaseURL, isGoogleAuthConfigured } from '@/lib/env'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
+
+import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
+import { afterAccountEmailChange, readChangeEmailToken } from '@/lib/auth/change-email'
+import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
+import { isPasswordBreached } from '@/lib/breached-password'
+import { CURRENT_TERMS_VERSION } from '@/lib/consent'
+import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
+import { generateChangeEmailEmail } from '@/lib/emails/change-email'
+import { resolveEmailLocale } from '@/lib/emails/locale'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
 import { generateVerifyEmailEmail } from '@/lib/emails/verify-email'
-import { generateChangeEmailEmail } from '@/lib/emails/change-email'
-import { afterAccountEmailChange, readChangeEmailToken } from '@/lib/auth/change-email'
-import { resolveEmailLocale } from '@/lib/emails/locale'
-import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
+import { getServerBaseURL, isGoogleAuthConfigured, serverEnv } from '@/lib/env'
+import { getHouseholdInviteCodeFromBody, joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { matchAcceptLanguage } from '@/lib/i18n/accept-language'
 import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
-import { isPasswordBreached } from '@/lib/breached-password'
+import { captureMcpClientConnected } from '@/lib/mcp/consent-analytics'
+import { getMcpIssuer, getMcpResource, MCP_SCOPES } from '@/lib/mcp/oauth'
+import { getPosthogServer } from '@/lib/posthog-server'
+import { prisma } from '@/lib/prisma'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 import {
-  HOUSEHOLD_INVITE_INVALID_MESSAGE,
-  INVITE_CODE_INVALID_MESSAGE,
   claimInviteCode,
   getInviteCodeFromBody,
+  HOUSEHOLD_INVITE_INVALID_MESSAGE,
+  INVITE_CODE_INVALID_MESSAGE,
   linkUsedBy,
   releaseClaim,
   validateAndClaimInviteCode,
   validateInviteCode,
 } from '@/lib/signup-codes'
-import { getPosthogServer } from '@/lib/posthog-server'
-import { clearWaitlistForNewUser } from '@/lib/waitlist'
-import { getHouseholdInviteCodeFromBody, joinHouseholdFromSignUp } from '@/lib/household-invite'
-import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
-import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
-import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
-import { MCP_SCOPES, getMcpIssuer, getMcpResource } from '@/lib/mcp/oauth'
-import { captureMcpClientConnected } from '@/lib/mcp/consent-analytics'
+import { clearWaitlistForNewUser } from '@/lib/waitlist'
 
 const MIN_PASSWORD_LENGTH = 12
 // Better Auth's default, set here because `errors.auth.passwordTooLong` names

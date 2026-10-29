@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { z } from 'zod'
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -7,10 +7,11 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/household/members', () => ({ listMembersForAssistant: vi.fn() }))
 vi.mock('@/lib/household/excluded-ingredients', () => ({ matchExcludedIngredients: vi.fn() }))
 
-import { listMembersForAssistant } from '@/lib/household/members'
 import { matchExcludedIngredients } from '@/lib/household/excluded-ingredients'
+import { listMembersForAssistant } from '@/lib/household/members'
+import { type McpHousehold, NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
-import { NO_HOUSEHOLD_MESSAGE, runTool, type McpHousehold } from '@/lib/mcp/context'
+
 import { getHousehold } from './get-household'
 
 const household = mcpHousehold({

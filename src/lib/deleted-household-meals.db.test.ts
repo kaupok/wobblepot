@@ -1,15 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
+import {
+  listRecentlyDeletedHouseholdMeals,
+  restoreHouseholdMeal,
+} from '@/lib/deleted-household-meals'
 import {
   deleteHouseholdMeal,
   HouseholdMealError,
   type HouseholdMealRefusal,
 } from '@/lib/household-meals'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
-import {
-  listRecentlyDeletedHouseholdMeals,
-  restoreHouseholdMeal,
-} from '@/lib/deleted-household-meals'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 // The restore window is 30 days (HON-1336), taken from the issue, not the

@@ -1,20 +1,22 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { MealPlanEntryStatus, type MealType } from '@/generated/prisma/enums'
+import { HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import {
   applyEntryChanges,
   changeSetKey,
   hasLiveChanges,
   type MergedComponent,
 } from '@/lib/meal-planning/entry-components'
-import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { clearChangesOnSwap } from '@/lib/meal-planning/swap-entry'
 import { parsePreparationSteps } from '@/lib/preparation-steps'
-import { HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
+import { prisma } from '@/lib/prisma'
+
 import { claimPlannedEntry, EntryChangeError, findOwnEntry } from './entry-changes'
 
 /**

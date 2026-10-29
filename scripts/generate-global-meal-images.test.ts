@@ -1,8 +1,10 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import { buildMealImagePrompt, MEAL_IMAGE_PROMPT_VERSION } from '../src/lib/meal-images/prompt'
 import {
@@ -10,27 +12,27 @@ import {
   checkBlobCredentials,
   confirmHost,
   databaseHost,
+  type Db,
   estimateUsd,
-  imagesPerMinute,
+  type GlobalMeal,
   IMAGE_EST_USD,
+  imagesPerMinute,
   JUDGE_EST_USD,
-  VESSEL_EST_USD,
+  type Manifest,
+  type ManifestEntry,
   MEAL_SELECT,
   parseArgs,
   parseExclude,
   readManifest,
   run,
+  type RunDeps,
   runPublish,
   selectionWhere,
   selectMeals,
   toJobResult,
   toMealImageMeal,
   uniqueBySlug,
-  type Db,
-  type GlobalMeal,
-  type Manifest,
-  type ManifestEntry,
-  type RunDeps,
+  VESSEL_EST_USD,
 } from './generate-global-meal-images'
 
 // Never spend or write: the generator, Blob and Prisma are all mocks.

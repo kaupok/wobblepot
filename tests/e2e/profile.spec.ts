@@ -1,5 +1,6 @@
 // ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, RouteTabs, ProfileNameForm, SignInMethods, ChangePasswordForm, SignInForm, Header (User menu)
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
+
 import {
   grantEssentialCookieConsent,
   signIn,

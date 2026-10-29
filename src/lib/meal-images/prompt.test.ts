@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   buildMealImagePrompt,
   gramsOf,
   ingredientsByWeight,
   MEAL_IMAGE_PROMPT_VERSION,
-  STYLE_PREFIX_ILLUSTRATION_V3,
   type MealImageMeal,
+  STYLE_PREFIX_ILLUSTRATION_V3,
 } from './prompt'
 
 // The spike's chicken-thighs trap meal (scripts/spike-meal-images.ts, HON-732).

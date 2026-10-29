@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { authClient } from '@/lib/auth-client'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { SetPassword } from './SetPassword'
 
 vi.mock('@/lib/auth-client', () => ({

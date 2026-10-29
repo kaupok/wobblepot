@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { formatShoppingListForClipboard, type ClipboardSection } from './format-clipboard'
+import { describe, expect, it } from 'vitest'
+
+import { type ClipboardSection, formatShoppingListForClipboard } from './format-clipboard'
 
 describe('formatShoppingListForClipboard', () => {
   it('returns an empty string when there are no sections', () => {

@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MealList } from './MealList'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createHouseholdMealListData } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { MealList } from './MealList'
 
 vi.mock('@/hooks/use-meal-image', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-meal-image')>()),

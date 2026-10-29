@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH, DELETE } from './route'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, PATCH } from './route'
 
 // The ownership checks, the writes and the pantry upsert live in
 // `@/lib/shopping/custom-items`, tested against a database in
@@ -30,8 +31,8 @@ vi.mock('@/lib/shopping/custom-items', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { deleteCustomShoppingItem, updateCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
 import { ShoppingColumnSkeleton } from './loading'
 
 // HON-1349: the loading list has no note sheet, so its bars are the default

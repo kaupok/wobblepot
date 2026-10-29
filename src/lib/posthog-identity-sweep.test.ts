@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { clearStoredPostHogIdentity, postHogCookieDomains } from '@/lib/posthog-identity-sweep'
 
 const TOKEN = 'phc_sweep_test'

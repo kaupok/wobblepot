@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
+  applyIngredientAlias,
+  findSynonym,
+  hasIngredientAlias,
   INGREDIENT_ALIASES,
   INGREDIENT_SYNONYMS,
-  applyIngredientAlias,
-  hasIngredientAlias,
-  findSynonym,
   synonymKey,
 } from './ingredient-aliases'
 import { findSynonymMatches } from './ingredient-synonym-match'

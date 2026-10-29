@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import type { DemoMeal } from '@/lib/landing/load-demo-day'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
-import type { DemoMeal } from '@/lib/landing/load-demo-day'
+
 import { DemoMealCard } from './DemoMealCard'
 
 const entry: DemoMeal = {

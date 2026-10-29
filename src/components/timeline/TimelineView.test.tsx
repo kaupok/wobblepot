@@ -1,13 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations` and falls through to the real `useLocale`.
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import type { ExpectedMealTypes, PlanEntry, TimelineDay } from '@/components/meal-plan/types'
+
 import enMessages from '../../../messages/en.json'
 import { TimelineView } from './TimelineView'
-import type { PlanEntry, ExpectedMealTypes, TimelineDay } from '@/components/meal-plan/types'
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({

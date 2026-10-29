@@ -1,14 +1,16 @@
-import { useState } from 'react'
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationSteps, type CookQuestionControls } from './PreparationSteps'
+import { useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { CookQuestionActive } from '@/hooks/use-cook-question'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
+import { type CookQuestionControls, PreparationSteps } from './PreparationSteps'
 import {
-  Harness,
   buttonName,
   card,
+  Harness,
   menuButton,
   openPanel,
   panel,

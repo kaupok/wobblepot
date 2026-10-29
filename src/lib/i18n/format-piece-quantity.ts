@@ -1,4 +1,5 @@
 import type { PieceDisplay } from '@/generated/prisma/enums'
+
 import { formatInteger } from './format-number'
 import { displayUnit, formatShoppingQuantity, withPieceUnit } from './format-shopping-quantity'
 import type { Locale } from './locales'

@@ -1,4 +1,5 @@
 import { oauthProviderAuthServerMetadata } from '@better-auth/oauth-provider'
+
 import { auth } from '@/lib/auth'
 import { DISCOVERY_CORS_HEADERS } from '@/lib/mcp/oauth'
 

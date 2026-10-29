@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import { APICallError, RetryError } from 'ai'
+import { describe, expect, it } from 'vitest'
+
 import { aiErrorStatusCode } from './error-status'
 
 const apiError = (statusCode: number) =>

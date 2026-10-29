@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+
 import {
+  type AdjustRecipeRequestInput,
   adjustRecipeSchema,
   buildAdjustRecipePrompt,
   buildAdjustRecipeRequest,
-  type AdjustRecipeRequestInput,
 } from './adjust-recipe'
 
 const input: AdjustRecipeRequestInput = {

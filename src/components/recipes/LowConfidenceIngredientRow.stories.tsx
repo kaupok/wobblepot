@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   createIngredientAlternative,
   createIngredientResult,
   createLowConfidenceIngredientRowData,
 } from '@/stories/fixtures'
 import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
+
 import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
 
 const meta = {

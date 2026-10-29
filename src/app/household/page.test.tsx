@@ -1,12 +1,14 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, useQueryClient } from '@tanstack/react-query'
-import HouseholdMembersPage, { generateMetadata } from './page'
-import HouseholdLayout from './layout'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { accountSession as session, membershipWithMemberCount } from '@/test/account-page'
+import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
+import { accountSession as session, membershipWithMemberCount } from '@/test/account-page'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
+import HouseholdLayout from './layout'
+import HouseholdMembersPage, { generateMetadata } from './page'
 
 vi.mock('next-intl/server', async () => ({
   getTranslations: vi.fn((await import('@/test/account-page')).catalogTranslations),

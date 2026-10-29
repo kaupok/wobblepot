@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { repairPlan } from './repair-plan'
-import { toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
+import { describe, expect, it } from 'vitest'
+
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
-import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
+
+import { repairPlan } from './repair-plan'
+import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
 
 // Helper to create a date (using same parsing as production code)
 function date(dateStr: string): Date {

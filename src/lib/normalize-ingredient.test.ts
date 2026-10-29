@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
-  singularize,
-  pluralize,
-  stripModifiers,
-  normalizeIngredientName,
   extractLastWord,
+  normalizeIngredientName,
+  pluralize,
+  singularize,
+  stripModifiers,
 } from './normalize-ingredient'
 
 describe('singularize', () => {

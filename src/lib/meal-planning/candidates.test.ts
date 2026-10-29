@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DietaryType, IngredientCategory, ProteinType } from '@/generated/prisma/enums'
+
+import type { CandidateFilters } from './candidates'
 import {
   getCandidates,
   getExcludedProteinTypes,
   MAX_TIME_MINUTES,
   NO_REPEAT_DAYS,
 } from './candidates'
-import type { CandidateFilters } from './candidates'
-import { DietaryType, IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {

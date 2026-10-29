@@ -1,13 +1,16 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
-import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
-import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-planning/swap-entry'
+
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
-import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
+import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
+import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-planning/swap-entry'
+import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
+import { prisma } from '@/lib/prisma'
+
 import { assertMealFitsSlot } from './meal-fit'
 import { findPlanSlot, slotInput, writableDays } from './plan-slot'
 

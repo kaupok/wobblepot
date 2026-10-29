@@ -1,18 +1,19 @@
 import { requireMcpAuth } from '@better-auth/mcp'
-import { createMcpHandler, type AuthInfo } from '@modelcontextprotocol/server'
+import { type AuthInfo, createMcpHandler } from '@modelcontextprotocol/server'
+
 import { auth } from '@/lib/auth'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { buildMcpServer } from '@/lib/mcp/server'
 import type { McpCallerContext } from '@/lib/mcp/context'
 import { loadMcpCaller, McpGrantError } from '@/lib/mcp/grant'
 import {
+  getMcpIssuer,
+  getMcpResource,
   MCP_READ_SCOPE,
   MCP_RESOURCE_PATH,
   MCP_WRITE_SCOPE,
-  getMcpIssuer,
-  getMcpResource,
 } from '@/lib/mcp/oauth'
+import { buildMcpServer } from '@/lib/mcp/server'
 
 /**
  * The Wobblepot MCP server: read tools over the household's meal plan,

@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+
 import { buildCookQuestionRequest } from '@/lib/ai/cook-question'
 import {
   cookQuestionErrorBody as errorBody,
@@ -12,10 +11,11 @@ import {
   streamCookAnswer,
   subjectInRange,
 } from '@/lib/ai/cook-question-route'
-import { withRequestId } from '@/lib/request-id'
-import { MAX_SERVINGS, MIN_SERVINGS, sumPortions } from '@/lib/meal-planning/servings'
+import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { MAX_SERVINGS, MIN_SERVINGS, sumPortions } from '@/lib/meal-planning/servings'
 import { loadPantryNamesForAi } from '@/lib/meal-plans/entry-context'
 import {
   freshRecipeSteps,
@@ -23,6 +23,7 @@ import {
   RecipeStepsError,
   recipeStepsRequest,
 } from '@/lib/meals/recipe-steps'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * The entry route's body (`cookQuestionFields`), plus the servings the view

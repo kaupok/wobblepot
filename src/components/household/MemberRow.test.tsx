@@ -1,16 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // The global next-intl mock does not format `{multiplier, number}`; the real
 // provider does, and the short portion copy is what these tests read.
 vi.unmock('next-intl')
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ComponentProps } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../messages/en.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import type { ComponentProps } from 'react'
+
 import { createMemberPreferences } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import type { Member } from '@/types/member'
+
+import enMessages from '../../../messages/en.json'
 import { MemberRow } from './MemberRow'
 
 const owner: Member = {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 
 // Both inits (PostHogProvider, global-error) are asserted to pass exactly this
 // object, so the literal values are asserted here, once.

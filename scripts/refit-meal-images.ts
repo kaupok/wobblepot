@@ -29,13 +29,15 @@
  */
 
 import 'dotenv/config'
+
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
 import type { PrismaClient } from '../src/generated/prisma/client'
 import type { FittedImage } from '../src/lib/meal-images/footprint'
-import { asVesselEstimate, VESSELS, type VesselEstimate } from '../src/lib/meal-images/vessel'
+import { asVesselEstimate, type VesselEstimate, VESSELS } from '../src/lib/meal-images/vessel'
 import {
   checkBlobCredentials,
   confirmHost,

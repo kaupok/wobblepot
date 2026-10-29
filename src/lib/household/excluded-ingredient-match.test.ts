@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { matchTag, matchTags, wordKey, type ExclusionPoolRow } from './excluded-ingredient-match'
+
+import { type ExclusionPoolRow, matchTag, matchTags, wordKey } from './excluded-ingredient-match'
 
 function row(name: string, et?: string): ExclusionPoolRow {
   return { id: name, name, translations: et ? [{ locale: 'et', name: et }] : [] }

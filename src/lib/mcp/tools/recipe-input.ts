@@ -1,17 +1,20 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { ProteinType } from '@/generated/prisma/enums'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
-import { matchIngredients, type MatchedIngredient } from '@/lib/ai/match-ingredients'
+import { type MatchedIngredient, matchIngredients } from '@/lib/ai/match-ingredients'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
 import { translateIngredientNames, translateMatchResults } from '@/lib/ai/translate-match-results'
 import type { HouseholdMealComponentInput } from '@/lib/household-meals'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import type { McpHousehold } from '@/lib/mcp/context'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import type { ComponentForProtein } from '@/lib/meal-planning/protein'
 import { mealFieldsSchema, proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
-import type { McpHousehold } from '@/lib/mcp/context'
+
 import { isMeasured, MEASURED_UNITS } from './measured-units'
 
 /**

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
+
 import { getServerFlag } from '@/lib/feature-flags'
+
 import { RequestInviteForm } from './RequestInviteForm'
 
 export async function generateMetadata(): Promise<Metadata> {

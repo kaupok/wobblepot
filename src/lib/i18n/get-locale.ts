@@ -1,8 +1,10 @@
-import { cache } from 'react'
 import { headers } from 'next/headers'
-import { getSession, getCachedMembership } from '@/lib/session'
-import { resolveLocale } from './resolve-locale'
+import { cache } from 'react'
+
+import { getCachedMembership, getSession } from '@/lib/session'
+
 import type { Locale } from './locales'
+import { resolveLocale } from './resolve-locale'
 
 /**
  * Resolve the locale for the current server request.

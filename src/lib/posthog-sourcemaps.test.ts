@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { spawn } = vi.hoisted(() => ({ spawn: vi.fn() }))

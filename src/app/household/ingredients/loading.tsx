@@ -1,5 +1,5 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { IngredientRowSkeleton } from '@/components/household/HouseholdIngredientList'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // Mirrors `page.tsx` only: the "Household" title and the tabs are the
 // layout's, which stays on screen while this shows (HON-1257).

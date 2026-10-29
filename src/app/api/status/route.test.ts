@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/status/probes', () => ({
   getStatusSnapshot: vi.fn(),
   computeOverall: vi.fn(),
 }))
 
-import { getStatusSnapshot, computeOverall } from '@/lib/status/probes'
+import { computeOverall, getStatusSnapshot } from '@/lib/status/probes'
+
 import { GET } from './route'
 
 const mockGetSnapshot = vi.mocked(getStatusSnapshot)

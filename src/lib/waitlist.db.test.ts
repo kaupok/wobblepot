@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import { isEmailConfigured } from '@/lib/resend'
 import {

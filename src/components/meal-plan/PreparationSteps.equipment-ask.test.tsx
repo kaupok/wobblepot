@@ -1,14 +1,16 @@
-import { useState } from 'react'
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  PreparationEquipment,
-  PreparationSteps,
-  type CookQuestionControls,
-} from './PreparationSteps'
+import { useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
+import {
+  type CookQuestionControls,
+  PreparationEquipment,
+  PreparationSteps,
+} from './PreparationSteps'
 
 // The ⋯ menus and question panels of "You'll need" (HON-983). The steps' own
 // are in PreparationSteps.ask.test.tsx.

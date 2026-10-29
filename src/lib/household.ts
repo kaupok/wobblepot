@@ -1,7 +1,7 @@
-import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import type { Locale } from '@/lib/i18n/locales'
+import { sumPortions } from '@/lib/meal-planning/servings'
+import { prisma, type PrismaClientType } from '@/lib/prisma'
 
 /**
  * Most members, owner included, a household can hold. `POST /api/households`

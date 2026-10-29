@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { VerifyEmailNotice } from './VerifyEmailNotice'
 
 // `authClient.sendVerificationEmail()` posts to the absolute

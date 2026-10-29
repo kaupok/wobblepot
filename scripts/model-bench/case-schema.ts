@@ -15,18 +15,19 @@
  */
 
 import { z } from 'zod'
+
 import {
   DietaryType,
   IngredientCategory,
   MealType,
   ProteinType,
 } from '../../src/generated/prisma/enums'
-import { KNOWN_LOCALES } from '../../src/lib/i18n/locales'
-import { ADJUST_INSTRUCTION_MAX_LENGTH } from '../../src/lib/meal-planning/components-schema'
 import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '../../src/lib/ai/cook-question-limits'
+import { KNOWN_LOCALES } from '../../src/lib/i18n/locales'
+import { ADJUST_INSTRUCTION_MAX_LENGTH } from '../../src/lib/meal-planning/components-schema'
 
 export const TASKS = [
   'plan',

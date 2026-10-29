@@ -1,15 +1,17 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body, Heading } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
 import { apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { HouseholdIngredient } from '@/lib/ingredients/household-ingredient'
+
 import { DeleteIngredientDialog } from './DeleteIngredientDialog'
 import { EditIngredientDialog } from './EditIngredientDialog'
 import {

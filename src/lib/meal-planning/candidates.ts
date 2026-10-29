@@ -1,5 +1,3 @@
-import { prisma } from '@/lib/prisma'
-import { findPreferenceConflicts } from '@/lib/meal-planning/preference-conflicts'
 import {
   Allergen,
   DietaryType,
@@ -8,6 +6,8 @@ import {
   MealType,
   ProteinType,
 } from '@/generated/prisma/enums'
+import { findPreferenceConflicts } from '@/lib/meal-planning/preference-conflicts'
+import { prisma } from '@/lib/prisma'
 
 /**
  * @deprecated No longer used. Time filtering has been removed from meal plan generation.

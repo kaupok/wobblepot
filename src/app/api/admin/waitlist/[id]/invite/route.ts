@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
+
 import { requireAdmin } from '@/lib/auth-helpers'
-import { captureApiError } from '@/lib/errors'
-import { getServerBaseURL } from '@/lib/env'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateWaitlistInviteEmail } from '@/lib/emails/waitlist-invite'
+import { getServerBaseURL } from '@/lib/env'
+import { captureApiError } from '@/lib/errors'
 import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 import {
   discardWaitlistInviteCode,
   markWaitlistInvited,

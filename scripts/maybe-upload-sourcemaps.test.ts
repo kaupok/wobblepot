@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'maybe-upload-sourcemaps.sh')

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
+
 import { apiFetch } from '@/lib/api'
 
 interface AiUsageResponse {

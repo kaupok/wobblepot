@@ -1,10 +1,10 @@
 import 'server-only'
-import { serverEnv } from '@/lib/env'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
-import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { extractHue } from '@/lib/meal-images/colour'
 import {
   generateMealImage,
@@ -15,13 +15,14 @@ import {
 import {
   attachMealImage,
   claimMealImage,
+  type ImageClaim,
   loadMealForImage,
   markMealImageFailed,
-  releaseMealImageClaim,
-  type ImageClaim,
   type MealForImage,
+  releaseMealImageClaim,
 } from '@/lib/meal-images/persist'
 import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * Drawing a household meal's image once its claim is held (HON-735), shared

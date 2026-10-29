@@ -1,22 +1,24 @@
 'use client'
 
-import { useState, useEffect, useId, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useEffect, useId, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import { AllergenPicker } from '@/components/household/AllergenPicker'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
+import type { Allergen } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
 import { ApiError, apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { FieldError } from '@/components/FieldError'
-import { AllergenPicker } from '@/components/household/AllergenPicker'
-import type { Allergen } from '@/generated/prisma/enums'
+
 import { FirstPlanStep } from './FirstPlanStep'
-import { MAX_MEMBERS, MembersStep, type MemberDraft, type PortionType } from './MembersStep'
+import { MAX_MEMBERS, type MemberDraft, MembersStep, type PortionType } from './MembersStep'
 
 const TOTAL_STEPS = 4
 

@@ -1,10 +1,12 @@
-import type { ComponentProps } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import type { ComponentProps } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { EditRecipeClient } from './EditRecipeClient'
 
 const push = vi.fn()

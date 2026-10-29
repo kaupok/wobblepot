@@ -1,10 +1,11 @@
-import { toDateString } from '@/lib/meal-planning/dates'
-import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
-import { MealPlanResponseSchema, type PromptInput, type CandidatePools } from './types'
-import { slotKey } from './slot-key'
-import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
-import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealType } from '@/generated/prisma/enums'
+import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
+import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { toDateString } from '@/lib/meal-planning/dates'
+import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
+
+import { slotKey } from './slot-key'
+import { type CandidatePools, MealPlanResponseSchema, type PromptInput } from './types'
 
 const LOCALE_LABELS: Record<string, string> = {
   en: 'English',

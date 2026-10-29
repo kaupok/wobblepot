@@ -1,6 +1,7 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 
 /** The days `/past-meals` opens on, and each "Show the week before" adds. */
 export const PAST_MEALS_DAYS = 7

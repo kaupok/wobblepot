@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { ExternalApiError, externalFetch } from './external-fetch'
 
 const captureApiErrorMock = vi.fn()

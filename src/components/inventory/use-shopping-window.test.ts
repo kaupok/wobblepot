@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
-  WINDOW_STORAGE_KEY,
   getStoredWindowDays,
   parseWindowDays,
   useSetWindowDays,
   useWindowReconcile,
+  WINDOW_STORAGE_KEY,
 } from './use-shopping-window'
 
 const push = vi.fn()

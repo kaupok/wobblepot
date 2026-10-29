@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createDayExtra } from '@/lib/day-extras/day-extras'
 import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { getShoppingList } from './get-shopping-list'
 import { removeShoppingItem } from './remove-shopping-item'
 

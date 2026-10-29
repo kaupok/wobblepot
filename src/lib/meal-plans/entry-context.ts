@@ -1,11 +1,12 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
+import type { PreparationSteps } from '@/components/meal-plan/types'
+import type { Prisma } from '@/generated/prisma/client'
 import { ingredientTranslationsInclude, mealTranslationsInclude } from '@/lib/i18n/content'
-import { serializePreparationSteps } from '@/lib/preparation-steps'
 import { applyEntryChanges, changeSetKey } from '@/lib/meal-planning/entry-components'
 import { cookServingsSelect } from '@/lib/meal-planning/servings'
-import type { Prisma } from '@/generated/prisma/client'
-import type { PreparationSteps } from '@/components/meal-plan/types'
+import { serializePreparationSteps } from '@/lib/preparation-steps'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The reads and the write that `POST .../entries/[entryId]/cook-question` and

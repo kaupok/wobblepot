@@ -1,10 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
-import { toast, type ExternalToast } from 'sonner'
+import { type ExternalToast, toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { MealCard } from './MealCard'
 import type { PantryIngredient, PantryItemFull, PreparationSteps } from './types'
 

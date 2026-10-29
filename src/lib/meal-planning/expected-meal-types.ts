@@ -1,5 +1,5 @@
-import type { MealType } from '@/generated/prisma/enums'
 import type { ExpectedMealTypes } from '@/components/meal-plan/types'
+import type { MealType } from '@/generated/prisma/enums'
 
 /**
  * The meal types a household plans on a weekday and on a weekend day. They

@@ -1,9 +1,9 @@
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
-import { Body, Li, Ul } from '@/components/ui/typography'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { CATEGORY_EMOJI } from '@/components/shopping/CategoryGroup'
+import { Card, CardContent } from '@/components/ui/card'
+import { Body, Li, Ul } from '@/components/ui/typography'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { SampleShoppingGroup } from '@/lib/meal-plans/build-sample-week'
 

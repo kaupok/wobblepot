@@ -1,13 +1,14 @@
 'use client'
 
-import { useId, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
+import { useId, useMemo, useState } from 'react'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { parseLocalDate, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 interface ShoppingItem {

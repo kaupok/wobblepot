@@ -1,14 +1,15 @@
 // Use the real next-intl in this file: the global mock in vitest.setup.ts
 // hardcodes English, so it would pass whether or not the accessible name is
 // externalized. This suite asserts locale-switched rendering.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import type { PropsWithChildren } from 'react'
 import type { UseThemeProps } from 'next-themes'
 import * as nextThemes from 'next-themes'
+import type { PropsWithChildren } from 'react'
+
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
 import { ThemeToggle } from './theme-toggle'

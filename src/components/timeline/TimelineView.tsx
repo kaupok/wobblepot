@@ -1,28 +1,30 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { TimelineDayCard } from './TimelineDayCard'
-import { FillDaysAction } from './FillDaysAction'
-import { UrgentShopping } from './UrgentShopping'
-import { daySlots } from './day-slots'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import { getLeftoverLunchOptions } from '@/components/meal-plan/leftover-lunch-option'
-import { Heading } from '@/components/ui/typography'
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
-import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
-import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
-import type { Locale } from '@/lib/i18n/locales'
 import type {
-  PlanEntry,
+  DayExtraView,
+  ExpectedMealTypes,
   PantryIngredient,
   PantryItemFull,
-  ExpectedMealTypes,
+  PlanEntry,
   TimelineDay,
-  DayExtraView,
 } from '@/components/meal-plan/types'
+import { Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
+import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
+import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+
+import { daySlots } from './day-slots'
+import { FillDaysAction } from './FillDaysAction'
+import { TimelineDayCard } from './TimelineDayCard'
+import { UrgentShopping } from './UrgentShopping'
 
 interface ShoppingItem {
   ingredientId: string

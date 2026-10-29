@@ -1,29 +1,31 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 import Link from 'next/link'
-import { Loader2, Sparkles, AlertTriangle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
-import { Textarea } from '@/components/ui/textarea'
-import { Heading, Body } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
-import { ApiError, apiFetch } from '@/lib/api'
-import {
-  RECIPE_IMPORT_ERROR_KEYS,
-  rateLimitMessage,
-  translateErrorCode,
-} from '@/lib/ai/error-codes'
-import type { Locale } from '@/lib/i18n/locales'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+
+import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
 import { FieldError } from '@/components/FieldError'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
-import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Body, Heading } from '@/components/ui/typography'
+import {
+  rateLimitMessage,
+  RECIPE_IMPORT_ERROR_KEYS,
+  translateErrorCode,
+} from '@/lib/ai/error-codes'
+import { ApiError, apiFetch } from '@/lib/api'
 import { downscaleImage } from '@/lib/downscale-image'
+import type { Locale } from '@/lib/i18n/locales'
+import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+import { cn } from '@/lib/utils'
+
 import { convertToPrefilledData, type ParsedRecipeData } from './convert-parsed-recipe'
-import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
 
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())

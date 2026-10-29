@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetHandler = vi.fn(async () => new Response('ok-get', { status: 200 }))
 const mockPostHandler = vi.fn(async () => new Response('ok-post', { status: 200 }))

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CustomShoppingItem } from './CustomShoppingItem'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { CustomItemData } from './CustomItemInput'
+import { CustomShoppingItem } from './CustomShoppingItem'
 
 const baseItem: CustomItemData = {
   id: 'custom-1',

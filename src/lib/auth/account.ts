@@ -1,6 +1,7 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The account deletion request behind `DELETE /api/auth/user` (GDPR Art. 17,

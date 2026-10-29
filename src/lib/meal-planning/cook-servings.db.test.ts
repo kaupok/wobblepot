@@ -1,15 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { toFridgeItemInput } from '@/components/meal-plan/fridge-meal/use-fridge-item-text'
+import { createEntry } from '@/lib/meal-plans/create-entry'
+import { deleteEntry, updateEntry } from '@/lib/meal-plans/entries'
+import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
+import { setFridgeItems } from '@/lib/meal-plans/fridge-meal'
+import { serializePreparationSteps } from '@/lib/preparation-steps'
 import { prisma } from '@/lib/prisma'
-import { computeRollingWindowShoppingList, computeShoppingList } from './shopping-list'
+
 import { getStartOfTodayInTimezone } from './dates'
 import { loadPantry } from './load-pantry'
 import { loadPlanEntries } from './load-plan-entries'
-import { createEntry } from '@/lib/meal-plans/create-entry'
-import { deleteEntry, updateEntry } from '@/lib/meal-plans/entries'
-import { setFridgeItems } from '@/lib/meal-plans/fridge-meal'
-import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
-import { serializePreparationSteps } from '@/lib/preparation-steps'
-import { toFridgeItemInput } from '@/components/meal-plan/fridge-meal/use-fridge-item-text'
+import { computeRollingWindowShoppingList, computeShoppingList } from './shopping-list'
 
 // Leftover lunches (HON-1394): a dinner is cooked, bought and charged for its
 // own servings plus the servings of every lunch that takes its leftovers.

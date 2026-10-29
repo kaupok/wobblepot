@@ -3,7 +3,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import {
   checkLockfile,
   compareVersions,
@@ -12,8 +14,8 @@ import {
   matchesPackage,
   matchesVersion,
   parseLockfileVersions,
-  PINS,
   type Pin,
+  PINS,
 } from './check-lockfile-pins'
 
 /**

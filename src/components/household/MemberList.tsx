@@ -1,17 +1,19 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Heading, Body } from '@/components/ui/typography'
+import { useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Body, Heading } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
-import { MemberRow } from './MemberRow'
+import type { Member } from '@/types/member'
+
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
-import type { Member } from '@/types/member'
-import { FieldError } from '@/components/FieldError'
+import { MemberRow } from './MemberRow'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from './members-query'
 
 interface MemberListProps {

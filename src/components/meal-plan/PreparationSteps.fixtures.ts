@@ -1,7 +1,9 @@
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+
 import type { CookQuestionControls } from './PreparationSteps'
 import type { PreparationSteps as PreparationStepsData } from './types'
-import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
 /** Shared by the `PreparationSteps` story files: one meal's steps. */
 export const fullTips: PreparationStepsData = {

@@ -25,19 +25,20 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import { TASKS, type Task } from './case-schema'
-import { TASK_SPECS, type MetricDef } from './tasks'
-import type { CallRecord, Role, RunResult } from './runner'
+
+import { type Task, TASKS } from './case-schema'
+import type { GoldenTaskInfo } from './golden'
 import {
   JUDGE_MIN_DECIDED,
   JUDGE_MIN_WIN_RATE,
   JUDGED_TASKS,
-  summarizeJudge,
   type JudgeResult,
   type JudgeTaskSummary,
+  summarizeJudge,
 } from './judge'
 import type { JudgeItem, JudgeKey } from './judge-files'
-import type { GoldenTaskInfo } from './golden'
+import type { CallRecord, Role, RunResult } from './runner'
+import { type MetricDef, TASK_SPECS } from './tasks'
 
 /** A delta, or its distance past a threshold, smaller than this is float residue. */
 const FLOAT_TOLERANCE = 1e-9

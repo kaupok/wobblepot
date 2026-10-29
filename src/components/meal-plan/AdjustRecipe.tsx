@@ -1,19 +1,21 @@
 'use client'
 
-import { useEffect, useId, useState, type ReactNode, type RefObject } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { type ReactNode, type RefObject, useEffect, useId, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { type AdjustProposal, buildChangeSet } from '@/lib/meal-planning/adjust-proposal'
 import { ADJUST_INSTRUCTION_MAX_LENGTH } from '@/lib/meal-planning/components-schema'
-import { buildChangeSet, type AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
+
 import { AdjustReviewDialog } from './AdjustReviewDialog'
-import { useAdjustRecipe } from './use-adjust-recipe'
 import type { EntryChange, MealComponent } from './types'
+import { useAdjustRecipe } from './use-adjust-recipe'
 
 export interface AdjustRecipeProps {
   planId: string

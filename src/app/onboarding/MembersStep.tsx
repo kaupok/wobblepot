@@ -1,11 +1,12 @@
 'use client'
 
-import { Children, useEffect, useId, useRef } from 'react'
 import { Check, Plus, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Children, useEffect, useId, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Heading, Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 
 export type PortionType = 'adult' | 'child'
 

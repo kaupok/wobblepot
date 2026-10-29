@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { ErrorDetails } from './ErrorDetails'
 
 const sampleError = new Error('Failed to load meal plan')

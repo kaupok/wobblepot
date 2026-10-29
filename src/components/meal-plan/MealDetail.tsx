@@ -1,33 +1,30 @@
 'use client'
 
-import { useMemo } from 'react'
-import type { ReactNode } from 'react'
 import { Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import type { ReactNode } from 'react'
+import { useMemo } from 'react'
+
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { Body, Heading } from '@/components/ui/typography'
-import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
-import { NutritionSummary } from './NutritionSummary'
-import { IngredientList } from './IngredientList'
+import { cn } from '@/lib/utils'
+
+import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
+import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
-import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
-import { PromoteEntry } from './PromoteEntry'
+import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
-import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
+import { NutritionSummary } from './NutritionSummary'
 import {
+  type CookQuestionControls,
   PreparationEquipment,
   PreparationSteps,
-  type CookQuestionControls,
 } from './PreparationSteps'
+import { PromoteEntry } from './PromoteEntry'
 import { ServingControl } from './ServingControl'
-import {
-  getShownCookServings,
-  useLeftoverLunchText,
-  type SharedLeftover,
-} from './use-leftover-lunches'
 import type {
   EntryChange,
   MealData,
@@ -35,6 +32,11 @@ import type {
   PantryIngredient,
   PreparationSteps as PreparationStepsData,
 } from './types'
+import {
+  getShownCookServings,
+  type SharedLeftover,
+  useLeftoverLunchText,
+} from './use-leftover-lunches'
 
 interface MealDetailProps {
   meal: MealData

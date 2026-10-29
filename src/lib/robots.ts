@@ -1,4 +1,5 @@
 import robotsParser from 'robots-parser'
+
 import { WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT } from '@/lib/bot-identity'
 import { getRedis } from '@/lib/upstash'
 

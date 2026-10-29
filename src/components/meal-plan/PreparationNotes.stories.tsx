@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { mealHueStyle } from './MealImageCard'
 import { PreparationNotes } from './PreparationNotes'
 

@@ -1,20 +1,22 @@
 'use client'
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObject } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { type Ref, type RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
 import type { AddMealChoice, AddMealView } from '@/components/meal-plan/AddMealMenu'
-import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { FridgeMealPicker } from '@/components/meal-plan/fridge-meal/FridgeMealPicker'
-import { LogMealPicker } from './LogMealPicker'
+import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
+import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
+import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
-import type { MealType } from '@/generated/prisma/enums'
-import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import type { FrequentMeal } from '@/lib/meal-plans/past-logging'
+
+import { LogMealPicker } from './LogMealPicker'
 
 /**
  * A log on Past meals (HON-1383): the household already ate the meal, so the

@@ -1,5 +1,7 @@
 import 'server-only'
+
 import { cache } from 'react'
+
 import { getPosthogServer } from '@/lib/posthog-server'
 
 /**

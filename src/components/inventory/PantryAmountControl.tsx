@@ -1,18 +1,19 @@
 'use client'
 
-import { forwardRef, useEffect, useId, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { forwardRef, useEffect, useId, useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
-import type { PantryItemData } from '@/components/pantry/PantryItem'
 
 /**
  * The amount is in the unit the pantry shows for the ingredient: `g`, `ml`

@@ -1,6 +1,7 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { getPosthogServer } from '@/lib/posthog-server'
+import { prisma } from '@/lib/prisma'
 import { sanitizeEventProperties } from '@/lib/redact'
 
 export const MCP_CLIENT_DISCONNECTED_EVENT = 'mcp:client_disconnected'

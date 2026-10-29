@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
 import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
 import type { CaseOf } from './case-schema'
 import { loadCases } from './load-cases'

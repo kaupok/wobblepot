@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { useRef, useState } from 'react'
 import { http, HttpResponse } from 'msw'
+import { useRef, useState } from 'react'
 import { Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { createMealComponent } from '@/stories/fixtures'
+
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
+import { createMealComponent } from '@/stories/fixtures'
+
 import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
 
 const ADJUST = '/api/meal-plans/:planId/entries/:entryId/adjust'

@@ -1,8 +1,9 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { Plug, Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import type { ReactNode } from 'react'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { formatDayShort } from '@/lib/i18n/format-dates'

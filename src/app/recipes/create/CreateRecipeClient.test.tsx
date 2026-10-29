@@ -1,9 +1,11 @@
-import { StrictMode } from 'react'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { StrictMode } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { MealFormData } from '@/components/household/MealForm'
 import { track } from '@/lib/analytics'
+
 import { CreateRecipeClient } from './CreateRecipeClient'
 
 const push = vi.fn()

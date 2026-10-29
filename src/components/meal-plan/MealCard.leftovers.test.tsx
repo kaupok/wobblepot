@@ -1,14 +1,16 @@
 // The real next-intl: the global mock in vitest.setup.ts reads English only and
 // has no ICU `select`, and these copy lines are per locale (HON-1395).
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
 import { MealCard } from './MealCard'
 import { MealDetail } from './MealDetail'
 import type { LeftoverLunch } from './types'

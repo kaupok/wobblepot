@@ -1,7 +1,9 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+
 import type { McpHousehold } from '@/lib/mcp/context'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 /**
  * What the household needs to buy: the body of the `get_shopping_list` MCP

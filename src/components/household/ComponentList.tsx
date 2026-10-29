@@ -1,23 +1,25 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
 import { Info, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { NumberInput } from '@/components/ui/number-input'
 import { Body } from '@/components/ui/typography'
-import { cn, prefersReducedMotion } from '@/lib/utils'
+import type { Unit } from '@/generated/prisma/enums'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
-import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+import { cn, prefersReducedMotion } from '@/lib/utils'
+
 import {
-  type MealComponent,
   formatAmountWithUnit,
   formatUnit,
   isMissingQuantity,
+  type MealComponent,
   suggestedQuantity,
 } from './meal-form-types'
-import type { Unit } from '@/generated/prisma/enums'
 
 interface ComponentListProps {
   components: MealComponent[]

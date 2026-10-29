@@ -1,7 +1,9 @@
 import { render, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { AiUsageToast } from './AiUsageToast'
 
 vi.mock('sonner', () => ({

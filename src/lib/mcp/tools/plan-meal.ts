@@ -1,13 +1,16 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
+import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
 import { findOrCreateMealPlan } from '@/lib/meal-plans/plans'
-import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
+
 import { assertMealFitsSlot } from './meal-fit'
 import { MAX_DAYS_AHEAD, slotInput, writableDays } from './plan-slot'
 

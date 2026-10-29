@@ -1,8 +1,9 @@
 // ROUTES: / · COMPONENTS: MealCard, MealCardMenu, AddMealMenu, FridgeMealPicker, LeftoverServingsControl, FridgeMealCard, FridgeCompleteDialog
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A day and slot of its own: the other card specs plant theirs on days 8 to
 // 13 and 16, in the same household, in parallel. Inside Today's 14-day

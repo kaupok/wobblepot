@@ -10,13 +10,13 @@
 import { estimateCostUsd } from '../../src/lib/ai/pricing'
 import type { BenchCase, CaseOf, Task } from './case-schema'
 import {
-  JUDGE_DRY_RUN_OUTPUT_TOKENS,
-  JUDGE_MODEL,
   buildJudgePrompt,
   isJudgedTask,
+  JUDGE_DRY_RUN_OUTPUT_TOKENS,
+  JUDGE_MODEL,
   type JudgedTask,
 } from './judge'
-import { TASK_SPECS, prepareCase } from './tasks'
+import { prepareCase, TASK_SPECS } from './tasks'
 
 export const CHARS_PER_TOKEN = 4
 

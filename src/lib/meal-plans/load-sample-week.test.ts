@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
+
 import { stepsInputHash } from '@/lib/landing/steps-input-hash'
+import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
+
 import { readSampleWeek } from './load-sample-week'
 import type { SampleWeek } from './sample-weeks'
 

@@ -1,9 +1,10 @@
 // ROUTES: / /recipes · COMPONENTS: MealCard, MealDetailModal, PromoteEntry, PromoteEntryDialog
 // API: /api/meal-plans/[id]/entries/[entryId]/components/promote (HON-1245)
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A day and slot of its own: the other smoke-household specs plant their
 // cards on days 2, 10, 11, 12 and 13. Inside Today's 14-day window, so the

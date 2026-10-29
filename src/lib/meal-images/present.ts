@@ -1,4 +1,5 @@
 import 'server-only'
+
 import type { MealImageStatus } from '@/generated/prisma/enums'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 

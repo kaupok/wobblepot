@@ -2,10 +2,10 @@
 // shown on a phone. Change the geometry in both. The list has no note sheet
 // here: a yellow sheet reads as content, then goes away when the list loads
 // empty or fails, so the bars are grey on the page (HON-1349).
-import { Skeleton } from '@/components/ui/skeleton'
-import { RowGroup } from '@/components/ui/row-group'
 import { PantryItemRowSkeleton } from '@/components/inventory/PantryItemRowSkeleton'
 import { ShoppingItemSkeleton } from '@/components/shopping/ShoppingItemSkeleton'
+import { RowGroup } from '@/components/ui/row-group'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function ShoppingLoading() {
   return (

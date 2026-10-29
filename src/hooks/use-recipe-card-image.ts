@@ -1,14 +1,15 @@
 'use client'
 
-import { useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { useRef } from 'react'
+
 import type { MealImageFields } from '@/components/meal-plan/MealImageCard'
 import {
   MEAL_IMAGE_POLL_INTERVAL_MS,
   MEAL_IMAGE_POLL_TIMEOUT_MS,
   type MealImageState,
 } from '@/hooks/use-meal-image'
+import { apiFetch } from '@/lib/api'
 
 type CardImageFields = Pick<MealImageFields, 'imageStatus' | 'imageUrl' | 'imageHue'>
 

@@ -1,15 +1,17 @@
-import { useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { delay, http, HttpResponse } from 'msw'
+import { useRef, useState } from 'react'
 import { toast, Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/api'
-import { householdMealList } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
-import { MealList, type MealData } from './MealList'
+import { householdMealList } from '@/stories/fixtures'
+
+import { type MealData, MealList } from './MealList'
 
 const meta = {
   title: 'Feature/Household/MealList',

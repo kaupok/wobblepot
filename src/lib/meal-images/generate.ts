@@ -1,12 +1,15 @@
 import 'server-only'
+
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
-import { APICallError, generateImage, generateObject, RetryError, type ImageModelUsage } from 'ai'
+import { APICallError, generateImage, generateObject, type ImageModelUsage, RetryError } from 'ai'
+
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { MEAL_IMAGE_MODEL, REVIEW_MODEL } from '@/lib/ai/models'
 import { estimateCostUsd } from '@/lib/ai/pricing'
-import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from '@/lib/ai/usage'
+import { type AiUsageStats, toAiUsageStats, withUsageOnFailure } from '@/lib/ai/usage'
 import { serverEnv } from '@/lib/env'
+
 import { canonicalForEstimate, fitFootprint, type FootprintFit } from './footprint'
 import { applyJudgeFilters, buildJudgeV2Prompt, judgeV2Schema, type JudgeVerdict } from './judge'
 import { buildMealImagePrompt, type MealImageMeal } from './prompt'
@@ -14,8 +17,8 @@ import {
   asVesselEstimate,
   VESSEL_PROMPT,
   vesselConsensus,
-  vesselSchema,
   type VesselEstimate,
+  vesselSchema,
 } from './vessel'
 
 /**

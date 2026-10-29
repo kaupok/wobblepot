@@ -1,17 +1,18 @@
 'use client'
 
-import { useEffect, useState, Suspense, type ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 // No `@posthog/react`: its entry imports `posthog-js` statically, which put
 // the whole SDK in the root layout's initial JS for every visitor, consent or
 // not (HON-999). `posthog-js` is reached only through the dynamic import below.
 import type { PostHog } from 'posthog-js'
-import { clientEnv } from '@/lib/env'
+import { type ReactNode, Suspense, useEffect, useState } from 'react'
+
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
-import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+import { clientEnv } from '@/lib/env'
+import type { BootstrapData } from '@/lib/feature-flags'
 import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { clearStoredPostHogIdentity } from '@/lib/posthog-identity-sweep'
-import type { BootstrapData } from '@/lib/feature-flags'
+import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 
 interface PostHogProviderProps {
   children: ReactNode

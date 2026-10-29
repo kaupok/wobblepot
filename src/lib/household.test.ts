@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({
@@ -16,12 +16,13 @@ vi.mock('@/lib/env', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import {
-  getHouseholdMembership,
-  loadHouseholdServings,
-  isUserSoleOwnerWithOtherMembers,
   countAccountHoldingMembers,
+  getHouseholdMembership,
+  isUserSoleOwnerWithOtherMembers,
   listHouseholdMembers,
+  loadHouseholdServings,
 } from './household'
 
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)

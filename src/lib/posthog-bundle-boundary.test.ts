@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 // HON-999: posthog-js must reach the browser only through a dynamic import that

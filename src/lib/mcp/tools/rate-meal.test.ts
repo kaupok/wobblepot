@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, resetAt: new Date() }),
@@ -9,9 +9,10 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
-import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+
 import { rateMeal } from './rate-meal'
 
 const household = mcpHousehold({ id: 'household-a' })

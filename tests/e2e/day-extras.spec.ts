@@ -1,8 +1,9 @@
 // ROUTES: / · /shopping · COMPONENTS: TimelineDayCard, DayAddMenu, AddExtra, DayExtrasRow, ShoppingSection
-import { test, expect, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // Day extras (HON-1309) take no meal slot, so this spec needs no day of its
 // own: it adds to Tomorrow, which the 7-day shopping list always covers, and

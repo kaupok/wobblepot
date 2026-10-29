@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
 import { deleteDayExtra, updateDayExtraQuantity } from '@/lib/day-extras/day-extras'
 import { updateDayExtraSchema } from '@/lib/day-extras/schemas'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 /** Sets an ingredient extra's amount (HON-1309): `{ quantity }`, null for no amount. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

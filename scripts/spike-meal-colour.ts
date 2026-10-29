@@ -28,19 +28,22 @@
  */
 
 import 'dotenv/config'
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateImage } from 'ai'
 import sharp from 'sharp'
+
 import {
   DEFAULT_HUE_OPTIONS,
   extractHue,
-  srgbToOklch,
   type HueOptions,
   type HueResult,
   type Oklch,
+  srgbToOklch,
 } from '../src/lib/meal-images/colour'
 import { PROMPT_SUFFIX } from '../src/lib/meal-images/prompt'
 import { V3_PROMPT_SUFFIX } from './spike-meal-images'

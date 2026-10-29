@@ -1,21 +1,23 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { createMcpHandler } from '@modelcontextprotocol/server'
+import { describe, expect, it } from 'vitest'
+
+import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { buildMcpServer } from '@/lib/mcp/server'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
 import {
   mcpRequest,
+  type McpToolResultBody,
   READ_SCOPES,
   readMcpBody,
   WRITE_SCOPES,
-  type McpToolResultBody,
 } from '@/test/mcp'
-import { buildMcpServer } from '@/lib/mcp/server'
-import { planFridgeMeal } from './plan-fridge-meal'
+
 import { getMealPlan } from './get-meal-plan'
+import { planFridgeMeal } from './plan-fridge-meal'
 import {
-  CALLER,
   call,
+  CALLER,
   day,
   dinnerOn,
   ITEMS,

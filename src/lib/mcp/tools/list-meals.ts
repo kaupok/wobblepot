@@ -1,12 +1,14 @@
 import 'server-only'
+
 import { z } from 'zod'
+
+import { defineTool } from '@/lib/mcp/context'
 import {
   loadMeals,
   MEALS_DEFAULT_LIMIT,
   MEALS_MAX_LIMIT,
   type MealSource,
 } from '@/lib/meals/load-meals'
-import { defineTool } from '@/lib/mcp/context'
 
 const mealType = z.enum(['breakfast', 'lunch', 'dinner'])
 

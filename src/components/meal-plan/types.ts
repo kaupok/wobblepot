@@ -1,8 +1,9 @@
-import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType, PieceDisplay } from '@/generated/prisma/enums'
-import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
+import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
+
+import type { MealImageFields } from './MealImageCard'
 
 export interface MealComponent {
   ingredientId: string

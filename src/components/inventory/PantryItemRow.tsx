@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { Star, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+
+import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import type { PantryItemData } from '@/components/pantry/PantryItem'
+
 import { PantryAmountButton, PantryAmountField } from './PantryAmountControl'
 
 interface PantryItemRowProps {

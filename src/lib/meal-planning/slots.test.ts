@@ -1,11 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import type { MealType } from '@/generated/prisma/enums'
+
 import {
-  computeRequiredSlots,
   computeMealSlots,
+  computeRequiredSlots,
   pickDay,
   shouldEnforceBalanceConstraints,
 } from './slots'
-import type { MealType } from '@/generated/prisma/enums'
 
 // Helper to create a week of dates starting from a given Monday
 function createWeek(startDate: Date): Date[] {

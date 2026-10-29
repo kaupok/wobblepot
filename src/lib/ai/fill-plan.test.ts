@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import { ProteinType } from '@/generated/prisma/enums'
 
@@ -69,18 +69,13 @@ vi.mock('./sampling', () => ({
 }))
 
 // Import after mocks
-import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
+
 import { getCandidates } from '@/lib/meal-planning/candidates'
-import { computeRequiredSlots, computeMealSlots } from '@/lib/meal-planning/slots'
-import { validatePlan } from './validate-plan'
+import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
+import { prisma } from '@/lib/prisma'
+
 import { fillEmptySlots } from './fill-plan'
-import { NoEmptySlotsError } from './types'
-import { logAiSample } from './sampling'
-import { PLANNING_MODEL } from './models'
-import { loadCandidatePools } from './plan-candidates'
-import { buildMealPlanRequest } from './prompts'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 import {
   createCandidate,
   createDefaultMealSlots,
@@ -88,6 +83,13 @@ import {
   date,
   fillOptions,
 } from './fill-plan.fixtures'
+import { PLANNING_MODEL } from './models'
+import { loadCandidatePools } from './plan-candidates'
+import { buildMealPlanRequest } from './prompts'
+import { logAiSample } from './sampling'
+import { NoEmptySlotsError } from './types'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from './usage-fixture'
+import { validatePlan } from './validate-plan'
 
 // Type assertions for mocks
 const mockGetCandidates = vi.mocked(getCandidates)

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+
 import { ImagineReviewDialog } from './ImagineReviewDialog'
 import { buildMeal, renderInLocale } from './ImagineReviewDialog.fixtures'
 

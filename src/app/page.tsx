@@ -1,15 +1,17 @@
-import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
+
+import { TodaySkeleton } from '@/components/timeline'
 import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
-import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { DEMO_TIMEZONE, loadDemoDay } from '@/lib/landing/load-demo-day'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+
 import { LandingPage } from './LandingPage'
 import { TodayTimeline } from './TodayTimeline'
-import { TodaySkeleton } from '@/components/timeline'
 
 export default async function Home() {
   const session = await auth.api.getSession({

@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { emailTranslator } from './i18n'
+import { describe, expect, it, vi } from 'vitest'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
+import { emailTranslator } from './i18n'
 
 describe('emailTranslator', () => {
   it('resolves copy from the requested locale', () => {

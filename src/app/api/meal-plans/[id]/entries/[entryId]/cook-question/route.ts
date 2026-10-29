@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+
 import { buildCookQuestionRequest } from '@/lib/ai/cook-question'
 import {
   cookQuestionErrorBody as errorBody,
@@ -12,17 +11,19 @@ import {
   streamCookAnswer,
   subjectInRange,
 } from '@/lib/ai/cook-question-route'
-import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
-import { withRequestId } from '@/lib/request-id'
-import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
-import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
+import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
 import { translateIngredient, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { hasLiveChanges } from '@/lib/meal-planning/entry-components'
+import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   EntryContextError,
   loadEntryForAi,
   loadPantryNamesForAi,
 } from '@/lib/meal-plans/entry-context'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
+import { withRequestId } from '@/lib/request-id'
 
 /** The body, its bounds and the subject check: `cookQuestionFields`. */
 const bodySchema = z.object(cookQuestionFields).refine(subjectInRange)

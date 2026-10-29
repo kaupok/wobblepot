@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { getSession } from '@/lib/session'
+
 import { generateMetadata } from './page'
 
 vi.mock('@/lib/session', () => ({

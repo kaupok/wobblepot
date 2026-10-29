@@ -1,8 +1,8 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
-import { useTheme } from 'next-themes'
 import { useTranslations } from 'next-intl'
+import { useTheme } from 'next-themes'
+import { useSyncExternalStore } from 'react'
 
 const emptySubscribe = () => () => {}
 

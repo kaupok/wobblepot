@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { EntryUpdateError, updateEntry, type EntryPatch } from '@/lib/meal-plans/entries'
+import { describe, expect, it } from 'vitest'
+
+import { type EntryPatch, EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
 import { addEntryChange } from '@/lib/meal-plans/entry-changes'
+import { prisma } from '@/lib/prisma'
 
 // `updateEntry` with an entry's own ingredient changes (HON-1243): the
 // deduction charges the merged list, and a swap drops the changes. Runs against

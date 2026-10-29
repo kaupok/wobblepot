@@ -1,31 +1,32 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { useAuthErrorMessage } from '@/lib/auth-errors-client'
-import { getOAuthErrorKey } from '@/lib/auth-errors'
-import { getValidReturnUrl } from '@/lib/utils'
-import { EMAIL_VERIFICATION_CALLBACK_URL } from '@/lib/email-verification'
-import { apiFetch } from '@/lib/api'
-import { householdInvitePath } from '@/lib/household-invite-link'
-import { track } from '@/lib/analytics'
+import { useEffect, useRef, useState } from 'react'
+
+import {
+  AuthMethodDivider,
+  googleErrorCallbackURL,
+  GoogleSignInButton,
+} from '@/components/auth/GoogleSignInButton'
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
-import {
-  AuthMethodDivider,
-  GoogleSignInButton,
-  googleErrorCallbackURL,
-} from '@/components/auth/GoogleSignInButton'
+import { Body, Heading } from '@/components/ui/typography'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { track } from '@/lib/analytics'
+import { apiFetch } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
+import { getOAuthErrorKey } from '@/lib/auth-errors'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
+import { EMAIL_VERIFICATION_CALLBACK_URL } from '@/lib/email-verification'
+import { householdInvitePath } from '@/lib/household-invite-link'
+import { getValidReturnUrl } from '@/lib/utils'
 
 /** A valid household invite the visitor came from (HON-1131). */
 export interface SignUpHouseholdInvite {

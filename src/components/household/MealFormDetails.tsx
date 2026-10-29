@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +15,8 @@ import {
 import { Body, Heading } from '@/components/ui/typography'
 import type { ProteinType } from '@/generated/prisma/enums'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { type MealTypeValue, MEAL_TYPE_VALUES } from './meal-form-types'
+
+import { MEAL_TYPE_VALUES, type MealTypeValue } from './meal-form-types'
 import type { MainProteinState } from './use-main-protein'
 
 /** The Select's value for "no choice": Radix reserves the empty string. */

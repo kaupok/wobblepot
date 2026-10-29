@@ -1,8 +1,10 @@
 import 'server-only'
-import { instrument, type BeforeSendFn } from '@posthog/mcp'
+
 import type { McpServer } from '@modelcontextprotocol/server'
-import { getPosthogMcpServer } from '@/lib/posthog-server'
+import { type BeforeSendFn, instrument } from '@posthog/mcp'
+
 import type { McpCallerContext } from '@/lib/mcp/context'
+import { getPosthogMcpServer } from '@/lib/posthog-server'
 
 /**
  * The `beforeSend` for every MCP event: drops what a tool was asked and what it

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // The ingredient scoping and the pantry transaction live in
@@ -29,8 +30,8 @@ vi.mock('@/lib/shopping/purchase', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { purchaseIngredients } from '@/lib/shopping/purchase'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

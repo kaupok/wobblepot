@@ -1,7 +1,8 @@
 import type { Unit } from '@/generated/prisma/enums'
-import { convertQuantity } from '@/lib/ai/recipe-quantities'
 import type { AdjustOp, AdjustRecipeChange } from '@/lib/ai/adjust-recipe'
-import { MAX_QUANTITY_PER_SERVING, type EntryChangeInput } from './components-schema'
+import { convertQuantity } from '@/lib/ai/recipe-quantities'
+
+import { type EntryChangeInput, MAX_QUANTITY_PER_SERVING } from './components-schema'
 
 /**
  * The pure half of "Adjust recipe" (HON-1244): the model's changes, named

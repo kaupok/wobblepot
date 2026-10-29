@@ -1,16 +1,15 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { prisma } from '@/lib/prisma'
+
 import { serverEnv } from '@/lib/env'
-import { computeRequiredSlots, computeMealSlots } from '@/lib/meal-planning/slots'
 import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
-import { PLANNING_MODEL } from './models'
-import { buildMealPlanRequest } from './prompts'
-import { logAiSample } from './sampling'
-import { toAiUsageStats, withUsageOnFailure } from './usage'
+import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
 import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
+import { prisma } from '@/lib/prisma'
+
+import { PLANNING_MODEL } from './models'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
@@ -18,12 +17,15 @@ import {
   validateAIResponseStructure,
   validateAndRepairPlan,
 } from './plan-helpers'
+import { buildMealPlanRequest } from './prompts'
+import { logAiSample } from './sampling'
 import {
+  type FillEmptySlotsOptions,
+  type GeneratePlanResult,
   InsufficientCandidatesError,
   NoEmptySlotsError,
-  type GeneratePlanResult,
-  type FillEmptySlotsOptions,
 } from './types'
+import { toAiUsageStats, withUsageOnFailure } from './usage'
 
 /**
  * Fill empty slots in an existing meal plan with AI-generated meals.

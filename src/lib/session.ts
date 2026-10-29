@@ -1,8 +1,9 @@
-import { cache } from 'react'
 import { headers } from 'next/headers'
+import { cache } from 'react'
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { toSignInAccounts, type SignInAccount } from '@/lib/sign-in-methods'
+import { type SignInAccount, toSignInAccounts } from '@/lib/sign-in-methods'
 
 export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }))
 

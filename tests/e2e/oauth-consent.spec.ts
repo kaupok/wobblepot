@@ -1,6 +1,6 @@
 // ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /api/auth/user/mcp-consents, /api/mcp, /consent, /account/connections, /sign-in · COMPONENTS: ConsentCard, SignInForm, ConnectedAssistantsList, McpServerUrl
-import { test, expect, type APIRequestContext } from '@playwright/test'
-import { signOut, signUpWithHousehold, TEST_PASSWORD } from './utils/test-helpers'
+import { type APIRequestContext, expect, test } from '@playwright/test'
+
 import {
   authorizePath,
   connectMcpClient,
@@ -12,6 +12,7 @@ import {
   registerClient,
   waitForRedirectUri,
 } from './utils/oauth'
+import { signOut, signUpWithHousehold, TEST_PASSWORD } from './utils/test-helpers'
 
 /**
  * Wobblepot as the OAuth 2.1 authorization server for MCP clients (HON-1150),

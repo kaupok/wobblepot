@@ -1,4 +1,5 @@
 import { z } from 'zod'
+
 import { ingredientsByWeight, type MealImageMeal } from './prompt'
 
 /**

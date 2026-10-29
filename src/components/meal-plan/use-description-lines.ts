@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useState, type RefObject } from 'react'
+import { type RefObject, useLayoutEffect, useState } from 'react'
 
 /** The most description lines a planner card shows (HON-1096). */
 export const MAX_DESCRIPTION_LINES = 2

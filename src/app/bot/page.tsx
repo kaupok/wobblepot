@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
+import type { ReactNode } from 'react'
+
 import { Body, Code, Heading, Li, Ul } from '@/components/ui/typography'
 import { WOBBLEPOT_BOT_TOKEN, WOBBLEPOT_BOT_USER_AGENT } from '@/lib/bot-identity'
 import { PRIVACY_EMAIL, PRIVACY_EMAIL_HREF } from '@/lib/support'

@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+
 import { SHARED_FIXTURE_SPEC_GLOBS } from './tests/e2e/utils/shared-fixture-specs'
 
 const remoteBaseURL = process.env.PLAYWRIGHT_BASE_URL

@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch } from '@/lib/api'
+import { useCallback, useEffect, useRef } from 'react'
+
 import type { MealData } from '@/components/meal-plan/types'
 import type { MealImageStatus } from '@/generated/prisma/enums'
+import { ApiError, apiFetch } from '@/lib/api'
 
 export interface MealImageState {
   status: MealImageStatus

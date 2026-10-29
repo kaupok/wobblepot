@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { getAppIcons } from './app-icons'
 
 const PRODUCTION_METADATA = {

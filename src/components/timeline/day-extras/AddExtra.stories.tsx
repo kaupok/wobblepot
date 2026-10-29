@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+
 import { defaultHandlers, extraSearchHandlers } from '@/stories/msw-handlers'
+
 import { AddExtra } from './AddExtra'
 
 // The picker searches the extras scenario's catalogue (red wine, white wine,

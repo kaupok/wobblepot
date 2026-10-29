@@ -1,16 +1,18 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
+
+import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
-import { ApiError, apiFetch } from '@/lib/api'
-import { track } from '@/lib/analytics'
 import { rateLimitResetAt } from '@/lib/ai/error-codes'
+import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import { formatTimeOfDay } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import type { MealType } from '@/generated/prisma/enums'
+
 import type { AlternativeMeal, EntryRating } from './types'
 
 /**

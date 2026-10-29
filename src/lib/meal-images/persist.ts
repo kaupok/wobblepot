@@ -1,10 +1,11 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import type { Prisma } from '@/generated/prisma/client'
-import { visibleMealWhere } from '@/lib/meals/load-meals'
-import { presentMealImage, type PresentedMealImage } from '@/lib/meal-images/present'
+import { type PresentedMealImage, presentMealImage } from '@/lib/meal-images/present'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import type { VesselEstimate } from '@/lib/meal-images/vessel'
+import { visibleMealWhere } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The reads and writes around lazy meal image generation, behind `GET` and

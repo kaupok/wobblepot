@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -11,13 +11,14 @@ vi.mock('@/lib/household-claim', () => ({
   inviteMembershipClaim: vi.fn(() => 'claim-callback'),
 }))
 
-import { prisma } from '@/lib/prisma'
 import { inviteMembershipClaim, runHouseholdClaim } from '@/lib/household-claim'
+import { prisma } from '@/lib/prisma'
+
 import {
   getHouseholdInviteCodeFromBody,
   getInviteValidity,
-  joinHouseholdFromSignUp,
   type HouseholdInviteWithDetails,
+  joinHouseholdFromSignUp,
 } from './household-invite'
 
 const NOW = new Date('2026-10-09T12:00:00Z')

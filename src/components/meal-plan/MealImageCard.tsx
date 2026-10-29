@@ -1,17 +1,19 @@
 'use client'
 
+import Image from 'next/image'
 import {
   Children,
-  useCallback,
-  useState,
   type ComponentProps,
   type CSSProperties,
   type ReactNode,
+  useCallback,
+  useState,
 } from 'react'
-import Image from 'next/image'
+
 import { Card } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
 import type { MealImageStatus } from '@/generated/prisma/enums'
+import { cn } from '@/lib/utils'
+
 import type { NotePlacement } from './note-placement'
 
 /** The image columns a meal payload carries (HON-735, HON-744). */

@@ -1,7 +1,9 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { deleteCustomShoppingItem, findCustomShoppingItemName } from '@/lib/shopping/custom-items'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { deleteCustomShoppingItem, findCustomShoppingItemName } from '@/lib/shopping/custom-items'
 
 export const removeShoppingItem = defineTool({
   name: 'remove_shopping_item',

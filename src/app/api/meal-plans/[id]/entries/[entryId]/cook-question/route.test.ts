@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -114,7 +115,15 @@ async function readChunks(response: Response): Promise<string[]> {
   }
 }
 
+import { streamText } from 'ai'
+
+import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
+import { logAiSample } from '@/lib/ai/sampling'
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { expectedUsageStats } from '@/lib/ai/usage-fixture'
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import {
   cachePreparationTips,
@@ -122,14 +131,7 @@ import {
   loadEntryForAi,
   loadPantryNamesForAi,
 } from '@/lib/meal-plans/entry-context'
-import { streamText } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { logAiSample } from '@/lib/ai/sampling'
-import { getServerFlag } from '@/lib/feature-flags'
-import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
-import { expectedUsageStats } from '@/lib/ai/usage-fixture'
-import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

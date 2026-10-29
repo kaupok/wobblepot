@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   formatPieceFraction,
+  type PieceDisplayIngredient,
   recipePieceCount,
   shoppingPieceCount,
-  type PieceDisplayIngredient,
 } from './format-piece-quantity'
 
 const onion: PieceDisplayIngredient = {

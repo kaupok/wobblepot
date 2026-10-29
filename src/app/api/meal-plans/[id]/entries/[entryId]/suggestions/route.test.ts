@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // The entry read lives in `@/lib/meal-plans/slot-context` (tested against a
@@ -42,13 +43,13 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => ({
   assertUnderCap: vi.fn(),
 }))
 
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { captureApiError } from '@/lib/errors'
-import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
-import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
-import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
+import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

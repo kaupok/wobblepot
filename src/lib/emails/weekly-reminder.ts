@@ -1,5 +1,6 @@
 import { serverEnv } from '@/lib/env'
 import type { Locale } from '@/lib/i18n/locales'
+
 import { emailTranslator } from './i18n'
 
 /**

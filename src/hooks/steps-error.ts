@@ -1,12 +1,13 @@
 import type { useTranslations } from 'next-intl'
-import { ApiError } from '@/lib/api'
+
 import {
   PREPARATION_STEPS_ERROR_KEYS,
+  type PreparationStepsErrorCode,
   preparationStepsFallbackKey,
   rateLimitMessage,
   translateErrorCode,
-  type PreparationStepsErrorCode,
 } from '@/lib/ai/error-codes'
+import { ApiError } from '@/lib/api'
 import type { Locale } from '@/lib/i18n/locales'
 
 /**

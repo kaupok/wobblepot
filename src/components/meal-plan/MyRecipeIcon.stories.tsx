@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Heading } from '@/components/ui/typography'
+
 import { mealHueStyle } from './MealImageCard'
 import { MyRecipeIcon } from './MyRecipeIcon'
 

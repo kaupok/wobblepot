@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
 import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { CardContent, CardFooter } from '@/components/ui/card'
+import { useMemo, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
+import { CardContent, CardFooter } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
+
 import {
   AvailabilityIndicator,
   computeMealAvailability,

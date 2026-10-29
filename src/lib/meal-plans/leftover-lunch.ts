@@ -1,11 +1,13 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { MealPlanEntryStatus, MealType } from '@/generated/prisma/enums'
 import { isWeekday, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
+import { prisma } from '@/lib/prisma'
+
 import { createEntry } from './create-entry'
-import { setFridgeItems } from './fridge-meal'
 import { FRIDGE_ITEMS_MAX, type FridgeItemInput } from './fridge-items'
+import { setFridgeItems } from './fridge-meal'
 
 /**
  * Why "Cook for tomorrow's lunch too" refused (HON-1396):

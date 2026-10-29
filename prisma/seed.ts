@@ -1,20 +1,23 @@
 import 'dotenv/config'
+
 import { randomUUID } from 'node:crypto'
-import { hashPassword } from 'better-auth/crypto'
-import { PrismaClient } from '../src/generated/prisma/client'
+
 import { PrismaPg } from '@prisma/adapter-pg'
-import type { IngredientInput } from './seed-types'
-import { newIngredients, newMeals } from './seed-expansion'
-import { comprehensiveIngredients } from './seed-comprehensive'
-import { importCoverageIngredients } from './seed-import-coverage'
-import { isMeasuredByVolume } from './measured-by-volume'
-import { pieceDisplayFor } from './piece-display'
-import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
-import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
+import { hashPassword } from 'better-auth/crypto'
+
+import { PrismaClient } from '../src/generated/prisma/client'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
 import { seedDefaultStaples } from '../src/lib/meal-planning/default-staples'
+import { isMeasuredByVolume } from './measured-by-volume'
+import { pieceDisplayFor } from './piece-display'
+import { comprehensiveIngredients } from './seed-comprehensive'
+import { newIngredients, newMeals } from './seed-expansion'
+import { importCoverageIngredients } from './seed-import-coverage'
+import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
+import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translations-et'
 import { seedTargetLine } from './seed-target'
+import type { IngredientInput } from './seed-types'
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,

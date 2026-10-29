@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context; the global mock only
 // stubs `useTranslations`.
 vi.unmock('next-intl')
+import { NextIntlClientProvider } from 'next-intl'
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
-import { NextIntlClientProvider } from 'next-intl'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { FillDaysAction } from './FillDaysAction'
 
 vi.mock('next/navigation', () => ({

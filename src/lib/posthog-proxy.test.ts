@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { isPostHogProxyPath, postHogRewrites } from './posthog-proxy'
 
 describe('postHogRewrites', () => {

@@ -9,7 +9,7 @@
  * Test-only: imported by `*.test.ts` files, never by application code.
  */
 
-import { NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
+import { type LanguageModelUsage, NoObjectGeneratedError } from 'ai'
 import { expect } from 'vitest'
 
 /**

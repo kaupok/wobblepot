@@ -1,6 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { getHouseholdMembership } from '@/lib/household'
+import { prisma } from '@/lib/prisma'
+
 import type { McpCallerContext } from './context'
 
 /**

@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 // vitest.setup.ts mocks next-intl to English only; use the real provider so the
 // `et` assertions below are meaningful.
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { AvailabilityIndicator, AvailabilityStatus } from './AvailabilityIndicator'

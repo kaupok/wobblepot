@@ -1,6 +1,7 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
+
 import { Body } from '@/components/ui/typography'
 import { formatDateDisplay } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'

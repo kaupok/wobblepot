@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { defaultHandlers } from '@/stories/msw-handlers'
+
 import { CustomItemInput } from './CustomItemInput'
 
 const meta = {

@@ -1,16 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
-import { screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import { ShoppingSection } from './ShoppingSection'
-import { defaultProps, makeGroup, makeItem, renderSection } from './ShoppingSection.fixtures'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { ShoppingSection } from './ShoppingSection'
+import { defaultProps, makeGroup, makeItem, renderSection } from './ShoppingSection.fixtures'
 
 // Mock fetch globally
 vi.stubGlobal('fetch', vi.fn())

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { validateIngredientAliases } from './validate-ingredient-aliases'
+import { describe, expect, it } from 'vitest'
+
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
+import { validateIngredientAliases } from './validate-ingredient-aliases'
 
 const pool = new Set(['plain flour', 'black pepper', 'icing sugar'])
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET, PATCH } from './route'
 
 // The household update and its prep-tips clear live in `@/lib/household`,
@@ -25,8 +26,8 @@ vi.mock('@/lib/errors', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, updateHousehold } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership, updateHousehold } from '@/lib/household'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

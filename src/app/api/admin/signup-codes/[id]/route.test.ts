@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The revoke query lives in `@/lib/signup-codes` (`revokeSignupCode`), tested
 // against a database in `signup-codes.db.test.ts`. This file mocks it at the
@@ -20,6 +20,7 @@ vi.mock('@/lib/signup-codes', async (importOriginal) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { revokeSignupCode, SignupCodeError } from '@/lib/signup-codes'
+
 import { DELETE } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)

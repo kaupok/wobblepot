@@ -1,16 +1,18 @@
 'use client'
 
-import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useState } from 'react'
 import { z } from 'zod'
+
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { apiFetch, ApiError } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { HouseholdIngredient, IngredientUses } from '@/lib/ingredients/household-ingredient'
+
 import {
   HOUSEHOLD_INGREDIENTS_QUERY_KEY,
-  invalidateHouseholdIngredients,
   type HouseholdIngredientsResponse,
+  invalidateHouseholdIngredients,
 } from './household-ingredients-query'
 
 interface DeleteIngredientDialogProps {

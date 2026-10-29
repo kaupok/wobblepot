@@ -1,5 +1,6 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { MealImage } from './MealImage'
 
 const URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1.png'

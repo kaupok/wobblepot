@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
+
 import { RowGroup } from '@/components/ui/row-group'
-import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { MealType } from '@/generated/prisma/enums'
 import { awaitDialogClosed } from '@/stories/a11y-helpers'
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+
 import { PastMealRow } from './PastMealRow'
 
 const meal = createMeal()

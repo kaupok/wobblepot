@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { isIndexable, noindexHeaders } from './indexing'
 
 const NON_PRODUCTION = ['dev', 'preview', 'staging', 'ci', 'test', undefined, '', 'Production']

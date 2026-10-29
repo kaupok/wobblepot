@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
 
 // Soft-delete contract (HON-481): the daily purge cron scans
 // `WHERE purgeScheduledFor < now()`. The index on that column is load-bearing

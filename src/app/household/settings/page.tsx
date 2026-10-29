@@ -1,10 +1,11 @@
+import { Separator } from '@/components/ui/separator'
+import { Body, Heading } from '@/components/ui/typography'
 import { countAccountHoldingMembers } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { Body, Heading } from '@/components/ui/typography'
-import { Separator } from '@/components/ui/separator'
+
+import { householdTabMetadata, requireHouseholdMember } from '../household-member'
 import { HouseholdDetailsForm } from './HouseholdDetailsForm'
 import { LeaveHouseholdDialog } from './LeaveHouseholdDialog'
-import { householdTabMetadata, requireHouseholdMember } from '../household-member'
 
 export function generateMetadata() {
   return householdTabMetadata('settings')

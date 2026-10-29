@@ -1,18 +1,21 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { MAX_ADJUST_CHANGES, type AdjustRecipeChange } from '@/lib/ai/adjust-recipe'
+
+import { type AdjustRecipeChange, MAX_ADJUST_CHANGES } from '@/lib/ai/adjust-recipe'
 import { fuzzySearchIngredient } from '@/lib/ai/fuzzy-ingredient-match'
 import { translateIngredientNames } from '@/lib/ai/translate-match-results'
 import { translateIngredient } from '@/lib/i18n/content'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { resolveProposals, type AdjustContext } from '@/lib/meal-planning/adjust-entry'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { type AdjustContext, resolveProposals } from '@/lib/meal-planning/adjust-entry'
 import { fittingComponents } from '@/lib/meal-planning/adjust-proposal'
 import { MAX_QUANTITY_PER_SERVING } from '@/lib/meal-planning/components-schema'
 import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
 import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+
 import { amountWarning } from './amount-warning'
 import {
   acceptedOf,

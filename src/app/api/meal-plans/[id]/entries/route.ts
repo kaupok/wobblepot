@@ -1,14 +1,13 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
-import { captureApiError } from '@/lib/errors'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
+import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
 import {
   createEntry,
   EntryCreateError,
@@ -17,7 +16,9 @@ import {
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
+import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
 import { CHANGED_SOURCE_PROBLEMS, findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()

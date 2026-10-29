@@ -1,14 +1,15 @@
 'use client'
 
 import type { MouseEvent } from 'react'
-import { CardHeader } from '@/components/ui/card'
-import { Body, Heading } from '@/components/ui/typography'
+
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
-import { cn } from '@/lib/utils'
+import { CardHeader } from '@/components/ui/card'
+import { Body, Heading } from '@/components/ui/typography'
 import type { DemoMeal } from '@/lib/landing/load-demo-day'
+import { cn } from '@/lib/utils'
 
 // A click on one of these is not a click on the card. The name opens the view
 // itself. The Kid-friendly badge is a tooltip trigger drawn as a `span`, so it

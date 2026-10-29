@@ -1,7 +1,10 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
+
 import { findPlanSlot, slotInput } from './plan-slot'
 
 const ratingSchema = z.enum(['up', 'down']).nullable()

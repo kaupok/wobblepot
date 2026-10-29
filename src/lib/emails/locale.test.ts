@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveEmailLocale } from './locale'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
+
+import { resolveEmailLocale } from './locale'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {

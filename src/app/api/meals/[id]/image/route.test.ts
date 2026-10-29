@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every query, the claim and the guarded writes live in
 // `@/lib/meal-images/persist`, tested against a database in
@@ -83,26 +83,28 @@ vi.mock('@/lib/meal-images/colour', () => ({
   extractHue: vi.fn(),
 }))
 
-import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import { del, put } from '@vercel/blob'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { APICallError, generateImage, generateObject, RetryError } from 'ai'
+
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
+import { extractHue } from '@/lib/meal-images/colour'
 import {
   attachMealImage,
   claimMealImage,
+  type ImageClaim,
   loadMealForImage,
   markMealImageFailed,
+  type MealForImage,
   readMealImage,
   releaseMealImageClaim,
-  type ImageClaim,
-  type MealForImage,
 } from '@/lib/meal-images/persist'
-import { extractHue } from '@/lib/meal-images/colour'
 import { vesselSchema } from '@/lib/meal-images/vessel'
-import { captureApiError } from '@/lib/errors'
-import { getServerFlag } from '@/lib/feature-flags'
+import { checkRateLimit } from '@/lib/rate-limit'
+
 import { GET, POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

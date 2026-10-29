@@ -2,9 +2,11 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { Heart } from 'lucide-react'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
-import { householdMealList } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { householdMealList } from '@/stories/fixtures'
+
 import { RecipeCard } from './RecipeCard'
 
 const meal = householdMealList[0]!

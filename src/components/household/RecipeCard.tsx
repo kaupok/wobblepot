@@ -1,12 +1,14 @@
 'use client'
 
-import { useRef, type ReactNode } from 'react'
-import { CardContent } from '@/components/ui/card'
+import { type ReactNode, useRef } from 'react'
+
 import { CARD_CLICK_IGNORE } from '@/components/meal-plan/card-click'
 import { CookedLine } from '@/components/meal-plan/CookedLine'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { MealImageCard } from '@/components/meal-plan/MealImageCard'
+import { CardContent } from '@/components/ui/card'
 import { useRecipeCardImage } from '@/hooks/use-recipe-card-image'
+
 import type { MealData } from './MealList'
 
 interface RecipeCardProps {

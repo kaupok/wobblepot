@@ -2,7 +2,9 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { createMealComponent } from '@/stories/fixtures'
+
 import { EditableIngredientList } from './EditableIngredientList'
 import type { EntryChange } from './types'
 

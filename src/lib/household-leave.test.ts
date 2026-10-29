@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { Prisma } from '@/generated/prisma/client'
 
 vi.mock('@/lib/prisma', () => ({ prisma: {} }))
@@ -24,10 +25,11 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
-import { discardMealImage } from '@/lib/meal-images/storage'
-import { deletePosthogPersons } from '@/lib/posthog-purge'
 import { captureApiError } from '@/lib/errors'
+import { discardMealImage } from '@/lib/meal-images/storage'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
+
 import {
   afterHouseholdLeft,
   leaveHousehold,

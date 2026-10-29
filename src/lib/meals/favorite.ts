@@ -1,8 +1,9 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { Prisma } from '@/generated/prisma/client'
-import { visibleMealWhere } from '@/lib/meals/load-meals'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
+import { visibleMealWhere } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 /**
  * A household's favourite meals, behind `POST` and `DELETE

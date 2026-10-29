@@ -1,5 +1,6 @@
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
+
 import { Body } from '@/components/ui/typography'
 
 // Rendered today on: `MealDetail` (meal detail surface, including `MealDetailModal`),

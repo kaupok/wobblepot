@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -7,7 +7,8 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
-import { matchIngredients, type MatchedIngredient } from './match-ingredients'
+
+import { type MatchedIngredient, matchIngredients } from './match-ingredients'
 import type { ExtractedIngredient } from './recipe-schema'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)

@@ -1,8 +1,9 @@
 // ROUTES: / · COMPONENTS: MealCard, MealImageCard, NoteEditor, StickyNote
-import { test, expect, type Locator, type Page } from '@playwright/test'
-import { signIn } from './utils/test-helpers'
+import { expect, type Locator, type Page, test } from '@playwright/test'
+
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
+import { signIn } from './utils/test-helpers'
 
 // A day and slot of its own: modal-focus-restore plants its cards on day 10
 // (breakfast and dinner) in the same household, in parallel. Inside Today's

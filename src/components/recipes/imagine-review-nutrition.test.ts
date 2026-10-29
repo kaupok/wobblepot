@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { DEFAULT_GRAMS_PER_PIECE } from '@/lib/ai/recipe-quantities'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
+
 import { computeReviewNutrition, withReviewNutrition } from './imagine-review-nutrition'
 import type { IngredientRowData } from './IngredientRow'
 

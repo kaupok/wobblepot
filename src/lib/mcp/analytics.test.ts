@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { posthog, instrumentSpy } = vi.hoisted(() => ({
   posthog: { capture: vi.fn() },
@@ -18,12 +18,14 @@ vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
-import { getPosthogMcpServer } from '@/lib/posthog-server'
-import { loadPantry } from '@/lib/meal-planning/load-pantry'
+
 import { captureApiError } from '@/lib/errors'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { getPosthogMcpServer } from '@/lib/posthog-server'
 import { mcpHousehold, mcpRequest, READ_SCOPES, readMcpBody } from '@/test/mcp'
-import type { McpCallerContext } from './context'
+
 import { instrumentMcpServer, stripMcpPayload } from './analytics'
+import type { McpCallerContext } from './context'
 import { buildMcpServer } from './server'
 
 const ctx: McpCallerContext = {

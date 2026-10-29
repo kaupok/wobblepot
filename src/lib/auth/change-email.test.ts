@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { createEmailVerificationToken } from 'better-auth/api'
-import { afterAccountEmailChange, readChangeEmailToken } from './change-email'
-import { clearReminderConfirmation } from '@/lib/weekly-reminder'
-import { resend, isEmailConfigured } from '@/lib/resend'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { resolveEmailLocale } from '@/lib/emails/locale'
+import { isEmailConfigured, resend } from '@/lib/resend'
+import { clearReminderConfirmation } from '@/lib/weekly-reminder'
+
+import { afterAccountEmailChange, readChangeEmailToken } from './change-email'
 
 vi.mock('@/lib/weekly-reminder', () => ({
   clearReminderConfirmation: vi.fn(),

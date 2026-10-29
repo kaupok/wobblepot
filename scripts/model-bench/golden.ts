@@ -22,11 +22,13 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { z } from 'zod'
-import { TASKS, type BenchCase, type Task } from './case-schema'
+
+import { type BenchCase, type Task, TASKS } from './case-schema'
 import type { CallRecord, RunResult } from './runner'
-import { errorScores, prepareCase, type PreparedCase } from './tasks'
 import type { Scores } from './scorers'
+import { errorScores, prepareCase, type PreparedCase } from './tasks'
 
 export const GOLDEN_DIR = join(dirname(fileURLToPath(import.meta.url)), 'golden')
 

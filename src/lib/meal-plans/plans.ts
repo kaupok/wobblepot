@@ -1,13 +1,14 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { toDateString } from '@/lib/meal-planning/dates'
+
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { toDateString } from '@/lib/meal-planning/dates'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The read behind `GET /api/meal-plans/[id]` (HON-1206). The route owns the

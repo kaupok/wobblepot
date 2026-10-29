@@ -1,15 +1,16 @@
 'use client'
 
-import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { MCP_WRITE_SCOPE, SCOPE_MESSAGE_KEYS, type McpScope } from '@/lib/mcp/oauth'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body, Ul, Li } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
+import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { authClient } from '@/lib/auth-client'
+import { MCP_WRITE_SCOPE, type McpScope, SCOPE_MESSAGE_KEYS } from '@/lib/mcp/oauth'
 
 interface ConsentCardProps {
   /** `invalid`: the signed request is missing, expired, or names no known client. */

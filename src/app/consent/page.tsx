@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { getSession } from '@/lib/session'
+
 import { loadConsentRequest, toSearchParams } from '@/lib/mcp/consent-request'
+import { getSession } from '@/lib/session'
+
 import { ConsentCard } from './ConsentCard'
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,7 +1,8 @@
-import { toDateString } from '@/lib/meal-planning/dates'
-import type { CandidateMeal } from '@/lib/meal-planning/candidates'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { toDateString } from '@/lib/meal-planning/dates'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
+
 import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
 
 /**

@@ -1,18 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { AlertTriangle, Plus, Search, X, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
-import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
 import { convertQuantity } from '@/lib/ai/recipe-quantities'
-import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
+import { cn } from '@/lib/utils'
+
 import { AddIngredientForm } from './AddIngredientForm'
-import type { IngredientCategory } from '@/generated/prisma/enums'
+import type { IngredientResult, UnmatchedIngredientData } from './IngredientRow'
 
 function CategoryHint({ category }: { category: IngredientCategory }) {
   const label = useEnumLabel('IngredientCategory', category)

@@ -1,7 +1,7 @@
 // @vitest-environment node
 // Node, not jsdom: `jose` signs and verifies the verification-link JWT, and it
 // rejects jsdom's cross-realm `Uint8Array`.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every query lives in `@/lib/auth/e2e-support`, tested against a database in
 // `e2e-support.db.test.ts`. This file mocks that module at the seam and

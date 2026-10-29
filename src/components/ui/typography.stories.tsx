@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import { displayFont } from '@/components/landing/display-font'
+
 import { Blockquote, Body, Code, Heading, Li, Ol, Pre, Ul } from './typography'
 
 const meta: Meta = {

@@ -1,10 +1,11 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { getCandidates } from '@/lib/meal-planning/candidates'
-import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
-import { visibleMealWhere } from '@/lib/meals/load-meals'
-import type { SlotSuggestionHousehold } from '@/lib/meal-planning/slot-suggestions'
+
 import type { MealType } from '@/generated/prisma/enums'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { getCandidates } from '@/lib/meal-planning/candidates'
+import type { SlotSuggestionHousehold } from '@/lib/meal-planning/slot-suggestions'
+import { visibleMealWhere } from '@/lib/meals/load-meals'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Whether one chosen meal may go in a slot of `mealType`:

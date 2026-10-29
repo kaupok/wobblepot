@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
-import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 import { formatAbsoluteDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'

@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { RECIPE_STEPS_DEBOUNCE_MS } from '@/hooks/use-recipe-steps'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { MealData } from '@/components/meal-plan/types'
+import { RECIPE_STEPS_DEBOUNCE_MS } from '@/hooks/use-recipe-steps'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { RecipeDetailModal } from './RecipeDetailModal'
 
 vi.mock('@/hooks/use-meal-image', () => ({

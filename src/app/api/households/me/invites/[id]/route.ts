@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { HouseholdInviteError, revokeHouseholdInvite } from '@/lib/household-invite'
-import { captureApiError } from '@/lib/errors'
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({

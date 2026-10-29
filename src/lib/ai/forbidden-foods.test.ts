@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
+
 import { Allergen, DietaryType } from '@/generated/prisma/enums'
+
 import {
   COVERED_ALLERGENS,
   COVERED_DIETS,

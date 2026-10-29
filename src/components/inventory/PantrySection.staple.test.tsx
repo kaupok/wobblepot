@@ -1,6 +1,7 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { makeItem, renderStateful } from './PantrySection.fixtures'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))

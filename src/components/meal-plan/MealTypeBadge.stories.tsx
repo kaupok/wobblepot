@@ -1,6 +1,8 @@
-import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { CSSProperties } from 'react'
+
 import { MealType } from '@/generated/prisma/enums'
+
 import { MealTypeBadge } from './MealTypeBadge'
 
 const meta = {

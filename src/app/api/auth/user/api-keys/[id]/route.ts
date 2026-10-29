@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
 
 const ROUTE = '/api/auth/user/api-keys/[id]'
 

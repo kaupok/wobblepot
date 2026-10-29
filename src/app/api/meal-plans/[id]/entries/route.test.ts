@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { POST, DELETE } from './route'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, POST } from './route'
 
 // The plan, slot and meal checks and every query live in
 // `@/lib/meal-plans/entries`, tested against a database in
@@ -54,19 +55,19 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => ({
   assertUnderCap: vi.fn(),
 }))
 
+import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import {
   createEntry,
   EntryCreateError,
   type EntryCreateRefusal,
 } from '@/lib/meal-plans/create-entry'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
-import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 import { NoSuggestionsError, pickMealForSlot } from '@/lib/meal-plans/pick-for-slot'
+import { findLeftoverSourceProblem } from '@/lib/meal-plans/recent-meals'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+
 import { planFridgeMeal } from './plan-fridge-meal'
 import { call, day, refusal, world } from './plan-fridge-meal.fixtures'
 

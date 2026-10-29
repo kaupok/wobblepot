@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { reminderConfirmState } from '@/lib/weekly-reminder'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
 import ConfirmReminderPage, { generateMetadata } from './page'
-import { reminderConfirmState } from '@/lib/weekly-reminder'
 
 let translationLocale: 'en' | 'et' = 'en'
 

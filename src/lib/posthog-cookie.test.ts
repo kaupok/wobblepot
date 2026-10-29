@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { clientSessionProperties, parsePosthogCookie } from './posthog-cookie'
 
 // posthog-js persists `$sesid` as [lastActivityTimestamp, sessionId, sessionStartTimestamp].

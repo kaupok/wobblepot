@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { ApiError, apiFetch } from './api'
 
 function mockResponse(status: number, body: unknown) {

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { createMealComponent, ingredientResults } from '@/stories/fixtures'
+
 import { IngredientChangeDialog } from './IngredientChangeDialog'
 
 const chicken = createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 150 })

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { JoinHouseholdCard } from './JoinHouseholdCard'
 
 const meta = {

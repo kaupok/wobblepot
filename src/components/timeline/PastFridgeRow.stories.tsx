@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
-import { RowGroup } from '@/components/ui/row-group'
-import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
-import { awaitDialogClosed } from '@/stories/a11y-helpers'
+
 import type { FridgeMealItem } from '@/components/meal-plan/types'
+import { RowGroup } from '@/components/ui/row-group'
+import { MealType } from '@/generated/prisma/enums'
+import { awaitDialogClosed } from '@/stories/a11y-helpers'
+import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
+
 import { PastFridgeRow } from './PastFridgeRow'
 
 const wolt: FridgeMealItem[] = [

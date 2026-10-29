@@ -1,10 +1,12 @@
-import { createRef } from 'react'
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { MealCardMenu } from './MealCardMenu'
+
 import type { LeftoverLunchOption } from './leftover-lunch-option'
+import { MealCardMenu } from './MealCardMenu'
 
 // "Cook for tomorrow's lunch too" in a planned dinner's ⋯ menu (HON-1396). The
 // dialog's request is tested in `CookForLunchDialog.test.tsx`.

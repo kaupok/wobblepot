@@ -1,13 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 // The real next-intl provider, so the Estonian piece label and decimal comma
 // come from the actual catalog (HON-956).
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { createMealComponent } from '@/stories/fixtures'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { createMealComponent } from '@/stories/fixtures'
 import { IngredientList } from './IngredientList'
 
 const chicken = createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 150 })

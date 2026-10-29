@@ -1,14 +1,16 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useRef, useState } from 'react'
+
+import { AllergenPicker } from '@/components/household/AllergenPicker'
+import { SettingsSection } from '@/components/SettingsSection'
+import { TagInput, type TagInputRef } from '@/components/tag-input'
+import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Body } from '@/components/ui/typography'
-import { ChoiceChips } from '@/components/ui/choice-chips'
-import { TagInput, type TagInputRef } from '@/components/tag-input'
-import { AllergenPicker } from '@/components/household/AllergenPicker'
-import { SettingsSection } from '@/components/SettingsSection'
+
 import { ExcludedMatches } from './ExcludedMatches'
 import type {
   Allergen,

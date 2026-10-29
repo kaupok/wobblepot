@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('@/lib/api', async (importOriginal) => ({
@@ -9,6 +10,7 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 }))
 
 import { ApiError, apiFetch } from '@/lib/api'
+
 import { useMealAlternatives, type UseMealAlternativesOptions } from './use-meal-alternatives'
 
 const mockApiFetch = vi.mocked(apiFetch)

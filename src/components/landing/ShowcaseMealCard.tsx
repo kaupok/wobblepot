@@ -1,12 +1,13 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { CardHeader } from '@/components/ui/card'
-import { Body, Heading } from '@/components/ui/typography'
+
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
+import { CardHeader } from '@/components/ui/card'
+import { Body, Heading } from '@/components/ui/typography'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
 
 /**

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The draw after a claim (`drawClaimedMealImage`) runs for real under
 // `POST /api/meals/[id]/image` in that route's test, with only the SDKs
@@ -51,22 +51,23 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
+import { extractHue } from '@/lib/meal-images/colour'
+import { generateMealImage } from '@/lib/meal-images/generate'
 import {
   attachMealImage,
   claimMealImage,
+  type ImageClaim,
   loadMealForImage,
   markMealImageFailed,
-  releaseMealImageClaim,
-  type ImageClaim,
   type MealForImage,
+  releaseMealImageClaim,
 } from '@/lib/meal-images/persist'
-import { generateMealImage } from '@/lib/meal-images/generate'
 import { putMealImage } from '@/lib/meal-images/storage'
-import { extractHue } from '@/lib/meal-images/colour'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
-import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { captureApiError } from '@/lib/errors'
+
 import { claimSavedMealImage, drawSavedMealImage } from './start'
 
 const mockLoadMeal = vi.mocked(loadMealForImage)

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Photo input for recipe parsing (HON-1274). Its own file, because
 // `parse-recipe.test.ts` is at its file-size cap.
@@ -33,9 +33,10 @@ vi.mock('./match-ingredients', () => ({
 }))
 
 import { generateObject } from 'ai'
-import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
-import { buildRecipeRequest } from './recipe-prompt'
 import { z } from 'zod'
+
+import { parseAndMatchRecipe, parseRecipeText } from './parse-recipe'
+import { buildRecipeRequest } from './recipe-prompt'
 
 const mockGenerateObject = vi.mocked(generateObject)
 

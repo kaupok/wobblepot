@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { APIError } from 'better-auth/api'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
+  claimInviteCode,
+  getInviteCodeFromBody,
   HOUSEHOLD_INVITE_INVALID_MESSAGE,
   INVITE_CODE_INVALID_MESSAGE,
   INVITE_CODE_REQUIRED_MESSAGE,
-  claimInviteCode,
-  getInviteCodeFromBody,
   linkUsedBy,
   releaseClaim,
   validateAndClaimInviteCode,

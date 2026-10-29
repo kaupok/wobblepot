@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
 import { Footer } from '@/components/footer'
 
 interface FooterStoryArgs {

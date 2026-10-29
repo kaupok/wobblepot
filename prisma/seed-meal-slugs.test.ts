@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { slugify } from '../scripts/spike-meal-images'
 import { newMeals } from './seed-expansion'
 import { checkMealSlugCollisions, mealSlug } from './seed-meal-slugs'

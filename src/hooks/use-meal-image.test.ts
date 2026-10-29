@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { MealData } from '@/components/meal-plan/types'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import {
   MEAL_IMAGE_PLACEHOLDER_DELAY_MS,
   MEAL_IMAGE_POLL_INTERVAL_MS,
@@ -10,7 +13,6 @@ import {
   useMealImage,
   useMealImageFields,
 } from './use-meal-image'
-import type { MealData } from '@/components/meal-plan/types'
 
 type Meal = Pick<MealData, 'id' | 'isCustom' | 'imageUrl' | 'imageStatus' | 'imageHue'>
 

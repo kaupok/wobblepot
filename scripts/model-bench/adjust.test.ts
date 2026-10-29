@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import type { AdjustCase } from './case-schema'
+
 import { scoreAdjust } from './adjust'
+import type { AdjustCase } from './case-schema'
 
 const input: AdjustCase = {
   mealName: 'Creamy mushroom pasta',

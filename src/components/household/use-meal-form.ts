@@ -1,28 +1,30 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
-import {
-  type MealTypeValue,
-  type IngredientResult,
-  type MealComponent,
-  type MealFormData,
-  buildFinalComponents,
-  mealComponentErrorMessage,
-  suggestedQuantity,
-} from './meal-form-types'
-import { focusFirstInvalidQuantity } from './ComponentList'
-import { useMainProtein } from './use-main-protein'
-import { prefersReducedMotion } from '@/lib/utils'
+import type { Unit } from '@/generated/prisma/enums'
 import { ApiError, apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
-import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
+import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
+import { prefersReducedMotion } from '@/lib/utils'
 import { DEFAULT_VAGUE_PHRASE } from '@/lib/vague-quantities'
-import type { Unit } from '@/generated/prisma/enums'
+
+import { focusFirstInvalidQuantity } from './ComponentList'
+import {
+  buildFinalComponents,
+  type IngredientResult,
+  type MealComponent,
+  mealComponentErrorMessage,
+  type MealFormData,
+  type MealTypeValue,
+  suggestedQuantity,
+} from './meal-form-types'
+import { useMainProtein } from './use-main-protein'
 
 const MAX_SERVINGS = 50
 const MAX_PREP_MINUTES = 480

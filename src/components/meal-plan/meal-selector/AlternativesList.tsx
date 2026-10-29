@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { type ReactNode, useState } from 'react'
+
+import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Body } from '@/components/ui/typography'
-import { RecipeDetailModal } from '@/components/recipes/RecipeDetailModal'
+
 import { AlternativeCard } from '../AlternativeCard'
 import type { AlternativeMeal, PantryIngredient } from '../types'
 

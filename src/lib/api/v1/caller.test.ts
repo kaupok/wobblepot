@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/api-keys', () => ({
   API_KEY_PATTERN: /^wp_[A-Za-z0-9]{32}$/,
@@ -15,6 +15,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { ToolInputError } from '@/lib/mcp/context'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { mcpHousehold } from '@/test/mcp'
+
 import { resolveApiKeyCaller, serveApiRead } from './caller'
 
 const KEY = 'wp_abcdefghijklmnopqrstuvwxyz012345'

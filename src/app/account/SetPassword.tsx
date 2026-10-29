@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { ApiError } from '@/lib/api'
+import { useEffect, useRef } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
-import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { ApiError } from '@/lib/api'
+import { authClient } from '@/lib/auth-client'
 
 /**
  * The password section for an account with no password, only Google

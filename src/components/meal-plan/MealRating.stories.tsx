@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
+
 import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
 
 const meta = {

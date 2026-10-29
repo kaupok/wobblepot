@@ -1,6 +1,7 @@
 import { metadataResponse } from '@better-auth/oauth-provider'
+
 import { getServerBaseURL } from '@/lib/env'
-import { DISCOVERY_CORS_HEADERS, buildProtectedResourceMetadata } from '@/lib/mcp/oauth'
+import { buildProtectedResourceMetadata, DISCOVERY_CORS_HEADERS } from '@/lib/mcp/oauth'
 
 /**
  * RFC 9728 Protected Resource Metadata for the MCP resource (HON-1150).

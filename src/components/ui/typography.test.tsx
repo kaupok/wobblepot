@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
 import React from 'react'
-import { Heading, Body, Blockquote, Ul, Ol, Li, Code, Pre, toneVariants } from './typography'
+import { describe, expect, it } from 'vitest'
+
 import type { BodyTone } from './typography'
+import { Blockquote, Body, Code, Heading, Li, Ol, Pre, toneVariants, Ul } from './typography'
 
 describe('Typography Components', () => {
   describe('Heading', () => {

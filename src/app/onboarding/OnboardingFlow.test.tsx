@@ -1,9 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { OnboardingFlow } from './OnboardingFlow'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { OnboardingFlow } from './OnboardingFlow'
 
 // Mock next/navigation
 const mockPush = vi.fn()

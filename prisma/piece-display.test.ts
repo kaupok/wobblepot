@@ -1,14 +1,16 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
+
 import {
   pieceDisplayFor,
   PIECES_IN_RECIPE_AND_SHOPPING_NAMES,
   PIECES_IN_RECIPE_ONLY_NAMES,
 } from './piece-display'
 import { baseIngredients } from './seed'
-import { newIngredients } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
+import { newIngredients } from './seed-expansion'
 import { importCoverageIngredients } from './seed-import-coverage'
 import type { IngredientInput } from './seed-types'
 

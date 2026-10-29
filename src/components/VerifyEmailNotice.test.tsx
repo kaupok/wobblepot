@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { authClient } from '@/lib/auth-client'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { dropFocusToBody } from '@/test/focus'
 import type { VerificationLanding } from '@/lib/email-verification'
+import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { VerifyEmailNotice } from './VerifyEmailNotice'
 
 vi.mock('@/lib/auth-client', () => ({

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -16,11 +16,12 @@ vi.mock('@/lib/posthog-purge', () => ({
   deletePosthogPersons: vi.fn(),
 }))
 
-import { purgeUser } from './purge-user'
-import { prisma } from '@/lib/prisma'
-import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { deletePosthogPersons } from '@/lib/posthog-purge'
+import { prisma } from '@/lib/prisma'
+
+import { purgeUser } from './purge-user'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockDeletePosthogPersons = vi.mocked(deletePosthogPersons)

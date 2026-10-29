@@ -1,8 +1,9 @@
 import { Body } from '@/components/ui/typography'
 import { matchExcludedIngredients } from '@/lib/household/preferences'
+
+import { householdTabMetadata, requireHouseholdMember } from '../household-member'
 import { FoodPreferencesForm } from './FoodPreferencesForm'
 import { MealsToPlanForm } from './MealsToPlanForm'
-import { householdTabMetadata, requireHouseholdMember } from '../household-member'
 
 export function generateMetadata() {
   return householdTabMetadata('mealPreferences')

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { getSessionCookie } from 'better-auth/cookies'
+import { NextRequest, NextResponse } from 'next/server'
+
 import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 
 /**

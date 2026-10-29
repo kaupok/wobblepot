@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
-import type { CandidateMeal } from '@/lib/meal-planning/candidates'
-import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { ProteinType } from '@/generated/prisma/enums'
-import { MealPlanValidationError, type CandidatePools, type HydratedPlanEntry } from './types'
+import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
+
+import { type CandidatePools, type HydratedPlanEntry, MealPlanValidationError } from './types'
 
 // hydratePlan is not exercised here; the mock only keeps the real client from loading.
 vi.mock('@/lib/prisma', () => ({ prisma: {} }))

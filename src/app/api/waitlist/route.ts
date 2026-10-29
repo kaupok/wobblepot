@@ -1,16 +1,17 @@
 import { after, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getClientIp } from '@/lib/request-ip'
+
+import { captureApiError } from '@/lib/errors'
 import { getServerFlag } from '@/lib/feature-flags'
 import { LocaleSchema } from '@/lib/i18n/locales'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-ip'
 import {
   normalizeWaitlistEmail,
   processWaitlistRequest,
   WAITLIST_REF_PATTERN,
 } from '@/lib/waitlist'
-import { captureApiError } from '@/lib/errors'
 
 const waitlistRequestSchema = z.object({
   // 254 is the longest address SMTP can deliver to (RFC 5321).

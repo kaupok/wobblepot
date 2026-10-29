@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { PUT } from './route'
 
 // The rules live in `replaceEntryChanges`, tested against a database in

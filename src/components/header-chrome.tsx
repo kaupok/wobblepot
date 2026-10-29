@@ -1,13 +1,15 @@
 'use client'
 
 import Link from 'next/link'
+
 import { useScrolled } from '@/hooks/use-scrolled'
-import type { Session } from '@/lib/auth'
 import type { AdminMenuLink } from '@/lib/admin-links'
+import type { Session } from '@/lib/auth'
 import { cn } from '@/lib/utils'
+
 import { HeaderActions } from './header-actions'
-import { NavigationLeft, NavigationRight } from './navigation'
 import { MobileNav } from './mobile-nav'
+import { NavigationLeft, NavigationRight } from './navigation'
 import { LogoMark, Wordmark } from './wordmark'
 
 interface HeaderChromeProps {

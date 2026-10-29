@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every query lives in `@/lib/signup-codes`, tested against a database in
 // `signup-codes.db.test.ts`. This file mocks that module at the seam and
@@ -21,6 +21,7 @@ vi.mock('@/lib/signup-codes', async (importOriginal) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { createSignupCode, listSignupCodes, type SignupCodeRow } from '@/lib/signup-codes'
+
 import { GET, POST } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)

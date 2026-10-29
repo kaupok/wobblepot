@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealFormDetails } from './MealFormDetails'
 import type { MainProteinState } from './use-main-protein'
 

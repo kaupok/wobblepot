@@ -1,13 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { VAGUE_PHRASES } from '@/lib/vague-quantities'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { VAGUE_PHRASES } from '@/lib/vague-quantities'
 import {
-  VAGUE_PHRASE_KEYS,
   formatVaguePhrase,
   sameVaguePhrase,
-  vaguePhraseKey,
+  VAGUE_PHRASE_KEYS,
   type VaguePhraseKey,
+  vaguePhraseKey,
 } from './vague-phrase'
 
 const catalogs = { en: enMessages.enums.VaguePhrase, et: etMessages.enums.VaguePhrase }

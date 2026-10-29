@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { Prisma } from '@/generated/prisma/client'
+
 import { POST } from './route'
 
 // The household create, its claim lock and its rows live in
@@ -27,6 +29,7 @@ vi.mock('@/lib/household-claim', async (importOriginal) => ({
 }))
 
 import { headers } from 'next/headers'
+
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { AlreadyInHouseholdError, createHousehold } from '@/lib/household-claim'

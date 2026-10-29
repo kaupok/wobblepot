@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+
 import { addLeftoverLunch, LeftoverLunchError, type LeftoverLunchRefusal } from './leftover-lunch'
 
 // "Cook for tomorrow's lunch too" (HON-1396). Runs against PGlite through the

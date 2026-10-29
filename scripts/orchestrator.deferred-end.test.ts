@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
-import { harnessEnv, scriptsDir, stripTimestamps, type PrState } from './orchestrator-test-harness'
+import { harnessEnv, type PrState, scriptsDir, stripTimestamps } from './orchestrator-test-harness'
 
 const deferredHarness = path.join(scriptsDir, 'orchestrator-deferred-harness.sh')
 

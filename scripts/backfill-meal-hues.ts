@@ -22,10 +22,12 @@
  */
 
 import 'dotenv/config'
+
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
 import type { PrismaClient } from '../src/generated/prisma/client'
 import { DEFAULT_HUE_OPTIONS, extractHue, type HueResult } from '../src/lib/meal-images/colour'
 import { confirmHost, databaseHost, type Env } from './generate-global-meal-images'

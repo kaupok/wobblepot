@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -39,12 +40,12 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
-import { auth } from '@/lib/auth'
 import { reviewMealQuantities } from '@/lib/ai/review-quantities'
-import { getHouseholdMembership } from '@/lib/household'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockReview = vi.mocked(reviewMealQuantities)

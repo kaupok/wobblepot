@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Body, Heading } from '@/components/ui/typography'
+
 import {
   Table,
   TableBody,
@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Body, Heading } from '@/components/ui/typography'
 import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
 
 // English for every household, like the prose below: legal text is maintained

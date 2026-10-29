@@ -1,23 +1,25 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, Loader2, Check } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { Check, Loader2, Plus, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
-import { cn } from '@/lib/utils'
-import { apiFetch, ApiError } from '@/lib/api'
-import { track } from '@/lib/analytics'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import {
+  type IngredientResult,
   useIngredientSearch,
   withoutMatchedAs,
-  type IngredientResult,
 } from '@/hooks/use-ingredient-search'
+import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { cn } from '@/lib/utils'
+
 import type { PantryItemData } from './PantryItem'
-import type { IngredientCategory } from '@/generated/prisma/enums'
 
 interface InlineAddItemProps {
   onItemAdded: (item: PantryItemData) => void

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { expect, type APIRequestContext, type Page } from '@playwright/test'
+
+import { type APIRequestContext, expect, type Page } from '@playwright/test'
 
 /**
  * Wobblepot as the OAuth 2.1 authorization server for MCP clients (HON-1150),

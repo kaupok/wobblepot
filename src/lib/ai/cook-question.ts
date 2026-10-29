@@ -1,10 +1,10 @@
+import type { CookQuestionSubject } from './cook-question-subject'
 import {
   changedIngredientsSection,
   formatIngredientsList,
   type StepsComponent,
 } from './preparation-steps'
-import { localeInstruction, britishEnglish, estonianVoiceForPrepSteps, isEstonian } from './prompts'
-import type { CookQuestionSubject } from './cook-question-subject'
+import { britishEnglish, estonianVoiceForPrepSteps, isEstonian, localeInstruction } from './prompts'
 
 export interface CookQuestionPantryItem {
   /** Ingredient name in the household's language */

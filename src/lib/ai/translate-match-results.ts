@@ -1,5 +1,6 @@
-import { prisma } from '@/lib/prisma'
 import { isDefaultLocale } from '@/lib/i18n/content'
+import { prisma } from '@/lib/prisma'
+
 import type { IngredientMatchResult } from './match-ingredients'
 
 /**

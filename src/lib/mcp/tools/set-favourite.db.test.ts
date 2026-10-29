@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { listMeals } from './list-meals'
 import { setFavourite } from './set-favourite'
 

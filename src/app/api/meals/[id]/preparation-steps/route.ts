@@ -1,19 +1,17 @@
-import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
-import { z } from 'zod'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { isAiBudgetTimeout } from '@/lib/ai/timeout'
-import { aiErrorStatusCode } from '@/lib/ai/error-status'
-import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
-import { serverEnv } from '@/lib/env'
-import { STEPS_MODEL } from '@/lib/ai/models'
+import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+import type { PreparationSteps } from '@/components/meal-plan/types'
 import { STEPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import type { RecipeStepsErrorCode } from '@/lib/ai/error-codes'
+import { aiErrorStatusCode } from '@/lib/ai/error-status'
+import { STEPS_MODEL } from '@/lib/ai/models'
 import { buildFullStepsRequest, buildStepsFromNotesRequest } from '@/lib/ai/preparation-steps'
-import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
+import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -22,10 +20,13 @@ import {
   toAiUsageStats,
   withUsageOnFailure,
 } from '@/lib/ai/usage'
-import { withRequestId } from '@/lib/request-id'
+import { auth } from '@/lib/auth'
+import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { MAX_SERVINGS, MIN_SERVINGS, sumPortions } from '@/lib/meal-planning/servings'
+import { getServerFlag } from '@/lib/feature-flags'
+import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { MAX_SERVINGS, MIN_SERVINGS, sumPortions } from '@/lib/meal-planning/servings'
 import {
   freshRecipeSteps,
   loadRecipeForSteps,
@@ -33,8 +34,8 @@ import {
   recipeStepsRequest,
   saveRecipeSteps,
 } from '@/lib/meals/recipe-steps'
-import type { PreparationSteps } from '@/components/meal-plan/types'
-import type { RecipeStepsErrorCode } from '@/lib/ai/error-codes'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { withRequestId } from '@/lib/request-id'
 
 /**
  * `code` is what `useRecipeSteps` renders from; `error` is English and stays

@@ -1,20 +1,22 @@
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+
 import { auth } from '@/lib/auth'
+import { getQueryClient } from '@/lib/get-query-client'
 import { getHouseholdMembership } from '@/lib/household'
 import { listHouseholdMeals } from '@/lib/household-meals-read'
-import { getQueryClient } from '@/lib/get-query-client'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { sumPortions } from '@/lib/meal-planning/servings'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
-import { RecipesPageClient } from './RecipesPageClient'
+import { sumPortions } from '@/lib/meal-planning/servings'
+
 import {
   getNextMealsPageParam,
   mealsInitialPageParam,
-  mealsQueryKey,
   type MealsPage,
+  mealsQueryKey,
 } from './meals-query'
+import { RecipesPageClient } from './RecipesPageClient'
 
 export default async function RecipesPage() {
   const session = await auth.api.getSession({

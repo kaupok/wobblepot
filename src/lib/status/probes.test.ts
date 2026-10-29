@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -26,18 +26,20 @@ vi.mock('@/lib/upstash', () => ({
   getRedis: vi.fn(),
 }))
 
-import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
+
+import { prisma } from '@/lib/prisma'
 import { getRedis } from '@/lib/upstash'
+
 import {
-  pingDatabase,
-  probeDatabase,
-  probeAuth,
-  probeAi,
-  probeRateLimit,
+  __resetProbeCache,
   computeOverall,
   getStatusSnapshot,
-  __resetProbeCache,
+  pingDatabase,
+  probeAi,
+  probeAuth,
+  probeDatabase,
+  probeRateLimit,
 } from './probes'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)

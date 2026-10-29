@@ -12,30 +12,31 @@
  */
 
 import type { z } from 'zod'
-import { getDatesBetween, parseLocalDate } from '../../src/lib/meal-planning/dates'
-import { computeMealSlots, computeRequiredSlots } from '../../src/lib/meal-planning/slots'
-import type { MealSlot, SlotRequirement } from '../../src/lib/meal-planning/slots'
-import type { CandidateMeal } from '../../src/lib/meal-planning/candidates'
+
 import type { MealType } from '../../src/generated/prisma/enums'
-import type { CandidatePools, HydratedPlanEntry, MealPlanResponse } from '../../src/lib/ai/types'
+import {
+  findUnexcusedKeyword,
+  findViolations,
+  type ForbiddenFoodRule,
+  normalizeFoodName,
+  rulesForHousehold,
+} from '../../src/lib/ai/forbidden-foods'
+import type { ImaginedMealsSchema } from '../../src/lib/ai/imagine-request'
 // `plan-helpers` also holds `hydratePlan`, so it imports `@/lib/prisma`, which
 // builds a client at import time without connecting (it loads with an empty
 // environment). Only the two pure validators below are called; never
 // `hydratePlan` — plans are hydrated in memory from the case's pools.
 import { validateAIResponseStructure, validateAndRepairPlan } from '../../src/lib/ai/plan-helpers'
-import { validatePlan } from '../../src/lib/ai/validate-plan'
+import type { fullStepsSchema, notesStepsSchema } from '../../src/lib/ai/preparation-steps'
 import { evaluateRecipeConfidence } from '../../src/lib/ai/recipe-confidence'
 import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
-import type { ImaginedMealsSchema } from '../../src/lib/ai/imagine-request'
-import {
-  findUnexcusedKeyword,
-  findViolations,
-  normalizeFoodName,
-  rulesForHousehold,
-  type ForbiddenFoodRule,
-} from '../../src/lib/ai/forbidden-foods'
 import type { ReviewedIngredients } from '../../src/lib/ai/review-request'
-import type { fullStepsSchema, notesStepsSchema } from '../../src/lib/ai/preparation-steps'
+import type { CandidatePools, HydratedPlanEntry, MealPlanResponse } from '../../src/lib/ai/types'
+import { validatePlan } from '../../src/lib/ai/validate-plan'
+import type { CandidateMeal } from '../../src/lib/meal-planning/candidates'
+import { getDatesBetween, parseLocalDate } from '../../src/lib/meal-planning/dates'
+import type { MealSlot, SlotRequirement } from '../../src/lib/meal-planning/slots'
+import { computeMealSlots, computeRequiredSlots } from '../../src/lib/meal-planning/slots'
 import type {
   CookQuestionCase,
   ImagineCase,

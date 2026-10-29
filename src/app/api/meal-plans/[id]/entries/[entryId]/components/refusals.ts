@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import type { EntryChangeRefusal } from '@/lib/meal-plans/entry-changes'

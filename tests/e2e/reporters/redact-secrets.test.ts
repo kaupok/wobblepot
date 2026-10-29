@@ -2,8 +2,10 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { describe, it, expect } from 'vitest'
+
 import type { TestCase, TestResult } from '@playwright/test/reporter'
+import { describe, expect, it } from 'vitest'
+
 import { collectSecrets, redact, RedactSecretsReporter } from './redact-secrets'
 
 describe('collectSecrets', () => {

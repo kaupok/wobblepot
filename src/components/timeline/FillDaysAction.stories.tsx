@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { assertFocusReturnsAfterWait } from '@/stories/a11y-helpers'
 import {
   delayedErrorGenerateHandlers,
@@ -11,6 +12,7 @@ import {
   slowGenerateHandlers,
   timeoutGenerateHandlers,
 } from '@/stories/msw-handlers'
+
 import { FillDaysAction } from './FillDaysAction'
 
 const meta = {

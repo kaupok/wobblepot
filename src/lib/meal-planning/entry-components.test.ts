@@ -1,11 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
   applyEntryChanges,
   changeSetKey,
-  hasLiveChanges,
-  staleChangeIds,
   type EntryChangeRow,
+  hasLiveChanges,
   type MergeableComponent,
+  staleChangeIds,
 } from './entry-components'
 
 type Ing = { name: string }

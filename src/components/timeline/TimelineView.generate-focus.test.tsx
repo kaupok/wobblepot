@@ -1,14 +1,16 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // `useLocale()` requires the real next-intl context.
 vi.unmock('next-intl')
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../messages/en.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
+
+import type { ExpectedMealTypes, PlanEntry } from '@/components/meal-plan/types'
 import { markFirstPlanGenerated, takeFirstPlanGenerated } from '@/lib/first-plan-focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
+import enMessages from '../../../messages/en.json'
 import { TimelineView } from './TimelineView'
-import type { PlanEntry, ExpectedMealTypes } from '@/components/meal-plan/types'
 
 // After a generation the Generate button can leave the page, so a day heading
 // takes focus (HON-1139). The real day cards are under test; the fill bar is

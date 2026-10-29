@@ -2,22 +2,23 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
-  scriptsDir,
-  orchestrator,
-  worktreeClaude,
-  neonCleanup,
   e2eLocal,
   harness,
-  models,
-  prReview,
   harnessEnv,
-  stripTimestamps,
-  shellFunctionBody,
+  models,
+  neonCleanup,
+  orchestrator,
+  prReview,
   runHarness,
   runHarnessEnv,
+  scriptsDir,
+  shellFunctionBody,
+  stripTimestamps,
+  worktreeClaude,
 } from './orchestrator-test-harness'
 
 describe('orchestrator.sh', () => {

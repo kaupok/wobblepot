@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import type { AdjustProposal } from '@/lib/meal-planning/adjust-proposal'
+
 import { AdjustReviewDialog } from './AdjustReviewDialog'
 
 const toSalmon: AdjustProposal = {

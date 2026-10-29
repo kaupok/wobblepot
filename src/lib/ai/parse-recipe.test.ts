@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -25,15 +25,17 @@ vi.mock('./sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
-import { prisma } from '@/lib/prisma'
 import { APICallError, generateObject, RetryError } from 'ai'
-import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
-import type { RecipeExtraction } from './recipe-schema'
+import { z } from 'zod'
+
+import { prisma } from '@/lib/prisma'
+
+import { RECIPE_MODEL } from './models'
+import { parseAndMatchRecipe, parseRecipeText } from './parse-recipe'
 import { RecipeParseError } from './recipe-errors'
 import { buildRecipeRequest } from './recipe-prompt'
-import { z } from 'zod'
-import { RECIPE_MODEL } from './models'
-import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
+import type { RecipeExtraction } from './recipe-schema'
+import { expectedUsageStats, noObjectGeneratedError, USAGE_FIXTURE } from './usage-fixture'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGenerateObject = vi.mocked(generateObject)

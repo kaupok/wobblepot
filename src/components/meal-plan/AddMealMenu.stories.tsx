@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
 import { Plus } from 'lucide-react'
+import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
+
 import { AddMealMenu } from './AddMealMenu'
 
 const meta = {

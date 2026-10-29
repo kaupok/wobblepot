@@ -1,15 +1,17 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
-import { Toaster, toast } from 'sonner'
+import { toast, Toaster } from 'sonner'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealType } from '@/generated/prisma/enums'
+import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
 import { lemonGarlicChickenPantry } from '@/stories/fixtures'
 import {
   defaultHandlers,
   slowCreateEntryHandlers,
   slowDiscardEntryHandlers,
 } from '@/stories/msw-handlers'
-import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
+
 import { DayAddMenu } from './DayAddMenu'
 
 const meta = {

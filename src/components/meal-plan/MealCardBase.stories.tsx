@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
 import { Heart, Pencil, Trash2 } from 'lucide-react'
+import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { Button } from '@/components/ui/button'
 import { CardContent } from '@/components/ui/card'
 import { MealType } from '@/generated/prisma/enums'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, createMealComponent } from '@/stories/fixtures'
+
 import { MealCardBase } from './MealCardBase'
 import { MealImageCard } from './MealImageCard'
 import type { PantryIngredient } from './types'

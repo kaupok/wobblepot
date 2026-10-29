@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
-import { checkRateLimit } from '@/lib/rate-limit'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
+
 import {
   defineTool,
   isWriteTool,

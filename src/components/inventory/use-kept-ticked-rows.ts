@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import type { IngredientCategory } from '@/generated/prisma/enums'
+import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
+
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
+import type { IngredientCategory } from '@/generated/prisma/enums'
+
 import { usePendingPurchaseIds } from './use-purchase-toggle'
 
 interface ShoppingListGroup {

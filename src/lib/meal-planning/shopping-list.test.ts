@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
-import {
-  groupByCategory,
-  computeShoppingList,
-  computeRollingWindowShoppingList,
-  categoryConfig,
-} from './shopping-list'
-import type { ShoppingListItem } from './shopping-list'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+
 import { seedDefaultStaples } from './default-staples'
+import type { ShoppingListItem } from './shopping-list'
+import {
+  categoryConfig,
+  computeRollingWindowShoppingList,
+  computeShoppingList,
+  groupByCategory,
+} from './shopping-list'
 
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({
@@ -43,6 +45,7 @@ vi.mock('./dates', async () => {
 
 // Import mocked prisma for test setup
 import { prisma } from '@/lib/prisma'
+
 import { getStartOfTodayInTimezone } from './dates'
 
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)

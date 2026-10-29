@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { prisma } from '@/lib/prisma'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+
 import {
+  entry,
+  household,
+  ingredient,
+  itemsById,
   NOW,
   PANTRY_UPDATED_AT,
-  ingredient,
-  household,
-  entry,
   world,
-  itemsById,
 } from './load-shopping-list.fixtures'
 
 // Runs against PGlite through the `unit-db` project, with no mocks: rows are

@@ -1,5 +1,5 @@
-import { toDateString } from '@/lib/meal-planning/dates'
 import type { MealType } from '@/generated/prisma/enums'
+import { toDateString } from '@/lib/meal-planning/dates'
 
 /**
  * Stable key for a (date, mealType) slot. Lives on its own, away from the

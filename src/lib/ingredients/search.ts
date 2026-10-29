@@ -1,9 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { Prisma } from '@/generated/prisma/client'
 import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
 import { findSynonymMatches, type SynonymMatch } from '@/lib/ingredient-synonym-match'
+import { prisma } from '@/lib/prisma'
 
 /**
  * The ingredient picker's search, behind `GET /api/ingredients` (HON-1209).

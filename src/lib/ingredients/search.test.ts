@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { findSynonymMatches } from '@/lib/ingredient-synonym-match'
 import {
+  type IngredientSearchResult,
   rankSearchHits,
   SYNONYM_SCORE,
-  type IngredientSearchResult,
   type SynonymRow,
 } from '@/lib/ingredients/search'
 

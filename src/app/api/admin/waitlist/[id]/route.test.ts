@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The delete lives in `@/lib/waitlist` (`deleteWaitlistRequest`), tested
 // against a database in `waitlist.db.test.ts`. This file mocks it at the seam
@@ -19,6 +19,7 @@ vi.mock('@/lib/waitlist', async (importOriginal) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { deleteWaitlistRequest, WaitlistError } from '@/lib/waitlist'
+
 import { DELETE } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)

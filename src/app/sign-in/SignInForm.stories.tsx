@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import { SignInForm } from './SignInForm'
 
 const NOTE = 'Sign up first and set up your household. Then start connecting again from the app.'

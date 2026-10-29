@@ -2,7 +2,9 @@
 
 import { TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+
 import { Body, Li, Ul } from '@/components/ui/typography'
+
 import type { ExcludedMatch } from './preference-values'
 
 interface ExcludedMatchesProps {

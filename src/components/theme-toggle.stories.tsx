@@ -1,5 +1,6 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { ThemeProvider } from 'next-themes'
+
 import { ThemeToggle } from './theme-toggle'
 
 // WHY: Without a `next-themes` provider, `useTheme()` returns an undefined

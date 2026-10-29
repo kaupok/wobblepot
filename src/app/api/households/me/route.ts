@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership, updateHousehold } from '@/lib/household'
 import { LocaleSchema } from '@/lib/i18n/locales'
-import { captureApiError } from '@/lib/errors'
 
 const updateHouseholdSchema = z.object({
   name: z.string().min(1).max(100).optional(),

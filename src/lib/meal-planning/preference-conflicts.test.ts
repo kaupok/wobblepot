@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+
 import {
-  findPreferenceConflicts,
   type ConflictCheckedMeal,
   type ConflictPreferences,
+  findPreferenceConflicts,
 } from './preference-conflicts'
 
 const NO_PREFERENCES: ConflictPreferences = {

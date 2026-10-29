@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // What the entry's own ingredient changes do to the cook-question prompt
@@ -87,13 +88,14 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+import { streamText } from 'ai'
+
+import { assertUnderCap } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadEntryForAi, loadPantryNamesForAi } from '@/lib/meal-plans/entry-context'
-import { streamText } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap } from '@/lib/ai/usage'
-import { getServerFlag } from '@/lib/feature-flags'
 
 const mockLoadEntry = vi.mocked(loadEntryForAi)
 const mockStreamText = vi.mocked(streamText)

@@ -1,15 +1,14 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Heading, Body } from '@/components/ui/typography'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { useRef, useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
+import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
+import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
+import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
+import { IngredientRow } from '@/components/recipes/IngredientRow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,17 +19,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
-import { IngredientRow } from '@/components/recipes/IngredientRow'
-import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
-import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Body, Heading } from '@/components/ui/typography'
+
+import { ComponentList, focusClearOfTabBar } from './ComponentList'
+import { IngredientSearch } from './IngredientSearch'
 import { type MealFormProps } from './meal-form-types'
 import { MealFormBasicInfo } from './MealFormBasicInfo'
 import { MealFormDetails } from './MealFormDetails'
-import { ComponentList, focusClearOfTabBar } from './ComponentList'
-import { IngredientSearch } from './IngredientSearch'
 import { useMealForm } from './use-meal-form'
-import { FieldError } from '@/components/FieldError'
 
 export type { MealFormData, PrefilledIngredient } from './meal-form-types'
 

@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { authClient } from '@/lib/auth-client'
-import { useAuthErrorMessage } from '@/lib/auth-errors-client'
+import { useState } from 'react'
+
+import { FieldError } from '@/components/FieldError'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Heading, Body } from '@/components/ui/typography'
-import { FieldError } from '@/components/FieldError'
+import { Body, Heading } from '@/components/ui/typography'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
+import { authClient } from '@/lib/auth-client'
+import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 
 export function ForgotPasswordForm() {
   const t = useTranslations('auth.forgotPassword')

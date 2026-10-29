@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { block, contrast, parseOklch, token } from '@/test/oklch-contrast'
 
 /**

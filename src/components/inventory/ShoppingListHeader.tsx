@@ -1,8 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import { Heading, Body } from '@/components/ui/typography'
+import type { ReactNode } from 'react'
+
 import {
   Select,
   SelectContent,
@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Body, Heading } from '@/components/ui/typography'
+
 import { useSetWindowDays } from './use-shopping-window'
 
 interface ShoppingListHeaderProps {

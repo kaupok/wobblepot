@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { createApiKey } from '@/lib/api-keys'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { createApiKey } from '@/lib/api-keys'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 // A read-only API key must never turn into a session (HON-1220): no Better

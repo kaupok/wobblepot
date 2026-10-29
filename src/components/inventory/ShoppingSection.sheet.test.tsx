@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ShoppingSection } from './ShoppingSection'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { SORT_STORAGE_KEY } from './shopping-sort'
+import type { ShoppingSection } from './ShoppingSection'
 import { renderSection } from './ShoppingSection.fixtures'
 
 vi.stubGlobal('fetch', vi.fn())

@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import {
+  cn,
   CUSTOM_SHADOW_VALUES,
   CUSTOM_SPACING_VALUES,
   CUSTOM_UTILITY_CLASS_GROUPS,
-  UNMERGED_UTILITIES,
-  cn,
   getValidReturnUrl,
   prefersReducedMotion,
+  UNMERGED_UTILITIES,
 } from './utils'
 
 describe('cn utility function', () => {

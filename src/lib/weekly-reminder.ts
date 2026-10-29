@@ -1,13 +1,15 @@
 import 'server-only'
+
 import { nanoid } from 'nanoid'
-import { prisma } from '@/lib/prisma'
+
+import { resolveEmailLocale } from '@/lib/emails/locale'
+import { generateReminderConfirmEmail } from '@/lib/emails/reminder-confirm'
+import { generateWeeklyReminderEmail } from '@/lib/emails/weekly-reminder'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
-import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
-import { resolveEmailLocale } from '@/lib/emails/locale'
-import { generateWeeklyReminderEmail } from '@/lib/emails/weekly-reminder'
-import { generateReminderConfirmEmail } from '@/lib/emails/reminder-confirm'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 import { isoWeekday, nextWeekRange, type ReminderWeekday } from '@/lib/weekly-reminder-schedule'
 
 /**

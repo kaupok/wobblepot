@@ -1,6 +1,7 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { HouseholdMealError } from '@/lib/household-meal-error'
+import { prisma } from '@/lib/prisma'
 
 /**
  * A household's deleted recipes (HON-1336). A delete only sets `deletedAt`, so

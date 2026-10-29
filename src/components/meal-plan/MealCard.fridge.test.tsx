@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createMeal } from '@/stories/fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { MealCard } from './MealCard'
 
 // "Fridge meal" on a card turns the entry into a fridge meal (HON-1277): under

@@ -1,6 +1,7 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { ShoppingSection } from './ShoppingSection'
 import { defaultProps, makeGroup, makeItem, renderSection } from './ShoppingSection.fixtures'
 

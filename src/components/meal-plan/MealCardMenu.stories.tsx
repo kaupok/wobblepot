@@ -1,6 +1,7 @@
-import { useRef } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useRef } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import { MealCardMenu } from './MealCardMenu'
 
 const meta = {

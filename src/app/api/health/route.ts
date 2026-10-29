@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { pingDatabase } from '@/lib/status/probes'
 
 export const dynamic = 'force-dynamic'

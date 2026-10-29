@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -32,13 +32,14 @@ vi.mock('@/lib/household-leave', async (importActual) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { runHouseholdClaim } from '@/lib/household-claim'
-import { checkRateLimit } from '@/lib/rate-limit'
 import {
   afterHouseholdLeft,
   leaveHousehold,
   NotInHouseholdError,
   OwnerHasOtherAccountsError,
 } from '@/lib/household-leave'
+import { checkRateLimit } from '@/lib/rate-limit'
+
 import { POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

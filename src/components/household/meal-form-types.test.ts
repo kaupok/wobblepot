@@ -1,16 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { createTranslator } from 'next-intl'
+
+import type { IngredientRowData } from '@/components/recipes/IngredientRow'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
   buildFinalComponents,
   formatAmountWithUnit,
   formatUnit,
-  mealComponentErrorMessage,
   type IngredientResult,
   type MealComponent,
+  mealComponentErrorMessage,
 } from './meal-form-types'
 
 function ingredient(name: string): IngredientResult {

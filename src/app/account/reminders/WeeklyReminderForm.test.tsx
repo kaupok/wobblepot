@@ -1,14 +1,16 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { NextIntlClientProvider } from 'next-intl'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
 import { WeeklyReminderForm } from './WeeklyReminderForm'
-import { createQueryWrapper } from '@/test/query-wrapper'
 
 // The tests render with the real catalogues, in both locales.
 vi.unmock('next-intl')

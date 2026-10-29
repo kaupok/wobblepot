@@ -1,12 +1,13 @@
 'use client'
 
-import type { IngredientCategory } from '@/generated/prisma/enums'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { RowGroup } from '@/components/ui/row-group'
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
-import { CustomShoppingItem } from './CustomShoppingItem'
+
 import type { CustomItemData } from './CustomItemInput'
+import { CustomShoppingItem } from './CustomShoppingItem'
+import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
 /**
  * Emoji mapping for ingredient categories.

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const capture = vi.fn()
 vi.mock('@/lib/posthog-server', () => ({
@@ -14,6 +14,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { prisma } from '@/lib/prisma'
+
 import { captureMcpClientConnected, MCP_CLIENT_CONNECTED_EVENT } from './consent-analytics'
 
 const CREATED = new Date('2026-10-01T10:00:00Z')

@@ -1,6 +1,6 @@
 import type {
-  IngredientCategory,
   Allergen,
+  IngredientCategory,
   ProteinType,
   Unit,
 } from '../src/generated/prisma/client'

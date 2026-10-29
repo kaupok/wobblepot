@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-import { captureApiError } from '@/lib/errors'
+import { NextResponse } from 'next/server'
+
 import {
   createApiKey,
   getApiKeyViewer,
@@ -9,6 +8,8 @@ import {
   MAX_API_KEY_EXPIRY_DAYS,
   MAX_API_KEY_NAME_LENGTH,
 } from '@/lib/api-keys'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 
 const ROUTE = '/api/auth/user/api-keys'
 

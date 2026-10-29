@@ -1,9 +1,12 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { createHouseholdMeal, findOwnMealByName, HouseholdMealError } from '@/lib/household-meals'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
-import { distinctProteinTypes } from '@/lib/meal-planning/protein'
 import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { distinctProteinTypes } from '@/lib/meal-planning/protein'
+
 import {
   checkOutput,
   componentsOf,

@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { deleteHouseholdIngredient, updateHouseholdIngredient } from '@/lib/ingredients/manage'
+
 import { ingredientRateLimited, parseIngredientBody } from '../request'
 
 const ROUTE = '/api/ingredients/[id]'

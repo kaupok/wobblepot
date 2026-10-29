@@ -1,13 +1,15 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { FoodPreferencesForm } from './FoodPreferencesForm'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
   defaultPreferences,
   mockFetch,
   renderSettings,
   stubPointerApis,
 } from '@/test/household-settings'
+
+import { FoodPreferencesForm } from './FoodPreferencesForm'
 
 // The global next-intl mock has no `t.rich`, which the allergen notice needs.
 // `renderSettings` wraps in a real provider with the English catalogue.

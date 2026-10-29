@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // The pipeline — the entry read, the prompt, the model call and the matching —
@@ -42,7 +43,9 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import {
   AdjustEntryError,
@@ -50,8 +53,6 @@ import {
   proposeAdjustment,
 } from '@/lib/meal-planning/adjust-entry'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
-import { getServerFlag } from '@/lib/feature-flags'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)

@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
-import { MealType } from '@/generated/prisma/enums'
+
 import { RowGroup } from '@/components/ui/row-group'
+import { MealType } from '@/generated/prisma/enums'
 import { fridgePantryItems } from '@/stories/fridge-fixtures'
+
 import { PastEmptyRow } from './PastEmptyRow'
 
 const meta = {

@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest'
+
+import {
+  ingredientsByWeight,
+  STYLE_PREFIX_ILLUSTRATION_V3,
+  V2_EXCLUSIONS,
+} from '../src/lib/meal-images/prompt'
 import {
   buildJobs,
   buildJudgePrompt,
@@ -7,31 +13,26 @@ import {
   costFromUsage,
   estimateTotalUsd,
   extensionFor,
+  type JobResult,
   JUDGE_EST_USD,
+  type JudgeResult,
   judgeSummary,
+  type JudgeV2Result,
   MEALS,
   MODELS,
   parseArgs,
   passRates,
   PREP_EST_USD,
+  type PrepSample,
   renderContactSheet,
   sampleEvenly,
+  type SpikeMeal,
   STYLES,
   summarize,
   thinkingTokensFrom,
   toSpikeMeal,
   variantsFor,
-  type JobResult,
-  type JudgeResult,
-  type JudgeV2Result,
-  type PrepSample,
-  type SpikeMeal,
 } from './spike-meal-images'
-import {
-  ingredientsByWeight,
-  STYLE_PREFIX_ILLUSTRATION_V3,
-  V2_EXCLUSIONS,
-} from '../src/lib/meal-images/prompt'
 
 const defaultArgs = parseArgs([])
 const illustration = STYLES.find((s) => s.id === 'illustration')!

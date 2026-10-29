@@ -1,9 +1,12 @@
 import 'server-only'
-import type { z } from 'zod'
+
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/server'
-import type { getHouseholdMembership } from '@/lib/household'
+import type { z } from 'zod'
+
 import { captureApiError } from '@/lib/errors'
+import type { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
+
 import { MCP_WRITE_SCOPE } from './oauth'
 
 /** The household row `getHouseholdMembership` returns, with its preferences and members. */

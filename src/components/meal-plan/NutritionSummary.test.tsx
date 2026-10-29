@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 // Need the real next-intl provider here so we can verify locale-aware
 // integer formatting (HON-556) against the actual catalogs.
 vi.unmock('next-intl')
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { NutritionSummary } from './NutritionSummary'

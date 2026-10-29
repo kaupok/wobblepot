@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { authClient } from '@/lib/auth-client'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import type { GoogleLinkLanding, SignInAccount } from '@/lib/sign-in-methods'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { SignInMethods } from './SignInMethods'
 
 vi.mock('@/lib/auth-client', () => ({

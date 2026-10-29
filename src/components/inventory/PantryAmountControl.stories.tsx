@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { createPantryItemData } from '@/stories/fixtures'
+
 import { PantryAmountButton, PantryAmountField } from './PantryAmountControl'
 
 const rice = createPantryItemData({

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Photo input for `/api/recipes/parse` (HON-1274). Its own file, because
 // `route.test.ts` is at its file-size cap.
@@ -52,15 +52,16 @@ vi.mock('@/lib/ai/translate-match-results', () => ({
   translateMatchResults: vi.fn(async (results: unknown) => results),
 }))
 
-import { POST } from './route'
+import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
+import { RecipeParseError } from '@/lib/ai/recipe-errors'
+import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
+import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
-import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
-import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { MAX_ATTACHED_IMAGE_SIZE } from '@/lib/image-attachments'
+import { checkRateLimit } from '@/lib/rate-limit'
+
+import { POST } from './route'
 
 const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
 const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)

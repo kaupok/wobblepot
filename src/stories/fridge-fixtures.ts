@@ -1,5 +1,6 @@
 import type { FridgeMealItem, PantryItemFull } from '@/components/meal-plan/types'
 import type { LeftoverSource } from '@/lib/meal-plans/recent-meals'
+
 import { createPantryItem } from './fixtures'
 
 // The fridge-meal scenario (HON-1277): yesterday's mash, a frozen vegetable

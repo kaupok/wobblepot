@@ -1,6 +1,6 @@
-import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/meal-form-types'
 import type { MealCardBaseData } from '@/components/meal-plan/MealCardBase'
+import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 import { captureClientError } from '@/lib/errors-client'
 
 interface IngredientAlternative {

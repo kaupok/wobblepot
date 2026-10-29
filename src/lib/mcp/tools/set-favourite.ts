@@ -1,13 +1,15 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import {
   addFavorite,
   FavoriteError,
   findVisibleMealName,
   removeFavorite,
 } from '@/lib/meals/favorite'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 
 const NOT_FOUND = 'No meal with this id. Use list_meals to find it. Nothing was changed.'
 

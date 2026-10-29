@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/env', () => ({
   serverEnv: { NEXT_PUBLIC_APP_NAME: 'Wobblepot' },
@@ -38,13 +38,14 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-import { prisma } from '@/lib/prisma'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { captureApiError } from '@/lib/errors'
 import { toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+
 import {
-  REMINDER_MIN_GAP_MS,
   confirmReminderToken,
+  REMINDER_MIN_GAP_MS,
   reminderConfirmState,
   reminderUpdate,
   sendReminderConfirmEmail,

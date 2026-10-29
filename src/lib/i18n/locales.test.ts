@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
   DEFAULT_LOCALE,
-  KNOWN_LOCALES,
-  LocaleSchema,
-  PUBLIC_LOCALES,
   isDefaultLocale,
   isKnownLocale,
   isPublicLocale,
+  KNOWN_LOCALES,
+  LocaleSchema,
+  PUBLIC_LOCALES,
 } from './locales'
 
 describe('locales', () => {

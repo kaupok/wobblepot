@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const lib = path.join(path.dirname(fileURLToPath(import.meta.url)), 'e2e-branch-liveness.sh')

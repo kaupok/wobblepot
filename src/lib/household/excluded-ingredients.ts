@@ -1,7 +1,8 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
+import { type ExcludedMatch, matchTags } from '@/lib/household/excluded-ingredient-match'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { matchTags, type ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
+import { prisma } from '@/lib/prisma'
 
 export type { ExcludedMatch } from '@/lib/household/excluded-ingredient-match'
 

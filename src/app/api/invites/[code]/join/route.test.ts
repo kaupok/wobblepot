@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { Prisma } from '@/generated/prisma/client'
+
 import { POST } from './route'
 
 // The route reads the invite through `@/lib/household-invite` and claims it
@@ -49,13 +51,13 @@ vi.mock('@/lib/rate-limit', () => ({
 
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { findHouseholdInvite } from '@/lib/household-invite'
 import {
   AlreadyInHouseholdError,
-  InviteNoLongerClaimableError,
   inviteMembershipClaim,
+  InviteNoLongerClaimableError,
   runHouseholdClaim,
 } from '@/lib/household-claim'
+import { findHouseholdInvite } from '@/lib/household-invite'
 import {
   afterHouseholdLeft,
   leaveHousehold,

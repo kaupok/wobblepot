@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { ImaginedMealsSchema, imaginedIngredientText } from './imagine-request'
+import { describe, expect, it } from 'vitest'
+
+import { imaginedIngredientText, ImaginedMealsSchema } from './imagine-request'
 
 describe('imaginedIngredientText', () => {
   const base = { name: 'chicken breast', quantity: null, unit: null, vaguePhrase: null }

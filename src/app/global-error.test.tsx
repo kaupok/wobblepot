@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConsentDecision } from '@/lib/consent'
+
 import { MealPlanValidationError } from '@/lib/ai/types'
+import type { ConsentDecision } from '@/lib/consent'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+
 import GlobalError from './global-error'
 
 const { posthogMock, envMock, consentMock, markPostHogLoadedMock } = vi.hoisted(() => ({

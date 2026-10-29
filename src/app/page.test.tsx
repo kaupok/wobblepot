@@ -1,17 +1,20 @@
-import { render, screen, within } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Suspense, type ComponentProps, type ReactElement } from 'react'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import Home from './page'
-import { TodayTimeline } from './TodayTimeline'
-import enMessages from '../../messages/en.json'
-import etMessages from '../../messages/et.json'
+
+import { render, screen, within } from '@testing-library/react'
+import { type ComponentProps, type ReactElement, Suspense } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { MealType } from '@/generated/prisma/enums'
 import { getServerFlag } from '@/lib/feature-flags'
 import { loadDemoDay } from '@/lib/landing/load-demo-day'
 import { createMeal } from '@/stories/fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import type { MealType } from '@/generated/prisma/enums'
+
+import enMessages from '../../messages/en.json'
+import etMessages from '../../messages/et.json'
+import Home from './page'
+import { TodayTimeline } from './TodayTimeline'
 
 // Resolve `getTranslations(namespace)` through the real `createTranslator`, so
 // the Server Component renders as if the i18n pipeline had configured a

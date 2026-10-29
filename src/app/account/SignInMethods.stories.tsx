@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import type { SignInAccount } from '@/lib/sign-in-methods'
+
 import { SignInMethods } from './SignInMethods'
 
 // The auth client calls the absolute `getClientBaseURL()` origin, not the

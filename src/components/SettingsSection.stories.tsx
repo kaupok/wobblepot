@@ -1,9 +1,11 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
+import { useState } from 'react'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+
 import { SettingsSection } from './SettingsSection'
 
 /**

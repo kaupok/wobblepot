@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { createMeal, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import type { PreparationSteps } from '@/components/meal-plan/types'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { createMeal, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
+
 import { RecipeDetailModal } from './RecipeDetailModal'
 
 /** One of the household's own recipes, with its illustration and hue. */

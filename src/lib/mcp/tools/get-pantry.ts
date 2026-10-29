@@ -1,7 +1,9 @@
 import 'server-only'
+
 import { z } from 'zod'
-import { loadPantry } from '@/lib/meal-planning/load-pantry'
+
 import { defineTool } from '@/lib/mcp/context'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
 
 /** "Needed soon" means a planned meal in this many days uses the item. */
 const NEEDED_SOON_DAYS = 7

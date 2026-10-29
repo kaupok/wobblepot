@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
+
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { captureApiError } from '@/lib/errors'
 
 /**
  * GET /api/shopping-list

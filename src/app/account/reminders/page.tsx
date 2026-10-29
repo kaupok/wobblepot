@@ -1,6 +1,7 @@
 import { toReminderWeekday } from '@/lib/weekly-reminder-schedule'
-import { WeeklyReminderForm } from './WeeklyReminderForm'
+
 import { accountTabMetadata, requireAccountMember } from '../account-member'
+import { WeeklyReminderForm } from './WeeklyReminderForm'
 
 export function generateMetadata() {
   return accountTabMetadata('reminders')

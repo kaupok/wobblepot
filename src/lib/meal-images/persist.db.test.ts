@@ -1,15 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { describe, expect, it } from 'vitest'
+
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import {
   attachMealImage,
   claimMealImage,
+  type ImageClaim,
   loadMealForImage,
   markMealImageFailed,
   readMealImage,
   releaseMealImageClaim,
-  type ImageClaim,
 } from '@/lib/meal-images/persist'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // rows are written with Prisma, changed through the lib functions, and read

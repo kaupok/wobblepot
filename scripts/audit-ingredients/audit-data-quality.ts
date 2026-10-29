@@ -12,8 +12,9 @@
  */
 
 import 'dotenv/config'
-import { prisma } from '../../src/lib/prisma'
+
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../../src/lib/ingredient-aliases'
+import { prisma } from '../../src/lib/prisma'
 
 // ============================================
 // TYPES

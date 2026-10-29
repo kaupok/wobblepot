@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The database check is `pingDatabase` in `@/lib/status/probes`: its failure
 // and 2-second timeout are tested in `probes.test.ts`, its query against a
@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/status/probes', () => ({ pingDatabase: vi.fn() }))
 
 import { pingDatabase } from '@/lib/status/probes'
+
 import { GET } from './route'
 
 const mockPing = vi.mocked(pingDatabase)

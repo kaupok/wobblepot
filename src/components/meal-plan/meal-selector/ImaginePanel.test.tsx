@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // The failure copy has to be resolved against a real catalog in a real locale;
 // the global mock always answers from English, which would pass whether or not
 // the leak is fixed.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
-import { createQueryWrapper } from '@/test/query-wrapper'
 import { ImaginePanel } from './ImaginePanel'
 
 /** The English prose `/api/meals/imagine` puts in `data.error` on a 504. */

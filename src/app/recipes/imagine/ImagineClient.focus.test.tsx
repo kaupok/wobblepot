@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // The announcement is checked in both languages against the real catalog.
 vi.unmock('next-intl')
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+
+import type { ImaginedMealResponse } from '@/lib/imagine-utils'
+
+import { saveImagineSession } from './imagine-session'
 import { ImagineClient } from './ImagineClient'
 import { generate, renderInLocale } from './ImagineClient.fixtures'
-import { saveImagineSession } from './imagine-session'
-import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),

@@ -1,7 +1,8 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
 import { Minus, Plus } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { formatQuantity } from '@/lib/i18n/format-number'

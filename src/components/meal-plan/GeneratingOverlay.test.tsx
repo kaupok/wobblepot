@@ -1,6 +1,7 @@
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
-import { render, screen, act, fireEvent } from '@testing-library/react'
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GeneratingOverlay } from './GeneratingOverlay'
 
 describe('GeneratingOverlay', () => {

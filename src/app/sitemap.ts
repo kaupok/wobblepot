@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+
 import { POLICY_LAST_UPDATED } from '@/lib/consent'
 import { clientEnv, getServerBaseURL } from '@/lib/env'
 import { isIndexable } from '@/lib/indexing'

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // The query and the payload shape live in `@/lib/meal-plans/plans`, tested
@@ -28,8 +29,8 @@ vi.mock('@/lib/meal-plans/plans', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadMealPlan, MealPlanReadError } from '@/lib/meal-plans/plans'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

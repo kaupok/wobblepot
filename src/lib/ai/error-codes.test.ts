@@ -1,18 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
+
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
 import {
   COOK_QUESTION_ERROR_KEYS,
+  cookQuestionFallbackKey,
   IMAGINE_ERROR_KEYS,
   MEAL_PLAN_GENERATE_ERROR_KEYS,
-  PREPARATION_STEPS_ERROR_KEYS,
-  RECIPE_IMPORT_ERROR_KEYS,
-  cookQuestionFallbackKey,
   mealPlanGenerateFallbackKey,
+  PREPARATION_STEPS_ERROR_KEYS,
   preparationStepsFallbackKey,
   rateLimitMessage,
   rateLimitResetAt,
+  RECIPE_IMPORT_ERROR_KEYS,
   translateErrorCode,
 } from './error-codes'
 

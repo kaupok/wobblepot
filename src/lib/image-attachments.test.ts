@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
   ALLOWED_IMAGE_TYPES,
   IMAGE_ACCEPT_ATTRIBUTE,
-  MAX_ATTACHED_IMAGES,
   MAX_ATTACHED_IMAGE_SIZE,
+  MAX_ATTACHED_IMAGES,
   validateImageAttachments,
 } from './image-attachments'
 

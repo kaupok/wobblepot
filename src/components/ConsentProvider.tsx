@@ -2,16 +2,17 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from 'react'
-import { decisionToGranted, type ConsentDecision } from '@/lib/consent'
-import { readConsentCookieClient, writeConsentCookieClient } from '@/lib/consent.client'
+
 import { CookieBanner } from '@/components/CookieBanner'
+import { type ConsentDecision, decisionToGranted } from '@/lib/consent'
+import { readConsentCookieClient, writeConsentCookieClient } from '@/lib/consent.client'
 
 export interface AnalyticsConsent {
   /** `null` = undecided (banner shown), `true` = opt-in, `false` = essential only. */

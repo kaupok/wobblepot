@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test'
+import { type APIRequestContext, expect } from '@playwright/test'
 
 /**
  * The API reads `shopping-to-pantry.spec.ts` checks the page against: the

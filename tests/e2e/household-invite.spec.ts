@@ -1,5 +1,6 @@
 // ROUTES: /household, /household/settings, /invite/[code], /sign-up, / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard, SignUpForm, HouseholdTabs, HouseholdDetailsForm, LeaveHouseholdDialog
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
+
 import {
   generateUniqueEmail,
   grantEssentialCookieConsent,

@@ -1,16 +1,19 @@
 import 'server-only'
+
 import { z } from 'zod'
+
 import { ADJUST_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { AiCostCapExceededError, assertUnderCap, capResetDate } from '@/lib/ai/usage'
 import { getServerFlag } from '@/lib/feature-flags'
-import { checkRateLimit } from '@/lib/rate-limit'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { proposeAdjustment } from '@/lib/meal-planning/adjust-entry'
 import { type AdjustProposal, type MatchedReplacement } from '@/lib/meal-planning/adjust-proposal'
 import { ADJUST_INSTRUCTION_MAX_LENGTH } from '@/lib/meal-planning/components-schema'
 import { loadEntryForAi } from '@/lib/meal-plans/entry-context'
-import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { checkRateLimit } from '@/lib/rate-limit'
+
 import {
   acceptedOf,
   ingredientsOutput,

@@ -1,26 +1,27 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { toDateString } from '@/lib/meal-planning/dates'
-import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
-import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
-import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
+
+import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
-import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
-import { presentMealImage } from '@/lib/meal-images/present'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
+import { presentMealImage } from '@/lib/meal-images/present'
+import { toDateString } from '@/lib/meal-planning/dates'
+import { applyEntryChanges, staleChangeIds } from '@/lib/meal-planning/entry-components'
+import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import {
-  findPreferenceConflicts,
   type ConflictPreferences,
+  findPreferenceConflicts,
   type HouseholdFoodPreferences,
   type PreferenceConflict,
 } from '@/lib/meal-planning/preference-conflicts'
+import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
+import { prisma } from '@/lib/prisma'
 
 export interface PlanEntriesHousehold {
   id: string

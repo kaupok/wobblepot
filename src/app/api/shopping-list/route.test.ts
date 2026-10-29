@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { GET } from './route'
 
 // The read, the purchase status and the formatting live in
@@ -30,8 +31,8 @@ vi.mock('@/lib/shopping/load-shopping-list', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 const mockGetSession = vi.mocked(auth.api.getSession)

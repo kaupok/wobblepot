@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
 import { DEFAULT_LOCALE, isPublicLocale, type Locale } from '@/lib/i18n/locales'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Resolves the locale a transactional email should be written in.

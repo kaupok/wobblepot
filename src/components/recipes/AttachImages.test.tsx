@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import { MAX_ATTACHED_IMAGES, MAX_ATTACHED_IMAGE_SIZE } from '@/lib/image-attachments'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { MAX_ATTACHED_IMAGE_SIZE, MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
+
 import { AttachImages, useAttachImages } from './AttachImages'
 
 vi.mock('sonner', () => ({

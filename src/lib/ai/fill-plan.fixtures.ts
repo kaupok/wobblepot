@@ -1,6 +1,6 @@
-import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
-import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 // The candidates, slots and options `fill-plan.test.ts` builds its runs from.
 

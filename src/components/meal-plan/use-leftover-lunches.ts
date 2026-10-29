@@ -1,10 +1,12 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
+
 import { formatDayLong } from '@/lib/i18n/format-dates'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
+
 import type { LeftoverLunch } from './types'
 
 /** A leftover lunch that takes a share of the cook. */

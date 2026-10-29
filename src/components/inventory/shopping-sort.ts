@@ -1,5 +1,5 @@
-import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
+import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { getUrgencyBucket, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 export type SortMode = 'category' | 'urgency' | 'alphabetical'

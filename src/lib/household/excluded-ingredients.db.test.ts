@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { prisma } from '@/lib/prisma'
+
 import {
   getExcludedIngredientIds,
   matchExcludedIngredients,
 } from '@/lib/household/excluded-ingredients'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 // The migrations seed part of the global pool, so each test asserts on the

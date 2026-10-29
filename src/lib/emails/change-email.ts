@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n/locales'
+
 import { generateConfirmLinkEmail } from './verify-email'
 
 /**

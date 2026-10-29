@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
 import {

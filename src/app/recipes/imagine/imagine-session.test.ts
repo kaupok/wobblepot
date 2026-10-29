@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
+
 import {
-  IMAGINE_ROUTE,
   clearImagineSession,
+  IMAGINE_ROUTE,
   loadImagineSession,
   saveImagineSession,
 } from './imagine-session'

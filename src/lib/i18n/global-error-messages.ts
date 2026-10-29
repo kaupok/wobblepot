@@ -1,4 +1,5 @@
 import { createTranslator, type Messages } from 'next-intl'
+
 import { matchAcceptLanguage } from './accept-language'
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from './locales'
 

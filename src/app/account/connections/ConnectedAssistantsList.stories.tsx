@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { ConnectedAssistantsList, type ConnectedAssistant } from './ConnectedAssistantsList'
+
+import { type ConnectedAssistant, ConnectedAssistantsList } from './ConnectedAssistantsList'
 
 const LIST = '*/api/auth/user/mcp-consents'
 const DELETE_ONE = '*/api/auth/user/mcp-consents/:clientId'

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback, useImperativeHandle, forwardRef, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
+import { forwardRef, type KeyboardEvent, useCallback, useImperativeHandle, useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface TagInputProps {
   value: string[]

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
 import type { CaseOf } from './case-schema'
 import { loadCases } from './load-cases'
 import { scoreTips } from './scorers'

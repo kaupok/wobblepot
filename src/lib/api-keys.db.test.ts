@@ -1,5 +1,5 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import {
   type ApiKeyViewer,
   createApiKey,
@@ -11,6 +11,7 @@ import {
   revokeApiKey,
   verifyApiKey,
 } from '@/lib/api-keys'
+import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks.
 

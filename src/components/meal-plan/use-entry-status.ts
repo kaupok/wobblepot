@@ -1,12 +1,14 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { useRouter } from 'next/navigation'
+
+import { type Source, track } from '@/lib/analytics'
 import { apiFetch } from '@/lib/api'
-import { track, type Source } from '@/lib/analytics'
+
 import { computeDeductions } from './PantryDeductionModal'
 import type { MealData, MealStatus, PantryItemFull } from './types'
 

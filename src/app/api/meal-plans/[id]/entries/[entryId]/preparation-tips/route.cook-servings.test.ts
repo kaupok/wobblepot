@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { POST } from './route'
 
 // What the leftover lunches a dinner feeds do to its tips (HON-1394): the
@@ -54,13 +55,14 @@ vi.mock('@/lib/ai/sampling', () => ({
   logAiSample: vi.fn(),
 }))
 
+import { generateObject } from 'ai'
+
+import { assertUnderCap } from '@/lib/ai/usage'
 import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { cachePreparationTips, loadEntryForAi } from '@/lib/meal-plans/entry-context'
-import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap } from '@/lib/ai/usage'
-import { getServerFlag } from '@/lib/feature-flags'
 
 const mockLoadEntry = vi.mocked(loadEntryForAi)
 const mockGenerateObject = vi.mocked(generateObject)

@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { prisma } from '@/lib/prisma'
-import { loadPlanEntries } from './load-plan-entries'
+import { describe, expect, it } from 'vitest'
+
 import { addEntryChange } from '@/lib/meal-plans/entry-changes'
+import { prisma } from '@/lib/prisma'
+
+import { loadPlanEntries } from './load-plan-entries'
 
 // The planner read with an entry's own ingredient changes (HON-1243). Runs
 // against PGlite through the `unit-db` project, with no mocks.

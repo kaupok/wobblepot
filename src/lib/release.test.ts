@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LOCAL_RELEASE, getRelease, shouldSkipLocalCapture } from './release'
+
+import { getRelease, LOCAL_RELEASE, shouldSkipLocalCapture } from './release'
 
 describe('release', () => {
   beforeEach(() => {

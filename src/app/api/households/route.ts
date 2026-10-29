@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
+
 import { Allergen } from '@/generated/prisma/enums'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import {
   AlreadyInHouseholdError,
   createHousehold,
   isMembershipConflict,
 } from '@/lib/household-claim'
-import { captureApiError } from '@/lib/errors'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { shouldSkipLocalCapture } from '@/lib/release'
 
 /**

@@ -1,11 +1,12 @@
 'use client'
 
-import { useId, useState, type FormEvent, type Ref, type RefObject } from 'react'
-import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { type FormEvent, type Ref, type RefObject, useId, useState } from 'react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,9 +20,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
-import { useIngredientSearch, type IngredientResult } from '@/hooks/use-ingredient-search'
+import { type IngredientResult, useIngredientSearch } from '@/hooks/use-ingredient-search'
 import { ApiError, apiFetch } from '@/lib/api'
 import { DAY_EXTRA_LABEL_MAX } from '@/lib/day-extras/schemas'
+
 import { ExtraAmountInput } from './ExtraAmountInput'
 
 /** Catalogue matches shown at once, so a broad search does not push the text row away. */

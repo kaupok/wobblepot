@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+
 import {
   emptyMembersHandlers,
   errorMembersHandlers,
   loadingMembersHandlers,
 } from '@/stories/msw-handlers'
+
 import { MemberList } from './MemberList'
 
 const meta = {

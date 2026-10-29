@@ -1,6 +1,8 @@
 import 'server-only'
+
+import { type McpHousehold, ToolInputError } from '@/lib/mcp/context'
 import { isMealAllowedForSlot, isMealVisible } from '@/lib/meal-planning/meal-allowed-for-slot'
-import { ToolInputError, type McpHousehold } from '@/lib/mcp/context'
+
 import type { SlotMealType } from './plan-slot'
 
 const NOT_FOUND = 'No meal with this id. Use list_meals to find the meal. Nothing was changed.'

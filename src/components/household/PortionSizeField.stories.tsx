@@ -1,6 +1,7 @@
-import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { type ComponentProps, useState } from 'react'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { PortionSizeField } from './PortionSizeField'
 
 /** Controlled wrapper, so picking a chip or typing moves the value in the canvas. */

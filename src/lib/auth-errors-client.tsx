@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCallback } from 'react'
+
 import { getAuthErrorKey } from './auth-errors'
 
 /**

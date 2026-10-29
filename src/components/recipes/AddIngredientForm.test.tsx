@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { stubPointerApis } from '@/test/household-settings'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import { AddIngredientForm } from './AddIngredientForm'
 
 // The global next-intl mock answers from the English catalog (HON-1263).

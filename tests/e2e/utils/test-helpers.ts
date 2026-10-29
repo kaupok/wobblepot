@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test'
-import { seedInviteCode, e2eBaseURL } from './db-helpers'
+
+import { e2eBaseURL, seedInviteCode } from './db-helpers'
 
 /**
  * Default test password. Must meet Better Auth's `minPasswordLength` (12+

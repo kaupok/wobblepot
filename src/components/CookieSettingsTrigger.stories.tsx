@@ -1,13 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
+import { type AnalyticsConsent, ConsentContext } from '@/components/ConsentProvider'
+import { CookieSettingsTrigger } from '@/components/CookieSettingsTrigger'
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
   awaitDialogClosed,
   pressEscape,
 } from '@/stories/a11y-helpers'
-import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
-import { CookieSettingsTrigger } from '@/components/CookieSettingsTrigger'
 
 interface TriggerStoryArgs {
   granted: boolean | null

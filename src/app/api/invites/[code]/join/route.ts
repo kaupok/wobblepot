@@ -1,25 +1,26 @@
-import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
 import type { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/lib/auth'
+import { captureApiError } from '@/lib/errors'
 import {
   AlreadyInHouseholdError,
-  InviteNoLongerClaimableError,
   inviteMembershipClaim,
+  InviteNoLongerClaimableError,
   isMembershipConflict,
   runHouseholdClaim,
 } from '@/lib/household-claim'
+import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import {
   afterHouseholdLeft,
   leaveHousehold,
+  type LeaveHouseholdResult,
   lockHouseholdsForMove,
   NotInHouseholdError,
   OwnerHasOtherAccountsError,
-  type LeaveHouseholdResult,
 } from '@/lib/household-leave'
-import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
-import { captureApiError } from '@/lib/errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const ROUTE = '/api/invites/[code]/join'

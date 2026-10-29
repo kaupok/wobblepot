@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+
 import { pressEscape } from '@/stories/a11y-helpers'
+
 import { InfoTip } from './info-tip'
 
 const LABEL = 'About these numbers'

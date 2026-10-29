@@ -1,16 +1,17 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
+
 import {
   canonicalForEstimate,
   DEFAULT_FOOTPRINT_OPTIONS,
   elevationDeg,
   fitFootprint,
+  type Footprint,
   footprintOfPixels,
   measureFootprint,
   planFit,
   rimWidth,
   targetWidth,
-  type Footprint,
 } from './footprint'
 
 const W = 300

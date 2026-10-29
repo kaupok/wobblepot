@@ -5,6 +5,7 @@
  */
 
 import { asSchema, type FlexibleSchema } from 'ai'
+
 import type { PreparedCase } from './tasks'
 
 export function textOf(request: {

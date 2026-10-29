@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
-import { createQueryWrapper } from '@/test/query-wrapper'
-import { dropFocusToBody } from '@/test/focus'
-import { createExpectedMealTypes, createPlanEntry } from '@/stories/fixtures'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { PlanEntry } from '@/components/meal-plan/types'
+import { createExpectedMealTypes, createPlanEntry } from '@/stories/fixtures'
+import { dropFocusToBody } from '@/test/focus'
+import { createQueryWrapper } from '@/test/query-wrapper'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }))

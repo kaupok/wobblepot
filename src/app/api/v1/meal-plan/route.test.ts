@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/api-keys', () => ({
   API_KEY_PATTERN: /^wp_[A-Za-z0-9]{32}$/,
@@ -14,12 +14,13 @@ vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
 vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
 
-import { getHouseholdMembership } from '@/lib/household'
-import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadDayExtras } from '@/lib/day-extras/day-extras'
+import { getHouseholdMembership } from '@/lib/household'
 import { runTool } from '@/lib/mcp/context'
 import { getMealPlan } from '@/lib/mcp/tools/get-meal-plan'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
+
 import { GET } from './route'
 
 type Entries = Awaited<ReturnType<typeof loadPlanEntries>>['entries']

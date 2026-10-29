@@ -1,8 +1,9 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { restoreWindowStart } from '@/lib/deleted-household-meals'
 import { captureApiError } from '@/lib/errors'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Clears the image of every recipe deleted before the restore window

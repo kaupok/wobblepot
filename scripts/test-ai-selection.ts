@@ -9,10 +9,12 @@
  */
 
 import 'dotenv/config'
+
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { PLANNING_MODEL } from '../src/lib/ai/models'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+
+import { PLANNING_MODEL } from '../src/lib/ai/models'
 import { prisma } from '../src/lib/prisma'
 
 // ============================================

@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -10,6 +11,7 @@ import {
 } from '@/stories/a11y-helpers'
 import { createMemberInvite } from '@/stories/fixtures'
 import { errorInviteHandlers, pendingInviteHandlers } from '@/stories/msw-handlers'
+
 import { MemberInviteDialog } from './MemberInviteDialog'
 
 const meta = {

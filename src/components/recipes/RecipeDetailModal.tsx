@@ -1,23 +1,24 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { MoreHorizontal, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
-import { MoreHorizontal, Pencil } from 'lucide-react'
+import { useCallback, useState } from 'react'
+
+import { CookViewDialog } from '@/components/meal-plan/CookViewDialog'
+import { MealDetail } from '@/components/meal-plan/MealDetail'
+import type { MealData } from '@/components/meal-plan/types'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { CookViewDialog } from '@/components/meal-plan/CookViewDialog'
-import { MealDetail } from '@/components/meal-plan/MealDetail'
-import type { MealData } from '@/components/meal-plan/types'
+import { Body } from '@/components/ui/typography'
+import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useRecipeSteps } from '@/hooks/use-recipe-steps'
-import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 import { formatDateDisplay } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'

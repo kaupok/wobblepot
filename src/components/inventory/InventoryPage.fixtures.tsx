@@ -1,6 +1,8 @@
 import { render } from '@testing-library/react'
-import { InventoryPage } from './InventoryPage'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import { InventoryPage } from './InventoryPage'
 
 // Shared by the `InventoryPage.*.test.tsx` files. Each test file mocks
 // `next/navigation` and stubs `fetch` itself, because `vi.mock` is per file.

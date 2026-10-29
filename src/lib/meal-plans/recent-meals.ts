@@ -1,8 +1,10 @@
 import 'server-only'
-import { prisma } from '@/lib/prisma'
+
 import { MealPlanEntryStatus, MealType } from '@/generated/prisma/enums'
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { prisma } from '@/lib/prisma'
+
 import type { FridgeItemInput } from './fridge-items'
 
 /**

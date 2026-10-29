@@ -1,16 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { useState } from 'react'
 import { dehydrate, HydrationBoundary, QueryClient, useQueryClient } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
+import { useState } from 'react'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+
 import {
   emptyMealsHandlers,
   errorMealsHandlers,
   householdMeals,
   loadingMealsHandlers,
 } from '@/stories/msw-handlers'
+
+import { mealsInitialPageParam, type MealsPage, mealsQueryKey } from './meals-query'
 import { RecipesPageClient } from './RecipesPageClient'
-import { mealsInitialPageParam, mealsQueryKey, type MealsPage } from './meals-query'
 
 // For waits that sit behind an MSW response. On a loaded CI runner a response
 // can land after `waitFor`'s and `findBy`'s default 1 s even though the request

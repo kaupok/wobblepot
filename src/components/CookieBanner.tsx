@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+
+import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
-import { useAnalyticsConsent } from '@/components/ConsentProvider'
 
 interface CookieBannerProps {
   /**

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { createQueryWrapper } from '@/test/query-wrapper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createMeal, createPantryItem, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
+
 import type { MealStatus, PantryItemFull } from './types'
 
 const refresh = vi.fn()
@@ -11,7 +13,9 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { toast } from 'sonner'
+
 import { track } from '@/lib/analytics'
+
 import { useEntryStatus } from './use-entry-status'
 
 const meal = createMeal()

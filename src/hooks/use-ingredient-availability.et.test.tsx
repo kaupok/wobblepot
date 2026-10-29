@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ReactNode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The global next-intl mock resolves against the English catalog only, which
 // would pass whether or not the route's English `error` leaks (HON-914).
@@ -7,8 +7,10 @@ vi.unmock('next-intl')
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { toast } from 'sonner'
-import etMessages from '../../messages/et.json'
+
 import { createQueryWrapper } from '@/test/query-wrapper'
+
+import etMessages from '../../messages/et.json'
 import { useIngredientAvailability } from './use-ingredient-availability'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))

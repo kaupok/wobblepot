@@ -1,9 +1,10 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
 import { ChevronRight } from 'lucide-react'
-import { Body, Heading } from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Body, Heading } from '@/components/ui/typography'
 
 /**
  * The household's own notes on the meal, under "Your notes", closed until the

@@ -1,12 +1,14 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
-import { apiFetch, ApiError } from '@/lib/api'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import { dropFocusToBody } from '@/test/focus'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { ApiKeysSection, type ApiKeyRow } from './ApiKeysSection'
+
+import { type ApiKeyRow, ApiKeysSection } from './ApiKeysSection'
 
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),

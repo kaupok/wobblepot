@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
 import { findViolations, rulesForHousehold } from './forbidden-foods'
 
 // HON-1262: a filled dumpling's dish word hides its filling, so the guard has

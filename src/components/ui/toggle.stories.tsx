@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { Bold, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { expect, fn, userEvent, within } from 'storybook/test'
+
 import { Toggle } from './toggle'
 
 const meta = {

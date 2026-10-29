@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import type { SampleDay } from '@/lib/meal-plans/build-sample-week'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+
 import { SampleMealCard } from './SampleMealCard'
 
 const day: SampleDay = {
