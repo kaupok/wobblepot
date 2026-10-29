@@ -149,3 +149,37 @@ export const MainProteinChosen: Story = {
     ).toHaveTextContent('Beef')
   },
 }
+
+/**
+ * Estonian at phone width, inside the page's `px-4` gutters. The three
+ * Estonian meal types are wider than the column together, so the row wraps
+ * and the page does not scroll sideways (HON-1467).
+ */
+export const PhoneEstonian: Story = {
+  args: { suitableFor: ['breakfast', 'lunch', 'dinner'] },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="px-4">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const section = canvas.getByRole('heading', { name: 'Lisaandmed' }).closest('section')!
+    await expect(section.scrollWidth).toBeLessThanOrEqual(section.clientWidth)
+    for (const name of ['Hommikusöök', 'Lõunasöök', 'Õhtusöök']) {
+      const checkbox = canvas.getByRole('checkbox', { name })
+      const label = canvas.getByText(name)
+      const box = checkbox.getBoundingClientRect()
+      const text = label.getBoundingClientRect()
+      // Label sits beside its checkbox, on one line.
+      await expect(Math.abs(text.top + text.height / 2 - (box.top + box.height / 2))).toBeLessThan(
+        2,
+      )
+      await expect(text.height).toBeLessThan(2 * parseFloat(getComputedStyle(label).lineHeight))
+      await expect(text.right).toBeLessThanOrEqual(section.getBoundingClientRect().right)
+    }
+  },
+}

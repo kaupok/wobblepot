@@ -36,7 +36,7 @@ function MealTypeCheckboxRow({
   const label = useEnumLabel('MealType', value)
   const id = `mealtype-${value}`
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 whitespace-nowrap">
       <Checkbox id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
       <Label htmlFor={id} className="font-normal">
         {label}
@@ -122,7 +122,7 @@ export function MealFormDetails({
 
       <div className="flex flex-col gap-2">
         <Label>{t('suitableForLabel')}</Label>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {MEAL_TYPE_VALUES.map((mealType) => (
             <MealTypeCheckboxRow
               key={mealType}
