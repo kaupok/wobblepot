@@ -692,6 +692,7 @@
     }
   },
   "recipes": {
+    "metaTitle": "My recipes",
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
     "mealCountMore": "{count, plural, one {#+ recipe} other {#+ recipes}}",
     "library": {
