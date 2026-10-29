@@ -238,6 +238,9 @@ export const Phone: Story = {
     for (const box of [select, button]) expect(box.top).toBeGreaterThanOrEqual(label.bottom)
     expect(select.right).toBeLessThanOrEqual(button.left)
     expect(button.top).toBeLessThan(select.bottom)
+    expectValueNotClipped(
+      within(canvasElement).getByRole('combobox', { name: /number of days to fill/i }),
+    )
   },
 }
 
@@ -256,6 +259,13 @@ export const Desktop: Story = {
   },
 }
 
+/** The trigger's value span shows its whole label: a fixed width clipped it (HON-1465). */
+function expectValueNotClipped(trigger: HTMLElement) {
+  const value = trigger.querySelector<HTMLElement>('[data-slot="select-value"]')
+  if (!value) throw new globalThis.Error('Expected the select value span')
+  expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
+}
+
 /**
  * 390px in Estonian. "7 päeva" is wider than the English "7 days", and a fixed
  * `w-25` trigger clipped it to "7 päev" (HON-1465). The trigger now sizes to
@@ -271,7 +281,7 @@ export const PhoneEstonian: Story = {
     const value = select.querySelector<HTMLElement>('[data-slot="select-value"]')
     if (!value) throw new globalThis.Error('Expected the select value span')
     await expect(value).toHaveTextContent('7 päeva')
-    expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
+    expectValueNotClipped(select)
     const card = canvasElement.querySelector('.rounded-lg')
     if (!card) throw new globalThis.Error('Expected the Fill bar card')
     const selectBox = select.getBoundingClientRect()

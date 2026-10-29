@@ -67,6 +67,13 @@ function ListControls() {
   )
 }
 
+/** The trigger's value span shows its whole label: a fixed width clipped it (HON-1465). */
+function expectValueNotClipped(trigger: HTMLElement) {
+  const value = trigger.querySelector<HTMLElement>('[data-slot="select-value"]')
+  if (!value) throw new globalThis.Error('Expected the select value span')
+  expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
+}
+
 const meta = {
   title: 'Feature/Inventory/ShoppingListHeader',
   component: ShoppingListHeader,
@@ -124,6 +131,14 @@ export const Populated: Story = {
           "`ShoppingSection`'s header at its busiest — the window picker plus all three list controls. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, each select is as wide as its value), so the row wraps onto a second line at the default 390px viewport. This is the case the wrap exists for.",
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const picker = canvas.getByRole('combobox', { name: /time window/i })
+    const sort = canvas.getByRole('combobox', { name: /sort/i })
+    await expect(picker).toHaveTextContent('Next 7 days')
+    await expect(sort).toHaveTextContent('By category')
+    for (const trigger of [picker, sort]) expectValueNotClipped(trigger)
   },
 }
 
@@ -249,11 +264,7 @@ export const PopulatedEstonian: Story = {
     const picker = canvas.getByRole('combobox', { name: 'Ajavahemik' })
     await expect(picker).toHaveTextContent('Järgmised 7 päeva')
     await expect(sort).toHaveTextContent('Kiireloomulisuse järgi')
-    for (const trigger of [picker, sort]) {
-      const value = trigger.querySelector<HTMLElement>('[data-slot="select-value"]')
-      if (!value) throw new globalThis.Error('Expected the select value span')
-      expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
-    }
+    for (const trigger of [picker, sort]) expectValueNotClipped(trigger)
     const row = picker.parentElement
     if (!row) throw new globalThis.Error('Expected the controls row')
     expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth)
