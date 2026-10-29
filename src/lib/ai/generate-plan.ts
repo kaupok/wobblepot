@@ -11,7 +11,7 @@ import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slot
 import { prisma } from '@/lib/prisma'
 
 import { PLANNING_MODEL } from './models'
-import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
+import { getFavoriteMealIds, loadCandidatePools } from './plan-candidates'
 import {
   hydratePlan,
   slotKey,
@@ -73,23 +73,27 @@ function formatPlanResult(
 }
 
 /**
- * Slot keys of the `completed` entries in [startDate, endDate). Regeneration keeps these
- * entries, so their slots must not be offered to the generator (HON-650).
+ * The `completed` entries in [startDate, endDate). Regeneration keeps these entries, so their
+ * slots must not be offered to the generator (HON-650), and their dinners must not be planned
+ * again beside them (HON-1393).
  */
-async function getKeptSlotKeys(
+async function getKeptEntries(
   householdId: string,
   startDate: Date,
   endDate: Date,
-): Promise<Set<string>> {
+): Promise<{ slotKeys: Set<string>; dinnerIds: string[] }> {
   const kept = await prisma.mealPlanEntry.findMany({
     where: {
       plan: { householdId },
       status: 'completed',
       date: { gte: startDate, lt: endDate },
     },
-    select: { date: true, mealType: true },
+    select: { date: true, mealType: true, mealId: true },
   })
-  return new Set(kept.map((e) => slotKey(e.date, e.mealType)))
+  return {
+    slotKeys: new Set(kept.map((e) => slotKey(e.date, e.mealType))),
+    dinnerIds: kept.flatMap((e) => (e.mealType === 'dinner' && e.mealId ? [e.mealId] : [])),
+  }
 }
 
 /**
@@ -140,9 +144,9 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
   // Completed entries survive regeneration, so their slots are not asked for. Leaving one in
   // would also make createMany collide with the kept row on @@unique([planId, date, mealType]).
-  const keptSlotKeys = await getKeptSlotKeys(householdId, startDate, endDate)
+  const kept = await getKeptEntries(householdId, startDate, endDate)
   const isReplaceable = (s: { date: Date; mealType: MealType }) =>
-    !keptSlotKeys.has(slotKey(s.date, s.mealType))
+    !kept.slotKeys.has(slotKey(s.date, s.mealType))
 
   // Expand dates into meal slots based on meal type preferences
   const configuredSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
@@ -164,9 +168,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekendMealTypes,
   })
 
-  // Get recent meal IDs to exclude, favorite meal IDs for prioritization, and pantry ingredients
-  const [recentMealIds, favoriteMealIds, pantryIngredients] = await Promise.all([
-    getRecentMealIds(householdId),
+  // Favorite meal IDs for prioritization, and pantry ingredients
+  const [favoriteMealIds, pantryIngredients] = await Promise.all([
     getFavoriteMealIds(householdId),
     getPantryIngredientNames(householdId),
   ])
@@ -176,9 +179,9 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     householdId,
     allergensToAvoid,
     excludedIngredientIds,
-    recentMealIds,
     dietaryType,
     favoriteMealIds,
+    keptDinnerIds: kept.dinnerIds,
   })
 
   // Validate required pools have candidates (for dinner balance constraints)
@@ -268,7 +271,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
     await deleteReplaceableEntries(tx, plan.id, startDate, endDate)
 
-    // Create new entries. A slot completed after getKeptSlotKeys ran would collide here and
+    // Create new entries. A slot completed after getKeptEntries ran would collide here and
     // roll the transaction back — a failed regeneration, not a lost completion.
     await tx.mealPlanEntry.createMany({
       data: validatedPlan.map((entry) => ({

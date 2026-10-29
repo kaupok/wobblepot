@@ -19,7 +19,6 @@ vi.mock('@/lib/prisma', () => {
 })
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
 }))
 // The avoided ingredients resolve from the tags at read time (HON-1321).
 vi.mock('@/lib/household/excluded-ingredients', () => ({
@@ -135,7 +134,6 @@ describe('swap_meal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(slot() as never)
-    vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([{ mealId: 'meal-recent' }] as never)
     vi.mocked(prisma.favoriteMeal.findMany).mockResolvedValue([{ mealId: 'meal-pasta' }] as never)
     vi.mocked(getCandidates).mockResolvedValue(POOL as never)
     vi.mocked(isMealAllowedForSlot).mockResolvedValue('allowed')
@@ -245,7 +243,6 @@ describe('swap_meal', () => {
           dietaryType: null,
           allergensToAvoid: ['peanuts'],
           excludedIngredientIds: ['ing-cilantro'],
-          recentMealIds: ['meal-recent'],
           favoriteMealIds: ['meal-pasta'],
         }),
       )
@@ -312,9 +309,8 @@ describe('swap_meal', () => {
       expect(prisma.mealPlanEntry.updateManyAndReturn).toHaveBeenCalledTimes(1)
     })
 
-    // The pool leaves out a meal planned in the last 14 days; a household
-    // that cooks from a rotation picks one on purpose (HON-1392).
-    it('swaps to a meal planned recently, which the suggestions leave out, and says when', async () => {
+    // A household that cooks from a rotation picks a recent meal on purpose (HON-1392).
+    it('swaps to a meal planned recently, and says when', async () => {
       vi.mocked(findLastPlannedDate).mockResolvedValue('2026-10-20')
 
       const result = await call({ date: DATE, mealType: 'dinner', mealId: 'meal-recent' })

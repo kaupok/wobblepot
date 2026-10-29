@@ -12,7 +12,6 @@ import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import type { PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
 import { usePickForMe } from '@/components/meal-plan/use-pick-for-me'
 import type { MealType } from '@/generated/prisma/enums'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import type { FrequentMeal } from '@/lib/meal-plans/past-logging'
 
@@ -90,7 +89,6 @@ export function EmptySlotController({
   log,
 }: EmptySlotControllerProps) {
   const router = useRouter()
-  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
@@ -204,10 +202,6 @@ export function EmptySlotController({
 
   function handleSwapComplete() {
     hasSelectedRef.current = true
-    // Filling this slot adds a meal to the plan's `recentMealIds`, so every
-    // other card's cached suggestion list now offers a meal that is planned
-    // (HON-682) — see `useDropPlanSuggestions`.
-    dropSuggestionCache()
     router.refresh()
   }
 

@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
-import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { useMealImageFields } from '@/hooks/use-meal-image'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 import { cn } from '@/lib/utils'
@@ -125,7 +124,6 @@ export function MealCard({
   onPicked,
 }: MealCardProps) {
   const router = useRouter()
-  const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
   const [showRatingPrompt, setShowRatingPrompt] = useState(false)
@@ -229,13 +227,10 @@ export function MealCard({
   )
   const handleSwapComplete = useCallback(
     (selectedMealId: string) => {
-      if (resetForSwap(selectedMealId)) {
-        dropSuggestionCache()
-        if (status === 'skipped') handleStatusChange('planned')
-      }
+      if (resetForSwap(selectedMealId) && status === 'skipped') handleStatusChange('planned')
       router.refresh()
     },
-    [router, dropSuggestionCache, resetForSwap, status, handleStatusChange],
+    [router, resetForSwap, status, handleStatusChange],
   )
 
   // A pantry holding only staples says nothing yet, so the card claims nothing
@@ -269,7 +264,6 @@ export function MealCard({
     mealType,
     pantryItems,
     onSaved: () => {
-      dropSuggestionCache()
       onPicked?.()
       router.refresh()
     },

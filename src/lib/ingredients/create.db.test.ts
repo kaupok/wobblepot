@@ -212,7 +212,6 @@ describe('createHouseholdIngredient', () => {
         mealType: 'dinner',
         allergensToAvoid: [],
         excludedIngredientIds: [],
-        recentMealIds: [],
         dietaryType,
         householdId: alder,
       })
@@ -247,7 +246,6 @@ describe('createHouseholdIngredient', () => {
       mealType: 'lunch',
       allergensToAvoid: [],
       excludedIngredientIds: [],
-      recentMealIds: [],
       dietaryType: 'vegan',
       householdId: alder,
     })

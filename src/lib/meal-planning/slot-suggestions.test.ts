@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    mealPlanEntry: { findMany: vi.fn() },
     favoriteMeal: { findMany: vi.fn() },
     meal: { findMany: vi.fn() },
   },
@@ -14,7 +13,6 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
 }))
 
 vi.mock('@/lib/meal-planning/pantry', () => ({
@@ -43,7 +41,6 @@ import {
   suggestForSlot,
 } from './slot-suggestions'
 
-const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockFindManyFavorites = vi.mocked(prisma.favoriteMeal.findMany)
 const mockFindManyMeals = vi.mocked(prisma.meal.findMany)
 const mockGetCandidates = vi.mocked(getCandidates)
@@ -103,7 +100,6 @@ const ids = (alternatives: { id: string }[]) => alternatives.map((a) => a.id)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockFindManyEntries.mockResolvedValue([])
   mockFindManyFavorites.mockResolvedValue([])
   mockRandomJitter.mockReturnValue(0)
   mealRows()

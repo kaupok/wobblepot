@@ -42,17 +42,10 @@ export function getExcludedProteinTypes(dietaryType: DietaryType | null): Protei
   }
 }
 
-/**
- * Number of days to look back when excluding recently used meals.
- * Exported for callers to use when computing recentMealIds.
- */
-export const NO_REPEAT_DAYS = 14
-
 export interface CandidateFilters {
   mealType: MealType
   allergensToAvoid: Allergen[]
   excludedIngredientIds: string[]
-  recentMealIds: string[]
   dietaryType?: DietaryType | null
   primaryProteinType?: ProteinType
   householdId?: string
@@ -111,8 +104,9 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
   const dietaryType = filters.dietaryType ?? null
   const excludedProteinTypes = getExcludedProteinTypes(dietaryType)
 
-  // Every meal the household may eat, less `recentMealIds`.
-  const findAllowed = async (recentMealIds: string[]) => {
+  // Every meal the household may eat. A meal planned recently stays in: a family plans from a
+  // rotation of its usual meals on purpose (HON-1393).
+  const findAllowed = async () => {
     const meals = await prisma.meal.findMany({
       where: {
         suitableFor: { has: filters.mealType },
@@ -156,8 +150,6 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
                 },
               ]
             : []),
-          // Recent history: exclude recently used meals
-          ...(recentMealIds.length > 0 ? [{ id: { notIn: recentMealIds } }] : []),
           // Protein type filter (for slot-specific queries)
           ...(filters.primaryProteinType
             ? [{ primaryProteinType: filters.primaryProteinType }]
@@ -208,13 +200,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
       : meals
   }
 
-  let allowed = await findAllowed(filters.recentMealIds)
-  // Breakfast and lunch may repeat: validatePlan checks dinner duplicates only. When the
-  // no-repeat window empties one of their pools, fall back to every allowed meal rather than
-  // return none: a vegan household has 3 seed breakfasts, and one week can use all of them.
-  if (allowed.length === 0 && filters.mealType !== 'dinner' && filters.recentMealIds.length > 0) {
-    allowed = await findAllowed([])
-  }
+  const allowed = await findAllowed()
 
   // Transform to CandidateMeal format
   const candidates = allowed.map((meal) => ({

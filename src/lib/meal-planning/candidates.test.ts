@@ -3,12 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DietaryType, IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 
 import type { CandidateFilters } from './candidates'
-import {
-  getCandidates,
-  getExcludedProteinTypes,
-  MAX_TIME_MINUTES,
-  NO_REPEAT_DAYS,
-} from './candidates'
+import { getCandidates, getExcludedProteinTypes, MAX_TIME_MINUTES } from './candidates'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -54,7 +49,6 @@ const baseFilters: CandidateFilters = {
   mealType: 'dinner',
   allergensToAvoid: [],
   excludedIngredientIds: [],
-  recentMealIds: [],
 }
 
 describe('getCandidates', () => {
@@ -265,108 +259,16 @@ describe('getCandidates', () => {
     })
   })
 
-  describe('recent meals filter', () => {
-    it('excludes recent meal IDs', async () => {
+  // HON-1393: a family plans from a rotation of its usual meals on purpose, so no meal is
+  // left out for being planned recently.
+  describe('recent history', () => {
+    it('queries once and leaves no meal out by id', async () => {
       mockFindMany.mockResolvedValue([])
 
-      await getCandidates({
-        ...baseFilters,
-        recentMealIds: ['meal-a', 'meal-b', 'meal-c'],
-      })
+      await getCandidates({ ...baseFilters, mealType: 'breakfast' })
 
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([{ id: { notIn: ['meal-a', 'meal-b', 'meal-c'] } }]),
-          }),
-        }),
-      )
-    })
-
-    // HON-1143: a vegan household has 3 seed breakfasts, so one week can use every one of them.
-    describe('when the no-repeat window empties the pool', () => {
-      type WhereArg = { where: { AND: unknown[] } }
-      const andOfCall = (n: number) =>
-        (mockFindMany.mock.calls[n]![0] as unknown as WhereArg).where.AND
-      const recentMealIds = ['oats', 'toast', 'smoothie']
-
-      it.each(['breakfast', 'lunch'] as const)(
-        'falls back to every allowed %s, since breakfast and lunch may repeat',
-        async (mealType) => {
-          mockFindMany
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([createMockMeal({ id: 'oats' })] as never)
-
-          const result = await getCandidates({ ...baseFilters, mealType, recentMealIds })
-
-          expect(result.map((m) => m.id)).toEqual(['oats'])
-          expect(mockFindMany).toHaveBeenCalledTimes(2)
-          expect(andOfCall(0)).toContainEqual({ id: { notIn: recentMealIds } })
-          expect(andOfCall(1)).not.toContainEqual(
-            expect.objectContaining({ id: expect.anything() }),
-          )
-        },
-      )
-
-      it('falls back when the diet check, not the query, empties the pool', async () => {
-        const porridgeWithMilk = createMockMeal({
-          id: 'porridge',
-          components: [{ ingredient: { name: 'milk', category: IngredientCategory.dairy } }],
-        })
-        mockFindMany.mockResolvedValueOnce([porridgeWithMilk] as never).mockResolvedValueOnce([
-          porridgeWithMilk,
-          createMockMeal({
-            id: 'oats',
-            components: [
-              { ingredient: { name: 'rolled oats', category: IngredientCategory.carb } },
-            ],
-          }),
-        ] as never)
-
-        const result = await getCandidates({
-          ...baseFilters,
-          mealType: 'breakfast',
-          dietaryType: 'vegan',
-          recentMealIds,
-        })
-
-        expect(result.map((m) => m.id)).toEqual(['oats'])
-      })
-
-      it('keeps the dinner pool empty, because dinners must not repeat', async () => {
-        mockFindMany.mockResolvedValue([])
-
-        const result = await getCandidates({ ...baseFilters, mealType: 'dinner', recentMealIds })
-
-        expect(result).toEqual([])
-        expect(mockFindMany).toHaveBeenCalledTimes(1)
-      })
-
-      it('does not query again when nothing was excluded', async () => {
-        mockFindMany.mockResolvedValue([])
-
-        await getCandidates({ ...baseFilters, mealType: 'breakfast', recentMealIds: [] })
-
-        expect(mockFindMany).toHaveBeenCalledTimes(1)
-      })
-
-      it('does not query again when the pool still has a meal', async () => {
-        mockFindMany.mockResolvedValue([createMockMeal({ id: 'granola' })] as never)
-
-        await getCandidates({ ...baseFilters, mealType: 'breakfast', recentMealIds })
-
-        expect(mockFindMany).toHaveBeenCalledTimes(1)
-      })
-    })
-
-    it('does not add recent meals filter when empty', async () => {
-      mockFindMany.mockResolvedValue([])
-
-      await getCandidates({ ...baseFilters, recentMealIds: [] })
-
-      const calledWith = mockFindMany.mock.calls[0]?.[0]
-      const andClause = calledWith?.where?.AND as unknown[]
-      // Should not contain id filter
+      expect(mockFindMany).toHaveBeenCalledTimes(1)
+      const andClause = mockFindMany.mock.calls[0]?.[0]?.where?.AND as unknown[]
       expect(andClause).not.toContainEqual(expect.objectContaining({ id: expect.anything() }))
     })
   })
@@ -656,7 +558,6 @@ describe('getCandidates', () => {
         mealType: 'dinner',
         allergensToAvoid: ['gluten'],
         excludedIngredientIds: ['ing-1'],
-        recentMealIds: ['meal-old'],
         primaryProteinType: 'poultry',
       })
 
@@ -683,7 +584,6 @@ describe('getCandidates', () => {
                   },
                 },
               },
-              { id: { notIn: ['meal-old'] } },
               { primaryProteinType: 'poultry' },
             ]),
           }),
@@ -927,10 +827,6 @@ describe('net rating (HON-340)', () => {
 describe('constants', () => {
   it('exports MAX_TIME_MINUTES as 60 (deprecated, no longer used)', () => {
     expect(MAX_TIME_MINUTES).toBe(60)
-  })
-
-  it('exports NO_REPEAT_DAYS as 14', () => {
-    expect(NO_REPEAT_DAYS).toBe(14)
   })
 })
 

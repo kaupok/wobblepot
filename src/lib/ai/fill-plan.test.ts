@@ -48,7 +48,6 @@ vi.mock('@ai-sdk/anthropic', () => ({
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
 }))
 
 vi.mock('@/lib/meal-planning/slots', () => ({
@@ -341,7 +340,6 @@ describe('fillEmptySlots', () => {
       householdId: options.householdId,
       allergensToAvoid: [],
       excludedIngredientIds: [],
-      recentMealIds: [],
       dietaryType: null,
       favoriteMealIds: [],
     })

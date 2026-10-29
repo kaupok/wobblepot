@@ -17,8 +17,7 @@ import { prisma } from '@/lib/prisma'
 export type MealSlotFit = 'allowed' | 'notFound' | 'unsuitable' | 'ruledOut'
 
 /**
- * The hard filters of the slot suggestions (`getCandidates`), for one meal and
- * without the no-repeat window: a meal the user chose may repeat (HON-1306).
+ * The hard filters of the slot suggestions (`getCandidates`), for one meal.
  */
 export async function isMealAllowedForSlot(
   household: SlotSuggestionHousehold,
@@ -40,7 +39,6 @@ export async function isMealAllowedForSlot(
       household.id,
       preferences?.excludedIngredients ?? [],
     ),
-    recentMealIds: [],
     dietaryType: preferences?.dietaryType ?? null,
     householdId: household.id,
     mealId,

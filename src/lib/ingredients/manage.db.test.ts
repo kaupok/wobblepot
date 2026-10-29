@@ -312,7 +312,6 @@ describe('updateHouseholdIngredient', () => {
           mealType: 'dinner',
           allergensToAvoid: ['gluten'],
           excludedIngredientIds: [],
-          recentMealIds: [],
           householdId: alder,
         })
       ).map((m) => m.id)
@@ -343,7 +342,6 @@ describe('updateHouseholdIngredient', () => {
           mealType: 'dinner',
           allergensToAvoid: [],
           excludedIngredientIds: [],
-          recentMealIds: [],
           dietaryType: 'vegetarian',
           householdId: alder,
         })

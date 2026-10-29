@@ -51,7 +51,6 @@ vi.mock('@ai-sdk/anthropic', () => ({
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
-  NO_REPEAT_DAYS: 14,
 }))
 
 vi.mock('@/lib/meal-planning/slots', () => ({
@@ -1007,7 +1006,6 @@ describe('generateMealPlan', () => {
         householdId: options.householdId,
         allergensToAvoid: [],
         excludedIngredientIds: [],
-        recentMealIds: [],
         dietaryType: null,
         favoriteMealIds: [],
       })
@@ -1086,7 +1084,34 @@ describe('generateMealPlan', () => {
           status: 'completed',
           date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
         },
-        select: { date: true, mealType: true },
+        select: { date: true, mealType: true, mealId: true },
+      })
+    })
+
+    // HON-1393: a family plans from a rotation on purpose, so only the range's own dinners stay out.
+    it('leaves a kept dinner out of the pools and reads no other plan history', async () => {
+      mockCompletedSlots([{ ...KEPT_DINNER, mealId: 'kept-curry' } as never])
+      onTestFinished(() => {
+        mockGetCandidates.mockReset()
+      })
+      const dinners = [
+        createCandidate({ id: 'kept-curry' }),
+        createCandidate({ id: 'shared-soup' }),
+      ]
+      mockGetCandidates.mockImplementation(async ({ primaryProteinType }) =>
+        primaryProteinType ? [] : dinners,
+      )
+      mockComputeRequiredSlots.mockReturnValue([])
+      mockGenerateObject.mockRejectedValue(new Error('stop after the call'))
+
+      await expect(generateMealPlan(defaultOptions)).rejects.toThrow('stop after the call')
+
+      const prompt = (mockGenerateObject.mock.calls[0]![0] as { prompt: string }).prompt
+      expect(prompt).toContain('shared-soup')
+      expect(prompt).not.toContain('kept-curry')
+      expect(mockMealPlanEntryFindMany).toHaveBeenCalledTimes(1)
+      expect(mockMealPlanEntryFindMany.mock.calls[0]![0]).toMatchObject({
+        where: { status: 'completed' },
       })
     })
 
