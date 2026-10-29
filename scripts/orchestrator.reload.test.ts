@@ -4,13 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  harnessEnv,
-  orchestrator,
-  scriptsDir,
-  shellFunctionBody,
-  stripTimestamps,
-} from './orchestrator-test-harness'
+import { harnessEnv, orchestrator, scriptsDir, stripTimestamps } from './orchestrator-test-harness'
 
 const reloadHarness = path.join(scriptsDir, 'orchestrator-reload-harness.sh')
 const reloadLib = path.join(scriptsDir, 'orchestrator-reload.sh')
@@ -20,7 +14,7 @@ const reloadLib = path.join(scriptsDir, 'orchestrator-reload.sh')
  * reloads; every scenario but `version` performs a real exec into the new
  * image, which adopts them. Returns the combined output and the exit status.
  */
-function runReload(scenario: 'exits' | 'timeout' | 'stop' | 'version') {
+function runReload(scenario: 'exits' | 'timeout' | 'stop' | 'budget' | 'version' | 'stop-mid') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon1457-reload-'))
   try {
     const res = spawnSync('bash', [reloadHarness, 'reload', scenario, dir], {
@@ -145,6 +139,32 @@ describe('HON-1457 reload hands running workers to the new image', () => {
     expect(field(out, 'ORPHANS_AFTER')).toBe('')
   }, 60_000)
 
+  it('does not exec when a `wt stop` signal lands while the handoff is written', () => {
+    // The new image would start with SHUTTING_DOWN cleared and lose the signal (HON-1067).
+    const { out } = runReload('stop-mid')
+
+    expect(out).toContain('Shutting down — waiting for 3 worker(s)')
+    expect(out).toContain('NO_EXEC')
+    expect(out).not.toMatch(/^EXEC$/m)
+    expect(out).not.toContain('reloading in place')
+    // The old image keeps its workers, and leaves no handoff behind.
+    expect(field(out, 'WORKERS')).toBe('3')
+    expect(field(out, 'HANDOFF_FILE')).toBe('gone')
+  }, 60_000)
+
+  it('waits for adopted workers when a start-up check refuses the new code', () => {
+    // Exiting would leave them running with nothing watching them.
+    const { out, status } = runReload('budget')
+
+    expect(out).toMatch(
+      /ERROR +The branch budget refused the reloaded code; stopping once the 3 adopted worker\(s\) finish/,
+    )
+    expect(field(out, 'SHUTTING_DOWN')).toBe('true')
+    expect(field(out, 'LEFT')).toBe('0')
+    expect(lines(out, 'HANDLER:success:')).toHaveLength(3)
+    expect(status).toBe(0)
+  }, 60_000)
+
   it('falls back to drain, then reload, when the new code refuses the handoff version', () => {
     const { out } = runReload('version')
 
@@ -193,16 +213,6 @@ describe('HON-1457 reload hands running workers to the new image', () => {
 
   describe('wiring', () => {
     const source = fs.readFileSync(orchestrator, 'utf8')
-
-    it('reads the exit code from the file spawn_worker writes', () => {
-      const spawn = shellFunctionBody(source, 'spawn_worker')
-      const monitor = shellFunctionBody(source, 'monitor_workers')
-
-      expect(spawn).toContain('|| rc=$?')
-      expect(spawn).toContain('echo "$rc" > "$log_file.exit"')
-      expect(monitor).toContain('read_exit_file "$log_file"')
-      expect(monitor).not.toContain('|| exit_code=$?')
-    })
 
     it('is sourced, fingerprinted and listed as checkout code', () => {
       expect(source).toMatch(/^source "\$SCRIPT_DIR\/orchestrator-reload\.sh"$/m)

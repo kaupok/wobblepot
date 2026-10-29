@@ -3510,9 +3510,10 @@ main() {
   # fails on an arbitrary issue an hour later (HON-616).
   #
   # A reload runs this gate again with the same flags, so it can only refuse
-  # there if the new code changed the rule itself — and then exiting loudly is
-  # the right answer, not a silent retry loop (HON-861).
-  check_branch_budget || exit 1
+  # there if the new code changed the rule itself — and then stopping loudly is
+  # the right answer, not a silent retry loop (HON-861). With adopted workers
+  # it stops once they finish, not at once (HON-1457).
+  check_branch_budget || exit_unless_adopted "The branch budget refused the reloaded code"
 
   validate_environment || wait_for_environment
   fetch_team_uuid

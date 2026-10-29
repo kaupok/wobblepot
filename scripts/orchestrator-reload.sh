@@ -243,6 +243,9 @@ reload_if_code_changed() {
     fi
     handoff="$RELOAD_WORKERS_FILE"
     adopting=", handing over ${#WORKER_PIDS[@]} running worker(s)"
+    # write_worker_handoff forks jq and bash, and a signal during them only
+    # sets the flag: checked again for the same reason as above.
+    if [ "$SHUTTING_DOWN" = true ]; then rm -f "$handoff"; return 0; fi
   fi
 
   log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); reloading in place (PID $$)$adopting"
@@ -306,6 +309,16 @@ restore_reload_state() {
 
   log INFO "Reloaded from $previous: circuit breaker failures=$CONSECUTIVE_FAILURES paused_until=$PAUSED_UNTIL, gated=[${GATED_ISSUES}] cap_requeued=[${CAP_REQUEUED_ISSUES}] deferred=${#DEFERRED[@]}"
   restore_worker_handoff
+}
+
+# A start-up check that refuses after a reload adopted workers must not exit:
+# they would run on with nothing watching them, their issues In Progress and
+# assigned. So it starts the graceful shutdown instead, which waits for them
+# as `wt stop` does. With no worker it exits 1, as before. $1 = what refused.
+exit_unless_adopted() {
+  [ ${#WORKER_PIDS[@]} -gt 0 ] || exit 1
+  log ERROR "$1; stopping once the ${#WORKER_PIDS[@]} adopted worker(s) finish"
+  SHUTTING_DOWN=true
 }
 
 # Only reachable after a reload: on a first start validate_environment exits.

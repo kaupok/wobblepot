@@ -10,10 +10,11 @@
 #     runs the REAL reload_if_code_changed. reload_exec prints EXEC, the
 #     ORCHESTRATOR_RELOAD_WORKERS_FILE it hands over and the handoff JSON, then
 #     performs a REAL exec into `adopted <scenario> <dir>`.
-#     Scenarios: exits, timeout, stop (each execs), and version, where the
+#     Scenarios: exits, timeout, stop, budget (each execs); version, where the
 #     handoff says version 99: the new code refuses it, so the poll prints
 #     PENDING and HANDOFF_FILE, the workers finish, and a second poll execs
-#     with nothing to hand over.
+#     with nothing to hand over; and stop-mid, where a SIGTERM lands while the
+#     handoff is written: no exec, and the old image keeps its workers.
 #
 #   adopted <scenario> <dir>
 #     The new image. Runs the REAL restore_reload_state, prints the rebuilt
@@ -25,6 +26,8 @@
 #                lines, then ZOMBIES counts adopted PIDs left as zombies.
 #                Also spawns HON-4 alongside the adopted three.
 #       timeout  monitor_workers once; HON-1 started past WORKER_TIMEOUT.
+#       budget   The REAL exit_unless_adopted, as main calls it when the
+#                branch budget refuses the new code: SHUTTING_DOWN, no exit.
 #       stop     Takes `wt stop`'s snapshot of the status file, as cmd_stop
 #                does before its first signal. The REAL shutdown handler takes
 #                one SIGTERM, HON-1 exits 0 and is handled, then a second
@@ -112,6 +115,15 @@ EOF
     WORKER_REPORTED_AT[1]=1790000000
     WORKER_REPORTED_SIG[1]="Implementing|2"
     [ "$SCENARIO" = version ] && RELOAD_HANDOFF_VERSION=99
+    if [ "$SCENARIO" = stop-mid ]; then
+      eval "real_$(declare -f write_worker_handoff)"
+      write_worker_handoff() {
+        local rc=0
+        real_write_worker_handoff "$@" || rc=$?
+        kill -TERM $$
+        return $rc
+      }
+    fi
 
     reload_exec() {
       echo "EXEC"
@@ -125,8 +137,9 @@ EOF
     printf '\necho v2\n' >> "$DIR/code/code.sh"
     fixture_git commit -qam change
     reload_if_code_changed
-    # Only the version scenario gets here: the new code refused the handoff.
+    # Only version and stop-mid get here: no exec on this poll.
     echo "PENDING:$RELOAD_PENDING"
+    echo "WORKERS:${#WORKER_PIDS[@]}"
     echo "HANDOFF_FILE:$([ -e "$RELOAD_WORKERS_FILE" ] && echo present || echo gone)"
     release HON-1 0; release HON-2 0; release HON-3 0
     monitor_until_empty 20
@@ -162,6 +175,12 @@ EOF
         monitor_until_empty 20
         # Bash reaps an exited child it did not start; a zombie would show Z.
         echo "ZOMBIES:$(ps -o stat= -p "${adopted_pids// /,}" 2>/dev/null | grep -c Z || true)"
+        ;;
+      budget)
+        exit_unless_adopted "The branch budget refused the reloaded code"
+        echo "SHUTTING_DOWN:$SHUTTING_DOWN"
+        release HON-1 0; release HON-2 0; release HON-3 0
+        monitor_until_empty 20
         ;;
       timeout)
         monitor_workers
