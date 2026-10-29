@@ -10,9 +10,16 @@
 #
 # Usage:
 #   ./scripts/pr-review.sh <PR_NUMBER>
+#   ./scripts/pr-review.sh --local <ISSUE_ID>
 #
-# The script exits 0 when the review is posted, non-zero on error.
+# The PR mode exits 0 when the review is posted, non-zero on error.
 # Review results are posted as GitHub PR comments with a <!-- claude-review --> marker.
+#
+# The local mode (HON-1404) runs the same prompt on the branch's changes before a
+# PR exists: commits, staged and unstaged edits and untracked files, against the
+# merge base with origin/main. It runs no `gh` command and posts nothing. The
+# summary goes to /tmp/auto-implement-local-review-<ISSUE_ID>.md. The PR-body
+# checks are left out, because there is no body yet.
 
 set -euo pipefail
 
@@ -33,17 +40,40 @@ NC='\033[0m'
 
 # ─── Argument validation ─────────────────────────────────────────────────────
 
-if [ $# -lt 1 ]; then
-  echo -e "${RED}Usage: $0 <PR_NUMBER>${NC}"
+usage() {
+  echo -e "${RED}Usage: $0 <PR_NUMBER> | $0 --local <ISSUE_ID>${NC}"
   echo "  PR_NUMBER: The GitHub PR number to review"
+  echo "  ISSUE_ID:  The Linear issue the local changes implement, e.g. HON-123"
   exit 1
-fi
+}
 
-PR_NUMBER="$1"
+[ $# -ge 1 ] || usage
 
-if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-  echo -e "${RED}Error: PR_NUMBER must be a positive integer, got '$PR_NUMBER'${NC}"
-  exit 1
+MODE=pr
+PR_NUMBER=""
+LOCK_DIR=""
+if [ "$1" = "--local" ]; then
+  MODE=local
+  [ $# -ge 2 ] || usage
+  # HON only: the Spec gate below finds the ID with the same `hon-N` match it
+  # uses on a branch name, so another prefix would skip the Spec check silently.
+  if ! [[ "$2" =~ ^[Hh][Oo][Nn]-[0-9]+$ ]]; then
+    echo -e "${RED}Error: ISSUE_ID must look like HON-123, got '$2'${NC}"
+    exit 1
+  fi
+  LOCAL_ISSUE_ID=$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')
+  OUT_FILE="/tmp/auto-implement-local-review-${LOCAL_ISSUE_ID}.md"
+  # Remove an earlier run's file first, so no exit below leaves it to be read as
+  # this run's review.
+  rm -f "$OUT_FILE"
+  LABEL="the local changes for ${LOCAL_ISSUE_ID}"
+else
+  PR_NUMBER="$1"
+  LABEL="PR #${PR_NUMBER}"
+  if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: PR_NUMBER must be a positive integer, got '$PR_NUMBER'${NC}"
+    exit 1
+  fi
 fi
 
 # ─── Environment checks ──────────────────────────────────────────────────────
@@ -53,7 +83,7 @@ if ! command -v claude &> /dev/null; then
   exit 1
 fi
 
-if ! command -v gh &> /dev/null; then
+if [ "$MODE" = pr ] && ! command -v gh &> /dev/null; then
   echo -e "${RED}Error: GitHub CLI (gh) not found${NC}"
   exit 1
 fi
@@ -66,15 +96,27 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Verify PR exists
-if ! gh pr view "$PR_NUMBER" --json number &> /dev/null; then
+if [ "$MODE" = pr ] && ! gh pr view "$PR_NUMBER" --json number &> /dev/null; then
   echo -e "${RED}Error: PR #${PR_NUMBER} not found${NC}"
   exit 1
 fi
 
-# ─── Lock to prevent duplicate reviews ────────────────────────────────────────
+# The local mode's diff base. The merge base, not origin/main itself, so a
+# stale worktree is not reviewed for every commit main gained since it branched.
+if [ "$MODE" = local ]; then
+  if ! BASE=$(git -C "$REPO_ROOT" merge-base origin/main HEAD 2>/dev/null); then
+    echo -e "${RED}Error: no merge base with origin/main. Run git fetch origin main.${NC}"
+    exit 1
+  fi
+fi
 
-LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+# ─── Lock to prevent duplicate reviews ────────────────────────────────────────
+#
+# PR mode only: the lock stops a second review comment on the same PR, and the
+# local mode posts none.
+
+[ "$MODE" = local ] || LOCK_DIR="/tmp/claude-review-${PR_NUMBER}.lock"
+if [ -n "$LOCK_DIR" ] && ! mkdir "$LOCK_DIR" 2>/dev/null; then
   # Check if the other instance already posted a review
   # --paginate is mandatory: without it the API returns only the first page, so a marker
   # posted after the first 100 comments reads as absent and this branch reclaims a lock it
@@ -104,156 +146,26 @@ fi
 # ─── Review prompt ────────────────────────────────────────────────────────────
 
 PROMPT_FILE=$(mktemp)
-trap 'rm -f "$PROMPT_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+trap 'rm -f "$PROMPT_FILE"; [ -z "$LOCK_DIR" ] || rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
-cat > "$PROMPT_FILE" <<'PROMPT'
-You are reviewing PR #__PR_NUMBER__ in the Honkadori project. You are a fresh reviewer with NO context from the implementation — you only see the final diff and the codebase.
+# Replace a placeholder in the prompt. Portable, unlike `sed -i ''`, which GNU sed
+# reads as an empty script, so scripts/pr-review-local.test.ts can run on CI. The
+# values are digits, an issue ID or a commit hash, so none needs escaping.
+substitute() {
+  local tmp
+  tmp=$(mktemp)
+  sed "s/$1/$2/g" "$PROMPT_FILE" > "$tmp" && mv "$tmp" "$PROMPT_FILE"
+}
 
-## Your task
-
-1. Get the PR diff and understand what changed
-2. Read the changed files IN FULL (not just the diff lines) for surrounding context
-3. Explore related code — callers, schema, API routes, similar patterns
-4. Find real bugs and post findings to GitHub
-
-## What to look for
-
-Focus ONLY on substantive issues. These are what matter:
-
-- **Logic errors** — wrong calculations, off-by-one, incorrect conditions. Show with concrete values from the actual code (e.g. "2 eggs x 55g = 170 kcal expected, but code produces 3.1 kcal")
-- **Data flow bugs** — mismatched types between API and consumer, missing fields, null handling gaps
-- **Missing validation** — inputs that bypass server-side checks, invariants not enforced
-- **Cross-file inconsistencies** — same bug in multiple places, schema mismatches between Prisma model and API response
-- **Security issues** — auth bypasses, injection, data exposure
-- **Race conditions** — state ordering bugs, missing locks, stale reads
-
-Do NOT comment on:
-- Code style or formatting (Prettier handles this)
-- Naming preferences or conventions
-- TypeScript type suggestions that don't affect correctness
-- "Consider" suggestions without concrete impact
-- Things that are already handled elsewhere in the codebase
-
-## Quality bar for every comment
-
-Every comment you post MUST include ALL of these:
-
-1. **Bold title** summarizing the issue in one line
-2. **What is wrong** — with actual values from the code, not hypotheticals
-3. **What breaks** — the concrete impact (wrong data, crash, security hole)
-4. **How to fix it** — a code suggestion when possible, using \`\`\`suggestion blocks for inline fixes
-
-Example of a GOOD comment:
-
-> **Incorrect nutrition factor for piece-unit ingredients**
->
-> The calculation always divides quantity by 100, which works for grams but not pieces. For 2 eggs with gramsPerPiece=55 and calories=155/100g:
-> - Expected: (2 x 55) / 100 x 155 = 170 kcal
-> - Actual: 2 / 100 x 155 = 3.1 kcal — 55x too low
->
-> \`\`\`suggestion
-> const gramsPerPiece = ing.gramsPerPiece ?? null
-> const quantityInGrams = ing.defaultUnit === 'piece' && gramsPerPiece != null
->   ? (row.totalQuantity / servingsNum) * gramsPerPiece
->   : row.totalQuantity / servingsNum
-> const factor = quantityInGrams / 100
-> \`\`\`
-
-Example of a BAD comment (do NOT post comments like this):
-
-> Consider adding error handling here in case the API returns null.
-
-## Step-by-step execution
-
-### Step 1: Get the diff and changed files
-
-Run these commands:
-\`\`\`bash
-gh pr diff __PR_NUMBER__
-gh pr view __PR_NUMBER__ --json title,body --jq '{title: .title, body: .body}'
-# The file list comes from the paginated REST endpoint, NOT `--json files`: that
-# caps at 100 and cannot paginate (HON-587), so on a large PR you would silently
-# review the first 100 paths and report "no issues found" on the rest unseen.
-gh api --paginate "/repos/:owner/:repo/pulls/__PR_NUMBER__/files?per_page=100" | jq -rs 'add | .[].filename'
-\`\`\`
-
-### Step 2: Read changed files in full
-
-For each changed file, read the COMPLETE file (not just the diff) to understand the full context. This is critical for finding cross-file bugs.
-
-### Step 3: Explore related code
-
-For each significant change, use Grep and Read to find:
-- Where changed functions/components are called from
-- Related Prisma models in prisma/schema.prisma
-- API routes that consume or produce the affected data
-- Other files with similar patterns that might have the same bug
-
-### Step 4: Post inline review comments
-
-Collect ALL issues you found. Post them as a single bundled GitHub review.
-
-IMPORTANT: Construct a valid JSON payload with the review body and comments array. Pipe it to \`gh api\` via \`--input -\`. The \`{owner}\` and \`{repo}\` placeholders are auto-filled by \`gh api\`.
-
-\`\`\`bash
-# Post a review with inline comments — pipe JSON via stdin
-echo '{
-  "event": "COMMENT",
-  "body": "",
-  "comments": [
-    {
-      "path": "src/example/file.ts",
-      "line": 42,
-      "body": "**Issue title**\\n\\nExplanation...\\n\\n\`\`\`suggestion\\nfixed code\\n\`\`\`"
-    }
-  ]
-}' | gh api /repos/{owner}/{repo}/pulls/__PR_NUMBER__/reviews --method POST --input -
-\`\`\`
-
-The \`line\` field must be a line number in the NEW version of the file (right side of the diff). Use the diff hunks to find the correct line numbers.
-
-If a finding relates to code OUTSIDE the diff (e.g. a pre-existing bug you discovered while reviewing), include it in the summary comment instead.
-
-Rules for inline comments:
-- Maximum 5 inline comments — focus on the most impactful issues
-- Every comment must be substantive (no nitpicks)
-- Use \`\`\`suggestion blocks when you have a concrete fix
-
-### Step 5: Post summary comment
-
-Post an issue-level summary comment. This MUST start with the HTML marker on the very first line:
-
-\`\`\`bash
-gh api /repos/{owner}/{repo}/issues/__PR_NUMBER__/comments \\
-  --method POST \\
-  -f body="<!-- claude-review -->
-### Claude review
-
-[2-3 sentence summary of what the PR does and your overall assessment]
-
-**Issues found:**
-1. **[Issue title]** (file:line) — [one sentence]
-2. ...
-
-(If no issues: No issues found. The changes look correct.)
-
-**Confidence:** [1-5]/5 — [one sentence justification]
-
-**Files reviewed:** [comma-separated list]"
-\`\`\`
-
-## Rules
-
-- If you find NO issues, still post the summary comment with "No issues found"
-- Do NOT post more than 5 inline comments — prioritize by impact
-- Do NOT post style nitpicks or formatting comments
-- The summary comment MUST start with \`<!-- claude-review -->\` on the first line
-- Always post the summary comment, even if inline comments fail
-- If \`gh api\` for inline comments fails (e.g. bad line number), post the findings in the summary comment instead
-PROMPT
-
-# Substitute PR number into the prompt (quoted heredoc prevents expansion)
-sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
+# The task, the quality bar and steps 1-5, shared with the local mode.
+# shellcheck source=./pr-review-base.sh
+source "$SCRIPT_DIR/pr-review-base.sh"
+write_base_prompt "$PROMPT_FILE" "$MODE"
+if [ "$MODE" = local ]; then
+  substitute __BASE__ "$BASE"
+else
+  substitute __PR_NUMBER__ "$PR_NUMBER"
+fi
 
 # ─── Prose PRs: ask for a readability verdict ────────────────────────────────
 #
@@ -273,10 +185,25 @@ sed -i '' "s/__PR_NUMBER__/${PR_NUMBER}/g" "$PROMPT_FILE"
 #      look docs-only. Comparing the paths returned against `changedFiles` (a scalar
 #      total, not subject to the page cap) catches that. A failed count leaves
 #      PR_CHANGED empty, which cannot equal PR_FILE_COUNT — so it fails closed.
-PR_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || true)
+#
+# The local mode reads the list from git, which has no cap, so the list is complete
+# and every gate below runs as it does on a PR. An empty list is a wrong call.
+if [ "$MODE" = local ]; then
+  PR_FILES=$( { git -C "$REPO_ROOT" diff --name-only "$BASE"; git -C "$REPO_ROOT" ls-files --others --exclude-standard; } | sort -u)
+  if [ -z "$PR_FILES" ]; then
+    echo -e "${RED}Error: no changes since origin/main to review${NC}"
+    exit 1
+  fi
+else
+  PR_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || true)
+fi
 NON_MD=$(printf '%s\n' "$PR_FILES" | grep -v '\.md$' || true)
 PR_FILE_COUNT=$(printf '%s\n' "$PR_FILES" | grep -c . || true)
-PR_CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null || true)
+if [ "$MODE" = local ]; then
+  PR_CHANGED="$PR_FILE_COUNT"
+else
+  PR_CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null || true)
+fi
 
 if [ -n "$PR_FILES" ] && [ -z "$NON_MD" ] && [ "$PR_FILE_COUNT" = "$PR_CHANGED" ]; then
   echo -e "${GREEN}Documentation-only PR — adding the readability-regression instruction.${NC}"
@@ -484,17 +411,25 @@ fi
 # when the body has no `Driven:` list line, so a PR that carries the evidence pays
 # nothing. A failed body fetch reads as "no line", which fails closed like the gates above.
 DRIVE_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(app|components)/.*\.tsx$' | grep -vE '^src/(app/(api|admin)|components/ui)/|\.(stories|test)\.tsx$' || true)
-PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body' 2>/dev/null || true)
+# The local mode has no body yet, and so no place for a `Driven:` line: the item is
+# left out there, and the PR review asks for the lines once the body exists.
+if [ "$MODE" = pr ]; then
+  PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body' 2>/dev/null || true)
+else
+  PR_BODY=""
+fi
 DRIVEN_IN_BODY=$(printf '%s\n' "$PR_BODY" | grep -cE '^[[:space:]]*[-*][[:space:]]+Driven:' || true)
 
-if { [ -n "$DRIVE_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; } && [ "$DRIVEN_IN_BODY" = 0 ]; then
-  echo -e "${GREEN}Screens changed and the PR body has no Driven: line — adding the driven-screen check.${NC}"
-  cat >> "$PROMPT_FILE" <<'DRIVE_PROMPT'
+if [ "$MODE" = pr ]; then
+  if { [ -n "$DRIVE_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; } && [ "$DRIVEN_IN_BODY" = 0 ]; then
+    echo -e "${GREEN}Screens changed and the PR body has no Driven: line — adding the driven-screen check.${NC}"
+    cat >> "$PROMPT_FILE" <<'DRIVE_PROMPT'
 
 ## Also check that the changed screens were driven
 
 This diff changes a page or a feature component, and the PR body has no `Driven:` line. `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens" requires one per changed screen: the route, the action, the result the browser showed, and the screenshot on the Linear issue. Report the missing lines as a finding in the summary (the body is not in the diff), naming the screens the diff changes. It is not a finding when the body's "Not verified" list says why the screens could not be driven (the review server or the Playwright MCP could not start, or the screen needs an account the review server cannot create, with the reason), or when the changed files render nothing a user sees (a type or prop rename with no visible change). In that case this check has nothing to do.
 DRIVE_PROMPT
+  fi
 fi
 
 # ─── PR body: Verified / Not verified, no checkboxes ─────────────────────────
@@ -503,8 +438,10 @@ fi
 # with "Verified" and "Not verified" lists (HON-860): unticked boxes merged on 26 of
 # 53 PRs, mostly restating what a test already proved, and hid the few real gaps.
 # Nothing else reads the body, so this is the only check on it. Every PR has a body,
-# so unlike the items above it is appended unconditionally.
-cat >> "$PROMPT_FILE" <<'PR_BODY_PROMPT'
+# so unlike the items above it is appended on every PR-mode run. The local mode runs
+# before the body exists, so it has nothing to check.
+if [ "$MODE" = pr ]; then
+  cat >> "$PROMPT_FILE" <<'PR_BODY_PROMPT'
 
 ## Also check the PR body's Verified / Not verified lists
 
@@ -516,6 +453,7 @@ Read the body from step 1. Report each of these as a finding in the summary comm
 
 **A PR-body finding is a finding.** Do NOT write "No issues found" anywhere in a summary that lists one, even if the diff itself is clean. Automation substring-tests for that phrase to decide the review was clean and merges on it, and a PR-body finding never has an inline comment to fall back on.
 PR_BODY_PROMPT
+fi
 
 # ─── Spec axis: the diff against the issue's acceptance criteria ─────────────
 #
@@ -531,7 +469,13 @@ PR_BODY_PROMPT
 # bare first `HON-N` would pick up a history reference like HON-860 and review the PR
 # against the wrong issue. A failed fetch leaves the ID empty, which skips the axis
 # with an observable "no issue linked" line rather than failing the review.
-PR_HEAD=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName' 2>/dev/null || true)
+# The local mode takes the ID from its argument, through the same match: `HON-N`
+# passes `(^|/)hon-[0-9]+`, and the empty body adds nothing.
+if [ "$MODE" = pr ]; then
+  PR_HEAD=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName' 2>/dev/null || true)
+else
+  PR_HEAD="$LOCAL_ISSUE_ID"
+fi
 ISSUE_ID=$( { printf '%s\n' "$PR_HEAD" | grep -oiE '(^|/)hon-[0-9]+' | grep -oiE 'hon-[0-9]+'; printf '%s\n' "$PR_BODY" | grep -oiE '(closes|fixes|resolves) hon-[0-9]+' | grep -oiE 'hon-[0-9]+'; } | head -n 1 | tr '[:lower:]' '[:upper:]' || true)
 
 if [ -n "$ISSUE_ID" ]; then
@@ -561,7 +505,7 @@ This PR implements Linear issue __ISSUE_ID__. Everything above checks the diff a
 
 **A Spec finding is a finding.** Do NOT write "No issues found" anywhere in a summary whose Spec list is non-empty. Automation substring-tests for that phrase to decide the review was clean and merges on it. When the diff has no bugs but the Spec list has entries, write "No bugs found in the diff." in the `**Issues found:**` list instead.
 SPEC_PROMPT
-  sed -i '' "s/__ISSUE_ID__/${ISSUE_ID}/g" "$PROMPT_FILE"
+  substitute __ISSUE_ID__ "$ISSUE_ID"
 else
   echo -e "${YELLOW}No HON issue ID in the branch name or a closing keyword in the body — skipping the spec check.${NC}"
   cat >> "$PROMPT_FILE" <<'NO_SPEC_PROMPT'
@@ -580,7 +524,7 @@ REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
 
-echo -e "${GREEN}Starting Claude PR review for PR #${PR_NUMBER}${NC}"
+echo -e "${GREEN}Starting Claude review for ${LABEL}${NC}"
 echo -e "Model: ${MODEL} | Effort: ${REVIEW_EFFORT:-default}"
 echo -e "Repository root: ${REPO_ROOT}"
 echo "─────────────────────────────────────────"
@@ -594,16 +538,35 @@ EXIT_CODE=0
 claude_model_args "$MODEL" "$REVIEW_EFFORT"
 # The reviewer reads the Linear issue and plan; no other MCP server (HON-1238).
 claude_mcp_args linear-server
-env -u ANTHROPIC_API_KEY claude -p \
-  --dangerously-skip-permissions \
-  "${CLAUDE_MODEL_ARGS[@]}" \
-  "${CLAUDE_MCP_ARGS[@]}" \
-  -- "$REVIEW_PROMPT" || EXIT_CODE=$?
+REVIEWER=(env -u ANTHROPIC_API_KEY claude -p
+  --dangerously-skip-permissions
+  "${CLAUDE_MODEL_ARGS[@]}"
+  "${CLAUDE_MCP_ARGS[@]}"
+  -- "$REVIEW_PROMPT")
+
+if [ "$MODE" = pr ]; then
+  "${REVIEWER[@]}" || EXIT_CODE=$?
+else
+  # The summary is the reviewer's final answer on stdout. Write it beside the target
+  # and move it in only when it carries the marker, so a failed run never leaves a
+  # partial file that reads as this run's review.
+  "${REVIEWER[@]}" > "$OUT_FILE.tmp" || EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 0 ] && ! grep -q '^<!-- claude-review -->' "$OUT_FILE.tmp"; then
+    echo -e "${RED}The reviewer printed no <!-- claude-review --> summary${NC}"
+    EXIT_CODE=1
+  fi
+  if [ $EXIT_CODE -eq 0 ]; then
+    mv "$OUT_FILE.tmp" "$OUT_FILE"
+  else
+    rm -f "$OUT_FILE.tmp"
+  fi
+fi
 
 if [ $EXIT_CODE -eq 0 ]; then
-  echo -e "\n${GREEN}Review complete for PR #${PR_NUMBER}${NC}"
+  echo -e "\n${GREEN}Review complete for ${LABEL}${NC}"
+  [ "$MODE" = pr ] || echo "Findings: ${OUT_FILE}"
 else
-  echo -e "\n${RED}Review failed for PR #${PR_NUMBER} (exit code: ${EXIT_CODE})${NC}"
+  echo -e "\n${RED}Review failed for ${LABEL} (exit code: ${EXIT_CODE})${NC}"
 fi
 
 exit $EXIT_CODE

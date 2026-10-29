@@ -34,9 +34,8 @@
 7097 scripts/orchestrator.phase.test.ts
 44905 scripts/orchestrator.sh
 14995 scripts/orchestrator.watch.test.ts
-10017 scripts/pr-review.sh
+9524 scripts/pr-review.sh
 5623 scripts/refit-meal-images.ts
-5063 scripts/review-checklist-gate.test.ts
 5352 scripts/spike-meal-colour.ts
 12758 scripts/spike-meal-images.ts
 6328 scripts/test-ai-selection.ts

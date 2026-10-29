@@ -1,6 +1,14 @@
 # Auto-implement — pre-PR checks (4.3)
 
-The PR reviewer (`scripts/pr-review.sh`) checks these four rules on every round. Check them yourself in 4.3, before the PR opens, because each miss the reviewer finds costs one more review round (`history.md` → Pre-PR checks).
+The PR reviewer (`scripts/pr-review.sh`) checks these four rules on every round. 4.3 runs its prompt on the local changes, and you check the rules yourself, before the PR opens, because each miss the reviewer finds costs one more review round (`history.md` → Pre-PR checks, Local review in 4.3).
+
+## Local review
+
+`./scripts/pr-review.sh --local <ID>` reviews the working tree against the merge base with origin/main, untracked files included, so run it before Phase 5 commits. It writes the summary to `/tmp/auto-implement-local-review-<ID>.md`, with no inline comments: every finding is in its `**Issues found:**` list or under `**Spec:**`. It leaves out the PR-body and driven-screen checks, so item 3 below and the 4.3 Driven screens step stay yours.
+
+Run it once per cycle. Do not re-run it after the 4.5 fixes: the PR review in 6.3 checks them.
+
+A large diff can outrun the 600 s cap, as 6.3 notes. Past 600 s, background it and wait in this turn for the findings file, as `batched.md` does; a slow review does not get faster on a retry. A non-zero exit leaves no file: run it once more, unless the first run hit the cap. A second failure, or a wait that ends with no file → print `[auto-implement] Local review failed; continuing — the 6.3 PR review still gates the merge` and go on with the other 4.3 items.
 
 Each item names the source of its rule. Read the rule there, not here: a copy drifts from the reviewer prompt. `scripts/review-checklist-gate.test.ts` fails when a phrase quoted here leaves its source.
 

@@ -32,6 +32,7 @@ describe('orchestrator.sh', () => {
     ['models.sh', models],
     ['orchestrator-deferred.sh', path.join(scriptsDir, 'orchestrator-deferred.sh')],
     ['pr-review.sh', prReview],
+    ['pr-review-base.sh', path.join(scriptsDir, 'pr-review-base.sh')],
   ])('%s is syntactically valid', (_name, script) => {
     expect(() => execFileSync('bash', ['-n', script], { timeout: 30_000 })).not.toThrow()
   })

@@ -13,35 +13,18 @@
  * execute them, so the test can only ever agree with the script.
  */
 import { execFileSync } from 'node:child_process'
-import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const prReview = path.join(repoRoot, 'scripts/pr-review.sh')
+import {
+  heredoc,
+  lineStartingWith,
+  prReview,
+  read,
+  repoRoot,
+} from './review-checklist-gate.fixtures'
+
 const planIssueSkill = path.join(repoRoot, '.claude/skills/plan-issue/SKILL.md')
-
-const read = (file: string) => fs.readFileSync(file, 'utf8')
-
-/** One shell line lifted from the script, matched by how it starts. */
-function lineStartingWith(prefix: string): string {
-  const line = read(prReview)
-    .split('\n')
-    .find((l) => l.startsWith(prefix))
-  if (!line) throw new Error(`scripts/pr-review.sh no longer has a line starting ${prefix}`)
-  return line
-}
-
-/** The body of one appended heredoc, bounded at its terminator. */
-function heredoc(name: string): string {
-  const source = read(prReview)
-  const start = source.indexOf(`<<'${name}'`)
-  if (start === -1) throw new Error(`scripts/pr-review.sh no longer appends ${name}`)
-  const end = source.indexOf(`\n${name}\n`, start + 1)
-  if (end === -1) throw new Error(`${name} heredoc is unterminated`)
-  return source.slice(start, end)
-}
 
 /** Run one extracted gate assignment over a file list and return what it selected. */
 function classify(
@@ -339,46 +322,6 @@ describe('prompt items', () => {
     expect(heredoc('GEOMETRY_PROMPT')).toContain('.claude/skills/plan-issue/SKILL.md` step 7b')
     expect(read(planIssueSkill)).toMatch(/^#### 7b\. Shared-primitive coupling$/m)
     expect(read(planIssueSkill)).toContain('**Mirror**')
-  })
-})
-
-// HON-860: the PR body's Verified / Not verified lists are checked on every PR, so
-// the heredoc must sit at top level (not inside a gate's `if`) and before the prompt
-// is read into REVIEW_PROMPT, or it would be written after the reviewer has its copy.
-describe('PR body item', () => {
-  it('is appended unconditionally, before the prompt is read', () => {
-    const lines = read(prReview).split('\n')
-    const append = lines.indexOf(`cat >> "$PROMPT_FILE" <<'PR_BODY_PROMPT'`)
-    const snapshot = lines.findIndex((l) => l.startsWith('REVIEW_PROMPT=$(cat "$PROMPT_FILE")'))
-    expect(append).toBeGreaterThan(-1)
-    expect(append).toBeLessThan(snapshot)
-    // Every top-level `if` above the append must be closed by its `fi`.
-    const opened = lines
-      .slice(0, append)
-      .reduce((depth, l) => (/^if /.test(l) ? depth + 1 : /^fi$/.test(l) ? depth - 1 : depth), 0)
-    expect(opened).toBe(0)
-  })
-
-  it('names the three findings', () => {
-    const body = heredoc('PR_BODY_PROMPT')
-    expect(body).toContain('`- [ ]`')
-    expect(body).toContain('"Verified" line that names no command, test, story or spec')
-    expect(body).toContain('"Not verified" item whose failure would break')
-  })
-
-  // Body findings are summary-only by construction, so a "No issues found" beside one
-  // passes /auto-implement 6.4's clean-review test and merges with the box open.
-  it('forbids "No issues found" alongside a PR-body finding', () => {
-    expect(heredoc('PR_BODY_PROMPT')).toContain('Do NOT write "No issues found"')
-  })
-
-  it('matches the headings the PR templates emit', () => {
-    for (const skill of ['create-pr', 'auto-implement']) {
-      const text = read(path.join(repoRoot, `.claude/skills/${skill}/SKILL.md`))
-      expect(text, skill).toContain('## Verified')
-      expect(text, skill).toContain('## Not verified')
-      expect(text, skill).not.toContain('## Test plan')
-    }
   })
 })
 
