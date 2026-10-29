@@ -169,11 +169,11 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "*.{ts,tsx,mts,js,jsx,mjs,cjs}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "*.{css,md,mdx,json,mjs,cjs,mts}": [
+    "*.{css,md,mdx,json}": [
       "prettier --write"
     ]
   },

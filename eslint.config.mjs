@@ -98,8 +98,8 @@ const config = defineConfig([
   // Prettier plugin: Prettier's rationale calls sorting imports a transform
   // that side effects make unsafe. Side-effect imports (`import './globals.css'`)
   // move to the top of the block but keep their own order. `eslint --fix` in
-  // lint-staged applies it on commit; the one-time sort is in
-  // .git-blame-ignore-revs.
+  // lint-staged applies it on commit (HON-1461); HON-1462 adds the one-time
+  // sort to .git-blame-ignore-revs.
   {
     plugins: { 'simple-import-sort': simpleImportSort },
     rules: { 'simple-import-sort/imports': 'error' },
