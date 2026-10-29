@@ -71,7 +71,7 @@ describe('FoodPreferencesForm field help', () => {
         'e.g., Less salt for the kids. Favour high-protein dishes.',
       )
       expect(notes).toHaveAccessibleDescription(
-        "The AI follows these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Swap, the recipe list and a connected assistant's plan_meal do not check them. To keep an ingredient out of every meal, add it to Ingredients to avoid.",
+        'The AI follows these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Swap, the recipe list and meals a connected assistant plans do not check them. To keep an ingredient out of every meal, add it to Ingredients to avoid.',
       )
     })
 
@@ -87,7 +87,7 @@ describe('FoodPreferencesForm field help', () => {
         'nt lastele vähem soola. Eelista valgurikkaid toite.',
       )
       expect(notes).toHaveAccessibleDescription(
-        'AI järgib neid märkmeid, kui see koostab plaani, mõtleb välja toidu, kohandab retsepti või vastab küsimusele toiduvalmistamise kohta. Vaheta, retseptide loend ja ühendatud assistendi plan_meal neid ei kontrolli. Et hoida koostisosa kõigist toitudest eemal, lisa see väljale „Koostisosad, mida vältida“.',
+        'AI järgib neid märkmeid, kui see koostab plaani, mõtleb välja toidu, kohandab retsepti või vastab küsimusele toiduvalmistamise kohta. Vaheta, retseptide loend ja ühendatud assistendi planeeritud toidud neid ei kontrolli. Et hoida koostisosa kõigist toitudest eemal, lisa see väljale „Koostisosad, mida vältida“.',
       )
     })
   })
