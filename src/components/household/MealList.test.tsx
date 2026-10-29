@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MealList } from './MealList'
 import { createQueryWrapper } from '@/test/query-wrapper'
@@ -95,6 +95,28 @@ describe('MealList opens a recipe in the cook view', () => {
     expect(await screen.findByRole('dialog', { name: 'Roast chicken' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(name).toHaveFocus())
+  })
+
+  // HON-1389: the detail shows the row's 4-week count, which only My recipes has.
+  it("opens with the row's cook history", async () => {
+    const user = userEvent.setup()
+    render(
+      <MealList
+        meals={[{ ...meal, lastCookedOn: '2026-10-16', cookedLast28Days: 3 }]}
+        householdServings={2}
+        onDelete={() => {}}
+        onToggleFavorite={() => {}}
+        showRecentlyDeleted={false}
+      />,
+      createQueryWrapper(),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Roast chicken' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Roast chicken' })
+    expect(
+      within(dialog).getByText('Cooked 3 times in 4 weeks, last on Fri, Oct 16'),
+    ).toBeInTheDocument()
   })
 
   it('does not open from the heart, the menu trigger or a menu item', async () => {
