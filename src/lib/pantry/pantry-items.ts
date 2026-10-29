@@ -8,7 +8,8 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 /**
  * Adding an ingredient to the pantry, changing a pantry item and removing one,
  * shared by `/api/pantry`, `/api/pantry/[id]`, `/api/pantry/by-ingredient` and the
- * `set_pantry_status` MCP tool (HON-1173, HON-1201, HON-1209), so the paths cannot drift.
+ * `set_pantry_status` and `set_staple` MCP tools (HON-1173, HON-1201, HON-1209,
+ * HON-1459), so the paths cannot drift.
  */
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
@@ -61,6 +62,47 @@ function withTranslatedIngredient<T extends { ingredient: { name: string } }>(
   locale: string,
 ): T {
   return { ...item, ingredient: translateIngredient(item.ingredient, locale) }
+}
+
+/**
+ * - `found`: the ingredient, its name in the household's language, and the
+ *   household's pantry item for it, or null when the pantry has none
+ * - `ingredient_not_found`: as for `createPantryItem`
+ */
+export type FindPantryIngredientOutcome =
+  | {
+      status: 'found'
+      ingredient: PantryItemWithIngredient['ingredient']
+      item: PantryItemWithIngredient | null
+    }
+  | { status: 'ingredient_not_found' }
+
+/**
+ * Reads an ingredient and the household's pantry item for it, so a caller can
+ * see the item's state before it writes (the `set_staple` MCP tool, HON-1459).
+ */
+export async function findPantryIngredient(
+  household: Household,
+  ingredientId: string,
+): Promise<FindPantryIngredientOutcome> {
+  const locale = resolveHouseholdLocale(household)
+  const row = await prisma.ingredient.findFirst({
+    where: { id: ingredientId, OR: [{ householdId: null }, { householdId: household.id }] },
+    select: {
+      ...itemInclude(locale).ingredient.select,
+      pantryItems: {
+        where: { householdId: household.id },
+        select: { id: true, ingredientId: true, quantity: true, isStaple: true, updatedAt: true },
+      },
+    },
+  })
+  if (!row) return { status: 'ingredient_not_found' }
+
+  const { pantryItems, ...rest } = row
+  const ingredient = translateIngredient(rest, locale)
+  // `@@unique([householdId, ingredientId])`: one item or none.
+  const [item] = pantryItems
+  return { status: 'found', ingredient, item: item ? { ...item, ingredient } : null }
 }
 
 /**
