@@ -38,6 +38,7 @@ import {
   saveImagineSession,
 } from './imagine-session'
 import { FieldError } from '@/components/FieldError'
+import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
 
 const recipeHref = (mealId: string) => `/recipes/${mealId}/edit`
 
@@ -189,7 +190,7 @@ export function ImagineClient() {
         prefilledIngredients: currentIngredients,
         returnTo: IMAGINE_ROUTE,
         origin: 'imagine',
-      }),
+      } satisfies PrefilledMeal),
     )
     router.push('/recipes/create?prefilled=true')
   }

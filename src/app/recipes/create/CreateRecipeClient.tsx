@@ -2,40 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import {
-  MealForm,
-  type MealFormData,
-  type PrefilledIngredient,
-} from '@/components/household/MealForm'
-import type { MealType } from '@/generated/prisma/enums'
+import { MealForm, type MealFormData } from '@/components/household/MealForm'
 import { track } from '@/lib/analytics'
 import { getValidReturnUrl } from '@/lib/utils'
 import { MealFormSkeleton } from './MealFormSkeleton'
-
-interface EnhancedPrefilledData {
-  name: string
-  description: string | null
-  preparationNotes?: string | null
-  sourceUrl?: string | null
-  timeMinutes: number | null
-  servings: number
-  mealTypes: MealType[]
-  kidFriendly: boolean
-  prefilledIngredients: PrefilledIngredient[]
-  originalRecipeText?: string
-  /**
-   * Where Cancel should return to. Set by the imagine flow's "Edit details"
-   * (`ImagineClient.handleEditDetails`); the import flow omits it and keeps the
-   * `/recipes` fallback.
-   */
-  returnTo?: string | null
-  /**
-   * Which flow wrote the stash, so a save fires that flow's event (HON-1063).
-   * Absent means the blank form. `originalRecipeText` is a form field, not an
-   * analytics marker.
-   */
-  origin?: 'import' | 'imagine'
-}
+import { parsePrefilledMeal, type PrefilledMeal } from './prefilled-meal'
 
 /**
  * `returnTo` round-trips through `sessionStorage`, so treat it as untrusted.
@@ -50,7 +21,7 @@ function safeInternalPath(value: string | null | undefined): string | null {
 }
 
 // undefined = not loaded yet, null = loaded (no prefill), object = loaded with prefill
-type PrefilledState = EnhancedPrefilledData | null | undefined
+type PrefilledState = PrefilledMeal | null | undefined
 
 interface CreateRecipeClientProps {
   defaultServings: number
@@ -65,7 +36,7 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
   // The stash is single-use, but StrictMode runs this effect twice on mount:
   // the first run consumes it, so the second has to reuse what that run read
   // rather than find nothing and blank the form (HON-801).
-  const stashRef = useRef<EnhancedPrefilledData | null>(null)
+  const stashRef = useRef<PrefilledMeal | null>(null)
 
   useEffect(() => {
     async function loadPrefilled() {
@@ -76,12 +47,7 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
       }
       const stored = sessionStorage.getItem('prefilled-meal')
       if (stored) {
-        try {
-          stashRef.current = JSON.parse(stored) as EnhancedPrefilledData
-        } catch {
-          // Invalid data
-          stashRef.current = null
-        }
+        stashRef.current = parsePrefilledMeal(stored)
         sessionStorage.removeItem('prefilled-meal')
       }
       setPrefilledData(stashRef.current)

@@ -23,6 +23,7 @@ import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { downscaleImage } from '@/lib/downscale-image'
 import { convertToPrefilledData, type ParsedRecipeData } from './convert-parsed-recipe'
+import type { PrefilledMeal } from '@/app/recipes/create/prefilled-meal'
 
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
@@ -100,7 +101,7 @@ export function RecipeImportClient({ defaultServings }: RecipeImportClientProps)
         // the typed text, and none when nothing was typed (HON-1274).
         originalRecipeText: recipeText.trim() ? recipeText : undefined,
         origin: 'import',
-      }),
+      } satisfies PrefilledMeal),
     )
     router.push('/recipes/create?prefilled=true')
   }

@@ -211,7 +211,7 @@ describe('CreateRecipeClient under StrictMode', () => {
       prefilledIngredients: [
         {
           type: 'matched',
-          ingredient: { id: 'ing-1', name: 'Red lentils', category: 'GRAINS', defaultUnit: 'G' },
+          ingredient: { id: 'ing-1', name: 'Red lentils', category: 'carb', defaultUnit: 'g' },
           convertedQuantity: 200,
         },
         { type: 'unmatched', originalText: '1 onion' },
@@ -241,6 +241,32 @@ describe('CreateRecipeClient under StrictMode', () => {
     renderStrict()
 
     await screen.findByRole('heading', { name: 'Lentil stew' })
+    expect(sessionStorage.getItem('prefilled-meal')).toBeNull()
+  })
+})
+
+describe('CreateRecipeClient with a bad stash', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  it('opens an empty form and drops the stash when it is not JSON', async () => {
+    sessionStorage.setItem('prefilled-meal', '{"name": "Lentil stew"')
+
+    await renderLoaded()
+
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    expect(sessionStorage.getItem('prefilled-meal')).toBeNull()
+  })
+
+  it('opens an empty form when the JSON has the wrong shape', async () => {
+    seedPrefilled({ mealTypes: ['supper'], prefilledIngredients: [{ type: 'matched' }] })
+
+    await renderLoaded()
+
+    expect(screen.queryByRole('heading', { name: 'Lentil stew' })).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
     expect(sessionStorage.getItem('prefilled-meal')).toBeNull()
   })
 })
