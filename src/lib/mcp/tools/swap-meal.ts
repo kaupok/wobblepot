@@ -6,7 +6,7 @@ import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-plann
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { NO_REPEAT_DAYS } from '@/lib/meal-planning/candidates'
-import { findLastPlannedDate } from '@/lib/meal-plans/last-planned'
+import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { assertMealFitsSlot } from './meal-fit'
 import { findPlanSlot, slotInput, writableDays } from './plan-slot'
@@ -16,7 +16,7 @@ const mealOutput = z.object({ id: z.string(), name: z.string() })
 export const swapMeal = defineTool({
   name: 'swap_meal',
   title: 'Swap a planned meal',
-  description: `Replaces the meal planned for one day and meal type. When the user names the meal, pass its mealId from list_meals, and this one call swaps it. Omit mealId only to get up to 3 suggestions, the same ones the app offers; they leave out meals planned from ${NO_REPEAT_DAYS} days ago onward, and each call can return different ones. For today or a later day, the meal must suit the meal type and fit the household's diet, allergens and avoided ingredients. A meal planned recently is allowed; lastPlannedOn says when it was last planned, so you can mention the repeat. The swap puts the servings back on the household default and removes the entry's ingredient changes; set_meal_servings sets the servings again. On a past day the meal is logged as cooked, because the household ate it, and the pantry does not change; a past day takes any meal the household can see, whatever its meal type or diet. A meal already cooked cannot be swapped.`,
+  description: `Replaces the meal planned for one day and meal type. When the user names the meal, pass its mealId from list_meals, and this one call swaps it. Omit mealId only to get up to 3 suggestions, the same ones the app offers; they leave out meals planned from ${NO_REPEAT_DAYS} days ago onward, and each call can return different ones. For today or a later day, the meal must suit the meal type and fit the household's diet, allergens and avoided ingredients. A meal planned recently or on a later day is allowed; lastPlannedOn and nextPlannedOn say when it was last planned and when it is planned next, so you can mention the repeat. The swap puts the servings back on the household default and removes the entry's ingredient changes; set_meal_servings sets the servings again. On a past day the meal is logged as cooked, because the household ate it, and the pantry does not change; a past day takes any meal the household can see, whatever its meal type or diet. A meal already cooked cannot be swapped.`,
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
@@ -42,6 +42,12 @@ export const swapMeal = defineTool({
       .nullable()
       .describe(
         'For outcome swapped or unchanged: the latest earlier day meal was planned, or null if never. Always null for suggestions.',
+      ),
+    nextPlannedOn: z.iso
+      .date()
+      .nullable()
+      .describe(
+        'For outcome swapped or unchanged: the earliest later day meal is planned, or null if none. Always null for suggestions.',
       ),
     suggestions: z
       .array(
@@ -85,6 +91,7 @@ export const swapMeal = defineTool({
         mealType,
         meal: current,
         lastPlannedOn: null,
+        nextPlannedOn: null,
         suggestions: suggestions.map((meal) => ({
           id: meal.id,
           name: meal.name,
@@ -105,6 +112,7 @@ export const swapMeal = defineTool({
         mealType,
         meal: current,
         lastPlannedOn: await findLastPlannedDate(household.id, mealId, date),
+        nextPlannedOn: await findNextPlannedDate(household.id, mealId, date),
         suggestions: [],
       }
     }
@@ -116,6 +124,7 @@ export const swapMeal = defineTool({
     const isPast = date < writableDays(household.timezone).today
     await assertMealFitsSlot(household, mealId, mealType, isPast ? 'logged' : 'planned')
     const lastPlannedOn = await findLastPlannedDate(household.id, mealId, date)
+    const nextPlannedOn = await findNextPlannedDate(household.id, mealId, date)
 
     // The app's swap, from here on: visibility, the resets, and the write
     // that refuses an entry completed in the meantime.
@@ -154,6 +163,7 @@ export const swapMeal = defineTool({
       mealType,
       meal: { id: mealId, name: translateMeal(named, locale).name },
       lastPlannedOn,
+      nextPlannedOn,
       suggestions: [],
     }
   },

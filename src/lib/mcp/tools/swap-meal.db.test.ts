@@ -243,6 +243,7 @@ describe('swap_meal on a slot from today on', () => {
       mealType: 'dinner',
       meal: { id: 'trout', name: 'Glimmer trout' },
       lastPlannedOn: day(-7),
+      nextPlannedOn: null,
       suggestions: [],
     })
     // The app's swap: servings back on the household default, and the stew's
@@ -255,6 +256,17 @@ describe('swap_meal on a slot from today on', () => {
     expect(await prisma.mealPlanEntryComponent.count({ where: { entryId: entry.id } })).toBe(0)
   })
 
+  it('swaps in a dinner already planned on the next day, and says when', async () => {
+    const household = await world()
+    const date = day(1)
+    await dinner(date, 'stew')
+    await dinner(day(2), 'trout')
+
+    const result = await call(household, { date, mealType: 'dinner', mealId: 'trout' })
+
+    expect(result).toMatchObject({ outcome: 'swapped', lastPlannedOn: null, nextPlannedOn: day(2) })
+  })
+
   it('answers lastPlannedOn null for a meal never planned before', async () => {
     const household = await world()
     const date = day(1)
@@ -262,7 +274,7 @@ describe('swap_meal on a slot from today on', () => {
 
     const result = await call(household, { date, mealType: 'dinner', mealId: 'soup' })
 
-    expect(result).toMatchObject({ outcome: 'swapped', lastPlannedOn: null })
+    expect(result).toMatchObject({ outcome: 'swapped', lastPlannedOn: null, nextPlannedOn: null })
   })
 
   it('still leaves a dinner planned 7 days earlier out of the suggestions', async () => {
@@ -275,7 +287,11 @@ describe('swap_meal on a slot from today on', () => {
 
     // Satay has peanuts, the stew is the meal being replaced, and the trout
     // was planned 7 days ago: the soup is all that is left.
-    expect(result).toMatchObject({ outcome: 'suggestions', lastPlannedOn: null })
+    expect(result).toMatchObject({
+      outcome: 'suggestions',
+      lastPlannedOn: null,
+      nextPlannedOn: null,
+    })
     expect(result.suggestions.map((meal) => meal.id)).toEqual(['soup'])
   })
 
