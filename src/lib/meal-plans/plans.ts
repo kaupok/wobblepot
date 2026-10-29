@@ -72,7 +72,7 @@ export async function loadMealPlan(householdId: string, planId: string, locale: 
     entries: plan.entries.map((entry) => ({
       id: entry.id,
       date: toDateString(entry.date),
-      mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
+      mealType: entry.mealType,
       status: entry.status,
       servingOverride: entry.servingOverride,
       meal: entry.meal

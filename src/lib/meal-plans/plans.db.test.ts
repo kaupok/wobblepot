@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
+import type { MealType } from '@/generated/prisma/enums'
 import { prisma } from '@/lib/prisma'
 import { loadMealPlan, MealPlanReadError, type MealPlanReadRefusal } from '@/lib/meal-plans/plans'
 
@@ -127,6 +128,16 @@ describe('loadMealPlan', () => {
         },
       ],
     })
+  })
+
+  it('types each entry with every meal type, not dinner only', async () => {
+    const { alder } = await world()
+
+    const plan = await loadMealPlan(alder.id, 'plan-alder', 'en')
+
+    // `pnpm type-check` fails here if the entry is narrowed back to `'dinner'`.
+    expectTypeOf(plan.entries[0]!.mealType).toEqualTypeOf<MealType>()
+    expect(plan.entries.map((entry) => entry.mealType)).toEqual(['dinner', 'breakfast'])
   })
 
   it('names the meal and its ingredients in the given locale', async () => {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { z } from 'zod'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { apiFetch, ApiError } from '@/lib/api'
 import type { HouseholdIngredient, IngredientUses } from '@/lib/ingredients/household-ingredient'
@@ -29,6 +30,18 @@ const USE_KEYS = [
   'mealPlan',
   'extras',
 ] as const
+
+/** The route's 409 body; read through this, so a changed shape shows `deleteFailed`. */
+const inUseBodySchema = z.object({
+  uses: z.object({
+    meals: z.number(),
+    deletedMealsInPlan: z.number(),
+    pantry: z.number(),
+    shoppingList: z.number(),
+    mealPlan: z.number(),
+    extras: z.number(),
+  }) satisfies z.ZodType<IngredientUses>,
+})
 
 /**
  * Delete on the Ingredients tab (HON-1264). The route refuses a row that
@@ -60,12 +73,17 @@ export function DeleteIngredientDialog({
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'in_use') {
-        setUses((error.body as { uses: IngredientUses }).uses)
+        const body = inUseBodySchema.safeParse(error.body)
+        if (body.success) {
+          setUses(body.data.uses)
+          return
+        }
+        console.error('[DeleteIngredientDialog] Unexpected in_use body:', error.body)
       } else {
         // The route's `error` is English, for logs; the dialog renders catalog copy.
         console.error('[DeleteIngredientDialog] Delete failed:', error.message)
-        setFailed(true)
       }
+      setFailed(true)
     },
   })
 

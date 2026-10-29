@@ -118,6 +118,26 @@ describe('DeleteIngredientDialog', () => {
     expect(screen.queryByText(/1 recipe\b/)).not.toBeInTheDocument()
   })
 
+  it('says the delete failed and logs the body on an in_use body with no uses', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const body = { error: 'Ingredient in use', code: 'in_use' }
+    fetchSpy.mockResolvedValue(json(body, 409))
+    const user = userEvent.setup()
+    const { onOpenChange } = renderDialog()
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(
+      await screen.findByText('Could not delete the ingredient. Try again.'),
+    ).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalledWith(
+      '[DeleteIngredientDialog] Unexpected in_use body:',
+      body,
+    )
+    expect(onOpenChange).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('says the delete failed on any other error', async () => {
     fetchSpy.mockResolvedValue(json({ error: 'boom' }, 500))
     const user = userEvent.setup()
