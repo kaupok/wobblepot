@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // bug under test (HON-724). Use the real provider so the `et` assertions mean
 // something.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { toast } from 'sonner'
 import enMessages from '../../../messages/en.json'
@@ -24,23 +24,27 @@ const hookState = vi.hoisted(() => ({
   rateLimitResetAt: null as Date | null,
   isSearchMode: false,
   isMyRecipesBrowseMode: false,
+  searchArgs: [] as string[],
 }))
 
 vi.mock('./meal-selector/use-meal-alternatives', () => ({
-  useMealAlternatives: () => ({
-    displayedMeals: [],
-    isLoading: false,
-    isFetchingMore: false,
-    hasMore: false,
-    loadMore: vi.fn(),
-    reset: vi.fn(),
-    total: 0,
-    hasLoadedList: true,
-    isSearchMode: hookState.isSearchMode,
-    isMyRecipesBrowseMode: hookState.isMyRecipesBrowseMode,
-    isRateLimited: hookState.isRateLimited,
-    rateLimitResetAt: hookState.rateLimitResetAt,
-  }),
+  useMealAlternatives: ({ search }: { search: string }) => {
+    hookState.searchArgs.push(search)
+    return {
+      displayedMeals: [],
+      isLoading: false,
+      isFetchingMore: false,
+      hasMore: false,
+      loadMore: vi.fn(),
+      reset: vi.fn(),
+      total: 0,
+      hasLoadedList: true,
+      isSearchMode: hookState.isSearchMode,
+      isMyRecipesBrowseMode: hookState.isMyRecipesBrowseMode,
+      isRateLimited: hookState.isRateLimited,
+      rateLimitResetAt: hookState.rateLimitResetAt,
+    }
+  },
 }))
 
 vi.mock('./meal-selector/AlternativesList', () => ({
@@ -314,6 +318,27 @@ describe('MealSelectorModal accessible names', () => {
       'placeholder',
       selector.searchPlaceholder,
     )
+  })
+})
+
+describe('MealSelectorModal search debounce', () => {
+  it('passes the typed term to the list only after 300 ms of quiet', () => {
+    vi.useFakeTimers()
+    try {
+      hookState.searchArgs = []
+      renderModal({}, { locale: 'en' })
+      fireEvent.change(screen.getByLabelText(enMessages['meal-plan'].selector.searchAria), {
+        target: { value: 'pasta' },
+      })
+      expect(hookState.searchArgs.at(-1)).toBe('')
+
+      act(() => {
+        vi.advanceTimersByTime(300)
+      })
+      expect(hookState.searchArgs.at(-1)).toBe('pasta')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import {
   Dialog,
@@ -17,6 +17,7 @@ import { Body } from '@/components/ui/typography'
 import { AlternativesList } from './meal-selector/AlternativesList'
 import { ImaginePanel } from './meal-selector/ImaginePanel'
 import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
@@ -117,7 +118,7 @@ export function MealSelectorModal({
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(searchQuery, 300)
 
   // Filter state
   const [myRecipesOnly, setMyRecipesOnly] = useState(false)
@@ -134,13 +135,6 @@ export function MealSelectorModal({
     setWasOpen(open)
     if (open) setIsImagineMode(initialView === 'imagine')
   }
-
-  // Debounce search input
-  useEffect(() => {
-    if (!open) return
-    const id = setTimeout(() => setDebouncedSearch(searchQuery), 300)
-    return () => clearTimeout(id)
-  }, [searchQuery, open])
 
   const {
     displayedMeals,
@@ -170,7 +164,6 @@ export function MealSelectorModal({
     (newOpen: boolean) => {
       if (!newOpen) {
         setSearchQuery('')
-        setDebouncedSearch('')
         setMyRecipesOnly(false)
         setError(null)
         setSelectingId(null)
