@@ -25,7 +25,8 @@
 #                no worker is left; the handlers are stubbed to print HANDLER
 #                lines, then ZOMBIES counts adopted PIDs left as zombies.
 #                Also spawns HON-4 alongside the adopted three.
-#       timeout  monitor_workers once; HON-1 started past WORKER_TIMEOUT.
+#       timeout  monitor_workers once; HON-1 started past WORKER_TIMEOUT. Then
+#                releases the other two and waits for them.
 #       budget   The REAL exit_unless_adopted, as main calls it when the
 #                branch budget refuses the new code: SHUTTING_DOWN, no exit.
 #       stop     Takes `wt stop`'s snapshot of the status file, as cmd_stop
@@ -185,7 +186,10 @@ EOF
       timeout)
         monitor_workers
         echo "LEFT:${#WORKER_PIDS[@]}"
+        # Wait for HON-2 and HON-3, or their stubs outlive the harness (HON-1460).
+        # Their exits are not under test, so their handler lines are dropped.
         release HON-1 0; release HON-2 0; release HON-3 0
+        MAIN_LOG=/dev/null monitor_until_empty 20 > /dev/null
         ;;
       stop)
         snapshot=$(bash -c 'source "$1"; stop_drain_snapshot "$2"' _ "$HARNESS_DIR/wt-stop-check.sh" "$STATUS_FILE")
