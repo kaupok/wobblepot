@@ -613,7 +613,10 @@ describe('POST /api/meals/imagine', () => {
         ],
       }) as never,
     ])
-    const estonian: Record<string, string> = { 'ing-chicken': 'kanafilee', 'ing-thigh': 'kanakoib' }
+    const estonian: Record<string, string> = {
+      'ing-chicken': 'kanafilee',
+      'ing-thigh': 'kanakints',
+    }
     mockTranslateMatchResults.mockImplementation(async (results) =>
       results.map((r) =>
         r.type === 'matched'
@@ -635,7 +638,7 @@ describe('POST /api/meals/imagine', () => {
     expect(meal.ingredients[0].ingredient).toMatchObject({ id: 'ing-chicken', name: 'kanafilee' })
     expect(meal.ingredients[0].alternatives.map((a: { name: string }) => a.name)).toEqual([
       'kanafilee',
-      'kanakoib',
+      'kanakints',
     ])
     expect(meal.components[0].ingredient).toMatchObject({ id: 'ing-chicken', name: 'kanafilee' })
   })

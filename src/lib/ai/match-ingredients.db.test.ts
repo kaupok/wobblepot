@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { prisma } from '@/lib/prisma'
 
+import { ingredientTranslationsEt } from '../../../prisma/seed-ingredient-translations-et'
 import { type IngredientMatchResult, matchIngredients } from './match-ingredients'
 import type { ExtractedIngredient } from './recipe-schema'
 
@@ -206,5 +207,38 @@ describe('matchIngredients with the frozen form rows', () => {
       ingredient: { id: 'ing-broccoli', name: 'broccoli' },
       lowConfidence: false,
     })
+  })
+})
+
+// HON-1478: an Estonian household types the shop word, so each cut's Estonian
+// name, singular or plural, must find that cut and not its neighbour.
+describe('matchIngredients on an Estonian chicken cut', () => {
+  async function seedCuts() {
+    for (const [id, name] of [
+      ['ing-drumstick', 'chicken drumstick'],
+      ['ing-thigh', 'chicken thigh'],
+      ['ing-leg', 'chicken leg'],
+    ] as const) {
+      // The seeded Estonian name, so a mixed-up seed turns this test red.
+      const et = ingredientTranslationsEt.find((row) => row.en === name)!.et
+      await ingredient(id, name)
+      await prisma.ingredientTranslation.create({
+        data: { ingredientId: id, locale: 'et', name: et },
+      })
+    }
+  }
+
+  it.each([
+    ['kanakints', 'ing-thigh'],
+    ['kanakintsud', 'ing-thigh'],
+    ['kanapoolkoib', 'ing-drumstick'],
+    ['kanapoolkoivad', 'ing-drumstick'],
+    ['kanakoib', 'ing-leg'],
+  ])('matches "%s" to %s', async (recipeName, id) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { id } })
   })
 })
