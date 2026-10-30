@@ -1459,7 +1459,7 @@ export const HON_859_IMAGINE_RUNS: RecordedRun[] = [
         ingredients: [
           'kanafilee',
           'riis',
-          'brokkoli',
+          'brokoli',
           'sojakaste',
           'mesi',
           'küüslauk',
@@ -1595,7 +1595,7 @@ export const HON_859_IMAGINE_RUNS: RecordedRun[] = [
         ingredients: [
           'kanafilee',
           'riis',
-          'brokkoli',
+          'brokoli',
           'sojakaste',
           'mesi',
           'küüslauk',
