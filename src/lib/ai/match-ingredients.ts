@@ -18,6 +18,7 @@ import {
   type FormGuardResult,
   guardFormMatch,
   hasForm,
+  isOtherCutFillet,
   removedForms,
 } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
@@ -272,12 +273,7 @@ export async function matchIngredients(
           lowConfidence = true
         }
 
-        // A fillet row is the fillet of one cut, so it must carry every word of the
-        // recipe's cut: "chicken leg fillet" is not `chicken fillet` (HON-1480)
-        const cutWords = normalizedName.split(/\s+/).map(singularize)
-        if (matchedWords.has('fillet') && cutWords.some((word) => !matchedWords.has(word))) {
-          lowConfidence = true
-        }
+        if (isOtherCutFillet(normalizedName, match.matchedName)) lowConfidence = true
       }
 
       // Get alternatives for disambiguation if low confidence

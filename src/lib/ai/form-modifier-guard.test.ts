@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { catalogueFormName, guardFormMatch, hasForm, removedForms } from './form-modifier-guard'
+import {
+  catalogueFormName,
+  guardFormMatch,
+  hasForm,
+  isOtherCutFillet,
+  removedForms,
+} from './form-modifier-guard'
 import type { FuzzyIngredientMatch } from './fuzzy-ingredient-match'
 
 function row(id: string, name: string, similarity: number): FuzzyIngredientMatch {
@@ -124,5 +130,19 @@ describe('the boneless form', () => {
     expect(guardFormMatch(['boneless'], 'chicken thigh', thigh, [others])).toEqual({
       action: 'keep',
     })
+  })
+})
+
+describe('isOtherCutFillet', () => {
+  it('flags a fillet row that lacks the cut the recipe names', () => {
+    expect(isOtherCutFillet('chicken leg fillet', 'chicken fillet')).toBe(true)
+    expect(isOtherCutFillet('beef chuck fillet', 'beef fillet')).toBe(true)
+  })
+
+  it('keeps a fillet row when the extra word names no cut, or the row is the cut', () => {
+    expect(isOtherCutFillet('wild salmon fillet', 'salmon fillet')).toBe(false)
+    expect(isOtherCutFillet('salmon fillet portion', 'salmon fillet')).toBe(false)
+    expect(isOtherCutFillet('chicken thigh', 'chicken thigh fillet')).toBe(false)
+    expect(isOtherCutFillet('chicken leg', 'chicken leg')).toBe(false)
   })
 })

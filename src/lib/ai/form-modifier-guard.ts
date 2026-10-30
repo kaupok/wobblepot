@@ -50,6 +50,25 @@ export function catalogueFormName(directName: string): string {
     .join(' ')
 }
 
+/**
+ * True when a fillet row lacks a cut word the recipe names between the food and
+ * "fillet": "chicken leg fillet" is not `chicken fillet`, but "wild salmon fillet"
+ * is `salmon fillet` (HON-1480).
+ *
+ * @param normalizedName - The normalized recipe name
+ * @param rowName - The name the match was made on
+ */
+export function isOtherCutFillet(normalizedName: string, rowName: string): boolean {
+  const rowWords = wordsOf(rowName).map(singularize)
+  if (!rowWords.includes('fillet')) return false
+  const cutWords = wordsOf(normalizedName).map(singularize)
+  const from = cutWords.indexOf(rowWords[0] ?? '')
+  const filletAt = cutWords.indexOf('fillet')
+  const to = filletAt >= 0 ? filletAt : cutWords.length
+  const cutBetween = from >= 0 && to > from ? cutWords.slice(from + 1, to) : []
+  return cutBetween.some((word) => !rowWords.includes(word))
+}
+
 export type FormGuardResult =
   | { action: 'keep' }
   | { action: 'use'; matches: FuzzyIngredientMatch[] }

@@ -306,6 +306,10 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
     ['forellifilee', 'trout fillet'],
     ['boneless pork chop', 'pork chop'],
     ['deboned chicken thighs', 'chicken thigh fillet'],
+    // A word that names no cut keeps a fillet row sure (HON-1480 review)
+    ['wild salmon fillets', 'salmon fillet'],
+    ['atlantic salmon fillet', 'salmon fillet'],
+    ['salmon fillet portions', 'salmon fillet'],
   ])('matches "%s" to the seeded row %s, sure', async (recipeName, rowName) => {
     await seedCuts()
 
