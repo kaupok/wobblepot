@@ -30,7 +30,12 @@ export async function matchExcludedIngredients(
     prisma.household.findUnique({ where: { id: householdId }, select: { locale: true } }),
     prisma.ingredient.findMany({
       where: { OR: [{ householdId: null }, { householdId }] },
-      select: { id: true, name: true, translations: { select: { locale: true, name: true } } },
+      select: {
+        id: true,
+        name: true,
+        householdId: true,
+        translations: { select: { locale: true, name: true } },
+      },
     }),
   ])
   return matchTags(tags, pool, resolveHouseholdLocale(household))
