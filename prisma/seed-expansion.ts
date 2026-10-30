@@ -4,6 +4,7 @@
 // This file contains additional ingredients and meals to triple the database.
 // To be merged into seed.ts after review.
 
+import { asSold } from './as-sold-nutrition'
 import type { IngredientInput } from './seed-types'
 
 // ============================================
@@ -21,11 +22,9 @@ export const newIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 172,
-    protein: 28,
-    carbs: 0,
-    fat: 5.7,
-    fiber: 0,
+    // USDA SR Legacy 05066, chicken drumstick, meat and skin, raw
+    // Edible part: USDA refuse 33% bone and cartilage
+    ...asSold({ calories: 161, protein: 18.1, carbs: 0.1, fat: 9.2, fiber: 0 }, 0.67),
   },
   {
     name: 'chicken wing',
@@ -34,11 +33,9 @@ export const newIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 203,
-    protein: 30,
-    carbs: 0,
-    fat: 8.1,
-    fiber: 0,
+    // USDA SR Legacy 05100, chicken wing, meat and skin, raw
+    // Edible part: USDA refuse 38% bone and connective tissue
+    ...asSold({ calories: 191, protein: 17.5, carbs: 0, fat: 12.9, fiber: 0 }, 0.62),
   },
   {
     name: 'duck breast',
@@ -47,10 +44,11 @@ export const newIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 337,
-    protein: 19,
+    // USDA SR Legacy 05144, duck, meat and skin, raw (wild; the domestic entry is the fatty whole bird)
+    calories: 211,
+    protein: 17.4,
     carbs: 0,
-    fat: 28,
+    fat: 15.2,
     fiber: 0,
   },
   {
@@ -60,11 +58,9 @@ export const newIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 144,
-    protein: 28,
-    carbs: 0,
-    fat: 3.5,
-    fiber: 0,
+    // USDA SR Legacy 05742, turkey thigh, meat and skin, raw
+    // Edible part: USDA refuse 19% bone and connective tissue
+    ...asSold({ calories: 161, protein: 19.5, carbs: 0, fat: 9.2, fiber: 0 }, 0.81),
   },
   {
     name: 'chicken liver',
@@ -103,10 +99,11 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 218,
-    protein: 27,
+    // USDA SR Legacy 13929, beef, top sirloin steak, lean and fat, raw
+    calories: 201,
+    protein: 20.3,
     carbs: 0,
-    fat: 12,
+    fat: 12.7,
     fiber: 0,
   },
   {
@@ -116,10 +113,11 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 291,
-    protein: 24,
+    // USDA SR Legacy 23201, beef, rib eye steak, boneless, lean and fat, raw
+    calories: 244,
+    protein: 18.9,
     carbs: 0,
-    fat: 22,
+    fat: 18.7,
     fiber: 0,
   },
   {
@@ -129,10 +127,11 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 246,
-    protein: 21,
+    // USDA SR Legacy 13803, beef, brisket, whole, lean and fat, raw
+    calories: 251,
+    protein: 18.4,
     carbs: 0,
-    fat: 17,
+    fat: 19.1,
     fiber: 0,
   },
   {
@@ -142,10 +141,11 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 225,
-    protein: 26,
+    // USDA SR Legacy 13809, beef, chuck, arm pot roast, lean and fat, raw
+    calories: 244,
+    protein: 19.2,
     carbs: 0,
-    fat: 13,
+    fat: 18,
     fiber: 0,
   },
   {
@@ -155,10 +155,11 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 192,
-    protein: 28,
+    // USDA SR Legacy 13970, beef, flank steak, lean and fat, raw
+    calories: 155,
+    protein: 21.2,
     carbs: 0,
-    fat: 8,
+    fat: 7.2,
     fiber: 0,
   },
   {
@@ -181,11 +182,9 @@ export const newIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 295,
-    protein: 22,
-    carbs: 0,
-    fat: 23,
-    fiber: 0,
+    // USDA SR Legacy 23128, beef, chuck short ribs, boneless, lean and fat, raw
+    // Edible part: about 20% bone (University of Nebraska rib bone-out study); USDA beef rib (13824) gives 16%
+    ...asSold({ calories: 235, protein: 17.5, carbs: 0, fat: 18.3, fiber: 0 }, 0.8),
   },
 
   // ============================================
@@ -224,10 +223,11 @@ export const newIngredients = [
     proteinType: 'pork',
     defaultUnit: 'g',
     allergens: [],
-    calories: 143,
-    protein: 27,
+    // USDA SR Legacy 10062, pork, top loin chops, boneless, lean and fat, raw
+    calories: 155,
+    protein: 21.6,
     carbs: 0,
-    fat: 3,
+    fat: 6.9,
     fiber: 0,
   },
   {
@@ -237,11 +237,9 @@ export const newIngredients = [
     proteinType: 'pork',
     defaultUnit: 'g',
     allergens: [],
-    calories: 277,
-    protein: 21,
-    carbs: 0,
-    fat: 21,
-    fiber: 0,
+    // USDA SR Legacy 10088, pork, spareribs, lean and fat, raw
+    // Edible part: USDA refuse 30% bone
+    ...asSold({ calories: 277, protein: 15.5, carbs: 0, fat: 23.4, fiber: 0 }, 0.7),
   },
   {
     name: 'ham',
@@ -319,10 +317,11 @@ export const newIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 234,
-    protein: 19,
+    // USDA SR Legacy 17242, lamb, shoulder, whole, lean and fat, raw (lamba abatükk is sold boneless as often as on the bone)
+    calories: 244,
+    protein: 17.1,
     carbs: 0,
-    fat: 17,
+    fat: 19,
     fiber: 0,
   },
   {
@@ -332,10 +331,11 @@ export const newIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 191,
-    protein: 25,
+    // USDA SR Legacy 17230, lamb, leg, whole, lean and fat, raw
+    calories: 209,
+    protein: 18.5,
     carbs: 0,
-    fat: 10,
+    fat: 14.4,
     fiber: 0,
   },
   {
@@ -345,11 +345,9 @@ export const newIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 201,
-    protein: 26,
-    carbs: 0,
-    fat: 10,
-    fiber: 0,
+    // USDA SR Legacy 17228, lamb, foreshank, lean and fat, raw
+    // Edible part: USDA refuse 52% bone
+    ...asSold({ calories: 201, protein: 18.9, carbs: 0, fat: 13.4, fiber: 0 }, 0.48),
   },
   {
     name: 'lamb loin',
@@ -358,10 +356,11 @@ export const newIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 182,
-    protein: 26,
+    // USDA SR Legacy 17026, lamb, loin, lean only, raw
+    calories: 143,
+    protein: 20.9,
     carbs: 0,
-    fat: 8,
+    fat: 5.9,
     fiber: 0,
   },
 
@@ -375,11 +374,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 97,
-    protein: 18,
-    carbs: 0,
-    fat: 2,
-    fiber: 0,
+    // USDA SR Legacy 15091, fish, sea bass, mixed species, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, seabreams (no sea bass row)
+    ...asSold({ calories: 97, protein: 18.4, carbs: 0, fat: 2, fiber: 0 }, 0.54),
   },
   {
     name: 'trout',
@@ -388,11 +385,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 148,
-    protein: 21,
-    carbs: 0,
-    fat: 6.6,
-    fiber: 0,
+    // USDA SR Legacy 15114, fish, trout, mixed species, raw
+    // Edible part: skin-on fillet yield of whole rainbow trout, 56.7% (J Fish Sci Tech, jfst.modares.ac.ir)
+    ...asSold({ calories: 148, protein: 20.8, carbs: 0, fat: 6.6, fiber: 0 }, 0.57),
   },
   {
     name: 'mackerel',
@@ -401,11 +396,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 205,
-    protein: 19,
-    carbs: 0,
-    fat: 14,
-    fiber: 0,
+    // USDA SR Legacy 15046, fish, mackerel, Atlantic, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, Atlantic mackerel
+    ...asSold({ calories: 205, protein: 18.6, carbs: 0, fat: 13.9, fiber: 0 }, 0.61),
   },
   {
     name: 'sardines',
@@ -427,10 +420,11 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 111,
-    protein: 23,
+    // USDA SR Legacy 15036, fish, halibut, Atlantic and Pacific, raw
+    calories: 91,
+    protein: 18.6,
     carbs: 0,
-    fat: 2,
+    fat: 1.3,
     fiber: 0,
   },
   {
@@ -479,10 +473,11 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
+    // USDA SR Legacy 15110, fish, swordfish, raw
     calories: 144,
-    protein: 23,
+    protein: 19.7,
     carbs: 0,
-    fat: 5,
+    fat: 6.7,
     fiber: 0,
   },
   {
@@ -492,11 +487,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 100,
-    protein: 21,
-    carbs: 0,
-    fat: 1.3,
-    fiber: 0,
+    // USDA SR Legacy 15101, fish, snapper, mixed species, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, seabreams (no snapper row)
+    ...asSold({ calories: 100, protein: 20.5, carbs: 0, fat: 1.3, fiber: 0 }, 0.54),
   },
   {
     name: 'anchovies',
@@ -557,11 +550,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 88,
-    protein: 19,
-    carbs: 0,
-    fat: 0.7,
-    fiber: 0,
+    // USDA SR Legacy 15062, fish, pike, northern, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, freshwater bream (no pike row)
+    ...asSold({ calories: 88, protein: 19.3, carbs: 0, fat: 0.7, fiber: 0 }, 0.54),
   },
 
   // ============================================
@@ -3784,7 +3775,7 @@ export const newMeals = [
     suitableFor: ['lunch', 'dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 180 },
+      { ingredient: 'chicken thigh fillet', quantity: 180 },
       { ingredient: 'white rice', quantity: 100 },
       { ingredient: 'broccoli', quantity: 80 },
       { ingredient: 'teriyaki sauce', quantity: 30 },
@@ -3816,7 +3807,7 @@ export const newMeals = [
     suitableFor: ['lunch', 'dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 180 },
+      { ingredient: 'chicken thigh fillet', quantity: 180 },
       { ingredient: 'pitta bread', quantity: 1 },
       { ingredient: 'greek yogurt', quantity: 50 },
       { ingredient: 'garlic', quantity: 10 },
@@ -4347,7 +4338,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'lamb',
     components: [
-      { ingredient: 'lamb shank', quantity: 200 },
+      { ingredient: 'lamb shoulder', quantity: 200 },
       { ingredient: 'potato', quantity: 150 },
       { ingredient: 'carrot', quantity: 80 },
       { ingredient: 'onion', quantity: 60 },
@@ -4607,7 +4598,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'fish',
     components: [
-      { ingredient: 'trout', quantity: 200 },
+      { ingredient: 'trout fillet', quantity: 200 },
       { ingredient: 'almonds', quantity: 30 },
       { ingredient: 'butter', quantity: 30 },
       { ingredient: 'lemon', quantity: 0.5 },
@@ -5688,7 +5679,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 200 },
+      { ingredient: 'chicken thigh fillet', quantity: 200 },
       { ingredient: 'double cream', quantity: 80 },
       { ingredient: 'almonds', quantity: 30 },
       { ingredient: 'greek yogurt', quantity: 50 },
@@ -5830,7 +5821,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 150 },
+      { ingredient: 'chicken thigh fillet', quantity: 150 },
       { ingredient: 'chorizo', quantity: 80 },
       { ingredient: 'white rice', quantity: 60 },
       { ingredient: 'bell pepper', quantity: 60 },

@@ -33,6 +33,7 @@ import { validateDryWeightNutrition } from './validate-dry-weight-nutrition'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
 import { validateIngredientGroups } from './validate-ingredient-groups'
 import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
+import { validateRawMeatNutrition } from './validate-raw-meat-nutrition'
 import { validateWrapperGramsPerPiece } from './validate-wrapper-grams'
 
 // ============================================
@@ -763,6 +764,7 @@ async function main() {
     validateNutritionalValues(allIngredients),
     validateCalorieSanity(allIngredients),
     { errors: [], warnings: validateDryWeightNutrition(allIngredients) },
+    { errors: [], warnings: validateRawMeatNutrition(allIngredients) },
 
     // Duplicate detection
     checkDuplicateIngredientsMulti(ingredientSources),

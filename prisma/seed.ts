@@ -9,6 +9,7 @@ import { PrismaClient } from '../src/generated/prisma/client'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
 import { seedDefaultStaples } from '../src/lib/meal-planning/default-staples'
+import { asSold } from './as-sold-nutrition'
 import { isMeasuredByVolume } from './measured-by-volume'
 import { pieceDisplayFor } from './piece-display'
 import { comprehensiveIngredients } from './seed-comprehensive'
@@ -50,10 +51,11 @@ export const baseIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 165,
-    protein: 31,
+    // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
+    calories: 120,
+    protein: 22.5,
     carbs: 0,
-    fat: 3.6,
+    fat: 2.6,
     fiber: 0,
   },
   {
@@ -63,10 +65,23 @@ export const baseIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 209,
-    protein: 26,
+    // USDA SR Legacy 05091, chicken thigh, meat and skin, raw
+    // Edible part: 05091 gives no refuse; 22% bone from the leg (05075, 27%) and drumstick (05066, 33%) bone shares
+    ...asSold({ calories: 221, protein: 16.5, carbs: 0.3, fat: 16.6, fiber: 0 }, 0.78),
+  },
+  {
+    // Boneless, skinless: "chicken thigh" is the cut on the bone (HON-1479)
+    name: 'chicken thigh fillet',
+    category: 'protein',
+    subcategory: 'poultry',
+    proteinType: 'poultry',
+    defaultUnit: 'g',
+    allergens: [],
+    // USDA SR Legacy 05096, chicken thigh, meat only, raw
+    calories: 121,
+    protein: 19.7,
     carbs: 0,
-    fat: 10.9,
+    fat: 4.1,
     fiber: 0,
   },
   {
@@ -76,10 +91,11 @@ export const baseIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 135,
-    protein: 30,
+    // USDA SR Legacy 05710, turkey breast, meat only, raw
+    calories: 114,
+    protein: 23.3,
     carbs: 0,
-    fat: 1,
+    fat: 2.3,
     fiber: 0,
   },
   {
@@ -89,8 +105,9 @@ export const baseIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 250,
-    protein: 26,
+    // USDA SR Legacy 23567, beef, ground, 85% lean / 15% fat, raw
+    calories: 215,
+    protein: 18.6,
     carbs: 0,
     fat: 15,
     fiber: 0,
@@ -102,10 +119,11 @@ export const baseIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 271,
-    protein: 26,
+    // USDA SR Legacy 13795, beef, composite of trimmed retail cuts, lean and fat, raw
+    calories: 214,
+    protein: 20,
     carbs: 0,
-    fat: 18,
+    fat: 14.4,
     fiber: 0,
   },
   {
@@ -115,10 +133,11 @@ export const baseIngredients = [
     proteinType: 'pork',
     defaultUnit: 'g',
     allergens: [],
-    calories: 231,
-    protein: 25,
+    // USDA SR Legacy 10164, pork, center loin chops, boneless, lean and fat, raw
+    calories: 201,
+    protein: 21.1,
     carbs: 0,
-    fat: 14,
+    fat: 13,
     fiber: 0,
   },
   {
@@ -128,10 +147,11 @@ export const baseIngredients = [
     proteinType: 'pork',
     defaultUnit: 'g',
     allergens: [],
-    calories: 541,
-    protein: 37,
-    carbs: 1.4,
-    fat: 42,
+    // USDA SR Legacy 10123, pork, cured, bacon, unprepared
+    calories: 417,
+    protein: 12.6,
+    carbs: 1.3,
+    fat: 39.7,
     fiber: 0,
   },
   {
@@ -141,11 +161,9 @@ export const baseIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 294,
-    protein: 25,
-    carbs: 0,
-    fat: 21,
-    fiber: 0,
+    // USDA SR Legacy 17236, lamb, loin, lean and fat, raw
+    // Edible part: USDA refuse 22% bone
+    ...asSold({ calories: 279, protein: 17.2, carbs: 0, fat: 22.8, fiber: 0 }, 0.78),
   },
   {
     name: 'salmon fillet',
@@ -180,10 +198,11 @@ export const baseIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 132,
-    protein: 29,
+    // USDA SR Legacy 15127, fish, tuna, fresh, yellowfin, raw
+    calories: 109,
+    protein: 24.4,
     carbs: 0,
-    fat: 1,
+    fat: 0.5,
     fiber: 0,
   },
   {
@@ -1998,7 +2017,7 @@ export const baseMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 180 },
+      { ingredient: 'chicken thigh fillet', quantity: 180 },
       { ingredient: 'onion', quantity: 80 },
       { ingredient: 'tomato', quantity: 100 },
       { ingredient: 'greek yogurt', quantity: 50 },
@@ -2235,7 +2254,7 @@ export const baseMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'lamb',
     components: [
-      { ingredient: 'lamb chop', quantity: 180 },
+      { ingredient: 'lamb shoulder', quantity: 180 },
       { ingredient: 'onion', quantity: 80 },
       { ingredient: 'tomato', quantity: 100 },
       { ingredient: 'curry powder', quantity: 10 },
@@ -3302,7 +3321,7 @@ export const baseMeals = [
     suitableFor: ['lunch', 'dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 180 },
+      { ingredient: 'chicken thigh fillet', quantity: 180 },
       { ingredient: 'white rice', quantity: 100 },
       { ingredient: 'orange', quantity: 1 },
       { ingredient: 'soy sauce', quantity: 20 },
@@ -3419,7 +3438,7 @@ export const baseMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'poultry',
     components: [
-      { ingredient: 'chicken thigh', quantity: 180 },
+      { ingredient: 'chicken thigh fillet', quantity: 180 },
       { ingredient: 'basil', quantity: 15 },
       { ingredient: 'garlic', quantity: 10 },
       { ingredient: 'chilli flakes', quantity: 3 },
