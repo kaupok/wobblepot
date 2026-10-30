@@ -305,7 +305,7 @@ describe('the cook-question task', () => {
     })
 
     expect(calls[0]!.options.abortSignal).toBeUndefined()
-    expect(calls[0]!.options.maxOutputTokens).toBe(1200)
+    expect(calls[0]!.options.maxOutputTokens).toBe(2000)
     // No schema: the answer streams to the cook as plain text.
     expect(calls[0]!.options.responseFormat).toBeUndefined()
     expect(result.calls[0]).toMatchObject({

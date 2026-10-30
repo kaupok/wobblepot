@@ -1,47 +1,54 @@
 # AI eval check: production configuration
 
-2026-10-30 · 3 run(s) · tasks: recipe · 30 calls
+2026-10-30 · 3 run(s) · tasks: cook-question · 51 calls
 
-Models: recipe `claude-sonnet-5-5`
+Models: cook-question `claude-sonnet-5-5`
 
 ## Result
 
-**Pass.** All 6 gates hold.
+**Pass.** All 10 gates hold.
 
 ## Gates
 
 Each gate holds a metric's mean over all runs, with the run-to-run range in brackets, to an absolute threshold, and each task's slowest call to 80% of its route budget. A metric no case in this set measures passes as _not measured_.
 
-| Task   | Gate                   | Observed             | Threshold                                                  | Result |
-| ------ | ---------------------- | -------------------- | ---------------------------------------------------------- | ------ |
-| recipe | Ingredient recall      | 98.9% (98.1%–100.0%) | ≥ 95.0%                                                    | pass   |
-| recipe | Ingredient precision   | 98.9% (98.1%–100.0%) | ≥ 95.0%                                                    | pass   |
-| recipe | Quantity + unit exact  | 100.0%               | ≥ 100.0%                                                   | pass   |
-| recipe | Confidence tier agrees | 100.0%               | ≥ 100.0%                                                   | pass   |
-| recipe | Servings match         | 100.0%               | ≥ 100.0%                                                   | pass   |
-| recipe | Max latency            | 6.2s                 | ≤ 36.0s (80% of `RECIPE_PARSE_AI_BUDGET_MS (pasted text)`) | pass   |
+| Task          | Gate                                          | Observed | Threshold                                     | Result |
+| ------------- | --------------------------------------------- | -------- | --------------------------------------------- | ------ |
+| cook-question | Answered without error                        | 100.0%   | ≥ 100.0%                                      | pass   |
+| cook-question | Metric units only                             | 100.0%   | ≥ 100.0%                                      | pass   |
+| cook-question | ≤ 100 words                                   | 100.0%   | ≥ 90.0%                                       | pass   |
+| cook-question | ≤ 4 sentences                                 | 100.0%   | ≥ 90.0%                                       | pass   |
+| cook-question | Off-topic declined (≤ 50 words)               | 100.0%   | ≥ 100.0%                                      | pass   |
+| cook-question | No forbidden suggestion                       | 100.0%   | ≥ 100.0%                                      | pass   |
+| cook-question | No unbacked claim                             | 100.0%   | ≥ 85.0%                                       | pass   |
+| cook-question | Names the expected answer                     | 100.0%   | ≥ 90.0%                                       | pass   |
+| cook-question | Leaves out what the changed list doesn't have | 100.0%   | ≥ 100.0%                                      | pass   |
+| cook-question | Max latency                                   | 10.3s    | ≤ 24.0s (80% of `COOK_QUESTION_AI_BUDGET_MS`) | pass   |
 
-## recipe
+## cook-question
 
-| Metric                 | claude-sonnet-5-5    | Gate     |
-| ---------------------- | -------------------- | -------- |
-| Ingredient recall      | 98.9% (98.1%–100.0%) | ≥ 95.0%  |
-| Ingredient precision   | 98.9% (98.1%–100.0%) | ≥ 95.0%  |
-| Quantity + unit exact  | 100.0%               | ≥ 100.0% |
-| Confidence tier agrees | 100.0%               | ≥ 100.0% |
-| Step count delta       | 0.37 (0.33–0.44)     | —        |
-| Servings match         | 100.0%               | ≥ 100.0% |
+| Metric                                        | claude-sonnet-5-5 | Gate     |
+| --------------------------------------------- | ----------------- | -------- |
+| Answered without error                        | 100.0%            | ≥ 100.0% |
+| Metric units only                             | 100.0%            | ≥ 100.0% |
+| ≤ 100 words                                   | 100.0%            | ≥ 90.0%  |
+| ≤ 4 sentences                                 | 100.0%            | ≥ 90.0%  |
+| Off-topic declined (≤ 50 words)               | 100.0%            | ≥ 100.0% |
+| No forbidden suggestion                       | 100.0%            | ≥ 100.0% |
+| No unbacked claim                             | 100.0%            | ≥ 85.0%  |
+| Names the expected answer                     | 100.0%            | ≥ 90.0%  |
+| Leaves out what the changed list doesn't have | 100.0%            | ≥ 100.0% |
 
-| Operational                                                           | claude-sonnet-5-5      |
-| --------------------------------------------------------------------- | ---------------------- |
-| Calls                                                                 | 30                     |
-| Latency p50                                                           | 4.6s                   |
-| Latency max (budget 45.0s, `RECIPE_PARSE_AI_BUDGET_MS (pasted text)`) | 6.2s                   |
-| Calls over budget                                                     | 0                      |
-| Calls retried (latency includes retries)                              | 0                      |
-| Errors                                                                | none                   |
-| Truncated (`finishReason: length`)                                    | 0                      |
-| Tokens / call (input · output · reasoning · cache read · cache write) | 6120 · 684 · 0 · 0 · 0 |
-| Cost / call                                                           | $0.0191                |
+| Operational                                                           | claude-sonnet-5-5        |
+| --------------------------------------------------------------------- | ------------------------ |
+| Calls                                                                 | 51                       |
+| Latency p50                                                           | 2.2s                     |
+| Latency max (budget 30.0s, `COOK_QUESTION_AI_BUDGET_MS`)              | 10.3s                    |
+| Calls over budget                                                     | 0                        |
+| Calls retried (latency includes retries)                              | 0                        |
+| Errors                                                                | none                     |
+| Truncated (`finishReason: length`)                                    | 0                        |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 1510 · 224 · 116 · 0 · 0 |
+| Cost / call                                                           | $0.0053                  |
 
-**Total cost:** $0.57 over 30 calls.
+**Total cost:** $0.27 over 51 calls.

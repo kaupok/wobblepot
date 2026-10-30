@@ -270,6 +270,7 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
         protein: row.protein,
         carbs: row.carbs,
         fat: row.fat,
+        gramsPerPiece: 'gramsPerPiece' in row ? row.gramsPerPiece : null,
       })),
       skipDuplicates: true,
     })
@@ -333,5 +334,19 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
     const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
 
     expect(result).not.toMatchObject({ ingredient: { name: otherCut }, lowConfidence: false })
+  })
+
+  // HON-1491: a cut counted in pieces fell back to 30 g a piece, so 4 thighs were 120 g
+  it.each([
+    ['chicken thighs', 772],
+    ['boneless skinless chicken thighs', 428],
+  ])('converts 4 pieces of "%s" to %i g', async (recipeName, grams) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([{ ...extracted(recipeName), quantity: 4 }], 4, {
+      locale: 'et',
+    })
+
+    expect(result).toMatchObject({ type: 'matched', convertedQuantity: grams })
   })
 })
