@@ -23,8 +23,9 @@ async function runMigration() {
 
 const GRAMS_PER_PIECE = {
   'chicken breast': 272,
+  'chicken fillet': 272,
   'chicken thigh': 193,
-  'chicken thigh fillet': 149,
+  'chicken thigh fillet': 107,
   'chicken drumstick': 130,
   'chicken leg': 296,
   'chicken wing': 107,
@@ -59,8 +60,9 @@ it('sets the piece weight on each global chicken cut row and leaves household ro
   await runMigration()
 
   expect(await gramsPerPiece('chicken thigh')).toBe(193)
-  expect(await gramsPerPiece('chicken thigh fillet')).toBe(149)
+  expect(await gramsPerPiece('chicken thigh fillet')).toBe(107)
   expect(await gramsPerPiece('chicken breast')).toBe(272)
+  expect(await gramsPerPiece('chicken fillet')).toBe(272)
   expect(await gramsPerPiece('chicken drumstick')).toBe(130)
   expect(await gramsPerPiece('chicken leg')).toBe(296)
   expect(await gramsPerPiece('chicken wing')).toBe(107)

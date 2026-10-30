@@ -78,7 +78,9 @@ export const baseIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
-    gramsPerPiece: 149, // USDA FDC 173627 (SR 05096), 1 thigh without skin = 149 g (HON-1491)
+    // USDA FDC 173627 (SR 05096) "1 thigh without skin" = 149 g still holds the bone:
+    // less 22% of the 193 g bone-in thigh (chicken thigh above) leaves 107 g (HON-1491)
+    gramsPerPiece: 107,
     allergens: [],
     // USDA SR Legacy 05096, chicken thigh, meat only, raw
     calories: 121,

@@ -339,7 +339,7 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
   // HON-1491: a cut counted in pieces fell back to 30 g a piece, so 4 thighs were 120 g
   it.each([
     ['chicken thighs', 772],
-    ['boneless skinless chicken thighs', 596],
+    ['boneless skinless chicken thighs', 428],
   ])('converts 4 pieces of "%s" to %i g', async (recipeName, grams) => {
     await seedCuts()
 

@@ -1173,6 +1173,7 @@ export const importCoverageIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 272, // USDA FDC 171077 (SR 05062), 1 piece = 272 g, as chicken breast (HON-1491)
     allergens: [],
     // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
     calories: 120,

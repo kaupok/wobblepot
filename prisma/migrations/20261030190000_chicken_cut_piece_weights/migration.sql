@@ -5,11 +5,11 @@
 -- Global rows only: a household set its own row's weight. A re-seed refreshes
 -- gramsPerPiece too, but a database that is not re-seeded needs this migration.
 
-UPDATE "ingredient" SET "gramsPerPiece" = 272 WHERE "householdId" IS NULL AND "name" = 'chicken breast';
+UPDATE "ingredient" SET "gramsPerPiece" = 272 WHERE "householdId" IS NULL AND "name" IN ('chicken breast', 'chicken fillet');
 
 UPDATE "ingredient" SET "gramsPerPiece" = 193 WHERE "householdId" IS NULL AND "name" = 'chicken thigh';
 
-UPDATE "ingredient" SET "gramsPerPiece" = 149 WHERE "householdId" IS NULL AND "name" = 'chicken thigh fillet';
+UPDATE "ingredient" SET "gramsPerPiece" = 107 WHERE "householdId" IS NULL AND "name" = 'chicken thigh fillet';
 
 UPDATE "ingredient" SET "gramsPerPiece" = 130 WHERE "householdId" IS NULL AND "name" = 'chicken drumstick';
 
