@@ -58,7 +58,9 @@ const ingredientInput = z
       .number()
       .positive()
       .nullable()
-      .describe('The amount for the whole recipe in unit. Null for a vague amount.'),
+      .describe(
+        'The amount for the whole recipe in unit, as bought: dry pasta, rice and lentils, drained canned beans. Null for a vague amount.',
+      ),
     unit: z
       .string()
       .trim()
