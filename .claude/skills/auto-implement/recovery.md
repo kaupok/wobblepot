@@ -26,9 +26,9 @@ The full 2.1 gate, with the stop messages. Read it whenever a check in `SKILL.md
 
 **Hard gate — run the three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path. The order matters: a closed issue short-circuits before the assignee and blocker checks, so an issue that is itself `Duplicate` (e.g. HON-496) never reaches the blocker check and cannot be used to exercise it.
 
-**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
+**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee cleared, HON-1483) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_queued_issues` only queries Queued, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Queued — where `claim_issue()` took it from — so the orchestrator / `/next-issue` can see it again:
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which sets the state and clears the assignee — and stopping would strand it: `fetch_queued_issues` only queries Queued, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Queued — where `claim_issue()` took it from — so the orchestrator / `/next-issue` can see it again:
 
 ```
 mcp__linear-server__save_issue({ id: "HON-XX", state: "Queued" })
@@ -48,7 +48,7 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
    [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
    ```
 
-2. **Assignee** — the issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
+2. **Assignee** — a `Queued` issue passes whatever its assignee (HON-1483): the state is the pickup signal, and a human who takes a Queued issue by hand moves it out of Queued. For every other state, apply this check. The issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
 
    ```
    mcp__linear-server__get_user({ query: "me" })

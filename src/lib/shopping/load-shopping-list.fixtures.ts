@@ -15,7 +15,7 @@ export const PANTRY_UPDATED_AT = new Date('2026-10-14T12:00:00Z')
 export async function ingredient(
   id: string,
   name: string,
-  category: 'protein' | 'carb' | 'dairy' | 'spice' | 'legume',
+  category: 'protein' | 'carb' | 'dairy' | 'spice' | 'legume' | 'vegetable',
   { et, measuredByVolume = false }: { et?: string; measuredByVolume?: boolean } = {},
 ) {
   await prisma.ingredient.create({

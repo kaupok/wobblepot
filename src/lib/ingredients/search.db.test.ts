@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { type IngredientSearch, searchIngredients, SYNONYM_SCORE } from '@/lib/ingredients/search'
 import { prisma } from '@/lib/prisma'
 
+import { importCoverageIngredients } from '../../../prisma/seed-import-coverage'
+import { ingredientTranslationsEt } from '../../../prisma/seed-ingredient-translations-et'
+
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
 // the real `similarity()` from pg_trgm. The migrations seed only part of the
 // global pool (none of the rows below), so each test adds the global rows it
@@ -214,5 +217,36 @@ describe('searchIngredients', () => {
 
       expect(rows.find((row) => row.id === 'ing-own-courgette')).toBeUndefined()
     })
+  })
+})
+
+// HON-1471: a shopper or an assistant types the shelf name of a frozen bag.
+describe('searchIngredients on the frozen form rows of the seed', () => {
+  async function seedFrozenRows() {
+    for (const row of importCoverageIngredients.filter((r) => r.name.startsWith('frozen '))) {
+      const et = ingredientTranslationsEt.find((t) => t.en === row.name)!.et
+      await prisma.ingredient.create({
+        data: {
+          name: row.name,
+          category: row.category,
+          defaultUnit: row.defaultUnit,
+          ...nutrition,
+          translations: { create: { locale: 'et', name: et } },
+        },
+      })
+    }
+  }
+
+  it.each([
+    ['frozen peas', 'en', 'frozen peas'],
+    ['külmutatud herned', 'et', 'külmutatud herned'],
+    ['brokoli-lillkapsasegu', 'et', 'külmutatud brokoli-lillkapsasegu'],
+    ['marjasegu', 'et', 'külmutatud marjasegu'],
+  ])('finds "%s" (%s) as %s, best match first', async (query, locale, shown) => {
+    await seedFrozenRows()
+
+    const rows = await search({ search: query, locale: locale as 'en' | 'et' })
+
+    expect(rows[0]).toMatchObject({ name: shown })
   })
 })

@@ -262,7 +262,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (161)
+  // VEGETABLE (166)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -328,6 +328,11 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'flat leaf parsley', et: 'sileleheline petersell' },
   { en: 'fresno pepper', et: 'fresno tšilli' },
   { en: 'frisee', et: 'frisée-salat' },
+  { en: 'frozen broccoli and cauliflower mix', et: 'külmutatud brokoli-lillkapsasegu' },
+  { en: 'frozen green beans', et: 'külmutatud rohelised oad' },
+  { en: 'frozen mixed vegetables', et: 'külmutatud köögiviljasegu' },
+  { en: 'frozen peas', et: 'külmutatud herned' },
+  { en: 'frozen spinach', et: 'külmutatud spinat' },
   { en: 'gai lan', et: 'hiina brokkoli' },
   { en: 'garlic', et: 'küüslauk' },
   { en: 'garlic scapes', et: 'küüslauguvarred' },
@@ -424,7 +429,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'yu choy', et: 'yu choy' },
   { en: 'courgette', et: 'suvikõrvits' },
   // ============================================================
-  // FRUIT (66)
+  // FRUIT (70)
   // ============================================================
   { en: 'acai', et: 'assaimari' },
   { en: 'ackee', et: 'akee' },
@@ -454,6 +459,10 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'durian', et: 'durian' },
   { en: 'feijoa', et: 'feijoa' },
   { en: 'fig', et: 'viigimari' },
+  { en: 'frozen blueberries', et: 'külmutatud mustikad' },
+  { en: 'frozen mixed berries', et: 'külmutatud marjasegu' },
+  { en: 'frozen raspberries', et: 'külmutatud vaarikad' },
+  { en: 'frozen strawberries', et: 'külmutatud maasikad' },
   { en: 'galia melon', et: 'galia melon' },
   { en: 'goji berries', et: 'goji marjad' },
   { en: 'golden kiwi', et: 'kuldkiivi' },

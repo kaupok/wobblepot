@@ -126,8 +126,8 @@ export function buildSampleWeek(
       options.tVague,
       options.pieceLabel,
     )
-  // A recipe row shows quarter pieces with the grams after them, as the cook
-  // view does: "¾ pc (83g)" (HON-1312).
+  // A recipe row shows a rounded piece count with the grams after them, as the
+  // cook view does: "~3 pc (500g)" (HON-1312, HON-1474).
   const formatRecipe = (
     quantity: number,
     ingredient: AggregationComponent['ingredient'],

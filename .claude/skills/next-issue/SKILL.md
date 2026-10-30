@@ -51,24 +51,24 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Review for current phase and relevant context.
 
-2. **List unassigned Todo, Queued and Backlog issues**
+2. **List Queued issues, and unassigned Todo and Backlog issues**
 
-   Always pass `assignee: "null"` — never list all issues and filter client-side. Never list issues with any other state (In Progress / In Review / Done / Canceled issues are already claimed or complete).
+   Pass `assignee: "null"` for Todo and Backlog, because those are for humans and an assignee has claimed them. Queued takes no assignee filter: an agent may take a Queued issue whatever its assignee (HON-1483). Never list all issues and filter client-side. Never list issues with any other state (In Progress / In Review / Done / Canceled issues are already claimed or complete).
 
-   The three states mean different things: **Todo** is work a human intends to do, **Queued** is the orchestrator's unattended queue (a human can still take a queued issue — the orchestrator skips it once it is assigned), and **Backlog** is everything not yet promoted. The listing order depends on the mode, and step 6 ranks in the same order.
+   The three states mean different things: **Todo** is work a human intends to do, **Queued** is the orchestrator's unattended queue (a human who takes a queued issue by hand moves it out of Queued), and **Backlog** is everything not yet promoted. The listing order depends on the mode, and step 6 ranks in the same order.
 
    **`autoMode` false** — Todo, then Queued, then Backlog:
 
    ```
    mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
-   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Queued",  limit: 100 })
    mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
 
    **`autoMode` true** — Queued, then Todo, then Backlog:
 
    ```
-   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Queued",  limit: 100 })
    mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
    mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
@@ -86,7 +86,7 @@ Find the next unblocked issue and return a concise implementation summary.
 4. **Hard filters — reject the candidate if ANY of these fail**
 
    - `status` must be one of: `Todo`, `Queued`, `Backlog`. Reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
-   - `assignee` must be `null`. Reject any issue with an assignee, even "me" — it's already claimed.
+   - For `Todo` and `Backlog`, `assignee` must be `null`. Reject any such issue with an assignee, even "me" — it's already claimed. A `Queued` issue passes whatever its assignee.
    - Every id in `relations.blockedBy` must resolve to a `status` of `Done` or `Canceled`. An empty `blockedBy` array passes. An open blocker (Backlog / Todo / Queued / In Progress / In Review) fails.
    - `statusType` must not be `triage` or `canceled`.
 

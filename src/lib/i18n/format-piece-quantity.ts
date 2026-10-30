@@ -30,21 +30,41 @@ function piecesRule(
   return null
 }
 
+/** A recipe's piece hint: the rounded count, and whether it differs from the grams. */
+export interface RecipePieceCount {
+  pieces: number
+  /** The count is off the exact grams by more than 0.05 pieces, so it shows as "~3". */
+  approximate: boolean
+}
+
+/** A piece this heavy or heavier is cut in half and the rest kept: "½ onion". */
+const HALVES_FROM_GRAMS_PER_PIECE = 100
+
 /**
- * The piece count a recipe shows for `grams`, rounded to the nearest quarter
- * with ¼ as the minimum: 83 g onion (110 g each) is ¾. Null when the
- * ingredient shows in grams. Display only: the stored grams do not change.
+ * The piece count a recipe shows for `grams` (HON-1474). A big piece (100 g
+ * or more) rounds to the nearest half below 1¾, with ½ as the minimum, and to
+ * the nearest whole from there up: 165 g onion (110 g each) is 1½, 190 g is
+ * ~2. A small piece (carrot, garlic clove) rounds to the nearest whole, with 1
+ * as the minimum. The 1¾ threshold reads the count rounded to a quarter, so
+ * 190 g onion (1.73) is past it. Null when the ingredient shows in grams.
+ * Display only: the stored grams do not change.
  */
-export function recipePieceCount(grams: number, ingredient: PieceDisplayIngredient): number | null {
+export function recipePieceCount(
+  grams: number,
+  ingredient: PieceDisplayIngredient,
+): RecipePieceCount | null {
   const perPiece = piecesRule(ingredient, 'recipe')
   if (perPiece == null || grams <= 0) return null
-  return Math.max(0.25, Math.round((grams / perPiece) * 4) / 4)
+  const exact = grams / perPiece
+  const halves = perPiece >= HALVES_FROM_GRAMS_PER_PIECE && Math.round(exact * 4) / 4 < 1.75
+  const pieces = halves ? Math.max(0.5, Math.round(exact * 2) / 2) : Math.max(1, Math.round(exact))
+  return { pieces, approximate: Math.abs(pieces - exact) > 0.05 }
 }
 
 /**
  * The piece count the shopping list shows for `grams`, rounded up to whole
  * pieces so the shopper buys enough: 83 g onion is 1. The caller passes the
- * grams summed across meals with the pantry subtracted, so three meals of ¼
+ * grams summed across meals with the pantry subtracted, so three meals of 30 g
  * onion need 1 onion, not 3. Null for `recipe` ingredients (potatoes are sold
  * by weight) and for every ingredient that shows in grams.
  */
@@ -58,18 +78,16 @@ export function shoppingPieceCount(
   return Math.ceil(grams / perPiece - 1e-9)
 }
 
-const QUARTERS = ['', '¼', '½', '¾'] as const
-
 /**
- * Format a quarter-rounded piece count with a fraction glyph: `¾`, `1½`, `2`.
- * The integer part follows `locale`.
+ * Format a recipe piece count with the half glyph: `½`, `1½`, `2`, and `~3`
+ * when approximate. The `~` takes no space in every locale; the integer part
+ * follows `locale`.
  */
-export function formatPieceFraction(pieces: number, locale: Locale): string {
-  const quarters = Math.round(pieces * 4)
-  const whole = Math.floor(quarters / 4)
-  const fraction = QUARTERS[quarters % 4]
-  if (whole === 0) return fraction || formatInteger(0, locale)
-  return `${formatInteger(whole, locale)}${fraction}`
+export function formatPieceFraction({ pieces, approximate }: RecipePieceCount, locale: Locale) {
+  const whole = Math.floor(pieces)
+  const half = pieces - whole >= 0.5 ? '½' : ''
+  const count = whole === 0 ? half : `${formatInteger(whole, locale)}${half}`
+  return approximate ? `~${count}` : count
 }
 
 /**

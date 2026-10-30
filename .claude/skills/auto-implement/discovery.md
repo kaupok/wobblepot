@@ -14,14 +14,14 @@ Read docs/PROJECT_SPEC.md
 
 Review for current phase and relevant context.
 
-### 1.2 List unassigned Queued issues
+### 1.2 List Queued issues
 
 List **`Queued` only**. Queued is the unattended queue: an issue lands there only when an agent can finish it alone (CLAUDE.md → File and queue by default). Todo means a human intends to do the work, and Backlog is unrefined or unprioritised, so neither is ever listed here — `/next-issue` is where Backlog and Todo candidates get surfaced to a human (HON-854).
 
-Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle, and an assigned Queued issue has been taken by a human.
+Do not filter on the assignee. In Progress / In Review / Done / Canceled issues are already claimed or complete and the state filter keeps them out. A Queued issue is open to an agent whatever its assignee, because a human who takes one by hand moves it out of Queued (HON-1483).
 
 ```
-mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 100 })
+mcp__linear-server__list_issues({ state: "Queued", limit: 100 })
 ```
 
 ### 1.3 Verify every candidate with `includeRelations: true`
@@ -35,7 +35,6 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 ### 1.4 Hard filters — reject the candidate if ANY of these fail
 
 - `status` is `Queued` — reject `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
-- `assignee` is `null` — reject any assigned issue, including "me".
 - Every id in `relations.blockedBy` resolves to `status` ∈ { `Done`, `Canceled` }. Empty `blockedBy` passes. Any open blocker (Backlog / Todo / Queued / In Progress / In Review) fails.
 - `statusType` is not `triage` or `canceled`.
 

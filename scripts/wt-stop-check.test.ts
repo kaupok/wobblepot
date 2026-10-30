@@ -204,13 +204,13 @@ describe('stop_drain_verdict', () => {
     )
   })
 
-  it('fails on an issue back in Queued that is still assigned', () => {
+  it('passes an issue back in Queued that is still assigned, because the picker reads only the state', () => {
     const result = verdict(snapshot, '', 'HON-1\tQueued\tWorker Bot\nHON-2\tQueued\t')
 
-    expect(result.status).toBe(1)
-    expect(result.out).toContain(
-      'FAIL HON-1: Queued but assigned to Worker Bot, so the orchestrator skips it',
-    )
+    expect(result).toEqual({
+      out: 'Drain check: passed (2 worker(s): none left running, no issue stuck)\n',
+      status: 0,
+    })
   })
 
   it('reports an issue Linear could not read as unchecked, not passed', () => {

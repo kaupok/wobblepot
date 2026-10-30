@@ -147,8 +147,8 @@ describe('orchestrator.sh', () => {
 
     it('returns a stranded run with no PR to Queued', () => {
       // With no PR, Linear never moved the issue out of In Progress and
-      // /auto-implement left it assigned — select_next_issue would skip it
-      // forever. The Stranded label keeps the picker off it in the meantime.
+      // the Queued-only picker would never see it again. The Stranded label
+      // keeps the picker off it in the meantime.
       const out = classify(3, 'pr-review', 'NONE', 'unknown')
 
       expect(out).toContain('RESTORE_QUEUED:HON-999')

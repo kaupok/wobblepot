@@ -245,8 +245,9 @@ export const EstonianLocale: Story = {
   },
 }
 
-// Gram-stored vegetables under the piece rule (HON-1312), per serving for 3
-// servings: 83 g onion, 8 g garlic cloves, 450 g potato.
+// Gram-stored vegetables under the piece rule (HON-1312, HON-1474), per
+// serving for 3 servings: 165 g onion, 45 g carrot, 8 g garlic cloves, 500 g
+// potato.
 function pieceVegetable(
   id: string,
   name: string,
@@ -262,31 +263,33 @@ function pieceVegetable(
 }
 
 const pieceVegetables = [
-  pieceVegetable('onion', 'Onion', 83, 110, 'recipe_and_shopping'),
+  pieceVegetable('onion', 'Onion', 165, 110, 'recipe_and_shopping'),
+  pieceVegetable('carrot', 'Carrot', 45, 60, 'recipe_and_shopping'),
   pieceVegetable('garlic-cloves', 'Garlic', 8, 5, 'recipe_and_shopping'),
-  pieceVegetable('potato-pieces', 'Potato', 450, 150, 'recipe'),
+  pieceVegetable('potato-pieces', 'Potato', 500, 150, 'recipe'),
   createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 200 }),
 ]
 
 /**
- * Onions, garlic and potatoes in quarter pieces, with the grams under the
- * count in the muted tone, so a cook who wants precision still has it
- * (HON-1312). The grams take their own line, so the quantity column keeps its
+ * Onions in halves, and carrots, garlic and potatoes in whole pieces, with
+ * "~" on a rounded count and the grams under the count in the muted tone, so
+ * a cook who wants precision still has it (HON-1312, HON-1474). The grams take their own line, so the quantity column keeps its
  * width and the names stay lined up.
  */
 export const VegetablesInPieces: Story = {
   args: { components: pieceVegetables, servings: 3, householdServings: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const onion = canvas.getByText('¾ pc')
+    const onion = canvas.getByText('1½ pc')
     await expect(onion).toBeVisible()
-    await expect(canvas.getByText('83g')).toBeVisible()
-    const garlic = canvas.getByText('1½ pc')
+    await expect(canvas.getByText('165g')).toBeVisible()
+    await expect(canvas.getByText('~1 pc')).toBeVisible()
+    const garlic = canvas.getByText('~2 pc')
     expectSingleLine(garlic)
-    await expect(canvas.getByText('3 pc')).toBeVisible()
-    await expect(canvas.getByText('450g')).toBeVisible()
-    await expect(canvas.getByText('450g').getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      canvas.getByText('3 pc').getBoundingClientRect().bottom,
+    await expect(canvas.getByText('~3 pc')).toBeVisible()
+    await expect(canvas.getByText('500g')).toBeVisible()
+    await expect(canvas.getByText('500g').getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      canvas.getByText('~3 pc').getBoundingClientRect().bottom,
     )
   },
 }
@@ -297,8 +300,10 @@ export const VegetablesInPiecesEstonian: Story = {
   args: { components: pieceVegetables, servings: 3, householdServings: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('¾ tk')).toBeVisible()
     await expect(canvas.getByText('1½ tk')).toBeVisible()
+    await expect(canvas.getByText('~1 tk')).toBeVisible()
+    await expect(canvas.getByText('~2 tk')).toBeVisible()
+    await expect(canvas.getByText('~3 tk')).toBeVisible()
   },
 }
 

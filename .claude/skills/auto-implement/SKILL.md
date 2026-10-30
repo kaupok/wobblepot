@@ -97,7 +97,7 @@ mcp__linear-server__get_issue({ id: "<ID>", includeRelations: true })
 **Gate in this order, stop at the first failure.** The orchestrator pre-claims as `In Progress` with no assignee, so that pair is normal.
 
 1. **Status** (`statusType`): `backlog` / `unstarted` pass. `started` passes only as `In Progress`; `In Review` stops unless `recovery.md` → Retry context allows it. `completed`, `canceled`, `duplicate`, `triage` stop.
-2. **Assignee**: `mcp__linear-server__get_user({ query: "me" })`. Pass if null or your id.
+2. **Assignee**: `Queued` passes whatever the assignee. Otherwise `mcp__linear-server__get_user({ query: "me" })`; pass if null or your id.
 3. **Blockers**: the relation carries no status, so `get_issue` each `blockedBy` entry. Pass if all are `completed` or `canceled`.
 
 **On any stop, read `recovery.md` → Gate stops first**: it undoes the pre-claim.
