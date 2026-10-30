@@ -1159,6 +1159,9 @@ export const importCoverageIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    // USDA FDC 172378 (SR 05075): drumstick 111 g + thigh 185 g, bone in. Its 344 g
+    // "leg" portion adds the back, which a recipe's chicken leg leaves out (HON-1491)
+    gramsPerPiece: 296,
     allergens: [],
     // USDA SR Legacy 05075, chicken leg, meat and skin, raw
     // Edible part: USDA refuse 27% bone

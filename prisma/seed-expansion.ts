@@ -21,6 +21,7 @@ export const newIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 130, // USDA FDC 172373 (SR 05066), 1 drumstick = 130 g, bone in (HON-1491)
     allergens: [],
     // USDA SR Legacy 05066, chicken drumstick, meat and skin, raw
     // Edible part: USDA refuse 33% bone and cartilage
@@ -32,6 +33,7 @@ export const newIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 107, // USDA FDC 172390 (SR 05100), 1 piece = 107 g, bone in (HON-1491)
     allergens: [],
     // USDA SR Legacy 05100, chicken wing, meat and skin, raw
     // Edible part: USDA refuse 38% bone and connective tissue

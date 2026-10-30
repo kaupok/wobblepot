@@ -50,6 +50,7 @@ export const baseIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 272, // USDA FDC 171077 (SR 05062), 1 piece = 272 g, boneless (HON-1491)
     allergens: [],
     // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
     calories: 120,
@@ -64,6 +65,7 @@ export const baseIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 193, // USDA FDC 172385 (SR 05091), 1 thigh with skin = 193 g, bone in (HON-1491)
     allergens: [],
     // USDA SR Legacy 05091, chicken thigh, meat and skin, raw
     // Edible part: 05091 gives no refuse; 22% bone from the leg (05075, 27%) and drumstick (05066, 33%) bone shares
@@ -76,6 +78,7 @@ export const baseIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 149, // USDA FDC 173627 (SR 05096), 1 thigh without skin = 149 g (HON-1491)
     allergens: [],
     // USDA SR Legacy 05096, chicken thigh, meat only, raw
     calories: 121,
