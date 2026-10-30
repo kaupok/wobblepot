@@ -147,6 +147,25 @@ describe('raw, as-bought meat nutrition (HON-1479)', () => {
     expect(new Set(names).size).toBe(names.length)
   })
 
+  // A shop sells these whole; their fillet rows are the boneless form
+  it.each([
+    'plaice',
+    'sole',
+    'dover sole',
+    'salmon',
+    'cod',
+    'haddock',
+    'whiting',
+    'pollock',
+    'tilapia',
+    'arctic char',
+  ])('stores whole %s per 100 g as bought, with a cited edible part', (name) => {
+    const source = rowSource(name)
+    expect(source).toMatch(/\.\.\.asSold\(\{[^}]+\}, 0\.\d+\)/)
+    expect(source).toMatch(/\/\/ Edible part: /)
+    expect(rowSource(`${name} fillet`)).not.toMatch(/asSold/)
+  })
+
   it('stores pork rack per 100 g as bought, bone included', () => {
     expect(rowSource('pork rack')).toMatch(/\.\.\.asSold\(\{[^}]+\}, 0\.66\)/)
   })
@@ -167,6 +186,8 @@ describe('raw, as-bought meat nutrition (HON-1479)', () => {
     ['Chicken Korma', 'chicken thigh', 'chicken thigh fillet', 200],
     ['Chicken Jambalaya', 'chicken thigh', 'chicken thigh fillet', 150],
     ['Trout with Almonds', 'trout', 'trout fillet', 200],
+    ['Lemon Sole', 'sole', 'sole fillet', 180],
+    ['Tilapia with Mango Salsa', 'tilapia', 'tilapia fillet', 180],
     ['Lamb Curry', 'lamb chop', 'lamb shoulder', 180],
     ['Irish Lamb Stew', 'lamb shank', 'lamb shoulder', 200],
   ]

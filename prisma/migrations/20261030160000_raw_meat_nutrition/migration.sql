@@ -2,8 +2,8 @@
 -- Meat and poultry rows held roasted values, about a third more protein per
 -- 100 g than raw meat. Bone-in cuts and whole fish counted the bone as meat, so
 -- a bone-in chicken recipe showed two to two and a half times its protein.
--- Every meat, poultry and fish row now holds raw values, and a bone-in or whole
--- row holds them per 100 g as bought, bone included (asSold in
+-- Every meat, poultry and fish row now holds raw values, and a bone-in cut or a
+-- fish a shop sells whole holds them per 100 g as bought, bone included (asSold in
 -- prisma/as-sold-nutrition.ts). Global rows only: a household typed its own
 -- values from a pack label. `pnpm db:seed` never rewrites existing nutrition or
 -- components, so the seed values need this migration.
@@ -213,7 +213,7 @@ UPDATE "ingredient" SET "calories" = 54, "protein" = 11.1, "carbs" = 0, "fat" = 
 WHERE "householdId" IS NULL AND "name" IN ('snapper', 'red snapper');
 
 UPDATE "ingredient" SET "calories" = 34.3, "protein" = 6.1, "carbs" = 0, "fat" = 0.9, "fiber" = 0
-WHERE "householdId" IS NULL AND "name" IN ('flounder');
+WHERE "householdId" IS NULL AND "name" IN ('flounder', 'plaice', 'sole', 'dover sole');
 
 UPDATE "ingredient" SET "calories" = 91, "protein" = 18.6, "carbs" = 0, "fat" = 1.3, "fiber" = 0
 WHERE "householdId" IS NULL AND "name" IN ('halibut', 'halibut fillet', 'halibut steak');
@@ -227,6 +227,27 @@ WHERE "householdId" IS NULL AND "name" IN ('barramundi', 'barramundi fillet');
 UPDATE "ingredient" SET "calories" = 122.8, "protein" = 13.4, "carbs" = 0, "fat" = 7.3, "fiber" = 0
 WHERE "householdId" IS NULL AND "name" IN ('pork rack');
 
+UPDATE "ingredient" SET "calories" = 129, "protein" = 12.6, "carbs" = 0, "fat" = 8.3, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('salmon');
+
+UPDATE "ingredient" SET "calories" = 38.5, "protein" = 8.4, "carbs" = 0, "fat" = 0.3, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('cod');
+
+UPDATE "ingredient" SET "calories" = 35.5, "protein" = 7.8, "carbs" = 0, "fat" = 0.2, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('haddock');
+
+UPDATE "ingredient" SET "calories" = 44.1, "protein" = 9, "carbs" = 0, "fat" = 0.6, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('whiting');
+
+UPDATE "ingredient" SET "calories" = 43.2, "protein" = 9.1, "carbs" = 0, "fat" = 0.5, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('pollock');
+
+UPDATE "ingredient" SET "calories" = 35.5, "protein" = 7.4, "carbs" = 0, "fat" = 0.6, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('tilapia');
+
+UPDATE "ingredient" SET "calories" = 80.4, "protein" = 11.3, "carbs" = 0, "fat" = 3.5, "fiber" = 0
+WHERE "householdId" IS NULL AND "name" IN ('arctic char');
+
 -- The boneless thigh, so a recipe can say which cut it means. The seed adds
 -- its Estonian name. Inserted only where the seed has run (a global chicken
 -- thigh exists), so an empty database stays empty.
@@ -237,10 +258,10 @@ WHERE EXISTS (SELECT 1 FROM "ingredient" WHERE "householdId" IS NULL AND "name" 
   AND NOT EXISTS (SELECT 1 FROM "ingredient" WHERE "householdId" IS NULL AND "name" = 'chicken thigh fillet');
 
 -- Library meals that mean the boneless cut (diced, stir-fried, curried, a
--- pan-fried fillet) move to the boneless row at the same amount. Meals that
--- mean the cut on the bone (roasted or braised thighs, drumsticks, wings,
--- whole fish, chops) keep the bone-in row. Matching the old amount keeps a
--- re-run and an edited meal safe.
+-- pan-fried or grilled fillet) move to the boneless row at the same amount.
+-- Meals that mean the cut on the bone (roasted or braised thighs, drumsticks,
+-- wings, whole fish, chops) keep the bone-in row. Matching the old amount
+-- keeps a re-run and an edited meal safe.
 --
 -- A planned entry's "Adjust recipe" change (a swap or a removal) names the
 -- component it changes by ingredient. Each component UPDATE is preceded by one
@@ -321,6 +342,44 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   AND f."householdId" IS NULL AND f."name" = 'trout fillet'
   AND mc."quantityPerServing" = 200
   AND m."householdId" IS NULL AND m."name" IN ('Trout with Almonds')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'sole'
+  AND f."householdId" IS NULL AND f."name" = 'sole fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Lemon Sole')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'sole'
+  AND f."householdId" IS NULL AND f."name" = 'sole fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Lemon Sole')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'tilapia'
+  AND f."householdId" IS NULL AND f."name" = 'tilapia fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Tilapia with Mango Salsa')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'tilapia'
+  AND f."householdId" IS NULL AND f."name" = 'tilapia fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Tilapia with Mango Salsa')
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
 UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
@@ -488,6 +547,68 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     UNION
     SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
     WHERE g."householdId" IS NULL AND g."name" IN ('Trout with Almonds')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'sole'
+  AND f."householdId" IS NULL AND f."name" = 'sole fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Lemon Sole')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Lemon Sole')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'sole'
+  AND f."householdId" IS NULL AND f."name" = 'sole fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Lemon Sole')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Lemon Sole')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'tilapia'
+  AND f."householdId" IS NULL AND f."name" = 'tilapia fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Tilapia with Mango Salsa')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Tilapia with Mango Salsa')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'tilapia'
+  AND f."householdId" IS NULL AND f."name" = 'tilapia fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Tilapia with Mango Salsa')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Tilapia with Mango Salsa')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 

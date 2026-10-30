@@ -2503,10 +2503,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 92,
-    protein: 19.4,
-    carbs: 0,
-    fat: 1,
+    // USDA SR Legacy 15065, fish, pollock, Atlantic, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, saithe (Atlantic pollock)
+    ...asSold({ calories: 92, protein: 19.4, carbs: 0, fat: 1, fiber: 0 }, 0.47),
   },
   {
     name: 'pollock fillet',
@@ -2527,10 +2526,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 91,
-    protein: 18.8,
-    carbs: 0,
-    fat: 1.2,
+    // USDA SR Legacy 15028, fish, flatfish (flounder and sole), raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, European plaice
+    ...asSold({ calories: 70, protein: 12.4, carbs: 0, fat: 1.9, fiber: 0 }, 0.49),
   },
   {
     name: 'plaice fillet',
@@ -2574,10 +2572,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 90,
-    protein: 18.3,
-    carbs: 0,
-    fat: 1.3,
+    // USDA SR Legacy 15132, fish, whiting, mixed species, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, whiting
+    ...asSold({ calories: 90, protein: 18.3, carbs: 0, fat: 1.3, fiber: 0 }, 0.49),
   },
   {
     name: 'whiting fillet',
@@ -2695,10 +2692,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 135,
-    protein: 20,
-    carbs: 0,
-    fat: 5.5,
+    // USDA SR Legacy 15240, fish, trout, rainbow, farmed, raw (no char entry; both are salmonids)
+    // Edible part: skin-on fillet yield of whole rainbow trout, 56.7%, as for trout
+    ...asSold({ calories: 141, protein: 19.9, carbs: 0, fat: 6.2, fiber: 0 }, 0.57),
   },
   {
     name: 'arctic char fillet',
@@ -2731,10 +2727,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 70,
-    protein: 14.1,
-    carbs: 0,
-    fat: 1.2,
+    // USDA SR Legacy 15028, fish, flatfish (flounder and sole), raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, yellowfin sole
+    ...asSold({ calories: 70, protein: 12.4, carbs: 0, fat: 1.9, fiber: 0 }, 0.49),
   },
   {
     name: 'dover sole fillet',
@@ -3665,11 +3660,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 208,
-    protein: 20,
-    carbs: 0,
-    fat: 13,
-    fiber: 0,
+    // USDA SR Legacy 15236, fish, salmon, Atlantic, farmed, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, sockeye and chum salmon (no Atlantic salmon row)
+    ...asSold({ calories: 208, protein: 20.4, carbs: 0, fat: 13.4, fiber: 0 }, 0.62),
   },
   {
     name: 'cod',
@@ -3678,11 +3671,9 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 82,
-    protein: 18,
-    carbs: 0,
-    fat: 0.7,
-    fiber: 0,
+    // USDA SR Legacy 15015, fish, cod, Atlantic, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, Atlantic cod
+    ...asSold({ calories: 82, protein: 17.8, carbs: 0, fat: 0.7, fiber: 0 }, 0.47),
   },
 
   // ============================================

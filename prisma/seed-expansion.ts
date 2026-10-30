@@ -434,11 +434,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 96,
-    protein: 20,
-    carbs: 0,
-    fat: 1.7,
-    fiber: 0,
+    // USDA SR Legacy 15261, fish, tilapia, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, tilapias
+    ...asSold({ calories: 96, protein: 20.1, carbs: 0, fat: 1.7, fiber: 0 }, 0.37),
   },
   {
     name: 'sole',
@@ -447,11 +445,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 70,
-    protein: 14,
-    carbs: 0,
-    fat: 1.2,
-    fiber: 0,
+    // USDA SR Legacy 15028, fish, flatfish (flounder and sole), raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, yellowfin sole
+    ...asSold({ calories: 70, protein: 12.4, carbs: 0, fat: 1.9, fiber: 0 }, 0.49),
   },
   {
     name: 'haddock',
@@ -460,11 +456,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 90,
-    protein: 20,
-    carbs: 0,
-    fat: 0.6,
-    fiber: 0,
+    // USDA SR Legacy 15033, fish, haddock, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, haddock
+    ...asSold({ calories: 74, protein: 16.3, carbs: 0, fat: 0.5, fiber: 0 }, 0.48),
   },
   {
     name: 'swordfish',
@@ -6021,7 +6015,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'fish',
     components: [
-      { ingredient: 'sole', quantity: 180 },
+      { ingredient: 'sole fillet', quantity: 180 },
       { ingredient: 'butter', quantity: 40 },
       { ingredient: 'lemon', quantity: 0.5 },
       { ingredient: 'parsley', quantity: 10 },
@@ -6067,7 +6061,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'fish',
     components: [
-      { ingredient: 'tilapia', quantity: 180 },
+      { ingredient: 'tilapia fillet', quantity: 180 },
       { ingredient: 'mango', quantity: 0.5 },
       { ingredient: 'lime', quantity: 0.5 },
       { ingredient: 'coriander', quantity: 10 },
