@@ -1188,6 +1188,7 @@ export const importCoverageIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    gramsPerPiece: 136, // half of the 272 g USDA FDC 171077 breast, split into two cutlets (HON-1492)
     allergens: [],
     // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
     calories: 120,
@@ -1215,6 +1216,9 @@ export const importCoverageIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    // About 15% of the 272 g USDA FDC 171077 breast: broiler studies weigh the
+    // tenderloin at 30-47 g on a 196-303 g breast (HON-1492)
+    gramsPerPiece: 40,
     allergens: [],
     // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
     calories: 120,
@@ -1229,6 +1233,8 @@ export const importCoverageIngredients = [
     subcategory: 'poultry',
     proteinType: 'poultry',
     defaultUnit: 'g',
+    // No gramsPerPiece: the cook or the packer cuts a strip to no standard size,
+    // and the 30 g DEFAULT_GRAMS_PER_PIECE is already a plausible strip (HON-1492)
     allergens: [],
     // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
     calories: 120,
