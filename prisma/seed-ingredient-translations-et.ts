@@ -10,7 +10,7 @@ export type IngredientTranslationEt = {
 
 export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   // ============================================================
-  // PROTEIN (256)
+  // PROTEIN (257)
   // ============================================================
   { en: 'anchovies', et: 'anšoovised' },
   { en: 'andouille sausage', et: 'andouille vorst' },
@@ -72,6 +72,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'chicken strip', et: 'kanaribad' },
   { en: 'chicken tender', et: 'kanafileeriba' },
   { en: 'chicken thigh', et: 'kanakints' },
+  { en: 'chicken thigh fillet', et: 'kanakintsuliha' },
   { en: 'chicken wing', et: 'kanatiib' },
   { en: 'chorizo', et: 'chorizo' },
   { en: 'clam meat', et: 'merikarbiliha' },

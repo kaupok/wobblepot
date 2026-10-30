@@ -5,6 +5,7 @@
 // Indian, Mediterranean pantry items, condiments, wines, proteins, and produce.
 // Generated for HON-248.
 
+import { asSold } from './as-sold-nutrition'
 import type { IngredientInput } from './seed-types'
 
 // ============================================
@@ -1826,11 +1827,9 @@ export const comprehensiveIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 91,
-    protein: 19.4,
-    carbs: 0,
-    fat: 0.9,
-    fiber: 0,
+    // USDA SR Legacy 15060, fish, perch, mixed species, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, Nile perch
+    ...asSold({ calories: 91, protein: 19.4, carbs: 0, fat: 0.9, fiber: 0 }, 0.65),
   },
   {
     name: 'monkfish',
@@ -1960,10 +1959,11 @@ export const comprehensiveIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 158,
-    protein: 30,
+    // USDA SR Legacy 17164, game meat, deer, raw
+    calories: 120,
+    protein: 23,
     carbs: 0,
-    fat: 3.2,
+    fat: 2.4,
     fiber: 0,
   },
   {
@@ -1973,10 +1973,11 @@ export const comprehensiveIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 143,
-    protein: 28.4,
+    // USDA SR Legacy 17156, game meat, bison, lean only, raw
+    calories: 109,
+    protein: 21.6,
     carbs: 0,
-    fat: 2.4,
+    fat: 1.8,
     fiber: 0,
   },
   {
@@ -2012,11 +2013,9 @@ export const comprehensiveIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 262,
-    protein: 22,
-    carbs: 0,
-    fat: 19,
-    fiber: 0,
+    // oxtail meat, raw, 171 kcal, 20 g protein, 10.1 g fat (caloriecounter.com.au; no USDA raw entry)
+    // Edible part: net meat is 40-60% of the raw weight (butcher yields)
+    ...asSold({ calories: 171, protein: 20, carbs: 0, fat: 10.1, fiber: 0 }, 0.55),
   },
   {
     name: 'bone marrow',
@@ -3634,10 +3633,11 @@ export const comprehensiveIngredients = [
     proteinType: 'beef',
     defaultUnit: 'g',
     allergens: [],
-    calories: 137,
-    protein: 22.8,
+    // USDA SR Legacy 17166, game meat, elk, raw
+    calories: 111,
+    protein: 23,
     carbs: 0,
-    fat: 4.8,
+    fat: 1.5,
     fiber: 0,
   },
   {
@@ -3647,11 +3647,9 @@ export const comprehensiveIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 217,
-    protein: 17,
-    carbs: 0,
-    fat: 16,
-    fiber: 0,
+    // USDA SR Legacy 05144, duck, meat and skin, raw (wild; the domestic entry is the fatty whole bird)
+    // Edible part: USDA refuse 28% bone, domestic duck (05139)
+    ...asSold({ calories: 211, protein: 17.4, carbs: 0, fat: 15.2, fiber: 0 }, 0.72),
   },
   {
     name: 'goose',
@@ -3660,11 +3658,9 @@ export const comprehensiveIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 305,
-    protein: 25,
-    carbs: 0,
-    fat: 22,
-    fiber: 0,
+    // USDA SR Legacy 05146, goose, meat and skin, raw
+    // Edible part: USDA refuse 19% bone; a goose dissection study gives 18-22% bone (Eurasian J Vet Sci 2004, 20(3))
+    ...asSold({ calories: 371, protein: 15.9, carbs: 0, fat: 33.6, fiber: 0 }, 0.81),
   },
   {
     name: 'quail',
@@ -3673,11 +3669,10 @@ export const comprehensiveIngredients = [
     proteinType: 'poultry',
     defaultUnit: 'g',
     allergens: [],
-    calories: 192,
-    protein: 25,
-    carbs: 0,
-    fat: 10,
-    fiber: 0,
+    // USDA SR Legacy 05157, quail, meat and skin, raw
+    // Edible part: 17.5% bone in a dissected quail carcass (Shahin and Saleh, Arch Tierz 2000,
+    // 43(5), 535). The USDA refuse (10% bone) is lower, so this takes the dissection.
+    ...asSold({ calories: 192, protein: 19.6, carbs: 0, fat: 12.1, fiber: 0 }, 0.82),
   },
   {
     name: 'lamb rack',
@@ -3686,11 +3681,9 @@ export const comprehensiveIngredients = [
     proteinType: 'lamb',
     defaultUnit: 'g',
     allergens: [],
-    calories: 260,
-    protein: 21,
-    carbs: 0,
-    fat: 19,
-    fiber: 0,
+    // USDA SR Legacy 17239, lamb, rib, lean and fat, raw
+    // Edible part: USDA refuse 29% bone
+    ...asSold({ calories: 342, protein: 15.3, carbs: 0, fat: 30.7, fiber: 0 }, 0.71),
   },
   {
     name: 'beef tongue',

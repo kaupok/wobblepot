@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { baseIngredients } from '../../../prisma/seed'
+import { newIngredients } from '../../../prisma/seed-expansion'
 import { componentGramsPerServing, computeMealNutrition } from './nutrition'
 
 describe('computeMealNutrition', () => {
@@ -13,6 +14,40 @@ describe('computeMealNutrition', () => {
 
     expect(result.calories).toBe(371)
     expect(result.carbs).toBe(75)
+  })
+
+  // Meat rows hold raw values, bone-in cuts per 100 g as bought (HON-1479)
+  it('counts 100 g of seed chicken breast at USDA raw values', () => {
+    const breast = baseIngredients.find((ing) => ing.name === 'chicken breast')!
+    const result = computeMealNutrition([
+      { quantityPerServing: 100, ingredient: { ...breast, defaultUnit: 'g' } },
+    ])
+
+    expect(result.calories).toBe(120)
+    expect(result.protein).toBe(22.5)
+  })
+
+  it('counts a bone-in thigh recipe at 45-55 g protein a serving', () => {
+    // "Kanakintsud potis" for 3: 1000 g bone-in thighs, the vegetables, 15 ml oil
+    const seed = (name: string) => ({
+      ...[...baseIngredients, ...newIngredients].find((ing) => ing.name === name)!,
+      defaultUnit: 'g' as const,
+    })
+    const recipe: [string, number][] = [
+      ['chicken thigh', 1000],
+      ['potato', 600],
+      ['beetroot', 300],
+      ['carrot', 300],
+      ['onion', 110],
+      ['garlic', 15],
+      ['olive oil', 14],
+    ]
+    const result = computeMealNutrition(
+      recipe.map(([name, grams]) => ({ quantityPerServing: grams / 3, ingredient: seed(name) })),
+    )
+
+    expect(result.protein).toBeGreaterThanOrEqual(45)
+    expect(result.protein).toBeLessThanOrEqual(55)
   })
 
   it('computes nutrition from single component', () => {
