@@ -391,3 +391,16 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     WHERE g."householdId" IS NULL AND g."name" IN ('Irish Lamb Stew')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+-- A planned entry's "Adjust recipe" change (a swap or a removal) names the
+-- component it changes by ingredient. A change on a component this migration
+-- moved would no longer match the meal and stop applying, so it follows the
+-- component to the new row.
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND mc."mealId" = e."mealId" AND mc."ingredientId" = f."id"
+  AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND f."householdId" IS NULL
+  AND (i."name", f."name") IN (('chicken thigh', 'chicken thigh fillet'), ('trout', 'trout fillet'), ('lamb chop', 'lamb shoulder'), ('lamb shank', 'lamb shoulder'))
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = e."mealId" AND o."ingredientId" = i."id");

@@ -62,6 +62,33 @@ it('sets raw, as-bought values and moves boneless library meals and their forks 
   const forkEt = await meal('Kanakarri', 180, household.id)
   const renamed = await meal('Our curry', 180, household.id)
   const edited = await meal('Chicken Curry', 150, household.id)
+  // A planned curry where the household swapped the chicken for tofu
+  const tofu = await prisma.ingredient.create({
+    data: {
+      name: 'tofu',
+      category: 'protein',
+      defaultUnit: 'g',
+      calories: 76,
+      protein: 8,
+      carbs: 2,
+      fat: 4.8,
+    },
+  })
+  const plan = await prisma.mealPlan.create({ data: { householdId: household.id } })
+  const swap = await prisma.mealPlanEntryComponent.create({
+    data: {
+      entry: {
+        create: {
+          planId: plan.id,
+          date: new Date('2026-11-05'),
+          mealType: 'dinner',
+          mealId: curry.id,
+        },
+      },
+      originalIngredient: { connect: { id: thigh.id } },
+      replacementIngredient: { connect: { id: tofu.id } },
+    },
+  })
 
   await runMigration()
   await runMigration()
@@ -105,4 +132,8 @@ it('sets raw, as-bought values and moves boneless library meals and their forks 
   // Found by name at the old amount only
   expect((await component(renamed.id)).ingredientId).toBe(thigh.id)
   expect((await component(edited.id)).ingredientId).toBe(thigh.id)
+  // The planned swap follows the component, so it still applies
+  expect(
+    await prisma.mealPlanEntryComponent.findUniqueOrThrow({ where: { id: swap.id } }),
+  ).toMatchObject({ originalIngredientId: fillets[0]!.id, replacementIngredientId: tofu.id })
 })
