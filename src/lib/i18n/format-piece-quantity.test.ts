@@ -133,11 +133,15 @@ describe('the recipe piece hint', () => {
     })
   })
 
-  it('never shows a quarter glyph from 1 g to 1 kg', () => {
+  // The count, not the glyph: the formatter cannot write ¼ or ¾, so only the
+  // count shows a return to quarter rounding.
+  it('counts big pieces in halves and small pieces whole, from 1 g to 1 kg', () => {
     for (const ingredient of [onion, garlic, potato, carrot, tomato]) {
+      const steps = ingredient.gramsPerPiece! >= 100 ? 2 : 1
       for (let grams = 1; grams <= 1000; grams++) {
-        const count = recipePieceCount(grams, ingredient)
-        expect(count && formatPieceFraction(count, 'en')).not.toMatch(/[¼¾]/)
+        const count = recipePieceCount(grams, ingredient)!
+        expect(Number.isInteger(count.pieces * steps), `${grams} g: ${count.pieces}`).toBe(true)
+        expect(formatPieceFraction(count, 'en')).not.toMatch(/[¼¾]/)
       }
     }
   })
