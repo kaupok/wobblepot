@@ -133,6 +133,16 @@ describe('getExcludedIngredientIds', () => {
     expect(estonian).toEqual(expect.arrayContaining([rows.paprika.id, rows.bellPepper.id]))
   })
 
+  // An own row has only the name the household typed (HON-1477).
+  it("matches an Estonian household's own row as part of a word", async () => {
+    const { alder, birch } = await world()
+    const birchPuree = await ingredient('lillkapsapüree', undefined, birch.id)
+    const alderPuree = await ingredient('lillkapsapüree', undefined, alder.id)
+
+    expect(await getExcludedIngredientIds(birch.id, ['lillkapsas'])).toContain(birchPuree.id)
+    expect(await getExcludedIngredientIds(alder.id, ['lillkapsas'])).not.toContain(alderPuree.id)
+  })
+
   it('excludes nothing for a name no ingredient carries', async () => {
     const { alder } = await world()
 

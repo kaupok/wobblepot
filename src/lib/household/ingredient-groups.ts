@@ -330,4 +330,30 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
       'walnuts',
     ],
   },
+  {
+    // "marjad" too: the plural changes the stem, as "pähklid" does. English
+    // "berry" misses "blueberry", which is one word (HON-1477). Grapes,
+    // persimmon, juniper berry and the jam and sauce rows are left out.
+    en: ['berry'],
+    et: ['mari', 'marjad'],
+    members: [
+      'acai',
+      'blackberry',
+      'blueberry',
+      'cloudberry',
+      'cranberry',
+      'dried barberries',
+      'dried cranberries',
+      'frozen blueberries',
+      'frozen mixed berries',
+      'frozen raspberries',
+      'frozen strawberries',
+      'goji berries',
+      'gooseberry',
+      'lingonberry',
+      'mulberry',
+      'raspberry',
+      'strawberry',
+    ],
+  },
 ]

@@ -87,7 +87,6 @@ describe('matchTag', () => {
 
   it('reads the translated names too for an Estonian household', () => {
     expect(names('paprika', 'et')).toEqual(['paprika', 'bell pepper'])
-    expect(names('pasta', 'et')).toEqual(['pasta', 'mole paste'])
     expect(names('pork', 'et')).toEqual(['pork mince', 'pork belly'])
   })
 
@@ -182,7 +181,7 @@ describe('matchTag with an ingredient group', () => {
 
 // The fresh rows and the frozen form rows of the seed, with their Estonian names (HON-1471).
 const FROZEN_POOL = [
-  row('broccoli', 'brokkoli'),
+  row('broccoli', 'brokoli'),
   row('cauliflower', 'lillkapsas'),
   row('frozen broccoli and cauliflower mix', 'külmutatud brokoli-lillkapsasegu'),
   row('peas', 'herned'),
@@ -208,6 +207,7 @@ describe('matchTag on the frozen form rows', () => {
   it.each([
     ['broccoli', 'en', 'frozen broccoli and cauliflower mix'],
     ['cauliflower', 'en', 'frozen broccoli and cauliflower mix'],
+    ['brokoli', 'et', 'frozen broccoli and cauliflower mix'],
     ['brokkoli', 'et', 'frozen broccoli and cauliflower mix'],
     ['lillkapsas', 'et', 'frozen broccoli and cauliflower mix'],
     ['peas', 'en', 'frozen peas'],

@@ -1,3 +1,8 @@
+import {
+  ESTONIAN_FALSE_FRIENDS,
+  ESTONIAN_TAG_FORMS,
+  ESTONIAN_WHOLE_WORD_ONLY,
+} from '@/lib/household/estonian-tag-forms'
 import { INGREDIENT_GROUPS } from '@/lib/household/ingredient-groups'
 import { isDefaultLocale } from '@/lib/i18n/locales'
 import { findSynonym } from '@/lib/ingredient-aliases'
@@ -15,12 +20,18 @@ import { findSynonym } from '@/lib/ingredient-aliases'
  * A tag that is a group word of `ingredient-groups.ts` as a whole ("sausage",
  * "vorstid") also matches the group's rows by exact name (HON-1343), so
  * "sausage" excludes frankfurter and chorizo.
+ *
+ * Estonian writes most foods as compounds, so a one-word tag also matches as
+ * part of a word in a translated name (HON-1477): "kana" matches
+ * "kanafilee". English names keep the whole-word rule.
  */
 
 /** An ingredient row with every name the rule reads. */
 export interface ExclusionPoolRow {
   id: string
   name: string
+  /** Set on a household's own row, whose `name` is in the household's language. */
+  householdId?: string | null
   translations: readonly { locale: string; name: string }[]
 }
 
@@ -90,6 +101,24 @@ const GROUPS = INGREDIENT_GROUPS.map((group) => ({
   members: new Set(group.members.map((member) => member.toLowerCase())),
 }))
 
+/** The groups that have the whole tag as a group word. */
+function groupsOf(
+  tagWords: string[],
+  side: 'en' | 'et',
+  same: (tagWord: string, word: string) => boolean,
+) {
+  return GROUPS.filter((group) =>
+    group[side].some(
+      (word) =>
+        word.length === tagWords.length &&
+        tagWords.every((tagWord, i) => {
+          const groupWord = word[i]
+          return groupWord !== undefined && same(tagWord, groupWord)
+        }),
+    ),
+  )
+}
+
 /**
  * The rows of every group that has the whole tag as a group word. A tag that
  * only contains the word ("smoked sausage") stays narrow. Members match by
@@ -102,18 +131,7 @@ function groupRows(
   side: 'en' | 'et',
   same: (tagWord: string, word: string) => boolean,
 ): ExclusionPoolRow[] {
-  const members = new Set(
-    GROUPS.filter((group) =>
-      group[side].some(
-        (word) =>
-          word.length === tagWords.length &&
-          tagWords.every((tagWord, i) => {
-            const groupWord = word[i]
-            return groupWord !== undefined && same(tagWord, groupWord)
-          }),
-      ),
-    ).flatMap((group) => [...group.members]),
-  )
+  const members = new Set(groupsOf(tagWords, side, same).flatMap((group) => [...group.members]))
   if (members.size === 0) return []
   return pool.filter((row) => members.has(row.name.toLowerCase()))
 }
@@ -129,6 +147,77 @@ function englishTerms(tag: string): string[][] {
     (term): term is string => term !== undefined,
   )
   return terms.map(wordKeys)
+}
+
+/** The shortest form the part-of-word rule reads; "või" and "oad" stay whole. */
+const MIN_PART_LENGTH = 4
+
+/** The lower-case words of a name, unfolded: the part-of-word rule reads Estonian. */
+function plainWords(name: string): string[] {
+  return name.toLowerCase().match(/\p{L}+/gu) ?? []
+}
+
+/**
+ * The forms the Estonian part-of-word rule finds inside a word, or none when
+ * the tag matches whole words only. The forms are the tag, the tag without a
+ * final "d" (plural "herned") or "s" ("kapsas" → "kapsa"), and the stems of
+ * `ESTONIAN_TAG_FORMS`. A multi-word tag, a group word (its group lists its
+ * rows, which keeps "kala" off "kalamata oliiv") and a tag in
+ * `ESTONIAN_WHOLE_WORD_ONLY` get none.
+ */
+function partForms(tag: string): string[] {
+  const words = plainWords(tag)
+  const [word] = words
+  if (word === undefined || words.length > 1 || ESTONIAN_WHOLE_WORD_ONLY.has(word)) return []
+  const tagWords = [wordKey(word)]
+  const isGroupWord =
+    groupsOf(tagWords, 'en', sameWord).length > 0 ||
+    groupsOf(tagWords, 'et', translatedWordMatches).length > 0
+  if (isGroupWord) return []
+
+  const forms = [word, ...(ESTONIAN_TAG_FORMS[word] ?? [])]
+  const stem = withoutEnding(word)
+  if (stem !== word) forms.push(stem)
+  return forms.filter((form) => form.length >= MIN_PART_LENGTH)
+}
+
+/** The word without a final "d" (plural) or "s", when it has 5 letters or more. */
+function withoutEnding(word: string): string {
+  return word.length >= 5 && /[ds]$/.test(word) ? word.slice(0, -1) : word
+}
+
+/**
+ * The false friends of the tag, and of the word the tag is a plural of:
+ * "tomatid" reads the entry of "tomat", "lambad" the entry of "lammas".
+ */
+function falseFriendsOf(tag: string): string[] {
+  const word = tag.trim().toLowerCase()
+  return Object.entries(ESTONIAN_FALSE_FRIENDS)
+    .filter(([key]) =>
+      [key, withoutEnding(key), ...(ESTONIAN_TAG_FORMS[key] ?? [])].some((form) =>
+        translatedWordMatches(word, form),
+      ),
+    )
+    .flatMap(([, friends]) => friends)
+}
+
+/**
+ * Whether `tag` matches a translated name: as whole words, or as part of a
+ * word (HON-1477). A name that holds one of the tag's false friends does not
+ * match at all.
+ */
+function translatedNameTest(tag: string): (name: string) => boolean {
+  const tagWords = wordKeys(tag)
+  const parts = partForms(tag)
+  const falseFriends = falseFriendsOf(tag)
+  return (name) => {
+    const lower = name.toLowerCase()
+    if (falseFriends.some((friend) => lower.includes(friend))) return false
+    return (
+      containsWords(wordKeys(name), tagWords, translatedWordMatches) ||
+      plainWords(name).some((word) => parts.some((part) => word.includes(part)))
+    )
+  }
 }
 
 /**
@@ -149,6 +238,10 @@ function englishTerms(tag: string): string[][] {
  * A tag that is a group word adds the group's rows. English group words apply
  * in every locale. Estonian group words apply where the translated names do,
  * so an English household's "vorst" still excludes the sausages.
+ *
+ * A household's own row has only the name the household typed. For a
+ * household whose locale is not the default, that name is read like a
+ * translated name, but it adds no English term: it is not English.
  */
 export function matchTag(
   tag: string,
@@ -166,14 +259,17 @@ export function matchTag(
   for (const row of groupRows(tagWords, pool, 'en', sameWord)) matched.add(row)
   if (matched.size > 0 && isDefaultLocale(locale)) return [...matched]
 
-  const viaTranslation = pool.filter(
-    (row) =>
-      !matched.has(row) &&
-      row.translations.some((t) =>
-        containsWords(wordKeys(t.name), tagWords, translatedWordMatches),
-      ),
-  )
-  const englishNames = viaTranslation.map((row) => wordKeys(row.name))
+  const matchesTranslated = translatedNameTest(tag)
+  const ownNameIsTranslated = !isDefaultLocale(locale)
+  const viaTranslation = pool.filter((row) => {
+    if (matched.has(row)) return false
+    const names = row.translations.map((t) => t.name)
+    if (ownNameIsTranslated && row.householdId) names.push(row.name)
+    return names.some(matchesTranslated)
+  })
+  const englishNames = viaTranslation
+    .filter((row) => !row.householdId)
+    .map((row) => wordKeys(row.name))
   for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
   for (const row of viaTranslation) matched.add(row)
   for (const row of groupRows(tagWords, pool, 'et', translatedWordMatches)) matched.add(row)
