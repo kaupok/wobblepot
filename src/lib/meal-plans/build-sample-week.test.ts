@@ -154,8 +154,9 @@ describe('buildSampleWeek', () => {
     expect(spice.items[0]!.quantity).toBe('some')
   })
 
-  // The recipe shows quarter pieces with the grams; the list rounds the
-  // summed grams up to whole pieces, or keeps potato in grams (HON-1312).
+  // The recipe shows a rounded piece count with the grams; the list rounds the
+  // summed grams up to whole pieces, or keeps potato in grams (HON-1312,
+  // HON-1474). The list lines are the same as before HON-1474.
   it('shows onion and potato in pieces as the cook view and the shopping list do', () => {
     const vegetable = (
       id: string,
@@ -192,7 +193,7 @@ describe('buildSampleWeek', () => {
     )
 
     expect(week.days[0]!.ingredients.map((i) => i.quantity)).toEqual([
-      '¾\u00a0pc (83g)',
+      '~1\u00a0pc (83g)',
       '3\u00a0pc (450g)',
     ])
     expect(week.shoppingList[0]!.items).toEqual([

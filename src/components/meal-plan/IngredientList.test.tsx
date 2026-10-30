@@ -121,9 +121,9 @@ describe('IngredientList piece quantities', () => {
   })
 })
 
-// A gram-stored vegetable shows as quarter pieces, with its grams kept under
-// the count (HON-1312). Stored grams are per serving, so 83 g over 3 servings
-// is 83 / 3.
+// A gram-stored vegetable shows as a rounded piece count, with its grams kept
+// under the count (HON-1312, HON-1474). Stored grams are per serving, so 83 g
+// over 3 servings is 83 / 3.
 describe('IngredientList vegetables in pieces', () => {
   function vegetable(
     id: string,
@@ -145,28 +145,36 @@ describe('IngredientList vegetables in pieces', () => {
       },
     })
   }
-  const onion = vegetable('onion', 'Onion', 83, 110, 'recipe_and_shopping')
-  const cloves = vegetable('garlic-g', 'Garlic', 8, 5, 'recipe_and_shopping')
-  const potato = vegetable('potato-g', 'Potato', 450, 150, 'recipe')
+  const onion = vegetable('onion', 'Onion', 55, 110, 'recipe_and_shopping')
 
-  it('shows 83 g onion over 3 servings as ¾ pc with 83g', () => {
-    renderInLocale(<IngredientList components={[onion]} servings={3} />)
-    expect(row('Onion').textContent).toBe('¾ pc83gOnion')
-  })
+  // The HON-1474 table, with the seed piece weights.
+  const TABLE = [
+    [500, 'Potato', 150, 'recipe', '~3'],
+    [300, 'Potato', 150, 'recipe', '2'],
+    [330, 'Potato', 150, 'recipe', '~2'],
+    [200, 'Carrot', 60, 'recipe_and_shopping', '~3'],
+    [45, 'Carrot', 60, 'recipe_and_shopping', '~1'],
+    [300, 'Tomato', 120, 'recipe', '~3'],
+    [8, 'Garlic', 5, 'recipe_and_shopping', '~2'],
+    [55, 'Onion', 110, 'recipe_and_shopping', '½'],
+    [30, 'Onion', 110, 'recipe_and_shopping', '~½'],
+    [165, 'Onion', 110, 'recipe_and_shopping', '1½'],
+    [190, 'Onion', 110, 'recipe_and_shopping', '~2'],
+  ] as const
 
-  it('shows 8 g garlic as 1½ pc', () => {
-    renderInLocale(<IngredientList components={[cloves]} servings={3} />)
-    expect(row('Garlic').textContent).toBe('1½ pc8gGarlic')
-  })
-
-  it('shows 450 g potato as 3 pc', () => {
-    renderInLocale(<IngredientList components={[potato]} servings={3} />)
-    expect(row('Potato').textContent).toBe('3 pc450gPotato')
-  })
-
-  it('shows the Estonian label', () => {
-    renderInLocale(<IngredientList components={[onion]} servings={3} />, 'et')
-    expect(row('Onion').textContent).toBe('¾ tk83gOnion')
+  it.each([
+    ['en', 'pc'],
+    ['et', 'tk'],
+  ] as const)('shows each table row in %s', (locale, label) => {
+    for (const [grams, name, gramsPerPiece, pieceDisplay, count] of TABLE) {
+      const component = vegetable(name, name, grams, gramsPerPiece, pieceDisplay)
+      const { unmount } = renderInLocale(
+        <IngredientList components={[component]} servings={3} />,
+        locale,
+      )
+      expect(row(name).textContent).toBe(`${count}\u00a0${label}${grams}g${name}`)
+      unmount()
+    }
   })
 
   it('keeps paprika in grams and oil in ml', () => {
@@ -199,7 +207,7 @@ describe('IngredientList vegetables in pieces', () => {
         pantryIngredients={[{ ingredientId: 'onion', isStaple: true }]}
       />,
     )
-    expect(screen.getByText(/Onion \(¾ pc, 83g\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Onion \(½ pc, 55g\)/)).toBeInTheDocument()
   })
 })
 

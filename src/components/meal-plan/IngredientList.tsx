@@ -83,9 +83,9 @@ interface IngredientListProps {
  * (e.g., "to taste" / "maitse järgi"). Piece counts carry `pieceLabel`
  * ("1.5 pc" / "1,5 tk", HON-956).
  *
- * A gram-stored vegetable under the piece rule shows quarter pieces first and
- * keeps its grams as `grams`, so a cook who wants precision still has it:
- * "¾ pc" and "83g" (HON-1312).
+ * A gram-stored vegetable under the piece rule shows a rounded piece count
+ * first and keeps its grams as `grams`, so a cook who wants precision still
+ * has it: "~3 pc" and "500g" (HON-1312, HON-1474).
  */
 function formatQuantity(
   comp: MealComponent,

@@ -22,22 +22,55 @@ const potato: PieceDisplayIngredient = {
   gramsPerPiece: 150,
   pieceDisplay: 'recipe',
 }
+const carrot: PieceDisplayIngredient = {
+  defaultUnit: 'g',
+  gramsPerPiece: 60,
+  pieceDisplay: 'recipe_and_shopping',
+}
+const tomato: PieceDisplayIngredient = {
+  defaultUnit: 'g',
+  gramsPerPiece: 120,
+  pieceDisplay: 'recipe',
+}
+
+// The HON-1474 table: grams, ingredient, the recipe line's count.
+const RECIPE_HINTS = [
+  [500, 'potato', potato, '~3'],
+  [300, 'potato', potato, '2'],
+  [330, 'potato', potato, '~2'],
+  [200, 'carrot', carrot, '~3'],
+  [45, 'carrot', carrot, '~1'],
+  [300, 'tomato', tomato, '~3'],
+  [8, 'garlic', garlic, '~2'],
+  [55, 'onion', onion, '½'],
+  [30, 'onion', onion, '~½'],
+  [165, 'onion', onion, '1½'],
+  [190, 'onion', onion, '~2'],
+] as const
 
 describe('recipePieceCount', () => {
-  it('rounds to the nearest quarter: 83 g onion is ¾', () => {
-    expect(recipePieceCount(83, onion)).toBe(0.75)
+  it('rounds a big piece to the nearest half below 1¾: 165 g onion is 1½', () => {
+    expect(recipePieceCount(165, onion)).toEqual({ pieces: 1.5, approximate: false })
   })
 
-  it('shows 8 g garlic as 1½ cloves', () => {
-    expect(recipePieceCount(8, garlic)).toBe(1.5)
+  it('rounds a big piece to the nearest whole from 1¾ up: 190 g onion is ~2', () => {
+    expect(recipePieceCount(190, onion)).toEqual({ pieces: 2, approximate: true })
   })
 
-  it('shows 450 g potato as 3 pieces', () => {
-    expect(recipePieceCount(450, potato)).toBe(3)
+  it('rounds a small piece to the nearest whole: 8 g garlic is ~2 cloves', () => {
+    expect(recipePieceCount(8, garlic)).toEqual({ pieces: 2, approximate: true })
   })
 
-  it('never shows less than ¼', () => {
-    expect(recipePieceCount(5, onion)).toBe(0.25)
+  it('marks an exact count as not approximate: 300 g potato is 2', () => {
+    expect(recipePieceCount(300, potato)).toEqual({ pieces: 2, approximate: false })
+  })
+
+  it('never shows less than ½ of a big piece', () => {
+    expect(recipePieceCount(5, onion)).toEqual({ pieces: 0.5, approximate: true })
+  })
+
+  it('never shows less than 1 small piece', () => {
+    expect(recipePieceCount(10, carrot)).toEqual({ pieces: 1, approximate: true })
   })
 
   it.each<[string, PieceDisplayIngredient]>([
@@ -81,14 +114,31 @@ describe('shoppingPieceCount', () => {
 
 describe('formatPieceFraction', () => {
   it.each([
-    [0.25, 'en', '¼'],
-    [0.5, 'en', '½'],
-    [0.75, 'en', '¾'],
-    [1.5, 'en', '1½'],
-    [3, 'en', '3'],
-    [0.75, 'et', '¾'],
-    [2.25, 'et', '2¼'],
-  ] as const)('formats %d in %s as %j', (pieces, locale, expected) => {
-    expect(formatPieceFraction(pieces, locale)).toBe(expected)
+    [{ pieces: 0.5, approximate: false }, 'en', '½'],
+    [{ pieces: 0.5, approximate: true }, 'en', '~½'],
+    [{ pieces: 1.5, approximate: false }, 'en', '1½'],
+    [{ pieces: 3, approximate: true }, 'en', '~3'],
+    [{ pieces: 2, approximate: false }, 'et', '2'],
+    [{ pieces: 1.5, approximate: true }, 'et', '~1½'],
+  ] as const)('formats %j in %s as %j', (count, locale, expected) => {
+    expect(formatPieceFraction(count, locale)).toBe(expected)
+  })
+})
+
+describe('the recipe piece hint', () => {
+  describe.each(['en', 'et'] as const)('in %s', (locale) => {
+    it.each(RECIPE_HINTS)('shows %d g %s as %j', (grams, _, ingredient, expected) => {
+      const count = recipePieceCount(grams, ingredient)
+      expect(count && formatPieceFraction(count, locale)).toBe(expected)
+    })
+  })
+
+  it('never shows a quarter glyph from 1 g to 1 kg', () => {
+    for (const ingredient of [onion, garlic, potato, carrot, tomato]) {
+      for (let grams = 1; grams <= 1000; grams++) {
+        const count = recipePieceCount(grams, ingredient)
+        expect(count && formatPieceFraction(count, 'en')).not.toMatch(/[¼¾]/)
+      }
+    }
   })
 })
