@@ -32,7 +32,7 @@
 11319 scripts/orchestrator.neon.test.ts
 13221 scripts/orchestrator.outcomes.test.ts
 7097 scripts/orchestrator.phase.test.ts
-44905 scripts/orchestrator.sh
+44891 scripts/orchestrator.sh
 14995 scripts/orchestrator.watch.test.ts
 9524 scripts/pr-review.sh
 5623 scripts/refit-meal-images.ts
