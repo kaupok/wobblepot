@@ -131,6 +131,19 @@ describe('GET /api/meals', () => {
     })
   })
 
+  it.each(['mealType', 'proteinType', 'source'])(
+    'returns 400 for an unknown %s, without loading meals',
+    async (param) => {
+      const response = await get(`?${param}=foo`)
+
+      expect(response.status).toBe(400)
+      const body = await response.json()
+      expect(body.error).toBe('Validation failed')
+      expect(Object.keys(body.details)).toEqual([param])
+      expect(mockLoadMeals).not.toHaveBeenCalled()
+    },
+  )
+
   it.each([
     ['true', true],
     ['false', false],
