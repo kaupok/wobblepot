@@ -20,6 +20,8 @@ export const ESTONIAN_TAG_FORMS: Readonly<Record<string, readonly string[]>> = {
   rukis: ['rukki'],
   // mandlid, mandlijahu, mandlipiim
   mandel: ['mandli'],
+  // maapähkliõli, maapähklivõi: the same -el → -li change as mandel
+  maapähkel: ['maapähkli'],
   // The catalogue has no compound of these three yet; an own row may
   // ("kurgisalat", "tatrahelbed", "odrakruup").
   kurk: ['kurgi'],

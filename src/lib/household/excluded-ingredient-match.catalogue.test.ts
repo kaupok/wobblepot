@@ -30,6 +30,7 @@ describe('matchTags over the seeded Estonian names', () => {
     ['lammas', ['lambahakkliha', 'lambakotlet']],
     ['part', ['pardirind', 'pardirasv']],
     ['mandel', ['mandlid', 'mandlijahu', 'mandlipiim']],
+    ['maapähkel', ['maapähkliõli', 'maapähklivõi']],
     ['mari', ['mustikas', 'maasikas', 'vaarikas', 'karusmari']],
     ['marjad', ['mustikas', 'maasikas', 'vaarikas', 'karusmari']],
     ['brokoli', ['brokoli', 'hiina brokoli']],
