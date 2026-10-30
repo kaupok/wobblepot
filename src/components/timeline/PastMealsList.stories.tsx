@@ -176,7 +176,10 @@ export const LogARecipe: Story = {
 
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Choose a recipe' }))
     const dialog = await body.findByRole('dialog', { name: 'Choose a recipe' })
-    await expect(within(dialog).getByRole('heading', { name: 'Cooked often lately' })).toBeVisible()
+    // The dialog is still animating open when findByRole resolves (HON-1493).
+    await waitFor(() =>
+      expect(within(dialog).getByRole('heading', { name: 'Cooked often lately' })).toBeVisible(),
+    )
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Porridge with berries' }))
     await awaitDialogClosed(3000)
