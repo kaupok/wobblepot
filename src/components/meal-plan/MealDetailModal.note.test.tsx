@@ -18,6 +18,8 @@ vi.mock('@/hooks/use-meal-image', () => ({
   useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
 }))
 vi.mock('@/hooks/use-wake-lock', () => ({ useWakeLock: () => {} }))
+// The members query has its own test; here it reports no members (HON-1475).
+vi.mock('@/hooks/use-member-portions', () => ({ useMemberPortions: vi.fn(() => undefined) }))
 vi.mock('./MealImage', () => ({ MealImage: () => null }))
 
 const meal: MealData = {

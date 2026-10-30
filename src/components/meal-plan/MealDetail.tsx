@@ -9,6 +9,7 @@ import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
+import type { MemberPortion } from '@/hooks/use-member-portions'
 import { cn } from '@/lib/utils'
 
 import { AdjustRecipe, type AdjustRecipeProps } from './AdjustRecipe'
@@ -17,7 +18,7 @@ import { EditableIngredientList } from './EditableIngredientList'
 import { EntryChangesList } from './EntryChangesList'
 import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
-import { NutritionSummary } from './NutritionSummary'
+import { PortionNutrition } from './PortionNutrition'
 import {
   type CookQuestionControls,
   PreparationEquipment,
@@ -54,6 +55,8 @@ interface MealDetailProps {
   /** Below the meta row: the plan entry's note (`NoteEditor`), or a recipe's cook history */
   note?: ReactNode
   householdServings: number
+  /** Each member's portion, for the nutrition chips (HON-1475); none where there is no household */
+  portions?: MemberPortion[]
   /** Status of the plan entry this meal belongs to */
   status?: MealStatus
   /** Current effective servings (servingOverride or householdServings) */
@@ -170,6 +173,7 @@ export function MealDetail({
   titleActions,
   note,
   householdServings,
+  portions,
   status,
   servings,
   cookedServings,
@@ -369,7 +373,12 @@ export function MealDetail({
             data-testid="cook-view-nutrition"
             className="flex flex-col gap-3 px-5 md:px-8 lg:px-10"
           >
-            <NutritionSummary nutrition={meal.nutrition} components={meal.components} size="lg" />
+            <PortionNutrition
+              nutrition={meal.nutrition}
+              portions={portions}
+              components={meal.components}
+              size="lg"
+            />
             <NutritionDisclaimer />
           </div>
         )}

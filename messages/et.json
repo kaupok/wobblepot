@@ -477,7 +477,11 @@
       "carbs": "Süsivesikud",
       "fat": "Rasvad",
       "vagueInfo": "Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.",
-      "vagueInfoLabel": "Nende numbrite kohta"
+      "vagueInfoLabel": "Nende numbrite kohta",
+      "portionGroupLabel": "Kelle portsjon",
+      "perServingChip": "Portsjoni kohta",
+      "memberChip": "{name} {multiplier, number}×",
+      "memberCaption": "{name}, {multiplier, number}× portsjon"
     },
     "serving": {
       "label": "Portsjoneid",

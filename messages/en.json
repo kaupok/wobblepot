@@ -477,7 +477,11 @@
       "carbs": "Carbs",
       "fat": "Fat",
       "vagueInfo": "Includes estimates for vague quantities like “to taste”.",
-      "vagueInfoLabel": "About these numbers"
+      "vagueInfoLabel": "About these numbers",
+      "portionGroupLabel": "Whose portion",
+      "perServingChip": "Per serving",
+      "memberChip": "{name} {multiplier, number}×",
+      "memberCaption": "{name}, {multiplier, number}× portion"
     },
     "serving": {
       "label": "Serves",

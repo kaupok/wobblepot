@@ -36,6 +36,8 @@ const useWakeLock = vi.fn()
 vi.mock('@/hooks/use-wake-lock', () => ({
   useWakeLock: (active: boolean) => useWakeLock(active),
 }))
+// The members query has its own test; here it reports no members (HON-1475).
+vi.mock('@/hooks/use-member-portions', () => ({ useMemberPortions: vi.fn(() => undefined) }))
 vi.mock('./NoteEditor', () => ({ NoteEditor: () => null }))
 vi.mock('./MealImage', () => ({ MealImage: () => null }))
 
