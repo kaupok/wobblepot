@@ -820,6 +820,40 @@ describe('main', () => {
       expect(text).toMatch(/ {2}claude-sonnet-5: 8 calls/)
     })
 
+    it("prints each task's prompt status under --dry-run, without calling a model (HON-1494)", async () => {
+      await recordImagineAndTips()
+      const dryRun = async () => {
+        out = []
+        const code = await main([...COMPARE, '--task', 'imagine,tips', '--dry-run'], {
+          ...deps,
+          modelFactory: () => {
+            throw new Error('--dry-run must not build a model')
+          },
+        })
+        expect(code).toBe(0)
+        return out
+      }
+
+      expect(await dryRun()).toEqual(
+        expect.arrayContaining([
+          'Prompts since the golden:',
+          '  imagine: unchanged',
+          '  tips: unchanged',
+        ]),
+      )
+      tipsSchemaEdit.on = true
+      try {
+        expect(await dryRun()).toEqual(
+          expect.arrayContaining([
+            '  imagine: unchanged',
+            '  tips: prompt changed for 1 of 2 cases',
+          ]),
+        )
+      } finally {
+        tipsSchemaEdit.on = false
+      }
+    })
+
     it('replays only as many golden runs as the candidate makes', async () => {
       const { factory } = mockModelFactory(respond)
       expect(

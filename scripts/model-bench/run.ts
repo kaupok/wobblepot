@@ -86,6 +86,7 @@ import {
   buildCheckReport,
   buildReport,
   checkSubject,
+  goldenPromptStatus,
   localDateString,
   renderSummary,
   writeCheckReport,
@@ -678,6 +679,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     log(`Dry run — no API calls made.`)
     if (golden) {
       log(`Baseline: golden, read from file — no calls.`)
+      log(`Prompts since the golden:`)
+      for (const g of golden) log(`  ${goldenPromptStatus(g)}`)
       const missing = golden.flatMap((g) => g.notInGolden)
       if (missing.length > 0) log(`Not in golden, skipped: ${missing.join(', ')}`)
     }

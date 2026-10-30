@@ -119,6 +119,8 @@ pnpm ai-eval --baseline golden --candidate <current-id> --judge
 /bench-judge
 ```
 
+The dry run also prints each task's prompt status against its golden (`tips: unchanged`, or `tips: prompt changed for 1 of 2 cases`), so it checks a golden re-record for free.
+
 Commit the report and cite it in the PR. The baseline side is replayed from the golden, so only the candidate is called: half the cost of a comparison. The judge compares the new prompt's output with the recorded output blind, as it compares two models: nothing in the pairs file says which answers are the golden's. Every other part of the report reads as in a model comparison, with `golden` in the baseline column.
 
 The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. "Prompt" here means the whole request the model is instructed by: the prompt text and the output schema, whose `.describe()` strings are instructions too. A task reading `unchanged` that the PR meant to change means the change never got into the request.
