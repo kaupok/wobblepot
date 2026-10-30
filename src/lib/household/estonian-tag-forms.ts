@@ -33,7 +33,8 @@ export const ESTONIAN_TAG_FORMS: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * Text that holds a tag but names another food. A translated name that
- * contains one of these does not match the tag, by part or as whole words.
+ * contains one of these does not match the tag, by part, as whole words or
+ * through the English name of a matched row.
  * Each entry applies to every form of its tag, and to a plural tag: "tomatid"
  * reads the entry of "tomat", "herned" the entry of "hernes".
  */
@@ -52,8 +53,31 @@ export const ESTONIAN_FALSE_FRIENDS: Readonly<Record<string, readonly string[]>>
   kurk: ['kurkum'],
   // jahubanaan is plantain, not flour.
   jahu: ['jahubanaan'],
-  // sidrunhein is lemongrass.
-  sidrun: ['sidrunhein'],
+  // sidrunhein is lemongrass; sidruntüümian lemon thyme, sidrunverbena lemon verbena.
+  sidrun: ['sidrunhein', 'sidruntüümian', 'sidrunverbena'],
+  // tortilla and tomatillo are not dill; apteegitill is fennel.
+  till: ['tortilla', 'tomatillo', 'apteegitill'],
+  // kookos is coconut, not cake.
+  kook: ['kookos'],
+  // Cherry and plum tomatoes are tomatoes, not cherries or plums.
+  kirss: ['tomat'],
+  ploom: ['tomat'],
+  // maapirn is Jerusalem artichoke, not pear.
+  pirn: ['maapirn'],
+  // mädarõigas is horseradish, not radish.
+  rõigas: ['mädarõ'],
+  // salatikaste is salad dressing, not lettuce.
+  salat: ['salatikaste'],
+  // kõrvitsapiruka vürtsisegu is pumpkin pie spice.
+  kõrvits: ['kõrvitsapiruka'],
+  // lambalääts is fenugreek, not lentils.
+  lääts: ['lambaläät'],
+  // sinepilehed are mustard greens.
+  sinep: ['sinepilehed'],
+  // kapparid soolvees are capers in brine.
+  sool: ['soolvees'],
+  // banaanipaprika is banana pepper.
+  banaan: ['banaanipaprika'],
   // kooritud means peeled; tofukoor is tofu skin.
   koor: ['kooritud', 'tofukoor'],
   // kookosviljaliha is coconut flesh, not meat.
@@ -66,7 +90,7 @@ export const ESTONIAN_FALSE_FRIENDS: Readonly<Record<string, readonly string[]>>
 }
 
 /**
- * Tags that match whole words only. In Estonian "pasta" is also paste, and
+ * Tags that match whole words only, and their plurals. In Estonian "pasta" is also paste, and
  * every compound in the catalogue is a paste (tomatipasta, karripasta).
  */
 export const ESTONIAN_WHOLE_WORD_ONLY: ReadonlySet<string> = new Set(['pasta'])

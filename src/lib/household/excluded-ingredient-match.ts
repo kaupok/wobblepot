@@ -163,12 +163,13 @@ function plainWords(name: string): string[] {
  * final "d" (plural "herned") or "s" ("kapsas" → "kapsa"), and the stems of
  * `ESTONIAN_TAG_FORMS`. A multi-word tag, a group word (its group lists its
  * rows, which keeps "kala" off "kalamata oliiv") and a tag in
- * `ESTONIAN_WHOLE_WORD_ONLY` get none.
+ * `ESTONIAN_WHOLE_WORD_ONLY`, or its plural ("pastad"), get none.
  */
 function partForms(tag: string): string[] {
   const words = plainWords(tag)
   const [word] = words
-  if (word === undefined || words.length > 1 || ESTONIAN_WHOLE_WORD_ONLY.has(word)) return []
+  if (word === undefined || words.length > 1) return []
+  if ([...ESTONIAN_WHOLE_WORD_ONLY].some((key) => readsAs(word, key))) return []
   const tagWords = [wordKey(word)]
   const isGroupWord =
     groupsOf(tagWords, 'en', sameWord).length > 0 ||
@@ -187,17 +188,20 @@ function withoutEnding(word: string): string {
 }
 
 /**
- * The false friends of the tag, and of the word the tag is a plural of:
- * "tomatid" reads the entry of "tomat", "lambad" the entry of "lammas".
+ * Whether `word` is the table key `key`, one of its forms, or a plural of
+ * one: "tomatid" reads as "tomat", "lambad" as "lammas", "pastad" as "pasta".
  */
+function readsAs(word: string, key: string): boolean {
+  return [key, withoutEnding(key), ...(ESTONIAN_TAG_FORMS[key] ?? [])].some((form) =>
+    translatedWordMatches(word, form),
+  )
+}
+
+/** The false friends of the tag, and of the word the tag is a plural of. */
 function falseFriendsOf(tag: string): string[] {
   const word = tag.trim().toLowerCase()
   return Object.entries(ESTONIAN_FALSE_FRIENDS)
-    .filter(([key]) =>
-      [key, withoutEnding(key), ...(ESTONIAN_TAG_FORMS[key] ?? [])].some((form) =>
-        translatedWordMatches(word, form),
-      ),
-    )
+    .filter(([key]) => readsAs(word, key))
     .flatMap(([, friends]) => friends)
 }
 
@@ -206,13 +210,14 @@ function falseFriendsOf(tag: string): string[] {
  * word (HON-1477). A name that holds one of the tag's false friends does not
  * match at all.
  */
-function translatedNameTest(tag: string): (name: string) => boolean {
+function translatedNameTest(
+  tag: string,
+  holdsFalseFriend: (name: string) => boolean,
+): (name: string) => boolean {
   const tagWords = wordKeys(tag)
   const parts = partForms(tag)
-  const falseFriends = falseFriendsOf(tag)
   return (name) => {
-    const lower = name.toLowerCase()
-    if (falseFriends.some((friend) => lower.includes(friend))) return false
+    if (holdsFalseFriend(name)) return false
     return (
       containsWords(wordKeys(name), tagWords, translatedWordMatches) ||
       plainWords(name).some((word) => parts.some((part) => word.includes(part)))
@@ -233,7 +238,9 @@ function translatedNameTest(tag: string): (name: string) => boolean {
  * A row matched through a translated name adds its English name as a term,
  * so the Estonian name of "mushroom" excludes the same rows as "mushroom".
  * Estonian writes most kinds as one word ("austriseen" for oyster mushroom),
- * so the translated names alone would miss them.
+ * so the translated names alone would miss them. A row this term reaches is
+ * left out when a translated name holds a false friend of the tag, so
+ * "kirss" reaches "cherry" but not "cherry tomatoes".
  *
  * A tag that is a group word adds the group's rows. English group words apply
  * in every locale. Estonian group words apply where the translated names do,
@@ -259,7 +266,12 @@ export function matchTag(
   for (const row of groupRows(tagWords, pool, 'en', sameWord)) matched.add(row)
   if (matched.size > 0 && isDefaultLocale(locale)) return [...matched]
 
-  const matchesTranslated = translatedNameTest(tag)
+  const falseFriends = falseFriendsOf(tag)
+  const holdsFalseFriend = (name: string) => {
+    const lower = name.toLowerCase()
+    return falseFriends.some((friend) => lower.includes(friend))
+  }
+  const matchesTranslated = translatedNameTest(tag, holdsFalseFriend)
   const ownNameIsTranslated = !isDefaultLocale(locale)
   const viaTranslation = pool.filter((row) => {
     if (matched.has(row)) return false
@@ -270,7 +282,10 @@ export function matchTag(
   const englishNames = viaTranslation
     .filter((row) => !row.householdId)
     .map((row) => wordKeys(row.name))
-  for (const row of pool) if (byEnglish(row, englishNames)) matched.add(row)
+  for (const row of pool) {
+    const blocked = row.translations.some((t) => holdsFalseFriend(t.name))
+    if (!blocked && byEnglish(row, englishNames)) matched.add(row)
+  }
   for (const row of viaTranslation) matched.add(row)
   for (const row of groupRows(tagWords, pool, 'et', translatedWordMatches)) matched.add(row)
   return [...matched]
