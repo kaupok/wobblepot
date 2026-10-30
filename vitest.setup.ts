@@ -58,8 +58,9 @@ vi.mock('next-intl', async () => {
       })
       return resolved.replace(/#/g, String(count))
     })
-    // Handle plain placeholders: `{name}`
-    out = out.replace(/\{(\w+)\}/g, (_match, name: string) => {
+    // Handle plain placeholders: `{name}`, and `{name, number}` as English
+    // formats it ("1.5"); a test of another locale uses the real provider.
+    out = out.replace(/\{(\w+)(?:,\s*number)?\}/g, (_match, name: string) => {
       const v = values[name]
       return v === undefined ? `{${name}}` : String(v)
     })

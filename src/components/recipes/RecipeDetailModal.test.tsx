@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { MealData } from '@/components/meal-plan/types'
+import type { MemberPortion } from '@/hooks/use-member-portions'
 import { RECIPE_STEPS_DEBOUNCE_MS } from '@/hooks/use-recipe-steps'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -12,6 +13,11 @@ vi.mock('@/hooks/use-meal-image', () => ({
   useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
 }))
 vi.mock('@/hooks/use-wake-lock', () => ({ useWakeLock: vi.fn() }))
+// The members query has its own test; here it reports no members (HON-1475).
+const { useMemberPortions } = vi.hoisted(() => ({
+  useMemberPortions: vi.fn((_enabled: boolean): MemberPortion[] | undefined => undefined),
+}))
+vi.mock('@/hooks/use-member-portions', () => ({ useMemberPortions }))
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -70,6 +76,22 @@ describe('RecipeDetailModal', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    useMemberPortions.mockReset()
+  })
+
+  it("shows each member's portion chips once the members load (HON-1475)", async () => {
+    useMemberPortions.mockImplementation((enabled) =>
+      enabled
+        ? [
+            { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: false },
+            { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+          ]
+        : undefined,
+    )
+    renderModal()
+
+    const dialog = await screen.findByRole('dialog', { name: 'Roast chicken' })
+    expect(within(dialog).getByRole('radiogroup', { name: 'Whose portion' })).toBeInTheDocument()
   })
 
   it("opens at the household's servings, with the amounts scaled to them", async () => {

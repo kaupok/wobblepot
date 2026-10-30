@@ -18,6 +18,7 @@ import {
 import { Body } from '@/components/ui/typography'
 import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 import { useMealImage } from '@/hooks/use-meal-image'
+import { useMemberPortions } from '@/hooks/use-member-portions'
 import { useRecipeSteps } from '@/hooks/use-recipe-steps'
 import { formatDateDisplay } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
@@ -62,6 +63,7 @@ export function RecipeDetailModal({
   const tList = useTranslations('recipes.list')
   const [servings, setServings] = useState(householdServings)
   const image = useMealImage({ meal, open })
+  const portions = useMemberPortions(open)
   const { steps, isLoadingSteps, stepsError, retry } = useRecipeSteps({
     meal,
     servings,
@@ -179,6 +181,7 @@ export function RecipeDetailModal({
             )
           }
           householdServings={householdServings}
+          portions={portions}
           servings={servings}
           onServingsChange={handleServingsChange}
           steps={steps}

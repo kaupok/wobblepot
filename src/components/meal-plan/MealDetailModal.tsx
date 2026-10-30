@@ -19,6 +19,7 @@ import { useCookQuestionPanel } from '@/hooks/use-cook-question-panel'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useMealSteps } from '@/hooks/use-meal-steps'
+import { useMemberPortions } from '@/hooks/use-member-portions'
 import { apiFetch } from '@/lib/api'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
@@ -144,6 +145,8 @@ export function MealDetailModal({
     cancelSteps,
   } = useMealSteps({ planId, entryId, initialSteps })
   const { status: imageStatus, imageUrl, imageHue, cancelImage } = useMealImage({ meal, open })
+  // The landing deck is `readOnly` and has no household, so it asks for no members.
+  const portions = useMemberPortions(open && !readOnly)
 
   // A planned entry's steps are just there (HON-933): generate them as the
   // view opens, unless they are cached, already on their way, or failed. A
@@ -433,6 +436,7 @@ export function MealDetailModal({
             )
           }
           householdServings={householdServings}
+          portions={portions}
           status={status}
           servings={localServings}
           cookedServings={cookedServings}

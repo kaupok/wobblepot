@@ -445,3 +445,45 @@ describe('MealDetail Done cooking (HON-933)', () => {
     expect(onDoneCooking).toHaveBeenCalledTimes(1)
   })
 })
+
+// HON-1475: the cook view's nutrition chips come from the `portions` prop.
+describe('MealDetail nutrition portions', () => {
+  const withNutrition = createMeal({
+    nutrition: { calories: 520, protein: 38, carbs: 30, fat: 22 },
+  })
+
+  it('shows the chips when a member eats more or less than one serving', () => {
+    render(
+      <MealDetail
+        meal={withNutrition}
+        householdServings={3}
+        portions={[
+          { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: false },
+          { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+        ]}
+      />,
+    )
+    expect(screen.getByRole('radiogroup', { name: 'Whose portion' })).toBeInTheDocument()
+  })
+
+  it('shows no chips when every member is at 1×', () => {
+    render(
+      <MealDetail
+        meal={withNutrition}
+        householdServings={2}
+        portions={[
+          { id: 'm1', name: 'Kaupo', multiplier: 1, isSelf: true },
+          { id: 'm2', name: 'Mari', multiplier: 1, isSelf: false },
+        ]}
+      />,
+    )
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.getByText('per serving')).toBeInTheDocument()
+  })
+
+  it('shows no chips when no members are passed', () => {
+    render(<MealDetail meal={withNutrition} householdServings={3} />)
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.getByText('per serving')).toBeInTheDocument()
+  })
+})

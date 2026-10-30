@@ -26,6 +26,8 @@ interface NutritionSummaryProps {
   /** `lg` in the cook view, read at arm's length; `default` on cards and in the recipe form. */
   size?: NutritionSummarySize
   components?: Pick<MealComponent, 'isVague'>[]
+  /** The fine print beside the calories; "per serving" when omitted (HON-1475). */
+  caption?: string
 }
 
 /** The ordinal series token for each macro's part of the bar (globals.css). */
@@ -85,6 +87,7 @@ export function NutritionSummary({
   nutrition,
   size = 'default',
   components,
+  caption,
 }: NutritionSummaryProps) {
   const t = useTranslations('meal-plan.nutrition')
   const locale = useLocale() as Locale
@@ -124,7 +127,7 @@ export function NutritionSummary({
           {t('kcal', { calories: formatInteger(nutrition.calories, locale) })}
         </Body>
         <div className="flex items-center gap-1">
-          <Body variant="fine-print">{t('perServing')}</Body>
+          <Body variant="fine-print">{caption ?? t('perServing')}</Body>
           {vagueInfo}
         </div>
       </div>
