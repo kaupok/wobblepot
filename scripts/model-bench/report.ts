@@ -781,14 +781,15 @@ function renderGoldenHeader(golden: GoldenTaskInfo[]): string[] {
     distinct.size === 1
       ? `**Baseline:** golden — ${provenance(golden[0]!)}.`
       : `**Baseline:** golden — ${golden.map((g) => `${g.task} ${provenance(g)}`).join('; ')}.`
-  const prompts = golden.map((g) =>
-    g.cases === 0
-      ? `${g.task}: no case in the golden`
-      : g.promptChanged === 0
-        ? `${g.task}: unchanged`
-        : `${g.task}: prompt changed for ${g.promptChanged} of ${g.cases} cases`,
-  )
+  const prompts = golden.map(goldenPromptStatus)
   return [source, '', `**Prompts since the golden:** ${prompts.join('; ')}.`, '']
+}
+
+/** One task's prompt status against its golden; the dry run prints it too (HON-1494). */
+export function goldenPromptStatus(g: GoldenTaskInfo): string {
+  if (g.cases === 0) return `${g.task}: no case in the golden`
+  if (g.promptChanged === 0) return `${g.task}: unchanged`
+  return `${g.task}: prompt changed for ${g.promptChanged} of ${g.cases} cases`
 }
 
 /** The operational table for one task, one column per model. */
