@@ -5,295 +5,90 @@ argument-hint: 'HON-XX [--no-plan]'
 context: inherit
 ---
 
-# Implement Issue
+# Implement issue
 
-Execute an approved implementation plan and begin coding.
+`/implement-issue HON-XX [--no-plan]`. Done means: the issue's acceptance criteria hold on its branch, with tests, and every item under [Definition of done](#definition-of-done) is true. The skill ends on the completion marker; it opens no PR and merges nothing. `/create-pr` and `/auto-implement` read its output, so the marker, the `Follow-ups:` line and the `Driven:` lines keep their exact shape.
 
-## Prerequisites
+This file states the goal, the gates and the context you cannot derive. How to reach the goal is yours: read the plan, read the code, and adapt when the repo does not match the plan. When the plan turns out wrong, say so and suggest the change; do not follow it into a wall.
 
-Requires an issue ID as argument (e.g., `/implement-issue HON-51`).
+## Gates, before any file changes
 
-Supports optional `--no-plan` flag to skip plan validation for simple issues.
+1. **Fetch the issue** with `mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })`. Stop, and do not claim it, when either holds:
+   - `statusType` is `completed`, `canceled`, `duplicate` or `triage` (match the type, not the display name). Say which, and point at `/next-issue`.
+   - `relations.blockedBy` holds an issue whose status is not Done or Canceled. Entries carry only `{ id, title }`, so re-fetch each with `includeRelations: true`. List the open blockers. A `Duplicate` blocker never clears on its own: name its `duplicateOf` successor, or say the stale relation needs re-pointing in Linear.
 
-## Workflow
+   Why: claiming a closed or blocked issue puts it back In Progress and hides the real dependency from `/next-issue`.
 
-### 1. Parse arguments
+2. **Find the plan.** It is the issue comment that starts with `# Plan:`, posted by `/plan-issue`. Check that its issue ID is this one. With no plan, offer `/plan-issue HON-XX` or `--no-plan`. With `--no-plan`, the issue description is the plan; the gate in 1 still runs.
 
-Extract issue ID and check for flags:
+3. **Claim it.** One `save_issue` call sets `state: "In Progress"` and `assignee: "me"`. When the issue is assigned to someone else, ask before reassigning. Do not touch the status again after this: Linear automation moves it once a PR exists.
 
-- Issue ID: `HON-XX` or just `XX` (required)
-- `--no-plan`: Skip plan lookup and validation (steps 4-5)
+4. **Be on the issue's branch.** In a worktree, the worktree's branch is the branch. In the main checkout, call `EnterWorktree` with `name: "hon-NN"` (the issue ID in lower case): the `WorktreeCreate` hook resolves it to the issue's branch, and the main checkout is shared with other sessions, so `guard-main-checkout` blocks a switch there. Only with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` switch in place, to Linear's `gitBranchName`.
 
-If no issue ID provided:
+CLAUDE.md is already loaded; do not re-read it. Read `docs/TYPOGRAPHY.md` only for typography work.
 
-```
-Usage: /implement-issue HON-XX [--no-plan]
-Examples:
-  /implement-issue HON-51          # Normal flow with plan
-  /implement-issue HON-51 --no-plan  # Skip planning for simple issues
-```
+## Implementing
 
-### 2. Handle --no-plan mode
+Tell the user the branch, whether a plan was found, and the plan's steps. Then work the plan. Three things sit outside its step list, so a run that only walks the steps misses them:
 
-If `--no-plan` flag is present:
+- **`## Coupled callsites`** is a sibling section of `## Implementation Steps`. Every entry bucketed **Mirror** is edited in this phase. `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing; leaving them for review is the failure that scan exists to prevent.
+- **A follow-up is an issue.** A step this issue needs but the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration) becomes a Linear issue before this skill ends, with the `save_issue` call in `/plan-issue` step 10: Queued or Todo, `blockedBy: ["HON-XX"]` when it needs this change on `main`, `addLabels: ["Follow-up"]`, first description line `Follow-up to HON-XX, filed by /implement-issue.`, no title prefix. A plan line still marked `to file:` is filed here too. Why: nobody reads a Done issue again, so a follow-up written only into the plan, a commit message or the summary is lost.
+- **Stories.** A change under `src/components/**` updates the colocated `.stories.tsx` (`.claude/rules/ui.md` → Storybook).
 
-- Still run step 3 — the fetch supplies `gitBranchName` and the status/blocker gate
-- Skip steps 4-5 (plan lookup and validation)
-- Use issue description as implementation guide
-- Continue from step 6 (status update)
+## Definition of done
 
-### 3. Fetch issue details
+Confirm each before the marker:
 
-```
-mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
-```
-
-Extract:
-
-- Issue UUID (for API calls)
-- `gitBranchName`
-- Current state
-- Current assignee
-- `relations.blockedBy`
-
-**Hard gate (runs in both normal and `--no-plan` mode) — stop before claiming the issue if either holds:**
-
-- `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (Done / Canceled / Duplicate / Triage — match on `statusType`, not the display name, same as `/auto-implement` 2.1) — the issue is closed or not yet refined:
-
-  ```
-  HON-XX is [status] — nothing to implement. Pick another issue (`/next-issue`) or reopen it in Linear first.
-  ```
-
-- `relations.blockedBy` contains any issue whose status is not `Done` or `Canceled` — entries carry only `{ id, title }`, so re-fetch each one with `mcp__linear-server__get_issue({ id, includeRelations: true })` to read its status (and `relations.duplicateOf`, which is absent without `includeRelations`) — list the open blockers and stop:
-
-  ```
-  HON-XX is blocked by open issues:
-    - HON-YY ([status]) — [title]
-    - HON-ZZ ([status]) — [title]
-  Finish the open blockers first. A blocker with status `Duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear.
-  ```
-
-Do not proceed to step 4 (or step 6 in `--no-plan` mode) while either condition holds. Claiming a closed or blocked issue would put it back In Progress and hide the real dependency from `/next-issue`.
-
-### 4. Find plan from Linear comments
-
-```
-mcp__linear-server__list_comments({ issueId: "issue-uuid" })
-```
-
-Look for a comment starting with `# Plan:` - this is the plan posted by `/plan-issue`.
-
-If no plan comment found:
-
-```
-No plan found for HON-XX in Linear comments.
-
-Options:
-1. Run `/plan-issue HON-XX` to create and post a plan first
-2. Run `/implement-issue HON-XX --no-plan` to skip planning
-```
-
-### 5. Validate plan
-
-Verify the plan comment:
-
-- Contains implementation steps
-- Contains files to create/modify
-- Issue ID in plan matches the requested issue
-
-Store the plan content for implementation guidance.
-
-### 6. Update issue status and assign to self
-
-If assigned to someone else, warn the user and ask before reassigning.
-
-If current state is not "In Progress" or the issue is unassigned, claim it in a single call:
-
-```
-mcp__linear-server__save_issue({
-  id: "HON-XX",
-  state: "In Progress",
-  assignee: "me"
-})
-```
-
-### 7. Create or switch to branch
-
-First, detect if we're in a worktree:
-
-```bash
-git rev-parse --git-common-dir
-git rev-parse --git-dir
-```
-
-If outputs differ → **worktree mode**
-If outputs same → **regular repo mode**
-
-**Worktree mode:**
-
-In a worktree, the branch is already set by the worktree itself. We work directly on it:
-
-```bash
-# Just verify the current branch
-git branch --show-current
-```
-
-The worktree branch becomes the working branch. Skip branch creation/switching.
-
-**Regular repo mode:**
-
-This is the main checkout, which other sessions share, so do not switch branches here (`guard-main-checkout` blocks it). Call `EnterWorktree` with `name: "hon-NN"`, the issue ID in lower case: the tool rejects a name over 64 characters, and most Linear branch names are longer. The `WorktreeCreate` hook resolves the ID to the issue's branch (an existing local or `origin` branch, else the `gitBranchName` from Linear), checks it out if it exists, and creates it from `origin/main` if not. Then continue as in worktree mode.
-
-Only when the session runs with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` (the user chose the main checkout), switch branches in place. Check if branch already exists:
-
-```bash
-git branch --list "[gitBranchName]"
-```
-
-If branch exists:
-
-```bash
-git checkout [gitBranchName]
-```
-
-If branch doesn't exist:
-
-```bash
-git checkout -b [gitBranchName]
-```
-
-Verify you're on the correct branch:
-
-```bash
-git branch --show-current
-```
-
-### 8. Begin implementation
-
-CLAUDE.md is already loaded as project instructions — do not re-read it. Read `docs/TYPOGRAPHY.md` only if the issue involves typography components.
-
-Inform the user that setup is complete:
-
-```
-Ready to implement HON-XX: [Issue Title]
-
-Branch: [gitBranchName]
-Plan posted to Linear: [Yes/No/Skipped]
-Status: In Progress
-
-Implementation steps from plan:
-1. [Step 1]
-2. [Step 2]
-...
-
-Starting with step 1...
-```
-
-Then implement following the plan steps (or issue description if `--no-plan`).
-
-**File follow-ups as you find them.** If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it as a Linear issue before this skill ends, per `/plan-issue` → "A follow-up is an issue". Use the `save_issue` call in `/plan-issue` step 10: Queued or Todo, `blockedBy: ["HON-XX"]` when it needs this change on `main`, `addLabels: ["Follow-up"]`, the first description line `Follow-up to HON-XX, filed by /implement-issue.`, no prefix. A plan line still marked `to file:` (the filing failed when the plan was posted) is filed here too. A follow-up written only into the plan, a commit message or the summary is lost once this issue is Done.
-
-**Work the plan's `## Coupled callsites` section too, if it has one.** It is a sibling of `## Implementation Steps`, not a member, so "follow the plan steps" walks straight past it. Every entry bucketed **Mirror** must be edited in this phase — the section exists because `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing, and leaving them for review is the failure that scan was written to prevent.
-
-### 9. Signal completion
-
-Before signalling completion, confirm the definition of done:
-
-- **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
-- **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (`.claude/rules/ui.md` → Storybook)
-- **Coupled callsites**: if you changed a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, every **Mirror** is edited — from the plan's `## Coupled callsites` section if it has one, otherwise by running `/plan-issue` step 7b's greps now. Keyed off the diff, not the plan, so it still fires under `--no-plan` and on plans written before that section existed (CLAUDE.md shared-primitive geometry rule)
-- **Follow-ups**: every step this issue needs that the PR does not ship has an issue ID, from the plan's `## Follow-ups` or filed in step 8
-- **Driven screens**: if the diff changes a screen, drive it in the browser — see [Drive changed screens](#drive-changed-screens) below
-- `pnpm lint && pnpm type-check && pnpm test` pass
+- `pnpm lint && pnpm type-check && pnpm test` pass.
+- **E2E drift:** a touched `src/app/**/page.tsx`, route URL, navigation or CTA copy, or a modal is covered by the specs' `// ROUTES: … · COMPONENTS: …` headers: `grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`, and for a copy rename `grep -rn "<exact old copy>" tests/e2e/`. Update what matches.
+- **Storybook:** when the diff touches `src/components/**`, stories updated and `pnpm test-storybook:ci` green.
+- **Coupled callsites:** when the diff changes a geometry default on a `src/components/ui/*.tsx` primitive, a `@theme` token or a shared layout wrapper, every **Mirror** is edited: from the plan's `## Coupled callsites` section when it has one, otherwise from `/plan-issue` step 7b's greps run now. Key this off the diff, not the plan, so it holds under `--no-plan` and for plans written before that section existed.
+- **Follow-ups:** every step the PR does not ship has an issue ID.
+- **Driven screens:** each changed screen was driven in a browser, below.
 
 #### Drive changed screens
 
-Storybook and the E2E grep are static, so a layout break, a wrong empty state or a dead button passes both and is first seen on staging (HON-1188). Run this after the checks above pass, so the screen you drive is the one you ship.
+Storybook and the E2E grep are static, so a layout break, a wrong empty state or a dead button passes both and is first seen on staging (HON-1188). Drive after the checks above pass, so the screen you drive is the one you ship.
 
-**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/` and `src/app/admin/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. Admin pages open only for `ADMIN_EMAIL`, which the review account is not, so do not change the admin gate to reach them. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base and the untracked files, because this step runs before the work is committed:
+**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/` and `src/app/admin/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. Admin pages open only for `ADMIN_EMAIL`, which the review account is not; do not change the admin gate to reach them. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base plus untracked files, because this runs before the commit:
 
 ```bash
 { git diff --name-only "$(git merge-base origin/main HEAD)"; git ls-files --others --exclude-standard; } | sort -u
 ```
 
-1. **Start the review server.** It turns on `/api/e2e-seed`, which `pnpm dev` does not, so sign-up works. Use `--db env` when the worktree `.env` has its own `DATABASE_URL` (`wt new`, `wt auto`), so it spends no second Neon branch; otherwise use branch mode:
+**Server.** `scripts/review-serve.sh` runs the review server for one issue; its header comment holds the mechanics (database mode, port, pid file). It is `scripts/e2e-local.sh serve`, not `pnpm dev`, because only the review server turns on `/api/e2e-seed`, which sign-up needs.
 
-   ```bash
-   mine=$(grep '^DATABASE_URL=' .env); main=$(grep '^DATABASE_URL=' "$(git rev-parse --git-common-dir)/../.env")
-   [ -n "$mine" ] && [ "$mine" != "$main" ] && echo "own database: --db env" || echo "shared database: branch mode"
-   ```
+```bash
+bash scripts/review-serve.sh start HON-XX          # run_in_background: true, timeout: 3600000; add --seed when the screen needs seed data
+bash scripts/review-serve.sh wait HON-XX           # foreground, timeout: 540000, in the same turn (CLAUDE.md → Waiting inside a skill)
+```
 
-   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. When the screen needs seed data, also append `--seed`, in either mode. Do not run a bare `pnpm db:seed` for `--db env`: it keeps a `DATABASE_URL` the shell exports, so it can seed another database than the server reads (HON-1272). The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The port is a random free one, because up to five workers run at once. The pid file holds the script's own pid, so step 5 stops this server and no other:
+Seed only through `--seed`, never a bare `pnpm db:seed`: it can seed another database than the server reads (HON-1272). `wait` prints `REVIEW-READY <url>`, or `REVIEW_WAITING` (run it again), or `REVIEW_FAILED` with the log tail. On `REVIEW_FAILED` (no Neon slot, no Neon key, a refused `.env`), do not block the PR: write a "Not verified" line with the reason and skip to the stop step.
 
-   ```bash
-   rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$(for p in $(seq 3201 3299 | sort -R); do curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || { echo "$p"; break; }; done) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
-   ```
+**Browser.** Pick one by `docs/BROWSER_TESTING.md` → Which browser: the T3 Code sidebar (`preview_*`) first, then the Playwright MCP (`browser_*`); its Tool mapping pairs the names. Not the Chrome extension, because it cannot save the screenshot file this step uploads. With neither loaded (a worker without the Playwright MCP, `docs/PARALLEL_WORKFLOW.md` → Untracked Files), write a "Not verified" line that says so and skip to the stop step.
 
-   Then wait in the foreground with `timeout: 540000`, in the same turn (CLAUDE.md → Waiting inside a skill):
+**Account.** Sign up a review account (`docs/BROWSER_TESTING.md` → Walking the flow): `curl -X POST <url>/api/e2e-seed` returns `{"code":…}`; sign up on `<url>/sign-up` with it, `review-<timestamp>@example.com` and `TEST_PASSWORD` from `tests/e2e/utils/test-helpers.ts`, then finish onboarding. Never a real address or password. The sidebar keeps cookies between runs and `localhost` cookies are shared across ports, so `/sign-up` can redirect to `/` or `/onboarding` as a dev or old review session; then sign out from the user menu and load `/sign-up` again. The Playwright MCP starts with no cookies.
 
-   ```bash
-   # 96 × 5 s = 480 s, under the 540 s foreground timeout.
-   for i in $(seq 1 96); do
-     # Alive 5 s after READY: if another server took the port, ours exits and READY was theirs.
-     if grep -q REVIEW-READY /tmp/review-HON-XX.log 2>/dev/null; then
-       sleep 5; kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null && { grep REVIEW-READY /tmp/review-HON-XX.log; exit 0; }
-       tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
-     fi
-     if [ -s /tmp/review-HON-XX.pid ] && ! kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null; then
-       tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
-     fi
-     sleep 5
-   done
-   echo REVIEW_WAITING
-   ```
+**Cookie banner.** Before the first screen, click "Essential only" in the "Cookie consent" region once per run (`src/components/CookieBanner.tsx`). The banner covers the bottom of every screen and intercepts clicks there (HON-1205). Not "Accept all": the review server may carry PostHog keys from `.env`, and a review session must not count as a visitor.
 
-   `REVIEW_WAITING`: run it again. `REVIEW_FAILED` (no Neon slot, no Neon key, a refused `.env`): do not block the PR. Write a "Not verified" line with the reason from the log, and skip to step 5.
+**Each screen.** Go to the route, snapshot, do the issue's main action, snapshot again, and check the result against the acceptance criteria. Save a screenshot (`preview_snapshot` with `save: true` returns `screenshotPath`; `browser_take_screenshot` with `filename: "hon-XX-<screen>.png"` reports its path). A defect found here is fixed now and driven again.
 
-2. **Pick a browser** by `docs/BROWSER_TESTING.md` → Which browser: the T3 Code sidebar browser (`preview_*`) first, then the Playwright MCP (`browser_*`). Skip the Chrome extension here, because it cannot save the screenshot file that step 4 uploads. The steps below give both sets of names; `docs/BROWSER_TESTING.md` → Tool mapping pairs them. If neither is loaded (a worker without the Playwright MCP, `docs/PARALLEL_WORKFLOW.md` → Untracked Files), write a "Not verified" line that says so and skip to step 5.
+**Upload** each screenshot to the Linear issue, one file at a time: `prepare_attachment_upload` (`issue`, `filename` `hon-XX-<screen>.png`, `contentType: "image/png"`, `size` from `wc -c < <path>`), then `curl -X PUT --data-binary @<path>` to `uploadRequest.url` with every header in `uploadRequest.headers` sent verbatim, within 60 seconds, then `create_attachment_from_upload` with the `assetUrl`. A failed upload keeps the `Driven:` line; say "screenshot not uploaded" on it. The PR body links the attachment by name, because `gh` cannot upload an image.
 
-   **Sign up a review account** in it (`docs/BROWSER_TESTING.md` → Walking the flow). `curl -X POST <url>/api/e2e-seed` returns `{"code":…}`. Sign up on `<url>/sign-up` with that code, `review-<timestamp>@example.com` and `TEST_PASSWORD` from `tests/e2e/utils/test-helpers.ts`, then complete onboarding. Never use a real address or password.
+**Stop:** `bash scripts/review-serve.sh stop HON-XX` (in branch mode this also deletes the Neon branch), and close the tab (`t3_preview_close` / `browser_close`).
 
-   The T3 Code sidebar keeps its cookies between runs, and `localhost` cookies are shared across ports. So `<url>/sign-up` can redirect to `/` or `/onboarding` with a dev or an old review session, and the screens would be driven as that account (`src/app/sign-up/page.tsx`). If it redirects, open the user menu, click "Sign out", and load `/sign-up` again. The Playwright MCP starts with no cookies, so it never hits this.
-
-   Then, before the first changed screen, answer the cookie banner once: `preview_snapshot` / `browser_snapshot`, find the "Essential only" button in the "Cookie consent" region (`src/components/CookieBanner.tsx`), and `preview_click` / `browser_click` it. The banner covers the bottom of every screen and intercepts clicks there (HON-1205). Click "Essential only", not "Accept all", because the review server may carry PostHog keys from `.env` and a review session must not count as a visitor. The consent cookie lasts for the browser session the tool keeps open, so do this once per run, not per screen. If the snapshot shows no banner, continue.
-3. **For each changed screen**, with the browser from step 2: go to the route (`preview_navigate` / `browser_navigate`), then snapshot it (`preview_snapshot` / `browser_snapshot`). Do the issue's main action (`preview_click`, `preview_type`, … / `browser_click`, `browser_type`, …), snapshot again, and check the result against the acceptance criteria. Then save a screenshot and note its path: `preview_snapshot` with `save: true` returns `screenshotPath`, a PNG under `~/.t3/userdata/browser-artifacts/`; `browser_take_screenshot` with `filename: "hon-XX-<screen>.png"` reports its path. A defect you find here is fixed now, then driven again.
-4. **Upload each screenshot to the Linear issue**, one file at a time: `prepare_attachment_upload` (`issue`, `filename` as `hon-XX-<screen>.png`, `contentType: "image/png"`, `size` from `wc -c < <path>`). Then `curl -X PUT --data-binary @<path>` to `uploadRequest.url`, with every header in `uploadRequest.headers` sent verbatim, within 60 seconds. Then `create_attachment_from_upload` with the `assetUrl`. If an upload fails, the `Driven:` line still stands. Say "screenshot not uploaded" on it.
-5. **Stop the server:** `kill -TERM "$(cat /tmp/review-HON-XX.pid)"`. Its exit trap stops the dev server and, in branch mode, deletes the Neon branch. Close the tab with the set in use: `t3_preview_close` / `browser_close`.
-
-**Evidence:** one line per screen, for the PR body's "Verified" list. It names the route, the action, what the snapshot showed, and the Linear attachment:
+**Evidence:** one line per screen, for the PR body's "Verified" list, naming the route, the action, what the snapshot showed and the Linear attachment. `scripts/pr-review.sh` reports a PR that matches the trigger and has no such line, unless "Not verified" says why.
 
 ```
 - Driven: `/shopping-list` — ticked "Milk"; the item moved to Done and the counter read 3/4. Screenshot `hon-XX-shopping-list.png` on HON-XX.
 ```
 
-The PR body links the attachment by name, because `gh` cannot upload an image. `scripts/pr-review.sh` reports a PR that matches the trigger and has no `Driven:` line, unless "Not verified" says why the screen could not be driven.
+## Completion
 
-After implementing all steps, output the completion marker exactly as shown:
+Print the marker exactly; `/auto-implement`, the orchestrator and `worktree-claude.sh` match on it:
 
 ```
 [implement-issue:complete] Implementation complete for HON-XX
 ```
 
-If this issue has follow-ups, print their IDs on the next line, so `/create-pr` can put them in the PR body: `Follow-ups: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)`. Print each `Driven:` line after it, for the same reason.
-
-This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. The calling context will determine what happens next.
-
-## Edge Cases
-
-| Scenario                    | Handling                                            |
-| --------------------------- | --------------------------------------------------- |
-| Issue doesn't exist         | Error: "Issue HON-XX not found in Linear"           |
-| Issue Done/Canceled/Dup.    | Stop at step 3 gate; do not claim                   |
-| Has open blockers           | Stop at step 3 gate; list blockers                  |
-| Plan not in Linear comments | Offer to run `/plan-issue` or use `--no-plan`       |
-| Plan is for different issue | Error: "Plan in comments is for HON-YY, not HON-XX" |
-| Already on the branch       | Continue without creating new branch                |
-| Assigned to someone else    | Warn and ask before reassigning                     |
-| In worktree                 | Use worktree branch directly, skip branch creation  |
-| Main checkout               | EnterWorktree (step 7); switch in place only with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` |
-
-## Important
-
-- Always verify the branch name matches Linear's `gitBranchName`
-- Don't update issue status after PR is created (Linear automation handles it)
-- If implementation reveals plan issues, suggest updating the plan
+Then, each on its own line, so `/create-pr` can put them in the PR body: `Follow-ups: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)` when there are any, and every `Driven:` line.

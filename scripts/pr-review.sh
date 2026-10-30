@@ -403,7 +403,7 @@ If this diff changes a prompt builder or text it sends to the model (an output s
 AI_EVAL_PROMPT
 fi
 
-# Driven screens: /implement-issue step 9 → "Drive changed screens" opens each changed
+# Driven screens: /implement-issue → "Drive changed screens" opens each changed
 # screen through the Playwright MCP and records a `Driven:` line in the PR body. Pages
 # and route files under src/app, and feature components; a src/components/ui primitive
 # is covered by its stories, src/app/api renders no screen, and src/app/admin opens

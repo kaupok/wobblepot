@@ -39,4 +39,4 @@ This is part of the definition of done. The tier 1 E2E check catches drift on `m
 
 ## Driven screens
 
-When a diff changes a page or a feature component, open each changed screen through the Playwright MCP on `pnpm review:local` before the PR, and record a `Driven:` line in the PR body. Storybook and the E2E grep are static, so they cannot see a dead button. The steps are in `/implement-issue` step 9 → "Drive changed screens". `scripts/pr-review.sh` adds a reviewer item when the line is missing.
+When a diff changes a page or a feature component, open each changed screen through the Playwright MCP on `pnpm review:local` before the PR, and record a `Driven:` line in the PR body. Storybook and the E2E grep are static, so they cannot see a dead button. The steps are in `/implement-issue` → "Drive changed screens". `scripts/pr-review.sh` adds a reviewer item when the line is missing.
