@@ -128,9 +128,12 @@ export const STEPS_AI_BUDGET_MS = 45_000
  * 27 calls): p50 3.2s, max 13.3s, no retries. The slow calls are Estonian
  * answers with adaptive thinking (up to 725 reasoning tokens, 986 output in
  * all); English answers did not think and finished within 6s. Kept at 30s
- * rather than trimmed: the 1200-token `maxOutputTokens` takes about 22s at the
- * slowest rate measured (55 tokens/s), so a trimmed budget would abort a long
- * answer mid-stream. That leaves 30s under the 60s `maxDuration` for the entry,
+ * rather than trimmed: a trimmed budget would abort a long answer mid-stream.
+ * The ceiling rose from 1200 to 2000 `maxOutputTokens` (HON-1490), which takes
+ * about 36s at the slowest rate measured (55 tokens/s) but about 24s at the
+ * rate of the 2026-10-30 checks (max 12.6s for calls near 1100 tokens). A call
+ * past 30s fails either way; the raise turns a cut-off at the old ceiling into
+ * an answer. That leaves 30s under the 60s `maxDuration` for the entry,
  * pantry and preferences reads before the call and the usage write after it.
  */
 export const COOK_QUESTION_AI_BUDGET_MS = 30_000

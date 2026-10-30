@@ -24,7 +24,6 @@
 11442 scripts/model-bench/report.ts
 10033 scripts/model-bench/run.test.ts
 7407 scripts/model-bench/run.ts
-6939 scripts/model-bench/scorers.test.ts
 5874 scripts/neon-cleanup.sh
 24962 scripts/orchestrator-outcome-harness.sh
 7876 scripts/orchestrator.failure.test.ts
