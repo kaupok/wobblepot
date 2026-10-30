@@ -41,6 +41,8 @@ WAIT_SECS="${REVIEW_SERVE_WAIT_SECS:-480}"
 POLL_SECS="${REVIEW_SERVE_POLL_SECS:-5}"
 # Seconds READY must outlive before it counts as ours (see `wait` above).
 SETTLE_SECS="${REVIEW_SERVE_SETTLE_SECS:-5}"
+# Seconds `stop` gives the server to exit after TERM.
+STOP_SECS="${REVIEW_SERVE_STOP_SECS:-30}"
 
 usage() {
   echo "usage: bash scripts/review-serve.sh <start|wait|stop> HON-XX [--seed]" >&2
@@ -90,17 +92,20 @@ cmd_start() {
     echo "a review server for $id is already running (pid $(cat "$PID_FILE")); stop it first" >&2
     exit 1
   fi
-  # Before any probe, so a `wait` that overlaps this start never reads the
-  # previous run's READY line.
+  # Fresh files, then the pid and the log before anything that can fail: a
+  # `wait` that overlaps this start never reads the previous run's READY line,
+  # and a start that dies here (no free port, no git) leaves a dead pid and its
+  # reason in the log, so `wait` prints REVIEW_FAILED instead of WAITING forever.
   rm -f "$PID_FILE" "$LOG_FILE"
+  echo $$ > "$PID_FILE"
+  exec > "$LOG_FILE" 2>&1
   db="$(db_mode_args)"
   REVIEW_LOCAL_PORT="$(free_port)"
   export REVIEW_LOCAL_PORT
-  echo $$ > "$PID_FILE"
   # $db is zero or two words on purpose; the seed expansion survives an empty
   # array under `set -u` on the bash 3.2 macOS ships.
   # shellcheck disable=SC2086
-  exec bash "$SCRIPT_DIR/e2e-local.sh" serve $db ${seed[@]+"${seed[@]}"} > "$LOG_FILE" 2>&1
+  exec bash "$SCRIPT_DIR/e2e-local.sh" serve $db ${seed[@]+"${seed[@]}"}
 }
 
 fail_with_log() {
@@ -128,10 +133,18 @@ cmd_stop() {
   [ -s "$PID_FILE" ] || { echo "no review server recorded for $id" >&2; exit 0; }
   pid="$(cat "$PID_FILE")"
   kill -TERM "$pid" 2>/dev/null || true
-  for i in $(seq 1 30); do
+  for i in $(seq 1 "$STOP_SECS"); do
     kill -0 "$pid" 2>/dev/null || break
     sleep 1
   done
+  # bash defers the TERM trap while a foreground child runs (migrate, seed), so
+  # a stop during setup can outlive the window. Keep the files, so the server
+  # stays recorded and a second stop reaches it; a dropped pid file would let
+  # the next start spend a second Neon branch beside a server nothing can stop.
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "review server for $id (pid $pid) did not exit within ${STOP_SECS} s; run stop again" >&2
+    exit 1
+  fi
   rm -f "$PID_FILE" "$LOG_FILE"
   echo "review server for $id stopped"
 }

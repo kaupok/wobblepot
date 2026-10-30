@@ -22,6 +22,8 @@ const SERVE_STUB = `#!/usr/bin/env bash
 echo "serve-args: $*" > "$STUB_DIR/serve.log"
 echo "port: \${REVIEW_LOCAL_PORT:-unset}" >> "$STUB_DIR/serve.log"
 trap 'touch "$STUB_DIR/stopped"; exit 0' TERM
+# A server still in migrate or seed: bash defers the trap until the child exits.
+if [ -n "\${STUB_IGNORE_TERM:-}" ]; then trap '' TERM; fi
 if [ -n "\${STUB_EXIT_EARLY:-}" ]; then echo "ERROR: branches limit exceeded" >&2; exit 1; fi
 sleep "\${STUB_READY_DELAY:-0}"
 printf 'REVIEW-READY http://localhost:%s db=env\\n' "$REVIEW_LOCAL_PORT"
@@ -131,7 +133,20 @@ describe('review-serve.sh start', () => {
   })
 
   it('uses --db env when the worktree .env has its own DATABASE_URL', async () => {
-    execFileSync('git', ['-C', root, 'commit', '-q', '--allow-empty', '-m', 'init'])
+    // CI has no git identity, so the commit names one inline.
+    execFileSync('git', [
+      '-C',
+      root,
+      '-c',
+      'user.name=review-serve test',
+      '-c',
+      'user.email=review-serve@example.com',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'init',
+    ])
     const wt = path.join(root, 'wt')
     execFileSync('git', ['-C', root, 'worktree', 'add', '-q', wt])
     write(path.join(wt, '.env'), 'DATABASE_URL=postgres://own\n')
@@ -192,6 +207,17 @@ describe('review-serve.sh wait', () => {
     expect(result.stdout.trim().endsWith('REVIEW_FAILED')).toBe(true)
   })
 
+  it('prints REVIEW_FAILED with the reason when start dies before the server runs', async () => {
+    const busy = Array.from({ length: 99 }, (_, i) => 3201 + i).join(' ')
+    start(['HON-9'], { STUB_BUSY_PORTS: busy })
+    await until(() => fs.existsSync(pidFile()))
+    const result = await run(['wait', 'HON-9'])
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('no free port in 3201-3299')
+    expect(result.stdout.trim().endsWith('REVIEW_FAILED')).toBe(true)
+    expect(fs.existsSync(path.join(stubDir, 'serve.log'))).toBe(false)
+  })
+
   it('prints REVIEW_WAITING when the deadline passes without a verdict', async () => {
     start(['HON-9'], { STUB_READY_DELAY: '30' })
     await until(() => fs.existsSync(pidFile()))
@@ -213,6 +239,18 @@ describe('review-serve.sh stop', () => {
     expect(fs.existsSync(path.join(stubDir, 'stopped'))).toBe(true)
     expect(fs.existsSync(pidFile())).toBe(false)
     expect(fs.existsSync(logFile())).toBe(false)
+  })
+
+  it('keeps the files and fails when the server outlives the stop window', async () => {
+    start(['HON-9'], { STUB_IGNORE_TERM: '1' })
+    await until(
+      () => fs.existsSync(logFile()) && /REVIEW-READY/.test(fs.readFileSync(logFile(), 'utf8')),
+    )
+    const result = await run(['stop', 'HON-9'], { REVIEW_SERVE_STOP_SECS: '1' })
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('did not exit within 1 s; run stop again')
+    expect(fs.existsSync(pidFile())).toBe(true)
+    expect(fs.existsSync(logFile())).toBe(true)
   })
 
   it('is a no-op without a recorded server', async () => {
