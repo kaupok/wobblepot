@@ -871,11 +871,12 @@ describe('orchestrator.sh', () => {
     })
 
     it('clears the assignee when it claims an issue, so 2.1 reads it as the pre-claim', () => {
-      const source = fs.readFileSync(orchestrator, 'utf8')
+      const out = stripTimestamps(runHarness('claim', 'uuid-1', 'HON-1'))
 
-      expect(shellFunctionBody(source, 'claim_issue')).toContain(
-        'input: { stateId: $stateId, assigneeId: null }',
-      )
+      expect(out).toContain('RC:0')
+      expect(out).toContain('issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null })')
+      expect(out).toContain('VARS:{"id":"uuid-1","stateId":"efa0cbda-898d-440d-a6a9-36e798d00881"}')
+      expect(out).toContain('Claimed HON-1 → In Progress')
     })
 
     it('selects nothing when the only unassigned, unblocked issue is in Todo', () => {

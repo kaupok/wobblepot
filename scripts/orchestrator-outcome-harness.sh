@@ -1512,6 +1512,22 @@ EOF
     exit 0
     ;;
 
+  # ─── The pre-claim mutation (HON-1483) ─────────────────────────────────────
+  claim)
+    # Records the mutation and vars claim_issue sends, so a test asserts what
+    # Linear receives rather than the source text.
+    linear_api() {
+      printf 'QUERY:%s\nVARS:%s\n' "$(printf '%s' "$1" | tr -s ' \n' ' ')" "$(printf '%s' "$2" | jq -c .)" > "$MAIN_LOG.sent"
+      echo '{"data":{"issueUpdate":{"success":true}}}'
+    }
+    DRY_RUN=false
+    trap 'rm -f "$MAIN_LOG" "$MAIN_LOG.sent" "$SEEN_SKIPS_FILE"' EXIT
+    claim_issue "$A1" "$A2" 2>/dev/null
+    echo "RC:$?"
+    cat "$MAIN_LOG.sent" "$MAIN_LOG"
+    exit 0
+    ;;
+
   # ─── .env parsing (HON-580 finding 5) ──────────────────────────────────────
   load-env)
     # Sourced, not executed — see neon-gc-select above for why that is safe.
