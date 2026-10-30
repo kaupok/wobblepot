@@ -1,12 +1,13 @@
 {
   "task": "plan",
   "model": "claude-sonnet-5-5",
-  "recordedAt": "2026-10-01",
-  "commit": "ef94fbf1",
+  "recordedAt": "2026-10-30",
+  "commit": "d3c0ef98",
   "runs": 3,
   "cases": {
     "plan/en-all-meals-peanut-allergy": {
-      "promptHash": "b85cd65c29918f918bb53d6eeff3387e71bd839d085f4a40db3e7d94b90f0fb4",
+      "promptHash": "79f898e18d57a25793831d38d6ddadb986c5962d14f4bc0cede63c3626a638ea",
+      "requestHash": "4ca07c3b3b503a7734f5d47ac9b6c09956bf1dfad15e7131ee2a75e5f146c219",
       "calls": [
         {
           "caseId": "plan/en-all-meals-peanut-allergy",
@@ -15,7 +16,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8472.637166999999,
+          "latencyMs": 9214.614125,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -23,11 +24,11 @@
             "inputTokens": 3785,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1374,
+            "outputTokens": 1536,
             "usageMissing": false
           },
-          "reasoningTokens": 620,
-          "costUsd": 0.02131,
+          "reasoningTokens": 782,
+          "costUsd": 0.02293,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -35,17 +36,17 @@
               {
                 "date": "2026-10-26",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-02"
+                "mealId": "meal-bf-06"
               },
               {
                 "date": "2026-10-27",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-01"
+                "mealId": "meal-bf-02"
               },
               {
                 "date": "2026-10-28",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-06"
+                "mealId": "meal-bf-01"
               },
               {
                 "date": "2026-10-29",
@@ -55,12 +56,12 @@
               {
                 "date": "2026-10-30",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-03"
+                "mealId": "meal-bf-05"
               },
               {
                 "date": "2026-10-31",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-05"
+                "mealId": "meal-bf-03"
               },
               {
                 "date": "2026-11-01",
@@ -75,32 +76,32 @@
               {
                 "date": "2026-10-27",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-09"
+                "mealId": "meal-lunch-02"
               },
               {
                 "date": "2026-10-28",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-02"
+                "mealId": "meal-lunch-09"
               },
               {
                 "date": "2026-10-29",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-01"
+                "mealId": "meal-lunch-07"
               },
               {
                 "date": "2026-10-30",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-07"
+                "mealId": "meal-lunch-01"
               },
               {
                 "date": "2026-10-31",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-04"
+                "mealId": "meal-lunch-03"
               },
               {
                 "date": "2026-11-01",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-10"
+                "mealId": "meal-lunch-04"
               },
               {
                 "date": "2026-10-26",
@@ -110,7 +111,7 @@
               {
                 "date": "2026-10-27",
                 "mealType": "dinner",
-                "mealId": "meal-any-01"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-28",
@@ -120,12 +121,12 @@
               {
                 "date": "2026-10-29",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-30",
                 "mealType": "dinner",
-                "mealId": "meal-any-07"
+                "mealId": "meal-any-01"
               },
               {
                 "date": "2026-10-31",
@@ -135,7 +136,7 @@
               {
                 "date": "2026-11-01",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-13"
               }
             ]
           },
@@ -144,7 +145,7 @@
             "firstTryValid": 1,
             "validAfterRepair": 1,
             "outOfPoolIds": 0,
-            "dinnerProteinVariety": 6
+            "dinnerProteinVariety": 7
           }
         },
         {
@@ -154,7 +155,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8783.189208000025,
+          "latencyMs": 8191.232750000025,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -162,11 +163,11 @@
             "inputTokens": 3785,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1386,
+            "outputTokens": 1333,
             "usageMissing": false
           },
-          "reasoningTokens": 632,
-          "costUsd": 0.02143,
+          "reasoningTokens": 579,
+          "costUsd": 0.0209,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -174,7 +175,7 @@
               {
                 "date": "2026-10-26",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-06"
+                "mealId": "meal-bf-01"
               },
               {
                 "date": "2026-10-27",
@@ -184,7 +185,7 @@
               {
                 "date": "2026-10-28",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-01"
+                "mealId": "meal-bf-03"
               },
               {
                 "date": "2026-10-29",
@@ -194,17 +195,17 @@
               {
                 "date": "2026-10-30",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-03"
+                "mealId": "meal-bf-06"
               },
               {
                 "date": "2026-10-31",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-08"
+                "mealId": "meal-bf-07"
               },
               {
                 "date": "2026-11-01",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-05"
+                "mealId": "meal-bf-08"
               },
               {
                 "date": "2026-10-26",
@@ -214,32 +215,32 @@
               {
                 "date": "2026-10-27",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-09"
+                "mealId": "meal-lunch-02"
               },
               {
                 "date": "2026-10-28",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-02"
+                "mealId": "meal-lunch-09"
               },
               {
                 "date": "2026-10-29",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-01"
+                "mealId": "meal-lunch-07"
               },
               {
                 "date": "2026-10-30",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-07"
+                "mealId": "meal-lunch-01"
               },
               {
                 "date": "2026-10-31",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-04"
+                "mealId": "meal-lunch-03"
               },
               {
                 "date": "2026-11-01",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-03"
+                "mealId": "meal-lunch-04"
               },
               {
                 "date": "2026-10-26",
@@ -293,7 +294,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7777.233707999927,
+          "latencyMs": 8297.368250000058,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -301,11 +302,11 @@
             "inputTokens": 3785,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1348,
+            "outputTokens": 1386,
             "usageMissing": false
           },
-          "reasoningTokens": 594,
-          "costUsd": 0.02105,
+          "reasoningTokens": 632,
+          "costUsd": 0.02143,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -323,12 +324,12 @@
               {
                 "date": "2026-10-28",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-06"
+                "mealId": "meal-bf-08"
               },
               {
                 "date": "2026-10-29",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-04"
+                "mealId": "meal-bf-06"
               },
               {
                 "date": "2026-10-30",
@@ -338,12 +339,12 @@
               {
                 "date": "2026-10-31",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-05"
+                "mealId": "meal-bf-04"
               },
               {
                 "date": "2026-11-01",
                 "mealType": "breakfast",
-                "mealId": "meal-bf-08"
+                "mealId": "meal-bf-05"
               },
               {
                 "date": "2026-10-26",
@@ -353,32 +354,32 @@
               {
                 "date": "2026-10-27",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-02"
+                "mealId": "meal-lunch-09"
               },
               {
                 "date": "2026-10-28",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-09"
+                "mealId": "meal-lunch-02"
               },
               {
                 "date": "2026-10-29",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-07"
+                "mealId": "meal-lunch-01"
               },
               {
                 "date": "2026-10-30",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-01"
+                "mealId": "meal-lunch-04"
               },
               {
                 "date": "2026-10-31",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-03"
+                "mealId": "meal-lunch-07"
               },
               {
                 "date": "2026-11-01",
                 "mealType": "lunch",
-                "mealId": "meal-lunch-10"
+                "mealId": "meal-lunch-03"
               },
               {
                 "date": "2026-10-26",
@@ -388,7 +389,7 @@
               {
                 "date": "2026-10-27",
                 "mealType": "dinner",
-                "mealId": "meal-any-01"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-28",
@@ -398,12 +399,12 @@
               {
                 "date": "2026-10-29",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-01"
               },
               {
                 "date": "2026-10-30",
                 "mealType": "dinner",
-                "mealId": "meal-any-03"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-31",
@@ -413,7 +414,7 @@
               {
                 "date": "2026-11-01",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-13"
               }
             ]
           },
@@ -422,13 +423,14 @@
             "firstTryValid": 1,
             "validAfterRepair": 1,
             "outOfPoolIds": 0,
-            "dinnerProteinVariety": 6
+            "dinnerProteinVariety": 7
           }
         }
       ]
     },
     "plan/en-pescatarian-tight-fish-shellfish-allergy": {
-      "promptHash": "7201b4b952655008acf174e46ef0d3c5692a33cc5539f3cedd42ffab4ce1e096",
+      "promptHash": "0acef09f3cc896793e07249d52fbc9dd432c21f006fde9a77243dd3ee5e533b0",
+      "requestHash": "6417490e50df765cc03a0da341627e5981429ad8032ecae7f04b8108fc1014b1",
       "calls": [
         {
           "caseId": "plan/en-pescatarian-tight-fish-shellfish-allergy",
@@ -437,7 +439,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4869.570124999998,
+          "latencyMs": 8323.105749999999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -445,11 +447,11 @@
             "inputTokens": 2485,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 724,
+            "outputTokens": 1167,
             "usageMissing": false
           },
-          "reasoningTokens": 473,
-          "costUsd": 0.01221,
+          "reasoningTokens": 916,
+          "costUsd": 0.01664,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -472,7 +474,7 @@
               {
                 "date": "2026-10-22",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-10-23",
@@ -482,12 +484,12 @@
               {
                 "date": "2026-10-24",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-25",
                 "mealType": "dinner",
-                "mealId": "meal-any-04"
+                "mealId": "meal-any-02"
               }
             ]
           },
@@ -506,7 +508,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5355.337583000015,
+          "latencyMs": 5733.387875000015,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -514,11 +516,11 @@
             "inputTokens": 2485,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 761,
+            "outputTokens": 835,
             "usageMissing": false
           },
-          "reasoningTokens": 510,
-          "costUsd": 0.01258,
+          "reasoningTokens": 584,
+          "costUsd": 0.01332,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -556,7 +558,7 @@
               {
                 "date": "2026-10-25",
                 "mealType": "dinner",
-                "mealId": "meal-any-04"
+                "mealId": "meal-any-02"
               }
             ]
           },
@@ -575,7 +577,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5007.501958000008,
+          "latencyMs": 8292.630083000055,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -583,11 +585,11 @@
             "inputTokens": 2485,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 719,
+            "outputTokens": 1183,
             "usageMissing": false
           },
-          "reasoningTokens": 468,
-          "costUsd": 0.01216,
+          "reasoningTokens": 932,
+          "costUsd": 0.0168,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -595,7 +597,7 @@
               {
                 "date": "2026-10-19",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-20",
@@ -620,7 +622,7 @@
               {
                 "date": "2026-10-24",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-25",
@@ -640,7 +642,8 @@
       ]
     },
     "plan/en-vegan-week": {
-      "promptHash": "7a82902fda2d9e293f96315a8e7e27c0ef908fb883e5463a805c401883f05bd5",
+      "promptHash": "37c997db521972fec1a3af832d0f1bc11d34354a2dcf3175a823747dc5c910ed",
+      "requestHash": "5490ca12a6925f674093b81301946be1ef1812a9c7e0f5e6851b1bb5501b6482",
       "calls": [
         {
           "caseId": "plan/en-vegan-week",
@@ -649,7 +652,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5578.761041999998,
+          "latencyMs": 5964.455416999997,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -657,11 +660,11 @@
             "inputTokens": 2937,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 758,
+            "outputTokens": 784,
             "usageMissing": false
           },
-          "reasoningTokens": 508,
-          "costUsd": 0.013454,
+          "reasoningTokens": 534,
+          "costUsd": 0.013714,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -669,7 +672,7 @@
               {
                 "date": "2026-10-12",
                 "mealType": "dinner",
-                "mealId": "meal-any-05"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-13",
@@ -684,7 +687,7 @@
               {
                 "date": "2026-10-15",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-03"
               },
               {
                 "date": "2026-10-16",
@@ -694,7 +697,76 @@
               {
                 "date": "2026-10-17",
                 "mealType": "dinner",
+                "mealId": "meal-any-05"
+              },
+              {
+                "date": "2026-10-18",
+                "mealType": "dinner",
                 "mealId": "meal-any-09"
+              }
+            ]
+          },
+          "scores": {
+            "structureValid": 1,
+            "firstTryValid": 1,
+            "validAfterRepair": 1,
+            "outOfPoolIds": 0,
+            "dinnerProteinVariety": 2
+          }
+        },
+        {
+          "caseId": "plan/en-vegan-week",
+          "task": "plan",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 5626.216124999977,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2937,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 773,
+            "usageMissing": false
+          },
+          "reasoningTokens": 523,
+          "costUsd": 0.013604,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "entries": [
+              {
+                "date": "2026-10-12",
+                "mealType": "dinner",
+                "mealId": "meal-any-12"
+              },
+              {
+                "date": "2026-10-13",
+                "mealType": "dinner",
+                "mealId": "meal-leg-06"
+              },
+              {
+                "date": "2026-10-14",
+                "mealType": "dinner",
+                "mealId": "meal-any-06"
+              },
+              {
+                "date": "2026-10-15",
+                "mealType": "dinner",
+                "mealId": "meal-any-09"
+              },
+              {
+                "date": "2026-10-16",
+                "mealType": "dinner",
+                "mealId": "meal-leg-09"
+              },
+              {
+                "date": "2026-10-17",
+                "mealType": "dinner",
+                "mealId": "meal-any-05"
               },
               {
                 "date": "2026-10-18",
@@ -714,11 +786,11 @@
         {
           "caseId": "plan/en-vegan-week",
           "task": "plan",
-          "run": 2,
+          "run": 3,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5953.349500000011,
+          "latencyMs": 5836.314207999967,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -726,11 +798,11 @@
             "inputTokens": 2937,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 766,
+            "outputTokens": 829,
             "usageMissing": false
           },
-          "reasoningTokens": 516,
-          "costUsd": 0.013534,
+          "reasoningTokens": 579,
+          "costUsd": 0.014164,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -738,7 +810,7 @@
               {
                 "date": "2026-10-12",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-13",
@@ -754,75 +826,6 @@
                 "date": "2026-10-15",
                 "mealType": "dinner",
                 "mealId": "meal-any-05"
-              },
-              {
-                "date": "2026-10-16",
-                "mealType": "dinner",
-                "mealId": "meal-leg-09"
-              },
-              {
-                "date": "2026-10-17",
-                "mealType": "dinner",
-                "mealId": "meal-any-04"
-              },
-              {
-                "date": "2026-10-18",
-                "mealType": "dinner",
-                "mealId": "meal-any-09"
-              }
-            ]
-          },
-          "scores": {
-            "structureValid": 1,
-            "firstTryValid": 1,
-            "validAfterRepair": 1,
-            "outOfPoolIds": 0,
-            "dinnerProteinVariety": 2
-          }
-        },
-        {
-          "caseId": "plan/en-vegan-week",
-          "task": "plan",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 6657.226750000031,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 2937,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 834,
-            "usageMissing": false
-          },
-          "reasoningTokens": 584,
-          "costUsd": 0.014214,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "entries": [
-              {
-                "date": "2026-10-12",
-                "mealType": "dinner",
-                "mealId": "meal-any-12"
-              },
-              {
-                "date": "2026-10-13",
-                "mealType": "dinner",
-                "mealId": "meal-leg-06"
-              },
-              {
-                "date": "2026-10-14",
-                "mealType": "dinner",
-                "mealId": "meal-any-06"
-              },
-              {
-                "date": "2026-10-15",
-                "mealType": "dinner",
-                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-16",
@@ -832,7 +835,7 @@
               {
                 "date": "2026-10-17",
                 "mealType": "dinner",
-                "mealId": "meal-any-05"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-10-18",
@@ -852,7 +855,8 @@
       ]
     },
     "plan/en-week-no-diet": {
-      "promptHash": "1bdd548d688e3dbd43365ded3d21ee24e390a6bd458a8255564d02cb4ea6a2e2",
+      "promptHash": "32334754339bdf591c2189704264167cdce8f63f75de0852fcfdb7d7a190f660",
+      "requestHash": "d97d6216d2abb9a0fb678cd4f1a5907e4dfd0da8fb4e2db542ad9a5b337fde89",
       "calls": [
         {
           "caseId": "plan/en-week-no-diet",
@@ -861,7 +865,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4721.825416,
+          "latencyMs": 5597.658375000003,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -869,11 +873,11 @@
             "inputTokens": 2401,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 695,
+            "outputTokens": 805,
             "usageMissing": false
           },
-          "reasoningTokens": 452,
-          "costUsd": 0.011752,
+          "reasoningTokens": 562,
+          "costUsd": 0.012852,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -906,7 +910,7 @@
               {
                 "date": "2026-10-10",
                 "mealType": "dinner",
-                "mealId": "m-leg-5"
+                "mealId": "m-leg-3"
               },
               {
                 "date": "2026-10-11",
@@ -930,7 +934,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5212.133167000022,
+          "latencyMs": 5428.3837080000085,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -938,11 +942,11 @@
             "inputTokens": 2401,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 693,
+            "outputTokens": 733,
             "usageMissing": false
           },
-          "reasoningTokens": 450,
-          "costUsd": 0.011732,
+          "reasoningTokens": 490,
+          "costUsd": 0.012132,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -975,7 +979,7 @@
               {
                 "date": "2026-10-10",
                 "mealType": "dinner",
-                "mealId": "m-leg-5"
+                "mealId": "m-leg-3"
               },
               {
                 "date": "2026-10-11",
@@ -999,7 +1003,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4971.085416999995,
+          "latencyMs": 6242.436125000007,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1007,11 +1011,11 @@
             "inputTokens": 2401,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 756,
+            "outputTokens": 780,
             "usageMissing": false
           },
-          "reasoningTokens": 513,
-          "costUsd": 0.012362,
+          "reasoningTokens": 537,
+          "costUsd": 0.012602,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1064,7 +1068,8 @@
       ]
     },
     "plan/et-no-diet-tight-legume-nut-allergy": {
-      "promptHash": "ca3f8b512dd42d83994528ff68c3fc54ce34f28f03bdab29c42f5617041fce16",
+      "promptHash": "b605665fc0080642f66493c5f0f6794eaf3000a6797d581292f16a44e17cf1f2",
+      "requestHash": "c0f8ba9be818d5298f791cbc364d58413b0a710027041ddb93bde2786c8199f9",
       "calls": [
         {
           "caseId": "plan/et-no-diet-tight-legume-nut-allergy",
@@ -1073,7 +1078,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5828.939167,
+          "latencyMs": 4946.004459000003,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1081,11 +1086,11 @@
             "inputTokens": 2511,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 847,
+            "outputTokens": 694,
             "usageMissing": false
           },
-          "reasoningTokens": 597,
-          "costUsd": 0.013492,
+          "reasoningTokens": 444,
+          "costUsd": 0.011962,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1093,12 +1098,12 @@
               {
                 "date": "2026-11-02",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-11-03",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-11-04",
@@ -1108,12 +1113,12 @@
               {
                 "date": "2026-11-05",
                 "mealType": "dinner",
-                "mealId": "meal-any-18"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-11-06",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-18"
               },
               {
                 "date": "2026-11-07",
@@ -1142,7 +1147,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5678.907792000042,
+          "latencyMs": 5221.603332999977,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1150,11 +1155,11 @@
             "inputTokens": 2511,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 771,
+            "outputTokens": 699,
             "usageMissing": false
           },
-          "reasoningTokens": 521,
-          "costUsd": 0.012732,
+          "reasoningTokens": 449,
+          "costUsd": 0.012012,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1167,7 +1172,7 @@
               {
                 "date": "2026-11-03",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-18"
               },
               {
                 "date": "2026-11-04",
@@ -1177,7 +1182,7 @@
               {
                 "date": "2026-11-05",
                 "mealType": "dinner",
-                "mealId": "meal-any-18"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-11-06",
@@ -1192,7 +1197,7 @@
               {
                 "date": "2026-11-08",
                 "mealType": "dinner",
-                "mealId": "meal-any-11"
+                "mealId": "meal-any-01"
               }
             ]
           },
@@ -1201,7 +1206,7 @@
             "firstTryValid": 1,
             "validAfterRepair": 1,
             "outOfPoolIds": 0,
-            "dinnerProteinVariety": 6
+            "dinnerProteinVariety": 7
           }
         },
         {
@@ -1211,7 +1216,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4670.3274170000805,
+          "latencyMs": 5636.316165999975,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1219,11 +1224,11 @@
             "inputTokens": 2511,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 626,
+            "outputTokens": 797,
             "usageMissing": false
           },
-          "reasoningTokens": 376,
-          "costUsd": 0.011282,
+          "reasoningTokens": 547,
+          "costUsd": 0.012992,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1231,12 +1236,12 @@
               {
                 "date": "2026-11-02",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-11-03",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-11-04",
@@ -1277,6 +1282,7 @@
     },
     "plan/et-vegan-tight-legume": {
       "promptHash": "3ea405a256f70db8da7737382219f056593aa3f20f0ffb1e3da1373e19c74a0c",
+      "requestHash": "9b3fa5670defb9ca3b92c41979b5a0c2cfef78de98bf39a11e2019169840c8fb",
       "calls": [
         {
           "caseId": "plan/et-vegan-tight-legume",
@@ -1285,7 +1291,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5335.445582999997,
+          "latencyMs": 5669.1005829999995,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1293,11 +1299,11 @@
             "inputTokens": 2351,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 684,
+            "outputTokens": 680,
             "usageMissing": false
           },
-          "reasoningTokens": 434,
-          "costUsd": 0.011542,
+          "reasoningTokens": 430,
+          "costUsd": 0.011502,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1335,7 +1341,7 @@
               {
                 "date": "2026-11-15",
                 "mealType": "dinner",
-                "mealId": "meal-any-09"
+                "mealId": "meal-any-10"
               }
             ]
           },
@@ -1354,7 +1360,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5789.640792000049,
+          "latencyMs": 5223.740041000012,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1362,11 +1368,11 @@
             "inputTokens": 2351,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 710,
+            "outputTokens": 670,
             "usageMissing": false
           },
-          "reasoningTokens": 460,
-          "costUsd": 0.011802,
+          "reasoningTokens": 420,
+          "costUsd": 0.011402,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1384,7 +1390,7 @@
               {
                 "date": "2026-11-11",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-18"
               },
               {
                 "date": "2026-11-12",
@@ -1399,7 +1405,7 @@
               {
                 "date": "2026-11-14",
                 "mealType": "dinner",
-                "mealId": "meal-any-18"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-11-15",
@@ -1423,7 +1429,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5832.619167000055,
+          "latencyMs": 6450.601790999994,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1431,11 +1437,11 @@
             "inputTokens": 2351,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 757,
+            "outputTokens": 862,
             "usageMissing": false
           },
-          "reasoningTokens": 507,
-          "costUsd": 0.012272,
+          "reasoningTokens": 612,
+          "costUsd": 0.013322,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1443,7 +1449,7 @@
               {
                 "date": "2026-11-09",
                 "mealType": "dinner",
-                "mealId": "meal-any-12"
+                "mealId": "meal-any-06"
               },
               {
                 "date": "2026-11-10",
@@ -1453,12 +1459,12 @@
               {
                 "date": "2026-11-11",
                 "mealType": "dinner",
-                "mealId": "meal-any-06"
+                "mealId": "meal-any-12"
               },
               {
                 "date": "2026-11-12",
                 "mealType": "dinner",
-                "mealId": "meal-any-05"
+                "mealId": "meal-any-18"
               },
               {
                 "date": "2026-11-13",
@@ -1468,7 +1474,7 @@
               {
                 "date": "2026-11-14",
                 "mealType": "dinner",
-                "mealId": "meal-any-18"
+                "mealId": "meal-any-05"
               },
               {
                 "date": "2026-11-15",
@@ -1488,7 +1494,8 @@
       ]
     },
     "plan/et-vegetarian-partial-week": {
-      "promptHash": "0871698826be2038e961f79f855051a67f024a2f3f37bc5eb21cd3c8e9460734",
+      "promptHash": "ebb8aa7603f2914738b0d253c408f7f1d6e1ce5342ed503a7943fb58579de971",
+      "requestHash": "40d0baebe6a54588e47eaf82a01d7f36984fe99e651ad72a4c96ed1494d87518",
       "calls": [
         {
           "caseId": "plan/et-vegetarian-partial-week",
@@ -1497,7 +1504,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5782.390833999998,
+          "latencyMs": 4629.895709000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1505,11 +1512,11 @@
             "inputTokens": 1895,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 708,
+            "outputTokens": 571,
             "usageMissing": false
           },
-          "reasoningTokens": 562,
-          "costUsd": 0.01087,
+          "reasoningTokens": 425,
+          "costUsd": 0.0095,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1532,7 +1539,7 @@
               {
                 "date": "2026-10-18",
                 "mealType": "dinner",
-                "mealId": "meal-any-04"
+                "mealId": "meal-any-01"
               }
             ]
           },
@@ -1541,7 +1548,7 @@
             "firstTryValid": 1,
             "validAfterRepair": 1,
             "outOfPoolIds": 0,
-            "dinnerProteinVariety": 2
+            "dinnerProteinVariety": 3
           }
         },
         {
@@ -1551,7 +1558,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4712.994999999995,
+          "latencyMs": 1608.1070419999887,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1559,11 +1566,11 @@
             "inputTokens": 1895,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 559,
+            "outputTokens": 146,
             "usageMissing": false
           },
-          "reasoningTokens": 413,
-          "costUsd": 0.00938,
+          "reasoningTokens": 0,
+          "costUsd": 0.00525,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1581,7 +1588,7 @@
               {
                 "date": "2026-10-17",
                 "mealType": "dinner",
-                "mealId": "meal-any-08"
+                "mealId": "meal-any-09"
               },
               {
                 "date": "2026-10-18",
@@ -1605,7 +1612,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5011.210083000013,
+          "latencyMs": 4298.242916000076,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1613,11 +1620,11 @@
             "inputTokens": 1895,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 672,
+            "outputTokens": 576,
             "usageMissing": false
           },
-          "reasoningTokens": 526,
-          "costUsd": 0.01051,
+          "reasoningTokens": 430,
+          "costUsd": 0.00955,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1656,6 +1663,7 @@
     },
     "plan/et-vegetarian-weekend-lunch": {
       "promptHash": "9f7436658c1e12b1d4055ba9fff98af44c587af7d782967881c8fe2b12bfda88",
+      "requestHash": "71387b3c4154f2b8ae95e9f03a2ccb6631938be793721d855c82d8df092a4529",
       "calls": [
         {
           "caseId": "plan/et-vegetarian-weekend-lunch",
@@ -1664,7 +1672,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7032.389792000002,
+          "latencyMs": 6142.053500000002,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1672,11 +1680,11 @@
             "inputTokens": 3017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 971,
+            "outputTokens": 930,
             "usageMissing": false
           },
-          "reasoningTokens": 644,
-          "costUsd": 0.015744,
+          "reasoningTokens": 603,
+          "costUsd": 0.015334,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1699,7 +1707,7 @@
               {
                 "date": "2026-10-08",
                 "mealType": "dinner",
-                "mealId": "m-et-any-9"
+                "mealId": "m-et-any-8"
               },
               {
                 "date": "2026-10-09",
@@ -1709,22 +1717,22 @@
               {
                 "date": "2026-10-10",
                 "mealType": "dinner",
-                "mealId": "m-et-any-7"
+                "mealId": "m-et-any-9"
               },
               {
                 "date": "2026-10-11",
                 "mealType": "dinner",
-                "mealId": "m-et-any-14"
+                "mealId": "m-et-any-4"
               },
               {
                 "date": "2026-10-10",
                 "mealType": "lunch",
-                "mealId": "m-et-l-4"
+                "mealId": "m-et-l-2"
               },
               {
                 "date": "2026-10-11",
                 "mealType": "lunch",
-                "mealId": "m-et-l-2"
+                "mealId": "m-et-l-4"
               }
             ]
           },
@@ -1743,7 +1751,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8153.46658399998,
+          "latencyMs": 9043.342291000008,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1751,11 +1759,11 @@
             "inputTokens": 3017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1107,
+            "outputTokens": 1154,
             "usageMissing": false
           },
-          "reasoningTokens": 780,
-          "costUsd": 0.017104,
+          "reasoningTokens": 827,
+          "costUsd": 0.017574,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1778,7 +1786,7 @@
               {
                 "date": "2026-10-08",
                 "mealType": "dinner",
-                "mealId": "m-et-any-9"
+                "mealId": "m-et-any-8"
               },
               {
                 "date": "2026-10-09",
@@ -1788,22 +1796,22 @@
               {
                 "date": "2026-10-10",
                 "mealType": "dinner",
-                "mealId": "m-et-any-14"
+                "mealId": "m-et-any-9"
               },
               {
                 "date": "2026-10-11",
                 "mealType": "dinner",
-                "mealId": "m-et-any-3"
+                "mealId": "m-et-any-14"
               },
               {
                 "date": "2026-10-10",
                 "mealType": "lunch",
-                "mealId": "m-et-l-1"
+                "mealId": "m-et-l-2"
               },
               {
                 "date": "2026-10-11",
                 "mealType": "lunch",
-                "mealId": "m-et-l-2"
+                "mealId": "m-et-l-4"
               }
             ]
           },
@@ -1822,7 +1830,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7286.737500000047,
+          "latencyMs": 6145.061000000103,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1830,11 +1838,11 @@
             "inputTokens": 3017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 905,
+            "outputTokens": 896,
             "usageMissing": false
           },
-          "reasoningTokens": 578,
-          "costUsd": 0.015084,
+          "reasoningTokens": 569,
+          "costUsd": 0.014994,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1882,7 +1890,7 @@
               {
                 "date": "2026-10-11",
                 "mealType": "lunch",
-                "mealId": "m-et-l-4"
+                "mealId": "m-et-l-2"
               }
             ]
           },
