@@ -61,6 +61,12 @@ Some ingredients have quality grades or processing descriptors that should be st
 - Olive oil: "extra virgin", "virgin", "light", "pure", "cold pressed" → output "olive oil"
 - These describe quality grades, not different products
 
+MEAT AND FISH CUTS:
+Keep the form the recipe states. The DB has a bone-in or whole row and a boneless "<cut> fillet" row, and the bone changes the nutrition:
+- "boneless", "fillet" or "meat" means the boneless row: "boneless skinless chicken thighs" → "chicken thigh fillet", "chicken thigh meat" → "chicken thigh fillet", "trout fillets" → "trout fillet"
+- A bone-in cut or a whole fish keeps the bare name: "bone-in chicken thighs" → "chicken thigh", "whole trout" → "trout"
+- A cut given in pieces is weighed: a bone-in cut with the bone, a boneless cut without it. "4 chicken thighs" → quantity: 600, unit: "g", name: "chicken thigh"; "4 boneless chicken thighs" → quantity: 400, unit: "g", name: "chicken thigh fillet"
+
 Expand generic terms ONLY when the database has the specific variant (pepper → black pepper, rice → white rice, oil → vegetable oil, cream → double cream).
 Keep generic terms when that's what the database stores (onion, milk, butter, vinegar, olive oil).
 
@@ -97,14 +103,14 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
 - For weight measurements, always use grams: 1 oz = 28g, 1 lb = 454g
 - For small measurements: 1 tbsp = 15g, 1 tsp = 5g
-- Give every weight as bought: dry rice, pasta, grains and lentils, drained canned beans. Ingredient nutrition is for that form
+- Give every weight as bought: dry rice, pasta, grains and lentils, drained canned beans, bone-in cuts and whole fish with the bone. Ingredient nutrition is for that form
   If the recipe gives a cooked weight, convert it to dry: cooked rice, grains or lentils × 0.4, cooked pasta or noodles × 0.45
   Example: "500g cooked rice" → quantity: 200, unit: "g", name: "white rice"
 
 SANITY CHECKS - Typical per-serving quantities:
 - Herbs/spices: 5-20g per serving
 - Garlic: 1-3 cloves (5-15g) per serving
-- Main protein: 100-200g per serving
+- Main protein: 100-200g per serving boneless, 250-400g bone-in or whole
 - Vegetables: 50-150g per serving
 - Grains/pasta: 75-125g (dry) per serving
 If your calculated quantities exceed these by 5x+, you likely made a conversion error.

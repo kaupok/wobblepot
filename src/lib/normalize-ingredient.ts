@@ -88,7 +88,11 @@ const COOKING_MODIFIERS = new Set([
   'organic',
   'unbleached',
   'boneless',
+  'deboned',
   'skinless',
+  // The bare meat row is already on the bone (HON-1480)
+  'bone-in',
+  'skin-on',
   'seedless',
   'unsalted',
   'salted',

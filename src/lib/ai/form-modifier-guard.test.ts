@@ -93,3 +93,36 @@ describe('guardFormMatch', () => {
     expect(guardFormMatch(['tinned'], 'tomato', winner, [[tomato]])).toEqual({ action: 'keep' })
   })
 })
+
+// HON-1480: the catalogue writes a boneless cut "<cut> fillet"
+describe('the boneless form', () => {
+  const thigh = row('ing-thigh', 'chicken thigh', 1)
+
+  it('names boneless and deboned as the boneless form, and fillet carries it', () => {
+    expect(removedForms('boneless skinless chicken thighs', 'chicken thigh')).toEqual(['boneless'])
+    expect(removedForms('deboned chicken thighs', 'chicken thigh')).toEqual(['boneless'])
+    expect(removedForms('chicken thigh fillets', 'chicken thigh fillet')).toEqual([])
+    expect(hasForm('chicken thigh fillet', ['boneless'])).toBe(true)
+    expect(hasForm('chicken thigh', ['boneless'])).toBe(false)
+  })
+
+  it('uses the fillet row of the same cut', () => {
+    const fillet = [row('ing-thigh-fillet', 'chicken thigh fillet', 1)]
+
+    expect(guardFormMatch(['boneless'], 'chicken thigh', thigh, [fillet])).toEqual({
+      action: 'use',
+      matches: fillet,
+    })
+  })
+
+  it('keeps the bare row when the only fillet row is another cut', () => {
+    const others = [
+      row('ing-turkey-thigh-fillet', 'turkey thigh fillet', 0.8),
+      row('ing-pork-fillet', 'pork fillet', 0.7),
+    ]
+
+    expect(guardFormMatch(['boneless'], 'chicken thigh', thigh, [others])).toEqual({
+      action: 'keep',
+    })
+  })
+})

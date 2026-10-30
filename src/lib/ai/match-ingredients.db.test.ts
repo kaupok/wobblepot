@@ -242,3 +242,59 @@ describe('matchIngredients on an Estonian chicken cut', () => {
     expect(result).toMatchObject({ type: 'matched', ingredient: { id } })
   })
 })
+
+// HON-1480: a bare meat or fish row is on the bone or whole, so a boneless line
+// must find the fillet row of the same cut, and a bone-in or whole line the bare row.
+describe('matchIngredients on a bone-in, boneless or whole cut', () => {
+  async function seedCuts() {
+    for (const [id, name] of [
+      ['ing-thigh', 'chicken thigh'],
+      ['ing-thigh-fillet', 'chicken thigh fillet'],
+      ['ing-drumstick', 'chicken drumstick'],
+      ['ing-whole-chicken', 'whole chicken'],
+      ['ing-breast', 'chicken breast'],
+      ['ing-turkey-thigh-fillet', 'turkey thigh fillet'],
+      ['ing-trout', 'trout'],
+      ['ing-trout-fillet', 'trout fillet'],
+      ['ing-pork-chop', 'pork chop'],
+      ['ing-pork-fillet', 'pork fillet'],
+    ] as const) {
+      await ingredient(id, name)
+      // The seeded Estonian name, so a mixed-up seed turns this test red.
+      const et = ingredientTranslationsEt.find((row) => row.en === name)?.et
+      if (et) {
+        await prisma.ingredientTranslation.create({
+          data: { ingredientId: id, locale: 'et', name: et },
+        })
+      }
+    }
+  }
+
+  it.each([
+    ['chicken thighs', 'ing-thigh'],
+    ['bone-in skin-on chicken thighs', 'ing-thigh'],
+    ['boneless skinless chicken thighs', 'ing-thigh-fillet'],
+    ['chicken thigh fillets', 'ing-thigh-fillet'],
+    ['chicken thigh meat', 'ing-thigh-fillet'],
+    ['boneless chicken thigh', 'ing-thigh-fillet'],
+    ['thigh fillets', 'ing-thigh-fillet'],
+    ['kanakintsud', 'ing-thigh'],
+    ['kanakintsuliha', 'ing-thigh-fillet'],
+    ['kintsufilee', 'ing-thigh-fillet'],
+    ['kanakintsufilee', 'ing-thigh-fillet'],
+    ['kanapoolkoivad', 'ing-drumstick'],
+    ['whole chicken', 'ing-whole-chicken'],
+    ['whole trout', 'ing-trout'],
+    ['trout fillets', 'ing-trout-fillet'],
+    ['forell', 'ing-trout'],
+    ['forellifilee', 'ing-trout-fillet'],
+    ['boneless pork chop', 'ing-pork-chop'],
+    ['deboned chicken thighs', 'ing-thigh-fillet'],
+  ])('matches "%s" to %s, sure', async (recipeName, id) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { id }, lowConfidence: false })
+  })
+})

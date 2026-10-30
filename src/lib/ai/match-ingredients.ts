@@ -179,6 +179,11 @@ export async function matchIngredients(
       if (!candidateNames.has(formName)) {
         directSide.push(await fuzzySearchIngredient(formName, searchOptions))
       }
+      // The catalogue names a boneless cut "<cut> fillet" (HON-1480)
+      const filletName = `${normalizedName} fillet`
+      if (forms.includes('boneless') && !candidateNames.has(filletName)) {
+        directSide.push(await fuzzySearchIngredient(filletName, searchOptions))
+      }
       formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
       if (formGuard.action === 'use') matches = formGuard.matches
     }

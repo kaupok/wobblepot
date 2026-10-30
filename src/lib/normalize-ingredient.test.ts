@@ -114,6 +114,11 @@ describe('stripModifiers', () => {
     expect(stripModifiers('fresh chopped parsley')).toBe('parsley')
   })
 
+  it('strips bone-in and skin-on, because the bare meat row is on the bone (HON-1480)', () => {
+    expect(stripModifiers('bone-in skin-on chicken thighs')).toBe('chicken thighs')
+    expect(stripModifiers('deboned chicken thighs')).toBe('chicken thighs')
+  })
+
   it('preserves color/identity modifiers (exceptions)', () => {
     expect(stripModifiers('black pepper')).toBe('black pepper')
     expect(stripModifiers('white rice')).toBe('white rice')
