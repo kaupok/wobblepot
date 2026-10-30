@@ -18,6 +18,7 @@ import {
   type FormGuardResult,
   guardFormMatch,
   hasForm,
+  isOtherCutFillet,
   removedForms,
 } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
@@ -179,6 +180,11 @@ export async function matchIngredients(
       if (!candidateNames.has(formName)) {
         directSide.push(await fuzzySearchIngredient(formName, searchOptions))
       }
+      // The catalogue names a boneless cut "<cut> fillet" (HON-1480)
+      const filletName = `${normalizedName} fillet`
+      if (forms.includes('boneless') && !candidateNames.has(filletName)) {
+        directSide.push(await fuzzySearchIngredient(filletName, searchOptions))
+      }
       formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
       if (formGuard.action === 'use') matches = formGuard.matches
     }
@@ -266,6 +272,8 @@ export async function matchIngredients(
         if (extractedUnique.length > 0 && matchedUnique.length > 0) {
           lowConfidence = true
         }
+
+        if (isOtherCutFillet(normalizedName, match.matchedName)) lowConfidence = true
       }
 
       // Get alternatives for disambiguation if low confidence

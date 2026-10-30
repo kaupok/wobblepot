@@ -7,12 +7,20 @@ import { LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
  * Words for the form a food is sold in. Normalization strips them, but they change
  * the product: canned tomatoes are not fresh tomatoes (HON-1313). "canned" and
  * "tinned" are one form, written the catalogue's way.
+ *
+ * A bare meat or fish row is on the bone or whole, so "boneless" is a form too, and
+ * the catalogue writes it "fillet": "boneless chicken thighs" is `chicken thigh
+ * fillet` (HON-1480).
  */
 const FORM_OF_WORD: Record<string, string> = {
   canned: 'tinned',
   tinned: 'tinned',
   frozen: 'frozen',
   dried: 'dried',
+  boneless: 'boneless',
+  deboned: 'boneless',
+  fillet: 'boneless',
+  fillets: 'boneless',
 }
 
 function wordsOf(name: string): string[] {
@@ -42,6 +50,25 @@ export function catalogueFormName(directName: string): string {
     .join(' ')
 }
 
+/**
+ * True when a fillet row lacks a cut word the recipe names between the food and
+ * "fillet": "chicken leg fillet" is not `chicken fillet`, but "wild salmon fillet"
+ * is `salmon fillet` (HON-1480).
+ *
+ * @param normalizedName - The normalized recipe name
+ * @param rowName - The name the match was made on
+ */
+export function isOtherCutFillet(normalizedName: string, rowName: string): boolean {
+  const rowWords = wordsOf(rowName).map(singularize)
+  if (!rowWords.includes('fillet')) return false
+  const cutWords = wordsOf(normalizedName).map(singularize)
+  const from = cutWords.indexOf(rowWords[0] ?? '')
+  const filletAt = cutWords.indexOf('fillet')
+  const to = filletAt >= 0 ? filletAt : cutWords.length
+  const cutBetween = from >= 0 && to > from ? cutWords.slice(from + 1, to) : []
+  return cutBetween.some((word) => !rowWords.includes(word))
+}
+
 export type FormGuardResult =
   | { action: 'keep' }
   | { action: 'use'; matches: FuzzyIngredientMatch[] }
@@ -58,9 +85,11 @@ export type FormGuardResult =
  *   "dried cumin" → `cumin` when there is no "dried cumin".
  *
  * @param forms - The forms normalization removed, from `removedForms`
- * @param normalizedName - The normalized recipe name; its last word is the food
+ * @param normalizedName - The normalized recipe name; its last word is the food, or all
+ *   its words for a boneless cut
  * @param winner - The normalized candidate's top match
  * @param directSide - Result lists for the direct name, its alias and its catalogue-form name
+ *   (for a boneless cut, the normalized name with "fillet")
  */
 export function guardFormMatch(
   forms: string[],
@@ -70,9 +99,13 @@ export function guardFormMatch(
 ): FormGuardResult {
   if (forms.length === 0 || hasForm(winner.matchedName, forms)) return { action: 'keep' }
 
-  const food = singularize(wordsOf(normalizedName).at(-1) ?? '')
-  const isFormRow = (match: FuzzyIngredientMatch) =>
-    hasForm(match.matchedName, forms) && wordsOf(match.matchedName).map(singularize).includes(food)
+  // A cut is named by all its words: "boneless chicken thigh" is not `turkey thigh fillet`
+  const normalizedWords = wordsOf(normalizedName).map(singularize)
+  const foodWords = forms.includes('boneless') ? normalizedWords : normalizedWords.slice(-1)
+  const isFormRow = (match: FuzzyIngredientMatch) => {
+    const rowWords = wordsOf(match.matchedName).map(singularize)
+    return hasForm(match.matchedName, forms) && foodWords.every((word) => rowWords.includes(word))
+  }
 
   const sureLists = directSide.filter(
     (list) => list[0] && isFormRow(list[0]) && list[0].similarity >= LOW_CONFIDENCE_THRESHOLD,

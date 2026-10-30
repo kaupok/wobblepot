@@ -360,6 +360,14 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'red chili pepper': 'red chilli',
   'beef stew meat': 'stewing beef',
 
+  // Boneless chicken thigh, apart from the bone-in `chicken thigh` (HON-1480).
+  // The Estonian shop words are here too, because a translation row holds one name.
+  'chicken thigh meat': 'chicken thigh fillet',
+  'boneless chicken thigh': 'chicken thigh fillet',
+  'thigh fillet': 'chicken thigh fillet',
+  kintsufilee: 'chicken thigh fillet',
+  kanakintsufilee: 'chicken thigh fillet',
+
   // Filled dumplings (HON-1262)
   hinkali: 'khinkali',
   'dumpling wrappers': 'gyoza wrappers',

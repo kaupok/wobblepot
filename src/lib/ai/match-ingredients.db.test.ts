@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { prisma } from '@/lib/prisma'
 
+import { baseIngredients } from '../../../prisma/seed'
+import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
+import { newIngredients } from '../../../prisma/seed-expansion'
+import { importCoverageIngredients } from '../../../prisma/seed-import-coverage'
 import { ingredientTranslationsEt } from '../../../prisma/seed-ingredient-translations-et'
 import { type IngredientMatchResult, matchIngredients } from './match-ingredients'
 import type { ExtractedIngredient } from './recipe-schema'
@@ -240,5 +244,94 @@ describe('matchIngredients on an Estonian chicken cut', () => {
     const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
 
     expect(result).toMatchObject({ type: 'matched', ingredient: { id } })
+  })
+})
+
+// HON-1480: a bare meat or fish row is on the bone or whole, so a boneless line
+// must find the fillet row of the same cut, and a bone-in or whole line the bare row.
+// Every seeded protein row is in the catalogue, so its real neighbours compete.
+describe('matchIngredients on a bone-in, boneless or whole cut', () => {
+  async function seedCuts() {
+    const names = new Set<string>()
+    const rows = [
+      ...baseIngredients,
+      ...newIngredients,
+      ...comprehensiveIngredients,
+      ...importCoverageIngredients,
+    ].filter((row) => row.category === 'protein' && !names.has(row.name) && names.add(row.name))
+
+    // A migration may have inserted a row already, so its id is read back by name
+    await prisma.ingredient.createMany({
+      data: rows.map((row) => ({
+        name: row.name,
+        category: 'protein',
+        defaultUnit: 'g',
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      })),
+      skipDuplicates: true,
+    })
+    const saved = await prisma.ingredient.findMany({
+      where: { householdId: null, name: { in: [...names] } },
+      select: { id: true, name: true },
+    })
+    const idOf = new Map(saved.map((row) => [row.name, row.id]))
+    await prisma.ingredientTranslation.createMany({
+      data: ingredientTranslationsEt
+        .filter((row) => idOf.has(row.en))
+        .map((row) => ({ ingredientId: idOf.get(row.en)!, locale: 'et', name: row.et })),
+      skipDuplicates: true,
+    })
+  }
+
+  it.each([
+    ['chicken thighs', 'chicken thigh'],
+    ['bone-in skin-on chicken thighs', 'chicken thigh'],
+    ['boneless skinless chicken thighs', 'chicken thigh fillet'],
+    ['chicken thigh fillets', 'chicken thigh fillet'],
+    ['chicken thigh meat', 'chicken thigh fillet'],
+    ['boneless chicken thigh', 'chicken thigh fillet'],
+    ['thigh fillets', 'chicken thigh fillet'],
+    ['kanakintsud', 'chicken thigh'],
+    ['kanakintsuliha', 'chicken thigh fillet'],
+    ['kintsufilee', 'chicken thigh fillet'],
+    ['kanakintsufilee', 'chicken thigh fillet'],
+    ['kanapoolkoivad', 'chicken drumstick'],
+    ['whole chicken', 'whole chicken'],
+    ['whole trout', 'trout'],
+    ['trout fillets', 'trout fillet'],
+    ['forell', 'trout'],
+    ['forellifilee', 'trout fillet'],
+    ['boneless pork chop', 'pork chop'],
+    ['deboned chicken thighs', 'chicken thigh fillet'],
+    // A word that names no cut keeps a fillet row sure (HON-1480 review)
+    ['wild salmon fillets', 'salmon fillet'],
+    ['atlantic salmon fillet', 'salmon fillet'],
+    ['salmon fillet portions', 'salmon fillet'],
+  ])('matches "%s" to the seeded row %s, sure', async (recipeName, rowName) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: false,
+    })
+  })
+  // A name the prompts no longer ask for, but a model can still write (HON-1480 review)
+  it.each([
+    ['beef chuck fillet', 'beef fillet'],
+    ['pork chop fillet', 'pork fillet'],
+    ['lamb leg fillet', 'lamb fillet'],
+    ['chicken leg fillet', 'chicken fillet'],
+  ])('does not match "%s" to %s for sure', async (recipeName, otherCut) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).not.toMatchObject({ ingredient: { name: otherCut }, lowConfidence: false })
   })
 })
