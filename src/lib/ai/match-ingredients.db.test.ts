@@ -167,3 +167,44 @@ describe('matchIngredients on a recipe name with a form word', () => {
     })
   })
 })
+
+// HON-1471: the catalogue has frozen form rows for the products a household keeps stocked.
+describe('matchIngredients with the frozen form rows', () => {
+  async function seedCatalogue() {
+    await ingredient('ing-peas', 'peas')
+    await ingredient('ing-frozen-peas', 'frozen peas')
+    await ingredient('ing-broccoli', 'broccoli')
+    await ingredient('ing-cauliflower', 'cauliflower')
+    await ingredient('ing-frozen-mix', 'frozen broccoli and cauliflower mix')
+  }
+
+  it('matches "frozen peas" to the "frozen peas" row, sure', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('frozen peas')).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-frozen-peas', name: 'frozen peas' },
+      lowConfidence: false,
+    })
+  })
+
+  it('still matches "peas" to the fresh "peas" row, sure', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('peas')).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-peas', name: 'peas' },
+      lowConfidence: false,
+    })
+  })
+
+  it('saves "frozen broccoli" as fresh "broccoli", not as the broccoli and cauliflower mix', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('frozen broccoli')).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-broccoli', name: 'broccoli' },
+      lowConfidence: false,
+    })
+  })
+})

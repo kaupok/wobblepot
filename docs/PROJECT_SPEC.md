@@ -99,6 +99,8 @@ A staple skips the list for a planned meal, as long as the household has some. A
 
 The household can also mark a staple ran out from the shopping list's "Add item" (HON-1400). While it types, a dropdown suggests the staples whose name, in the household's language or in English, contains the text; picking one sets it to `0`. A name sent with Enter that is exactly a staple's (case and outer space ignored) does the same, with a toast, in place of a custom item. Only an exact name connects, so "milk chocolate" stays a custom item. A staple that an open custom item on the list already stands for (linked to its ingredient, or with its name) is left alone, so the list never shows the item twice: the dropdown leaves it out, and Enter on its name says it is already on the list.
 
+A frozen product a household keeps stocked has its own catalogue row (`frozen peas`, `frozen green beans`, `frozen mixed berries`), so its staple star does not hide the fresh vegetable from a recipe's shopping (HON-1471). The pantry row, and so the star, is unique per household and ingredient, so one row cannot be both a stocked frozen bag and a fresh vegetable bought for one recipe. A frozen row exists only for a product a household keeps stocked; the rows are in `prisma/seed-import-coverage.ts` → Frozen forms.
+
 ---
 
 ## User Flows
