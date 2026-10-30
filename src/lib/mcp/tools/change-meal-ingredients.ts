@@ -41,7 +41,9 @@ const amount = {
   quantity: z
     .number()
     .positive()
-    .describe("The amount for the meal's servings, as get_meal shows amounts, in unit."),
+    .describe(
+      "The amount for the planned meal's servings, leftovers included, in unit: as get_meal shows it when called with this date and mealType.",
+    ),
   unit: z
     .enum(MEASURED_UNITS)
     .describe('g, ml or piece. Convert other units first: 2 tablespoons of oil is 30 ml.'),
@@ -53,7 +55,7 @@ export const changeMealIngredients = defineTool({
   name: 'change_meal_ingredients',
   title: 'Replace, add or leave out a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. Copy ingredient names from get_meal, and give amounts for the meal\'s servings, as get_meal shows them. It does not change an amount: an ingredient that goes back to the recipe takes the recipe\'s amount, whatever amount you send, and applied shows that amount. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal (with a note: the tool does not change an amount), notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. First call get_meal with this date and mealType, because amounts are for the planned meal\'s servings, leftovers included. Copy ingredient names from it, and give amounts as it shows them. It does not change an amount: an ingredient that goes back to the recipe takes the recipe\'s amount, whatever amount you send, and applied shows that amount. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal (with a note: the tool does not change an amount), notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,

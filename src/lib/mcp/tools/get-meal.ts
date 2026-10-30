@@ -52,7 +52,12 @@ export const getMeal = defineTool({
       description: z.string().nullable(),
       mealTypes: z.array(mealType),
       timeMinutes: z.number().nullable(),
-      servings: z.number(),
+      servings: z.number().describe('The servings the ingredient amounts are for.'),
+      recipeServings: z
+        .number()
+        .describe(
+          'The servings the recipe is stored at. Only for reference: the ingredient amounts are for servings.',
+        ),
       ingredients: z.array(
         z.object({
           name: z.string(),
@@ -96,6 +101,7 @@ export const getMeal = defineTool({
         description: true,
         preparationNotes: true,
         timeMinutes: true,
+        servings: true,
         suitableFor: true,
         householdId: true,
         primaryProteinType: true,
@@ -144,6 +150,7 @@ export const getMeal = defineTool({
         mealTypes: meal.suitableFor,
         timeMinutes: meal.timeMinutes,
         servings,
+        recipeServings: meal.servings,
         ingredients: components.map((component) => {
           // A vague amount ("a pinch") is a phrase, not a number to scale.
           const vague = component.isVague && !!component.originalPhrase

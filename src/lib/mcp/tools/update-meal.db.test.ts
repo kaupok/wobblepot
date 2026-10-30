@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
+import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 
 import { createMeal } from './create-meal'
-import { updateMeal } from './update-meal'
+import { getMeal } from './get-meal'
+import { SERVINGS_REQUIRED, updateMeal } from './update-meal'
 
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no
 // mocks: the recipe is saved with `create_meal`, changed with the real
@@ -95,6 +96,7 @@ describe('update_meal', () => {
 
     expect(result.outcome).toBe('updated')
     expect(result.meal).toEqual({ id: mealId, name: 'Glimmer lasagne' })
+    expect(result.servings).toBe(2)
     // The recipe's totals stay: 500 g of mince now makes 2 servings.
     expect(result.ingredients).toEqual([
       { name: 'glimmer mince', quantity: 500, unit: 'g', note: null },
@@ -125,6 +127,7 @@ describe('update_meal', () => {
     const result = await call(household, {
       mealId,
       timeMinutes: null,
+      servings: 4,
       ingredients: [
         { name: 'glimmer mince', quantity: 400, unit: 'g' },
         { name: 'quorvex paste', quantity: 40, unit: 'g' },
@@ -145,12 +148,89 @@ describe('update_meal', () => {
     ])
   })
 
+  it('stores the amounts for the servings sent, as get_meal shows them (HON-1472)', async () => {
+    const { household } = await world()
+    await prisma.ingredient.create({
+      data: {
+        id: `ing-beans-${household.id}`,
+        name: 'quorvex beans',
+        householdId: household.id,
+        category: 'vegetable',
+        defaultUnit: 'g',
+        calories: 50,
+        protein: 1,
+        carbs: 10,
+        fat: 0,
+      },
+    })
+    const created = await createMeal.run(
+      household,
+      createMeal.inputSchema.parse({
+        name: 'Glimmer stew',
+        suitableFor: ['dinner'],
+        servings: 4,
+        ingredients: [
+          { name: 'glimmer mince', quantity: 300, unit: 'g' },
+          { name: 'quorvex beans', quantity: 400, unit: 'g' },
+        ],
+      }),
+      CALLER,
+    )
+    const mealId = created.meal!.id
+
+    // get_meal at 3 servings showed beans 300 g; the user raised the mince to 300 g.
+    const result = await call(household, {
+      mealId,
+      servings: 3,
+      ingredients: [
+        { name: 'glimmer mince', quantity: 300, unit: 'g' },
+        { name: 'quorvex beans', quantity: 300, unit: 'g' },
+      ],
+    })
+
+    expect(result.outcome).toBe('updated')
+    expect(result.servings).toBe(3)
+    expect(result.ingredients).toEqual([
+      { name: 'glimmer mince', quantity: 300, unit: 'g', note: null },
+      { name: 'quorvex beans', quantity: 300, unit: 'g', note: null },
+    ])
+    expect(updateMeal.outputSchema.safeParse(result).success).toBe(true)
+
+    const read = await getMeal.run(
+      household,
+      getMeal.inputSchema.parse({ mealId, servings: 3 }),
+      CALLER,
+    )
+    expect(read.meal.servings).toBe(3)
+    expect(read.meal.recipeServings).toBe(3)
+    expect(read.meal.ingredients).toEqual([
+      { name: 'glimmer mince', quantity: 300, unit: 'g', note: null },
+      { name: 'quorvex beans', quantity: 300, unit: 'g', note: null },
+    ])
+  })
+
+  it('refuses ingredients sent without servings, and changes nothing', async () => {
+    const { household, mealId } = await world()
+
+    const attempt = call(household, {
+      mealId,
+      ingredients: [{ name: 'glimmer mince', quantity: 300, unit: 'g' }],
+    })
+
+    await expect(attempt).rejects.toThrow(ToolInputError)
+    await expect(attempt).rejects.toThrow(SERVINGS_REQUIRED)
+    const meal = await stored(mealId)
+    expect(meal.servings).toBe(4)
+    expect(meal.rows).toEqual(ORIGINAL_ROWS)
+  })
+
   it('changes nothing when one name has no match, and returns it with the closest ingredients', async () => {
     const { household, mealId } = await world()
 
     const result = await call(household, {
       mealId,
       name: 'Glimmer bake',
+      servings: 4,
       ingredients: [
         { name: 'glimmer mince', quantity: 500, unit: 'g' },
         { name: 'quorvax pasta', quantity: 50, unit: 'g' },
@@ -160,6 +240,7 @@ describe('update_meal', () => {
     expect(result).toEqual({
       outcome: 'unmatched',
       meal: null,
+      servings: null,
       ingredients: [],
       mainProtein: null,
       unmatched: [
@@ -179,6 +260,7 @@ describe('update_meal', () => {
     // 500 bulbs of 100 g over 4 servings is 12 500 g a serving.
     const result = await call(household, {
       mealId,
+      servings: 4,
       ingredients: [{ name: 'glimmer bulb', quantity: 500, unit: 'piece' }],
     })
 
@@ -203,6 +285,7 @@ describe('update_meal', () => {
     expect(result).toEqual({
       outcome: 'notFound',
       meal: null,
+      servings: null,
       ingredients: [],
       mainProtein: null,
       unmatched: [],
@@ -367,6 +450,7 @@ describe('update_meal mainProtein', () => {
     const result = await call(household, {
       mealId,
       mainProtein: 'beef',
+      servings: 1,
       ingredients: [BEANS, PASTE],
     })
 
@@ -380,7 +464,7 @@ describe('update_meal mainProtein', () => {
   it('clears the stored choice when the new ingredients alone drop it', async () => {
     const { household, mealId } = await chilli('beef')
 
-    const result = await call(household, { mealId, ingredients: [BEANS, PASTE] })
+    const result = await call(household, { mealId, servings: 1, ingredients: [BEANS, PASTE] })
 
     expect(result.outcome).toBe('updated')
     expect(result.mainProtein).toEqual({ type: 'legume', setBy: 'automatic' })

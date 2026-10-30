@@ -42,6 +42,7 @@ const MEAL = {
   description: 'A quick dinner.',
   preparationNotes: 'Cook the rice. Fry the chicken.',
   timeMinutes: 30,
+  servings: 4,
   suitableFor: ['dinner'],
   householdId: null,
   primaryProteinType: 'poultry',
@@ -99,6 +100,7 @@ describe('get_meal', () => {
         mealTypes: ['dinner'],
         timeMinutes: 30,
         servings: 2,
+        recipeServings: 4,
         ingredients: [
           { name: 'Chicken breast', quantity: 300, unit: 'g', note: null },
           { name: 'Stock', quantity: 400, unit: 'ml', note: null },
@@ -114,6 +116,28 @@ describe('get_meal', () => {
       },
     })
     expect(getMeal.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it('answers the servings the amounts are for and the recipe’s stored servings apart (HON-1472)', async () => {
+    const threePortions = mcpHousehold({
+      id: 'household-1',
+      locale: 'en',
+      members: Array.from({ length: 3 }, () => ({ preferences: { portionMultiplier: 1 } })),
+    } as never)
+
+    const result = await runTool(
+      getMeal,
+      { ...ctx, household: threePortions },
+      getMeal.inputSchema.parse({ mealId: 'meal-1' }),
+    )
+
+    const { meal } = result.structuredContent as {
+      meal: { servings: number; recipeServings: number; ingredients: { quantity: number }[] }
+    }
+    expect(meal.recipeServings).toBe(4)
+    expect(meal.servings).toBe(3)
+    // 150 g chicken a serving, for 3 servings.
+    expect(meal.ingredients[0]?.quantity).toBe(450)
   })
 
   it.each([
