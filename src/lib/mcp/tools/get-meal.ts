@@ -2,6 +2,7 @@ import 'server-only'
 
 import { z } from 'zod'
 
+import { listMembersForAssistant } from '@/lib/household/members'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -26,7 +27,7 @@ export const getMeal = defineTool({
   name: 'get_meal',
   title: 'Get meal',
   description:
-    "Returns one meal: its ingredients scaled to a number of servings, preparation notes when the recipe has them, and nutrition per serving. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it. For a planned meal, also pass the entry's date and mealType from get_meal_plan: the household may have changed that entry's ingredients (an ingredient replaced, left out or added), and the answer then lists what they will cook, at the entry's servings.",
+    "Returns one meal: its ingredients scaled to a number of servings, preparation notes when the recipe has them, and nutrition. nutritionPerServing is a 1× portion, and nutritionPerMember gives each member's own plate, so use it when the user asks about a person. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it. For a planned meal, also pass the entry's date and mealType from get_meal_plan: the household may have changed that entry's ingredients (an ingredient replaced, left out or added), and the answer then lists what they will cook, at the entry's servings.",
   inputSchema: z.object({
     mealId: z.string().min(1).max(100).describe('The id from get_meal_plan or list_meals.'),
     servings: z
@@ -73,6 +74,20 @@ export const getMeal = defineTool({
         carbs: z.number(),
         fat: z.number(),
       }),
+      nutritionPerMember: z
+        .array(
+          z.object({
+            name: z.string().nullable(),
+            portionMultiplier: z.number(),
+            calories: z.number(),
+            protein: z.number(),
+            carbs: z.number(),
+            fat: z.number(),
+          }),
+        )
+        .describe(
+          "Each household member's own plate, in get_household's order: one serving × their portionMultiplier. Servings do not change it.",
+        ),
       isOwnRecipe: z.boolean(),
       isFavorite: z.boolean(),
       mainProtein: mainProteinOutput.describe(
@@ -82,7 +97,10 @@ export const getMeal = defineTool({
   }),
   run: async (household, { mealId, servings: requestedServings, date, mealType }) => {
     const locale = resolveHouseholdLocale(household)
-    const entry = await findPlannedEntry(household, mealId, date, mealType)
+    const [entry, members] = await Promise.all([
+      findPlannedEntry(household, mealId, date, mealType),
+      listMembersForAssistant(household.id),
+    ])
     const meal = await prisma.meal.findFirst({
       // The shared catalogue or this household's own recipes, the same set
       // `list_meals` shows, so another household's recipe id finds nothing.
@@ -168,6 +186,17 @@ export const getMeal = defineTool({
           carbs: Math.round(nutrition.carbs),
           fat: Math.round(nutrition.fat),
         },
+        // The household's servings are the sum of its portions, so a member's
+        // plate is one serving × their portion, whatever servings the amounts
+        // are for.
+        nutritionPerMember: members.map(({ name, portionMultiplier }) => ({
+          name,
+          portionMultiplier,
+          calories: Math.round(nutrition.calories * portionMultiplier),
+          protein: Math.round(nutrition.protein * portionMultiplier),
+          carbs: Math.round(nutrition.carbs * portionMultiplier),
+          fat: Math.round(nutrition.fat * portionMultiplier),
+        })),
         isOwnRecipe: meal.householdId !== null,
         isFavorite: meal.favoritedBy.length > 0,
         // A shared recipe never carries an override, so it reads automatic.
