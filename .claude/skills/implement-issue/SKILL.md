@@ -42,7 +42,7 @@ Confirm each before the marker:
 - `pnpm lint && pnpm type-check && pnpm test` pass.
 - **E2E drift:** a touched `src/app/**/page.tsx`, route URL, navigation or CTA copy, or a modal is covered by the specs' `// ROUTES: … · COMPONENTS: …` headers: `grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`, and for a copy rename `grep -rn "<exact old copy>" tests/e2e/`. Update what matches.
 - **Storybook:** when the diff touches `src/components/**`, stories updated and `pnpm test-storybook:ci` green.
-- **Coupled callsites:** when the diff changes a geometry default on a `src/components/ui/*.tsx` primitive, a `@theme` token or a shared layout wrapper, every **Mirror** is edited. Key this off the diff, not the plan, so it holds under `--no-plan` and for plans written before that section existed.
+- **Coupled callsites:** when the diff changes a geometry default on a `src/components/ui/*.tsx` primitive, a `@theme` token or a shared layout wrapper, every **Mirror** is edited: from the plan's `## Coupled callsites` section when it has one, otherwise from `/plan-issue` step 7b's greps run now. Key this off the diff, not the plan, so it holds under `--no-plan` and for plans written before that section existed.
 - **Follow-ups:** every step the PR does not ship has an issue ID.
 - **Driven screens:** each changed screen was driven in a browser, below.
 
