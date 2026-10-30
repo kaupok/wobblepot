@@ -178,17 +178,27 @@ describe('raw, as-bought meat nutrition (HON-1479)', () => {
     expect(rows[0]!.components.map((c) => c.ingredient)).not.toContain(from)
   })
 
-  it.each(REPOINTED)('migrates %s and its forks from %s to %s', (meal, from, to, quantity) => {
-    const statements = sql
-      .split(';')
-      .filter(
-        (s) =>
-          s.includes(`i."name" = '${from}'`) &&
-          s.includes(`f."name" = '${to}'`) &&
-          s.includes(`'${meal}'`),
-      )
-    expect(statements).toHaveLength(2)
-    for (const s of statements) expect(s).toContain(`mc."quantityPerServing" = ${quantity}\n`)
-    expect(statements.filter((s) => s.includes('"householdId" IS NOT NULL'))).toHaveLength(1)
-  })
+  it.each(REPOINTED)(
+    'migrates %s, its forks and their planned changes from %s to %s',
+    (meal, from, to, quantity) => {
+      const statements = sql
+        .split(';')
+        .filter(
+          (s) =>
+            s.includes(`i."name" = '${from}'`) &&
+            s.includes(`f."name" = '${to}'`) &&
+            s.includes(`'${meal}'`),
+        )
+      // The library meal and its forks, each as an entry-change UPDATE then a component UPDATE
+      expect(statements).toHaveLength(4)
+      for (const s of statements) expect(s).toContain(`mc."quantityPerServing" = ${quantity}\n`)
+      expect(statements.filter((s) => s.includes('"householdId" IS NOT NULL'))).toHaveLength(2)
+      expect(statements.map((s) => s.match(/UPDATE "(\w+)"/)?.[1])).toEqual([
+        'meal_plan_entry_component',
+        'meal_component',
+        'meal_plan_entry_component',
+        'meal_component',
+      ])
+    },
+  )
 })

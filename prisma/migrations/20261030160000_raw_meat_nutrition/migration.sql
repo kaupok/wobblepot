@@ -241,10 +241,16 @@ WHERE EXISTS (SELECT 1 FROM "ingredient" WHERE "householdId" IS NULL AND "name" 
 -- mean the cut on the bone (roasted or braised thighs, drumsticks, wings,
 -- whole fish, chops) keep the bone-in row. Matching the old amount keeps a
 -- re-run and an edited meal safe.
+--
+-- A planned entry's "Adjust recipe" change (a swap or a removal) names the
+-- component it changes by ingredient. Each component UPDATE is preceded by one
+-- that moves the changes on exactly that component, under the same conditions,
+-- so a planned swap still applies and no other change moves.
 
-UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
-FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
-WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
   AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
   AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
   AND mc."quantityPerServing" = 180
@@ -256,8 +262,37 @@ FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
 WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
   AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Chicken Curry', 'Orange Chicken', 'Thai Basil Chicken', 'Chicken Teriyaki Bowl', 'Chicken Shawarma')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
   AND mc."quantityPerServing" = 200
   AND m."householdId" IS NULL AND m."name" IN ('Chicken Korma')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NULL AND m."name" IN ('Chicken Korma')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 150
+  AND m."householdId" IS NULL AND m."name" IN ('Chicken Jambalaya')
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
@@ -269,9 +304,10 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   AND m."householdId" IS NULL AND m."name" IN ('Chicken Jambalaya')
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
-UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
-FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
-WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
   AND i."householdId" IS NULL AND i."name" = 'trout'
   AND f."householdId" IS NULL AND f."name" = 'trout fillet'
   AND mc."quantityPerServing" = 200
@@ -281,10 +317,39 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
 FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
 WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'trout'
+  AND f."householdId" IS NULL AND f."name" = 'trout fillet'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NULL AND m."name" IN ('Trout with Almonds')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
   AND i."householdId" IS NULL AND i."name" = 'lamb chop'
   AND f."householdId" IS NULL AND f."name" = 'lamb shoulder'
   AND mc."quantityPerServing" = 180
   AND m."householdId" IS NULL AND m."name" IN ('Lamb Curry')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
+FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'lamb chop'
+  AND f."householdId" IS NULL AND f."name" = 'lamb shoulder'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NULL AND m."name" IN ('Lamb Curry')
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'lamb shank'
+  AND f."householdId" IS NULL AND f."name" = 'lamb shoulder'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NULL AND m."name" IN ('Irish Lamb Stew')
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
@@ -302,6 +367,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
 -- English or a translated name, and only at the exact old amount: a renamed
 -- fork, or one the household edited, keeps its ingredient.
 
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Curry', 'Orange Chicken', 'Thai Basil Chicken', 'Chicken Teriyaki Bowl', 'Chicken Shawarma')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Curry', 'Orange Chicken', 'Thai Basil Chicken', 'Chicken Teriyaki Bowl', 'Chicken Shawarma')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
 FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
 WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
@@ -314,6 +395,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     UNION
     SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
     WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Curry', 'Orange Chicken', 'Thai Basil Chicken', 'Chicken Teriyaki Bowl', 'Chicken Shawarma')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Korma')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Korma')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
@@ -332,6 +429,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'chicken thigh'
+  AND f."householdId" IS NULL AND f."name" = 'chicken thigh fillet'
+  AND mc."quantityPerServing" = 150
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Jambalaya')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Jambalaya')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
 FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
 WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
@@ -344,6 +457,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     UNION
     SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
     WHERE g."householdId" IS NULL AND g."name" IN ('Chicken Jambalaya')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'trout'
+  AND f."householdId" IS NULL AND f."name" = 'trout fillet'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Trout with Almonds')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Trout with Almonds')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
@@ -362,6 +491,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'lamb chop'
+  AND f."householdId" IS NULL AND f."name" = 'lamb shoulder'
+  AND mc."quantityPerServing" = 180
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Lamb Curry')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Lamb Curry')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
 UPDATE "meal_component" AS mc SET "ingredientId" = f."id"
 FROM "meal" AS m, "ingredient" AS i, "ingredient" AS f
 WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
@@ -374,6 +519,22 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     UNION
     SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
     WHERE g."householdId" IS NULL AND g."name" IN ('Lamb Curry')
+  )
+  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
+
+UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
+FROM "meal_plan_entry" AS e, "meal_component" AS mc, "meal" AS m, "ingredient" AS i, "ingredient" AS f
+WHERE c."entryId" = e."id" AND e."mealId" = m."id" AND mc."mealId" = m."id"
+  AND mc."ingredientId" = i."id" AND c."originalIngredientId" = i."id"
+  AND i."householdId" IS NULL AND i."name" = 'lamb shank'
+  AND f."householdId" IS NULL AND f."name" = 'lamb shoulder'
+  AND mc."quantityPerServing" = 200
+  AND m."householdId" IS NOT NULL
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Irish Lamb Stew')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Irish Lamb Stew')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
 
@@ -391,16 +552,3 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
     WHERE g."householdId" IS NULL AND g."name" IN ('Irish Lamb Stew')
   )
   AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = mc."mealId" AND o."ingredientId" = f."id");
-
--- A planned entry's "Adjust recipe" change (a swap or a removal) names the
--- component it changes by ingredient. A change on a component this migration
--- moved would no longer match the meal and stop applying, so it follows the
--- component to the new row.
-
-UPDATE "meal_plan_entry_component" AS c SET "originalIngredientId" = f."id"
-FROM "meal_plan_entry" AS e, "meal_component" AS mc, "ingredient" AS i, "ingredient" AS f
-WHERE c."entryId" = e."id" AND mc."mealId" = e."mealId" AND mc."ingredientId" = f."id"
-  AND c."originalIngredientId" = i."id"
-  AND i."householdId" IS NULL AND f."householdId" IS NULL
-  AND (i."name", f."name") IN (('chicken thigh', 'chicken thigh fillet'), ('trout', 'trout fillet'), ('lamb chop', 'lamb shoulder'), ('lamb shank', 'lamb shoulder'))
-  AND NOT EXISTS (SELECT 1 FROM "meal_component" AS o WHERE o."mealId" = e."mealId" AND o."ingredientId" = i."id");

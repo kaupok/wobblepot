@@ -90,6 +90,35 @@ it('sets raw, as-bought values and moves boneless library meals and their forks 
     },
   })
 
+  // A stale swap on a meal the household edited onto lamb shoulder itself
+  const lambChop = await prisma.ingredient.create({
+    data: { name: 'lamb chop', ...roastedThigh, proteinType: 'lamb', subcategory: 'lamb' },
+  })
+  const shoulder = await prisma.ingredient.create({
+    data: { name: 'lamb shoulder', ...roastedThigh, proteinType: 'lamb', subcategory: 'lamb' },
+  })
+  const ownLamb = await prisma.meal.create({
+    data: {
+      name: 'Lamb Curry',
+      householdId: household.id,
+      components: { create: { ingredientId: shoulder.id, quantityPerServing: 180 } },
+    },
+  })
+  const staleSwap = await prisma.mealPlanEntryComponent.create({
+    data: {
+      entry: {
+        create: {
+          planId: plan.id,
+          date: new Date('2026-11-06'),
+          mealType: 'dinner',
+          mealId: ownLamb.id,
+        },
+      },
+      originalIngredient: { connect: { id: lambChop.id } },
+      replacementIngredient: { connect: { id: tofu.id } },
+    },
+  })
+
   await runMigration()
   await runMigration()
 
@@ -136,4 +165,9 @@ it('sets raw, as-bought values and moves boneless library meals and their forks 
   expect(
     await prisma.mealPlanEntryComponent.findUniqueOrThrow({ where: { id: swap.id } }),
   ).toMatchObject({ originalIngredientId: fillets[0]!.id, replacementIngredientId: tofu.id })
+  // The migration moved no component on that meal, so its change stays
+  expect(
+    (await prisma.mealPlanEntryComponent.findUniqueOrThrow({ where: { id: staleSwap.id } }))
+      .originalIngredientId,
+  ).toBe(lambChop.id)
 })
