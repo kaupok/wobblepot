@@ -136,6 +136,14 @@ describe('GET /api/ingredients', () => {
     expect(mockSearch).toHaveBeenCalledWith(expect.objectContaining({ category: 'carb' }))
   })
 
+  it('returns 400 for an unknown category, without searching', async () => {
+    const response = await get('?search=egg&category=foo')
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toBe('Validation failed')
+    expect(mockSearch).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['5', 5],
     ['0', 10],

@@ -1,7 +1,8 @@
 import { headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
-import type { IngredientCategory } from '@/generated/prisma/enums'
+import { IngredientCategory } from '@/generated/prisma/enums'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
@@ -25,7 +26,12 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams
   const search = searchParams.get('search')?.trim() || ''
-  const category = searchParams.get('category') as IngredientCategory | null
+  // An unknown category is a client error (400), not a SQL enum-cast throw (500).
+  const category = z.enum(IngredientCategory).nullable().safeParse(searchParams.get('category'))
+  if (!category.success) {
+    const errors = category.error.flatten().formErrors
+    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+  }
   const limit = Math.min(
     Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT),
     MAX_LIMIT,
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     const ingredients = await searchIngredients({
       search,
-      category,
+      category: category.data,
       limit,
       householdId: membership?.householdId ?? null,
       // Match and return the name the household sees on screen, not only the

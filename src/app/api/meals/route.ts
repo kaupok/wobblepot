@@ -1,11 +1,19 @@
 import { headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
-import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import { MealType, ProteinType } from '@/generated/prisma/enums'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
-import { loadMeals, MEALS_DEFAULT_LIMIT, type MealSource } from '@/lib/meals/load-meals'
+import { loadMeals, MEALS_DEFAULT_LIMIT } from '@/lib/meals/load-meals'
+
+// An unknown enum value is a client error (400), not a Prisma throw (500).
+const filterSchema = z.object({
+  mealType: z.enum(MealType).nullable(),
+  proteinType: z.enum(ProteinType).nullable(),
+  source: z.enum(['all', 'system', 'custom', 'favorites']).nullable(),
+})
 
 /**
  * GET /api/meals: one page of the meals the household can plan. The query
@@ -33,14 +41,23 @@ export async function GET(request: NextRequest) {
   // Parse query params
   const searchParams = request.nextUrl.searchParams
   const kidFriendlyParam = searchParams.get('kidFriendly')
+  const filters = filterSchema.safeParse({
+    mealType: searchParams.get('mealType'),
+    proteinType: searchParams.get('proteinType'),
+    source: searchParams.get('source'),
+  })
+  if (!filters.success) {
+    const errors = filters.error.flatten().fieldErrors
+    return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
+  }
 
   try {
     const result = await loadMeals(household, {
-      mealType: searchParams.get('mealType') as MealType | null,
-      proteinType: searchParams.get('proteinType') as ProteinType | null,
+      mealType: filters.data.mealType,
+      proteinType: filters.data.proteinType,
       kidFriendly: kidFriendlyParam === 'true' ? true : kidFriendlyParam === 'false' ? false : null,
       search: searchParams.get('search'),
-      source: searchParams.get('source') as MealSource | null,
+      source: filters.data.source,
       order: searchParams.get('order') === 'longestSinceCooked' ? 'longestSinceCooked' : null,
       limit:
         parseInt(searchParams.get('limit') || String(MEALS_DEFAULT_LIMIT), 10) ||
