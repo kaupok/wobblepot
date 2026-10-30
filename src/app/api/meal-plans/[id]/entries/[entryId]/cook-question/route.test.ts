@@ -582,7 +582,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
 
     expect(model.modelIds).toEqual([COOK_QUESTION_MODEL])
     expect(mockStreamText).toHaveBeenCalledWith(
-      expect.objectContaining({ maxOutputTokens: 1200, maxRetries: 3 }),
+      expect.objectContaining({ maxOutputTokens: 2000, maxRetries: 3 }),
     )
     expect(mockRecordAiUsage).toHaveBeenCalledOnce()
     expect(mockRecordAiUsage).toHaveBeenCalledWith({

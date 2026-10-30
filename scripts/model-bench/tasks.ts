@@ -480,9 +480,9 @@ const cookQuestion: TaskSpec<'cook-question'> = {
   productionModel: COOK_QUESTION_MODEL,
   budgetMs: COOK_QUESTION_AI_BUDGET_MS,
   budgetLabel: 'COOK_QUESTION_AI_BUDGET_MS',
-  // The request's 1200-token ceiling, which thinking shares; English answers
-  // measured about 200 with no thinking (HON-972).
-  dryRunOutputTokens: 1_200,
+  // The request's 2000-token ceiling, which thinking shares; English answers
+  // measured about 200 with no thinking (HON-972, HON-1490).
+  dryRunOutputTokens: 2_000,
   metrics: [
     {
       key: 'answered',
