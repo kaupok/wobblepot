@@ -842,6 +842,42 @@ describe('orchestrator.sh', () => {
       )
     })
 
+    // HON-1483: the state is the whole pickup signal. A human who takes a
+    // Queued issue by hand moves it out of Queued; an assignee alone does not.
+    it('selects a Queued issue that is assigned to a user', () => {
+      const assigned = { ...node(1, QUEUED), assignee: { id: 'user-1', name: 'Operator' } }
+
+      expect(poll([assigned])).toContain('PICK:u1\tHON-1\thenri/hon-1-fixture\t0\tFixture 1\n')
+    })
+
+    it('still skips an assigned Queued issue with the Gated label or an open blocker', () => {
+      const assignee = { id: 'user-1', name: 'Operator' }
+      const gated = { ...node(1, QUEUED), assignee, labels: { nodes: [{ name: 'Gated' }] } }
+      const blocked = {
+        ...node(2, QUEUED),
+        assignee,
+        inverseRelations: {
+          nodes: [
+            {
+              type: 'blocks',
+              issue: { id: 'u9', identifier: 'HON-9', state: { id: TODO, name: 'Todo' } },
+            },
+          ],
+        },
+      }
+
+      expect(poll([gated])).toMatch(/^PICK:$/m)
+      expect(poll([blocked])).toMatch(/^PICK:$/m)
+    })
+
+    it('clears the assignee when it claims an issue, so 2.1 reads it as the pre-claim', () => {
+      const source = fs.readFileSync(orchestrator, 'utf8')
+
+      expect(shellFunctionBody(source, 'claim_issue')).toContain(
+        'input: { stateId: $stateId, assigneeId: null }',
+      )
+    })
+
     it('selects nothing when the only unassigned, unblocked issue is in Todo', () => {
       expect(poll([node(1, TODO)])).toMatch(/^PICK:$/m)
     })

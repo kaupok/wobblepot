@@ -288,7 +288,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       echo "Usage: $0 [options]"
       echo ""
-      echo "Picks unassigned, unblocked issues from the Linear state Queued, and returns"
+      echo "Picks unblocked issues from the Linear state Queued, and returns"
       echo "gated, cap-requeued and drained issues there. Todo and Backlog are never read:"
       echo "move an issue to Queued only when an agent can finish it without a human."
       echo ""
@@ -657,7 +657,6 @@ fetch_queued_issues() {
         title
         priority
         branchName
-        assignee { id }
         labels { nodes { name } }
         relations {
           nodes {
@@ -768,7 +767,7 @@ reconcile_gated_issues() {
 # ─── Select next issue ──────────────────────────────────────────────────────
 # Returns: "uuid<TAB>identifier<TAB>branchName<TAB>title" or empty
 # Side effect: one log line per skipped candidate ("[SKIP] HON-XX <reason>") so
-# a stuck issue (assigned, or blocked by something that never clears) is
+# a stuck issue (gated, or blocked by something that never clears) is
 # visible in the orchestrator log instead of being dropped silently every poll.
 
 select_next_issue() {
@@ -855,14 +854,6 @@ select_next_issue() {
         # The `Small` tier (HON-1193): spawn_worker runs the worker on
         # AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL. "1" or "0" in the PICK line.
         _small: (if ([.labels.nodes[]?.name] | index("Small")) != null then "1" else "0" end),
-        # Any assigned issue belongs to someone — including the operator, who
-        # may have self-assigned a Queued issue to work on by hand. Same rule as
-        # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
-        # Issues a previous run assigned to "me" are not stranded by this:
-        # move_to_backlog clears the assignee when it fails an issue back to
-        # Backlog, so a human re-triage to Queued makes it pickable again; RETRY
-        # re-spawns the same worker without re-entering selection.
-        _assigned: (.assignee != null),
         # Open blockers a worker is NOT already handling. Excluding in-worker
         # blockers keeps the two skip branches disjoint, so the open-blocker
         # branch (and its Duplicate warning) reports whenever a real blocker is
@@ -896,7 +887,6 @@ select_next_issue() {
           # post the same comment again. Eligible again as soon as any worker
           # ships (record_success clears the list) or on restart.
           elif ._cap_requeued then ["INFO", "requeued at the Neon branch cap — cooling down; eligible again when the cooldown lapses, as soon as any worker ships, or on restart. Free branches with `wt cleanup <branch>`"]
-          elif ._assigned then ["INFO", "assigned"]
           elif (._open_blockers | length) > 0 then
             ["INFO",
              "blocked by " + (._open_blockers | map(.identifier + " (" + .state.name + ")") | join(", "))
@@ -918,6 +908,9 @@ select_next_issue() {
 }
 
 # ─── Claim issue (move to In Progress) ──────────────────────────────────────
+# Clears the assignee too. A Queued issue is picked whatever its assignee
+# (HON-1483), and /auto-implement 2.1 reads "In Progress and unassigned" as this
+# pre-claim: a kept assignee would stop the worker at its own gate.
 
 claim_issue() {
   local issue_uuid="$1" issue_id="$2"
@@ -934,7 +927,7 @@ claim_issue() {
   local response
   response=$(linear_api \
     'mutation($id: String!, $stateId: String!) {
-      issueUpdate(id: $id, input: { stateId: $stateId }) {
+      issueUpdate(id: $id, input: { stateId: $stateId, assigneeId: null }) {
         success
       }
     }' "$vars") || return 1
@@ -1899,8 +1892,8 @@ strand_worker() {
   # alone. With no PR — none opened, or gh missing/unauthenticated, which
   # validate_environment only WARNs about — Linear never moved the issue, so
   # it is still In Progress and assigned where claim_issue and /auto-implement
-  # Phase 2.2 left it. fetch_queued_issues queries Queued only and
-  # select_next_issue skips assigned issues, so it would never be seen again.
+  # Phase 2.2 left it. fetch_queued_issues queries Queued only, so it would
+  # never be seen again.
   # Hand it back the way gate_no_commit_success does; the Stranded label added
   # by record_stranded keeps the picker off it until an operator clears it.
   if [ -z "$WORKER_PR_NUMBER" ]; then
@@ -1984,8 +1977,8 @@ handle_success() {
   fi
 
   # A clean exit that produced no commits and did not reach a merge shipped
-  # nothing. Logging it as SUCCESS would leave the issue In Progress and
-  # assigned, which select_next_issue skips forever. Gate it instead: return the
+  # nothing. Logging it as SUCCESS would leave the issue In Progress, which
+  # fetch_queued_issues (Queued only) never reads. Gate it instead: return the
   # issue to Queued, unassigned, so it is pickable again, and emit a distinct
   # GATED outcome operators can grep for. The phase guard matters because a
   # merged run can also show 0 commits once origin/main advances past its merge
@@ -2664,8 +2657,8 @@ requeue_to_queue() {
   # below is deliberately a no-op when the issue is no longer In Progress — a
   # human re-triaged it, or Linear's PR automation advanced it — and a comment
   # posted first would then be asserting "back in Queued, unassigned and
-  # unlabelled" about an issue that is wherever the human put it and still
-  # assigned, which select_next_issue skips forever. That comment is the only
+  # unlabelled" about an issue that is wherever the human put it, outside the
+  # queue. That comment is the only
   # artifact an operator sees. move_to_backlog has the same ordering and is safe
   # with it only because its own move is unconditional.
   #
@@ -2707,7 +2700,7 @@ requeue_to_queue() {
     }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
 
   # Only undoes this orchestrator's own In Progress claim, and clears the
-  # assignee with it — select_next_issue skips any assigned issue forever.
+  # assignee with it, so the issue reads as unowned again.
   restore_queue_if_in_progress "$issue_uuid" "$issue_id"
 
   # Suppress re-selection until the cooldown lapses. The issue is back in Queued,
@@ -2749,8 +2742,8 @@ move_to_backlog() {
   try_add_label "$issue_uuid" "$label_name"
 
   # Move to Backlog and clear the assignee. /auto-implement 2.2 assigns the
-  # issue to the API user; leaving that in place would make select_next_issue
-  # skip the issue as "assigned" forever once a human re-triages it to Queued.
+  # issue to the API user; clearing it shows the issue has no owner. The queue
+  # picks a Queued issue whatever its assignee (HON-1483).
   move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_BACKLOG" "Backlog"
 
   log INFO "Moved $issue_id to Backlog (unassigned) with '$label_name' label"
@@ -2785,8 +2778,8 @@ restore_queue_if_in_progress() {
 
 # ─── Move issue to a state, clearing the assignee ────────────────────────────
 # Shared by move_to_backlog, the gated-success path, and force-shutdown drain.
-# Clearing the assignee is essential: /auto-implement assigns the issue to the
-# API user, and select_next_issue skips any assigned issue forever.
+# /auto-implement assigns the issue to the API user; clearing it shows the
+# issue has no owner. Selection ignores the assignee on Queued (HON-1483).
 
 move_issue_unassigned() {
   local issue_uuid="$1" issue_id="$2" state_id="$3" state_label="$4"
@@ -2973,7 +2966,7 @@ drain_finish_attempt() {
 
 # Force shutdown kills workers mid-flight. Return each in-flight issue to Queued
 # and clear the assignee so a future run can pick it up — otherwise it stays In
-# Progress and assigned, which select_next_issue skips forever. A finish attempt
+# Progress, which fetch_queued_issues (Queued only) never reads. A finish attempt
 # is recorded as a strand instead: see drain_finish_attempt.
 drain_workers_to_queue() {
   local i=0

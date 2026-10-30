@@ -3,7 +3,7 @@
 #
 # A drain that ends early fails in two ways, and neither one makes a noise: the
 # `claude` workers keep running with no orchestrator, and their issues stay In
-# Progress and assigned, the state select_next_issue skips forever (HON-572,
+# Progress, a state the Queued-only picker never reads (HON-572,
 # HON-1067). So every stop proves its own drain: cmd_stop takes a snapshot of
 # the workers before its first signal and checks each one after the exit.
 
@@ -64,8 +64,9 @@ stop_drain_issue_states() {
 # Pure verdict over the three lists above. Prints one line per problem and a
 # summary line; returns 1 when a worker or an issue failed the check.
 #
-# An issue passes in any state but two: In Progress, and Queued with an
-# assignee. Both keep it from the picker. In Review and Done are normal ends: a
+# An issue passes in any state but In Progress, which keeps it from the
+# picker. A Queued issue passes whatever its assignee (HON-1483), because the
+# picker reads only the state. In Review and Done are normal ends: a
 # worker can finish during the graceful wait, and a drained strand with a PR
 # stays In Review (HON-1077).
 stop_drain_verdict() {
@@ -88,9 +89,6 @@ stop_drain_verdict() {
       unchecked=$((unchecked + 1))
     elif [ "$state" = "In Progress" ]; then
       echo "  FAIL $issue: still In Progress${assignee:+ and assigned to $assignee}. Move it to Queued and clear the assignee"
-      failed=$((failed + 1))
-    elif [ "$state" = "Queued" ] && [ -n "$assignee" ]; then
-      echo "  FAIL $issue: Queued but assigned to $assignee, so the orchestrator skips it. Clear the assignee"
       failed=$((failed + 1))
     fi
   done <<< "$states"

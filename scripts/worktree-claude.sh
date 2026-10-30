@@ -4353,7 +4353,7 @@ cmd_stop() {
     # 30-50s, and it can start only after a triage call in flight returns
     # (HON-1067). The old flat `sleep 3` killed the orchestrator mid-drain,
     # orphaning `claude` processes and leaving their issues In Progress +
-    # assigned — the exact state select_next_issue skips forever (HON-572).
+    # assigned — a state the Queued-only picker never reads (HON-572).
     # Scale the wait with the work instead.
     local worker_count triage_timeout deferred_count bound
     worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
