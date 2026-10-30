@@ -13,11 +13,12 @@ describe('buildImagineRequest on meat and fish cuts', () => {
   }
   const system = buildImagineRequest({ prompt: 'chicken', household, locale: 'en' }).system
 
-  it('names a boneless cut "<cut> fillet" and a bone-in cut by its bare name', () => {
+  it('names a boneless thigh or fish "<cut> fillet" and any other cut by its bare name', () => {
     expect(system).toContain(
-      'A boneless cut is "<cut> fillet": "chicken thigh fillet", "trout fillet"',
+      'A boneless chicken thigh or fish is "<cut> fillet": "chicken thigh fillet", "trout fillet"',
     )
     expect(system).toContain('A bone-in cut or a whole fish is the bare name')
+    expect(system).toContain('Any other cut keeps its bare name, boneless or not')
   })
 
   it('weighs a bone-in cut and a whole fish with the bone', () => {

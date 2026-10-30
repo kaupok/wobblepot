@@ -62,8 +62,9 @@ Some ingredients have quality grades or processing descriptors that should be st
 - These describe quality grades, not different products
 
 MEAT AND FISH CUTS:
-Keep the form the recipe states. The DB has a bone-in or whole row and a boneless "<cut> fillet" row, and the bone changes the nutrition:
-- "boneless", "fillet" or "meat" means the boneless row: "boneless skinless chicken thighs" → "chicken thigh fillet", "chicken thigh meat" → "chicken thigh fillet", "trout fillets" → "trout fillet"
+Keep the form the recipe states. The DB has a bone-in chicken thigh and whole fish, each with a boneless "<cut> fillet" row, and the bone changes the nutrition:
+- "boneless", "fillet" or "meat" on chicken thigh or a fish means its fillet row: "boneless skinless chicken thighs" → "chicken thigh fillet", "chicken thigh meat" → "chicken thigh fillet", "trout fillets" → "trout fillet"
+- Any other cut keeps its bare name, boneless or not: "boneless beef chuck" → "beef chuck", "boneless chicken legs" → "chicken leg"
 - A bone-in cut or a whole fish keeps the bare name: "bone-in chicken thighs" → "chicken thigh", "whole trout" → "trout"
 - A cut given in pieces is weighed: a bone-in cut with the bone, a boneless cut without it. "4 chicken thighs" → quantity: 600, unit: "g", name: "chicken thigh"; "4 boneless chicken thighs" → quantity: 400, unit: "g", name: "chicken thigh fillet"
 

@@ -192,7 +192,7 @@ Ingredient naming rules (IMPORTANT — names are matched against a database):
 - Use simple base names without cooking adjectives: "chives" not "fresh chives", "bread" not "black bread"
 - Do NOT prefix with preparation words like fresh, dried, sliced, chopped, minced, frozen, canned, etc.
 - Specificity is OK when it's part of the ingredient identity: "chicken breast", "olive oil", "sour cream"
-- Name the form of a meat or fish cut. A boneless cut is "<cut> fillet": "chicken thigh fillet", "trout fillet". A bone-in cut or a whole fish is the bare name: "chicken thigh", "trout"
+- Name the form of a meat or fish cut. A boneless chicken thigh or fish is "<cut> fillet": "chicken thigh fillet", "trout fillet". A bone-in cut or a whole fish is the bare name: "chicken thigh", "trout". Any other cut keeps its bare name, boneless or not: "chicken leg", "beef chuck", "pork chop"
 
 Quantity guidelines (per serving, scale by number of servings):
 - Proteins (meat, fish, tofu): 100-200g per serving

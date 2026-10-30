@@ -52,7 +52,10 @@ describe('buildRecipeExtractionPrompt', () => {
   it('keeps the boneless or bone-in form and weighs a bone-in cut with the bone (HON-1480)', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain(
-      '"boneless", "fillet" or "meat" means the boneless row: "boneless skinless chicken thighs" → "chicken thigh fillet"',
+      '"boneless", "fillet" or "meat" on chicken thigh or a fish means its fillet row: "boneless skinless chicken thighs" → "chicken thigh fillet"',
+    )
+    expect(prompt).toContain(
+      'Any other cut keeps its bare name, boneless or not: "boneless beef chuck" → "beef chuck"',
     )
     expect(prompt).toContain(
       'A cut given in pieces is weighed: a bone-in cut with the bone, a boneless cut without it. "4 chicken thighs" → quantity: 600, unit: "g", name: "chicken thigh"; "4 boneless chicken thighs" → quantity: 400, unit: "g", name: "chicken thigh fillet"',

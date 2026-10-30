@@ -317,4 +317,17 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
       lowConfidence: false,
     })
   })
+  // A name the prompts no longer ask for, but a model can still write (HON-1480 review)
+  it.each([
+    ['beef chuck fillet', 'beef fillet'],
+    ['pork chop fillet', 'pork fillet'],
+    ['lamb leg fillet', 'lamb fillet'],
+    ['chicken leg fillet', 'chicken fillet'],
+  ])('does not match "%s" to %s for sure', async (recipeName, otherCut) => {
+    await seedCuts()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).not.toMatchObject({ ingredient: { name: otherCut }, lowConfidence: false })
+  })
 })
