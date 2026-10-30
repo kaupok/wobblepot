@@ -76,6 +76,8 @@ export const ESTONIAN_FALSE_FRIENDS: Readonly<Record<string, readonly string[]>>
   lääts: ['lambaläät'],
   // sinepilehed are mustard greens.
   sinep: ['sinepilehed'],
+  // granaatõun is pomegranate, not apple.
+  õun: ['granaatõun'],
   // kapparid soolvees are capers in brine.
   sool: ['soolvees'],
   // banaanipaprika is banana pepper.

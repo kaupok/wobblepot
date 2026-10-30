@@ -176,7 +176,13 @@ function partForms(tag: string): string[] {
     groupsOf(tagWords, 'et', translatedWordMatches).length > 0
   if (isGroupWord) return []
 
-  const forms = [word, ...(ESTONIAN_TAG_FORMS[word] ?? [])]
+  // A plural tag reads the table too: "kurgid" gets "kurk" and "kurgi".
+  const forms = [
+    word,
+    ...Object.entries(ESTONIAN_TAG_FORMS)
+      .filter(([key]) => readsAs(word, key))
+      .flatMap(([key, stems]) => [key, ...stems]),
+  ]
   const stem = withoutEnding(word)
   if (stem !== word) forms.push(stem)
   return forms.filter((form) => form.length >= MIN_PART_LENGTH)
