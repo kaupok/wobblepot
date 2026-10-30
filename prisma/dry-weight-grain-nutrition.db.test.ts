@@ -26,7 +26,7 @@ const cookedPasta = {
   fat: 1.1,
 } as const
 
-it('sets global rows to dry values and rescales the listed seed components', async () => {
+it('sets global rows to dry values and rescales the listed seed components and their forks', async () => {
   const pasta = await prisma.ingredient.create({ data: { name: 'pasta', ...cookedPasta } })
   const rice = await prisma.ingredient.create({ data: { name: 'white rice', ...cookedPasta } })
   const household = await prisma.household.create({ data: { name: 'Birch' } })
@@ -36,9 +36,23 @@ it('sets global rows to dry values and rescales the listed seed components', asy
   const listed = await prisma.meal.create({
     data: {
       name: 'Egg Fried Rice',
+      translations: { create: { locale: 'et', name: 'Munapraadriis' } },
       components: { create: { ingredientId: rice.id, quantityPerServing: 150 } },
     },
   })
+  // "Make it my recipe" copies the library amount into a household meal
+  const fork = (name: string, quantityPerServing = 150) =>
+    prisma.meal.create({
+      data: {
+        name,
+        householdId: household.id,
+        components: { create: { ingredientId: rice.id, quantityPerServing } },
+      },
+    })
+  const forkEn = await fork('Egg Fried Rice')
+  const forkEt = await fork('Munapraadriis')
+  const renamed = await fork('Our fried rice')
+  const edited = await fork('Egg Fried Rice', 120)
   const unlisted = await prisma.meal.create({
     data: {
       name: 'Rice Bowl',
@@ -67,4 +81,9 @@ it('sets global rows to dry values and rescales the listed seed components', asy
     (await prisma.mealComponent.findFirstOrThrow({ where: { mealId } })).quantityPerServing
   expect(await amount(listed.id)).toBe(60)
   expect(await amount(unlisted.id)).toBe(150)
+  expect(await amount(forkEn.id)).toBe(60)
+  expect(await amount(forkEt.id)).toBe(60)
+  // Found by name at the old amount only
+  expect(await amount(renamed.id)).toBe(150)
+  expect(await amount(edited.id)).toBe(120)
 })

@@ -65,7 +65,7 @@ WHERE "householdId" IS NULL AND "name" IN ('borlotti beans', 'black-eyed beans',
 
 -- Seed recipes that gave cooked-weight amounts, rescaled to dry weight
 -- (x0.4 rice, lentils and split peas; x0.45 pasta and noodles; rounded to 5 g).
--- The old amount in the WHERE keeps a household-edited copy or a re-run safe.
+-- The old amount in the WHERE keeps a re-run safe.
 
 UPDATE "meal_component" AS mc SET "quantityPerServing" = 60
 FROM "meal" AS m, "ingredient" AS i
@@ -122,3 +122,107 @@ WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
   AND m."householdId" IS NULL AND i."householdId" IS NULL
   AND i."name" = 'lasagne sheets' AND mc."quantityPerServing" = 150
   AND m."name" IN ('Classic Lasagne', 'Vegetable Lasagne');
+
+-- "Make it my recipe" forks (forkMeal, src/lib/meal-plans/promote-entry.ts)
+-- copy a library meal's components into a household meal on the same global
+-- ingredient, with no link back to the source. A fork that still holds the old
+-- cooked amount would read 2.5x high once the row holds dry values, so it is
+-- rescaled too. It is found by name, in English or a translated name, and only
+-- at the exact old amount: a renamed fork, or one the household edited, keeps
+-- its amount.
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 60
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'white rice' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Pork Fried Rice', 'Egg Fried Rice', 'Vegetable Fried Rice', 'Beef Bibimbap', 'Tuna Poke Bowl', 'Japanese Gyudon', 'Chicken Jambalaya', 'Salmon Teriyaki Bowl')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Pork Fried Rice', 'Egg Fried Rice', 'Vegetable Fried Rice', 'Beef Bibimbap', 'Tuna Poke Bowl', 'Japanese Gyudon', 'Chicken Jambalaya', 'Salmon Teriyaki Bowl')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 80
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'white rice' AND mc."quantityPerServing" = 200
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Duck Fried Rice')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Duck Fried Rice')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 60
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'basmati rice' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Lamb Biryani', 'Lamb Pilaf')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Lamb Biryani', 'Lamb Pilaf')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 60
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'red lentils' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Red Lentil Dal', 'Dal Tadka')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Red Lentil Dal', 'Dal Tadka')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 60
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'split peas' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Split Pea Soup')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Split Pea Soup')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 65
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'noodles' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Pork Lo Mein')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Pork Lo Mein')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 65
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'egg noodles' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Pork Fried Noodles')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Pork Fried Noodles')
+  );
+
+UPDATE "meal_component" AS mc SET "quantityPerServing" = 65
+FROM "meal" AS m, "ingredient" AS i
+WHERE mc."mealId" = m."id" AND mc."ingredientId" = i."id"
+  AND m."householdId" IS NOT NULL AND i."householdId" IS NULL
+  AND i."name" = 'lasagne sheets' AND mc."quantityPerServing" = 150
+  AND m."name" IN (
+    SELECT g."name" FROM "meal" AS g WHERE g."householdId" IS NULL AND g."name" IN ('Classic Lasagne', 'Vegetable Lasagne')
+    UNION
+    SELECT t."name" FROM "meal_translation" AS t JOIN "meal" AS g ON g."id" = t."mealId"
+    WHERE g."householdId" IS NULL AND g."name" IN ('Classic Lasagne', 'Vegetable Lasagne')
+  );
