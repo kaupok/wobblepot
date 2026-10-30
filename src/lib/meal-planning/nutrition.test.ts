@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
+import { baseIngredients } from '../../../prisma/seed'
 import { componentGramsPerServing, computeMealNutrition } from './nutrition'
 
 describe('computeMealNutrition', () => {
+  // Recipes give pasta in dry grams, so the seed row holds dry values (HON-1473)
+  it('counts 100 g of seed pasta at its dry values', () => {
+    const pasta = baseIngredients.find((ing) => ing.name === 'pasta')!
+    const result = computeMealNutrition([
+      { quantityPerServing: 100, ingredient: { ...pasta, defaultUnit: 'g' } },
+    ])
+
+    expect(result.calories).toBe(371)
+    expect(result.carbs).toBe(75)
+  })
+
   it('computes nutrition from single component', () => {
     const components = [
       {

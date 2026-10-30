@@ -29,6 +29,7 @@ import {
 import { checkMealSlugCollisions } from './seed-meal-slugs'
 import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translations-et'
 import type { IngredientInput } from './seed-types'
+import { validateDryWeightNutrition } from './validate-dry-weight-nutrition'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
 import { validateIngredientGroups } from './validate-ingredient-groups'
 import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
@@ -761,6 +762,7 @@ async function main() {
     // Nutritional quality
     validateNutritionalValues(allIngredients),
     validateCalorieSanity(allIngredients),
+    { errors: [], warnings: validateDryWeightNutrition(allIngredients) },
 
     // Duplicate detection
     checkDuplicateIngredientsMulti(ingredientSources),

@@ -41,6 +41,14 @@ describe('buildRecipeExtractionPrompt', () => {
     expect(prompt).not.toContain('default to 4')
   })
 
+  it('converts a cooked rice, pasta or lentil weight to dry weight (HON-1473)', () => {
+    const prompt = buildRecipeExtractionPrompt('test', 4)
+    expect(prompt).toContain(
+      'If the recipe gives a cooked weight, convert it to dry: cooked rice, grains or lentils × 0.4, cooked pasta or noodles × 0.45',
+    )
+    expect(prompt).toContain('drained canned beans')
+  })
+
   it('includes confidence scoring guidelines', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain('RECIPE CONFIDENCE SCORING')

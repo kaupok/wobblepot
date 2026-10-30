@@ -97,6 +97,9 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
 - For weight measurements, always use grams: 1 oz = 28g, 1 lb = 454g
 - For small measurements: 1 tbsp = 15g, 1 tsp = 5g
+- Give every weight as bought: dry rice, pasta, grains and lentils, drained canned beans. Ingredient nutrition is for that form
+  If the recipe gives a cooked weight, convert it to dry: cooked rice, grains or lentils × 0.4, cooked pasta or noodles × 0.45
+  Example: "500g cooked rice" → quantity: 200, unit: "g", name: "white rice"
 
 SANITY CHECKS - Typical per-serving quantities:
 - Herbs/spices: 5-20g per serving
