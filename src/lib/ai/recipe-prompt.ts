@@ -99,6 +99,8 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
   Example: "2 cans peeled tomatoes" → quantity: 800, unit: "g", name: "tinned plum tomatoes"
   Example: "1 can diced tomatoes" → quantity: 400, unit: "g", name: "tinned chopped tomatoes"
   Example: "1 can coconut milk" → quantity: 400, unit: "g", name: "coconut milk"
+  Drained canned beans, chickpeas and lentils weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry
+  Example: "2 cans chickpeas, drained" → quantity: 480, unit: "g", name: "chickpeas"
 - For herbs/leaves measured in cups, convert to grams (1 cup fresh herbs ≈ 20-30g)
   Example: "2 cups basil leaves" → quantity: 50, unit: "g", name: "basil"
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
