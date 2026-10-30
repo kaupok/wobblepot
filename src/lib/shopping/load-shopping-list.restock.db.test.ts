@@ -194,3 +194,53 @@ describe('a staple marked ran out, in the per-plan list', () => {
     })
   })
 })
+
+// HON-1471: the frozen bag has its own row, so its star leaves the fresh vegetable alone.
+describe('a starred frozen bag beside the fresh vegetable', () => {
+  async function frozenWorld(frozenQuantity: number | null) {
+    await ingredient('ing-beans', 'green beans', 'vegetable')
+    await ingredient('ing-frozen-beans', 'frozen green beans', 'vegetable')
+    await prisma.meal.create({
+      data: {
+        id: 'meal-beans',
+        name: 'Green bean salad',
+        components: { create: [{ ingredientId: 'ing-beans', quantityPerServing: 150 }] },
+      },
+    })
+    const alder = await household('alder')
+    await entry('plan-alder', '2026-10-17', 'meal-beans', 1)
+    await prisma.pantryItem.create({
+      data: {
+        householdId: alder.id,
+        ingredientId: 'ing-frozen-beans',
+        quantity: frozenQuantity,
+        isStaple: true,
+      },
+    })
+    return { alder }
+  }
+
+  it('buys the fresh green beans a planned recipe needs while the frozen bag is stocked', async () => {
+    const { alder } = await frozenWorld(null)
+
+    const items = itemsById(await loadShoppingList(alder, { days: 7 }))
+
+    expect(Object.keys(items)).toEqual(['ing-beans'])
+    expect(items['ing-beans']).toMatchObject({ quantity: 150, restock: false })
+  })
+
+  it('adds the frozen bag as a ran-out line when the household marks it ran out', async () => {
+    const { alder } = await frozenWorld(0)
+
+    const items = itemsById(await loadShoppingList(alder, { days: 7 }))
+
+    expect(Object.keys(items).sort()).toEqual(['ing-beans', 'ing-frozen-beans'])
+    expect(items['ing-beans']).toMatchObject({ quantity: 150, restock: false })
+    expect(items['ing-frozen-beans']).toMatchObject({
+      name: 'frozen green beans',
+      quantity: 0,
+      restock: true,
+      dueToday: true,
+    })
+  })
+})

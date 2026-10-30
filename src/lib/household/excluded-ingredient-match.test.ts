@@ -180,6 +180,54 @@ describe('matchTag with an ingredient group', () => {
   })
 })
 
+// The fresh rows and the frozen form rows of the seed, with their Estonian names (HON-1471).
+const FROZEN_POOL = [
+  row('broccoli', 'brokkoli'),
+  row('cauliflower', 'lillkapsas'),
+  row('frozen broccoli and cauliflower mix', 'külmutatud brokoli-lillkapsasegu'),
+  row('peas', 'herned'),
+  row('frozen peas', 'külmutatud herned'),
+  row('spinach', 'spinat'),
+  row('frozen spinach', 'külmutatud spinat'),
+  row('green beans', 'rohelised oad'),
+  row('frozen green beans', 'külmutatud rohelised oad'),
+  row('frozen mixed vegetables', 'külmutatud köögiviljasegu'),
+  row('blueberry', 'mustikas'),
+  row('frozen blueberries', 'külmutatud mustikad'),
+  row('raspberry', 'vaarikas'),
+  row('frozen raspberries', 'külmutatud vaarikad'),
+  row('strawberry', 'maasikas'),
+  row('frozen strawberries', 'külmutatud maasikad'),
+  row('frozen mixed berries', 'külmutatud marjasegu'),
+]
+
+const frozenNames = (tag: string, locale = 'en') =>
+  matchTag(tag, FROZEN_POOL, locale).map((r) => r.name)
+
+describe('matchTag on the frozen form rows', () => {
+  it.each([
+    ['broccoli', 'en', 'frozen broccoli and cauliflower mix'],
+    ['cauliflower', 'en', 'frozen broccoli and cauliflower mix'],
+    ['brokkoli', 'et', 'frozen broccoli and cauliflower mix'],
+    ['lillkapsas', 'et', 'frozen broccoli and cauliflower mix'],
+    ['peas', 'en', 'frozen peas'],
+    ['herned', 'et', 'frozen peas'],
+    ['spinach', 'en', 'frozen spinach'],
+    ['spinat', 'et', 'frozen spinach'],
+    ['green beans', 'en', 'frozen green beans'],
+    ['rohelised oad', 'et', 'frozen green beans'],
+    ['blueberry', 'en', 'frozen blueberries'],
+    ['mustikas', 'et', 'frozen blueberries'],
+    ['raspberry', 'en', 'frozen raspberries'],
+    ['vaarikas', 'et', 'frozen raspberries'],
+    ['strawberry', 'en', 'frozen strawberries'],
+    ['maasikas', 'et', 'frozen strawberries'],
+    ['berry', 'en', 'frozen mixed berries'],
+  ])('excludes the frozen row for "%s" (%s): %s', (tag, locale, frozenRow) => {
+    expect(frozenNames(tag, locale)).toContain(frozenRow)
+  })
+})
+
 describe('matchTags', () => {
   it('names each match in the locale, sorted, and keeps every tag in order', () => {
     expect(matchTags(['pork', 'dragonfruit'], POOL, 'et')).toEqual([
