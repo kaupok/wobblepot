@@ -1,8 +1,8 @@
 {
   "task": "adjust",
   "model": "claude-sonnet-5-5",
-  "recordedAt": "2026-10-19",
-  "commit": "6d06896e",
+  "recordedAt": "2026-10-30",
+  "commit": "d3c0ef98",
   "runs": 3,
   "cases": {
     "adjust/en-leave-out-mushrooms": {
@@ -16,52 +16,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2865.0320409999986,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 2005,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 86,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.00487,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "changes": [
-              {
-                "op": "remove",
-                "original": "mushroom",
-                "replacement": null,
-                "quantityPerServing": null,
-                "unit": null,
-                "reason": "The stroganoff is made without mushrooms, so it suits the kids."
-              }
-            ],
-            "followInSteps": false
-          },
-          "scores": {
-            "answered": 1,
-            "originalsResolve": 1,
-            "amountsGiven": null,
-            "expectedChanges": 1,
-            "noChangeEmpty": null,
-            "stepsFlagged": null,
-            "avoidsForbidden": null
-          }
-        },
-        {
-          "caseId": "adjust/en-leave-out-mushrooms",
-          "task": "adjust",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 1735.7274170000019,
+          "latencyMs": 1649.6635409999872,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -102,11 +57,11 @@
         {
           "caseId": "adjust/en-leave-out-mushrooms",
           "task": "adjust",
-          "run": 3,
+          "run": 2,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1401.4979170000006,
+          "latencyMs": 1799.9946670000209,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -114,11 +69,11 @@
             "inputTokens": 2005,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 91,
+            "outputTokens": 93,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00492,
+          "costUsd": 0.00494,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -129,7 +84,52 @@
                 "replacement": null,
                 "quantityPerServing": null,
                 "unit": null,
-                "reason": "The stroganoff is made without mushrooms, so the kids get a dish they will eat."
+                "reason": "The stroganoff is made without mushrooms, so the kids get a sauce they'll eat."
+              }
+            ],
+            "followInSteps": false
+          },
+          "scores": {
+            "answered": 1,
+            "originalsResolve": 1,
+            "amountsGiven": null,
+            "expectedChanges": 1,
+            "noChangeEmpty": null,
+            "stepsFlagged": null,
+            "avoidsForbidden": null
+          }
+        },
+        {
+          "caseId": "adjust/en-leave-out-mushrooms",
+          "task": "adjust",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2353.177875000052,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2005,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 92,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00493,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "changes": [
+              {
+                "op": "remove",
+                "original": "mushroom",
+                "replacement": null,
+                "quantityPerServing": null,
+                "unit": null,
+                "reason": "The stroganoff is made without mushrooms, so the kids get a sauce they will eat."
               }
             ],
             "followInSteps": false
@@ -157,7 +157,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1219.7614590000012,
+          "latencyMs": 1007.203833000036,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -193,7 +193,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1086.041333000001,
+          "latencyMs": 1125.778500000015,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -229,7 +229,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 959.9101249999949,
+          "latencyMs": 1227.2730829999782,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -271,7 +271,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2072.1579589999965,
+          "latencyMs": 1704.1782080000266,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -279,11 +279,11 @@
             "inputTokens": 2008,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 156,
+            "outputTokens": 158,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005576,
+          "costUsd": 0.005596,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -294,7 +294,7 @@
                 "replacement": "fresh red chilli",
                 "quantityPerServing": 10,
                 "unit": "g",
-                "reason": "You get a clean, fresh heat that works well with the peppers and chicken."
+                "reason": "You get a fresh, sharp heat that runs through the chicken and peppers."
               },
               {
                 "op": "add",
@@ -302,7 +302,7 @@
                 "replacement": "chilli powder",
                 "quantityPerServing": 2,
                 "unit": "g",
-                "reason": "You get a deeper, warming heat through the chicken and vegetables."
+                "reason": "You get a deeper, warming heat coating the chicken as it cooks."
               }
             ],
             "followInSteps": false
@@ -324,7 +324,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2144.1811249999882,
+          "latencyMs": 1947.230499999947,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -332,11 +332,11 @@
             "inputTokens": 2008,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 156,
+            "outputTokens": 154,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005576,
+          "costUsd": 0.005556,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -347,7 +347,7 @@
                 "replacement": "fresh red chilli",
                 "quantityPerServing": 10,
                 "unit": "g",
-                "reason": "You get a fresh, sharp heat running through the chicken and peppers."
+                "reason": "You get a proper kick of fresh heat running through the fajita filling."
               },
               {
                 "op": "add",
@@ -355,10 +355,10 @@
                 "replacement": "chilli powder",
                 "quantityPerServing": 2,
                 "unit": "g",
-                "reason": "You get a deeper, warming heat in the seasoning for the chicken."
+                "reason": "You get deeper, warming heat coating the chicken as it cooks."
               }
             ],
-            "followInSteps": false
+            "followInSteps": true
           },
           "scores": {
             "answered": 1,
@@ -377,7 +377,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1897.78483400002,
+          "latencyMs": 2255.3207079998683,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -385,11 +385,11 @@
             "inputTokens": 2008,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 156,
+            "outputTokens": 151,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005576,
+          "costUsd": 0.005526,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -400,7 +400,7 @@
                 "replacement": "fresh red chilli",
                 "quantityPerServing": 10,
                 "unit": "g",
-                "reason": "You get a clean, fresh heat running through the chicken and peppers."
+                "reason": "You get a fresh, fiery heat running through the chicken and peppers."
               },
               {
                 "op": "add",
@@ -408,10 +408,10 @@
                 "replacement": "chilli powder",
                 "quantityPerServing": 2,
                 "unit": "g",
-                "reason": "You get a deeper, warming heat that coats the chicken and vegetables."
+                "reason": "You get a deeper, warming spice coating the chicken."
               }
             ],
-            "followInSteps": false
+            "followInSteps": true
           },
           "scores": {
             "answered": 1,
@@ -436,7 +436,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2362.5126660000024,
+          "latencyMs": 3010.06104099995,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -444,11 +444,11 @@
             "inputTokens": 2017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 153,
+            "outputTokens": 226,
             "usageMissing": false
           },
-          "reasoningTokens": 135,
-          "costUsd": 0.005564,
+          "reasoningTokens": 208,
+          "costUsd": 0.006294,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -472,7 +472,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2355.5819159999955,
+          "latencyMs": 2148.860875000013,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -480,11 +480,11 @@
             "inputTokens": 2017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 157,
+            "outputTokens": 191,
             "usageMissing": false
           },
-          "reasoningTokens": 139,
-          "costUsd": 0.005604,
+          "reasoningTokens": 173,
+          "costUsd": 0.005944,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -508,7 +508,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2320.548125000001,
+          "latencyMs": 2046.0542089999653,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -516,11 +516,11 @@
             "inputTokens": 2017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 170,
+            "outputTokens": 174,
             "usageMissing": false
           },
-          "reasoningTokens": 152,
-          "costUsd": 0.005734,
+          "reasoningTokens": 156,
+          "costUsd": 0.005774,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -550,7 +550,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2085.1369170000035,
+          "latencyMs": 1431.4257499999949,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -558,11 +558,11 @@
             "inputTokens": 2019,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 98,
+            "outputTokens": 99,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005018,
+          "costUsd": 0.005028,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -573,7 +573,7 @@
                 "replacement": "Greek yoghurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "You keep a creamy, tangy sauce using the Greek yoghurt you already have in."
+                "reason": "You get a creamy, tangy sauce from the Greek yoghurt you already have in stock."
               }
             ],
             "followInSteps": true
@@ -595,7 +595,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2050.0732500000013,
+          "latencyMs": 1619.9505409999983,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -603,11 +603,11 @@
             "inputTokens": 2019,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 98,
+            "outputTokens": 97,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005018,
+          "costUsd": 0.005008,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -618,7 +618,7 @@
                 "replacement": "Greek yoghurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "You keep a creamy, tangy sauce using the Greek yoghurt you already have in."
+                "reason": "You get a tangy, creamy sauce using the Greek yoghurt you already have in."
               }
             ],
             "followInSteps": true
@@ -640,7 +640,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2021.507958000002,
+          "latencyMs": 1741.6144169999752,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -648,11 +648,11 @@
             "inputTokens": 2019,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 102,
+            "outputTokens": 96,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005058,
+          "costUsd": 0.004998,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -663,7 +663,7 @@
                 "replacement": "Greek yoghurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Greek yoghurt from your pantry gives a tangy, creamy sauce in place of the cream."
+                "reason": "You get a creamy, tangy sauce using the yoghurt you already have in stock."
               }
             ],
             "followInSteps": true
@@ -691,7 +691,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1578.028333000002,
+          "latencyMs": 1708.1475840000203,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -699,11 +699,11 @@
             "inputTokens": 2025,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 88,
+            "outputTokens": 96,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00493,
+          "costUsd": 0.00501,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -712,12 +712,12 @@
                 "op": "add",
                 "original": null,
                 "replacement": "oat cream",
-                "quantityPerServing": 30,
+                "quantityPerServing": 40,
                 "unit": "g",
-                "reason": "You already have oat cream, which makes the soup smoother and richer without any dairy."
+                "reason": "You have oat cream in the pantry, and it gives the soup a smooth, creamy texture without dairy."
               }
             ],
-            "followInSteps": true
+            "followInSteps": false
           },
           "scores": {
             "answered": 1,
@@ -736,7 +736,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1906.9153750000114,
+          "latencyMs": 1757.7438749999274,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -759,10 +759,10 @@
                 "replacement": "oat cream",
                 "quantityPerServing": 30,
                 "unit": "g",
-                "reason": "You get a smooth, creamy texture from the oat cream you already have, with no dairy."
+                "reason": "You get a smooth, creamy finish using the oat cream you already have, with no dairy."
               }
             ],
-            "followInSteps": true
+            "followInSteps": false
           },
           "scores": {
             "answered": 1,
@@ -781,7 +781,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2141.6456250000047,
+          "latencyMs": 1678.358624999877,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -789,11 +789,11 @@
             "inputTokens": 2025,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 91,
+            "outputTokens": 89,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00496,
+          "costUsd": 0.00494,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -804,7 +804,7 @@
                 "replacement": "oat cream",
                 "quantityPerServing": 30,
                 "unit": "g",
-                "reason": "You already have it in, and it gives the soup a smooth, creamy finish without any dairy."
+                "reason": "You get a smooth, creamy body without any dairy, using the oat cream you already have."
               }
             ],
             "followInSteps": false
@@ -832,7 +832,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1931.2874579999989,
+          "latencyMs": 1669.384291000024,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -840,11 +840,11 @@
             "inputTokens": 2017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 97,
+            "outputTokens": 95,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005004,
+          "costUsd": 0.004984,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -855,7 +855,7 @@
                 "replacement": "mature cheddar",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Mature cheddar from your pantry gives the same salty, tangy bite in place of the feta."
+                "reason": "Mature cheddar from your pantry gives the pie a similar salty, tangy bite."
               }
             ],
             "followInSteps": false
@@ -877,52 +877,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1984.1037089999882,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 2017,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 97,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.005004,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "changes": [
-              {
-                "op": "replace",
-                "original": "feta",
-                "replacement": "mature cheddar",
-                "quantityPerServing": 50,
-                "unit": "g",
-                "reason": "Mature cheddar from your pantry gives the same salty, sharp bite in place of the feta."
-              }
-            ],
-            "followInSteps": false
-          },
-          "scores": {
-            "answered": 1,
-            "originalsResolve": 1,
-            "amountsGiven": 1,
-            "expectedChanges": 1,
-            "noChangeEmpty": null,
-            "stepsFlagged": null,
-            "avoidsForbidden": null
-          }
-        },
-        {
-          "caseId": "adjust/en-pantry-swap-cheese",
-          "task": "adjust",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2053.8800420000043,
+          "latencyMs": 1536.1346660000272,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -943,9 +898,54 @@
                 "op": "replace",
                 "original": "feta",
                 "replacement": "mature cheddar",
-                "quantityPerServing": 40,
+                "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Mature cheddar from your pantry gives the pie a similar salty, sharp flavour in place of feta."
+                "reason": "Mature cheddar from your pantry gives the pie a similar sharp, savoury bite in place of feta."
+              }
+            ],
+            "followInSteps": false
+          },
+          "scores": {
+            "answered": 1,
+            "originalsResolve": 1,
+            "amountsGiven": 1,
+            "expectedChanges": 1,
+            "noChangeEmpty": null,
+            "stepsFlagged": null,
+            "avoidsForbidden": null
+          }
+        },
+        {
+          "caseId": "adjust/en-pantry-swap-cheese",
+          "task": "adjust",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1801.0739170000888,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 2017,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 92,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004954,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "changes": [
+              {
+                "op": "replace",
+                "original": "feta",
+                "replacement": "mature cheddar",
+                "quantityPerServing": 50,
+                "unit": "g",
+                "reason": "You already have it, and its sharp, salty bite works well with spinach in the pie."
               }
             ],
             "followInSteps": false
@@ -963,8 +963,8 @@
       ]
     },
     "adjust/et-ilma-koorta-jogurt": {
-      "promptHash": "40ab2063d40ff9214823c7bf2b56c63e07ded0f2d820820f140d0bcd36d6a836",
-      "requestHash": "86805adcc64fda46df62b00bd86467907c4516da6e6193050818d6987bdace43",
+      "promptHash": "b4699daefc86a6b96d3b76f0e311259365b5d51886be10efa9b1f2073085bfa4",
+      "requestHash": "245cce97c6208d29dcf253e1668e48d4fd0cb2cc82e30fae1eb5be07098f3249",
       "calls": [
         {
           "caseId": "adjust/et-ilma-koorta-jogurt",
@@ -973,19 +973,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1950.142209000005,
+          "latencyMs": 2557.813916999963,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
             "outputTokens": 110,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00539,
+          "costUsd": 0.005386,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -996,7 +996,7 @@
                 "replacement": "kreeka jogurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse, ilma koorota."
+                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse, ilma koorata."
               }
             ],
             "followInSteps": true
@@ -1018,19 +1018,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2148.091166999977,
+          "latencyMs": 1739.7287500000093,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 110,
+            "outputTokens": 103,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00539,
+          "costUsd": 0.005316,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1041,7 +1041,7 @@
                 "replacement": "kreeka jogurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse, ilma koorota."
+                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse."
               }
             ],
             "followInSteps": true
@@ -1063,19 +1063,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2043.0923749999783,
+          "latencyMs": 1907.0301670001354,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 110,
+            "outputTokens": 103,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00539,
+          "costUsd": 0.005316,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1086,7 +1086,7 @@
                 "replacement": "kreeka jogurt",
                 "quantityPerServing": 50,
                 "unit": "g",
-                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse, ilma koorota."
+                "reason": "Jogurt annab kastmele kreemja tekstuuri ja kerge hapukuse."
               }
             ],
             "followInSteps": true
@@ -1104,8 +1104,8 @@
       ]
     },
     "adjust/et-jata-seened-valja": {
-      "promptHash": "d0eabc3dcd3dc248b1d9951d1499097c2152261963ac7d36eb825e9ca446cf40",
-      "requestHash": "283015bd6fca61016fa0612fd49698f0dd6d42675f8483a35a74cf4e9d7c853c",
+      "promptHash": "b9abe37b935fa331eec6a4e78809f71849850207302dae189ed574b75d05e7a6",
+      "requestHash": "8db2e7fd5f234ca2073f7858b21ca13aa04d3583e901925b27186191c5494e23",
       "calls": [
         {
           "caseId": "adjust/et-jata-seened-valja",
@@ -1114,19 +1114,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2043.1572080000042,
+          "latencyMs": 1741.045832999982,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2120,
+            "inputTokens": 2118,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 102,
+            "outputTokens": 97,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00526,
+          "costUsd": 0.005206,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1137,7 +1137,7 @@
                 "replacement": null,
                 "quantityPerServing": null,
                 "unit": null,
-                "reason": "Seened jäävad roast välja ja risoto on lihtsam, kana ja sibul kannavad maitset."
+                "reason": "Seened jäävad roast välja, nii et kana, riis ja sibul kannavad maitset."
               }
             ],
             "followInSteps": false
@@ -1159,19 +1159,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2205.3049579999933,
+          "latencyMs": 1677.588333999971,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2120,
+            "inputTokens": 2118,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 91,
+            "outputTokens": 97,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00515,
+          "costUsd": 0.005206,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1182,7 +1182,7 @@
                 "replacement": null,
                 "quantityPerServing": null,
                 "unit": null,
-                "reason": "Seened jäävad roast välja ja kana ning riis kannavad maitset."
+                "reason": "Seened jäävad roast välja, nii et kana, riis ja sibul kannavad maitset."
               }
             ],
             "followInSteps": false
@@ -1204,19 +1204,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2368.914416000014,
+          "latencyMs": 1983.6346249999478,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2120,
+            "inputTokens": 2118,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 96,
+            "outputTokens": 97,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.0052,
+          "costUsd": 0.005206,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1227,7 +1227,7 @@
                 "replacement": null,
                 "quantityPerServing": null,
                 "unit": null,
-                "reason": "Seened jäävad roast välja ja ülejäänud koostisosad jäävad samaks."
+                "reason": "Seened jäävad roast välja, nii et kana, riis ja sibul kannavad maitset."
               }
             ],
             "followInSteps": false
@@ -1245,8 +1245,8 @@
       ]
     },
     "adjust/et-vahem-soola-midagi-soolast-pole": {
-      "promptHash": "5febe4cb9725551374d43f71a82e87680ae1c22e0b7838183f8c99e8dda1ea28",
-      "requestHash": "e59827b5f1e15d5511e84406f358d8cc2a55d451e6e6d5bc1da1c05de6f80281",
+      "promptHash": "e37ffdc6ff9c20c2efd4f8e8f52036343bfc4e4c0c0af5d4215be7af7b40888d",
+      "requestHash": "b428cfb2c42c14e6f47bef2226b69f0c9fdbacc076ca31e8cdbf3e50560a5e47",
       "calls": [
         {
           "caseId": "adjust/et-vahem-soola-midagi-soolast-pole",
@@ -1255,19 +1255,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 935.2613329999876,
+          "latencyMs": 1328.417541999952,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
             "outputTokens": 18,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00447,
+          "costUsd": 0.004466,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1291,19 +1291,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1069.1747920000053,
+          "latencyMs": 945.4222089999821,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
             "outputTokens": 18,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00447,
+          "costUsd": 0.004466,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1327,19 +1327,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1563.0685839999933,
+          "latencyMs": 1057.8944170000032,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2145,
+            "inputTokens": 2143,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
             "outputTokens": 18,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.00447,
+          "costUsd": 0.004466,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1359,8 +1359,8 @@
       ]
     },
     "adjust/et-vurtsikamaks": {
-      "promptHash": "8198bb57995b26115382599fa570ca927d49b4a751eff9787ae7e826fa0a524f",
-      "requestHash": "00275b0262e1f77b029f8657de1c939cb5721063dc99fa0aac70e5c90cbfbf2b",
+      "promptHash": "2647e07919a10ea5694701b4cd6b38975a724d7ccd8226264a969edeb51681e1",
+      "requestHash": "e1dfa64b59078111a9d0dd469ec42084111fa3c43991940b10dd78fbe94aa3c9",
       "calls": [
         {
           "caseId": "adjust/et-vurtsikamaks",
@@ -1369,38 +1369,38 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2516.866167,
+          "latencyMs": 2459.855833000038,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2122,
+            "inputTokens": 2120,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 158,
+            "outputTokens": 162,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005824,
+          "costUsd": 0.00586,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "changes": [
+              {
+                "op": "add",
+                "original": null,
+                "replacement": "punane tšillipipar",
+                "quantityPerServing": 5,
+                "unit": "g",
+                "reason": "Värske tšilli annab kanakarrile teravust ja kuumust."
+              },
               {
                 "op": "replace",
                 "original": "karripasta",
                 "replacement": "punane karripasta",
                 "quantityPerServing": 25,
                 "unit": "g",
-                "reason": "Tugevam pasta annab roale rohkem kuumust."
-              },
-              {
-                "op": "add",
-                "original": null,
-                "replacement": "tšillipipar",
-                "quantityPerServing": 3,
-                "unit": "g",
-                "reason": "Värske tšilli lisab selge vürtsika tulisuse."
+                "reason": "Tugevam pasta teeb kastme kuumemaks."
               }
             ],
             "followInSteps": false
@@ -1422,19 +1422,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2404.9535000000033,
+          "latencyMs": 2288.6035420000553,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2122,
+            "inputTokens": 2120,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 168,
+            "outputTokens": 164,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005924,
+          "costUsd": 0.00588,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1445,15 +1445,15 @@
                 "replacement": "punane tšillipipar",
                 "quantityPerServing": 5,
                 "unit": "g",
-                "reason": "Värske tšilli annab road kuumuse ja teeb kastme terava."
+                "reason": "Värske tšilli annab road teravuse ja kuumuse."
               },
               {
                 "op": "replace",
                 "original": "karripasta",
-                "replacement": "karripasta",
-                "quantityPerServing": 25,
+                "replacement": "vürtsikas karripasta",
+                "quantityPerServing": 20,
                 "unit": "g",
-                "reason": "Rohkem karripastat teeb kastme vürtsikama ja sügavama."
+                "reason": "Vürtsikas pasta teeb kastme tuliseks."
               }
             ],
             "followInSteps": false
@@ -1475,19 +1475,19 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2422.3862499999814,
+          "latencyMs": 2423.863832999952,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 2122,
+            "inputTokens": 2120,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 171,
+            "outputTokens": 165,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.005954,
+          "costUsd": 0.00589,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -1498,7 +1498,7 @@
                 "replacement": "punane tšillipipar",
                 "quantityPerServing": 5,
                 "unit": "g",
-                "reason": "Värske tšilli annab road tugeva ja terava kuumuse."
+                "reason": "Tšilli lisab roale teravust ja kuumust."
               },
               {
                 "op": "replace",
@@ -1506,7 +1506,7 @@
                 "replacement": "punane karripasta",
                 "quantityPerServing": 25,
                 "unit": "g",
-                "reason": "Kuumem pasta ja suurem kogus teevad kastme vürtsikamaks."
+                "reason": "Võtad kuumema pasta ja rohkem, siis maitse on tulisem."
               }
             ],
             "followInSteps": false
