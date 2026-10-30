@@ -74,7 +74,12 @@ db_mode_args() {
 free_port() {
   local p
   for p in $(seq 3201 3299 | sort -R); do
-    curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || { echo "$p"; return 0; }
+    local rc=0
+    curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || rc=$?
+    # Only a refused connection (7) is free. A timeout (28) is another worker's
+    # dev server still compiling `/`; e2e-local.sh's 30 s pre-check would then
+    # refuse the port and the run would end in REVIEW_FAILED for no reason.
+    [ "$rc" -eq 7 ] && { echo "$p"; return 0; }
   done
   echo "no free port in 3201-3299" >&2
   return 1

@@ -28,15 +28,19 @@ if [ -n "\${STUB_EXIT_EARLY:-}" ]; then echo "ERROR: branches limit exceeded" >&
 sleep "\${STUB_READY_DELAY:-0}"
 printf 'REVIEW-READY http://localhost:%s db=env\\n' "$REVIEW_LOCAL_PORT"
 if [ -n "\${STUB_EXIT_AFTER_READY:-}" ]; then echo "ERROR: port taken" >&2; exit 1; fi
+# Another server's READY, then ours dies: the case the settle window exists for.
+if [ -n "\${STUB_DIE_AFTER:-}" ]; then sleep "$STUB_DIE_AFTER"; echo "ERROR: port taken" >&2; exit 1; fi
 sleep 60 & wait $!
 `
 
-// Every port is free unless STUB_BUSY_PORTS names it.
+// Every port refuses (curl exit 7) unless STUB_BUSY_PORTS names it (answers) or
+// STUB_SLOW_PORTS names it (listens but times out, curl exit 28).
 const CURL_STUB = `#!/usr/bin/env bash
 for arg; do url="$arg"; done
 port="\${url##*:}"; port="\${port%%/*}"
 case " \${STUB_BUSY_PORTS:-} " in *" $port "*) exit 0 ;; esac
-exit 1
+case " \${STUB_SLOW_PORTS:-} " in *" $port "*) exit 28 ;; esac
+exit 7
 `
 
 let root: string
@@ -115,6 +119,15 @@ afterEach(async () => {
   fs.rmSync(root, { recursive: true, force: true })
 })
 
+// The tests above shorten every window. The defaults are what the skill
+// promises: a wait chunk under the 540 s foreground cap, a 5 s settle, 30 s to stop.
+it('keeps the documented defaults', () => {
+  const source = fs.readFileSync(realScript, 'utf8')
+  expect(source).toContain('WAIT_SECS="${REVIEW_SERVE_WAIT_SECS:-480}"')
+  expect(source).toContain('SETTLE_SECS="${REVIEW_SERVE_SETTLE_SECS:-5}"')
+  expect(source).toContain('STOP_SECS="${REVIEW_SERVE_STOP_SECS:-30}"')
+})
+
 describe('review-serve.sh start', () => {
   it('runs serve in branch mode on the one free 32xx port, with --seed passed through', async () => {
     // Every port but 3299 is busy, so a broken busy-port skip picks another one.
@@ -130,6 +143,15 @@ describe('review-serve.sh start', () => {
     // The pid file holds the server process itself, so stop reaches it.
     const pid = Number(fs.readFileSync(pidFile(), 'utf8'))
     expect(() => process.kill(pid, 0)).not.toThrow()
+  })
+
+  it('skips a port whose listener is slow to answer, not only one that answers', async () => {
+    const busy = Array.from({ length: 97 }, (_, i) => 3201 + i).join(' ') // 3201–3297
+    start(['HON-9'], { STUB_BUSY_PORTS: busy, STUB_SLOW_PORTS: '3298' })
+    await until(
+      () => fs.existsSync(logFile()) && /REVIEW-READY/.test(fs.readFileSync(logFile(), 'utf8')),
+    )
+    expect(serveLog()).toContain('port: 3299\n')
   })
 
   it('uses --db env when the worktree .env has its own DATABASE_URL', async () => {
@@ -196,15 +218,35 @@ describe('review-serve.sh wait', () => {
     expect(result.stdout.trim().endsWith('REVIEW_FAILED')).toBe(true)
   })
 
-  it('prints REVIEW_FAILED when the server dies inside the settle window after READY', async () => {
+  it('prints REVIEW_FAILED when the server is dead by the time wait reads READY', async () => {
     start(['HON-9'], { STUB_EXIT_AFTER_READY: '1' })
     await until(
       () => fs.existsSync(logFile()) && /REVIEW-READY/.test(fs.readFileSync(logFile(), 'utf8')),
     )
+    const result = await run(['wait', 'HON-9'], { REVIEW_SERVE_SETTLE_SECS: '0' })
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('ERROR: port taken')
+    expect(result.stdout.trim().endsWith('REVIEW_FAILED')).toBe(true)
+  })
+
+  // The server prints READY, then dies 0.5 s later. `wait` starts before READY,
+  // so only the settle window separates the two outcomes: with no settle it
+  // reports the READY of a server that is about to die.
+  it('prints REVIEW_FAILED when the server dies inside the settle window after READY', async () => {
+    start(['HON-9'], { STUB_READY_DELAY: '0.3', STUB_DIE_AFTER: '0.5' })
+    await until(() => fs.existsSync(pidFile()))
     const result = await run(['wait', 'HON-9'], { REVIEW_SERVE_SETTLE_SECS: '1' })
     expect(result.status).toBe(1)
     expect(result.stdout).toContain('ERROR: port taken')
     expect(result.stdout.trim().endsWith('REVIEW_FAILED')).toBe(true)
+  })
+
+  it('prints READY for that same server with no settle window', async () => {
+    start(['HON-9'], { STUB_READY_DELAY: '0.3', STUB_DIE_AFTER: '0.5' })
+    await until(() => fs.existsSync(pidFile()))
+    const result = await run(['wait', 'HON-9'], { REVIEW_SERVE_SETTLE_SECS: '0' })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toMatch(/^REVIEW-READY http:\/\/localhost:3\d{3} db=env\n$/)
   })
 
   it('prints REVIEW_FAILED with the reason when start dies before the server runs', async () => {

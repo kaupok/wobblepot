@@ -63,7 +63,7 @@ bash scripts/review-serve.sh start HON-XX          # run_in_background: true, ti
 bash scripts/review-serve.sh wait HON-XX           # foreground, timeout: 540000, in the same turn (CLAUDE.md → Waiting inside a skill)
 ```
 
-`wait` prints `REVIEW-READY <url>`, or `REVIEW_WAITING` (run it again), or `REVIEW_FAILED` with the log tail. On `REVIEW_FAILED` (no Neon slot, no Neon key, a refused `.env`), do not block the PR: write a "Not verified" line with the reason and skip to the stop step.
+Seed only through `--seed`, never a bare `pnpm db:seed`: it can seed another database than the server reads (HON-1272). `wait` prints `REVIEW-READY <url>`, or `REVIEW_WAITING` (run it again), or `REVIEW_FAILED` with the log tail. On `REVIEW_FAILED` (no Neon slot, no Neon key, a refused `.env`), do not block the PR: write a "Not verified" line with the reason and skip to the stop step.
 
 **Browser.** Pick one by `docs/BROWSER_TESTING.md` → Which browser: the T3 Code sidebar (`preview_*`) first, then the Playwright MCP (`browser_*`); its Tool mapping pairs the names. Not the Chrome extension, because it cannot save the screenshot file this step uploads. With neither loaded (a worker without the Playwright MCP, `docs/PARALLEL_WORKFLOW.md` → Untracked Files), write a "Not verified" line that says so and skip to the stop step.
 
