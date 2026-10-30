@@ -794,8 +794,8 @@ describe('orchestrator.sh', () => {
       // restore_queue_if_in_progress is deliberately a no-op when a human (or
       // Linear's PR automation) advanced the issue while the worker was dying.
       // Commenting first would leave "back in Queued, unassigned and unlabelled"
-      // on an issue that is assigned and elsewhere — false on the one artifact
-      // an operator reads, and select_next_issue skips assigned issues forever.
+      // on an issue that is elsewhere — false on the one artifact
+      // an operator reads.
       const r = drive('cap', '1', 'false', {
         HARNESS_ISSUE_STATE: '8e510dfa-7667-425f-abf2-c9202c4aee5b', // In Review
       })

@@ -61,7 +61,7 @@ Stop and ask when:
 
 A merged PR → Step 7 only. A `Gated` or `Stranded` label does not stop you: this run is the human taking it over.
 
-**Claim the issue now**, before the worktree: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is. The orchestrator skips an assigned issue, so the claim closes the gap in which a worker could pick it up. Then re-run the `jq` line: a worker that claimed it first is listed, and you stop.
+**Claim the issue now**, before the worktree: `save_issue({ id, state: "In Progress", assignee: "me" })`. Leave a PR's `In Review` issue as it is. The orchestrator only picks Queued, so the claim closes the gap in which a worker could pick it up. Then re-run the `jq` line: a worker that claimed it first is listed, and you stop.
 
 ## Step 4: Get into a worktree
 

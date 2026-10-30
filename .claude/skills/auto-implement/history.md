@@ -35,9 +35,13 @@ Every orchestrator worker runs in a worktree, so the regular-repo variants of 0.
 
 Auto-discovery reads the `Queued` state only, the same queue the orchestrator reads. Todo and Backlog are never picked up unattended, because Todo means a human will do the work.
 
+## An assignee does not block a Queued issue (Phase 1, 2.1; HON-1483)
+
+Discovery and the orchestrator used to skip any Queued issue with an assignee. On 2026-10-30, 4 of 6 Queued issues were assigned to the operator, so the queue skipped them silently. The Queued state is already the signal that an agent may take an issue, and no incident stood behind the assignee rule. Now a Queued issue is picked whatever its assignee; a human who takes one by hand moves it out of Queued. The 2.1 assignee check stays for `In Progress`, because that state means someone is working on the issue.
+
 ## The 2.1 gate and the 2.2 claim
 
-An explicit issue ID skips Phase 1, so 2.1 is the only filter on that path. The orchestrator pre-claims: `claim_issue()` in `scripts/orchestrator.sh` sets the state to `In Progress` and leaves the assignee empty before it spawns the worker, so `In Progress` + unassigned is the normal case, not a conflict. On the orchestrator's first attempt 2.2 fills in that assignee; on a direct run it is the claim that keeps other agents off the issue. `relations.blockedBy` entries carry no status, which is why each blocker is re-fetched.
+An explicit issue ID skips Phase 1, so 2.1 is the only filter on that path. The orchestrator pre-claims: `claim_issue()` in `scripts/orchestrator.sh` sets the state to `In Progress` and clears the assignee before it spawns the worker (it clears it since HON-1483, because a Queued issue may now carry one), so `In Progress` + unassigned is the normal case, not a conflict. On the orchestrator's first attempt 2.2 fills in that assignee; on a direct run it is the claim that keeps other agents off the issue. `relations.blockedBy` entries carry no status, which is why each blocker is re-fetched.
 
 ## Sibling overlap check (2.3)
 
