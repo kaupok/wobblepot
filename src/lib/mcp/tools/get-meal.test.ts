@@ -10,7 +10,9 @@ vi.mock('@/lib/prisma', () => ({
     mealPlanEntryComponent: { findMany: vi.fn() },
   },
 }))
+vi.mock('@/lib/household/members', () => ({ listMembersForAssistant: vi.fn() }))
 
+import { listMembersForAssistant } from '@/lib/household/members'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { prisma } from '@/lib/prisma'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
@@ -87,6 +89,10 @@ describe('get_meal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(prisma.meal.findFirst).mockResolvedValue(MEAL as never)
+    vi.mocked(listMembersForAssistant).mockResolvedValue([
+      { name: 'Mari', linked: true, portionMultiplier: 1 },
+      { name: null, linked: false, portionMultiplier: 1 },
+    ])
   })
 
   it("returns the meal with ingredients scaled to the household's servings", async () => {
@@ -110,12 +116,87 @@ describe('get_meal', () => {
         // 150 g chicken at 120 kcal and 22 g protein per 100 g; the vague
         // component is skipped.
         nutritionPerServing: { calories: 180, protein: 33, carbs: 0, fat: 0 },
+        nutritionPerMember: [
+          { name: 'Mari', portionMultiplier: 1, calories: 180, protein: 33, carbs: 0, fat: 0 },
+          { name: null, portionMultiplier: 1, calories: 180, protein: 33, carbs: 0, fat: 0 },
+        ],
         isOwnRecipe: false,
         isFavorite: true,
         mainProtein: { type: 'poultry', setBy: 'automatic' },
       },
     })
     expect(getMeal.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  describe('nutrition per member (HON-1476)', () => {
+    // 100 g trout a serving at 38 g protein per 100 g.
+    const TROUT = {
+      ...MEAL,
+      components: [
+        {
+          ingredientId: 'ing-trout',
+          quantityPerServing: 100,
+          isVague: false,
+          originalPhrase: null,
+          ingredient: ingredient({
+            id: 'ing-trout',
+            name: 'Trout',
+            calories: 200,
+            protein: 38,
+            carbs: 1,
+            fat: 9,
+          }),
+        },
+      ],
+    }
+    const perMember = (result: { structuredContent?: unknown }) =>
+      (result.structuredContent as { meal: { nutritionPerMember: unknown[] } }).meal
+        .nutritionPerMember
+
+    beforeEach(() => {
+      vi.mocked(prisma.meal.findFirst).mockResolvedValue(TROUT as never)
+      vi.mocked(listMembersForAssistant).mockResolvedValue([
+        { name: 'Mari', linked: true, portionMultiplier: 1.5 },
+        { name: 'Jaan', linked: true, portionMultiplier: 1 },
+        { name: null, linked: false, portionMultiplier: 0.5 },
+      ])
+    })
+
+    it("gives each member's plate, one serving × their portion, in member order", async () => {
+      const result = await call()
+
+      expect(perMember(result)).toEqual([
+        { name: 'Mari', portionMultiplier: 1.5, calories: 300, protein: 57, carbs: 2, fat: 14 },
+        { name: 'Jaan', portionMultiplier: 1, calories: 200, protein: 38, carbs: 1, fat: 9 },
+        { name: null, portionMultiplier: 0.5, calories: 100, protein: 19, carbs: 1, fat: 5 },
+      ])
+      expect(listMembersForAssistant).toHaveBeenCalledWith('household-1')
+      expect(getMeal.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+    })
+
+    it('leaves it unchanged when the caller passes servings', async () => {
+      const result = await runTool(
+        getMeal,
+        ctx,
+        getMeal.inputSchema.parse({ mealId: 'meal-1', servings: 6 }),
+      )
+
+      const { meal } = result.structuredContent as {
+        meal: { ingredients: { quantity: number }[]; nutritionPerMember: unknown[] }
+      }
+      expect(meal.ingredients[0]?.quantity).toBe(600)
+      expect(meal.nutritionPerMember).toEqual([
+        { name: 'Mari', portionMultiplier: 1.5, calories: 300, protein: 57, carbs: 2, fat: 14 },
+        { name: 'Jaan', portionMultiplier: 1, calories: 200, protein: 38, carbs: 1, fat: 9 },
+        { name: null, portionMultiplier: 0.5, calories: 100, protein: 19, carbs: 1, fat: 5 },
+      ])
+    })
+
+    it('tells the assistant which figure to use for a person', () => {
+      expect(getMeal.description).toContain(
+        "nutritionPerServing is a 1× portion, and nutritionPerMember gives each member's own plate, so use it when the user asks about a person.",
+      )
+    })
   })
 
   it('answers the servings the amounts are for and the recipe’s stored servings apart (HON-1472)', async () => {
@@ -212,7 +293,7 @@ describe('get_meal', () => {
           originalIngredientId: 'ing-chicken',
           replacementIngredientId: 'ing-tofu',
           quantityPerServing: 120,
-          replacementIngredient: ingredient({ id: 'ing-tofu', name: 'Tofu' }),
+          replacementIngredient: ingredient({ id: 'ing-tofu', name: 'Tofu', protein: 10 }),
         },
         {
           id: 'c2',
@@ -243,6 +324,24 @@ describe('get_meal', () => {
       expect(vi.mocked(prisma.mealPlanEntryComponent.findMany).mock.calls[0]![0]!.where).toEqual({
         entryId: 'entry-1',
       })
+    })
+
+    it("gives each member's plate from the entry's changed ingredients", async () => {
+      vi.mocked(listMembersForAssistant).mockResolvedValue([
+        { name: 'Mari', linked: true, portionMultiplier: 1.5 },
+        { name: 'Jaan', linked: true, portionMultiplier: 0.5 },
+      ])
+
+      const { meal } = (await planned()).structuredContent as {
+        meal: { nutritionPerServing: { protein: number }; nutritionPerMember: unknown[] }
+      }
+
+      // 120 g tofu at 10 g protein per 100 g, instead of the recipe's 33 g of chicken.
+      expect(meal.nutritionPerServing.protein).toBe(12)
+      expect(meal.nutritionPerMember).toEqual([
+        { name: 'Mari', portionMultiplier: 1.5, calories: 0, protein: 18, carbs: 0, fat: 0 },
+        { name: 'Jaan', portionMultiplier: 0.5, calories: 0, protein: 6, carbs: 0, fat: 0 },
+      ])
     })
 
     it('scales to the cook servings when a lunch takes 2.5 of the leftovers (HON-1394)', async () => {
