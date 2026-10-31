@@ -121,9 +121,10 @@ jobs:
       #
       # A red CI on `main` blocks nothing downstream (verified against the
       # triggers): deploy-storybook.yml runs on its own `push` paths filter,
-      # deploy-code-production.yml and deploy-db-migrations-production.yml are
-      # `workflow_dispatch` only, and staging-smoke.yml follows the staging
-      # migrations workflow — none uses `workflow_run` or `needs` on this one.
+      # deploy-production.yml and deploy-db-migrations-production.yml are
+      # `workflow_dispatch` only (the second also `workflow_call`), and
+      # staging-smoke.yml follows the staging migrations workflow — none uses
+      # `workflow_run` or `needs` on this one.
       #
       # `--tree` checks HEAD's state, not this push's range: every migration.sql
       # must match the blob it was first added with on `main`'s first-parent

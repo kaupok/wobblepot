@@ -187,11 +187,11 @@ Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prism
 - `prisma/seed.ts:3954` — `ingredientTranslation.upsert(... update: { name: et })`
 - `prisma/seed.ts:3885` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
 
-`.github/workflows/deploy-db-migrations-production.yml:71` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process makes that workflow **step 4a of every production release**. The workflow is manual, though: it runs only when the operator starts it, and `deploy-code-production.yml` does not depend on it, so a release that skips step 4a ships code without re-seeding. "Every release" holds only as long as step 4a is followed. So the sequence is:
+`.github/workflows/deploy-db-migrations-production.yml:81` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process runs that workflow as the `migrate` job of every production release: `deploy-production.yml` calls it before its `deploy` job, and the code does not ship when it fails. So the seed runs on every release. The sequence is:
 
 1. You fix `kikerhernes` → `kikerherned` with a scoped `UPDATE`. Users see the correct word immediately.
 2. Someone ships an unrelated feature three weeks later.
-3. Step 4a runs `pnpm db:seed`, the upsert's `update` branch rewrites the row from `prisma/seed-ingredient-translations-et.ts`, and the typo is back.
+3. The release's `migrate` job runs `pnpm db:seed`, the upsert's `update` branch rewrites the row from `prisma/seed-ingredient-translations-et.ts`, and the typo is back.
 4. The change log still says it was fixed. Nothing reports the regression.
 
 ### So: mirror every production edit into the seed data

@@ -1,4 +1,10 @@
 name: Staging smoke
+# The commit this run waits for and tests, in the run name, because the run's
+# own `head_sha` is not it: a `workflow_run` run records `main` HEAD at creation,
+# which is newer than the migrated commit whenever pushes land close together.
+# `scripts/pick-production-sha.ts` reads the full SHA from here to decide what
+# production may ship (HON-1507), so keep the 40-character SHA in the name.
+run-name: Staging smoke ${{ github.event.workflow_run.head_sha || github.sha }}
 
 # The remote tier of the HON-455 E2E setup (the preview tier was removed). Runs after the staging DB-migration
 # workflow succeeds on main. Staging is auto-deployed by Vercel on push to

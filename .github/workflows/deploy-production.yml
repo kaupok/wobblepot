@@ -1,17 +1,20 @@
-# Production Code Deployment Workflow
+# Production Deployment Workflow (HON-1507)
 #
-# IMPORTANT: This workflow should be run AFTER production database migrations complete.
+# One dispatch ships one commit to production, in order:
 #
-# Production Deployment Process:
-# 1. Merge changes to main (staging auto-deploys)
-# 2. Test in staging environment
-# 3. Run "Deploy DB migrations [production]" workflow
-# 4. Verify migrations succeeded
-# 5. Run THIS workflow to deploy code
-# 6. Verify production deployment
+#   pick     resolve the commit: the `sha` input, or the newest `main` commit
+#            with a green "Staging smoke" run. A commit without one fails here,
+#            before any migration (scripts/pick-production-sha.ts).
+#   migrate  run deploy-db-migrations-production.yml at that commit.
+#   deploy   deploy that commit's code to Vercel. `needs: migrate`, so code
+#            never ships when migrations fail.
 #
-# This workflow uses Vercel CLI to deploy, bypassing Vercel's Ignored Build Step
-# which blocks automatic git-triggered production deployments.
+# Before this workflow, the operator dispatched the migration and code
+# workflows by hand, and the code one shipped whatever `main` HEAD was at that
+# moment, which was not always the commit staging had tested.
+#
+# The `deploy` job uses Vercel CLI to deploy, bypassing Vercel's Ignored Build
+# Step which blocks automatic git-triggered production deployments.
 #
 # It also writes the GitHub Production *deployment records* (HON-602) and
 # retires the previous release's (HON-611). Vercel reports the
@@ -22,20 +25,75 @@
 # writing a record, and the operator has to correct it by hand. See
 # docs/DEPLOYMENT.md → "Why This Process?" and "Rollback Procedure".
 
-name: Deploy code [production]
+name: Deploy production
 
 on:
   workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to deploy (full or short SHA). Empty picks the newest main commit with a green staging smoke run.
+        type: string
+        required: false
+        default: ''
 
+# Not `${{ github.workflow }}`-scoped: later production workflows join the same
+# group, so two production changes never overlap. The called migrations
+# workflow declares no concurrency of its own, because a called workflow that
+# waits on its caller's group deadlocks.
 concurrency:
-  group: ${{ github.workflow }}-production
+  group: production
   cancel-in-progress: false # Don't cancel running deployments
 
 permissions:
   contents: read
 
 jobs:
-  deploy-production:
+  pick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      actions: read
+
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      run_url: ${{ steps.pick.outputs.run_url }}
+
+    steps:
+      # The script comes from the dispatched ref; the commit it picks is only
+      # read through the API here and checked out by the jobs below.
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Pick the commit
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SHA: ${{ inputs.sha }}
+        run: node scripts/pick-production-sha.ts
+
+  migrate:
+    needs: pick
+    # A called workflow gets no more than its caller job grants: `actions: write`
+    # is what its pnpm cache step needs.
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/deploy-db-migrations-production.yml
+    with:
+      sha: ${{ needs.pick.outputs.sha }}
+    secrets: inherit
+
+  deploy:
+    # `pick` for its output; `migrate` so code waits for migrations and never
+    # starts when they fail (the default `if: success()`).
+    needs: [pick, migrate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -49,13 +107,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: main
+          # The commit `pick` chose, the same one `migrate` checked out.
+          ref: ${{ needs.pick.outputs.sha }}
 
       - name: Capture deployed commit
         id: rev
-        # The checkout above pins `ref: main`, so `github.sha` — the sha at
-        # dispatch time — can differ from what actually ships if main moved in
-        # between. The deployment record must name the checked-out commit.
+        # `github.sha` is the dispatched ref, not the picked commit. The
+        # deployment record must name the checked-out commit.
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
@@ -84,10 +142,10 @@ jobs:
         # `continue-on-error` because a bookkeeping write must never be able to
         # cancel a release. `Deploy to production` below carries no `if:`, so it
         # defaults to `if: success()` — without this, a 5xx from the deployments
-        # API would skip the deploy entirely, and by the time this workflow runs
-        # the operator has already applied the production migrations (step 4a of
-        # docs/DEPLOYMENT.md). That would strand production on old code with the
-        # new schema because a *status page* failed to update. The flag sets this
+        # API would skip the deploy entirely, and by the time this job runs the
+        # `migrate` job has already applied the production migrations. That
+        # would strand production on old code with the new schema because a
+        # *status page* failed to update. The flag sets this
         # step's `conclusion` to success, so the deploy proceeds, while leaving
         # its `outcome` as failure — which the final step of the job turns back
         # into a red run.
@@ -111,7 +169,7 @@ jobs:
             "required_contexts": [],
             "production_environment": true,
             "transient_environment": false,
-            "description": "Deploy code [production] run ${GITHUB_RUN_ID}"
+            "description": "Deploy production run ${GITHUB_RUN_ID}"
           }
           PAYLOAD
           )
@@ -320,6 +378,8 @@ jobs:
 
           **Commit:** `${{ steps.rev.outputs.sha }}`
 
+          **Green staging smoke run:** ${{ needs.pick.outputs.run_url }}
+
           **Deployment URL:** ${{ steps.deploy.outputs.deployment_url }}
 
           **GitHub deployment record:** [#${{ steps.gh_deployment.outputs.deployment_id }}](${{ github.server_url }}/${{ github.repository }}/deployments/Production)
@@ -341,7 +401,7 @@ jobs:
              - Vercel Dashboard → Deployments
              - Find previous working deployment
              - Click "⋯" → Promote to Production
-             - A dashboard promote writes no GitHub deployment record, so the Environments card will keep showing this commit as green and Active. Mark this record inactive (`gh api "repos/${{ github.repository }}/deployments/${{ steps.gh_deployment.outputs.deployment_id }}/statuses" -f state=inactive`) and re-run this workflow once main carries the fix. See docs/DEPLOYMENT.md → "Rollback Procedure".
+             - A dashboard promote writes no GitHub deployment record, so the Environments card will keep showing this commit as green and Active. Mark this record inactive (`gh api "repos/${{ github.repository }}/deployments/${{ steps.gh_deployment.outputs.deployment_id }}/statuses" -f state=inactive`) and run this workflow again once a commit with the fix has a green staging smoke run. See docs/DEPLOYMENT.md → "Rollback Procedure".
 
           **✅ Production deployment complete!**
           EOF

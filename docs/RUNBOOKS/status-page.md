@@ -71,7 +71,7 @@ vercel env rm STATUS_INCIDENT_MESSAGE production
 2. Open the deployment marked **Current** in the Production environment.
 3. "⋯" → **Redeploy**. In the dialog, **uncheck "Use project's Ignore Build Step"**. The project's Ignored Build Step cancels every build with `VERCEL_ENV=production` ([`DEPLOYMENT.md` → Vercel Configuration](../DEPLOYMENT.md#vercel-configuration)), so a redeploy with the box checked ends `CANCELED` and the banner never appears.
 
-A redeploy rebuilds the commit that is already live with the new environment, so the code does not change. Do **not** deploy from a checkout with the CLI (`vercel deploy --prod`): it builds and ships whatever files are on that laptop, feature branch and uncommitted work included. Do not run the `Deploy code [production]` workflow for this either: it ships `main` HEAD, which can be ahead of what is live and of its migrations.
+A redeploy rebuilds the commit that is already live with the new environment, so the code does not change. Do **not** deploy from a checkout with the CLI (`vercel deploy --prod`): it builds and ships whatever files are on that laptop, feature branch and uncommitted work included. Do not run the `Deploy production` workflow for this either: it ships the newest `main` commit with a green staging smoke run (or the `sha` you pass), which can be ahead of what is live, and it runs that commit's migrations first.
 
 The redeploy writes no GitHub deployment record, and none is needed: the commit is unchanged, so the existing record is still correct. A rollback is different. Its dashboard promote does change the commit, and the record has to be corrected by hand (see [`DEPLOYMENT.md` → Rollback Procedure](../DEPLOYMENT.md#rollback-procedure)).
 
