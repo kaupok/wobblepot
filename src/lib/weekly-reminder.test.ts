@@ -38,8 +38,11 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/feature-flags', () => ({ getServerFlag: vi.fn() }))
+
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { prisma } from '@/lib/prisma'
 
@@ -58,6 +61,7 @@ const mockFindUnique = vi.mocked(prisma.householdMember.findUnique)
 const mockUpdateMany = vi.mocked(prisma.householdMember.updateMany)
 const mockEntryCount = vi.mocked(prisma.mealPlanEntry.count)
 const mockLocale = vi.mocked(resolveEmailLocale)
+const mockFlag = vi.mocked(getServerFlag)
 
 // Sunday 11 October 2026, 16:00 UTC: 19:00 in Tallinn, 17:00 in London.
 const SUNDAY_RUN = new Date('2026-10-11T16:00:00Z')
@@ -89,6 +93,7 @@ describe('sendWeeklyReminders', () => {
     mockEntryCount.mockResolvedValue(0)
     mockUpdateMany.mockResolvedValue({ count: 1 })
     mockLocale.mockResolvedValue('en')
+    mockFlag.mockResolvedValue(true)
   })
 
   it('asks only for members who switched it on, confirmed the address and have an account', async () => {
@@ -237,6 +242,25 @@ describe('sendWeeklyReminders', () => {
 
     await expect(run()).resolves.toEqual({ sent: 0, skipped: 1, failed: 0 })
     expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing, writes nothing and logs the skip count while bulk_email_enabled is off', async () => {
+    mockFlag.mockResolvedValue(false)
+    mockFindMany.mockResolvedValue([
+      candidate(),
+      candidate({ id: 'member-2', userId: 'user-2', reminderToken: 'token-2' }),
+    ] as never)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await expect(run()).resolves.toEqual({ sent: 0, skipped: 2, failed: 0 })
+
+    expect(mockFlag).toHaveBeenCalledWith('bulk_email_enabled', 'anonymous')
+    expect(resendState.send).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith('Bulk email disabled. Weekly reminders not sent.', {
+      skipped: 2,
+    })
+    warn.mockRestore()
   })
 
   it('gives the claim back and goes on when a send fails', async () => {
@@ -533,6 +557,16 @@ describe('sendReminderConfirmEmail', () => {
     })
     expect(sent.text).toContain('https://wobblepot.com/reminders/confirm?token=c%201')
     expect(sent).not.toHaveProperty('headers')
+  })
+
+  it('still sends while bulk_email_enabled is off, because it is a per-user confirm link', async () => {
+    mockFlag.mockResolvedValue(false)
+
+    await expect(
+      sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c' }),
+    ).resolves.toBe(true)
+
+    expect(resendState.send).toHaveBeenCalledTimes(1)
   })
 
   it('throws when Resend rejects the send', async () => {

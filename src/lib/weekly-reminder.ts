@@ -7,6 +7,7 @@ import { generateReminderConfirmEmail } from '@/lib/emails/reminder-confirm'
 import { generateWeeklyReminderEmail } from '@/lib/emails/weekly-reminder'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { prisma } from '@/lib/prisma'
 import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
@@ -327,7 +328,8 @@ function findCandidates() {
 /**
  * Sends today's reminders. One member's failure is captured and counted, and
  * the run goes on. Never sends when email is not configured, as the waitlist
- * does not.
+ * does not, or while the `bulk_email_enabled` kill switch is off: then every
+ * candidate counts as skipped and nothing is written.
  *
  * No analytics event: the person may not have accepted analytics cookies, and
  * the server must not capture for them.
@@ -337,6 +339,15 @@ export async function sendWeeklyReminders(
   { sendGapMs = SEND_GAP_MS }: { sendGapMs?: number } = {},
 ): Promise<WeeklyReminderRunResult> {
   const result: WeeklyReminderRunResult = { sent: 0, skipped: 0, failed: 0 }
+  // A cron has no user, so the read uses the shared anonymous id.
+  if (!(await getServerFlag('bulk_email_enabled', 'anonymous'))) {
+    const candidates = await findCandidates()
+    result.skipped = candidates.length
+    // eslint-disable-next-line no-console
+    console.warn('Bulk email disabled. Weekly reminders not sent.', { skipped: result.skipped })
+    return result
+  }
+
   const configured = isEmailConfigured()
   if (!configured) {
     // eslint-disable-next-line no-console

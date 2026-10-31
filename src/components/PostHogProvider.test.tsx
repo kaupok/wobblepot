@@ -475,6 +475,8 @@ describe('PostHogProvider', () => {
         ai_generation_enabled: false,
         recipe_import_enabled: true,
         invite_code_required: true,
+        bulk_email_enabled: true,
+        mcp_writes_enabled: true,
       },
     } as const
     render(

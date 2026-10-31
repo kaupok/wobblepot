@@ -4,6 +4,7 @@ import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/serv
 import type { z } from 'zod'
 
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import type { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -35,6 +36,13 @@ export const NO_HOUSEHOLD_MESSAGE =
  */
 export const WRITE_SCOPE_MESSAGE =
   'This assistant can only read Wobblepot. To let it change the shopping list, pantry or meal plan, or add or change recipes, disconnect it and connect it again, then choose Allow.'
+
+/**
+ * What a write tool answers while the `mcp_writes_enabled` kill switch is off
+ * (docs/FEATURE_FLAGS.md). Read tools keep working.
+ */
+export const WRITES_PAUSED_MESSAGE =
+  'Wobblepot has paused changes from assistants for now. Nothing was changed. Try again later, or make the change in the Wobblepot app.'
 
 /**
  * A read tool: a client may run it freely. Anthropic's connector directory
@@ -143,7 +151,10 @@ export const TOOL_FAILED_MESSAGE = 'Wobblepot could not complete this request. T
 /**
  * Runs one tool call for the caller: the write-scope check for a write tool
  * first, then the no-household answer, then the household's `mcp` rate limit
- * (reads and writes share it), then the tool.
+ * (reads and writes share it), then the `mcp_writes_enabled` kill switch for a
+ * write tool, then the tool. The rate limit runs before the kill switch, as
+ * docs/FEATURE_FLAGS.md asks, so a client that retries a paused write is still
+ * limited.
  *
  * Any other error is reported here with `captureApiError`, once, and the client
  * gets {@link TOOL_FAILED_MESSAGE}. Not left to `@posthog/mcp`: with
@@ -170,6 +181,10 @@ export async function runTool<Input extends z.ZodObject, Output extends z.ZodObj
     return errorResult(
       `This household has made too many requests to Wobblepot. Try again after ${limit.resetAt.toISOString()}.`,
     )
+  }
+
+  if (isWriteTool(tool) && !(await getServerFlag('mcp_writes_enabled', ctx.userId))) {
+    return errorResult(WRITES_PAUSED_MESSAGE)
   }
 
   try {

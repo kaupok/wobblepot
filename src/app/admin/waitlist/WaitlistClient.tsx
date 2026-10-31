@@ -30,6 +30,9 @@ function inviteErrorMessage(err: Error): string {
   if (err instanceof ApiError && err.code === 'INVITE_CONFLICT') {
     return 'Another invite to this address was sent at the same time. Only that one counts.'
   }
+  if (err instanceof ApiError && err.code === 'INVITES_PAUSED') {
+    return 'Invites are paused: bulk_email_enabled is off in PostHog.'
+  }
   if (err instanceof ApiError && err.status === 503) return 'Email is not configured here.'
   if (err instanceof ApiError && err.status === 502) {
     return 'The invite email did not send. Try again.'

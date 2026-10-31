@@ -46,11 +46,42 @@ describe('FLAG_DEFAULTS', () => {
       ai_generation_enabled: true,
       recipe_import_enabled: true,
       invite_code_required: true,
+      bulk_email_enabled: true,
+      mcp_writes_enabled: true,
     })
   })
 })
 
 describe('getServerFlag', () => {
+  it('keeps bulk email on for the cron’s anonymous read when PostHog reports a failed request', async () => {
+    // posthog-node reports a failed /flags request as an empty result.
+    const getAllFlags = vi.fn().mockResolvedValue({})
+    mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+    await expect(getServerFlag('bulk_email_enabled', 'anonymous')).resolves.toBe(true)
+    expect(getAllFlags).toHaveBeenCalledWith('anonymous')
+  })
+
+  it('keeps bulk email and MCP writes on when PostHog hangs past the timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const getFeatureFlag = vi.fn(() => new Promise(() => {}))
+      mockedGetPosthogServer.mockReturnValue(makeClient({ getFeatureFlag }) as never)
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const reads = Promise.all([
+        getServerFlag('bulk_email_enabled', 'user_1'),
+        getServerFlag('mcp_writes_enabled', 'user_1'),
+      ])
+      await vi.advanceTimersByTimeAsync(150)
+
+      await expect(reads).resolves.toEqual([true, true])
+      warn.mockRestore()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('returns the default when PostHog is unconfigured (getPosthogServer returns null)', async () => {
     mockedGetPosthogServer.mockReturnValue(null)
 
@@ -233,6 +264,8 @@ describe('bootstrapFlags', () => {
       ai_generation_enabled: false,
       recipe_import_enabled: true,
       invite_code_required: true,
+      bulk_email_enabled: true,
+      mcp_writes_enabled: true,
     })
     const getFeatureFlag = vi.fn()
     mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags, getFeatureFlag }) as never)
@@ -246,6 +279,8 @@ describe('bootstrapFlags', () => {
       ai_generation_enabled: false,
       recipe_import_enabled: true,
       invite_code_required: true,
+      bulk_email_enabled: true,
+      mcp_writes_enabled: true,
     })
   })
 
@@ -262,6 +297,8 @@ describe('bootstrapFlags', () => {
       ai_generation_enabled: false,
       recipe_import_enabled: FLAG_DEFAULTS.recipe_import_enabled,
       invite_code_required: FLAG_DEFAULTS.invite_code_required,
+      bulk_email_enabled: FLAG_DEFAULTS.bulk_email_enabled,
+      mcp_writes_enabled: FLAG_DEFAULTS.mcp_writes_enabled,
     })
   })
 
@@ -300,6 +337,8 @@ describe('bootstrapFlags', () => {
       ai_generation_enabled: 'control', // multivariate string → default
       recipe_import_enabled: false,
       invite_code_required: true,
+      bulk_email_enabled: true,
+      mcp_writes_enabled: true,
     })
     mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
 
@@ -309,6 +348,8 @@ describe('bootstrapFlags', () => {
       ai_generation_enabled: FLAG_DEFAULTS.ai_generation_enabled,
       recipe_import_enabled: false,
       invite_code_required: true,
+      bulk_email_enabled: true,
+      mcp_writes_enabled: true,
     })
   })
 })
@@ -318,6 +359,8 @@ describe('flag cache', () => {
     ai_generation_enabled: true,
     recipe_import_enabled: true,
     invite_code_required: true,
+    bulk_email_enabled: true,
+    mcp_writes_enabled: true,
   }
 
   it('makes one flags request for a landing render: layout bootstrap plus the page read', async () => {

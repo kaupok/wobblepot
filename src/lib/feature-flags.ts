@@ -16,7 +16,12 @@ import { getPosthogServer } from '@/lib/posthog-server'
  *    `(await getLoadedPostHog())?.isFeatureEnabled(key)` from a post-consent client surface
  *    (bootstrap is wired in `layout.tsx` so client reads are flicker-free).
  */
-export type FlagKey = 'ai_generation_enabled' | 'recipe_import_enabled' | 'invite_code_required'
+export type FlagKey =
+  | 'ai_generation_enabled'
+  | 'recipe_import_enabled'
+  | 'invite_code_required'
+  | 'bulk_email_enabled'
+  | 'mcp_writes_enabled'
 
 /**
  * Default returned when PostHog is unreachable, slow, or has no value for the
@@ -27,6 +32,8 @@ export const FLAG_DEFAULTS: Record<FlagKey, boolean> = {
   ai_generation_enabled: true,
   recipe_import_enabled: true,
   invite_code_required: true,
+  bulk_email_enabled: true,
+  mcp_writes_enabled: true,
 }
 
 const FLAG_KEYS = Object.keys(FLAG_DEFAULTS) as FlagKey[]
