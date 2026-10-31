@@ -676,7 +676,7 @@ export const CompletedServingsReadOnly: Story = {
     docs: {
       description: {
         story:
-          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as a static `surface` badge in the badge row, with no pencil and no edit control (HON-1025).',
+          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as a static `surface` badge in the badge row, with no pencil and no edit control (HON-1025). The meal is history, so the ingredients show no pantry checkboxes, missing styling or "N to buy" (HON-1504).',
       },
     },
   },
@@ -686,6 +686,8 @@ export const CompletedServingsReadOnly: Story = {
     await expect(serves.closest('[data-slot="badge"]')).toHaveAttribute('data-variant', 'surface')
     await expect(within(dialog).queryByRole('button', { name: /serves 6/i })).toBeNull()
     await expect(within(dialog).getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
+    await expect(within(dialog).queryAllByRole('checkbox')).toHaveLength(0)
+    await expect(within(dialog).queryByText(/to buy/)).toBeNull()
   },
 }
 
