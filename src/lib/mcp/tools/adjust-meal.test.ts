@@ -411,7 +411,7 @@ describe('adjust_meal', () => {
     })
 
     it('the AI kill switch, read with the user’s id', async () => {
-      vi.mocked(getServerFlag).mockResolvedValue(false)
+      vi.mocked(getServerFlag).mockImplementation(async (key) => key !== 'ai_generation_enabled')
 
       const result = await call()
 

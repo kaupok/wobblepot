@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { generateWaitlistInviteEmail } from '@/lib/emails/waitlist-invite'
 import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
 import { EMAIL_SENDERS, envSubject, isEmailConfigured, resend } from '@/lib/resend'
 import {
@@ -24,8 +25,9 @@ const ROUTE = '/api/admin/waitlist/[id]/invite'
  * changes nothing else, so `invitedAt` always means "an invite went out".
  *
  * Error `code`s the client branches on: `ACCOUNT_EXISTS` (409, the address
- * already signed up) and `INVITE_CONFLICT` (409, another send linked its
- * code during this one's send).
+ * already signed up), `INVITE_CONFLICT` (409, another send linked its
+ * code during this one's send) and `INVITES_PAUSED` (503, the
+ * `bulk_email_enabled` kill switch is off).
  */
 export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
@@ -35,6 +37,15 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
   // Checked before any write: minting a code nobody receives would read as sent.
   if (!isEmailConfigured() || !resend) {
     return NextResponse.json({ error: 'Email is not configured' }, { status: 503 })
+  }
+  if (!(await getServerFlag('bulk_email_enabled', session.user.id))) {
+    return NextResponse.json(
+      {
+        error: 'Invites are paused: the bulk_email_enabled flag is off in PostHog',
+        code: 'INVITES_PAUSED',
+      },
+      { status: 503 },
+    )
   }
 
   try {

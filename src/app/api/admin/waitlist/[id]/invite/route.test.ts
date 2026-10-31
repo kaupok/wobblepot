@@ -30,6 +30,7 @@ vi.mock('@/lib/resend', () => ({
   envSubject: (subject: string) => subject,
 }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+vi.mock('@/lib/feature-flags', () => ({ getServerFlag: vi.fn() }))
 vi.mock('@/lib/waitlist', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/waitlist')>()),
   prepareWaitlistInvite: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock('@/lib/waitlist', async (importOriginal) => ({
 
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import {
   discardWaitlistInviteCode,
   markWaitlistInvited,
@@ -82,6 +84,7 @@ beforeEach(() => {
   mockDiscard.mockResolvedValue()
   mockMark.mockResolvedValue()
   send.mockResolvedValue({ data: { id: 'email_1' }, error: null })
+  vi.mocked(getServerFlag).mockResolvedValue(true)
 })
 
 afterEach(() => {
@@ -110,6 +113,21 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(res.status).toBe(503)
     expect(await res.json()).toEqual({ error: 'Email is not configured' })
     expect(mockPrepare).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 before any write while bulk_email_enabled is off', async () => {
+    vi.mocked(getServerFlag).mockResolvedValue(false)
+
+    const res = await call()
+
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({
+      error: 'Invites are paused: the bulk_email_enabled flag is off in PostHog',
+      code: 'INVITES_PAUSED',
+    })
+    expect(getServerFlag).toHaveBeenCalledWith('bulk_email_enabled', 'admin_1')
+    expect(mockPrepare).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('mints a code as the admin, emails it once in the request locale, then links it', async () => {

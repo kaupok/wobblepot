@@ -3,8 +3,10 @@ import { z } from 'zod'
 
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+vi.mock('@/lib/feature-flags', () => ({ getServerFlag: vi.fn() }))
 
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 
@@ -19,6 +21,7 @@ import {
   ToolInputError,
   WRITE_ANNOTATIONS,
   WRITE_SCOPE_MESSAGE,
+  WRITES_PAUSED_MESSAGE,
 } from './context'
 
 const RESET_AT = new Date('2026-10-11T18:00:00.000Z')
@@ -45,6 +48,7 @@ describe('runTool', () => {
       resetAt: RESET_AT,
     })
     run.mockResolvedValue({ value: 42 })
+    vi.mocked(getServerFlag).mockResolvedValue(true)
   })
 
   it('returns the output as compact JSON text and as structuredContent', async () => {
@@ -153,7 +157,34 @@ describe('runTool', () => {
       expect(result.isError).toBeUndefined()
       expect(run).toHaveBeenCalledOnce()
       expect(checkRateLimit).toHaveBeenCalledWith('household-1', 'mcp')
+      expect(getServerFlag).toHaveBeenCalledWith('mcp_writes_enabled', 'user-1')
     })
+
+    it('answers with the paused message, and runs nothing, while mcp_writes_enabled is off', async () => {
+      vi.mocked(getServerFlag).mockResolvedValue(false)
+
+      const result = await runTool(writeTool, { ...ctx, scopes: WRITE_SCOPES }, {})
+
+      expect(result).toEqual({
+        isError: true,
+        content: [{ type: 'text', text: WRITES_PAUSED_MESSAGE }],
+      })
+      expect(WRITES_PAUSED_MESSAGE).toContain('paused changes from assistants')
+      expect(run).not.toHaveBeenCalled()
+      expect(checkRateLimit).toHaveBeenCalledWith('household-1', 'mcp')
+    })
+  })
+
+  it('still returns data from a read tool while mcp_writes_enabled is off', async () => {
+    vi.mocked(getServerFlag).mockResolvedValue(false)
+
+    const result = await runTool(tool, { ...ctx, scopes: WRITE_SCOPES }, {})
+
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '{"value":42}' }],
+      structuredContent: { value: 42 },
+    })
+    expect(getServerFlag).not.toHaveBeenCalled()
   })
 })
 

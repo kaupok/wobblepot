@@ -181,6 +181,21 @@ describe('WaitlistClient', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message))
   })
 
+  it.each([
+    ['INVITES_PAUSED', 'Invites are paused: bulk_email_enabled is off in PostHog.'],
+    [undefined, 'Email is not configured here.'],
+  ])('explains a 503 with code %s', async (code, message) => {
+    mockFetch(
+      (url) => (url.endsWith('/invite') ? json({ error: 'x', code }, 503) : undefined),
+      [notInvited, invited],
+    )
+    const user = renderClient()
+
+    await user.click(screen.getByRole('button', { name: 'Send invite to anna@example.com' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message))
+  })
+
   it('sends no DELETE when the dialog is cancelled, and returns focus to Remove', async () => {
     const fetchMock = mockFetch(() => undefined, [notInvited, invited])
     const user = renderClient()
