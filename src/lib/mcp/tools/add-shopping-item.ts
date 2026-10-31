@@ -15,7 +15,7 @@ export const addShoppingItem = defineTool({
   name: 'add_shopping_item',
   title: 'Add shopping item',
   description:
-    'Adds an item to the shopping list by name, such as "dish soap" or "milk". It shows among the items the household added by hand (customItems in get_shopping_list). An item with the same name is not added twice: if it was checked off, it goes back on the list. The item links to an ingredient only when the name matches one surely; item.ingredient is null otherwise, and checking that item off will not stock the pantry.',
+    'Adds an item to the shopping list by name, such as "dish soap" or "milk". It shows among the items the household added by hand (customItems in get_shopping_list). An item with the same name is not added twice: if it was checked off, it goes back on the list. The item links to an ingredient only when the name matches one surely; item.ingredient is null otherwise, and checking that item off will not stock the pantry. To put food the household already bought in the pantry, use add_to_pantry, not this tool.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     name: customItemNameSchema.describe(
