@@ -17,7 +17,7 @@ Arguments: $ARGUMENTS
 
 Find the next unblocked, unclaimed issue and return a concise implementation summary.
 
-**This skill proposes; it writes no state.** It runs in a fork without `save_issue`. Its output is a list of candidates. It lists Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only, because finding ready work in the backlog is this skill's purpose. Mark each candidate an agent can finish alone as ready to queue. The calling session then offers to move those to Queued and moves the ones the user accepts (CLAUDE.md → File and queue by default).
+**This skill proposes; it writes no state.** It runs in a fork without `save_issue`. Its output is a list of candidates. It lists Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only, because finding ready work in the backlog is this skill's purpose. Mark a candidate ready to queue only when it passes `/auto-implement` 1.5 (`.claude/skills/auto-implement/discovery.md`), which rejects `[DRAFT]` and `[AUTO DRAFT]` titles and work that needs a human. Only a ready candidate gets a `wt auto` line, because `wt auto` passes an explicit ID and so skips 1.5. The calling session then offers to move those to Queued and moves the ones the user accepts (CLAUDE.md → File and queue by default).
 
 ## Workflow
 
