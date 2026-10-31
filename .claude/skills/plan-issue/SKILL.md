@@ -259,7 +259,7 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 `## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per "A follow-up is an issue" below. "Filed as a follow-up" with no ID never gets filed (`history.md` → Follow-ups hold issue IDs). Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
 
-`## Verification` is a plain list, not checkboxes, of what the implementing agent will run. It becomes the PR's "Verified" list (`/create-pr` step 6), so a step only a human could perform does not belong here; if a criterion cannot be checked by the agent, say so, and it goes under "Not verified".
+`## Verification` becomes the PR's "Verified" list (`/create-pr` step 6), so it follows that list's rules.
 
 ### 9. Get approval (or skip if --auto)
 
@@ -316,7 +316,7 @@ mcp__linear-server__save_comment({
 })
 ```
 
-Keep every table in the plan at top level, as the step 8 template does: plan text gets copied into issue descriptions, where a table inside a list loses data (`history.md` → Tables at top level).
+Keep every table in the plan at top level (CLAUDE.md → Writing for Agents).
 
 ### 11. Move issue to In Progress and claim it
 
@@ -386,4 +386,3 @@ A step the work needs but this PR does not ship (a golden re-record, a backfill,
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
 - Every "not in this PR" decision in Design Decisions has a line in `## Follow-ups`, and every line there has an issue ID before the plan is posted
-- Do not start implementation: the skill ends with the output above.
