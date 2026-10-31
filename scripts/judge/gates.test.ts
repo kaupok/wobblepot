@@ -100,6 +100,16 @@ describe('matchGate', () => {
     expect(matchGate({ title: 'Adds an outbound call per request' }, gates)?.gate).toBe('money')
   })
 
+  it('holds a .well-known or /api/auth route written as a URL path', () => {
+    expect(
+      matchGate({ title: 'The /.well-known/oauth-authorization-server route returns 404' }, gates)
+        ?.gate,
+    ).toBe('auth')
+    expect(matchGate({ title: 'The /api/auth/sign-in handler leaks errors' }, gates)?.gate).toBe(
+      'auth',
+    )
+  })
+
   it('passes a plain UI finding', () => {
     expect(
       matchGate(

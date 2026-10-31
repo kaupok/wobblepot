@@ -26,7 +26,7 @@ The later fix often changed the docs, so today's docs leak the answer. Judge eac
 
 Per issue: steps 2, 4 and 5 of `SKILL.md`, with these changes.
 
-- Finalize against the issue's commit: `pnpm --silent judge finalize --verdict <file> --ref $SHA --linear-dir <dir>`. Fetch only cited Linear issues created before the replayed issue, and keep only comments dated before it.
+- Finalize against the issue's commit: `pnpm --silent judge finalize --verdict <file> --ref $SHA --linear-dir <dir>`. Fetch only cited Linear issues created before the replayed issue, and keep only comments dated before it. Write `Status:` as the cited issue's state at the replayed issue's `createdAt` (from `get_issue` `stateHistory`), not its state today: the target of a past duplicate is usually Done by now, and today's state would hold every correct duplicate verdict.
 - **Skip step 6.** No comment and no label on a replayed issue, and nothing on any other issue except the HON-1515 report.
 - Keep each finalized verdict in `$SCRATCH/<ID>/` until the report is posted.
 

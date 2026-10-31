@@ -11,7 +11,7 @@ Read from `SKILL.md` → step 2. A hard gate is an area where a wrong verdict is
 | `money` | | | paid vendor, paid plan, subscription, invoice, billing, outbound call, costs money |
 | `ai-spend` | | `src/lib/ai/budgets.ts`, `src/lib/ai/models.ts` | AI budget, AI cap, AI limit, token budget, spend cap |
 | `irreversible` | | `prisma/migrations/**`, `prisma/schema.prisma` | migration, backfill, production deploy, household rows, delete / deletes / deleting household, rewrite / rewrites / rewriting household, household data loss |
-| `auth` | | `src/lib/auth*`, `src/lib/auth/**`, `src/app/api/auth/**`, `src/proxy.ts`, `src/app/.well-known/**` | OAuth, MCP scope, .well-known, CSP, session token |
+| `auth` | | `src/lib/auth*`, `src/lib/auth/**`, `src/app/api/auth/**`, `src/proxy.ts`, `src/app/.well-known/**`, `**/.well-known/**`, `**/api/auth/**` | OAuth, MCP scope, .well-known, CSP, session token |
 | `allergens` | | `src/lib/ai/forbidden-foods.ts` | allergen, allergy, diet filter, dietary restriction, excluded ingredient, food safety |
 
 ## How a match works
@@ -90,7 +90,9 @@ A false positive costs one Hold, which a human reads anyway. A false negative le
       "src/lib/auth/**",
       "src/app/api/auth/**",
       "src/proxy.ts",
-      "src/app/.well-known/**"
+      "src/app/.well-known/**",
+      "**/.well-known/**",
+      "**/api/auth/**"
     ],
     "keywords": ["OAuth", "MCP scope", ".well-known", "CSP", "session token"]
   },
