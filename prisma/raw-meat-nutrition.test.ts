@@ -29,6 +29,9 @@ const ingredients = [
 ]
 const meals = [...baseMeals, ...newMeals]
 
+// Rows the migration updated that HON-1500 later merged into another row
+const MERGED_SINCE = new Set(['chicken fillet', 'dover sole'])
+
 // The edible-part check ranges in HON-1479. A value outside its range names a
 // second source in its seed comment (the PR lists them).
 const EDIBLE_RANGES: [string[], number, number][] = [
@@ -124,6 +127,7 @@ describe('raw, as-bought meat nutrition (HON-1479)', () => {
       })),
     )
     for (const { name, values } of migrated) {
+      if (MERGED_SINCE.has(name)) continue
       const row = ingredients.find((i) => i.name === name)
       expect(row, name).toBeDefined()
       expect([row!.calories, row!.protein, row!.carbs, row!.fat, row!.fiber ?? 0], name).toEqual(
@@ -151,7 +155,6 @@ describe('raw, as-bought meat nutrition (HON-1479)', () => {
   it.each([
     'plaice',
     'sole',
-    'dover sole',
     'salmon',
     'cod',
     'haddock',

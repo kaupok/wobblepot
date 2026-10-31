@@ -259,7 +259,7 @@ describe('searchIngredients on the grain flour rows of the seed', () => {
       'rye flour',
       'buckwheat flour',
       'barley flour',
-      'oats',
+      'rolled oats',
       'plain flour',
     ]
     for (const name of names) {
@@ -288,5 +288,37 @@ describe('searchIngredients on the grain flour rows of the seed', () => {
     const rows = await search({ search: query, locale: 'et' })
 
     expect(rows[0]).toMatchObject({ id, name: shown })
+  })
+})
+
+// HON-1500: `oats` and `rolled oats` were both "kaerahelbed", so the picker showed it twice.
+describe('searchIngredients on an Estonian name in the seeded catalogue', () => {
+  it('finds one row named "kaerahelbed"', async () => {
+    // A migration may have inserted a row already, so ids are read back by name
+    await prisma.ingredient.createMany({
+      data: ingredientTranslationsEt.map(({ en }) => ({
+        name: en,
+        category: 'carb',
+        defaultUnit: 'g',
+        ...nutrition,
+      })),
+      skipDuplicates: true,
+    })
+    const saved = await prisma.ingredient.findMany({
+      where: { householdId: null },
+      select: { id: true, name: true },
+    })
+    const etByEn = new Map(ingredientTranslationsEt.map(({ en, et }) => [en, et]))
+    await prisma.ingredientTranslation.createMany({
+      data: saved.flatMap(({ id, name }) => {
+        const et = etByEn.get(name)
+        return et ? [{ ingredientId: id, locale: 'et', name: et }] : []
+      }),
+      skipDuplicates: true,
+    })
+
+    const rows = await search({ search: 'kaerahelbed', locale: 'et', limit: 50 })
+
+    expect(rows.filter((row) => row.name === 'kaerahelbed')).toHaveLength(1)
   })
 })

@@ -196,6 +196,16 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('chicken broth')).toBe('chicken stock')
   })
 
+  // HON-1500: a recipe that names a merged row matches the row it merged into.
+  it('resolves the name of a merged same-food row to the row that stays', () => {
+    expect(applyIngredientAlias('oats')).toBe('rolled oats')
+    expect(applyIngredientAlias('Chicken Fillet')).toBe('chicken breast')
+    expect(applyIngredientAlias('great northern beans')).toBe('white beans')
+    expect(applyIngredientAlias('navy beans')).toBe('white beans')
+    expect(applyIngredientAlias('mangetout')).toBe('sugar snap peas')
+    expect(applyIngredientAlias('korean kelp')).toBe('kombu')
+  })
+
   // HON-1099: a pasted American recipe still matches the renamed pool row.
   it('resolves the American name of a renamed pool row to its British name', () => {
     expect(applyIngredientAlias('cornstarch')).toBe('cornflour')

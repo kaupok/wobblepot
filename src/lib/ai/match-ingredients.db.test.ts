@@ -338,7 +338,7 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
     ['beef chuck fillet', 'beef fillet'],
     ['pork chop fillet', 'pork fillet'],
     ['lamb leg fillet', 'lamb fillet'],
-    ['chicken leg fillet', 'chicken fillet'],
+    ['chicken leg fillet', 'chicken thigh fillet'],
   ])('does not match "%s" to %s for sure', async (recipeName, otherCut) => {
     await seedCuts()
 
@@ -365,19 +365,55 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
 // HON-1496: the catalogue has a row for each grain flour, apart from the grain and from wheat flour.
 describe('matchIngredients with the grain flour rows', () => {
   async function seedCatalogue() {
-    await ingredient('ing-oats', 'oats')
+    await ingredient('ing-rolled-oats', 'rolled oats')
     await ingredient('ing-plain-flour', 'plain flour')
     // From the seed, so the test fails when the row leaves the catalogue.
     const oatFlour = importCoverageIngredients.find((r) => r.name === 'oat flour')!
     await ingredient('ing-oat-flour', oatFlour.name)
   }
 
-  it('matches "oat flour" to the "oat flour" row, not "oats" or "plain flour", sure', async () => {
+  it('matches "oat flour" to the "oat flour" row, not "rolled oats" or "plain flour", sure', async () => {
     await seedCatalogue()
 
     expect(await matchOne('oat flour')).toMatchObject({
       type: 'matched',
       ingredient: { id: 'ing-oat-flour', name: 'oat flour' },
+      lowConfidence: false,
+    })
+  })
+})
+
+// HON-1500: a removed row's name still finds the row it merged into.
+describe('matchIngredients on the name of a merged row', () => {
+  it.each([
+    ['oats', 'rolled oats'],
+    ['chicken fillet', 'chicken breast'],
+  ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
+    // Every seeded row, so the removed row's neighbours compete as they do in production.
+    const rows = [
+      ...baseIngredients,
+      ...comprehensiveIngredients,
+      ...newIngredients,
+      ...importCoverageIngredients,
+    ]
+    expect(rows.some((row) => row.name === recipeName)).toBe(false)
+    // A migration may have inserted a row already
+    await prisma.ingredient.createMany({
+      data: rows.map((row) => ({
+        name: row.name,
+        category: row.category,
+        defaultUnit: row.defaultUnit,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      })),
+      skipDuplicates: true,
+    })
+
+    expect(await matchOne(recipeName)).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
       lowConfidence: false,
     })
   })

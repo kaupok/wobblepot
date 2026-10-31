@@ -78,7 +78,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // British English / alternate names (seed-import-coverage)
   'self raising flour': 'self-raising flour', // Without hyphen
-  mangetout: 'snap peas', // British term
+  mangetout: 'sugar snap peas', // British term
   'coriander leaves': 'fresh coriander', // Explicit leaf reference
   prawn: 'prawns', // Singular form
   sultanas: 'raisins', // British term
@@ -159,7 +159,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'rice cakes': 'tteok', // DB has tteok
   // 'roasted seaweed' intentionally omitted — nori already in DB as the more common match
   'korean seaweed': 'gim', // DB has gim
-  'korean kelp': 'dashima', // DB has dashima
+  'korean kelp': 'kombu', // DB has kombu
 
   // Japanese pantry aliases (HON-412)
   'dashi stock': 'dashi', // DB has dashi
@@ -337,7 +337,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   arugula: 'rocket',
   'chili powder': 'chilli powder',
   'lasagna sheets': 'lasagne sheets',
-  'navy beans': 'haricot beans',
+  'navy beans': 'white beans',
   'canned tuna': 'tinned tuna',
   'goat cheese': "goat's cheese",
 
@@ -367,6 +367,27 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'thigh fillet': 'chicken thigh fillet',
   kintsufilee: 'chicken thigh fillet',
   kanakintsufilee: 'chicken thigh fillet',
+
+  // Rows that were one food under two English names, merged so no Estonian
+  // name sits on two rows (HON-1500)
+  oats: 'rolled oats',
+  calamari: 'squid',
+  'chicken fillet': 'chicken breast',
+  'gai lan': 'chinese broccoli',
+  'five spice powder': 'chinese five spice',
+  jalapeno: 'jalapeño',
+  dashima: 'kombu',
+  'sliced almonds': 'flaked almonds',
+  'dover sole': 'sole',
+  'dover sole fillet': 'sole fillet',
+  'purple cabbage': 'red cabbage',
+  'snap peas': 'sugar snap peas',
+  'thai sweet basil': 'thai basil',
+  crawfish: 'crayfish',
+  chèvre: "goat's cheese",
+  'haricot beans': 'white beans',
+  'great northern beans': 'white beans',
+  'desiccated coconut': 'coconut flakes',
 
   // Filled dumplings (HON-1262)
   hinkali: 'khinkali',
