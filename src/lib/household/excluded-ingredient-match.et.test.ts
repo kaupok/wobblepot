@@ -68,6 +68,18 @@ describe('matchTag, Estonian part-of-word rule', () => {
     expect(matchTag('kana', pool, 'et').map((r) => r.name)).toEqual(['kanasupp'])
   })
 
+  it('keeps the part-of-word rule for the own rows of a keepParts group word', () => {
+    const pool = [
+      row('clotted cream', 'clotted cream'),
+      row('jaggery', 'jaggery'),
+      own('kohvikoor'),
+      own('vanillisuhkur'),
+    ]
+    const found = (tag: string) => matchTag(tag, pool, 'et').map((r) => r.name)
+    expect(found('koor')).toEqual(['kohvikoor', 'clotted cream'])
+    expect(found('suhkur')).toEqual(['vanillisuhkur', 'jaggery'])
+  })
+
   it('keeps English names on the whole-word rule', () => {
     expect(names('nut', 'en')).toEqual(['mixed nuts'])
   })

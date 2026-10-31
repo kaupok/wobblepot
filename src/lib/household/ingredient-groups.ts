@@ -19,6 +19,12 @@ export interface IngredientGroup {
   et: readonly string[]
   /** Exact English names of global pool rows. */
   members: readonly string[]
+  /**
+   * Keep the Estonian part-of-word rule for the group words, so "koor" still
+   * finds a household's own "kohvikoor". Without it a group word matches
+   * whole words and its members only.
+   */
+  keepParts?: boolean
 }
 
 const SAUSAGES = [
@@ -359,10 +365,11 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
   {
     // HON-1481 gave clotted cream and jaggery loanword names with no "koor" or
     // "suhkur" in them, so the part-of-word rule no longer finds them. As group
-    // words, "koor" and "suhkur" list their rows by English name. Coconut
-    // cream stays in, because "koor" matched "kookoskoor" before.
+    // words, "koor" and "suhkur" list their rows by English name, and
+    // `keepParts` keeps the part-of-word rule for the rows a list misses.
     en: ['cream'],
     et: ['koor'],
+    keepParts: true,
     members: [
       'clotted cream',
       'coconut cream',
@@ -377,6 +384,7 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
   {
     en: ['sugar'],
     et: ['suhkur'],
+    keepParts: true,
     members: [
       'brown sugar',
       'caster sugar',
