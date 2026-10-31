@@ -44,6 +44,7 @@
     "coverage:ratchet": "npx tsx scripts/check-coverage-ratchet.ts",
     "prisma-boundary:check": "npx tsx scripts/check-prisma-boundary.ts",
     "file-size:check": "npx tsx scripts/check-file-size.ts",
+    "judge": "npx tsx scripts/judge/cli.ts",
     "agent-cost": "npx tsx scripts/agent-cost-per-pr.ts",
     "stories:check": "npx tsx scripts/check-colocated-stories.ts",
     "i18n:prose-check": "npx tsx scripts/check-server-prose.ts",
