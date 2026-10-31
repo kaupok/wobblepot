@@ -81,6 +81,7 @@ export const createMeal = defineTool({
     try {
       meal = await createHouseholdMeal(household.id, {
         name: input.name,
+        description: input.description,
         preparationNotes: input.preparationNotes,
         timeMinutes: input.timeMinutes,
         kidFriendly: input.kidFriendly,

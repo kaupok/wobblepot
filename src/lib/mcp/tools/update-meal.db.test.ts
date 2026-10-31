@@ -49,6 +49,7 @@ async function world(name = 'Alder') {
       suitableFor: ['dinner'],
       servings: 4,
       kidFriendly: true,
+      description: 'Rich layers of mince and bulb.',
       preparationNotes: 'Layer and bake.',
       timeMinutes: 60,
       ingredients: [
@@ -110,6 +111,7 @@ describe('update_meal', () => {
       name: 'Glimmer lasagne',
       servings: 2,
       kidFriendly: true,
+      description: 'Rich layers of mince and bulb.',
       preparationNotes: 'Layer and bake.',
       timeMinutes: 60,
       suitableFor: ['dinner'],
@@ -146,6 +148,19 @@ describe('update_meal', () => {
       ['glimmer mince', 100, false],
       ['quorvex paste', 10, false],
     ])
+  })
+
+  it('sets the description, and clears it when sent as null (HON-1502)', async () => {
+    const { household, mealId } = await world()
+    const read = () => getMeal.run(household, { mealId }, CALLER)
+
+    expect((await call(household, { mealId, description: 'Sweet with banana.' })).outcome).toBe(
+      'updated',
+    )
+    expect((await read()).meal.description).toBe('Sweet with banana.')
+
+    expect((await call(household, { mealId, description: null })).outcome).toBe('updated')
+    expect((await read()).meal.description).toBeNull()
   })
 
   it('stores the amounts for the servings sent, as get_meal shows them (HON-1472)', async () => {

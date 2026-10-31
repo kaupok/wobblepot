@@ -53,6 +53,7 @@ export const getMeal = defineTool({
       description: z.string().nullable(),
       mealTypes: z.array(mealType),
       timeMinutes: z.number().nullable(),
+      kidFriendly: z.boolean().describe('True if children eat it happily.'),
       servings: z.number().describe('The servings the ingredient amounts are for.'),
       recipeServings: z
         .number()
@@ -119,6 +120,7 @@ export const getMeal = defineTool({
         description: true,
         preparationNotes: true,
         timeMinutes: true,
+        kidFriendly: true,
         servings: true,
         suitableFor: true,
         householdId: true,
@@ -167,6 +169,7 @@ export const getMeal = defineTool({
         description: translated.description ?? null,
         mealTypes: meal.suitableFor,
         timeMinutes: meal.timeMinutes,
+        kidFriendly: meal.kidFriendly,
         servings,
         recipeServings: meal.servings,
         ingredients: components.map((component) => {

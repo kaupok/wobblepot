@@ -44,6 +44,7 @@ const MEAL = {
   description: 'A quick dinner.',
   preparationNotes: 'Cook the rice. Fry the chicken.',
   timeMinutes: 30,
+  kidFriendly: true,
   servings: 4,
   suitableFor: ['dinner'],
   householdId: null,
@@ -105,6 +106,7 @@ describe('get_meal', () => {
         description: 'A quick dinner.',
         mealTypes: ['dinner'],
         timeMinutes: 30,
+        kidFriendly: true,
         servings: 2,
         recipeServings: 4,
         ingredients: [
