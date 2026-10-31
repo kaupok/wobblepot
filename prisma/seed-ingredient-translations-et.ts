@@ -503,7 +503,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'watermelon', et: 'arbuus' },
   { en: 'yuzu', et: 'yuzu' },
   // ============================================================
-  // CARB (142)
+  // CARB (146)
   // ============================================================
   { en: '00 flour', et: '00-jahu' },
   { en: 'plain flour', et: 'nisujahu' },
@@ -516,6 +516,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'bagel', et: 'bagel' },
   { en: 'baguette', et: 'bagett' },
   { en: 'barley', et: 'oder' },
+  { en: 'barley flour', et: 'odrajahu' },
   { en: 'basmati rice', et: 'basmatiriis' },
   { en: 'black rice', et: 'must riis' },
   { en: 'bread', et: 'leib' },
@@ -526,6 +527,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'brown rice', et: 'täisterariis' },
   { en: 'bucatini', et: 'bucatini' },
   { en: 'buckwheat', et: 'tatar' },
+  { en: 'buckwheat flour', et: 'tatrajahu' },
   { en: 'bulgur', et: 'bulgur' },
   { en: 'cake flour', et: 'koogijahu' },
   { en: 'carnaroli rice', et: 'carnaroli riis' },
@@ -587,6 +589,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'naan bread', et: 'naan-leib' },
   { en: 'noodles', et: 'nuudlid' },
   { en: 'oat bran', et: 'kaerakliid' },
+  { en: 'oat flour', et: 'kaerajahu' },
   { en: 'oats', et: 'kaerahelbed' },
   { en: 'orecchiette', et: 'orecchiette' },
   { en: 'orzo', et: 'orzo' },
@@ -626,6 +629,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'risotto rice', et: 'risotoriis' },
   { en: 'rolled oats', et: 'kaerahelbed' },
   { en: 'rye bread', et: 'rukkileib' },
+  { en: 'rye flour', et: 'rukkijahu' },
   { en: 'self-raising flour', et: 'kerkejahu' },
   { en: 'semolina', et: 'manna' },
   { en: 'semolina flour', et: 'mannajahu' },

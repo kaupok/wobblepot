@@ -350,3 +350,24 @@ describe('matchIngredients on a bone-in, boneless or whole cut', () => {
     expect(result).toMatchObject({ type: 'matched', convertedQuantity: grams })
   })
 })
+
+// HON-1496: the catalogue has a row for each grain flour, apart from the grain and from wheat flour.
+describe('matchIngredients with the grain flour rows', () => {
+  async function seedCatalogue() {
+    await ingredient('ing-oats', 'oats')
+    await ingredient('ing-plain-flour', 'plain flour')
+    // From the seed, so the test fails when the row leaves the catalogue.
+    const oatFlour = importCoverageIngredients.find((r) => r.name === 'oat flour')!
+    await ingredient('ing-oat-flour', oatFlour.name)
+  }
+
+  it('matches "oat flour" to the "oat flour" row, not "oats" or "plain flour", sure', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('oat flour')).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-oat-flour', name: 'oat flour' },
+      lowConfidence: false,
+    })
+  })
+})

@@ -250,3 +250,43 @@ describe('searchIngredients on the frozen form rows of the seed', () => {
     expect(rows[0]).toMatchObject({ name: shown })
   })
 })
+
+// HON-1496: an Estonian cook types the name of a baking flour.
+describe('searchIngredients on the grain flour rows of the seed', () => {
+  async function seedFlourRows() {
+    const names = [
+      'oat flour',
+      'rye flour',
+      'buckwheat flour',
+      'barley flour',
+      'oats',
+      'plain flour',
+    ]
+    for (const name of names) {
+      const et = ingredientTranslationsEt.find((t) => t.en === name)!.et
+      await prisma.ingredient.create({
+        data: {
+          id: `ing-${name.replace(' ', '-')}`,
+          name,
+          category: 'carb',
+          defaultUnit: 'g',
+          ...nutrition,
+          translations: { create: { locale: 'et', name: et } },
+        },
+      })
+    }
+  }
+
+  it.each([
+    ['kaerajahu', 'ing-oat-flour', 'kaerajahu'],
+    ['rukkijahu', 'ing-rye-flour', 'rukkijahu'],
+    ['tatrajahu', 'ing-buckwheat-flour', 'tatrajahu'],
+    ['odrajahu', 'ing-barley-flour', 'odrajahu'],
+  ])('finds "%s" in Estonian as %s, best match first', async (query, id, shown) => {
+    await seedFlourRows()
+
+    const rows = await search({ search: query, locale: 'et' })
+
+    expect(rows[0]).toMatchObject({ id, name: shown })
+  })
+})
