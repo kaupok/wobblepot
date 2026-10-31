@@ -13,25 +13,54 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { type Gh, MAX_PAGES, pickProductionSha, type SmokeRun } from './pick-production-sha'
+import {
+  type Gh,
+  MAX_PAGES,
+  pickProductionSha,
+  SERVED_STEP,
+  type SmokeRun,
+} from './pick-production-sha'
 
 const REPO = 'kaupok/wobblepot'
 const NEWEST = 'a'.repeat(40)
 const OLDER = 'b'.repeat(40)
 const OLDEST = 'c'.repeat(40)
 
-/** A smoke run as the API returns it: the tested commit is in the run name. */
+/**
+ * A smoke run as the API returns it: the tested commit is in the run name.
+ * `served: false` is a run whose staging served a descendant, so its
+ * served-commit step was skipped. The stub's jobs endpoint reads it.
+ */
+type Fixture = SmokeRun & { served: boolean }
+
 const run = (
   sha: string,
   conclusion: string | null,
   id: number,
   event = 'workflow_run',
-): SmokeRun => ({
+  served = true,
+): Fixture => ({
+  id,
   display_title: `Staging smoke ${sha}`,
   event,
   conclusion,
   html_url: `https://github.com/${REPO}/actions/runs/${id}`,
+  served,
 })
+
+/** The jobs API body for one smoke run. */
+const jobsBody = (served: boolean) =>
+  JSON.stringify({
+    jobs: [
+      {
+        steps: [
+          { name: 'Wait for staging deploy to serve x', conclusion: 'success' },
+          { name: SERVED_STEP, conclusion: served ? 'success' : 'skipped' },
+          { name: 'Run @smoke specs against staging', conclusion: 'success' },
+        ],
+      },
+    ],
+  })
 
 const runUrl = (id: number) => `https://github.com/${REPO}/actions/runs/${id}`
 
@@ -40,7 +69,7 @@ function stubGh({
   pages = [],
   commits = {},
 }: {
-  pages?: SmokeRun[][]
+  pages?: Fixture[][]
   commits?: Record<string, string>
 }): { gh: Gh; calls: string[][] } {
   const calls: string[][] = []
@@ -52,6 +81,12 @@ function stubGh({
       const full = commits[commit[1]!]
       if (!full) throw new Error('gh: HTTP 422 No commit found')
       return `${full}\n`
+    }
+    const jobs = /^repos\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/jobs$/.exec(endpoint)
+    if (jobs) {
+      const found = pages.flat().find((fixture) => fixture.id === Number(jobs[1]))
+      if (!found) throw new Error(`gh: HTTP 404 no run ${jobs[1]}`)
+      return jobsBody(found.served)
     }
     const url = new URL(`https://api.github.com/${endpoint}`)
     expect(url.pathname).toBe(`/repos/${REPO}/actions/workflows/staging-smoke.yml/runs`)
@@ -93,7 +128,7 @@ describe('pickProductionSha', () => {
 
     it('takes the commit from the run name, not from head_sha', () => {
       const { gh } = stubGh({
-        pages: [[{ ...run(OLDER, 'success', 6), head_sha: NEWEST } as SmokeRun]],
+        pages: [[{ ...run(OLDER, 'success', 6), head_sha: NEWEST } as Fixture]],
       })
 
       expect(pickProductionSha({ repo: REPO, gh }).sha).toBe(OLDER)
@@ -124,6 +159,14 @@ describe('pickProductionSha', () => {
       })
 
       expect(pickProductionSha({ repo: REPO, gh }).sha).toBe(OLDER)
+    })
+
+    it('does not count a green run whose staging served a newer commit', () => {
+      const { gh } = stubGh({
+        pages: [[run(NEWEST, 'success', 9, 'workflow_run', false), run(OLDER, 'success', 7)]],
+      })
+
+      expect(pickProductionSha({ repo: REPO, gh })).toEqual({ sha: OLDER, runUrl: runUrl(7) })
     })
 
     it('reads the next page when the first holds no green run', () => {
@@ -219,7 +262,18 @@ describe('pickProductionSha', () => {
       })
 
       expect(() => pickProductionSha({ repo: REPO, sha: NEWEST, gh })).toThrow(
-        `(success (${runUrl(9)}), skipped (${runUrl(8)}))`,
+        `(schedule run (${runUrl(9)}), skipped (${runUrl(8)}))`,
+      )
+    })
+
+    it('refuses a commit whose green run tested a newer commit staging served', () => {
+      const { gh } = stubGh({
+        commits: { [OLDER]: OLDER },
+        pages: [[run(NEWEST, 'success', 9), run(OLDER, 'success', 8, 'workflow_run', false)]],
+      })
+
+      expect(() => pickProductionSha({ repo: REPO, sha: OLDER, gh })).toThrow(
+        `(success, but staging served a newer commit (${runUrl(8)}))`,
       )
     })
 
@@ -272,7 +326,10 @@ describe('the CLI', () => {
         workflow_runs: [run(NEWEST, 'skipped', 5), run(OLDER, 'success', 4)],
       })
       fs.writeFileSync(path.join(dir, 'runs.json'), page)
-      fs.writeFileSync(path.join(dir, 'gh'), `#!/bin/sh\ncat "${path.join(dir, 'runs.json')}"\n`, {
+      fs.writeFileSync(path.join(dir, 'jobs.json'), jobsBody(true))
+      // `gh api <endpoint>`: the jobs endpoint gets the jobs body, anything else the runs page.
+      const stub = `#!/bin/sh\ncase "$2" in\n  */jobs) cat "${path.join(dir, 'jobs.json')}" ;;\n  *) cat "${path.join(dir, 'runs.json')}" ;;\nesac\n`
+      fs.writeFileSync(path.join(dir, 'gh'), stub, {
         mode: 0o755,
       })
       const output = path.join(dir, 'output')

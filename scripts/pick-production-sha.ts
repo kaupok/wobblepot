@@ -23,6 +23,10 @@
  *     sets `run-name` to the commit it waits for (the migration run's head).
  *     A `workflow_run` run's `head_sha` is `main` HEAD when the run was
  *     created, which is a newer commit whenever pushes land close together.
+ *   - The run's `Staging served the named commit` step succeeded. The smoke
+ *     wait step also accepts staging serving a *descendant* of X, and then the
+ *     specs tested that newer commit, not X; the marker step is skipped then.
+ *     Read through the jobs API, one request per otherwise-green run.
  *
  * "Newest" is the first green run in the API's newest-first order: smoke runs
  * start in the order the staging migrations finish, which is push order.
@@ -42,6 +46,7 @@ import { pathToFileURL } from 'node:url'
 export type Gh = (args: string[]) => string
 
 export interface SmokeRun {
+  id: number
   display_title: string
   event: string
   conclusion: string | null
@@ -60,6 +65,9 @@ export const MAX_PAGES = 5
 
 const PAGE_SIZE = 100
 
+/** The `staging-smoke.yml` step that runs only when staging served the named commit itself. */
+export const SERVED_STEP = 'Staging served the named commit'
+
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/i
 
 /** The commit a smoke run tested, from its run name, or null when the name carries none. */
@@ -67,8 +75,26 @@ export function testedSha(run: SmokeRun): string | null {
   return /\b([0-9a-f]{40})\b/.exec(run.display_title)?.[1] ?? null
 }
 
-function isGreen(run: SmokeRun): boolean {
-  return run.event === 'workflow_run' && run.conclusion === 'success' && testedSha(run) !== null
+interface Job {
+  steps?: { name: string; conclusion: string | null }[]
+}
+
+function servedNamedCommit(gh: Gh, repo: string, run: SmokeRun): boolean {
+  const body = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.id}/jobs`])) as {
+    jobs?: Job[]
+  }
+  return (body.jobs ?? []).some((job) =>
+    (job.steps ?? []).some((step) => step.name === SERVED_STEP && step.conclusion === 'success'),
+  )
+}
+
+/** Why a run does not vouch for its named commit, or null when it does. */
+function rejection(gh: Gh, repo: string, run: SmokeRun): string | null {
+  if (run.event !== 'workflow_run') return `${run.event} run`
+  if (run.conclusion !== 'success') return run.conclusion ?? 'no conclusion'
+  if (testedSha(run) === null) return 'no commit in the run name'
+  if (!servedNamedCommit(gh, repo, run)) return 'success, but staging served a newer commit'
+  return null
 }
 
 /** Newest-first completed smoke runs on `main` triggered by the staging migrations. */
@@ -112,15 +138,14 @@ export function pickProductionSha({ repo, sha, gh }: { repo: string; sha?: strin
 
   if (input) {
     const full = resolveSha(gh, repo, input)
-    const seen: SmokeRun[] = []
+    const seen: string[] = []
     for (const run of smokeRuns(gh, repo)) {
       if (testedSha(run) !== full) continue
-      if (isGreen(run)) return { sha: full, runUrl: run.html_url }
-      seen.push(run)
+      const reason = rejection(gh, repo, run)
+      if (reason === null) return { sha: full, runUrl: run.html_url }
+      seen.push(`${reason} (${run.html_url})`)
     }
-    const found = seen.length
-      ? seen.map((run) => `${run.conclusion ?? 'no conclusion'} (${run.html_url})`).join(', ')
-      : 'no completed run'
+    const found = seen.length ? seen.join(', ') : 'no completed run'
     throw new Error(
       `Commit ${full} has no green ${SMOKE_WORKFLOW} run after its staging migrations (${found}). ` +
         'Production ships only a commit that staging smoke passed.',
@@ -128,7 +153,7 @@ export function pickProductionSha({ repo, sha, gh }: { repo: string; sha?: strin
   }
 
   for (const run of smokeRuns(gh, repo)) {
-    if (isGreen(run)) return { sha: testedSha(run)!, runUrl: run.html_url }
+    if (rejection(gh, repo, run) === null) return { sha: testedSha(run)!, runUrl: run.html_url }
   }
   throw new Error(
     `No commit has a green ${SMOKE_WORKFLOW} run after its staging migrations in the newest ` +

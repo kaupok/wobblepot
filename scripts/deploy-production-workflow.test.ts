@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
+import { SERVED_STEP } from './pick-production-sha'
+
 const workflows = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.github/workflows')
 const read = (name: string) => fs.readFileSync(path.join(workflows, name), 'utf8')
 
@@ -88,6 +90,15 @@ describe('staging-smoke.yml', () => {
     expect(read('staging-smoke.yml')).toContain(
       'run-name: Staging smoke ${{ github.event.workflow_run.head_sha || github.sha }}\n',
     )
+  })
+
+  it('runs the step the pick checks only when staging served the named commit itself', () => {
+    const source = read('staging-smoke.yml')
+    expect(source).toContain(
+      `      - name: ${SERVED_STEP}\n` +
+        '        if: steps.wait.outputs.served == (github.event.workflow_run.head_sha || github.sha)\n',
+    )
+    expect(source.match(/echo "served=\$actual_sha" >> "\$GITHUB_OUTPUT"/g)).toHaveLength(2)
   })
 })
 
