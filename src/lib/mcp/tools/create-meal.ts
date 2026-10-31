@@ -1,10 +1,12 @@
 import 'server-only'
 
+import { after } from 'next/server'
 import { z } from 'zod'
 
 import { createHouseholdMeal, findOwnMealByName, HouseholdMealError } from '@/lib/household-meals'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { distinctProteinTypes } from '@/lib/meal-planning/protein'
 
 import {
@@ -22,6 +24,8 @@ import {
   recipeFields,
   unmatchedOutput,
 } from './recipe-input'
+
+const ROUTE = '/api/mcp'
 
 export const createMeal = defineTool({
   name: 'create_meal',
@@ -52,7 +56,7 @@ export const createMeal = defineTool({
     check: checkOutput,
     proteinTypes: proteinTypesOutput,
   }),
-  run: async (household, input) => {
+  run: async (household, input, caller) => {
     const existing = await findOwnMealByName(household.id, input.name)
     if (existing) {
       return {
@@ -102,6 +106,16 @@ export const createMeal = defineTool({
         }
       }
       throw error
+    }
+
+    // Start the image now, as the app's create route does (HON-1364), so the
+    // recipe has one on My recipes before its cook view opens. The tool answers
+    // first; the draw runs after it, under the route's `maxDuration`.
+    const imageClaim = await claimSavedMealImage(household.id, meal.id, ROUTE)
+    if (imageClaim) {
+      const householdId = household.id
+      const { userId } = caller
+      after(() => drawSavedMealImage(imageClaim, { householdId, userId, route: ROUTE }))
     }
 
     return {
