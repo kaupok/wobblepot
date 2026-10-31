@@ -93,7 +93,7 @@ If nothing qualifies, say so in one line and stop. Do not pad the list.
 
 Ask which candidates to apply. Then, for each approved one:
 
-- **Default: file a Linear issue** in the `Wobblebot` team, state `Backlog`, label `Improvement`. Put the evidence in the description, as the why. Write plain `HON-NNN` references, and set `relatedTo` to the session's issue when there is one.
+- **Default: file a Linear issue** in the `Wobblebot` team, label `Improvement`, in `Queued` when an agent can finish it alone. Use `Backlog` only when it needs a human decision, and say which in the description. Put the evidence in the description, as the why. Write plain `HON-NNN` references, and set `relatedTo` to the session's issue when there is one.
 - **Edit directly** only when the change is one line in a doc or a skill and the user says to make it now. Make the edit in a worktree (CLAUDE.md → Git & Workflow Essentials).
 - **A new rule in CLAUDE.md always gets a `docs/AGENT_HISTORY.md` entry**, under the matching section, that names the incident. The issue says so in its acceptance criteria.
 

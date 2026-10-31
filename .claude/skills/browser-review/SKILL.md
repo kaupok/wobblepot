@@ -166,7 +166,7 @@ When the user is done reviewing (or explicitly wraps up), provide:
 
 ## Guidelines
 
-- **User drives**: Never create an issue without user agreement. Always discuss first.
+- **User drives**: Discuss each finding before you file it, because the user judges by eye what is a defect. File and queue a finding you both agree on without a second ask (CLAUDE.md → File and queue by default).
 - **Avoid duplicates**: Search Linear for each finding before you draft it (step 6). If a finding looks like a duplicate, flag it.
 - **Be specific**: "The shopping list takes 3 seconds to load" is better than "performance could be improved."
 - **Stay grounded**: Report what you actually observe. Don't speculate about issues you can't verify in the browser.

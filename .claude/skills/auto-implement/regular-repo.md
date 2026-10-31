@@ -39,40 +39,8 @@ git rev-list --left-right --count HEAD...origin/main
   [auto-implement] ✗ Error: Local main has diverged from origin/main (ahead <A>, behind <B>). Resolve manually before running /auto-implement.
   ```
 
-## 3.1 Create or switch to branch
+## 3.1 Enter a worktree
 
-```bash
-git branch --list "[gitBranchName]"
-```
+Call `EnterWorktree` with `name: "hon-NN"` (the issue ID in lower case). The `WorktreeCreate` hook resolves it to the issue's branch, local or on `origin`, or to its `gitBranchName`. Do not switch branch in place: the main checkout is shared with other sessions, so `guard-main-checkout` blocks it. Verify with `git branch --show-current`.
 
-If the branch exists, `git checkout [gitBranchName]`. If not, `git checkout -b [gitBranchName]`.
-
-## 7.3 Merge the PR
-
-```bash
-WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash --delete-branch
-```
-
-Non-zero exit → stop with the `gh` error: `[auto-implement] ✗ Error: Merge failed. PR left open.` No 7.4, no `[merge:complete]`.
-
-## 7.5 Local cleanup
-
-```bash
-git checkout main
-git pull origin main
-git branch -d [branch-name] || git branch -D [branch-name]
-```
-
-## 7.6 Report completion
-
-Print `templates.md` → Filing report first when it applies, then:
-
-```
-[auto-implement] ✓ PR merged successfully
-- Remote branch deleted
-- Local branch deleted
-- Now on main with latest changes
-
-[merge:complete]
-[auto-implement] ✓ Autonomous implementation cycle complete
-```
+From here the run is in a worktree, so 7.3, 7.5 and 7.6 follow `SKILL.md`.
