@@ -6,6 +6,8 @@
  * the pick returns, or that it refuses.
  */
 import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -259,5 +261,42 @@ describe('the CLI', () => {
 
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('::error::GITHUB_REPOSITORY is not set.')
+  })
+
+  it('logs the picked commit and writes it to GITHUB_OUTPUT and the step summary', () => {
+    const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'pick-production-sha.ts')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pick-production-sha-'))
+    try {
+      // A stub `gh` first on PATH: one page of smoke runs, the newest green one for OLDER.
+      const page = JSON.stringify({
+        workflow_runs: [run(NEWEST, 'skipped', 5), run(OLDER, 'success', 4)],
+      })
+      fs.writeFileSync(path.join(dir, 'runs.json'), page)
+      fs.writeFileSync(path.join(dir, 'gh'), `#!/bin/sh\ncat "${path.join(dir, 'runs.json')}"\n`, {
+        mode: 0o755,
+      })
+      const output = path.join(dir, 'output')
+      const summary = path.join(dir, 'summary')
+
+      const stdout = execFileSync('node', [script], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${dir}${path.delimiter}${process.env.PATH ?? ''}`,
+          GITHUB_REPOSITORY: REPO,
+          GITHUB_OUTPUT: output,
+          GITHUB_STEP_SUMMARY: summary,
+          INPUT_SHA: '',
+        },
+        stdio: 'pipe',
+      })
+
+      expect(stdout).toContain(`Picked ${OLDER}`)
+      expect(stdout).toContain(`Green staging smoke run: ${runUrl(4)}`)
+      expect(fs.readFileSync(output, 'utf8')).toBe(`sha=${OLDER}\nrun_url=${runUrl(4)}\n`)
+      expect(fs.readFileSync(summary, 'utf8')).toContain(`**Commit:** \`${OLDER}\``)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
