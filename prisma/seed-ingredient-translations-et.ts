@@ -263,7 +263,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (166)
+  // VEGETABLE (168)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -329,6 +329,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'flat leaf parsley', et: 'sileleheline petersell' },
   { en: 'fresno pepper', et: 'fresno tšilli' },
   { en: 'frisee', et: 'frisée-salat' },
+  { en: 'frozen broccoli', et: 'külmutatud brokoli' },
   { en: 'frozen broccoli and cauliflower mix', et: 'külmutatud brokoli-lillkapsasegu' },
   { en: 'frozen green beans', et: 'külmutatud rohelised oad' },
   { en: 'frozen mixed vegetables', et: 'külmutatud köögiviljasegu' },
@@ -384,6 +385,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'piquillo peppers', et: 'piquillo paprika' },
   { en: 'poblano pepper', et: 'poblano tšilli' },
   { en: 'porcini mushroom', et: 'kivipuravik' },
+  { en: 'pumpkin', et: 'kõrvits' },
   { en: 'purple cabbage', et: 'punane kapsas' },
   { en: 'radicchio', et: 'radicchio' },
   { en: 'radish', et: 'redis' },
@@ -430,7 +432,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'yu choy', et: 'yu choy' },
   { en: 'courgette', et: 'suvikõrvits' },
   // ============================================================
-  // FRUIT (70)
+  // FRUIT (71)
   // ============================================================
   { en: 'acai', et: 'assaimari' },
   { en: 'ackee', et: 'akee' },
@@ -461,6 +463,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'feijoa', et: 'feijoa' },
   { en: 'fig', et: 'viigimari' },
   { en: 'frozen blueberries', et: 'külmutatud mustikad' },
+  { en: 'frozen mango', et: 'külmutatud mango' },
   { en: 'frozen mixed berries', et: 'külmutatud marjasegu' },
   { en: 'frozen raspberries', et: 'külmutatud vaarikad' },
   { en: 'frozen strawberries', et: 'külmutatud maasikad' },

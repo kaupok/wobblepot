@@ -181,6 +181,7 @@ describe('matchIngredients with the frozen form rows', () => {
     await ingredient('ing-broccoli', 'broccoli')
     await ingredient('ing-cauliflower', 'cauliflower')
     await ingredient('ing-frozen-mix', 'frozen broccoli and cauliflower mix')
+    await ingredient('ing-frozen-broccoli', 'frozen broccoli')
   }
 
   it('matches "frozen peas" to the "frozen peas" row, sure', async () => {
@@ -203,12 +204,22 @@ describe('matchIngredients with the frozen form rows', () => {
     })
   })
 
-  it('saves "frozen broccoli" as fresh "broccoli", not as the broccoli and cauliflower mix', async () => {
+  it('saves "frozen cauliflower" as fresh "cauliflower", not as the broccoli and cauliflower mix', async () => {
+    await seedCatalogue()
+
+    // No frozen cauliflower row exists, so the match is unsure; the row is what counts.
+    expect(await matchOne('frozen cauliflower')).toMatchObject({
+      type: 'matched',
+      ingredient: { id: 'ing-cauliflower', name: 'cauliflower' },
+    })
+  })
+
+  it('matches "frozen broccoli" to the "frozen broccoli" row, not the broccoli and cauliflower mix', async () => {
     await seedCatalogue()
 
     expect(await matchOne('frozen broccoli')).toMatchObject({
       type: 'matched',
-      ingredient: { id: 'ing-broccoli', name: 'broccoli' },
+      ingredient: { id: 'ing-frozen-broccoli', name: 'frozen broccoli' },
       lowConfidence: false,
     })
   })
@@ -369,5 +380,73 @@ describe('matchIngredients with the grain flour rows', () => {
       ingredient: { id: 'ing-oat-flour', name: 'oat flour' },
       lowConfidence: false,
     })
+  })
+})
+
+// HON-1499: an Estonian household enters a grocery delivery by the shop names, so
+// each name must find its own row and not fresh fruit, another frozen bag or a squash.
+describe('matchIngredients on an Estonian shop name', () => {
+  const names = [
+    'broccoli',
+    'frozen broccoli and cauliflower mix',
+    'frozen broccoli',
+    'frozen strawberries',
+    'mango',
+    'dried mango',
+    'frozen mango',
+    'pumpkin',
+    'tinned pumpkin',
+    'butternut squash',
+    'kabocha squash',
+    'courgette',
+    'pumpkin seeds',
+  ]
+
+  async function seedCatalogue() {
+    // The seeded rows and Estonian names, so a row that leaves the seed turns this test red.
+    const rows = [
+      ...baseIngredients,
+      ...newIngredients,
+      ...comprehensiveIngredients,
+      ...importCoverageIngredients,
+    ].filter((row) => names.includes(row.name))
+    expect(rows.map((row) => row.name).sort()).toEqual([...names].sort())
+
+    // A migration may have inserted a row already, so its id is read back by name
+    await prisma.ingredient.createMany({
+      data: rows.map((row) => ({
+        name: row.name,
+        category: row.category,
+        defaultUnit: row.defaultUnit,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      })),
+      skipDuplicates: true,
+    })
+    const saved = await prisma.ingredient.findMany({
+      where: { householdId: null, name: { in: names } },
+      select: { id: true, name: true },
+    })
+    const idOf = new Map(saved.map((row) => [row.name, row.id]))
+    await prisma.ingredientTranslation.createMany({
+      data: ingredientTranslationsEt
+        .filter((row) => idOf.has(row.en))
+        .map((row) => ({ ingredientId: idOf.get(row.en)!, locale: 'et', name: row.et })),
+      skipDuplicates: true,
+    })
+  }
+
+  it.each([
+    ['külmutatud brokoli', 'frozen broccoli'],
+    ['külmutatud mango', 'frozen mango'],
+    ['kõrvits', 'pumpkin'],
+  ])('matches "%s" to "%s", sure', async (recipeName, name) => {
+    await seedCatalogue()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
   })
 })
