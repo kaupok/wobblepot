@@ -149,6 +149,15 @@ Display:
 - Current relationships (blockedBy, blocks, relatedTo)
 - Priority if set
 
+**In `--auto-drafts` mode, read the judge's verdict.** `list_comments` on the issue and find the newest comment whose first line starts with `## Judge:` (written by `/judge`, `.claude/skills/judge/SKILL.md`). Show it in full, then use its outcome as the recommended answer of the first Step 7 round:
+
+- `Decide — real`: keep the issue and clear the prefix.
+- `Decide — won't fix`: cancel it, with the cited decision as the reason.
+- `Send back — <reason>`: cancel it as stale or misread, or mark it a duplicate of the named issue.
+- `Hold — <reason>`: no recommendation. Ask as for any other auto-draft, and name the reason.
+
+A reply under the verdict that overrules it wins over the verdict. When the user disagrees with a verdict in this session, ask whether to add the `Judge overruled` label and reply under the verdict with the right answer and one line of why, so `/judge --fold` can record it.
+
 ### Step 7: Collaborative refinement
 
 Ask in rounds (see "Asking in rounds"). The lists below seed the first round. Drop a topic the issue already answers, and look up what the codebase or Linear can tell you instead of asking.
