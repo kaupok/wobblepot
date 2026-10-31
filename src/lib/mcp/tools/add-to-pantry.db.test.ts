@@ -182,6 +182,22 @@ describe('add_to_pantry', () => {
     expect(await pantryItem(alder, 'ing-grain')).toMatchObject({ quantity: null, isStaple: true })
   })
 
+  it('saves a staple of unknown piece weight with no check, since its amount is dropped', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-nut', quantity: 0, isStaple: true },
+    })
+
+    const [result] = (await call(alder, [{ name: 'quafflenut', quantity: 300, unit: 'g' }])).items
+
+    expect(result).toMatchObject({
+      outcome: 'saved',
+      item: { ingredientId: 'ing-nut', quantity: null, isStaple: true },
+      amountDropped: true,
+      check: null,
+    })
+  })
+
   it('saves nothing for an unsure or unknown name, and still saves the rest', async () => {
     const { alder } = await world()
 

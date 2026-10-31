@@ -184,8 +184,12 @@ async function addOne(household: McpHousehold, entry: Entry): Promise<Result> {
   }
   const { ingredient, gramsPerPiece, item } = found
 
+  // A staple takes no amount, because completing a meal never takes a staple
+  // off, so its amount is not converted or checked: a check would ask the user
+  // to confirm an amount that is then dropped.
+  const isStaple = item?.isStaple ?? false
   let amount: number | null = null
-  if (quantity !== undefined && unit !== undefined) {
+  if (quantity !== undefined && unit !== undefined && !isStaple) {
     const defaultUnit = ingredient.defaultUnit as Unit
     const converted = rounded(convertQuantity(quantity, unit, { defaultUnit, gramsPerPiece }))
     const shown = displayUnit(ingredient)
@@ -232,9 +236,9 @@ async function addOne(household: McpHousehold, entry: Entry): Promise<Result> {
   }
 
   // A receipt says what came in, so an amount adds to what is at home. An
-  // unknown amount (null) and ran out (0) both count as none. A staple takes
-  // no amount, because completing a meal never takes a staple off.
-  const next = item.isStaple || amount === null ? null : rounded((item.quantity ?? 0) + amount)
+  // unknown amount (null) and ran out (0) both count as none. A staple's
+  // amount is null here, so it is saved as "have some".
+  const next = amount === null ? null : rounded((item.quantity ?? 0) + amount)
   const updated = await updatePantryItem(household, item.id, { quantity: next })
   if (updated.status === 'not_found') throw changedWhileRunning(name)
   return {
@@ -242,7 +246,7 @@ async function addOne(household: McpHousehold, entry: Entry): Promise<Result> {
     outcome: 'saved',
     item: itemOutput(updated.item),
     previous: { quantity: item.quantity },
-    amountDropped: item.isStaple && amount !== null,
+    amountDropped: isStaple && quantity !== undefined,
     candidates: [],
   }
 }
