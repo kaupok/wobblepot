@@ -30,6 +30,11 @@ export const recipeFields = {
   suitableFor: mealFieldsSchema.shape.suitableFor.describe(
     'The meal types this recipe suits: breakfast, lunch, dinner.',
   ),
+  // Imagine and import write it, and nothing writes it again, so the caller
+  // keeps it true to the ingredients (HON-1502).
+  description: mealFieldsSchema.shape.description.describe(
+    'One or two sentences on what the dish is like, shown with its name. It must agree with the ingredients. In update_meal, null clears it.',
+  ),
   servings: mealFieldsSchema.shape.servings.describe('How many servings the quantities make.'),
   kidFriendly: mealFieldsSchema.shape.kidFriendly.describe('True if children eat it happily.'),
   preparationNotes: mealFieldsSchema.shape.preparationNotes.describe(

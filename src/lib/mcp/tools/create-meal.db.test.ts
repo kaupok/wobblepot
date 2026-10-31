@@ -47,6 +47,7 @@ const LASAGNE = {
   suitableFor: ['dinner'],
   servings: 4,
   kidFriendly: true,
+  description: 'Rich layers of mince and bulb.',
   preparationNotes: 'Layer and bake.',
   timeMinutes: 60,
   ingredients: [
@@ -91,6 +92,7 @@ describe('create_meal', () => {
       suitableFor: ['dinner'],
       servings: 4,
       kidFriendly: true,
+      description: 'Rich layers of mince and bulb.',
       preparationNotes: 'Layer and bake.',
       timeMinutes: 60,
       deletedAt: null,
@@ -106,8 +108,10 @@ describe('create_meal', () => {
     const read = await getMeal.run(household, { mealId: result.meal!.id, servings: 4 }, CALLER)
     expect(read.meal).toMatchObject({
       name: 'Glimmer lasagne',
+      description: 'Rich layers of mince and bulb.',
       mealTypes: ['dinner'],
       timeMinutes: 60,
+      kidFriendly: true,
       preparationNotes: 'Layer and bake.',
       isOwnRecipe: true,
     })
