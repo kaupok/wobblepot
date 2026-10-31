@@ -62,7 +62,7 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
+Run it as `/review-pr` step 2 says: the default Bash timeout kills it and leaves a stale lock.
 
 After the script returns:
 
@@ -199,5 +199,3 @@ After outputting the review triage, add the completion marker:
 
 - This skill fetches EXTERNAL review feedback — from the Claude PR reviewer via `scripts/pr-review.sh` and from human reviewers alike
 - For LOCAL code review before committing, use `/branch-review` instead
-- **Bias toward action** - when in doubt, put it in Address Now
-- **Defer is last resort** - only for work that genuinely takes hours and is out of scope
