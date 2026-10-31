@@ -111,6 +111,12 @@ The "Parallel Commands" section provides ready-to-copy commands using the `gitBr
 
 If fewer than 3 unblocked issues exist, return only what's available.
 
+End the output, before the completion marker, with this line verbatim. This skill runs as a fork, so the caller reads only its output:
+
+```
+Caller note: for a refined variation, re-invoke /next-issue rather than delegating to a general-purpose agent.
+```
+
 ## Completion
 
 After outputting candidates, emit the completion marker:
