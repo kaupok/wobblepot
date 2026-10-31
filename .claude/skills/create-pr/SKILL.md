@@ -74,27 +74,6 @@ Also note any key decisions or rationale from:
 - Implementation plan (if posted to Linear comments)
 - Conversation context (design tradeoffs, important choices made)
 
-### 5b. Note E2E impact
-
-If the diff includes any of the following, the PR description must state the E2E impact explicitly:
-
-- `src/app/**/page.tsx` (route added, removed, or renamed)
-- A modal/dialog component under `src/components/**`
-- Navigation/CTA copy changes in a heading, button, or link
-
-Determine which applies and record one of:
-
-- **"E2E specs updated: [list]"** — specs you modified in this branch.
-- **"No E2E impact"** — only if no `tests/e2e/*.spec.ts` header (`// ROUTES: … · COMPONENTS: …`) matches the changed routes/components.
-
-Check with:
-
-```bash
-grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts
-```
-
-This goes in the Summary section of the description (step 6). The goal: a reviewer reading the PR body sees at a glance whether E2E drift was considered, and a future auditor sees whether this PR was the one that broke a given spec. See HON-519 for why this gate exists.
-
 ### 6. Draft PR title and description
 
 **Title:** Follow Conventional Commits format (this becomes the squash-merge commit message).
@@ -109,7 +88,6 @@ This goes in the Summary section of the description (step 6). The goal: a review
 ## Summary
 
 - [1-3 bullet points describing the changes]
-- **E2E impact:** [From step 5b — either `E2E specs updated: tests/e2e/foo.spec.ts, tests/e2e/bar.spec.ts` or `No E2E impact`. Omit the line entirely only if the diff is pure-backend with no UI / route / modal surface.]
 - **Follow-ups:** [IDs of the issues filed for steps this PR does not ship (the plan's `## Follow-ups`, and any `/implement-issue` filed): `HON-NNN (Queued, blocked by HON-XX)`. Omit the line if there are none.]
 - **Coupled callsites:** [If the diff changes a primitive's geometry default, a `@theme` token, or a shared layout wrapper — either `Mirrors updated: src/app/foo/loading.tsx, …` or `none — no callsite hardcodes the changed <property>`. Omit the line entirely if none of those changed. Without it the scan's result lives only in the Linear plan and a GitHub reviewer cannot see that it ran (CLAUDE.md shared-primitive geometry rule).]
 
@@ -165,6 +143,5 @@ After outputting the PR completion marker, invoke the `/review-pr` skill to run 
 
 - Follow conventions from docs, don't invent new rules
 - PR title is critical - it becomes the final commit message after squash-merge
-- Analyze ALL commits on the branch, not just the latest
 - If PR already exists, offer to update description instead of creating new one
 - A step this PR does not ship is a Linear issue before the PR merges, and the Summary's **Follow-ups** line lists its ID, never free text. File one that has no issue yet with the `/plan-issue` step 10 call; the rule (state, parent link, `Follow-up` label) is in `/plan-issue` → "A follow-up is an issue"
