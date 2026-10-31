@@ -183,6 +183,7 @@ describe('addCustomShoppingItem', () => {
         ingredientId: null,
         checked: false,
         createdAt: expect.any(Date),
+        ingredient: null,
       },
     })
     expect(await prisma.customShoppingItem.count()).toBe(1)
