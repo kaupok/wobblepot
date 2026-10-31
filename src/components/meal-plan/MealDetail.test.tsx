@@ -446,13 +446,13 @@ describe('MealDetail Done cooking (HON-933)', () => {
   })
 })
 
-// HON-1475: the cook view's nutrition chips come from the `portions` prop.
+// HON-1475, HON-1505: the cook view's portion select comes from the `portions` prop.
 describe('MealDetail nutrition portions', () => {
   const withNutrition = createMeal({
     nutrition: { calories: 520, protein: 38, carbs: 30, fat: 22 },
   })
 
-  it('shows the chips when a member eats more or less than one serving', () => {
+  it('shows the portion select when a member eats more or less than one serving', () => {
     render(
       <MealDetail
         meal={withNutrition}
@@ -463,10 +463,10 @@ describe('MealDetail nutrition portions', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('radiogroup', { name: 'Whose portion' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^Whose portion/ })).toBeInTheDocument()
   })
 
-  it('shows no chips when every member is at 1×', () => {
+  it('shows no portion select when every member is at 1×', () => {
     render(
       <MealDetail
         meal={withNutrition}
@@ -477,13 +477,13 @@ describe('MealDetail nutrition portions', () => {
         ]}
       />,
     )
-    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /^Whose portion/ })).not.toBeInTheDocument()
     expect(screen.getByText('per serving')).toBeInTheDocument()
   })
 
-  it('shows no chips when no members are passed', () => {
+  it('shows no portion select when no members are passed', () => {
     render(<MealDetail meal={withNutrition} householdServings={3} />)
-    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /^Whose portion/ })).not.toBeInTheDocument()
     expect(screen.getByText('per serving')).toBeInTheDocument()
   })
 })

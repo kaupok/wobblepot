@@ -79,7 +79,7 @@ describe('RecipeDetailModal', () => {
     useMemberPortions.mockReset()
   })
 
-  it("shows each member's portion chips once the members load (HON-1475)", async () => {
+  it('shows the portion select once the members load (HON-1475, HON-1505)', async () => {
     useMemberPortions.mockImplementation((enabled) =>
       enabled
         ? [
@@ -91,7 +91,7 @@ describe('RecipeDetailModal', () => {
     renderModal()
 
     const dialog = await screen.findByRole('dialog', { name: 'Roast chicken' })
-    expect(within(dialog).getByRole('radiogroup', { name: 'Whose portion' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('combobox', { name: /^Whose portion/ })).toBeInTheDocument()
   })
 
   it("opens at the household's servings, with the amounts scaled to them", async () => {

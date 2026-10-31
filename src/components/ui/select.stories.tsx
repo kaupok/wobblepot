@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test'
 
 import { Label } from './label'
 import {
@@ -298,5 +298,49 @@ export const ScrollLockKeepsLayout: Story = {
 
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(document.body).not.toHaveAttribute('data-scroll-locked'))
+  },
+}
+
+/**
+ * `variant="inline"`: the trigger is text in a line of text, with a chevron
+ * that says it opens, and takes the line's type and colour. The `::after` is a
+ * 44px target centred on the line, no wider than the trigger. `lg` items are
+ * 44px rows. Its user is the cook view's portion caption (HON-1505).
+ */
+export const Inline: Story = {
+  render: () => (
+    <p className="text-muted-foreground flex items-center gap-1 text-xs">
+      520 kcal ·
+      <Select defaultValue="serving">
+        <SelectTrigger variant="inline" aria-label="Whose portion">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="serving" size="lg">
+            Per serving
+          </SelectItem>
+          <SelectItem value="kaupo" size="lg">
+            Kaupo 1.5×
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </p>
+  ),
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole('combobox', { name: 'Whose portion' })
+    const after = getComputedStyle(trigger, '::after')
+    await expect(getComputedStyle(trigger).borderTopWidth).toBe('0px')
+    await expect(after.position).toBe('absolute')
+    await expect(after.height).toBe('44px')
+    await expect(after.left).toBe('0px')
+
+    await userEvent.click(trigger)
+    const option = await screen.findByRole('option', { name: 'Kaupo 1.5×' })
+    // `offsetHeight`, because the open animation scales the list to 95%.
+    await expect(option.offsetHeight).toBeGreaterThanOrEqual(44)
+    await userEvent.click(option)
+    await waitFor(() => expect(trigger).toHaveTextContent('Kaupo 1.5×'))
+    // Wait out the close animation, so the a11y check sees the closed page.
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
   },
 }

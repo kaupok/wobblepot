@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
-import { useRef } from 'react'
+import { type ReactNode, useRef } from 'react'
 
 import { InfoTip } from '@/components/ui/info-tip'
 import { Body } from '@/components/ui/typography'
@@ -26,8 +26,12 @@ interface NutritionSummaryProps {
   /** `lg` in the cook view, read at arm's length; `default` on cards and in the recipe form. */
   size?: NutritionSummarySize
   components?: Pick<MealComponent, 'isVague'>[]
-  /** The fine print beside the calories; "per serving" when omitted (HON-1475). */
-  caption?: string
+  /**
+   * The fine print beside the calories; "per serving" when omitted (HON-1475).
+   * A node renders inside the fine-print line, so an inline control there takes
+   * its type and colour: the portion select (HON-1505).
+   */
+  caption?: ReactNode
 }
 
 /** The ordinal series token for each macro's part of the bar (globals.css). */

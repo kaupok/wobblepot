@@ -75,7 +75,7 @@ afterEach(() => {
 
 const membersRequests = () => fetchMock.mock.calls.filter(([url]) => url === MEMBERS_URL)
 
-describe('MealDetailModal nutrition chips (HON-1475)', () => {
+describe('MealDetailModal portion nutrition (HON-1475, HON-1505)', () => {
   it("opens a planned meal on the signed-in member's 1.5× plate", async () => {
     const { wrapper } = createQueryWrapper()
     render(
@@ -91,7 +91,9 @@ describe('MealDetailModal nutrition chips (HON-1475)', () => {
       />,
       { wrapper },
     )
-    expect(await screen.findByRole('radio', { name: 'Kaupo 1.5×' })).toBeChecked()
+    expect(
+      await screen.findByRole('combobox', { name: 'Whose portion Kaupo, 1.5× portion' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('57g')).toBeInTheDocument()
   })
 
@@ -113,6 +115,6 @@ describe('MealDetailModal nutrition chips (HON-1475)', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(membersRequests()).toHaveLength(0)
     expect(getSession).not.toHaveBeenCalled()
-    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /^Whose portion/ })).not.toBeInTheDocument()
   })
 })
