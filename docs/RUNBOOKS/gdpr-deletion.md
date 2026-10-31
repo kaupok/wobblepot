@@ -330,15 +330,15 @@ The cron then fails every night until you act, and no account is purged, so the 
 
    Many `deletedAt` values within seconds of each other, or accounts you know are active, point to a bug. Then do not purge: restore each account by the [Recovery procedure](#recovery-procedure-within-the-grace-window), fix the bug, and file an incident.
 
-2. **If the requests are real, purge them in batches.** Keep the oldest 25 due, and spread the rest over the following nights at 03:00 UTC, 25 a night. One run of this SQL clears the backlog; then run the purge [by hand](#running-the-purge-by-hand) or wait for 03:00 UTC:
+2. **If the requests are real, purge them in batches.** Keep the oldest 20 due, and spread the rest over the following nights at 03:00 UTC, 20 a night, so accounts that come due on their own still fit under the cap of 25. One run of this SQL clears the backlog; then run the purge [by hand](#running-the-purge-by-hand) or wait for 03:00 UTC:
 
    ```sql
    UPDATE "user" u
    SET "purgeScheduledFor" =
      date_trunc('day', now() AT TIME ZONE 'UTC') + interval '3 hours'
-     + ceil(d.rn / 25.0) * interval '1 day'
+     + ceil(d.rn / 20.0) * interval '1 day'
    FROM (
-     SELECT id, row_number() OVER (ORDER BY "deletedAt") - 25 AS rn
+     SELECT id, row_number() OVER (ORDER BY "deletedAt") - 20 AS rn
      FROM "user"
      WHERE "deletedAt" IS NOT NULL
        AND "purgeScheduledFor" < now() AT TIME ZONE 'UTC'
