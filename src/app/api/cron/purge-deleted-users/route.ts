@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
-import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
+import { PURGE_MAX_USERS_PER_RUN, purgeDueUsers } from '@/lib/auth/purge-user'
 import { serverEnv } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
 import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
@@ -24,6 +24,12 @@ export const dynamic = 'force-dynamic'
  *
  * Each user is purged in its own transaction (via `purgeUser`), so one failure
  * is logged and skipped rather than aborting the whole batch.
+ *
+ * When more than `PURGE_MAX_USERS_PER_RUN` users are due, it purges none,
+ * reports the error and answers 500 (HON-1509): so many at once is more likely
+ * a bug than real requests, and a purge cannot be undone. The other purges
+ * below still run. Operator steps: `docs/RUNBOOKS/gdpr-deletion.md` → Cap
+ * tripped.
  *
  * The same run enforces the waitlist retention (HON-846): unconfirmed invite
  * requests older than 7 days and confirmed ones older than 6 months are
@@ -60,18 +66,10 @@ export async function GET(request: Request) {
 
   try {
     const now = new Date()
-    const expired = await findUsersDueForPurge(now)
-
-    let purged = 0
-    for (const id of expired) {
-      try {
-        await purgeUser(id)
-        purged += 1
-      } catch (error) {
-        // Log and continue — a single failed cascade must not block the rest.
-        captureApiError(error, { route: '/api/cron/purge-deleted-users', userId: id })
-      }
-    }
+    const users = await purgeDueUsers(now, (userId, error) => {
+      // Log and continue — a single failed cascade must not block the rest.
+      captureApiError(error, { route: '/api/cron/purge-deleted-users', userId })
+    })
 
     const waitlist = await purgeExpiredWaitlistRequests(now)
     const oauthTokens = await purgeExpiredOauthTokens(now)
@@ -81,13 +79,21 @@ export async function GET(request: Request) {
       await discardMealImage(url, '/api/cron/purge-deleted-users')
     }
 
-    return NextResponse.json({
-      purged,
-      scanned: expired.length,
-      waitlist,
-      oauthTokens,
-      mealImages: mealImageUrls.length,
-    })
+    const others = { waitlist, oauthTokens, mealImages: mealImageUrls.length }
+
+    if (users.capExceeded) {
+      captureApiError(new Error('Purge cap exceeded'), {
+        route: '/api/cron/purge-deleted-users',
+        due: users.due,
+        cap: PURGE_MAX_USERS_PER_RUN,
+      })
+      return NextResponse.json(
+        { error: 'Purge cap exceeded', due: users.due, cap: PURGE_MAX_USERS_PER_RUN, ...others },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json({ purged: users.purged, scanned: users.scanned, ...others })
   } catch (error) {
     captureApiError(error, { route: '/api/cron/purge-deleted-users' })
     return NextResponse.json({ error: 'Purge failed' }, { status: 500 })
