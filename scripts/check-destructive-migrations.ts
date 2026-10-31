@@ -72,17 +72,24 @@ const MAX_STATEMENT_LENGTH = 160
 
 const collapse = (sql: string) => sql.replace(/\s+/g, ' ').trim()
 
-/** The end of the quoted run that opens at `start`; a doubled quote is an escaped one. */
+/**
+ * The end of the quoted run that opens at `start`, or -1 when it never
+ * closes. A doubled quote is an escaped one; in an `E'…'` string a backslash
+ * escapes too.
+ */
 function closingQuote(sql: string, start: number): number {
   const quote = sql[start]
+  const backslashEscapes =
+    quote === "'" && /^[eE]$/.test(sql[start - 1] ?? '') && !/\w/.test(sql[start - 2] ?? '')
   let i = start + 1
   while (i < sql.length) {
-    if (sql[i] === quote) {
+    if (backslashEscapes && sql[i] === '\\') i += 2
+    else if (sql[i] === quote) {
       if (sql[i + 1] !== quote) return i
       i += 2
     } else i++
   }
-  return sql.length - 1
+  return -1
 }
 
 /** The index after the block comment that opens at `start`. Postgres nests them. */
@@ -126,11 +133,20 @@ export function splitStatements(sql: string): Statement[] {
       i = blockCommentEnd(sql, i)
       text += ' '
       code += ' '
-    } else if (ch === "'" || ch === '"') {
+    } else if ((ch === "'" || ch === '"') && dollarTag === null) {
+      // Not inside a dollar-quoted body, where Postgres reads quotes as plain
+      // text: a `don't` there would blank the statements after it.
       const end = closingQuote(sql, i)
-      text += sql.slice(i, end + 1)
-      code += ch + ch
-      i = end + 1
+      if (end === -1) {
+        // Fail closed: an unclosed quote leaves the rest as code to match.
+        text += sql.slice(i)
+        code += sql.slice(i)
+        i = sql.length
+      } else {
+        text += sql.slice(i, end + 1)
+        code += ch + ch
+        i = end + 1
+      }
     } else if (ch === '$' && /^\$(?:[A-Za-z_]\w*)?\$/.test(sql.slice(i))) {
       const tag = /^\$(?:[A-Za-z_]\w*)?\$/.exec(sql.slice(i))![0]
       if (dollarTag === null) dollarTag = tag

@@ -94,6 +94,23 @@ describe('checkSql', () => {
     ])
   })
 
+  it('reads quotes inside a dollar-quoted body as plain text', () => {
+    const sql =
+      'CREATE FUNCTION f() RETURNS trigger AS $$ BEGIN RAISE NOTICE $q$don\'t$q$; RETURN NEW; END $$ LANGUAGE plpgsql;\nDROP TABLE "x";'
+    expect(flagged(sql)).toEqual(['DROP TABLE'])
+  })
+
+  it('reads a backslash-escaped quote in an E string', () => {
+    expect(flagged(`UPDATE "x" SET "a" = E'it\\'s'; DROP TABLE "y";`)).toEqual([
+      'UPDATE … SET',
+      'DROP TABLE',
+    ])
+  })
+
+  it('matches the rest of the file when a quote never closes', () => {
+    expect(flagged(`SELECT 'oops; DROP TABLE "y";`)).toEqual(['DROP TABLE'])
+  })
+
   it('reports one finding per statement and names the migration', () => {
     const findings = checkSql(
       '20260101000000_x',
