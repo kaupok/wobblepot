@@ -6,6 +6,7 @@ import { instrumentMcpServer } from './analytics'
 import { type McpCallerContext, type McpTool, runTool, toolAnnotations } from './context'
 import { addExtra } from './tools/add-extra'
 import { addShoppingItem } from './tools/add-shopping-item'
+import { addToPantry } from './tools/add-to-pantry'
 import { adjustMeal } from './tools/adjust-meal'
 import { changeMealIngredients } from './tools/change-meal-ingredients'
 import { checkShoppingItem } from './tools/check-shopping-item'
@@ -23,6 +24,7 @@ import { planFridgeMeal } from './tools/plan-fridge-meal'
 import { planMeal } from './tools/plan-meal'
 import { rateMeal } from './tools/rate-meal'
 import { removeExtra } from './tools/remove-extra'
+import { removeFromPantry } from './tools/remove-from-pantry'
 import { removeShoppingItem } from './tools/remove-shopping-item'
 import { restoreMeal } from './tools/restore-meal'
 import { setExtraAmount } from './tools/set-extra-amount'
@@ -37,7 +39,7 @@ import { updateMeal } from './tools/update-meal'
 /**
  * Every tool the server lists, for every token. The write tools (HON-1154,
  * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314, HON-1281, HON-1329,
- * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337, HON-1385, HON-1459) need
+ * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337, HON-1385, HON-1459, HON-1497) need
  * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
  * so the model can tell the user what to do.
  */
@@ -53,6 +55,8 @@ export const MCP_TOOLS: readonly McpTool[] = [
   checkShoppingItem,
   setPantryStatus,
   setStaple,
+  addToPantry,
+  removeFromPantry,
   swapMeal,
   rateMeal,
   adjustMeal,

@@ -67,14 +67,16 @@ function withTranslatedIngredient<T extends { ingredient: { name: string } }>(
 }
 
 /**
- * - `found`: the ingredient, its name in the household's language, and the
- *   household's pantry item for it, or null when the pantry has none
+ * - `found`: the ingredient, its name in the household's language, the weight
+ *   of one piece when the catalogue knows it, and the household's pantry item
+ *   for it, or null when the pantry has none
  * - `ingredient_not_found`: as for `createPantryItem`
  */
 export type FindPantryIngredientOutcome =
   | {
       status: 'found'
       ingredient: PantryItemWithIngredient['ingredient']
+      gramsPerPiece: number | null
       item: PantryItemWithIngredient | null
     }
   | { status: 'ingredient_not_found' }
@@ -82,6 +84,7 @@ export type FindPantryIngredientOutcome =
 /**
  * Reads an ingredient and the household's pantry item for it, so a caller can
  * see the item's state before it writes (the `set_staple` MCP tool, HON-1459).
+ * `gramsPerPiece` lets `add_to_pantry` convert a weight to pieces (HON-1497).
  */
 export async function findPantryIngredient(
   household: Household,
@@ -92,6 +95,7 @@ export async function findPantryIngredient(
     where: { id: ingredientId, OR: [{ householdId: null }, { householdId: household.id }] },
     select: {
       ...itemInclude(locale).ingredient.select,
+      gramsPerPiece: true,
       pantryItems: {
         where: { householdId: household.id },
         select: { id: true, ingredientId: true, quantity: true, isStaple: true, updatedAt: true },
@@ -100,11 +104,11 @@ export async function findPantryIngredient(
   })
   if (!row) return { status: 'ingredient_not_found' }
 
-  const { pantryItems, ...rest } = row
+  const { pantryItems, gramsPerPiece, ...rest } = row
   const ingredient = translateIngredient(rest, locale)
   // `@@unique([householdId, ingredientId])`: one item or none.
   const [item] = pantryItems
-  return { status: 'found', ingredient, item: item ? { ...item, ingredient } : null }
+  return { status: 'found', ingredient, gramsPerPiece, item: item ? { ...item, ingredient } : null }
 }
 
 /**

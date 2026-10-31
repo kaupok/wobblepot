@@ -9,6 +9,8 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   check_shopping_item: { id: 'custom-1', checked: true },
   set_pantry_status: { ingredientId: 'ing-1', status: 'have_some' },
   set_staple: { name: 'rice', staple: true },
+  add_to_pantry: { items: [{ name: 'rice', quantity: 1000, unit: 'g' }] },
+  remove_from_pantry: { ingredientId: 'ing-1' },
   swap_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
   rate_meal: { date: '2026-10-15', mealType: 'dinner', rating: 'up' },
   adjust_meal: { date: '2026-10-15', mealType: 'dinner', instruction: 'No cream' },

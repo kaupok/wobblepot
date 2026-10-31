@@ -9,7 +9,7 @@ export const checkShoppingItem = defineTool({
   name: 'check_shopping_item',
   title: 'Check shopping item',
   description:
-    'Checks off an item the household added to the shopping list by hand, or unchecks it. Pass an id from customItems in get_shopping_list; for the items from planned meals, use mark_purchased. Checking off an item that Wobblepot matched to an ingredient also puts that ingredient in the pantry as "have some", replacing any quantity the pantry had for it. Unchecking does not bring that quantity back: the result gives it as replacedQuantity.',
+    'Checks off an item the household added to the shopping list by hand, or unchecks it. Pass an id from customItems in get_shopping_list; for the items from planned meals, use mark_purchased. Checking off an item that Wobblepot matched to an ingredient also puts that ingredient in the pantry as "have some", replacing any quantity the pantry had for it. Unchecking does not bring that quantity back: the result gives it as replacedQuantity. To put food the household bought in the pantry without the shopping list, use add_to_pantry.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     id: z.string().min(1).describe('The id of an item in customItems, from get_shopping_list.'),
