@@ -24,6 +24,47 @@ export async function findUsersDueForPurge(
 }
 
 /**
+ * The most accounts one cron run may hard-delete. A purge cannot be undone,
+ * and past 6 hours Neon PITR cannot restore it, so a bug that schedules many
+ * accounts at once must stop here for a human, not purge them all in one
+ * night (HON-1509). Raising it is a reviewed PR; the operator steps are in
+ * `docs/RUNBOOKS/gdpr-deletion.md` → Cap tripped.
+ */
+export const PURGE_MAX_USERS_PER_RUN = 25
+
+export type PurgeDueUsersResult =
+  { capExceeded: true; due: number } | { capExceeded: false; scanned: number; purged: number }
+
+/**
+ * Purges every account `findUsersDueForPurge` selects, unless there are more
+ * than `PURGE_MAX_USERS_PER_RUN`: then it purges none and returns the count.
+ * Each user is purged on its own (`purgeUser`), so one failure goes to
+ * `onFailure` and the rest still run.
+ */
+export async function purgeDueUsers(
+  now: Date,
+  onFailure: (userId: string, error: unknown) => void,
+  db: PrismaClientType = prisma,
+): Promise<PurgeDueUsersResult> {
+  const due = await findUsersDueForPurge(now, db)
+  if (due.length > PURGE_MAX_USERS_PER_RUN) {
+    return { capExceeded: true, due: due.length }
+  }
+
+  let purged = 0
+  for (const id of due) {
+    try {
+      await purgeUser(id, db)
+      purged += 1
+    } catch (error) {
+      // A single failed cascade must not block the rest.
+      onFailure(id, error)
+    }
+  }
+  return { capExceeded: false, scanned: due.length, purged }
+}
+
+/**
  * Hard-deletes a user and every record that should not outlive their account.
  *
  * Extracted from the original `DELETE /api/auth/user` cascade (HON-481) so it

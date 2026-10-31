@@ -5,6 +5,8 @@ vi.mock('@/lib/prisma', () => ({
     $transaction: vi.fn(),
     // The pre-transaction read that picks the PostHog ids (HON-907).
     householdMember: { findMany: vi.fn(), count: vi.fn() },
+    // The due-user selection in `purgeDueUsers`.
+    user: { findMany: vi.fn() },
   },
 }))
 
@@ -21,7 +23,7 @@ import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { deletePosthogPersons } from '@/lib/posthog-purge'
 import { prisma } from '@/lib/prisma'
 
-import { purgeUser } from './purge-user'
+import { purgeDueUsers, purgeUser } from './purge-user'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockDeletePosthogPersons = vi.mocked(deletePosthogPersons)
@@ -380,5 +382,28 @@ describe('purgeUser', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// The cap and the selected rows are tested against a database in
+// `purge-user.db.test.ts`; a real cascade failure cannot be forced there.
+describe('purgeDueUsers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockDeletePosthogPersons.mockResolvedValue('deleted')
+    vi.mocked(prisma.householdMember.findMany).mockResolvedValue([])
+  })
+
+  it('reports a failed purge to onFailure and purges the rest', async () => {
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1' }, { id: 'u2' }] as never)
+    mockTx({ memberships: [] })
+    const failure = new Error('cascade failed')
+    mockTransaction.mockRejectedValueOnce(failure)
+    const onFailure = vi.fn()
+
+    const result = await purgeDueUsers(new Date('2026-10-15T03:00:00.000Z'), onFailure)
+
+    expect(result).toEqual({ capExceeded: false, scanned: 2, purged: 1 })
+    expect(onFailure.mock.calls).toEqual([['u1', failure]])
   })
 })

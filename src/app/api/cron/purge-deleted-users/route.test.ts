@@ -10,11 +10,11 @@ vi.mock('@/lib/env', () => ({
   },
 }))
 
-// Which users are due lives in `findUsersDueForPurge`, tested against a
-// database in `purge-user.db.test.ts` (HON-1216).
+// Which users are due, and the cap on them, live in `purgeDueUsers`, tested
+// against a database in `purge-user.db.test.ts` (HON-1216, HON-1509).
 vi.mock('@/lib/auth/purge-user', () => ({
-  findUsersDueForPurge: vi.fn(),
-  purgeUser: vi.fn(),
+  PURGE_MAX_USERS_PER_RUN: 25,
+  purgeDueUsers: vi.fn(),
 }))
 
 vi.mock('@/lib/waitlist', () => ({
@@ -38,16 +38,17 @@ vi.mock('@/lib/errors', () => ({
 }))
 
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
-import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
+import { purgeDueUsers } from '@/lib/auth/purge-user'
 import { serverEnv } from '@/lib/env'
+import { captureApiError } from '@/lib/errors'
 import { purgeExpiredDeletedMealImages } from '@/lib/meal-images/purge-deleted-meal-images'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 
 import { GET } from './route'
 
-const mockFindDue = vi.mocked(findUsersDueForPurge)
-const mockPurgeUser = vi.mocked(purgeUser)
+const mockPurgeDue = vi.mocked(purgeDueUsers)
+const mockCaptureApiError = vi.mocked(captureApiError)
 const mockPurgeWaitlist = vi.mocked(purgeExpiredWaitlistRequests)
 const mockPurgeOauthTokens = vi.mocked(purgeExpiredOauthTokens)
 const mockPurgeMealImages = vi.mocked(purgeExpiredDeletedMealImages)
@@ -66,7 +67,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     vi.clearAllMocks()
     env.CRON_SECRET = VALID_SECRET
     env.NEXT_PUBLIC_APP_ENV = 'test'
-    mockFindDue.mockResolvedValue([])
+    mockPurgeDue.mockResolvedValue({ capExceeded: false, scanned: 0, purged: 0 })
     mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 0, confirmed: 0 })
     mockPurgeOauthTokens.mockResolvedValue({ accessTokens: 0, refreshTokens: 0 })
     mockPurgeMealImages.mockResolvedValue([])
@@ -75,13 +76,13 @@ describe('GET /api/cron/purge-deleted-users', () => {
   it('returns 401 when the Authorization header is missing', async () => {
     const response = await GET(req())
     expect(response.status).toBe(401)
-    expect(mockFindDue).not.toHaveBeenCalled()
+    expect(mockPurgeDue).not.toHaveBeenCalled()
   })
 
   it('returns 401 when the Bearer secret does not match', async () => {
     const response = await GET(req('Bearer wrong-secret'))
     expect(response.status).toBe(401)
-    expect(mockPurgeUser).not.toHaveBeenCalled()
+    expect(mockPurgeDue).not.toHaveBeenCalled()
   })
 
   it('returns 500 when CRON_SECRET is unset in production', async () => {
@@ -100,8 +101,8 @@ describe('GET /api/cron/purge-deleted-users', () => {
     expect(response.status).toBe(401)
   })
 
-  it('purges every expired user and reports the count', async () => {
-    mockFindDue.mockResolvedValue(['u1', 'u2'])
+  it('purges the due users and reports the count', async () => {
+    mockPurgeDue.mockResolvedValue({ capExceeded: false, scanned: 2, purged: 2 })
 
     const response = await GET(req(`Bearer ${VALID_SECRET}`))
     const data = await response.json()
@@ -114,9 +115,6 @@ describe('GET /api/cron/purge-deleted-users', () => {
       oauthTokens: { accessTokens: 0, refreshTokens: 0 },
       mealImages: 0,
     })
-    expect(mockPurgeUser).toHaveBeenCalledTimes(2)
-    expect(mockPurgeUser).toHaveBeenCalledWith('u1')
-    expect(mockPurgeUser).toHaveBeenCalledWith('u2')
   })
 
   it('selects the users due as of the request time', async () => {
@@ -129,22 +127,24 @@ describe('GET /api/cron/purge-deleted-users', () => {
       vi.useRealTimers()
     }
 
-    expect(mockFindDue).toHaveBeenCalledWith(new Date('2026-10-15T03:00:00.000Z'))
+    expect(mockPurgeDue.mock.calls[0]![0]).toEqual(new Date('2026-10-15T03:00:00.000Z'))
   })
 
-  it('answers 500 when the selection fails, and purges no one', async () => {
-    mockFindDue.mockRejectedValue(new Error('db down'))
+  it('answers 500 when the selection fails', async () => {
+    mockPurgeDue.mockRejectedValue(new Error('db down'))
 
     const response = await GET(req(`Bearer ${VALID_SECRET}`))
 
     expect(response.status).toBe(500)
     expect(await response.json()).toEqual({ error: 'Purge failed' })
-    expect(mockPurgeUser).not.toHaveBeenCalled()
   })
 
-  it('continues the batch when one purge fails (partial count, still 200)', async () => {
-    mockFindDue.mockResolvedValue(['u1', 'u2'])
-    mockPurgeUser.mockRejectedValueOnce(new Error('cascade failed'))
+  it('reports a failed purge with its user id and still answers 200', async () => {
+    const failure = new Error('cascade failed')
+    mockPurgeDue.mockImplementation(async (_now, onFailure) => {
+      onFailure('u1', failure)
+      return { capExceeded: false, scanned: 2, purged: 1 }
+    })
 
     const response = await GET(req(`Bearer ${VALID_SECRET}`))
     const data = await response.json()
@@ -152,6 +152,52 @@ describe('GET /api/cron/purge-deleted-users', () => {
     expect(response.status).toBe(200)
     expect(data.purged).toBe(1)
     expect(data.scanned).toBe(2)
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/cron/purge-deleted-users',
+      userId: 'u1',
+    })
+  })
+
+  describe('cap on users per run (HON-1509)', () => {
+    it('reports the error and answers 500 when more users are due than the cap', async () => {
+      mockPurgeDue.mockResolvedValue({ capExceeded: true, due: 26 })
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(response.status).toBe(500)
+      expect(await response.json()).toEqual({
+        error: 'Purge cap exceeded',
+        due: 26,
+        cap: 25,
+        waitlist: { unconfirmed: 0, confirmed: 0 },
+        oauthTokens: { accessTokens: 0, refreshTokens: 0 },
+        mealImages: 0,
+      })
+      expect(mockCaptureApiError).toHaveBeenCalledWith(new Error('Purge cap exceeded'), {
+        route: '/api/cron/purge-deleted-users',
+        due: 26,
+        cap: 25,
+      })
+    })
+
+    it('still runs the waitlist, OAuth-token and image purges', async () => {
+      mockPurgeDue.mockResolvedValue({ capExceeded: true, due: 26 })
+
+      await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(mockPurgeWaitlist).toHaveBeenCalledTimes(1)
+      expect(mockPurgeOauthTokens).toHaveBeenCalledTimes(1)
+      expect(mockPurgeMealImages).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports nothing when the due users are within the cap', async () => {
+      mockPurgeDue.mockResolvedValue({ capExceeded: false, scanned: 25, purged: 25 })
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(response.status).toBe(200)
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    })
   })
 
   describe('waitlist retention (HON-846)', () => {
@@ -164,7 +210,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
       expect(response.status).toBe(200)
       expect(data.waitlist).toEqual({ unconfirmed: 3, confirmed: 1 })
       // The same instant as the user purge, so both read one clock.
-      expect(mockPurgeWaitlist).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
+      expect(mockPurgeWaitlist).toHaveBeenCalledWith(mockPurgeDue.mock.calls[0]![0])
     })
 
     it('does not purge the waitlist on an unauthorized call', async () => {
@@ -192,7 +238,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
       expect(response.status).toBe(200)
       expect(data.oauthTokens).toEqual({ accessTokens: 5, refreshTokens: 2 })
       // The same instant as the user purge, so the run reads one clock.
-      expect(mockPurgeOauthTokens).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
+      expect(mockPurgeOauthTokens).toHaveBeenCalledWith(mockPurgeDue.mock.calls[0]![0])
     })
 
     it('does not delete OAuth tokens on an unauthorized call', async () => {
@@ -225,7 +271,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
         [urls[1], '/api/cron/purge-deleted-users'],
       ])
       // The same instant as the user purge, so the run reads one clock.
-      expect(mockPurgeMealImages).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
+      expect(mockPurgeMealImages).toHaveBeenCalledWith(mockPurgeDue.mock.calls[0]![0])
     })
 
     it('does not clear images on an unauthorized call', async () => {

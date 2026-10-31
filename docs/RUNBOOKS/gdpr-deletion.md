@@ -308,12 +308,51 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" https://wobblepot.com/api/cron/
 | `401` `{"error":"Unauthorized"}`        | Wrong or empty secret. Check the pulled file had a `CRON_SECRET` line.                                                           |
 | `500` `{"error":"Cron not configured"}` | `CRON_SECRET` is not set on production, so the scheduled run is failing too.                                                     |
 | `500` `{"error":"Purge failed"}`        | The query for due accounts failed. The exception is in PostHog.                                                                  |
+| `500` `{"error":"Purge cap exceeded"}`  | More than `cap` accounts were due, so none were purged. See [Cap tripped](#cap-tripped).                                         |
 
 Running it twice is safe: a second run finds nothing due and returns `{"purged":0,"scanned":0}`.
 
+### Cap tripped
+
+One run purges at most `PURGE_MAX_USERS_PER_RUN` accounts (25, in `src/lib/auth/purge-user.ts`). A purge cannot be undone, and past 6 hours Neon PITR cannot restore it either, so a bug that schedules many accounts at once must stop for a human (HON-1509). When more are due, the run purges no account, sends `Purge cap exceeded` to PostHog with the `due` and `cap` properties, and answers `500` `{"error":"Purge cap exceeded","due":n,"cap":25,…}`. The waitlist, OAuth-token and recipe-image purges in the same run still go ahead.
+
+The cron then fails every night until you act, and no account is purged, so the published 30-day promise is late for every due account.
+
+1. **Check the due accounts.** Find out whether they are real deletion requests or a bug:
+
+   ```sql
+   SELECT id, email, "deletedAt", "purgeScheduledFor"
+   FROM "user"
+   WHERE "deletedAt" IS NOT NULL
+     AND "purgeScheduledFor" < now() AT TIME ZONE 'UTC'
+   ORDER BY "deletedAt";
+   ```
+
+   Many `deletedAt` values within seconds of each other, or accounts you know are active, point to a bug. Then do not purge: restore each account by the [Recovery procedure](#recovery-procedure-within-the-grace-window), fix the bug, and file an incident.
+
+2. **If the requests are real, purge them in batches.** Keep the oldest 20 due, and spread the rest over the following nights at 03:00 UTC, 20 a night, so accounts that come due on their own still fit under the cap of 25. One run of this SQL clears the backlog; then run the purge [by hand](#running-the-purge-by-hand) or wait for 03:00 UTC:
+
+   ```sql
+   UPDATE "user" u
+   SET "purgeScheduledFor" =
+     date_trunc('day', now() AT TIME ZONE 'UTC') + interval '3 hours'
+     + ceil(d.rn / 20.0) * interval '1 day'
+   FROM (
+     SELECT id, row_number() OVER (ORDER BY "deletedAt") - 20 AS rn
+     FROM "user"
+     WHERE "deletedAt" IS NOT NULL
+       AND "purgeScheduledFor" < now() AT TIME ZONE 'UTC'
+   ) d
+   WHERE u.id = d.id AND d.rn > 0;
+   ```
+
+   The new dates count from today, not from each row's old date, because a row that is days overdue plus one day is still due.
+
+3. **Or raise the constant in a PR**, when real requests now outgrow 25 a night as a matter of course. Change `PURGE_MAX_USERS_PER_RUN` and its tests in `src/lib/auth/purge-user.db.test.ts`, with the reason in the PR body.
+
 ### What reports a failure, and what does not
 
-- **Reported:** each account that fails to purge is sent to PostHog error tracking through `captureApiError`, with `route: '/api/cron/purge-deleted-users'` and the `user_id` property. That includes a failed PostHog person delete, which leaves the account for the next run. So is a failed query for due accounts, a production deploy with no `CRON_SECRET`, and each account purged while the PostHog purge key is unset or rejected ([above](#data-held-outside-the-database)).
+- **Reported:** each account that fails to purge is sent to PostHog error tracking through `captureApiError`, with `route: '/api/cron/purge-deleted-users'` and the `user_id` property. That includes a failed PostHog person delete, which leaves the account for the next run. So is a failed query for due accounts, a run with more due accounts than the [cap](#cap-tripped), a production deploy with no `CRON_SECRET`, and each account purged while the PostHog purge key is unset or rejected ([above](#data-held-outside-the-database)).
 - **Not reported (known gap):** a run that never starts. Vercel's cron delivery is best effort and does not retry. A missed invocation leaves no runtime log, and the route never executes, so nothing reaches PostHog. The same applies if the cron is disabled in the dashboard, or if a rollback to a deployment without it removes it. The overdue query above is the only way to notice. Run it when you handle a deletion request, and after any change to `vercel.json` or the Vercel project.
 
 ## Backup residuals (Neon PITR)
