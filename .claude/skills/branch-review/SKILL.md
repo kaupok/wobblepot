@@ -213,15 +213,6 @@ Files: `file1.ts`, `file2.ts`, ...
 ### Missing Tests
 - [ ] [Test case that should be added]
 
-### Pre-merge Checklist
-- [ ] `pnpm lint` passes
-- [ ] `pnpm type-check` passes
-- [ ] `pnpm test` passes
-- [ ] If a shared primitive's geometry changed: every Mirror from the coupling scan moved with it, or the plan says why not
-- [ ] If changes touch `src/app/**/page.tsx`, a modal/dialog component, or user-visible copy: grepped `tests/e2e/` `// ROUTES: …` / `// COMPONENTS: …` headers for stale references and updated affected specs (or noted "no E2E impact")
-- [ ] If changes touch `src/components/**`: colocated `.stories.tsx` created/updated and `pnpm test-storybook:ci` passes (or noted "no Storybook impact")
-- [ ] PR description is up to date
-
 ### Verdict
 [APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION] - [one sentence rationale]
 
@@ -237,7 +228,7 @@ Files: `file1.ts`, `file2.ts`, ...
 
 ### Deferred issue titles
 
-Do **not** prefix these with `[AUTO DRAFT]`. That prefix means an agent filed the issue unattended (`/auto-implement` 6.8), and it gates the issue out of `/auto-implement` 1.5 and `/next-issue --auto` until a human clears it. This skill files nothing — it proposes, and a human reads each proposal and decides whether to create it. Such an issue is human-filed at birth, so gating it would only force a second skill run to strip a marker nobody asked for.
+Do **not** prefix these with `[AUTO DRAFT]`: a human files each proposal (CLAUDE.md → Title prefixes).
 
 ## Completion
 
@@ -255,5 +246,3 @@ After outputting the review, add the completion marker:
 - Focus on the diff, not unrelated code
 - Check for patterns from CLAUDE.md (sentence case, typography components, etc.)
 - If Linear issue has acceptance criteria, verify they're addressed in the review
-- **Bias toward action** - when in doubt, put it in Address Now
-- **Defer is last resort** - only for work that genuinely takes hours and is out of scope
