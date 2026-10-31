@@ -6,6 +6,8 @@ import { mcpHousehold } from '@/test/mcp'
 
 import { getPantry } from './get-pantry'
 import { removeFromPantry } from './remove-from-pantry'
+import { setPantryStatus } from './set-pantry-status'
+import { setStaple } from './set-staple'
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1497).
 // The ingredient names are invented words that match no seeded ingredient.
@@ -90,6 +92,32 @@ describe('remove_from_pantry', () => {
 
     expect(result.item).toMatchObject({ quantity: null, isStaple: true })
     expect(await pantryIds(alder)).toEqual(['ing-oats'])
+  })
+
+  it('puts a ran-out staple back as it was, the way its description says', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.update({
+      where: { householdId_ingredientId: { householdId: alder.id, ingredientId: 'ing-grain' } },
+      data: { quantity: 0 },
+    })
+
+    const { item } = await call(alder, 'ing-grain')
+    expect(item).toMatchObject({ quantity: 0, isStaple: true })
+    expect(removeFromPantry.description).toContain(
+      'set_pantry_status with ran_out when its quantity was 0, else with have_some and the amount, then set_staple when it was a staple',
+    )
+    await setPantryStatus.run(alder, { ingredientId: 'ing-grain', status: 'ran_out' }, CALLER)
+    await setStaple.run(
+      alder,
+      { name: 'snorvelgrain', ingredientId: 'ing-grain', staple: true },
+      CALLER,
+    )
+
+    const { items } = await getPantry.run(alder, {}, CALLER)
+    expect(items.find((i) => i.ingredientId === 'ing-grain')).toMatchObject({
+      quantity: 0,
+      isStaple: true,
+    })
   })
 
   it('changes nothing for an ingredient not in the pantry', async () => {

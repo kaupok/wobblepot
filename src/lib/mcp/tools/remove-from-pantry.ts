@@ -10,8 +10,9 @@ export const removeFromPantry = defineTool({
   name: 'remove_from_pantry',
   title: 'Remove from pantry',
   description:
-    'Takes an ingredient out of the pantry, as Remove on the pantry page does. Use it for an item put in by mistake, such as a wrong match from add_to_pantry. Pass an ingredientId from get_pantry or add_to_pantry. A staple stops being a staple too. The result gives the item as it was, so it can be put back with add_to_pantry and set_staple. To record that the household used something up, use set_pantry_status with ran_out instead: that keeps the item, and on a staple it puts the item on the shopping list.',
-  // The result carries all a put-back needs, so the remove is not destructive.
+    'Takes an ingredient out of the pantry, as Remove on the pantry page does. Use it for an item put in by mistake, such as a wrong match from add_to_pantry. Pass an ingredientId from get_pantry or add_to_pantry. A staple stops being a staple too. The result gives the item as it was, so it can be put back: set_pantry_status with ran_out when its quantity was 0, else with have_some and the amount, then set_staple when it was a staple. To record that the household used something up, use set_pantry_status with ran_out instead: that keeps the item, and on a staple it puts the item on the shopping list.',
+  // The result carries all a put-back needs (set_pantry_status, then
+  // set_staple), so the remove is not destructive.
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientId: z
