@@ -89,8 +89,6 @@ EOF
 )"
 ```
 
-Use the trailers given in the harness/system instructions when they differ from the above.
-
 ### 8. Verify success
 
 ```bash
