@@ -1,8 +1,7 @@
 import 'server-only'
 
 import { MealPlanEntryStatus, MealType } from '@/generated/prisma/enums'
-import { isWeekday, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
-import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
+import { toDateString } from '@/lib/meal-planning/dates'
 import { prisma } from '@/lib/prisma'
 
 import { createEntry } from './create-entry'
@@ -14,20 +13,13 @@ import { setFridgeItems } from './fridge-meal'
  *
  * - `dinnerNotFound`: no entry of this household's plan (404)
  * - `notPlannedDinner`: not a planned recipe dinner (409)
- * - `lunchOff`: the household does not plan lunch on the next day (409)
  * - `recipeLunch`: the next day's lunch is a recipe meal (409)
  * - `cooked`: the next day's lunch is cooked (409)
  * - `alreadyLinked`: that lunch already takes leftovers from this dinner (409)
  * - `lunchFull`: that lunch already holds `FRIDGE_ITEMS_MAX` items (409)
  */
 export type LeftoverLunchRefusal =
-  | 'dinnerNotFound'
-  | 'notPlannedDinner'
-  | 'lunchOff'
-  | 'recipeLunch'
-  | 'cooked'
-  | 'alreadyLinked'
-  | 'lunchFull'
+  'dinnerNotFound' | 'notPlannedDinner' | 'recipeLunch' | 'cooked' | 'alreadyLinked' | 'lunchFull'
 
 export class LeftoverLunchError extends Error {
   constructor(readonly reason: LeftoverLunchRefusal) {
@@ -49,10 +41,7 @@ export class LeftoverLunchError extends Error {
  * them.
  */
 export async function addLeftoverLunch(
-  household: {
-    id: string
-    preferences: { weekdayMealTypes: MealType[]; weekendMealTypes: MealType[] } | null
-  },
+  household: { id: string },
   planId: string,
   dinnerEntryId: string,
   servings: number,
@@ -74,13 +63,8 @@ export async function addLeftoverLunch(
   const lunchDay = new Date(dinner.date)
   lunchDay.setDate(lunchDay.getDate() + 1)
   const lunchDate = toDateString(lunchDay)
-  // The timeline shows only the meal types that are on, so a lunch planned on
-  // a day without lunch would not be seen.
-  const expected = getExpectedMealTypes(household.preferences)
-  const mealTypes = isWeekday(parseLocalDate(lunchDate))
-    ? expected.weekdayMealTypes
-    : expected.weekendMealTypes
-  if (!mealTypes.includes(MealType.lunch)) throw new LeftoverLunchError('lunchOff')
+  // Lunch need not be one of the day's expected meal types: Today shows every
+  // entry, whatever its type (HON-1518).
 
   const lunch = await prisma.mealPlanEntry.findFirst({
     where: { plan: { householdId: household.id }, date: lunchDay, mealType: MealType.lunch },

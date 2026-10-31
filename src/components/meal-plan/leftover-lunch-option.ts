@@ -1,13 +1,13 @@
-import { isWeekday, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 
-import type { ExpectedMealTypes, PlanEntry } from './types'
+import type { PlanEntry } from './types'
 
 /**
  * Whether a dinner's menu offers "Cook for tomorrow's lunch too" (HON-1396):
  * `available`, or shown but `unavailable` with the reason the menu gives.
  */
 export type LeftoverLunchOption =
-  { state: 'available' } | { state: 'unavailable'; reason: 'recipeLunch' | 'cooked' | 'lunchOff' }
+  { state: 'available' } | { state: 'unavailable'; reason: 'recipeLunch' | 'cooked' }
 
 /**
  * The option for each planned recipe dinner in `entries`, by entry id. A
@@ -20,7 +20,6 @@ export type LeftoverLunchOption =
  */
 export function getLeftoverLunchOptions(
   entries: readonly PlanEntry[],
-  expected: ExpectedMealTypes,
 ): Map<string, LeftoverLunchOption> {
   const lunches = new Map(
     entries.flatMap((entry) => (entry.mealType === 'lunch' ? [[entry.date, entry]] : [])),
@@ -39,14 +38,12 @@ export function getLeftoverLunchOptions(
       lunch?.items?.some((item) => item.sourceEntryId === dinner.id)
     if (linked) continue
 
-    const mealTypes = isWeekday(day) ? expected.weekdayMealTypes : expected.weekendMealTypes
-    options.set(dinner.id, optionFor(lunch, mealTypes.includes('lunch')))
+    options.set(dinner.id, optionFor(lunch))
   }
   return options
 }
 
-function optionFor(lunch: PlanEntry | undefined, lunchOn: boolean): LeftoverLunchOption {
-  if (!lunchOn) return { state: 'unavailable', reason: 'lunchOff' }
+function optionFor(lunch: PlanEntry | undefined): LeftoverLunchOption {
   if (lunch?.status === 'completed') return { state: 'unavailable', reason: 'cooked' }
   if (lunch && lunch.kind !== 'fridge' && lunch.meal) {
     return { state: 'unavailable', reason: 'recipeLunch' }

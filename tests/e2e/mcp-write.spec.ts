@@ -36,7 +36,7 @@ async function anyIngredientId(page: Page): Promise<string> {
 }
 
 // A day and slot of its own on the smoke household: the other fixture specs
-// plant on days 2, 10, 12 and 13, and on days -3 and -5 (past-meals).
+// plant on days 2, 4 to 10, 12 and 13, and on days -3 and -5 (past-meals).
 const SWAP_DAY_OFFSET = 11
 const SWAP_MEAL_TYPE = 'dinner'
 

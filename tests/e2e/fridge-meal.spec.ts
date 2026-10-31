@@ -1,4 +1,4 @@
-// ROUTES: / · COMPONENTS: MealCard, MealCardMenu, AddMealMenu, FridgeMealPicker, LeftoverServingsControl, FridgeMealCard, FridgeCompleteDialog
+// ROUTES: / · COMPONENTS: MealCard, MealCardMenu, AddMealMenu, FridgeMealPicker, LeftoverServingsControl, FridgeMealCard, FridgeCompleteDialog, CookForLunchDialog
 import { expect, type Page, test } from '@playwright/test'
 
 import { e2eBaseURL } from './utils/db-helpers'
@@ -173,8 +173,9 @@ interface SystemMeal {
 
 // Leftovers from a dinner still to cook (HON-1396): the picker lists it,
 // marked "planned", its item takes servings, and the dinner then cooks for
-// them. The smoke household plans dinner only (prisma/seed.ts), so the
-// dinner's "Cook for tomorrow's lunch too" says lunch is off.
+// them. The smoke household plans dinner only (prisma/seed.ts), and the
+// dinner's "Cook for tomorrow's lunch too" plans the lunch all the same: every
+// entry shows on Today (HON-1518).
 test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for them", async ({
   page,
 }) => {
@@ -192,7 +193,9 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
   }
   expect(planId, 'The smoke household has no meal plan (prisma/seed.ts).').toBeTruthy()
   for (const stale of entries) {
-    if ((stale.date === sourceDate || stale.date === leftoverDate) && stale.mealType === 'dinner') {
+    const staleDinner =
+      (stale.date === sourceDate || stale.date === leftoverDate) && stale.mealType === 'dinner'
+    if (staleDinner || (stale.date === leftoverDate && stale.mealType === 'lunch')) {
       await page.request.delete(`/api/meal-plans/${planId}/entries/${stale.id}`)
     }
   }
@@ -249,12 +252,38 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
     const dinner = page.locator('[data-slot="card"]').filter({ has: dinnerMenu })
     await expect(dinner).toContainText(`${taken} for dinner:`)
 
-    // Lunch is off for the smoke household, so the action says so.
+    // The smoke household does not plan lunch, and the action still plans it.
+    const mealHeadings = page.getByRole('heading', { name: meal!.name })
+    const headingsBefore = await mealHeadings.count()
     await dinnerMenu.click()
-    const action = page.getByRole('menuitem', { name: /Cook for tomorrow's lunch too/ })
-    await expect(action).toHaveAttribute('aria-disabled', 'true')
-    await expect(action).toContainText('Lunch is off for that day.')
+    const action = page.getByRole('menuitem', { name: "Cook for tomorrow's lunch too" })
+    await expect(action).not.toHaveAttribute('aria-disabled')
+    await action.click()
+    const dialog = page.getByRole('dialog', { name: "Cook for tomorrow's lunch too" })
+    const [planned] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().endsWith('/leftover-lunch') && r.request().method() === 'POST',
+      ),
+      dialog.getByRole('button', { name: 'Add to lunch' }).click(),
+    ])
+    expect(planned.status(), 'POST …/leftover-lunch refused').toBe(200)
+    expect(await planned.json()).toEqual({ outcome: 'planned', date: leftoverDate })
+    await expect(dialog).toHaveCount(0)
+    // Its card shows on Today, beside the leftover dinner.
+    await expect(mealHeadings).toHaveCount(headingsBefore + 1)
   } finally {
+    const after = await page.request.get(
+      // `endDate` is exclusive.
+      `/api/entries?startDate=${leftoverDate}&endDate=${daysFromNow(LEFTOVER_DAY_OFFSET + 1)}`,
+    )
+    if (after.ok()) {
+      const { entries: day } = (await after.json()) as {
+        entries: { id: string; mealType: string }[]
+      }
+      for (const lunch of day.filter((e) => e.mealType === 'lunch')) {
+        await page.request.delete(`/api/meal-plans/${planId}/entries/${lunch.id}`).catch(() => {})
+      }
+    }
     await page.request.delete(`/api/meal-plans/${planId}/entries/${leftoverId}`).catch(() => {})
     await page.request.delete(`/api/meal-plans/${planId}/entries/${sourceId}`).catch(() => {})
   }

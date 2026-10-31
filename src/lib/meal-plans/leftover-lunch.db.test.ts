@@ -9,18 +9,12 @@ import { addLeftoverLunch, LeftoverLunchError, type LeftoverLunchRefusal } from 
 // `unit-db` project, with no mocks.
 
 // Wednesday the 21st's dinner feeds Thursday's lunch. Friday the 23rd's dinner
-// would feed Saturday's, and Alder plans no lunch at weekends.
+// would feed Saturday's.
 const WEDNESDAY = '2026-10-21'
 const THURSDAY = '2026-10-22'
 const FRIDAY = '2026-10-23'
 
-const household = {
-  id: 'household-alder',
-  preferences: {
-    weekdayMealTypes: ['lunch' as const, 'dinner' as const],
-    weekendMealTypes: ['dinner' as const],
-  },
-}
+const household = { id: 'household-alder' }
 
 async function world() {
   await prisma.household.create({
@@ -188,18 +182,21 @@ describe('addLeftoverLunch', () => {
     expect((await thursdayLunch())?.items).toHaveLength(30)
   })
 
-  it('refuses when lunch is off for the next day', async () => {
+  // Alder has no preferences row, so it expects dinner only. Every entry shows
+  // on Today, so the lunch is planned all the same (HON-1518).
+  it('plans the lunch on a day that does not expect lunch', async () => {
     await world()
 
-    expect(await refusal(addLeftoverLunch(household, 'plan-alder', 'friday-dinner', 2))).toBe(
-      'lunchOff',
-    )
-    // No household preferences: dinner only.
+    expect(await addLeftoverLunch(household, 'plan-alder', 'friday-dinner', 2)).toEqual({
+      outcome: 'planned',
+      date: '2026-10-24',
+    })
     expect(
-      await refusal(
-        addLeftoverLunch({ ...household, preferences: null }, 'plan-alder', 'dinner', 2),
-      ),
-    ).toBe('lunchOff')
+      await prisma.mealPlanEntry.findFirst({
+        where: { date: parseLocalDate('2026-10-24'), mealType: 'lunch' },
+        select: { kind: true, items: { select: { sourceEntryId: true, servings: true } } },
+      }),
+    ).toEqual({ kind: 'fridge', items: [{ sourceEntryId: 'friday-dinner', servings: 2 }] })
   })
 
   it('refuses a dinner that is cooked, a fridge meal or not a dinner, and another household’s', async () => {
