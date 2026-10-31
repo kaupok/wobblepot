@@ -63,14 +63,14 @@ Do not post in a community, send an email or a message, register an account, or 
 
 ### 7. Write so the maker can decide in one read
 
-`CLAUDE.md` → Writing style applies, and most of all "Name the thing, not its number": the maker does not know an issue from its ID or a phase from its number.
+`CLAUDE.md` → Writing style applies. Name a phase by what it does, not by its number.
 
 - Put a decision as a question that carries the trade-off, then your recommendation and one sentence of reason.
 - Ask at most three decisions in one message. Lead with the one that blocks the most.
 
 ### 8. Linear rules
 
-`CLAUDE.md` → Git & Workflow Essentials and `docs/PARALLEL_WORKFLOW.md` → Queued is the queue apply: `get_issue` with `includeRelations: true`, `[DRAFT]` for an issue whose spec is not ready, `blockedBy` in the call that creates the issue, human-only work goes to Todo, and an issue an agent can finish alone goes to Queued (`CLAUDE.md` → File and queue by default).
+`CLAUDE.md` → Git & Workflow Essentials applies to every issue you read or file.
 
 ## Step 1: Load the state
 
@@ -85,7 +85,7 @@ Then:
 
 1. Read the document `GTM plan` in full with `get_document`. It names the phases, the gates, the open decisions and the companion documents. Read its `Log` section last: it says what the previous sessions did.
 2. Read a companion document only when the topic needs it.
-3. For each issue you will talk about, call `get_issue` with `includeRelations: true` and read `status`, `assignee` and `relations.blockedBy`.
+3. Fetch each issue you will talk about (rule 8).
 
 If no `GTM plan` document exists, say so and stop. Do not rebuild a plan from this file or from the issues without the maker asking for it.
 
@@ -123,7 +123,7 @@ Pick the kind of work the topic needs:
 - **A decision.** Lay out the options, what each costs, and what the evidence documents say. Recommend one. After the maker answers, record it (rule 3) and update every issue the decision touches.
 - **Research.** Go to first-hand sources (rule 4). Write a new dated research document: the finding first, then the sources, then what stays unknown. Put the two or three facts that change the plan into the plan, with a link to the document.
 - **A text**: landing copy, an invite message, a community post, an email. Check each claim against the product (rule 5). Landing copy becomes an issue that names the catalog keys in `messages/en.json` and `messages/et.json` (`CLAUDE.md` → Localization). A text the maker sends goes into the playbook or its own document (rule 6).
-- **A product change.** Write the issue with the `GTM` label. The why is the go-to-market reason, and it belongs in the issue, not in the code or the PR. Use `[DRAFT]` unless the spec is complete, then hand it to `/refine-backlog` or `/plan-issue`. Implement it in this session only when the maker asks, and then on a branch through the normal PR flow.
+- **A product change.** Write the issue with the `GTM` label. The why is the go-to-market reason, and it belongs in the issue, not in the code or the PR. Pick its prefix and state by rule 8, then hand it to `/refine-backlog` or `/plan-issue`. Implement it in this session only when the maker asks, and then on a branch through the normal PR flow.
 - **A measurement.** Define what counts, in words, before you build the insight. Say what the number cannot see.
 - **Running the cohort.** Work from the playbook. Each problem a household reports becomes an issue with the `GTM` label, in the household's words, without the household's name.
 
@@ -136,10 +136,7 @@ Do this before the session ends, whenever something changed. The next session ha
 3. **Link every new document** from the plan's list of companion documents.
 4. **Correct the false sentences** you found in Step 2.
 
-Two Linear behaviours to know:
-
-- Linear stores an issue reference as a tag, not as the text `HON-123`. A `patch` whose `old_string` contains an issue ID or a link does not match. Anchor on plain words next to it, and use `replace_range` to replace a span that contains a reference.
-- Do not put a table inside a list item (`CLAUDE.md` → Writing for Agents).
+Linear stores an issue reference as a tag, not as the text `HON-123`. A `patch` whose `old_string` contains an issue ID or a link does not match. Anchor on plain words next to it, and use `replace_range` to replace a span that contains a reference. Do not put a table inside a list item (`CLAUDE.md` → Writing for Agents).
 
 If the session changed **how** go-to-market work is done (a new rule, a new kind of document), that belongs in this file, through a PR. Keep the rule free of plan content.
 

@@ -1,7 +1,6 @@
 ---
 name: next-issue
-description: Find the next unblocked Linear issue to work on. Use when the user asks what to work on next or says 'continue implementation'. Pass `--auto` only when the user typed `--auto`; never infer it from prose.
-argument-hint: '[--auto]'
+description: Find the next unblocked Linear issue to work on. Use when the user asks what to work on next or says 'continue implementation'.
 context: fork
 agent: general-purpose
 allowed-tools:
@@ -16,32 +15,11 @@ allowed-tools:
 
 Arguments: $ARGUMENTS
 
-Find the next unblocked issue and return a concise implementation summary.
+Find the next unblocked, unclaimed issue and return a concise implementation summary.
 
-## Modes
-
-- **Default:** find any unblocked, unclaimed issue ready to implement.
-- **No-human-input mode (`--auto`):** only surface issues that `/auto-implement` can complete end-to-end without a human in the loop — no open decisions, no missing configuration, no provisioning, no design/legal review. Applies **extra** filters in step 5 and a different state order in steps 2 and 6 — everything else identical.
-
-**This skill proposes; it writes no state.** It runs in a fork without `save_issue`. Its output is a list of candidates. In `--auto` mode a candidate is something to move to `Queued` (the orchestrator's queue) or pass to `/auto-implement HON-XX`. That is why both modes still list Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only: finding ready work in the backlog is this skill's purpose. Mark each candidate an agent can finish alone as ready to queue. The calling session then offers to move those to Queued and moves the ones the user accepts (CLAUDE.md → File and queue by default).
-
-## Arguments
-
-- `--auto` — enable no-human-input mode. **Must be passed explicitly as the literal token `--auto` in the skill invocation's args.** Never infer auto mode from natural-language phrasing, prior conversation, or surrounding context. This skill has previously triggered auto mode without the flag (twice as of 2026-05-07); the explicit flag is now the *only* path in.
+**This skill proposes; it writes no state.** It runs in a fork without `save_issue`. Its output is a list of candidates. It lists Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only, because finding ready work in the backlog is this skill's purpose. Mark a candidate ready to queue only when it passes `/auto-implement` 1.5 (`.claude/skills/auto-implement/discovery.md`), which rejects `[DRAFT]` and `[AUTO DRAFT]` titles and work that needs a human. Only a ready candidate gets a `wt auto` line, because `wt auto` passes an explicit ID and so skips 1.5. The calling session then offers to move those to Queued and moves the ones the user accepts (CLAUDE.md → File and queue by default).
 
 ## Workflow
-
-0. **Parse arguments**
-
-   Default: `autoMode = false`.
-
-   Set `autoMode = true` **only** if `$ARGUMENTS` (the `Arguments:` line at the top of this skill) contains the literal token `--auto`. Do not infer it from:
-   - The user's natural-language prompt accompanying the invocation
-   - Prior conversation turns
-   - Project context, the current phase, or what "would make sense"
-   - A bare `/next-issue` invocation with no args
-
-   If unsure, `autoMode = false`. The user can always re-run with `--auto` if they wanted it; the inverse (silently filtering out issues the user wanted to see) is the failure mode this rule prevents.
 
 1. **Read project context**
 
@@ -55,21 +33,11 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Pass `assignee: "null"` for Todo and Backlog, because those are for humans and an assignee has claimed them. Queued takes no assignee filter: an agent may take a Queued issue whatever its assignee (HON-1483). Never list all issues and filter client-side. Never list issues with any other state (In Progress / In Review / Done / Canceled issues are already claimed or complete).
 
-   The three states mean different things: **Todo** is work a human intends to do, **Queued** is the orchestrator's unattended queue (a human who takes a queued issue by hand moves it out of Queued), and **Backlog** is everything not yet promoted. The listing order depends on the mode, and step 6 ranks in the same order.
-
-   **`autoMode` false** — Todo, then Queued, then Backlog:
+   The three states mean different things: **Todo** is work a human intends to do, **Queued** is the orchestrator's unattended queue (a human who takes a queued issue by hand moves it out of Queued), and **Backlog** is everything not yet promoted. List them in this order, and step 5 ranks in the same order:
 
    ```
    mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
    mcp__linear-server__list_issues({ state: "Queued",  limit: 100 })
-   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
-   ```
-
-   **`autoMode` true** — Queued, then Todo, then Backlog:
-
-   ```
-   mcp__linear-server__list_issues({ state: "Queued",  limit: 100 })
-   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
    mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
 
@@ -92,29 +60,12 @@ Find the next unblocked issue and return a concise implementation summary.
 
    If any filter rejects the candidate, discard it and pick another — **do not downgrade the candidate to a "caveat" or include it anyway**. Silent failures here are the primary failure mode this skill exists to prevent.
 
-5. **No-human-input mode — additional filters (only when `autoMode` is true)**
-
-   When `autoMode` is true, also reject the candidate if the description or acceptance criteria imply any of:
-
-   - Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
-   - New environment variables / secrets on Vercel or elsewhere
-   - DNS changes (SPF/DKIM/DMARC, subdomain setup, registrar actions)
-   - Legal / copy review (privacy policy text, ToS, company entity details, parental consent wording)
-   - Design assets (OG images, branded graphics, mockups)
-   - Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
-   - Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
-   - Subjective human review — the acceptance criteria require a human to *validate quality*, not just to provide inputs. An agent can produce the artifact but cannot close the ticket. Covers: native-speaker / native-judgment work (voice, tone, register, idiom), copy or naming quality review, design polish review, and any AC that name-drops a specific reviewer ("does the owner read this and…"). Distinct from "legal / copy review" — that's about *clearance*; this is about *taste*.
-
-   Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic Estonian", "voice reference", "tone of voice", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
-
-   Reject `[DRAFT]` and `[AUTO DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and an `[AUTO DRAFT]` is a review finding an agent filed for itself (`/auto-implement` 6.8), which no unattended cycle should pick up unreviewed. `/auto-implement` 1.5 rejects both. Keep these symmetric: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so either prefix surfaced here would still trigger unattended work.
-
-6. **Prioritize surviving candidates**
-   - State, in the step 2 order for the active mode: Todo → Queued → Backlog by default, Queued → Todo → Backlog with `--auto`
+5. **Prioritize surviving candidates**
+   - State, in the step 2 order: Todo → Queued → Backlog
    - Issues that unblock others (large `blocks` array) before leaf issues
    - Higher priority (lower `priority.value`) before lower
 
-7. **Quick codebase scan**
+6. **Quick codebase scan**
    Read key files mentioned in the issue description to identify:
    - Files to modify
    - Existing patterns to follow
@@ -131,16 +82,19 @@ Return up to 3 unblocked candidates, ranked by priority.
 **Why:** Unblocks HON-YY, HON-ZZ | [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ### 2. HON-AA - [Title]
 **Why:** [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ### 3. HON-BB - [Title]
 **Why:** [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ---
 
@@ -149,50 +103,32 @@ Return up to 3 unblocked candidates, ranked by priority.
 Run in separate terminals for parallel implementation:
 
 \`\`\`bash
-wt auto [gitBranchName-1]
-wt auto [gitBranchName-2]
-wt auto [gitBranchName-3]
+wt auto [gitBranchName of each ready candidate]
 \`\`\`
 ```
 
-The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear. Each command creates a worktree and runs autonomous implementation.
+The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear, one per candidate marked **Ready to queue: yes**. Each command creates a worktree and runs autonomous implementation. With no ready candidate, omit the section.
 
 If fewer than 3 unblocked issues exist, return only what's available.
 
-End the output, before the completion marker, with this line verbatim. This skill runs as a fork, so the caller never reads this body; the two rules in `## Important` that govern the caller reach it only through the output:
+End the output, before the completion marker, with this line verbatim. This skill runs as a fork, so the caller reads only its output:
 
 ```
-Caller note: for a refined variation, re-invoke /next-issue rather than delegating to a general-purpose agent. For the no-human-input filters, ask the user to re-invoke with the literal `--auto` flag; never translate prose into `--auto`.
+Caller note: for a refined variation, re-invoke /next-issue rather than delegating to a general-purpose agent.
 ```
 
 ## Completion
 
-After outputting candidates, emit exactly **one** completion marker — never both forms.
-
-**If `autoMode` is false:**
+After outputting candidates, emit the completion marker:
 
 ```
 [next-issue:complete] Found N candidates: HON-XX, HON-AA, HON-BB
 ```
 
-**If `autoMode` is true:** include `mode=auto` so the caller can see that the stricter filters were applied.
-
-```
-[next-issue:complete] mode=auto | Found N candidates: HON-XX, HON-AA, HON-BB
-```
-
-If no unblocked issues survive the filters, emit the matching "no candidates" form for the active mode.
-
-**`autoMode` false:**
+If no unblocked issues survive the filters:
 
 ```
 [next-issue:complete] No unblocked issues found
-```
-
-**`autoMode` true:**
-
-```
-[next-issue:complete] mode=auto | No unblocked issues found
 ```
 
 ## Important
@@ -201,7 +137,6 @@ If no unblocked issues survive the filters, emit the matching "no candidates" fo
 - Do NOT explore the entire codebase - only files directly relevant to each issue
 - Keep each candidate summary brief - main agent will do detailed planning
 - Prioritize issues that unblock others
-- Always include the `gitBranchName` from Linear in the parallel commands
+- Use the `gitBranchName` from Linear in the parallel commands, for ready candidates only
 - The `wt auto` command accepts branch names and extracts the issue ID automatically
 - **Every returned candidate must have passed step 4's hard filters via a `get_issue` call with `includeRelations: true`.** Never surface a candidate based on `list_issues` output alone — that endpoint hides `relations` and can disagree with the prose "Blocked by" section. If fewer than 3 candidates survive the filters, return only what survives; do not pad the list.
-- When the user asks for a refined variation ("find me three without blockers", etc.), re-invoke this skill rather than ad-hoc-delegating to a general-purpose agent — the skill's filters are the reason it exists. For the no-human-input variation, ask the user to re-invoke with the explicit `--auto` flag (e.g. `/next-issue --auto`); **never translate prose like "that don't need input" or "pure code only" into `--auto` yourself.** Auto mode requires the literal `--auto` token in args.

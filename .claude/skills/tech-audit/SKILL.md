@@ -51,14 +51,7 @@ Record findings: outdated count, vulnerability count, pinning violations.
 
 ### 3. Type safety
 
-**Goal:** Surface type errors and `any` usage.
-
-```bash
-# Run TypeScript type checker
-pnpm type-check 2>&1 || true
-```
-
-Scan for `any` usage in source files (excluding node_modules, .next, generated files):
+CI runs `pnpm type-check`. Run it and read its output. Then scan for `any`, which no check counts:
 
 ```bash
 grep -rn ': any\b\|as any\b\|<any>' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No 'any' usage found"
@@ -68,37 +61,17 @@ Record findings: type error count, `any` usage locations.
 
 ### 4. Code quality
 
-**Goal:** Lint issues, leftover debug code, and TODO markers.
+CI runs `pnpm lint` (ESLint, `@shadcn/lint`, and `no-console` as a warning). Run it and read its output. Then count the markers no check counts:
 
 ```bash
-# Run ESLint
-pnpm lint 2>&1 || true
-```
-
-Scan for quality markers:
-
-```bash
-# TODO/FIXME/HACK comments
 grep -rn 'TODO\|FIXME\|HACK' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No TODO/FIXME/HACK found"
-
-# console.log statements (should not be in production code)
-grep -rn 'console\.log' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' || echo "No console.log found"
 ```
 
-Record findings: lint error count, TODO/FIXME/HACK count, console.log locations.
+Record findings: lint error and warning count, TODO/FIXME/HACK count.
 
 ### 5. Test coverage
 
-**Goal:** Measure test coverage and identify untested source files.
-
-```bash
-# Run tests with coverage
-pnpm test:coverage 2>&1 || true
-```
-
-Find source files without corresponding test files:
-
-Use Glob to find all `.ts` and `.tsx` files under `src/` (excluding test files, type declarations, and generated files). Then check which ones lack a corresponding `.test.ts(x)` sibling.
+CI gates coverage with `pnpm coverage:ratchet` (docs/DEPLOYMENT.md). Run `pnpm test:coverage 2>&1 || true` and read the summary. Then use Glob to list `.ts` and `.tsx` files under `src/` (excluding tests, type declarations and generated files) with no `.test.ts(x)` sibling.
 
 Record findings: coverage percentages, list of untested files.
 
@@ -121,30 +94,19 @@ grep -rn 'dangerouslySetInnerHTML' src/ --exclude-dir=generated --include='*.ts'
 
 Check auth protection on route pages:
 
-There is no `(public)` route group in this project — the only group is `(legal)`. Treat these pages as intentionally public and skip them:
+The public routes are `PUBLIC_ROUTES` in `src/proxy.ts`, which `src/proxy.test.ts` keeps current. Skip their pages, except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Also skip redirect-only pages whose body is just `redirect()` (`src/app/meal-plan`). `src/app/pantry` renders the pantry, so it is checked.
 
-- `src/app/sign-in`, `sign-up`, `forgot-password`, `reset-password`, `request-invite`
-- `src/app/(legal)/**` (`/privacy`, `/privacy/subprocessors`, `/terms`)
-- `src/app/bot`, `src/app/status`
-- `src/app/reminders` (`/reminders/stop`, linked from the reminder email)
-
-This list mirrors the page routes in `PUBLIC_ROUTES` (`src/proxy.ts`), except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Where the two differ otherwise, `PUBLIC_ROUTES` is current, because `src/proxy.test.ts` enforces it.
-
-Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`) — it never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
-
-For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser` — or `load-inventory`, the shared loader in `src/app/shopping/load-inventory.ts` that runs the session check for `/shopping` and `/pantry`:
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session`, or `load-inventory` (`src/app/shopping/load-inventory.ts`, the session check for `/shopping` and `/pantry`). List the pages with none, then drop the public ones:
 
 ```bash
-find src/app -name 'page.tsx' \
-  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|request-invite|reminders|\(legal\)|bot|status|meal-plan)/' \
-  | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
+find src/app -name 'page.tsx' | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
 ```
 
 Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
 
 Check for client components importing server-only modules:
 
-Use Grep to find files with `'use client'` that also import from `@/lib/prisma` or `@/lib/auth` (server-only modules).
+`pnpm prisma-boundary:check` (CI) catches an `@/lib/prisma` import outside `src/lib`; run it and read its output. Use Grep to find files with `'use client'` that import from `@/lib/auth`.
 
 Record findings: potential secret references, raw SQL usage, unprotected routes, boundary violations.
 
@@ -167,20 +129,13 @@ Record findings: client component count, large import concerns.
 
 ### 8. Pattern adherence
 
-**Goal:** Verify codebase follows CLAUDE.md conventions.
+**Goal:** Verify codebase follows CLAUDE.md conventions. `pnpm lint` (section 4) already reports margins on type primitives and restyled primitives (`shadcn/no-restyle`).
 
 Check for raw HTML heading/paragraph elements instead of Typography components:
 
 ```bash
 # Raw <h1>-<h4> or <p> tags in components (should use Heading/Body)
 grep -rn '<h[1-4]\b\|<p\b' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'node_modules\|\.test\.' || echo "No raw HTML typography found"
-```
-
-Check for layout classes on Typography components:
-
-```bash
-# Typography with layout classes (mt-, mb-, p-, mx-, etc.)
-grep -rn '<Heading\|<Body\|<Blockquote' src/ --exclude-dir=generated --include='*.tsx' | grep -E 'className=.*\b(m[tblrxy]?-|p[tblrxy]?-|gap-)' || echo "No layout classes on Typography"
 ```
 
 Check for relative imports (should use `@/` prefix):
@@ -196,7 +151,7 @@ Check for non-sentence-case UI text in common patterns:
 grep -rn '<Button' src/ --exclude-dir=generated --include='*.tsx' | grep -oE '>([A-Z][a-z]+ ){2,}' || echo "No obvious title case violations"
 ```
 
-Record findings: raw HTML elements, Typography layout violations, relative imports, casing issues.
+Record findings: raw HTML elements, relative imports, casing issues.
 
 ---
 
@@ -245,26 +200,13 @@ Record findings: pages missing loading.tsx (especially async ones), pages missin
 
 ### 11. File complexity
 
-**Goal:** Flag overly large files that may need extraction or refactoring.
+CI runs `pnpm file-size:check` (5,000 tokens per code file, CLAUDE.md → Code Standards). Run it and read its output. Then look for deep nesting, which no check measures:
 
 ```bash
-# Find source files over 300 lines
-find src/ -not -path '*/generated/*' \( -name '*.ts' -o -name '*.tsx' \) | grep -v node_modules | grep -v '.test.' | xargs wc -l | sort -rn | head -20
-```
-
-For the top files, note:
-
-- Files over 300 lines: candidates for extraction
-- Files over 500 lines: strong candidates for refactoring
-
-Also check for deeply nested logic (multiple levels of if/else, ternaries):
-
-```bash
-# Functions with high indentation depth (rough proxy for complexity)
 grep -rn '          ' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|\.css' | head -20
 ```
 
-Record findings: file line counts, specific files over threshold, deeply nested code.
+Record findings: files over or near the cap, deeply nested code.
 
 ### 12. Data fetching patterns
 
@@ -481,7 +423,7 @@ Items to watch but not urgent (minor pattern deviations, informational).
 ...
 
 ### Proposed Linear Issues
-For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, in "Writing for Agents" format (see CLAUDE.md), with plain-text `HON-NNN` references. All new issues include the **Tech** label.
+For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, per CLAUDE.md → Writing for Agents. All new issues include the **Tech** label.
 
 #### 1. [Title] — New
 **Label:** Tech · **Priority:** [Urgent/High/Medium/Low]
@@ -501,8 +443,8 @@ For significant findings, propose Linear issues. Each proposal is tagged with it
 ### Triage criteria
 
 - **Address Now**: Security vulnerabilities, type errors, failing tests, broken builds, auth gaps, accessibility blockers (missing alt text, no keyboard access), N+1 queries on hot paths, missing error boundaries on critical routes
-- **Address Soon**: Outdated dependencies with available patches, missing test coverage for critical paths, code quality issues (console.log, TODO/FIXME), pattern violations, API inconsistencies, files over 500 lines, missing loading states, sequential fetches that should be parallel
-- **Monitor**: Minor outdated deps without security impact, informational coverage gaps, style preferences, files 300-500 lines, minor React pattern concerns, unused exports in internal utilities
+- **Address Soon**: Outdated dependencies with available patches, missing test coverage for critical paths, code quality issues (console.log, TODO/FIXME), pattern violations, API inconsistencies, files over the file-size cap, missing loading states, sequential fetches that should be parallel
+- **Monitor**: Minor outdated deps without security impact, informational coverage gaps, style preferences, files near the file-size cap, minor React pattern concerns, unused exports in internal utilities
 
 ## Completion
 

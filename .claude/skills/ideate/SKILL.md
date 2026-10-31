@@ -71,15 +71,7 @@ mcp__linear-server__list_issues({
 })
 ```
 
-Check if this idea (or parts of it) already exists as issues. Flag any overlaps.
-
-`list_issues` never returns relations, so before presenting any flagged overlap re-fetch it and read the structured fields:
-
-```typescript
-mcp__linear-server__get_issue({ id: 'HON-NNN', includeRelations: true })
-```
-
-Check `status`, `assignee`, and `relations.blockedBy` for each — a Done issue with an attached PR has shipped (build on it, don't re-plan it); an In Progress / assigned issue is someone's active work; an open `blockedBy` chain changes what the new idea can depend on. Present overlaps with that state attached, not just titles.
+Check if this idea (or parts of it) already exists as issues. Re-fetch each overlap per CLAUDE.md → Linear and present it with its state attached, not just its title.
 
 ### Step 4: Present initial take and ask questions
 
@@ -157,7 +149,7 @@ Ask the user conversationally if the proposed issues look good to create. If the
 
 For each approved issue:
 
-Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (`/refine-backlog` → "Title prefixes"). Create a ready issue that an agent can finish alone in Queued, per `CLAUDE.md` → File and queue by default. A `[DRAFT]` goes to Backlog, and an issue with a human-only step to Todo. Set any `blockedBy` in the same call. The approval in step 8 names the state of each issue.
+Pick the title prefix by `/refine-backlog` → Title prefixes and the state by `CLAUDE.md` → File and queue by default. The approval in step 8 names the state of each issue.
 
 ```typescript
 mcp__linear-server__save_issue({
@@ -173,9 +165,7 @@ mcp__linear-server__save_issue({
 })
 ```
 
-Reference other issues in descriptions as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
-
-**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. Put the table at top level before or after the list, or use a nested bullet list instead. Top-level tables and tables inside a blockquote are safe. See CLAUDE.md → Writing for Agents.
+Write descriptions to CLAUDE.md → Writing for Agents (no table inside a list item) and → Linear (plain `HON-NNN` references).
 
 ### Step 10: Summary
 
