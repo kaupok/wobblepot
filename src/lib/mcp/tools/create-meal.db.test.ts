@@ -1,4 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// A saved recipe starts its image in `after()` (HON-1503), which throws outside
+// a request. The test drops the callback, so no image is drawn even when the
+// developer's `.env` has an OpenAI key; `create-meal.test.ts` and
+// `update-meal.test.ts` assert the claim and the draw.
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn(),
+}))
 
 import { listHouseholdMeals } from '@/lib/household-meals-read'
 import { prisma } from '@/lib/prisma'
@@ -8,8 +17,8 @@ import { createMeal } from './create-meal'
 import { getMeal } from './get-meal'
 
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no
-// mocks: the household's ingredients are written with Prisma, found by the
-// real matcher, and the recipe is read back (HON-1305).
+// `src/lib` mocks: the household's ingredients are written with Prisma, found
+// by the real matcher, and the recipe is read back (HON-1305).
 
 const CALLER = { userId: 'user-1' }
 

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { after } from 'next/server'
 import { z } from 'zod'
 
 import { HouseholdMealError, updateHouseholdMeal } from '@/lib/household-meals'
@@ -7,6 +8,7 @@ import { getHouseholdMeal } from '@/lib/household-meals-read'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, type McpHousehold, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { type ComponentForProtein, distinctProteinTypes } from '@/lib/meal-planning/protein'
 
@@ -90,7 +92,11 @@ export const updateMeal = defineTool({
     check: checkOutput,
     proteinTypes: proteinTypesOutput,
   }),
-  run: async (household, { mealId, ingredients, confirmedAmounts, mainProtein, ...fields }) => {
+  run: async (
+    household,
+    { mealId, ingredients, confirmedAmounts, mainProtein, ...fields },
+    caller,
+  ) => {
     const refused = {
       meal: null,
       servings: null,
@@ -143,6 +149,16 @@ export const updateMeal = defineTool({
     }
     // After commit: a rolled-back edit must not have lost its image.
     await discardMealImage(update.discardedImageUrl, ROUTE)
+    // An edit that cleared the image starts a new one, as the app's PATCH route
+    // does (HON-1364). The tool answers first; the draw runs after it.
+    if (update.imageInvalidated) {
+      const imageClaim = await claimSavedMealImage(household.id, mealId, ROUTE)
+      if (imageClaim) {
+        const householdId = household.id
+        const { userId } = caller
+        after(() => drawSavedMealImage(imageClaim, { householdId, userId, route: ROUTE }))
+      }
+    }
 
     const saved = await findLiveMeal(household, mealId)
     if (!saved) return notFound
