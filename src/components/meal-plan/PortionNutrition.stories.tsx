@@ -118,6 +118,32 @@ export const OnTintedSurface: Story = {
   },
 }
 
+/**
+ * A long member name in Estonian, the longest caption: it wraps beside the
+ * calories and stays in the phone's 350px column, with the (i) after it.
+ */
+export const LongName: Story = {
+  name: 'Long name (Estonian)',
+  globals: { locale: 'et' },
+  args: {
+    nutrition: { calories: 1040, protein: 76, carbs: 60, fat: 44 },
+    components: [{ isVague: true }],
+    portions: [
+      { id: 'm1', name: 'Alexandra Kõrv-Tammsaar', multiplier: 1.5, isSelf: true },
+      { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('combobox', { name: /^Kelle portsjon/ })
+    await expect(trigger).toHaveTextContent('Alexandra Kõrv-Tammsaar, 1,5× portsjon')
+    const column = canvasElement.querySelector<HTMLElement>('.w-87\\.5')!.getBoundingClientRect()
+    const info = canvas.getByRole('button', { name: 'Nende numbrite kohta' })
+    await expect(trigger.getBoundingClientRect().right).toBeLessThanOrEqual(column.right)
+    await expect(info.getBoundingClientRect().right).toBeLessThanOrEqual(column.right)
+  },
+}
+
 /** Every member at 1×: each option would repeat "Per serving", so the caption is plain text. */
 export const AllOneTimes: Story = {
   name: 'All at 1× (plain caption)',

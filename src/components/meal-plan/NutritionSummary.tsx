@@ -130,7 +130,9 @@ export function NutritionSummary({
         <Body variant={sizing.value}>
           {t('kcal', { calories: formatInteger(nutrition.calories, locale) })}
         </Body>
-        <div className="flex items-center gap-1">
+        {/* `min-w-0`, so a long caption (a member's name) wraps beside the
+            calories rather than pushing the row past the column (HON-1505). */}
+        <div className="flex min-w-0 items-center gap-1">
           <Body variant="fine-print">{caption ?? t('perServing')}</Body>
           {vagueInfo}
         </div>

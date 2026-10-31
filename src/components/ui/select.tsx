@@ -34,17 +34,19 @@ function SelectTrigger({
       data-size={size}
       data-variant={variant}
       className={cn(
-        "focus-visible:ring-ring/50 flex w-fit items-center whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus-visible:ring-ring/50 flex w-fit items-center transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         variant === 'default' &&
           // The default size tracks Button and Input: `touch` (44px) below `md`,
           // 40px from `md` up. `sm` stays at 32px for inline secondary use.
-          "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 data-[size=default]:h-touch justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm data-[size=sm]:h-8 md:data-[size=default]:h-10",
+          "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 data-[size=default]:h-touch justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 md:data-[size=default]:h-10",
         variant === 'inline' &&
           // Text in a line of text: the trigger takes the type and colour of
           // the line around it, and a chevron says it opens. The `::after` is
           // 44px tall, centred on the line whatever its height, and no wider
-          // than the trigger, so it never covers a button beside it (HON-1505).
-          'relative gap-1 rounded-sm after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2',
+          // than the trigger, so it never covers a button beside it. The value
+          // wraps like the text it replaces, so a long name stays in the
+          // column (HON-1505).
+          'relative gap-1 rounded-sm text-left after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2',
         className,
       )}
       {...props}
