@@ -2,8 +2,8 @@ import 'server-only'
 
 import { z } from 'zod'
 
-import { type CustomShoppingItem, Prisma } from '@/generated/prisma/client'
-import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
+import { Prisma } from '@/generated/prisma/client'
+import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { prisma } from '@/lib/prisma'
 
@@ -23,8 +23,6 @@ export const customItemUpdateSchema = z.object({
 })
 
 export type CustomItemUpdate = z.infer<typeof customItemUpdateSchema>
-
-const AUTO_MATCH_THRESHOLD = 0.4
 
 const ITEM_INCLUDE = {
   ingredient: {
@@ -46,19 +44,21 @@ export type CustomItemWithIngredient = Prisma.CustomShoppingItemGetPayload<{
 export type AddCustomItemOutcome =
   | { status: 'created'; item: CustomItemWithIngredient }
   | { status: 'reopened'; item: CustomItemWithIngredient }
-  | { status: 'exists'; existing: CustomShoppingItem | null }
+  | { status: 'exists'; existing: CustomItemWithIngredient | null }
 
 /**
  * Adds an item to the household's shopping list. A name the household already
- * has is not added twice. The item is linked to the best-matching ingredient,
- * global or the household's own, so checking it off stocks the pantry.
+ * has is not added twice. The item is linked to an ingredient, global or the
+ * household's own, only when the matcher is sure, so checking it off stocks
+ * the pantry. An unsure match leaves it unlinked, because a wrong link stocks
+ * a wrong, possibly restricted, food (HON-1498).
  */
 export async function addCustomShoppingItem(
   household: { id: string; locale: string | null },
   name: string,
 ): Promise<AddCustomItemOutcome> {
   const where = { householdId_name: { householdId: household.id, name } }
-  const existing = await prisma.customShoppingItem.findUnique({ where })
+  const existing = await prisma.customShoppingItem.findUnique({ where, include: ITEM_INCLUDE })
 
   if (existing) {
     // Re-adding a checked item puts it back on the list.
@@ -73,30 +73,32 @@ export async function addCustomShoppingItem(
     return { status: 'exists', existing }
   }
 
-  // Auto-match against ingredient database: global ingredients and this
-  // household's own, never another household's (HON-889). The household types
-  // names in its own language, so translated names match too (HON-911).
+  // Match as the recipe import does: global ingredients and this household's
+  // own, never another household's (HON-889), with names in the household's
+  // language (HON-911) and an exact translation ahead of an English name
+  // (HON-912), so an Estonian "paprika" is bell pepper, not the spice.
   let matchedIngredientId: string | null = null
-  const match = ingredientNameMatchSql(name, resolveHouseholdLocale(household))
-
   try {
-    const matches = await prisma.$queryRaw<{ id: string; similarity: number }[]>`
-      SELECT
-        i.id,
-        ${match.score} as similarity
-      FROM "ingredient" i
-      ${match.join}
-      WHERE ${match.score} >= ${AUTO_MATCH_THRESHOLD}
-        AND (i."householdId" IS NULL OR i."householdId" = ${household.id})
-      ORDER BY similarity DESC
-      LIMIT 1
-    `
-
-    if (matches.length > 0 && matches[0]) {
-      matchedIngredientId = matches[0].id
+    const [result] = await matchIngredients(
+      [
+        {
+          name,
+          quantity: null,
+          unit: null,
+          originalText: name,
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        },
+      ],
+      1,
+      { householdId: household.id, locale: resolveHouseholdLocale(household) },
+    )
+    if (result?.type === 'matched' && !result.lowConfidence) {
+      matchedIngredientId = result.ingredient.id
     }
   } catch {
-    // If similarity search fails, create without match
+    // If matching fails, create without a link
   }
 
   try {
@@ -112,7 +114,10 @@ export async function addCustomShoppingItem(
   } catch (error) {
     // A concurrent request added the same name first.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return { status: 'exists', existing: await prisma.customShoppingItem.findUnique({ where }) }
+      return {
+        status: 'exists',
+        existing: await prisma.customShoppingItem.findUnique({ where, include: ITEM_INCLUDE }),
+      }
     }
     throw error
   }

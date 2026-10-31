@@ -4615,12 +4615,24 @@ export const importCoverageIngredients = [
     fiber: 1.8,
   },
 
-  // ── Frozen forms (HON-1471) ── 9 items
+  // ── Frozen forms (HON-1471, HON-1499) ── 11 items
   // A frozen row exists only for a product a household keeps stocked. Its own
   // row lets the bag be a staple without hiding the fresh vegetable from a
   // recipe's shopping. Nutrition is per 100 g frozen, unprepared, unsweetened.
   // `frozen mixed vegetables` is the Estonian bag of peas, carrot, sweetcorn
   // and green beans ("köögiviljasegu").
+  {
+    name: 'frozen broccoli',
+    category: 'vegetable',
+    subcategory: 'cruciferous',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 26,
+    protein: 2.8,
+    carbs: 4.8,
+    fat: 0.3,
+    fiber: 3,
+  },
   {
     name: 'frozen broccoli and cauliflower mix',
     category: 'vegetable',
@@ -4728,5 +4740,33 @@ export const importCoverageIngredients = [
     carbs: 9.1,
     fat: 0.1,
     fiber: 2.1,
+  },
+  {
+    name: 'frozen mango',
+    category: 'fruit',
+    subcategory: 'tropical',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 60,
+    protein: 0.8,
+    carbs: 15,
+    fat: 0.4,
+    fiber: 1.6,
+  },
+
+  // ── Fresh pumpkin (HON-1499) ── 1 item
+  // The plain pumpkin an Estonian shop sells by weight ("kõrvits"), apart from
+  // the named squash varieties and `tinned pumpkin`. Nutrition is per 100 g raw.
+  {
+    name: 'pumpkin',
+    category: 'vegetable',
+    subcategory: 'squash',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 26,
+    protein: 1,
+    carbs: 6.5,
+    fat: 0.1,
+    fiber: 0.5,
   },
 ] satisfies IngredientInput[]

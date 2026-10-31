@@ -99,6 +99,7 @@ const GROUPS = INGREDIENT_GROUPS.map((group) => ({
   en: group.en.map(wordKeys),
   et: group.et.map(wordKeys),
   members: new Set(group.members.map((member) => member.toLowerCase())),
+  keepParts: group.keepParts === true,
 }))
 
 /** The groups that have the whole tag as a group word. */
@@ -162,8 +163,9 @@ function plainWords(name: string): string[] {
  * the tag matches whole words only. The forms are the tag, the tag without a
  * final "d" (plural "herned") or "s" ("kapsas" → "kapsa"), and the stems of
  * `ESTONIAN_TAG_FORMS`. A multi-word tag, a group word (its group lists its
- * rows, which keeps "kala" off "kalamata oliiv") and a tag in
- * `ESTONIAN_WHOLE_WORD_ONLY`, or its plural ("pastad"), get none.
+ * rows, which keeps "kala" off "kalamata oliiv") unless the group sets
+ * `keepParts`, and a tag in `ESTONIAN_WHOLE_WORD_ONLY`, or its plural
+ * ("pastad"), get none.
  */
 function partForms(tag: string): string[] {
   const words = plainWords(tag)
@@ -171,10 +173,11 @@ function partForms(tag: string): string[] {
   if (word === undefined || words.length > 1) return []
   if ([...ESTONIAN_WHOLE_WORD_ONLY].some((key) => readsAs(word, key))) return []
   const tagWords = [wordKey(word)]
-  const isGroupWord =
-    groupsOf(tagWords, 'en', sameWord).length > 0 ||
-    groupsOf(tagWords, 'et', translatedWordMatches).length > 0
-  if (isGroupWord) return []
+  const isWholeWordGroup = [
+    ...groupsOf(tagWords, 'en', sameWord),
+    ...groupsOf(tagWords, 'et', translatedWordMatches),
+  ].some((group) => !group.keepParts)
+  if (isWholeWordGroup) return []
 
   // A plural tag reads the table too: "kurgid" gets "kurk" and "kurgi".
   const forms = [

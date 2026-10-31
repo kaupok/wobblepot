@@ -15,8 +15,8 @@ const createSchema = z.object({
 /**
  * POST /api/shopping-list/custom
  *
- * Create a custom shopping list item. Auto-matches against the ingredient DB
- * using fuzzy search. Returns the created item with match info.
+ * Create a custom shopping list item, linked to an ingredient only when the
+ * matcher is sure (HON-1498). Returns the created item with match info.
  * The `add_shopping_item` MCP tool calls the same `addCustomShoppingItem`.
  *
  * A name that is exactly one of the household's staples marks that staple
