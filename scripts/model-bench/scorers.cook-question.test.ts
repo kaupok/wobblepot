@@ -2,13 +2,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CaseOf } from './case-schema'
-import { loadCases } from './load-cases'
 import {
   COOK_QUESTION_MAX_SENTENCES,
   COOK_QUESTION_MAX_WORDS,
   scoreCookQuestion,
   sentenceCount,
-} from './scorers'
+} from './cook-question'
+import { loadCases } from './load-cases'
 
 function starter(id: string): CaseOf<'cook-question'>['input'] {
   const found = loadCases(['cook-question']).find((c) => c.id === `cook-question/${id}`)
@@ -58,6 +58,7 @@ describe('scoreCookQuestion', () => {
     ).toEqual({
       answered: 1,
       metricUnits: 1,
+      noMetaText: 1,
       withinLength: 1,
       withinSentences: 1,
       offTopicDeclined: null,
@@ -304,5 +305,48 @@ describe('the cook-question Estonian step word', () => {
     expect(
       score('Sammus 6 asenda kookospiim vahukoorega, mis sul sahvris olemas on.').avoidsClaims,
     ).toBe(1)
+  })
+})
+
+/** The model's notes to itself must not reach the cook (HON-1506). */
+describe('the cook-question draft and note check', () => {
+  const input = starter('et-spinach-thaw')
+  const score = (answer: string) => scoreCookQuestion(input, answer)
+
+  it('fails the answer the cook saw', () => {
+    const answer =
+      'Tõsta külmutatud spinat sõelale ja lase sel toatemperatuuril sulada. Võid selle panna ka kaussi ja sulatada mikrolaineahjus, aga tööriista olemasolu ma ei tea. Pigista spinat kuivaks. Let me fix this: the draft mentions a tool claim, which is not allowed. Final answer: Pane külmutatud spinat sõelale ja vala üle keeva veega.'
+    expect(score(answer)).toMatchObject({ noMetaText: 0, avoidsClaims: 0 })
+  })
+
+  it('passes a clean answer that names the microwave as one option', () => {
+    expect(
+      score(
+        'Pane külmutatud spinat sõelale ja vala üle keeva veega, see sulab paari minutiga. Mikrolaineahjus, kui seda kasutad, sulata 2 minutit. Seejärel pigista spinat kuivaks.',
+      ),
+    ).toMatchObject({ noMetaText: 1, avoidsClaims: 1 })
+  })
+
+  it.each([
+    'Final answer: thaw it in a sieve.',
+    'FINAL ANSWER: thaw it in a sieve.',
+    'Here is a draft: thaw it in a sieve.',
+    'Let me check: thaw it in a sieve.',
+    'Under the rules, thaw it in a sieve.',
+    'Naming a tool is not allowed. Thaw it in a sieve.',
+    'Lõplik vastus: sulata spinat sõelal.',
+    'Lõpliku vastuse jaoks: sulata spinat sõelal.',
+    'Mustandis oli viga. Sulata spinat sõelal.',
+  ])('fails a note: %s', (answer) => {
+    expect(score(answer).noMetaText).toBe(0)
+  })
+
+  it('does not fail a word that only ends in a marker', () => {
+    expect(score('Lisa potilet mee asemel suhkrut.').noMetaText).toBe(1)
+  })
+
+  it('does not fail an English phrase that only starts like a marker', () => {
+    expect(score('Let meat rest for 5 minutes, then let melt the feta on top.').noMetaText).toBe(1)
+    expect(score('Keep the dough away from a drafty window.').noMetaText).toBe(1)
   })
 })

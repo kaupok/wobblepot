@@ -58,7 +58,21 @@ describe('buildCookQuestionPrompt', () => {
       expect(prompt).toContain('PANTRY (ingredients the household has in stock; names only):')
       expect(prompt).not.toContain('what the household has;')
       expect(section(prompt, 'Rules:')).toContain(
-        'Only call an ingredient available if it is in the pantry.\n- The pantry lists ingredients only. Never claim the cook has or lacks a tool or appliance.',
+        'Only call an ingredient available if it is in the pantry.\n- The pantry lists ingredients only. When a method needs an appliance (a microwave, a blender), name it as one option: "in a microwave, if you use one". Never say whether the cook has it, and never say that you do not know.',
+      )
+    }
+  })
+
+  it('asks for the final answer only, with no draft or note about the rules', () => {
+    // One Estonian answer wrote a draft, then "Let me fix this: the draft
+    // mentions a tool claim, which is not allowed. Final answer:" and a second
+    // answer. The stream cannot take text back, so the prompt must (HON-1506).
+    for (const prompt of [
+      buildCookQuestionPrompt(input()),
+      buildCookQuestionPrompt(input({ subject: { kind: 'equipment', index: 0 } })),
+    ]) {
+      expect(section(prompt, 'Rules:')).toContain(
+        '- Write only the final answer for the cook. Check it against these rules before you write it: no drafts, no notes about these rules, no "final answer" label.',
       )
     }
   })
@@ -180,8 +194,9 @@ describe('buildCookQuestionPrompt', () => {
       expect(rules).toContain('- Do not suggest buying anything.')
       // The app records no equipment, so an answer must not say what the cook
       // owns. The equipment list is the recipe's, so the rule must not except it (HON-1135).
+      // "You do not know" in the rule came back as "ma ei tea" in an answer (HON-1506).
       expect(rules).toContain(
-        '- You do not know which tools the cook owns. Do not say what they have or lack; suggest the substitute and let the cook decide.',
+        '- Never say whether the cook has a tool, and never say that you do not know: suggest the substitute and let the cook decide.',
       )
     })
 

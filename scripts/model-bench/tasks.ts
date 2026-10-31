@@ -10,27 +10,17 @@
  * its real duration is recorded.
  */
 
-import {
-  type FinishReason,
-  generateObject,
-  generateText,
-  type LanguageModel,
-  type LanguageModelUsage,
-  NoObjectGeneratedError,
-} from 'ai'
+import { type FinishReason, generateObject, type LanguageModel, type LanguageModelUsage } from 'ai'
 
 import {
-  COOK_QUESTION_AI_BUDGET_MS,
   IMAGINE_AI_BUDGET_MS,
   PLAN_AI_BUDGET_MS,
   RECIPE_PARSE_AI_BUDGET_MS,
   REVIEW_AI_BUDGET_MS,
   STEPS_AI_BUDGET_MS,
 } from '../../src/lib/ai/budgets'
-import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
 import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
 import {
-  COOK_QUESTION_MODEL,
   IMAGINE_MODEL,
   PLANNING_MODEL,
   RECIPE_MODEL,
@@ -46,12 +36,10 @@ import { buildRecipeRequest } from '../../src/lib/ai/recipe-prompt'
 import { buildReviewRequest } from '../../src/lib/ai/review-request'
 import { adjust } from './adjust'
 import type { BenchCase, CaseOf, Task } from './case-schema'
-import { requestTexts, textOf } from './request-texts'
+import { cookQuestion } from './cook-question'
+import { requestTexts } from './request-texts'
 import {
-  COOK_QUESTION_MAX_SENTENCES,
-  COOK_QUESTION_MAX_WORDS,
   derivePlanContext,
-  scoreCookQuestion,
   scoreImagine,
   scorePlan,
   scoreRecipe,
@@ -472,141 +460,6 @@ const tips: TaskSpec<'tips'> = {
       ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score,
-    }
-  },
-}
-
-const cookQuestion: TaskSpec<'cook-question'> = {
-  productionModel: COOK_QUESTION_MODEL,
-  budgetMs: COOK_QUESTION_AI_BUDGET_MS,
-  budgetLabel: 'COOK_QUESTION_AI_BUDGET_MS',
-  // The request's 2000-token ceiling, which thinking shares; English answers
-  // measured about 200 with no thinking (HON-972, HON-1490).
-  dryRunOutputTokens: 2_000,
-  metrics: [
-    {
-      key: 'answered',
-      label: 'Answered without error',
-      format: 'percent',
-      onError: 0,
-      gate: { min: 1 },
-    },
-    {
-      key: 'metricUnits',
-      label: 'Metric units only',
-      format: 'percent',
-      onError: null,
-      gate: { min: 1 },
-    },
-    {
-      key: 'withinLength',
-      label: `≤ ${COOK_QUESTION_MAX_WORDS.answer} words`,
-      format: 'percent',
-      onError: null,
-      // The length is a prompt instruction nothing enforces, as the tips
-      // counts are (HON-929): one long answer must not fail the record.
-      gate: { min: 0.9 },
-    },
-    {
-      key: 'withinSentences',
-      label: `≤ ${COOK_QUESTION_MAX_SENTENCES} sentences`,
-      format: 'percent',
-      onError: null,
-      // As the word ceiling: a prompt instruction, so one fifth sentence must
-      // not fail the record (HON-1003).
-      gate: { min: 0.9 },
-    },
-    {
-      key: 'offTopicDeclined',
-      label: `Off-topic declined (≤ ${COOK_QUESTION_MAX_WORDS.offTopic} words)`,
-      format: 'percent',
-      onError: null,
-      gate: { min: 1 },
-    },
-    {
-      key: 'avoidsForbidden',
-      label: 'No forbidden suggestion',
-      format: 'percent',
-      // As imagine's forbidden-ingredient check: a failed call suggested
-      // nothing, and `answered` already counts the failure.
-      onError: null,
-      regressionDrop: 0,
-      safety: true,
-      gate: { min: 1 },
-    },
-    {
-      key: 'avoidsClaims',
-      label: 'No unbacked claim',
-      format: 'percent',
-      onError: null,
-      // A claim about what the cook owns, or calling the cook "the household",
-      // is wrong but not unsafe, so it is no safety check, and one slip must not
-      // fail the record (HON-1135, HON-1372, HON-1376). Four cases set it up, so
-      // 3 runs give 12 scores: 0.85 passes one slip in 12 and fails two.
-      gate: { min: 0.85 },
-    },
-    {
-      key: 'mentionsExpected',
-      label: 'Names the expected answer',
-      format: 'percent',
-      onError: null,
-      gate: { min: 0.9 },
-    },
-    {
-      key: 'omitsLeftOut',
-      label: "Leaves out what the changed list doesn't have",
-      format: 'percent',
-      onError: null,
-      // As the tips gate: one mention is the bug the check exists for (HON-1254).
-      gate: { min: 1 },
-    },
-  ],
-  prepare({ input }) {
-    const request = buildCookQuestionRequest({
-      mealName: input.mealName,
-      servings: input.servings,
-      timeMinutes: input.timeMinutes,
-      components: input.components,
-      preparationNotes: input.preparationNotes,
-      steps: input.steps,
-      equipment: input.equipment,
-      subject: input.subject,
-      pitfalls: input.pitfalls,
-      tip: input.tip,
-      pantry: input.pantry,
-      restrictions: input.restrictions,
-      question: input.question,
-      hasChanges: input.hasChanges,
-      previous: input.previous,
-      locale: input.locale,
-    })
-    return {
-      // Plain text: no output schema instructs the model.
-      promptText: textOf(request),
-      schemaText: '',
-      async generate(model) {
-        // `generateText` returns the text `streamText` streams in production;
-        // timed around the call, the latency is the time to the last word,
-        // which is what the route's budget bounds.
-        const result = await generateText({ ...request, model })
-        // Production ends the stream in an error on a cut-off answer, so the
-        // cook sees half an instruction and Retry. Thrown as the error class
-        // the runner reads usage from, so the billed call still counts.
-        if (result.finishReason === 'length' || !result.text.trim()) {
-          throw new NoObjectGeneratedError({
-            message:
-              result.finishReason === 'length'
-                ? 'Cook question answer was cut off at maxOutputTokens'
-                : 'Cook question returned no text',
-            text: result.text,
-            response: result.response,
-            usage: result.usage,
-            finishReason: result.finishReason,
-          })
-        }
-        return { object: result.text, usage: result.usage, finishReason: result.finishReason }
-      },
-      score: (object) => scoreCookQuestion(input, object as string),
     }
   },
 }
