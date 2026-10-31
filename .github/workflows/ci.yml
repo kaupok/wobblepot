@@ -695,6 +695,78 @@ jobs:
           exit "$status"
 
   # ==========================================
+  # Destructive migrations (HON-1512)
+  # ==========================================
+  # Flags, never fails. A migration that drops, deletes or rewrites data is
+  # the one change a code rollback cannot undo, so the reviewer should see it:
+  # when a migration this PR adds matches, the job summary lists the
+  # statements and the PR gets the `destructive-migration` label. The
+  # production deploy holds the same statements until it is dispatched with
+  # `confirm_destructive` (deploy-production.yml → `destructive-check`).
+  #
+  # Its own job, not a `static` step, so only this job's token can write
+  # labels. Not in the `ci` aggregate: a finding is information, not a
+  # failure. The label steps carry `continue-on-error`, because a fork PR's
+  # token is read-only and the summary already carries the list.
+  destructive-migrations:
+    name: Destructive migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # Full history for the three-dot diff against the PR base, as in
+          # `static`. A shallow clone has no merge base.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check the migrations this PR adds
+        id: check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # A plain assignment, not a process substitution, so `set -e` stops
+          # the step when the diff fails: an empty list would read as clean.
+          # `--no-renames`, as in check-migrations-immutable.sh: a re-added
+          # migration under a new timestamp is otherwise a rename, not an add.
+          added=$(git diff --no-renames --diff-filter=A --name-only "$BASE_SHA"...HEAD -- 'prisma/migrations/*/migration.sql')
+          mapfile -t dirs < <(printf '%s\n' "$added" | sed '/^$/d' | xargs -r -n1 dirname)
+          node scripts/check-destructive-migrations.ts "${dirs[@]}"
+
+      - name: Add the destructive-migration label
+        if: steps.check.outputs.found == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh label create destructive-migration --repo "$GITHUB_REPOSITORY" --force \
+            --color B60205 --description "Adds a migration that drops, deletes or rewrites data" \
+            || echo "::warning::Could not create the label; adding it creates a plain one."
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" -f 'labels[]=destructive-migration' > /dev/null
+
+      # A later push can remove the migration, and a stale label misleads the
+      # reviewer. Only runs when the PR carries the label.
+      - name: Remove a stale destructive-migration label
+        if: steps.check.outputs.found != 'true' && contains(github.event.pull_request.labels.*.name, 'destructive-migration')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/destructive-migration" > /dev/null
+
+  # ==========================================
   # Vercel env-var drift audit (HON-550)
   # ==========================================
   # Surfaces vars configured in Vercel that no code references any more —

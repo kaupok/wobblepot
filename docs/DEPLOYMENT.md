@@ -21,7 +21,7 @@ Complete guide for deploying Wobblepot to staging and production environments.
 
 Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`). Docs-only changes run them too, because a required status check has to come from a workflow that cannot be skipped (HON-584). The checks run as parallel jobs (HON-1177), so a green run takes as long as the slowest job, not the sum of all of them. Within a job the steps run in the order listed:
 
-**`Static checks`** — the only job that checks out the full git history:
+**`Static checks`** — one of the two jobs that check out the full git history:
 
 - `scripts/check-migrations-immutable.sh` - Applied migrations are unchanged (the PR diff, and the whole tree on `main`)
 - `pnpm lint` - ESLint rules
@@ -34,6 +34,8 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `pnpm db:validate` - Seed data
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
 - `pnpm audit --audit-level critical` - Dependency advisories (last, because it is the only step that calls the npm registry)
+
+**`Destructive migrations`** — PRs only, the other full-history job, and it never fails the PR (HON-1512). `scripts/check-destructive-migrations.ts` reads each migration the PR adds and flags every statement that drops, deletes or rewrites data: `DROP TABLE`, `DROP COLUMN`, `DROP TYPE`, `TRUNCATE`, `DELETE FROM`, `UPDATE … SET`, `ALTER COLUMN … TYPE`, `RENAME`. Comments and quoted text do not count; `DROP INDEX`, `CREATE` and `ADD COLUMN` are not flagged. On a match, the job summary lists the statements and the PR gets the `destructive-migration` label, so the reviewer checks the migration for expand/contract ([`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md) → Migration Immutability). A data fix (`UPDATE` of seeded rows) is flagged too: the label asks for a look, not a change. The job is not part of `Lint, Type Check & Test`.
 
 CI runs lint, format check and type check with a cache (HON-1181): ESLint and Prettier through `--cache --cache-strategy content`, tsc through its cached `tsconfig.tsbuildinfo`. A warm run re-checks only the files that changed. A push to `main` drops the ESLint cache and lints every file, because `shadcn/no-restyle` reads imported component files that the cache does not track. The flags are in `ci.yml`, not in the scripts, so a local run writes no cache files.
 
@@ -124,13 +126,15 @@ A human starts each production deploy. One workflow, `deploy-production.yml`, th
    **a. Run the Deploy production workflow**
    - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-production.yml), or run `gh workflow run deploy-production.yml`
    - Click "Run workflow". Leave `sha` empty to ship the newest `main` commit with a green staging-smoke run. To ship a specific commit, put its SHA (full or short) in `sha`, or run `gh workflow run deploy-production.yml -f sha=<sha>`
-   - The run has three jobs, each waiting for the one before:
+   - Leave `confirm_destructive` off. Set it only for a run that `destructive-check` held, after you read the list it printed and decided the statements are safe. Dispatch again with the held commit pinned, `gh workflow run deploy-production.yml -f sha=<held sha> -f confirm_destructive=true` (the error line prints this command). A re-run keeps the old inputs, and without `sha` the pick can choose a newer commit whose list nobody read, so the job refuses `confirm_destructive` with an empty `sha`. The statements are safe when the code that read the dropped or renamed data is already live without it, or the `UPDATE` / `DELETE` touches only rows you mean to change. A code rollback cannot undo these statements; recovery is Neon point-in-time restore ([`RUNBOOKS/database-recovery.md`](./RUNBOOKS/database-recovery.md))
+   - The run has four jobs, each waiting for the one before:
      - `pick` resolves the commit (`scripts/pick-production-sha.ts`). It fails when the commit has no `success` run of `staging-smoke.yml` that the staging migrations workflow triggered. A `skipped` run (the staging migrations failed), a `failure`, and a scheduled or dispatched run do not count: only the migration-triggered run proves the commit also migrated on staging. The pick reads the commit from the smoke run's name (`Staging smoke <sha>`), because the run's own `head_sha` is `main` HEAD when it started. It also requires the run's `Staging served the named commit` step to have succeeded: smoke accepts staging serving a newer commit, and such a run tested that newer commit, not the named one. The job log and the run summary name the commit and its smoke run
+     - `destructive-check` holds destructive migrations (HON-1512). It lists the migrations the picked commit adds over the live one, which is the commit of the `ACTIVE` Production deployment record, and runs the PR check's patterns on them. On a match it prints the list, writes it to the run summary, and fails, so `migrate` never starts. With no `ACTIVE` record it checks every migration, so the run holds on old migrations too; read the list and confirm once
      - `migrate` calls `deploy-db-migrations-production.yml` at that commit
      - `deploy` deploys the same commit to Vercel and writes the GitHub deployment record. It does not start when `migrate` fails
    - The `migrate` job also executes `pnpm db:seed` against production. It creates any seeded ingredient or meal that is missing and re-asserts every seeded translation, but it does not rewrite existing rows: an existing ingredient only has `gramsPerPiece` refreshed, and an existing meal's name and components are never updated. Renaming a seeded row therefore needs a migration (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations" and "Renaming a seeded ingredient or meal")
    - Check the run summary for the deployment URL
-   - `deploy-db-migrations-production.yml` can still be dispatched on its own, for a migration-only run such as a step of [`RUNBOOKS/database-recovery.md`](./RUNBOOKS/database-recovery.md). A dispatch checks out `main` HEAD and deploys no code
+   - `deploy-db-migrations-production.yml` can still be dispatched on its own, for a migration-only run such as a step of [`RUNBOOKS/database-recovery.md`](./RUNBOOKS/database-recovery.md). A dispatch checks out `main` HEAD and deploys no code. It skips `destructive-check`: the person who dispatches it is the confirmation
 
    **b. Verify production**
    - Check production site is working

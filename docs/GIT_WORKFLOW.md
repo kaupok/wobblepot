@@ -111,6 +111,8 @@ A migration file is frozen once it is on `main`. By then staging and production 
 - **The only way to keep a post-merge edit** is a pin in `scripts/migration-immutability-allowlist.txt`: `<path> <blob-sha|deleted> <why>`.
 - **Run it locally** with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. Fetch first: a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
 
+**Drop data in two steps (expand/contract).** A migration that drops, deletes or rewrites data cannot be undone by a code rollback, and production runs it before the new code is live, so the old code meets the new schema. Stop using the column in one PR, and drop it in a later PR, after the code without it is live in production. HON-1324 removed the member food and macro fields from the Prisma schema; once production ran that build, HON-1327 added `20261026150000_drop_member_preferences_food_columns`. CI labels a PR that adds such a statement `destructive-migration`, and the production deploy holds it until it is dispatched with `confirm_destructive` ([`DEPLOYMENT.md`](DEPLOYMENT.md) → Deployment Flow).
+
 A migration that never applied anywhere holds no checksum, so the revert rule does not cover it: see [`RUNBOOKS/database-recovery.md`](RUNBOOKS/database-recovery.md).
 
 ## Blame and Bulk Commits
