@@ -327,18 +327,6 @@ export const baseIngredients = [
     fiber: 7,
   },
   {
-    name: 'oats',
-    category: 'carb',
-    subcategory: 'grain',
-    defaultUnit: 'g',
-    allergens: ['gluten'],
-    calories: 389,
-    protein: 17,
-    carbs: 66,
-    fat: 7,
-    fiber: 11,
-  },
-  {
     name: 'couscous',
     category: 'carb',
     subcategory: 'grain',
@@ -1474,19 +1462,6 @@ export const baseIngredients = [
     fat: 0.7,
     fiber: 9,
   },
-  {
-    name: 'haricot beans',
-    category: 'legume',
-    subcategory: 'beans',
-    proteinType: 'legume',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 140,
-    protein: 8.2,
-    carbs: 26,
-    fat: 0.6,
-    fiber: 10.5,
-  },
 
   // ============================================
   // ADDITIONAL GRAINS & STARCHES
@@ -1662,18 +1637,6 @@ export const baseIngredients = [
     carbs: 9,
     fat: 0.3,
     fiber: 3.8,
-  },
-  {
-    name: 'snap peas',
-    category: 'vegetable',
-    subcategory: 'legume-vegetable',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 42,
-    protein: 2.8,
-    carbs: 7.5,
-    fat: 0.2,
-    fiber: 2.6,
   },
   {
     name: 'turnip',
@@ -2739,7 +2702,7 @@ export const baseMeals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'oats', quantity: 50 },
+      { ingredient: 'rolled oats', quantity: 50 },
       { ingredient: 'milk', quantity: 150 },
       { ingredient: 'banana', quantity: 0.5 },
       { ingredient: 'blueberry', quantity: 40 },
@@ -2786,7 +2749,7 @@ export const baseMeals = [
     components: [
       { ingredient: 'egg', quantity: 1 },
       { ingredient: 'banana', quantity: 1 },
-      { ingredient: 'oats', quantity: 40 },
+      { ingredient: 'rolled oats', quantity: 40 },
       { ingredient: 'milk', quantity: 50 },
       { ingredient: 'maple syrup', quantity: 30 },
     ],
@@ -3157,7 +3120,7 @@ export const baseMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'legume',
     components: [
-      { ingredient: 'haricot beans', quantity: 180 },
+      { ingredient: 'white beans', quantity: 180 },
       { ingredient: 'tomato', quantity: 100 },
       { ingredient: 'carrot', quantity: 80 },
       { ingredient: 'celery', quantity: 50 },
@@ -3245,7 +3208,7 @@ export const baseMeals = [
     components: [
       { ingredient: 'pork fillet', quantity: 150 },
       { ingredient: 'pak choi', quantity: 100 },
-      { ingredient: 'snap peas', quantity: 80 },
+      { ingredient: 'sugar snap peas', quantity: 80 },
       { ingredient: 'carrot', quantity: 60 },
       { ingredient: 'soy sauce', quantity: 20 },
       { ingredient: 'vegetable oil', quantity: 15 },

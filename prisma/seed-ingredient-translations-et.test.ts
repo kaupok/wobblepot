@@ -50,40 +50,20 @@ const RENAMED: Record<string, string> = {
   'clotted cream': 'clotted cream',
 }
 
-// Each of these names is one food under two English rows. They stay shared
-// until HON-1500 merges the rows; remove a name here when its rows merge.
-const SHARED_UNTIL_MERGE = [
-  'hiina brokoli',
-  'hiina viievürtsisegu',
-  'jalapeño',
-  'kaerahelbed',
-  'kalmaar',
-  'kanafilee',
-  'kitsejuust',
-  'kombu',
-  'kookoshelbed',
-  'mandlilaastud',
-  'merikeel',
-  'merikeelefilee',
-  'punane kapsas',
-  'suhkruherned',
-  'tai basiilik',
-  'valged oad',
-  'vähk',
-]
-
 describe('Estonian names that two rows share', () => {
   it.each(Object.entries(RENAMED))('names %s as %s', (en, et) => {
     expect(estonianName(en)).toBe(et)
   })
 
-  it('shares only the names that wait for a row merge', () => {
+  // HON-1500 merged the rows that were one food under two English names, so no
+  // Estonian name is left on two rows.
+  it('gives each Estonian name to one row', () => {
     const counts = new Map<string, number>()
     for (const { et } of ingredientTranslationsEt) {
       counts.set(et, (counts.get(et) ?? 0) + 1)
     }
     const shared = [...counts].filter(([, count]) => count > 1).map(([et]) => et)
 
-    expect(shared.sort()).toEqual([...SHARED_UNTIL_MERGE].sort())
+    expect(shared).toEqual([])
   })
 })

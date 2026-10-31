@@ -135,7 +135,7 @@ describe('the boneless form', () => {
 
 describe('isOtherCutFillet', () => {
   it('flags a fillet row that lacks the cut the recipe names', () => {
-    expect(isOtherCutFillet('chicken leg fillet', 'chicken fillet')).toBe(true)
+    expect(isOtherCutFillet('chicken leg fillet', 'chicken thigh fillet')).toBe(true)
     expect(isOtherCutFillet('beef chuck fillet', 'beef fillet')).toBe(true)
   })
 

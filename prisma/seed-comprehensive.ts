@@ -519,18 +519,6 @@ export const comprehensiveIngredients = [
     densityGPerMl: 1.05,
   },
   {
-    name: 'thai sweet basil',
-    category: 'vegetable',
-    subcategory: 'herb',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 23,
-    protein: 3.2,
-    carbs: 2.7,
-    fat: 0.6,
-    fiber: 1.6,
-  },
-  {
     name: 'white miso paste',
     category: 'condiment',
     subcategory: 'paste',
@@ -1871,19 +1859,6 @@ export const comprehensiveIngredients = [
     fiber: 0,
   },
   {
-    name: 'crawfish',
-    category: 'protein',
-    subcategory: 'shellfish',
-    proteinType: 'fish',
-    defaultUnit: 'g',
-    allergens: ['shellfish'],
-    calories: 82,
-    protein: 16.8,
-    carbs: 0,
-    fat: 1.2,
-    fiber: 0,
-  },
-  {
     name: 'sea urchin',
     category: 'protein',
     subcategory: 'shellfish',
@@ -2439,18 +2414,6 @@ export const comprehensiveIngredients = [
     carbs: 6,
     fat: 0.1,
     fiber: 3.1,
-  },
-  {
-    name: 'purple cabbage',
-    category: 'vegetable',
-    subcategory: 'cruciferous',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 31,
-    protein: 1.4,
-    carbs: 7.4,
-    fat: 0.2,
-    fiber: 2.1,
   },
 
   // ============================================
@@ -3014,18 +2977,6 @@ export const comprehensiveIngredients = [
     fiber: 12,
   },
   {
-    name: 'five spice powder',
-    category: 'spice',
-    subcategory: 'spice blend',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 340,
-    protein: 7,
-    carbs: 63,
-    fat: 8,
-    fiber: 15,
-  },
-  {
     name: 'berbere',
     category: 'spice',
     subcategory: 'spice blend',
@@ -3077,19 +3028,6 @@ export const comprehensiveIngredients = [
   // ============================================
   // LEGUMES (8)
   // ============================================
-  {
-    name: 'great northern beans',
-    category: 'legume',
-    subcategory: 'bean',
-    proteinType: 'legume',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 120,
-    protein: 8,
-    carbs: 20,
-    fat: 0.5,
-    fiber: 6,
-  },
   {
     name: 'borlotti beans',
     category: 'legume',

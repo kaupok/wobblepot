@@ -84,6 +84,9 @@ const ingredients = [
 ]
 const meals = [...baseMeals, ...newMeals]
 
+// Rows the migration updated that HON-1500 later merged into `white beans`
+const MERGED_SINCE = new Set(['great northern beans'])
+
 const sql = readFileSync(
   'prisma/migrations/20261030140000_dry_weight_grain_nutrition/migration.sql',
   'utf8',
@@ -95,7 +98,7 @@ describe('dry, as-bought grain nutrition (HON-1473)', () => {
   it.each(DRY_VALUES)(
     'seeds %j with dry values',
     (names, [calories, protein, carbs, fat, fiber]) => {
-      for (const name of names) {
+      for (const name of names.filter((n) => !MERGED_SINCE.has(n))) {
         const rows = ingredients.filter((ing) => ing.name === name)
         expect(rows).toHaveLength(1)
         expect(rows[0]).toMatchObject({ calories, protein, carbs, fat, fiber })

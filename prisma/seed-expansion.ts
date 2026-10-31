@@ -1377,18 +1377,6 @@ export const newIngredients = [
   // VEGETABLES - Peppers (6 new)
   // ============================================
   {
-    name: 'jalapeno',
-    category: 'vegetable',
-    subcategory: 'pepper',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 29,
-    protein: 0.9,
-    carbs: 6.5,
-    fat: 0.4,
-    fiber: 2.8,
-  },
-  {
     name: 'poblano pepper',
     category: 'vegetable',
     subcategory: 'pepper',
@@ -3398,18 +3386,6 @@ export const newIngredients = [
     fat: 5,
     fiber: 3,
   },
-  {
-    name: 'dashima',
-    category: 'vegetable',
-    subcategory: 'sea vegetable',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 43,
-    protein: 1.7,
-    carbs: 9.6,
-    fat: 0.6,
-    fiber: 1.3,
-  },
 ] satisfies IngredientInput[]
 
 // Total new ingredients: ~267
@@ -3430,7 +3406,7 @@ export const newMeals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'oats', quantity: 50 },
+      { ingredient: 'rolled oats', quantity: 50 },
       { ingredient: 'milk', quantity: 150 },
       { ingredient: 'greek yogurt', quantity: 50 },
       { ingredient: 'blueberry', quantity: 50 },
@@ -3738,7 +3714,7 @@ export const newMeals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'oats', quantity: 50 },
+      { ingredient: 'rolled oats', quantity: 50 },
       { ingredient: 'milk', quantity: 200 },
       { ingredient: 'apple', quantity: 0.5 },
       { ingredient: 'cinnamon', quantity: 2 },

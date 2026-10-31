@@ -947,17 +947,6 @@ export const importCoverageIngredients = [
     carbs: 4,
     fat: 7,
   },
-  {
-    name: 'chèvre',
-    category: 'dairy',
-    subcategory: 'fresh cheese',
-    defaultUnit: 'g',
-    allergens: ['dairy'],
-    calories: 364,
-    protein: 22,
-    carbs: 1,
-    fat: 30,
-  },
 
   // Soft / rind cheeses
   {
@@ -1214,21 +1203,6 @@ export const importCoverageIngredients = [
     // USDA SR Legacy 05075, chicken leg, meat and skin, raw
     // Edible part: USDA refuse 27% bone
     ...asSold({ calories: 214, protein: 16.4, carbs: 0.2, fat: 16, fiber: 0 }, 0.73),
-  },
-  {
-    name: 'chicken fillet',
-    category: 'protein',
-    subcategory: 'poultry',
-    proteinType: 'poultry',
-    defaultUnit: 'g',
-    gramsPerPiece: 272, // USDA FDC 171077 (SR 05062), 1 piece = 272 g, as chicken breast (HON-1491)
-    allergens: [],
-    // USDA SR Legacy 05062, chicken breast, skinless, boneless, meat only, raw
-    calories: 120,
-    protein: 22.5,
-    carbs: 0,
-    fat: 2.6,
-    fiber: 0,
   },
   {
     name: 'chicken cutlet',
@@ -2778,29 +2752,6 @@ export const importCoverageIngredients = [
     carbs: 0,
     fat: 3,
   },
-  {
-    name: 'dover sole',
-    category: 'protein',
-    subcategory: 'fish',
-    proteinType: 'fish',
-    defaultUnit: 'g',
-    allergens: ['fish'],
-    // USDA SR Legacy 15028, fish, flatfish (flounder and sole), raw
-    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, yellowfin sole
-    ...asSold({ calories: 70, protein: 12.4, carbs: 0, fat: 1.9, fiber: 0 }, 0.49),
-  },
-  {
-    name: 'dover sole fillet',
-    category: 'protein',
-    subcategory: 'fish',
-    proteinType: 'fish',
-    defaultUnit: 'g',
-    allergens: ['fish'],
-    calories: 70,
-    protein: 14.1,
-    carbs: 0,
-    fat: 1.2,
-  },
 
   // ============================================
   // FISH - Common preparations and preserved forms (10)
@@ -3036,18 +2987,6 @@ export const importCoverageIngredients = [
     protein: 13,
     carbs: 3,
     fat: 1,
-  },
-  {
-    name: 'calamari',
-    category: 'protein',
-    subcategory: 'shellfish',
-    proteinType: 'fish',
-    defaultUnit: 'g',
-    allergens: ['shellfish'],
-    calories: 92,
-    protein: 16,
-    carbs: 3,
-    fat: 1.4,
   },
 
   // ============================================
@@ -3430,18 +3369,6 @@ export const importCoverageIngredients = [
     fiber: 12,
   },
   {
-    name: 'sliced almonds',
-    category: 'fat',
-    subcategory: 'nut',
-    defaultUnit: 'g',
-    allergens: ['nuts'],
-    calories: 579,
-    protein: 21,
-    carbs: 22,
-    fat: 50,
-    fiber: 12,
-  },
-  {
     name: 'chopped walnuts',
     category: 'fat',
     subcategory: 'nut',
@@ -3509,18 +3436,6 @@ export const importCoverageIngredients = [
   // --- Coconut forms (3) ---
   {
     name: 'shredded coconut',
-    category: 'fat',
-    subcategory: 'nut',
-    defaultUnit: 'g',
-    allergens: ['nuts'],
-    calories: 660,
-    protein: 7,
-    carbs: 24,
-    fat: 65,
-    fiber: 16,
-  },
-  {
-    name: 'desiccated coconut',
     category: 'fat',
     subcategory: 'nut',
     defaultUnit: 'g',
@@ -3879,18 +3794,6 @@ export const importCoverageIngredients = [
     carbs: 65.4,
     fat: 11.7,
     fiber: 0,
-  },
-  {
-    name: 'gai lan',
-    category: 'vegetable',
-    subcategory: 'leafy green',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 26,
-    protein: 1.2,
-    carbs: 4.7,
-    fat: 0.6,
-    fiber: 2.0,
   },
   {
     name: 'choy sum',

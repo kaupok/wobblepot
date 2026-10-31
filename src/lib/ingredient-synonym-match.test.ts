@@ -39,6 +39,7 @@ describe('findSynonymMatches', () => {
   it('matches a later word of the key', () => {
     expect(findSynonymMatches('cabb')).toEqual([
       { target: 'chinese leaf', synonym: 'napa cabbage', strong: false },
+      { target: 'red cabbage', synonym: 'purple cabbage', strong: false },
     ])
   })
 
@@ -115,7 +116,11 @@ describe('findSynonymMatches', () => {
     expect(strongOf('all-purpose')).toEqual({ 'all-purpose flour': false })
     expect(strongOf('all')).toEqual({ 'all-purpose flour': false })
     expect(strongOf('all-purpose f')).toEqual({ 'all-purpose flour': true })
-    expect(strongOf('sweet')).toEqual({ 'sweet pepper': false, 'sweet chili sauce': false })
+    expect(strongOf('sweet')).toEqual({
+      'sweet pepper': false,
+      'sweet chili sauce': false,
+      'thai sweet basil': false,
+    })
     expect(strongOf('red bell p')).toEqual({ 'red bell pepper': true })
     expect(strongOf('pepper')['red bell pepper']).toBe(false)
   })
