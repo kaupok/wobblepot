@@ -90,7 +90,7 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 - No output → all checks passed. Proceed.
 - Any line printed → **On failure:** report which checks failed and stop. Do not proceed to merge.
 
-**Known residual risk of the exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build merely queued past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one. The durable fix is HON-584 (required status checks on `main`). See `.claude/skills/auto-implement/history.md` → The pending-Vercel exemption for the full note.
+The exemption's accepted risk is in `.claude/skills/auto-implement/history.md` → The pending-Vercel exemption.
 - `no checks reported on the '<branch>' branch` on stderr (exit 1) → report it and stop; do not merge. `ci.yml` runs on every PR, docs-only ones included, and `Lint, Type Check & Test` is a required check (HON-584), so no PR is exempt: an empty check list means CI did not report, and GitHub would refuse the merge anyway. In practice the poll above does not settle without that job's row, so this branch is defensive.
 
 ### Step 2.5: Wait for Claude Review
@@ -118,7 +118,7 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This spawns `claude -p` and takes several minutes. Run it with `timeout: 600000` (or `run_in_background: true` and poll for the `<!-- claude-review -->` comment) — the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`.
+Run it as `/review-pr` step 2 says: the default Bash timeout kills it and leaves a stale lock.
 
 After the script returns, verify:
 
@@ -240,7 +240,6 @@ mcp__linear-server__save_comment({
 **Rules:**
 - If no Linear issue ID found in branch name, skip this step entirely (no terminal output, no Linear post)
 - If Linear API calls fail, still print the summary to terminal — don't block the merge flow
-- Keep the summary concise — list files and stats, don't dump full diffs
 
 ### Step 6: Local Cleanup
 
