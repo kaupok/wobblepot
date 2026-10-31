@@ -65,7 +65,7 @@ These steps are generic; the failure-mode playbooks below reference them.
 
 ### Steps
 
-1. **Identify the "last known good" timestamp.** Usually: the last deploy that passed smoke tests. Look at `gh run list --workflow deploy-code-production.yml` or the Vercel deployments list. Pick an ISO-8601 timestamp a minute _before_ the bad deploy finished. Example: `2026-04-20T08:42:00Z`.
+1. **Identify the "last known good" timestamp.** Usually: the last deploy that passed smoke tests. Look at `gh run list --workflow deploy-production.yml` or the Vercel deployments list. Pick an ISO-8601 timestamp a minute _before_ the bad deploy finished. Example: `2026-04-20T08:42:00Z`.
 
 2. **Create a recovery branch from that timestamp.** `neonctl@2.22.0`'s `branches create` exposes exactly one parent flag — `--parent` — which accepts a branch name, branch ID, timestamp, or LSN. Pass the incident timestamp directly as `--parent` and the CLI performs PITR from the default branch (our `main`):
 

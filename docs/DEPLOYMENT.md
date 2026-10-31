@@ -89,8 +89,9 @@ definitions. Summary for deployment decisions:
    staging DB-migration workflow succeeds on `main`, every six hours on a
    schedule, and on manual dispatch. Executes `@smoke`-tagged
    specs against `https://wobblepot.dev`. **Failure blocks production
-   promotion** — do not run the production deploy workflows below until
-   staging-smoke is green on the same commit.
+   promotion**: the production deploy workflow below ships only a commit with
+   a green staging-smoke run on `main`, and fails before any migration
+   otherwise.
 
 The `@ai` specs are in no tier: they call Claude for real, so they run as a
 **manual pre-promotion step** (`pnpm test:e2e:local --ai`, step 3 below), not
@@ -99,7 +100,7 @@ coverage.
 
 ## Production Deployment Process
 
-Production deployments require manual coordination to ensure database migrations complete before code deployment.
+A human starts each production deploy. One workflow, `deploy-production.yml`, then ships one commit: it migrates the database and deploys the code from that commit, in that order (HON-1507).
 
 ### Deployment Flow
 
@@ -115,25 +116,23 @@ Production deployments require manual coordination to ensure database migrations
 
 3. **Confirm the pre-promotion test gates**
    - The [staging-smoke workflow](https://github.com/kaupok/wobblepot/actions/workflows/staging-smoke.yml) runs after each staging deploy
-   - Do not promote to production until staging-smoke is green on the commit being deployed
+   - Production ships only a commit with a green staging-smoke run; step 4 checks this and refuses any other commit
    - **Run the `@ai` specs by hand on the commit being promoted:** `pnpm test:e2e:local --ai`. No CI tier runs them — they call Claude for real, and per-push runs would cost four to five figures a year (see [`tests/e2e/README.md`](../tests/e2e/README.md) → "Why the `@ai` split"). They are meal-plan generation's **only** coverage, so skipping this step promotes the core AI flow untested (HON-667)
 
 4. **Deploy to production** (when ready):
 
-   **a. Run database migrations**
-   - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-db-migrations-production.yml)
-   - Click "Run workflow" button
-   - Wait for completion and verify success
-   - The same run then executes `pnpm db:seed` against production. It creates any seeded ingredient or meal that is missing and re-asserts every seeded translation, but it does not rewrite existing rows: an existing ingredient only has `gramsPerPiece` refreshed, and an existing meal's name and components are never updated. Renaming a seeded row therefore needs a migration (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations" and "Renaming a seeded ingredient or meal")
-   - Nothing runs this step for you: step 4b does not depend on it, so skipping it ships code against an unmigrated, unseeded database
+   **a. Run the Deploy production workflow**
+   - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-production.yml), or run `gh workflow run deploy-production.yml`
+   - Click "Run workflow". Leave `sha` empty to ship the newest `main` commit with a green staging-smoke run. To ship a specific commit, put its SHA (full or short) in `sha`, or run `gh workflow run deploy-production.yml -f sha=<sha>`
+   - The run has three jobs, each waiting for the one before:
+     - `pick` resolves the commit (`scripts/pick-production-sha.ts`). It fails when the commit has no `success` run of `staging-smoke.yml` that the staging migrations workflow triggered. A `skipped` run (the staging migrations failed), a `failure`, and a scheduled or dispatched run do not count: only the migration-triggered run proves the commit also migrated on staging. The pick reads the commit from the smoke run's name (`Staging smoke <sha>`), because the run's own `head_sha` is `main` HEAD when it started. It also requires the run's `Staging served the named commit` step to have succeeded: smoke accepts staging serving a newer commit, and such a run tested that newer commit, not the named one. The job log and the run summary name the commit and its smoke run
+     - `migrate` calls `deploy-db-migrations-production.yml` at that commit
+     - `deploy` deploys the same commit to Vercel and writes the GitHub deployment record. It does not start when `migrate` fails
+   - The `migrate` job also executes `pnpm db:seed` against production. It creates any seeded ingredient or meal that is missing and re-asserts every seeded translation, but it does not rewrite existing rows: an existing ingredient only has `gramsPerPiece` refreshed, and an existing meal's name and components are never updated. Renaming a seeded row therefore needs a migration (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations" and "Renaming a seeded ingredient or meal")
+   - Check the run summary for the deployment URL
+   - `deploy-db-migrations-production.yml` can still be dispatched on its own, for a migration-only run such as a step of [`RUNBOOKS/database-recovery.md`](./RUNBOOKS/database-recovery.md). A dispatch checks out `main` HEAD and deploys no code
 
-   **b. Deploy code**
-   - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-code-production.yml)
-   - Click "Run workflow" button
-   - Wait for deployment to complete
-   - Check workflow summary for deployment URL
-
-   **c. Verify production**
+   **b. Verify production**
    - Check production site is working
    - Monitor logs for any errors
    - Verify database changes are reflected
@@ -147,7 +146,7 @@ Production deployments from main are **disabled via Vercel's Ignored Build Step*
 - Schema mismatches causing runtime errors
 - Production downtime from race conditions
 
-The manual process ensures migrations always complete before code deployment.
+The deploy workflow's `deploy` job needs its `migrate` job, so migrations always complete before code deployment.
 
 **Who writes the Production deployment records.** The deploy workflow itself
 does — not the Vercel GitHub integration. Vercel reports a build cancelled by
@@ -155,7 +154,7 @@ the Ignored Build Step only as a commit status (`Vercel — Canceled by Ignored
 Build Step`) and creates no deployment record, and `vercel deploy --prod` is a
 CLI deploy the integration never reports at all. So do not expect Vercel's
 badges on the Environments → Production page the way you see them on Preview
-and staging. Instead, `deploy-code-production.yml` holds `deployments: write`
+and staging. Instead, `deploy-production.yml` holds `deployments: write`
 and posts the record itself: `in_progress` before the deploy, then `success`
 (with `environment_url` `https://wobblepot.com`) or `failure` after it. The run
 summary links to the record it wrote.
@@ -252,7 +251,7 @@ If production deployment fails:
    gh api "repos/kaupok/wobblepot/deployments/<id>/statuses" -f state=inactive
    ```
 
-   Then, once `main` carries the fix, re-run **Deploy code [production]** so a
+   Then, once a commit with the fix has a green staging-smoke run, run **Deploy production** again so a
    fresh accurate record is written. Do not stop after the `inactive` — it is not
    sufficient on its own. Don't guess at what the page shows in the meantime
    either: through the June–September 2026 window described above it tracked the

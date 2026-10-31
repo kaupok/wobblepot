@@ -1,14 +1,13 @@
 # Production Database Migration Workflow
 #
-# IMPORTANT: This workflow must be run BEFORE deploying code to production.
+# `deploy-production.yml` calls this as its `migrate` job, with the commit its
+# `pick` job chose (HON-1507), so migrations and code always ship from the same
+# commit and code never ships when migrations fail. That is the normal path:
+# run "Deploy production" and nothing else.
 #
-# Production Deployment Process:
-# 1. Merge changes to main (staging auto-deploys)
-# 2. Test in staging environment
-# 3. Run this workflow to deploy production migrations
-# 4. After migrations succeed, run "Deploy code [production]" workflow:
-#    - Actions → Deploy code [production] → Run workflow
-# 5. Verify production deployment
+# Dispatch this workflow on its own only for a migration-only run, such as a
+# step of docs/RUNBOOKS/database-recovery.md. A dispatch has no `sha` input, so
+# it checks out `main` HEAD.
 #
 # Note: Automatic production deployments are disabled via Vercel's Ignored Build Step
 # to prevent code from deploying before migrations complete.
@@ -16,6 +15,13 @@
 name: Deploy DB migrations [production]
 
 on:
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit to migrate from. Empty checks out the default ref.
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
 
 permissions:
@@ -30,6 +36,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # The commit `deploy-production.yml` picked. On a direct dispatch
+          # `inputs.sha` is empty and checkout falls back to the default ref.
+          ref: ${{ inputs.sha }}
 
       - name: Enable Corepack
         run: corepack enable
@@ -99,15 +109,12 @@ jobs:
           1. **Verify migrations succeeded** - Check logs above for any errors
 
           2. **Deploy code to production**:
-             - Go to [GitHub Actions](../../actions/workflows/deploy-code-production.yml)
-             - Click "Run workflow" button
-             - Wait for deployment to complete
-             - Check workflow summary for deployment URL
+             - Called from "Deploy production": its `deploy` job runs next, from the same commit
+             - Dispatched on its own: run [Deploy production](../../actions/workflows/deploy-production.yml) to ship code
 
           3. **Monitor production**:
              - Check production site is working
              - Monitor logs for errors
              - Be ready to rollback if needed
 
-          **⚠️ Important**: Do not deploy code before migrations succeed!
           EOF

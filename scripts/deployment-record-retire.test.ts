@@ -1,5 +1,5 @@
 /**
- * The Production deployment-record sweep in `deploy-code-production.yml` (HON-611).
+ * The Production deployment-record sweep in `deploy-production.yml` (HON-611).
  *
  * Every release writes a GitHub Production deployment record (HON-602) and the
  * `auto_inactive` flag on its `success` status is supposed to retire the
@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const workflow = path.join(repoRoot, '.github/workflows/deploy-code-production.yml')
+const workflow = path.join(repoRoot, '.github/workflows/deploy-production.yml')
 
 const STEP = '- name: Retire superseded Production deployment records'
 const SUCCESS_STEP = "- name: 'Record GitHub deployment: success'"
