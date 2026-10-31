@@ -72,21 +72,24 @@ test('a dinner-only household adds a breakfast from the Add menu, then clears it
     await expect(menu.getByRole('group', { name: 'Dinner' })).toBeVisible()
     await menu.getByRole('menuitem', { name: 'Breakfast' }).click()
     const breakfast = page.getByRole('menu', { name: 'Breakfast' })
+    await breakfast.getByRole('menuitem', { name: 'Fridge meal' }).click()
+
+    // The fridge route creates no placeholder: Save posts the entry.
+    const picker = page.getByRole('dialog', { name: 'Fridge meal' })
+    const search = picker.getByLabel('What are you having?')
+    await search.fill(item)
+    await search.press('Enter')
+    await expect(picker.getByRole('region', { name: 'In this meal' })).toContainText(item)
     const [created] = await Promise.all([
       page.waitForResponse(
         (r) =>
           r.request().method() === 'POST' &&
           /^\/api\/meal-plans\/[^/]+\/entries$/.test(new URL(r.url()).pathname),
       ),
-      breakfast.getByRole('menuitem', { name: 'Fridge meal' }).click(),
+      picker.getByRole('button', { name: 'Save' }).click(),
     ])
+    expect(created.ok(), `Saving the breakfast failed with ${created.status()}`).toBe(true)
     expect(created.request().postDataJSON()).toMatchObject({ date, mealType: MEAL_TYPE })
-
-    const picker = page.getByRole('dialog', { name: 'Fridge meal' })
-    const search = picker.getByLabel('What are you having?')
-    await search.fill(item)
-    await search.press('Enter')
-    await picker.getByRole('button', { name: 'Save' }).click()
     await expect(picker).toHaveCount(0)
 
     // The breakfast is a normal card, and its ⋯ menu clears it.
