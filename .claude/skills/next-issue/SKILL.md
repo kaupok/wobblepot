@@ -82,16 +82,19 @@ Return up to 3 unblocked candidates, ranked by priority.
 **Why:** Unblocks HON-YY, HON-ZZ | [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ### 2. HON-AA - [Title]
 **Why:** [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ### 3. HON-BB - [Title]
 **Why:** [Brief rationale]
 **Files:** `file1.ts`, `file2.ts`
 **Summary:** [1-2 sentences]
+**Ready to queue:** [yes | no — the reason, e.g. `[DRAFT]`, needs a secret]
 
 ---
 
@@ -100,13 +103,11 @@ Return up to 3 unblocked candidates, ranked by priority.
 Run in separate terminals for parallel implementation:
 
 \`\`\`bash
-wt auto [gitBranchName-1]
-wt auto [gitBranchName-2]
-wt auto [gitBranchName-3]
+wt auto [gitBranchName of each ready candidate]
 \`\`\`
 ```
 
-The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear. Each command creates a worktree and runs autonomous implementation.
+The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear, one per candidate marked **Ready to queue: yes**. Each command creates a worktree and runs autonomous implementation. With no ready candidate, omit the section.
 
 If fewer than 3 unblocked issues exist, return only what's available.
 
@@ -130,6 +131,6 @@ If no unblocked issues survive the filters:
 - Do NOT explore the entire codebase - only files directly relevant to each issue
 - Keep each candidate summary brief - main agent will do detailed planning
 - Prioritize issues that unblock others
-- Always include the `gitBranchName` from Linear in the parallel commands
+- Use the `gitBranchName` from Linear in the parallel commands, for ready candidates only
 - The `wt auto` command accepts branch names and extracts the issue ID automatically
 - **Every returned candidate must have passed step 4's hard filters via a `get_issue` call with `includeRelations: true`.** Never surface a candidate based on `list_issues` output alone — that endpoint hides `relations` and can disagree with the prose "Blocked by" section. If fewer than 3 candidates survive the filters, return only what survives; do not pad the list.
