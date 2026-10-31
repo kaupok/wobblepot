@@ -1,12 +1,10 @@
 'use client'
 
-import { useMutation } from '@tanstack/react-query'
 import { MoreHorizontal, NotebookPen, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { Ref } from 'react'
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +18,6 @@ import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useMealSteps } from '@/hooks/use-meal-steps'
 import { useMemberPortions } from '@/hooks/use-member-portions'
-import { apiFetch } from '@/lib/api'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 import { ConflictBadges } from './ConflictBadge'
@@ -29,6 +26,7 @@ import { MealDetail } from './MealDetail'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import type { EntryChange, MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 import { useAdjustSection } from './use-adjust-section'
+import { useEntryServings } from './use-entry-servings'
 import type { SharedLeftover } from './use-leftover-lunches'
 
 export interface MealDetailModalHandle {
@@ -127,10 +125,8 @@ export function MealDetailModal({
 }: MealDetailModalProps) {
   const router = useRouter()
   const tDetail = useTranslations('meal-plan.detail')
-  const tServing = useTranslations('meal-plan.serving')
   const tNote = useTranslations('meal-plan.noteEditor')
   const tAdjust = useTranslations('meal-plan.adjust')
-  const [localServings, setLocalServings] = useState(servingOverride ?? householdServings)
   const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
     useIngredientAvailability({
       onRefresh: () => router.refresh(),
@@ -244,60 +240,20 @@ export function MealDetailModal({
   // "Adjust recipe" (HON-1244) on the planned, editable entry that gets "Done
   // cooking", opened from the ⋯ menu (HON-1356).
   const adjustEditable = !!changes && !readOnly && status === 'planned' && !!onDoneCooking
+  // A cooked or skipped meal is history: no pantry checkboxes, missing styling
+  // or "N to buy" (HON-1504). It still lists what the meal used.
+  const isFinished = status === 'completed' || status === 'skipped'
   const adjust = useAdjustSection({ viewOpen: open, triggerRef: moreActionsTriggerRef })
 
-  // Sync local state when prop changes
-  const effectiveServings = servingOverride ?? householdServings
-  if (localServings !== effectiveServings && !open) {
-    setLocalServings(effectiveServings)
-  }
-
-  const servingsMutation = useMutation({
-    mutationFn: (newServings: number | null) =>
-      apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servingOverride: newServings }),
-      }),
-    onMutate: (newServings) => {
-      const previousServings = localServings
-      // Optimistic update
-      setLocalServings(newServings ?? householdServings)
-      return { previousServings }
-    },
-    onSuccess: (_data, newServings) => {
-      // Notify parent of change
-      onServingOverrideChange?.(newServings)
-
-      // The PATCH just nulled this entry's cached `preparationTips`, because
-      // the prompt scales by the serving count (HON-681). This component is
-      // rendered unconditionally by `MealCard`, so it never unmounts and the
-      // hook's `steps` survives a close and reopen — and `handleHowToPrepare`
-      // short-circuits on a non-null `steps`, so without dropping it here the
-      // panel keeps showing pan sizes for the old count and never re-POSTs.
-      //
-      // `cancelSteps` rather than clearing the state, because a generation
-      // started before this change is still running and would otherwise
-      // resolve into the state we just emptied.
-      cancelSteps()
-    },
-    onError: (_err, _newServings, context) => {
-      if (context) setLocalServings(context.previousServings)
-      toast.error(tServing('updateFailed'))
-    },
+  const { localServings, setLocalServings, handleServingsChange } = useEntryServings({
+    planId,
+    entryId,
+    householdServings,
+    servingOverride,
+    open,
+    onServingOverrideChange,
+    cancelSteps,
   })
-
-  const { mutateAsync: updateServings } = servingsMutation
-  // `ServingControl` awaits a boolean rather than the mutation's result, so
-  // the rejection is already handled by `onError` and only the outcome crosses.
-  const handleServingsChange = useCallback(
-    (newServings: number | null): Promise<boolean> =>
-      updateServings(newServings).then(
-        () => true,
-        () => false,
-      ),
-    [updateServings],
-  )
 
   // A swap repoints this entry at a different meal, and the same PATCH nulls
   // the entry's cached `preparationTips` and resets its `servingOverride`
@@ -334,7 +290,7 @@ export function MealDetailModal({
       // would never ask again.
       dropSteps: cancelSteps,
     }),
-    [cancelSteps, cancelImage, householdServings],
+    [cancelSteps, cancelImage, householdServings, setLocalServings],
   )
 
   return (
@@ -443,7 +399,9 @@ export function MealDetailModal({
           leftovers={leftovers}
           onServingsChange={readOnly ? undefined : handleServingsChange}
           pantryIngredients={pantryIngredients}
-          onToggleAvailability={readOnly ? undefined : handleToggleAvailability}
+          hideAvailability={isFinished}
+          hideAvailabilityBadge={isFinished}
+          onToggleAvailability={readOnly || isFinished ? undefined : handleToggleAvailability}
           togglingIds={togglingIngredientIds}
           optimisticOverrides={optimisticOverrides}
           steps={steps}
