@@ -5,6 +5,10 @@
 #   pick     resolve the commit: the `sha` input, or the newest `main` commit
 #            with a green "Staging smoke" run. A commit without one fails here,
 #            before any migration (scripts/pick-production-sha.ts).
+#   destructive-check
+#            fail when the migrations that commit adds over the live one drop,
+#            delete or rewrite data, unless `confirm_destructive` is set
+#            (HON-1512, scripts/check-destructive-migrations.ts).
 #   migrate  run deploy-db-migrations-production.yml at that commit.
 #   deploy   deploy that commit's code to Vercel. `needs: migrate`, so code
 #            never ships when migrations fail.
@@ -35,6 +39,11 @@ on:
         type: string
         required: false
         default: ''
+      confirm_destructive:
+        description: Let pending migrations that drop, delete or rewrite data run. Needs `sha` set to the held commit, after you checked the list the held run printed.
+        type: boolean
+        required: false
+        default: false
 
 # Not `${{ github.workflow }}`-scoped: later production workflows join the same
 # group, so two production changes never overlap. The called migrations
@@ -78,8 +87,46 @@ jobs:
           INPUT_SHA: ${{ inputs.sha }}
         run: node scripts/pick-production-sha.ts
 
-  migrate:
+  # Holds destructive migrations for a human (HON-1512). A migration that
+  # drops, deletes or rewrites data is the one change a code rollback cannot
+  # undo, so this job lists the migrations the picked commit adds over the
+  # live one (the ACTIVE Production deployment record) and fails before
+  # `migrate` when any matches, unless the dispatch set `confirm_destructive`.
+  # With no ACTIVE record, or a live commit this clone lacks, it checks every
+  # migration: an unknown baseline must not skip the hold.
+  destructive-check:
     needs: pick
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      deployments: read
+
+    steps:
+      # The script comes from the dispatched ref; it reads the migrations of
+      # the picked and live commits with `git show`, so it needs full history.
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Hold destructive migrations for confirmation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.pick.outputs.sha }}
+          INPUT_SHA: ${{ inputs.sha }}
+          CONFIRM_DESTRUCTIVE: ${{ inputs.confirm_destructive }}
+        run: node scripts/check-destructive-migrations.ts --deploy
+
+  migrate:
+    # `destructive-check` so a held run never migrates (the default `if: success()`).
+    needs: [pick, destructive-check]
     # A called workflow gets no more than its caller job grants: `actions: write`
     # is what its pnpm cache step needs.
     permissions:

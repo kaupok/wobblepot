@@ -33,16 +33,36 @@ const PICKED = '${{ needs.pick.outputs.sha }}'
 describe('deploy-production.yml', () => {
   const source = read('deploy-production.yml')
 
-  it('runs pick, then migrate, then deploy', () => {
+  it('runs pick, then the destructive check, then migrate, then deploy', () => {
     const jobs = [...source.matchAll(/^ {2}([a-z-]+):$/gm)].map((match) => match[1])
-    expect(jobs).toEqual(['pick', 'migrate', 'deploy'])
-    expect(job(source, 'migrate')).toContain('    needs: pick\n')
+    expect(jobs).toEqual(['pick', 'destructive-check', 'migrate', 'deploy'])
+    expect(job(source, 'destructive-check')).toContain('    needs: pick\n')
+    expect(job(source, 'migrate')).toContain('    needs: [pick, destructive-check]\n')
     expect(job(source, 'deploy')).toContain('    needs: [pick, migrate]\n')
   })
 
-  it('gives deploy no `if:`, so a failed migrate skips it', () => {
+  it('gives migrate and deploy no `if:`, so a held or failed job skips them', () => {
     expect(job(source, 'deploy')).not.toMatch(/^ {4}if:/m)
     expect(job(source, 'migrate')).not.toMatch(/^ {4}if:/m)
+  })
+
+  it('holds destructive migrations of the picked commit unless the dispatch confirms them', () => {
+    expect(source).toContain(
+      '      confirm_destructive:\n' +
+        '        description: Let pending migrations that drop, delete or rewrite data run. Needs `sha` set to the held commit, after you checked the list the held run printed.\n' +
+        '        type: boolean\n' +
+        '        required: false\n' +
+        '        default: false\n',
+    )
+    const check = job(source, 'destructive-check')
+    expect(check).not.toMatch(/^ {4}if:/m)
+    expect(check).toContain('          fetch-depth: 0\n')
+    expect(check).toContain('      deployments: read\n')
+    expect(check).toContain(`          TARGET_SHA: ${PICKED}\n`)
+    expect(check).toContain('          INPUT_SHA: ${{ inputs.sha }}\n')
+    expect(check).toContain('          CONFIRM_DESTRUCTIVE: ${{ inputs.confirm_destructive }}\n')
+    expect(check).toContain('        run: node scripts/check-destructive-migrations.ts --deploy\n')
+    expect(check).not.toContain('continue-on-error')
   })
 
   it('migrates from the picked commit', () => {
