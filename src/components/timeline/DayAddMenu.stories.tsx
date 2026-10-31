@@ -140,6 +140,43 @@ export const RouteFromSubmenu: Story = {
   },
 }
 
+/**
+ * A dinner-only day (HON-1518): Dinner's routes stay flat, then Breakfast and
+ * Lunch follow a separator as submenus, so one breakfast is a menu step away.
+ */
+export const OtherMealTypes: Story = {
+  args: { emptySlots: [MealType.dinner], otherSlots: [MealType.breakfast, MealType.lunch] },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: ADD_NAME })
+    await userEvent.click(button)
+    const menu = await within(document.body).findByRole('menu')
+    await expect(within(menu).getByRole('group', { name: 'Dinner' })).toBeInTheDocument()
+    await expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Choose a recipe',
+      'Pick for me',
+      'Imagine a meal',
+      'Fridge meal',
+      'Breakfast',
+      'Lunch',
+      'Extra',
+    ])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Breakfast' }))
+    await userEvent.click(
+      await within(
+        await within(document.body).findByRole('menu', { name: 'Breakfast' }),
+      ).findByRole('menuitem', { name: 'Choose a recipe' }),
+    )
+    await within(document.body).findByRole('dialog', { name: /breakfast/i })
+    await pressEscape()
+    await awaitDialogClosed()
+    await waitFor(() => expect(document.activeElement).toBe(button))
+  },
+}
+
 /** "Extra" opens the add-extra dialog, and focus comes back to "+ Add" on close. */
 export const ExtraFromMenu: Story = {
   play: async ({ canvasElement }) => {

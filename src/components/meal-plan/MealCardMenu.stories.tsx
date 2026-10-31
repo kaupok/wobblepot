@@ -146,14 +146,14 @@ export const CookForLunch: Story = {
 }
 
 /**
- * Lunch is off for the next day: the item says how to turn it on (HON-1396).
+ * Tomorrow's lunch is already cooked: the item says so (HON-1396).
  * It stays reachable with the arrow keys, so a keyboard user hears the reason,
  * and Enter runs nothing (HON-1426).
  */
 export const CookForLunchUnavailable: Story = {
   args: {
     cookForLunch: {
-      option: { state: 'unavailable', reason: 'lunchOff' },
+      option: { state: 'unavailable', reason: 'cooked' },
       planId: 'plan-1',
       entryId: 'entry-1',
       householdServings: 2.5,
@@ -163,7 +163,7 @@ export const CookForLunchUnavailable: Story = {
     const menu = await openMenu(canvasElement)
     const item = menu.getByRole('menuitem', { name: /Cook for tomorrow's lunch too/ })
     await expect(item).toHaveAttribute('aria-disabled', 'true')
-    await expect(item).toHaveTextContent('Meal preferences → Meals to plan')
+    await expect(item).toHaveTextContent("Tomorrow's lunch is already cooked.")
 
     // Note has focus; Cooked, Skipped, then the lunch item.
     menu.getByRole('menuitem', { name: 'Note' }).focus()
@@ -172,7 +172,7 @@ export const CookForLunchUnavailable: Story = {
       menu.getByRole('menuitem', {
         name: (name: string) =>
           name.startsWith("Cook for tomorrow's lunch too") &&
-          name.includes('Meal preferences → Meals to plan'),
+          name.includes("Tomorrow's lunch is already cooked."),
       }),
     ).toHaveFocus()
     await userEvent.keyboard('{Enter}')

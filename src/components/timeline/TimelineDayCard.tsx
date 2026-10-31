@@ -78,6 +78,7 @@ export function TimelineDayCard({
   const order = (mealType: string) => mealTypeOrder[mealType as keyof typeof mealTypeOrder] ?? 3
   const entries = [...day.entries].sort((a, b) => order(a.mealType) - order(b.mealType))
   const emptySlots = [...day.emptySlots].sort((a, b) => order(a) - order(b))
+  const otherSlots = [...day.otherSlots].sort((a, b) => order(a) - order(b))
 
   return (
     <div className="flex flex-col gap-2">
@@ -112,6 +113,7 @@ export function TimelineDayCard({
           dayLabel={dayLabel}
           relativeDay={relativeDay}
           emptySlots={emptySlots}
+          otherSlots={otherSlots}
           householdServings={householdServings}
           pantryIngredients={pantryIngredients}
           pantryItems={pantryItems}

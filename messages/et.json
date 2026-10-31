@@ -654,7 +654,6 @@
       "menuItem": "Tee ka homseks lõunaks",
       "reasonRecipeLunch": "Homseks lõunaks on juba retseptiga toit.",
       "reasonCooked": "Homne lõuna on juba valmis tehtud.",
-      "reasonLunchOff": "Lõunasöök on sellel päeval välja lülitatud. Lülita see sisse: Leibkond → Toidueelistused → Planeeritavad toidud.",
       "title": "Tee ka homseks lõunaks",
       "description": "Tee toitu {meal} rohkem portsjoneid. Ülejääk on homne lõuna ja ostunimekiri kasvab vastavalt.",
       "servingsLabel": "Portsjonid lõunaks",
@@ -664,7 +663,6 @@
       "errors": {
         "recipeLunch": "Homseks lõunaks on juba retseptiga toit. Värskenda lehte, et seda näha.",
         "cooked": "Homne lõuna on juba valmis tehtud. Värskenda lehte, et seda näha.",
-        "lunchOff": "Lõunasöök on sellel päeval välja lülitatud. Lülita see sisse: Leibkond → Toidueelistused → Planeeritavad toidud.",
         "alreadyLinked": "Homne lõuna on juba selle toidu jääkidest. Portsjoneid muudad lõuna nupust „Muuda koostist“.",
         "lunchFull": "Homses lõunas on juba 30 asja. Eemalda üks nupust „Muuda koostist“ ja proovi uuesti.",
         "notPlannedDinner": "See toit pole enam planeeritud õhtusöök. Värskenda lehte, et seda näha.",

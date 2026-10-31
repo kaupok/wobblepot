@@ -51,6 +51,7 @@ export function buildPastDays(
       isTomorrow: false,
       entries: rows,
       emptySlots: slots.emptySlots,
+      otherSlots: slots.otherSlots,
       // Past meals show no extras: an extra is for a day still to come (HON-1309).
       extras: [],
     })

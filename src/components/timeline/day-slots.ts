@@ -1,5 +1,5 @@
 import type { ExpectedMealTypes, PlanEntry } from '@/components/meal-plan/types'
-import type { MealType } from '@/generated/prisma/enums'
+import { MealType } from '@/generated/prisma/enums'
 import { isWeekday } from '@/lib/meal-planning/dates'
 
 const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
@@ -14,12 +14,16 @@ const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 
  * household's writing (HON-975), and `createEntry` refuses a second entry
  * there. A fridge meal stays too, with items instead of a meal (HON-1277).
  * Today and Past meals both read through this.
+ *
+ * `otherSlots` are the meal types the day does not expect and has no entry
+ * for, breakfast to dinner. Today's Add menu offers them after the expected
+ * slots, so a dinner-only household can add one breakfast (HON-1518).
  */
 export function daySlots(
   date: Date,
   entries: PlanEntry[],
   expectedMealTypes: ExpectedMealTypes,
-): { entries: PlanEntry[]; emptySlots: MealType[] } {
+): { entries: PlanEntry[]; emptySlots: MealType[]; otherSlots: MealType[] } {
   const expectedTypes = isWeekday(date)
     ? expectedMealTypes.weekdayMealTypes
     : expectedMealTypes.weekendMealTypes
@@ -30,5 +34,8 @@ export function daySlots(
   return {
     entries: dayEntries,
     emptySlots: expectedTypes.filter((mt) => !existingTypes.has(mt)),
+    otherSlots: Object.values(MealType).filter(
+      (mt) => !existingTypes.has(mt) && !expectedTypes.includes(mt),
+    ),
   }
 }

@@ -24,7 +24,6 @@ import { LeftoverServingsControl } from './fridge-meal/LeftoverServingsControl'
 const ERROR_KEYS = [
   'recipeLunch',
   'cooked',
-  'lunchOff',
   'alreadyLinked',
   'lunchFull',
   'notPlannedDinner',

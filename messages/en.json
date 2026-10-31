@@ -654,7 +654,6 @@
       "menuItem": "Cook for tomorrow's lunch too",
       "reasonRecipeLunch": "Tomorrow's lunch is already a recipe meal.",
       "reasonCooked": "Tomorrow's lunch is already cooked.",
-      "reasonLunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
       "title": "Cook for tomorrow's lunch too",
       "description": "Cook {meal} for more servings. The extra becomes tomorrow's lunch, and the shopping list grows to match.",
       "servingsLabel": "Servings for lunch",
@@ -664,7 +663,6 @@
       "errors": {
         "recipeLunch": "Tomorrow's lunch is already a recipe meal. Refresh the page to see it.",
         "cooked": "Tomorrow's lunch is already cooked. Refresh the page to see it.",
-        "lunchOff": "Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.",
         "alreadyLinked": "Tomorrow's lunch already takes leftovers from this meal. Change the servings in the lunch's Edit items.",
         "lunchFull": "Tomorrow's lunch already has 30 items. Remove one in its Edit items, then try again.",
         "notPlannedDinner": "This meal is no longer a planned dinner. Refresh the page to see it.",
