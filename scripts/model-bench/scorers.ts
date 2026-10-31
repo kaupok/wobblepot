@@ -15,7 +15,6 @@ import type { z } from 'zod'
 
 import type { MealType } from '../../src/generated/prisma/enums'
 import {
-  findUnexcusedKeyword,
   findViolations,
   type ForbiddenFoodRule,
   normalizeFoodName,
@@ -37,18 +36,11 @@ import type { CandidateMeal } from '../../src/lib/meal-planning/candidates'
 import { getDatesBetween, parseLocalDate } from '../../src/lib/meal-planning/dates'
 import type { MealSlot, SlotRequirement } from '../../src/lib/meal-planning/slots'
 import { computeMealSlots, computeRequiredSlots } from '../../src/lib/meal-planning/slots'
-import type {
-  CookQuestionCase,
-  ImagineCase,
-  PlanCase,
-  RecipeCase,
-  ReviewCase,
-  TipsCase,
-} from './case-schema'
+import type { ImagineCase, PlanCase, RecipeCase, ReviewCase, TipsCase } from './case-schema'
 
 export type Scores = Record<string, number | null>
 
-const pass = (ok: boolean) => (ok ? 1 : 0)
+export const pass = (ok: boolean) => (ok ? 1 : 0)
 
 // ---------------------------------------------------------------------------
 // plan
@@ -428,101 +420,5 @@ export function scoreTips(
         inRange(output.steps.length, r.steps) &&
         inRange(output.pitfalls.length, r.pitfalls),
     ),
-  }
-}
-
-// ---------------------------------------------------------------------------
-// cook-question
-// ---------------------------------------------------------------------------
-
-/**
- * Word ceilings for the answer. The off-topic one is from the first run
- * (HON-972): a decline ran 31 to 40 words because it offers help with the
- * step. The answer one is from HON-1003, after the prompt gained "never more
- * than 4" sentences and "under 80 words": over three runs of 24 on-topic
- * answers each, they measured 33 to 90 words, the longest an equipment
- * answer. So it fails an answer the cook cannot read at a glance, not a few
- * words over the prompt's 80.
- */
-export const COOK_QUESTION_MAX_WORDS = { answer: 100, offTopic: 50 }
-
-/** The prompt's "never more than 4" sentences (HON-1003). */
-export const COOK_QUESTION_MAX_SENTENCES = 4
-
-/**
- * An imperial unit right after a number: "350°F", "350F", "400 degrees
- * Fahrenheit", "2 cups", "8 oz", "a 12-inch pan". Anchored on the number, so "pound the chicken" and "a cup
- * of tea" never match, and "200 degrees" alone is read as Celsius.
- */
-const IMPERIAL_UNIT =
-  /\d\s*(?:°\s*f\b|f\b|degrees?\s+f(?:ahrenheit)?\b|fahrenheit|cups?\b|oz\b|ounces?\b|lbs?\b|pounds?\b|-?inch(?:es)?\b|fl\.?\s*oz)/iu
-
-const wordCount = (text: string) => text.split(/\s+/u).filter(Boolean).length
-
-/**
- * Sentences in a plain-text answer: a run of text ended by `.`, `!`, `?` or
- * `…` before whitespace and a capital letter or a digit, or by a line break,
- * so a second paragraph or a list line counts too. A decimal ("2.5 cm") or
- * "°C." mid-text does not split, since no whitespace follows the point. An
- * Estonian ordinal ("3. ja 4. sammus", "in steps 3 and 4") or an abbreviation
- * ("e.g. oat milk") does not split either, because a lowercase word follows.
- * Exported for tests.
- */
-export function sentenceCount(text: string): number {
-  return text
-    .split(/(?<=[.!?…])\s+(?=[\p{Lu}\p{N}])|\n+/u)
-    .filter((part) => /[\p{L}\p{N}]/u.test(part)).length
-}
-
-/**
- * Scores the plain-text answer. `answered` is always 1 here: an empty or
- * truncated answer is an error before it reaches the scorer, as production
- * shows the cook an error for it.
- */
-export function scoreCookQuestion(input: CookQuestionCase, output: string): Scores {
-  const {
-    offTopic,
-    mentionsAny,
-    forbiddenKeywords,
-    allowedQualifiers,
-    forbiddenClaims,
-    allowedClaimQualifiers,
-    omitsAll,
-  } = input.expected
-  const text = normalizeFoodName(output)
-  const words = wordCount(output)
-  const noForbidden =
-    findUnexcusedKeyword(
-      text,
-      (forbiddenKeywords ?? []).map(normalizeFoodName),
-      (allowedQualifiers ?? []).map(normalizeFoodName),
-    ) === null
-  return {
-    answered: 1,
-    metricUnits: pass(!IMPERIAL_UNIT.test(output)),
-    withinLength: offTopic ? null : pass(words <= COOK_QUESTION_MAX_WORDS.answer),
-    withinSentences: offTopic ? null : pass(sentenceCount(output) <= COOK_QUESTION_MAX_SENTENCES),
-    // An off-topic case's keywords are the answer to its question, not a
-    // food, so they count here and stay out of the allergen safety check.
-    offTopicDeclined: offTopic
-      ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic && noForbidden)
-      : null,
-    avoidsForbidden: forbiddenKeywords && !offTopic ? pass(noForbidden) : null,
-    avoidsClaims: forbiddenClaims
-      ? pass(
-          findUnexcusedKeyword(
-            text,
-            forbiddenClaims.map(normalizeFoodName),
-            (allowedClaimQualifiers ?? []).map(normalizeFoodName),
-          ) === null,
-        )
-      : null,
-    mentionsExpected: mentionsAny
-      ? pass(mentionsAny.some((phrase) => text.includes(normalizeFoodName(phrase))))
-      : null,
-    // The name's ingredient the household left out stays out (HON-1254).
-    omitsLeftOut: omitsAll
-      ? pass(omitsAll.every((name) => !text.includes(normalizeFoodName(name))))
-      : null,
   }
 }

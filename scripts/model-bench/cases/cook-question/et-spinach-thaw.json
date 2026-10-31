@@ -1,0 +1,69 @@
+{
+  "mealName": "Spinati-fetaomlett",
+  "servings": 2,
+  "timeMinutes": 25,
+  "components": [
+    {
+      "name": "Muna",
+      "quantityPerServing": 2,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Külmutatud spinat",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Fetajuust",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Sibul",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Rapsiõli",
+      "quantityPerServing": 5,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Klopi munad soola ja pipraga kausis lahti.",
+    "Kuumuta õli pannil keskmisel tulel.",
+    "Haki sibul ja prae seda pannil 3 minutit, kuni see on klaasjas.",
+    "Pigista sulatatud spinat hästi kuivaks ja laota pannile.",
+    "Vala munad peale, puista üle fetaga ja küpseta kaane all 6 minutit."
+  ],
+  "equipment": ["Pann", "Kauss"],
+  "subject": {
+    "kind": "step",
+    "index": 3
+  },
+  "pitfalls": ["Märg spinat teeb omleti vesiseks."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Sool",
+      "isStaple": true
+    },
+    {
+      "name": "Rapsiõli",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "kuidas ma sulatan",
+  "locale": "et",
+  "expected": {
+    "forbiddenClaims": ["ma ei tea", "kas sul on"]
+  },
+  "source": "HON-1506"
+}
