@@ -124,18 +124,19 @@ export function splitStatements(sql: string): Statement[] {
   let i = 0
   while (i < sql.length) {
     const ch = sql[i]
-    if (sql.startsWith('--', i)) {
+    // Comments and quotes are lexed only outside a dollar-quoted body: inside
+    // one, Postgres reads `'` as plain text, so a `'--'` there is a string and
+    // stripping it as a comment would hide the statement after it.
+    if (sql.startsWith('--', i) && dollarTag === null) {
       const end = sql.indexOf('\n', i)
       i = end === -1 ? sql.length : end
       text += ' '
       code += ' '
-    } else if (sql.startsWith('/*', i)) {
+    } else if (sql.startsWith('/*', i) && dollarTag === null) {
       i = blockCommentEnd(sql, i)
       text += ' '
       code += ' '
     } else if ((ch === "'" || ch === '"') && dollarTag === null) {
-      // Not inside a dollar-quoted body, where Postgres reads quotes as plain
-      // text: a `don't` there would blank the statements after it.
       const end = closingQuote(sql, i)
       if (end === -1) {
         // Fail closed: an unclosed quote leaves the rest as code to match.
@@ -248,7 +249,16 @@ function isCommit(git: Run, sha: string): boolean {
 export function pendingMigrations(git: Run, baseline: string | null, target: string): string[] {
   const listing =
     baseline !== null && isCommit(git, baseline)
-      ? git(['diff', '--diff-filter=A', '--name-only', baseline, target, '--', 'prisma/migrations'])
+      ? git([
+          'diff',
+          '--no-renames',
+          '--diff-filter=A',
+          '--name-only',
+          baseline,
+          target,
+          '--',
+          'prisma/migrations',
+        ])
       : git(['ls-tree', '-r', '--name-only', target, '--', 'prisma/migrations'])
   return listing
     .split('\n')

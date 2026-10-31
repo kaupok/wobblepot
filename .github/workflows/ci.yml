@@ -738,7 +738,9 @@ jobs:
           set -euo pipefail
           # A plain assignment, not a process substitution, so `set -e` stops
           # the step when the diff fails: an empty list would read as clean.
-          added=$(git diff --diff-filter=A --name-only "$BASE_SHA"...HEAD -- 'prisma/migrations/*/migration.sql')
+          # `--no-renames`, as in check-migrations-immutable.sh: a re-added
+          # migration under a new timestamp is otherwise a rename, not an add.
+          added=$(git diff --no-renames --diff-filter=A --name-only "$BASE_SHA"...HEAD -- 'prisma/migrations/*/migration.sql')
           mapfile -t dirs < <(printf '%s\n' "$added" | sed '/^$/d' | xargs -r -n1 dirname)
           node scripts/check-destructive-migrations.ts "${dirs[@]}"
 

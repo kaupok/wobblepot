@@ -100,6 +100,15 @@ describe('checkSql', () => {
     expect(flagged(sql)).toEqual(['DROP TABLE'])
   })
 
+  it('reads comment markers inside a dollar-quoted body as code', () => {
+    expect(flagged(`DO $$ BEGIN RAISE NOTICE '--'; DELETE FROM x; END $$;`)).toEqual([
+      'DELETE FROM',
+    ])
+    expect(flagged(`DO $$ BEGIN RAISE NOTICE '/*'; DELETE FROM x; END $$; SELECT 1;`)).toEqual([
+      'DELETE FROM',
+    ])
+  })
+
   it('reads a backslash-escaped quote in an E string', () => {
     expect(flagged(`UPDATE "x" SET "a" = E'it\\'s'; DROP TABLE "y";`)).toEqual([
       'UPDATE … SET',
@@ -246,6 +255,7 @@ describe('deployGate', () => {
     expect(gate.held).toBe(true)
     expect(calls).toContainEqual([
       'diff',
+      '--no-renames',
       '--diff-filter=A',
       '--name-only',
       LIVE,
@@ -389,7 +399,7 @@ describe('ci.yml destructive-migrations job', () => {
   it('checks only the migrations the PR adds, and fails the step when the diff fails', () => {
     expect(job).toContain('        id: check\n')
     expect(job).toContain(
-      `          added=$(git diff --diff-filter=A --name-only "$BASE_SHA"...HEAD -- 'prisma/migrations/*/migration.sql')\n`,
+      `          added=$(git diff --no-renames --diff-filter=A --name-only "$BASE_SHA"...HEAD -- 'prisma/migrations/*/migration.sql')\n`,
     )
     expect(job).toContain('          node scripts/check-destructive-migrations.ts "${dirs[@]}"\n')
   })
