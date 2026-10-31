@@ -44,7 +44,7 @@ git rev-parse --git-common-dir
 git rev-parse --git-dir
 ```
 
-Different → print `[auto-implement] Detected worktree environment`. The same → regular repo mode: `regular-repo.md` replaces 0.2, 0.4, 3.1, 7.3, 7.5, 7.6.
+Different → print `[auto-implement] Detected worktree environment`. The same → regular repo mode: `regular-repo.md` replaces 0.2, 0.4, 3.1.
 
 ### 0.2 Check branch state
 

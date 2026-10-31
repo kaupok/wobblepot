@@ -15,7 +15,7 @@ Sibling files, read when they apply: `ai-eval.md` (step 7, AI changes), `history
 
 Requires an issue ID as argument (e.g., `/plan-issue HON-51`).
 
-Supports optional `--auto` flag to skip approval prompt (used by `/auto-implement`).
+Supports optional `--auto` flag to skip approval prompt, for a user who wants the plan posted without review. `/auto-implement` does not call it: it plans in its own Phase 2.
 
 ## Workflow
 
@@ -365,7 +365,7 @@ Run `/implement-issue HON-XX` when ready to start implementation.
 
 Then end the skill: implementation starts only when the user runs `/implement-issue`.
 
-**If `--auto` was used:** output only the completion marker; `/auto-implement` handles the next step.
+**If `--auto` was used:** output only the completion marker.
 
 ## A follow-up is an issue
 

@@ -20,7 +20,7 @@
  * `git checkout main` and `git pull` stay allowed, because `/merge` returns to
  * `main` that way. Reads, Linear, planning and `/branch-review` are untouched.
  * File writes through Bash (`sed -i`, redirects) are not parsed: CLAUDE.md →
- * "Parallel sessions" carries that half of the rule.
+ * "Change files only in a worktree" carries that half of the rule.
  *
  * Opt out with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1`: in the environment of the
  * Claude process for a whole session, or as an inline prefix on one Bash

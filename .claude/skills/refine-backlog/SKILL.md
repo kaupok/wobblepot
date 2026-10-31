@@ -288,7 +288,7 @@ Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implemen
 ## Notes
 
 - Work through issues one at a time with user approval
-- Don't update Linear until user confirms the refinement
+- Don't update an issue under refinement until the user confirms it, because the user reviews each rewrite. A new issue found on the way is filed and queued by default (CLAUDE.md → File and queue by default)
 - Keep descriptions concise but complete
 - Write titles per CLAUDE.md → Issue titles
 - Consider implementation order when setting dependencies

@@ -25,7 +25,7 @@ On an orchestrator retry the arguments continue past the issue ID with a block t
 
 ## Regular repo mode (0.1; HON-1230)
 
-Every orchestrator worker runs in a worktree, so the regular-repo variants of 0.2, 0.4, 3.1, 7.3, 7.5 and 7.6 moved to `regular-repo.md`, read only when 0.1 finds no worktree.
+Every orchestrator worker runs in a worktree, so the regular-repo variants of 0.2, 0.4, 3.1, 7.3, 7.5 and 7.6 moved to `regular-repo.md`, read only when 0.1 finds no worktree. HON-1526 made 3.1 enter a worktree, because `guard-main-checkout` blocks `git checkout -b` in the main checkout; 7.3, 7.5 and 7.6 then run in worktree mode, so their regular-repo variants went.
 
 ## Sync with origin/main (0.4)
 
