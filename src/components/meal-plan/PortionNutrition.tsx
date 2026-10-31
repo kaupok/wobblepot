@@ -1,9 +1,15 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
-import { ChoiceChips } from '@/components/ui/choice-chips'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { MemberPortion } from '@/hooks/use-member-portions'
 
 import { NutritionSummary, type NutritionSummarySize } from './NutritionSummary'
@@ -22,17 +28,20 @@ interface PortionNutritionProps {
 
 /**
  * The cook view's nutrition, per serving or for one member's plate (HON-1475).
- * A chip per member multiplies the per-serving values by their portion. The
- * view opens on the signed-in member's chip when their portion is not 1×. With
- * every member at 1× each chip would repeat "Per serving", so there are none.
+ * The caption beside the calories opens a list of members, and picking one
+ * multiplies the per-serving values by their portion (HON-1505). The view opens
+ * on the signed-in member's portion when it is not 1×. With every member at 1×
+ * each option would repeat "Per serving", so the caption is plain text.
  */
 export function PortionNutrition({ nutrition, portions, size, components }: PortionNutritionProps) {
   const t = useTranslations('meal-plan.nutrition')
   // The user's pick; until they make one, the default follows the members as they load.
   const [choice, setChoice] = useState<string | null>(null)
+  const labelId = useId()
+  const valueId = useId()
 
-  const showChips = !!portions?.some((portion) => portion.multiplier !== 1)
-  if (!portions || !showChips) {
+  const showChoice = !!portions?.some((portion) => portion.multiplier !== 1)
+  if (!portions || !showChoice) {
     return <NutritionSummary nutrition={nutrition} size={size} components={components} />
   }
 
@@ -49,29 +58,36 @@ export function PortionNutrition({ nutrition, portions, size, components }: Port
     : nutrition
 
   return (
-    <div className="flex flex-col gap-3">
-      <ChoiceChips
-        aria-label={t('portionGroupLabel')}
-        value={selected ? selected.id : PER_SERVING}
-        onValueChange={setChoice}
-        options={[
-          { value: PER_SERVING, label: t('perServingChip') },
-          ...portions.map((portion) => ({
-            value: portion.id,
-            label: t('memberChip', { name: portion.name, multiplier: portion.multiplier }),
-          })),
-        ]}
-      />
-      <NutritionSummary
-        nutrition={shown}
-        size={size}
-        components={components}
-        caption={
-          selected
-            ? t('memberCaption', { name: selected.name, multiplier: selected.multiplier })
-            : undefined
-        }
-      />
-    </div>
+    <NutritionSummary
+      nutrition={shown}
+      size={size}
+      components={components}
+      caption={
+        <Select value={selected ? selected.id : PER_SERVING} onValueChange={setChoice}>
+          {/* The name is "Whose portion" and the current caption, so a screen
+              reader hears both the question and the answer. */}
+          <span id={labelId} className="sr-only">
+            {t('portionGroupLabel')}
+          </span>
+          <SelectTrigger variant="inline" aria-labelledby={`${labelId} ${valueId}`}>
+            <SelectValue id={valueId}>
+              {selected
+                ? t('memberCaption', { name: selected.name, multiplier: selected.multiplier })
+                : t('perServing')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={PER_SERVING} size="lg">
+              {t('perServingChip')}
+            </SelectItem>
+            {portions.map((portion) => (
+              <SelectItem key={portion.id} value={portion.id} size="lg">
+                {t('memberChip', { name: portion.name, multiplier: portion.multiplier })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+    />
   )
 }
