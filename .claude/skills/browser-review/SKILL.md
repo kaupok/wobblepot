@@ -102,7 +102,7 @@ Be specific and visual. Describe what you see, where it is, and why it matters. 
 
 When the user agrees a finding is worth tracking:
 
-1. **Check for a duplicate**: `mcp__linear-server__list_issues({ team: 'Wobblebot', query: '<two or three words from the finding>', limit: 10 })`, then a second query with a synonym or the screen name. If an open issue covers it, show it to the user and offer to add to it instead. If a Done issue covers it, the finding may be a regression: say so. Before you set a relation, fetch the related issue with `get_issue` and `includeRelations: true`
+1. **Check for a duplicate**: `mcp__linear-server__list_issues({ team: 'Wobblebot', query: '<two or three words from the finding>', limit: 10 })`, then a second query with a synonym or the screen name. If an open issue covers it, show it to the user and offer to add to it instead. If a Done issue covers it, the finding may be a regression: say so
 2. **Propose** a title and description draft
 3. **Discuss** with user — adjust scope, wording, priority
 4. **Include** in the description:
@@ -151,7 +151,7 @@ Why this matters.
 
 The Chrome extension cannot save a screenshot file, so describe the screen in the issue instead.
 
-Confirm creation before moving on. Name the issue by what it fixes, with its identifier in parentheses (CLAUDE.md → Name the thing, not its number).
+Confirm creation before moving on.
 
 ## Session Summary
 
@@ -159,7 +159,7 @@ Confirm creation before moving on. Name the issue by what it fixes, with its ide
 
 When the user is done reviewing (or explicitly wraps up), provide:
 
-- **Issues created**: each by what it fixes, with its identifier in parentheses
+- **Issues created**: each by what it fixes
 - **Pages reviewed**: Which areas were covered
 - **Not reviewed**: Areas that weren't reached (for a future session)
 - **Observations skipped**: Anything noted but not filed, if worth remembering
