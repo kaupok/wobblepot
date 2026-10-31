@@ -69,6 +69,7 @@ export const TomorrowEmpty: Story = {
       isTomorrow: true,
       entries: [],
       emptySlots: [MealType.dinner],
+      otherSlots: [MealType.breakfast, MealType.lunch],
     }),
   },
 }

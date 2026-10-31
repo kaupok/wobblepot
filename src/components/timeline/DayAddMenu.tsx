@@ -40,13 +40,18 @@ interface DayAddMenuProps {
   relativeDay?: 'today' | 'tomorrow'
   /** The day's empty slots, in slot order. */
   emptySlots: MealType[]
+  /**
+   * Meal types the day does not expect and has no entry for, in slot order
+   * (HON-1518). Offered after the empty slots, each as a submenu.
+   */
+  otherSlots?: MealType[]
   householdServings: number
   pantryIngredients?: PantryIngredient[]
   /** The pantry the fridge-meal picker searches (HON-1277). */
   pantryItems?: PantryItemFull[]
   /**
-   * The day's one add button: "+ Add", or "+ Extra" on a day with no empty
-   * slot. The day card passes it to focus the button after an extra is
+   * The day's one add button: "+ Add", or "+ Extra" on a day with every
+   * meal type filled. The day card passes it to focus the button after an extra is
    * removed.
    */
   buttonRef?: RefObject<HTMLButtonElement | null>
@@ -78,8 +83,10 @@ const LOG_ROUTES = MEAL_ROUTES.filter(({ choice }) => choice === 'library' || ch
  * slot is a submenu of its routes (HON-1341): a flat list of every slot's
  * routes ran to 16 rows and scrolled. A submenu opens on a tap and from the
  * keyboard, not only on hover. With one empty slot the routes sit flat under
- * its label, so a half-planned day stays two taps away. A day with no empty
- * slot shows the "+ Extra" button alone, not a one-item menu.
+ * its label, so a half-planned day stays two taps away. The meal types the
+ * day does not expect follow after a separator, each a submenu (HON-1518), so
+ * they never turn the one expected slot into a submenu. A day with every meal
+ * type filled shows the "+ Extra" button alone, not a one-item menu.
  */
 export function DayAddMenu({
   planId,
@@ -87,6 +94,7 @@ export function DayAddMenu({
   dayLabel,
   relativeDay,
   emptySlots,
+  otherSlots = [],
   householdServings,
   pantryIngredients,
   pantryItems,
@@ -121,14 +129,15 @@ export function DayAddMenu({
       }),
     [],
   )
-  const slotPending = emptySlots.map((mealType) => pending[mealType])
+  const allSlots = [...emptySlots, ...otherSlots]
+  const slotPending = allSlots.map((mealType) => pending[mealType])
   const isAdding = slotPending.some((p) => p?.isAdding)
   // No second placeholder while the last one is still being created or deleted.
   const isPending = slotPending.some((p) => p?.isPending)
 
   // Waits for the cleared slot to show as empty: before the refresh lands the
   // card is still on the page, and focus is not yet on the body.
-  const shouldFocus = focusSlot !== undefined && emptySlots.includes(focusSlot)
+  const shouldFocus = focusSlot !== undefined && allSlots.includes(focusSlot)
   useEffect(() => {
     if (!shouldFocus) return
     // Only from the body: a user who moved on before the refresh landed keeps
@@ -139,7 +148,7 @@ export function DayAddMenu({
     onSlotFocused?.()
   }, [shouldFocus, onSlotFocused, buttonRef])
 
-  if (emptySlots.length === 0) {
+  if (allSlots.length === 0) {
     return <AddExtra date={date} dayLabel={dayLabel} buttonRef={buttonRef} />
   }
 
@@ -211,6 +220,19 @@ export function DayAddMenu({
               />
             ))
           )}
+          {otherSlots.length > 0 && (
+            <>
+              {emptySlots.length > 0 && <DropdownMenuSeparator />}
+              {otherSlots.map((mealType) => (
+                <SlotSubmenu
+                  key={mealType}
+                  mealType={mealType}
+                  routes={routes}
+                  onChoose={(choice) => choose(mealType, choice)}
+                />
+              ))}
+            </>
+          )}
           {!log && (
             <>
               <DropdownMenuSeparator />
@@ -226,7 +248,7 @@ export function DayAddMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {emptySlots.map((mealType) => (
+      {allSlots.map((mealType) => (
         <EmptySlotController
           key={mealType}
           ref={(handle) => {

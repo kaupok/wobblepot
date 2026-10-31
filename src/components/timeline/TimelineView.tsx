@@ -143,11 +143,11 @@ export function TimelineView({
         tDates('tomorrow'),
       )
 
-      const { entries: dayEntries, emptySlots } = daySlots(
-        current,
-        entriesByDate.get(dateStr) ?? [],
-        expectedMealTypes,
-      )
+      const {
+        entries: dayEntries,
+        emptySlots,
+        otherSlots,
+      } = daySlots(current, entriesByDate.get(dateStr) ?? [], expectedMealTypes)
 
       if (dayEntries.length === 0 && fillStart === null) {
         fillStart = dateStr
@@ -161,6 +161,7 @@ export function TimelineView({
         isTomorrow,
         entries: dayEntries,
         emptySlots,
+        otherSlots,
         extras: extrasByDate.get(dateStr) ?? [],
       })
 
@@ -169,10 +170,7 @@ export function TimelineView({
 
     return { futureDays: days, fillStartDate: fillStart }
   }, [entries, extras, todayDate, expectedMealTypes, locale, tDates])
-  const leftoverLunchOptions = useMemo(
-    () => getLeftoverLunchOptions(entries, expectedMealTypes),
-    [entries, expectedMealTypes],
-  )
+  const leftoverLunchOptions = useMemo(() => getLeftoverLunchOptions(entries), [entries])
 
   function handleEntryUpdated() {
     router.refresh()

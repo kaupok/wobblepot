@@ -8,7 +8,8 @@ import { createQueryWrapper } from '@/test/query-wrapper'
 import { DayAddMenu } from './DayAddMenu'
 
 // One "+ Add" menu per day: the routes for each empty slot, then Extra
-// (HON-1335). Two or more empty slots each open a submenu (HON-1341).
+// (HON-1335). Two or more empty slots each open a submenu (HON-1341). The
+// meal types the day does not expect follow after a separator (HON-1518).
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -36,7 +37,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderMenu(emptySlots: MealType[]) {
+function renderMenu(emptySlots: MealType[], otherSlots?: MealType[]) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
@@ -45,6 +46,7 @@ function renderMenu(emptySlots: MealType[]) {
         date="2026-04-16"
         dayLabel="Thursday Apr 16"
         emptySlots={emptySlots}
+        otherSlots={otherSlots}
         householdServings={4}
       />
     </Wrapper>,
@@ -175,6 +177,62 @@ describe('DayAddMenu groups', () => {
     await waitFor(() => expect(addButton()).toHaveFocus())
     // An extra is not a meal: no placeholder entry for the slot.
     expect(requests.filter((r) => r.method !== 'GET')).toEqual([])
+  })
+
+  it("keeps a dinner-only day's routes flat, then the other types after a separator", async () => {
+    const user = renderMenu(['dinner'], ['breakfast', 'lunch'])
+
+    await user.click(addButton())
+
+    const menu = await screen.findByRole('menu')
+    const shape = [...menu.children].map((child) =>
+      child.getAttribute('role') === 'separator' ? '---' : child.textContent,
+    )
+    expect(shape).toEqual(['Dinner' + ROUTES.join(''), '---', 'Breakfast', 'Lunch', '---', 'Extra'])
+    expect(within(menu).getByRole('group', { name: 'Dinner' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Breakfast' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    )
+  })
+
+  it('starts with the other types, no separator first, when every expected slot is planned', async () => {
+    const user = renderMenu([], ['breakfast', 'lunch'])
+
+    await user.click(addButton())
+
+    const menu = await screen.findByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Breakfast', 'Lunch', 'Extra'])
+    expect(menu.firstElementChild).toBe(items[0])
+  })
+
+  it('runs a route under another type for that type', async () => {
+    const user = renderMenu(['dinner'], ['breakfast', 'lunch'])
+
+    addButton().focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Choose a recipe' })).toHaveFocus(),
+    )
+    // Past Dinner's four routes and the separator to Breakfast.
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Breakfast' })).toHaveFocus())
+    await user.keyboard('{ArrowRight}')
+    const submenu = await screen.findByRole('menu', { name: 'Breakfast' })
+    await waitFor(() =>
+      expect(within(submenu).getByRole('menuitem', { name: 'Choose a recipe' })).toHaveFocus(),
+    )
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+
+    await waitFor(() =>
+      expect(requests).toContainEqual({ method: 'POST', url: '/api/meal-plans/plan-1/entries' }),
+    )
+    const post = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({
+      date: '2026-04-16',
+      mealType: 'breakfast',
+    })
   })
 
   it('shows the "+ Extra" button alone when no slot is empty', async () => {

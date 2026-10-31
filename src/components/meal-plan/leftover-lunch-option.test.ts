@@ -1,18 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { getLeftoverLunchOptions } from './leftover-lunch-option'
-import type { ExpectedMealTypes, PlanEntry } from './types'
+import type { PlanEntry } from './types'
 
 // "Cook for tomorrow's lunch too" on a dinner's menu (HON-1396). Wednesday the
 // 21st's dinner feeds Thursday's lunch; Friday's would feed Saturday's.
-const LUNCH_EVERY_DAY: ExpectedMealTypes = {
-  weekdayMealTypes: ['lunch', 'dinner'],
-  weekendMealTypes: ['lunch', 'dinner'],
-}
-const NO_WEEKEND_LUNCH: ExpectedMealTypes = {
-  weekdayMealTypes: ['lunch', 'dinner'],
-  weekendMealTypes: ['dinner'],
-}
 
 const meal = { id: 'meal-stew', name: 'Stew' } as PlanEntry['meal']
 
@@ -32,8 +24,7 @@ function entry(id: string, date: string, data: Partial<PlanEntry> = {}): PlanEnt
 }
 
 const dinner = entry('dinner', '2026-10-21')
-const option = (entries: PlanEntry[], expected = LUNCH_EVERY_DAY) =>
-  getLeftoverLunchOptions(entries, expected).get('dinner')
+const option = (entries: PlanEntry[]) => getLeftoverLunchOptions(entries).get('dinner')
 
 describe('getLeftoverLunchOptions', () => {
   it("is available when tomorrow's lunch is empty, a fridge meal or a note-only card", () => {
@@ -64,10 +55,10 @@ describe('getLeftoverLunchOptions', () => {
     ).toEqual({ state: 'unavailable', reason: 'cooked' })
   })
 
-  it('says why when lunch is off for the next day', () => {
-    const friday = entry('dinner', '2026-10-23')
-    expect(option([friday], NO_WEEKEND_LUNCH)).toEqual({ state: 'unavailable', reason: 'lunchOff' })
-    expect(option([dinner], NO_WEEKEND_LUNCH)).toEqual({ state: 'available' })
+  // Lunch need not be an expected meal type that day: every entry shows on
+  // Today (HON-1518).
+  it('is available on a Friday dinner, whatever meal types Saturday expects', () => {
+    expect(option([entry('dinner', '2026-10-23')])).toEqual({ state: 'available' })
   })
 
   it('offers nothing when the lunch already takes leftovers from this dinner', () => {

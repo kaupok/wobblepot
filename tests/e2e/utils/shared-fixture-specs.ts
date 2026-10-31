@@ -12,6 +12,7 @@
  * fixture and is missing here, or is listed here and no longer does.
  */
 export const SHARED_FIXTURE_SPECS = [
+  'add-any-meal-type.spec.ts',
   'day-extras.spec.ts',
   'forgot-password.spec.ts',
   'fridge-meal.spec.ts',

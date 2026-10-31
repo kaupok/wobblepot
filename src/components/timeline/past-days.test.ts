@@ -66,6 +66,13 @@ describe('buildPastDays', () => {
     expect(new Set(days.flatMap((d) => d.emptySlots))).toEqual(new Set(['dinner']))
   })
 
+  // Past meals ignores them until HON-1519, but the list is there.
+  it('passes the meal types the day does not expect through as otherSlots', () => {
+    const [yesterday] = build([])
+
+    expect(yesterday?.otherSlots).toEqual(['breakfast', 'lunch'])
+  })
+
   it('leaves out a day whose slots are all filled by an entry', () => {
     const days = build([createPlanEntry({ id: 'eaten', date: '2026-04-14', status: 'completed' })])
 

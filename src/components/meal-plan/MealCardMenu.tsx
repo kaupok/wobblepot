@@ -59,7 +59,6 @@ interface MealCardMenuProps {
 const LEFTOVER_LUNCH_REASON_KEYS = {
   recipeLunch: 'reasonRecipeLunch',
   cooked: 'reasonCooked',
-  lunchOff: 'reasonLunchOff',
 } as const
 
 /**

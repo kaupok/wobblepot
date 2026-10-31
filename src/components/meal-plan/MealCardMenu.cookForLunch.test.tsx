@@ -61,10 +61,6 @@ describe("MealCardMenu: Cook for tomorrow's lunch too", () => {
   it.each([
     ['recipeLunch', "Tomorrow's lunch is already a recipe meal."],
     ['cooked', "Tomorrow's lunch is already cooked."],
-    [
-      'lunchOff',
-      'Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.',
-    ],
   ] as const)('is shown unavailable with the reason when %s', async (reason, text) => {
     const { user } = renderMenu({ state: 'unavailable', reason })
     const menu = await openMenu(user)
@@ -81,10 +77,6 @@ describe("MealCardMenu: Cook for tomorrow's lunch too", () => {
   it.each([
     ['recipeLunch', "Tomorrow's lunch is already a recipe meal."],
     ['cooked', "Tomorrow's lunch is already cooked."],
-    [
-      'lunchOff',
-      'Lunch is off for that day. Turn it on in Household → Meal preferences → Meals to plan.',
-    ],
   ] as const)('takes keyboard focus with the reason when %s', async (reason, text) => {
     const { user } = renderMenu({ state: 'unavailable', reason })
     screen.getByRole('button', { name: /more actions.*chicken curry/i }).focus()

@@ -314,6 +314,8 @@ export interface TimelineDay {
   isTomorrow: boolean
   entries: PlanEntry[]
   emptySlots: MealType[]
+  /** Meal types the day does not expect and has no entry for (HON-1518). */
+  otherSlots: MealType[]
   extras: DayExtraView[]
 }
 

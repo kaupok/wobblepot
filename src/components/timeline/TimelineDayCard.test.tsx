@@ -73,6 +73,7 @@ const baseDay: TimelineDay = {
   isTomorrow: false,
   entries: [],
   emptySlots: ['dinner'],
+  otherSlots: [],
   extras: [],
 }
 
@@ -220,6 +221,31 @@ describe('TimelineDayCard', () => {
 
     const items = within(await screen.findByRole('menu')).getAllByRole('menuitem')
     expect(items.map((item) => item.textContent)).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Extra'])
+  })
+
+  // HON-1518: the types the day does not expect follow the expected slot.
+  it('offers the other meal types after the expected slot, breakfast first', async () => {
+    const user = userEvent.setup()
+    const day: TimelineDay = { ...baseDay, otherSlots: ['lunch', 'breakfast'] }
+    render(<TimelineDayCard day={day} {...defaultProps} />)
+
+    await user.click(screen.getByRole('button', { name: 'Add to Today' }))
+
+    const menu = within(await screen.findByRole('menu'))
+    const subTriggers = menu
+      .getAllByRole('menuitem')
+      .filter((item) => item.getAttribute('aria-haspopup') === 'menu')
+    expect(subTriggers.map((item) => item.textContent)).toEqual(['Breakfast', 'Lunch'])
+    expect(screen.getByTestId('empty-slot-breakfast')).toBeInTheDocument()
+    expect(screen.getByTestId('empty-slot-lunch')).toBeInTheDocument()
+  })
+
+  it('keeps "+ Add" on a day whose expected meals are planned but other types are free', () => {
+    const day: TimelineDay = { ...dayWithDinnerAnd([]), otherSlots: ['breakfast', 'lunch'] }
+    render(<TimelineDayCard day={day} {...defaultProps} />)
+
+    expect(screen.getByRole('button', { name: 'Add to Today' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add an extra: Today' })).not.toBeInTheDocument()
   })
 
   // Extras (HON-1309): a full day shows "+ Extra" alone; a day with an empty
