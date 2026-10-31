@@ -77,8 +77,12 @@ function countOf(text: string, char: string): number {
   return text.split(char).length - 1
 }
 
+// A GitHub permalink, ".../blob/main/prisma/schema.prisma", also yields its repository path.
+const BLOB_PATH = /(?:^|\/)(?:blob|tree)\/[^/]+\/(.+)$/
+
 export function extractPaths(text: string): string[] {
-  return [...new Set([...text.matchAll(PATH_TOKEN)].map((m) => trimToken(m[0])))]
+  const tokens = [...text.matchAll(PATH_TOKEN)].map((m) => trimToken(m[0]))
+  return [...new Set(tokens.flatMap((t) => [t, ...(BLOB_PATH.exec(t)?.slice(1, 2) ?? [])]))]
 }
 
 export function globToRegExp(glob: string): RegExp {

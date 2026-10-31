@@ -8,15 +8,15 @@ Read from `SKILL.md` → step 2. A hard gate is an area where a wrong verdict is
 | --- | --- | --- | --- |
 | `gtm` | `GTM` | | price, pricing, market, cohort, channel, waitlist |
 | `legal` | | `compliance/**`, `src/app/(legal)/**`, `src/app/consent/**` | consent text, policy text, privacy policy, terms of service, DPA, subprocessor |
-| `money` | | | paid vendor, paid plan, subscription, invoice, billing |
+| `money` | | | paid vendor, paid plan, subscription, invoice, billing, outbound call, costs money |
 | `ai-spend` | | `src/lib/ai/budgets.ts`, `src/lib/ai/models.ts` | AI budget, AI cap, AI limit, token budget, spend cap |
-| `irreversible` | | `prisma/migrations/**`, `prisma/schema.prisma` | migration, backfill, production deploy, delete household, household data loss |
+| `irreversible` | | `prisma/migrations/**`, `prisma/schema.prisma` | migration, backfill, production deploy, household rows, delete / deletes / deleting household, rewrite / rewrites / rewriting household, household data loss |
 | `auth` | | `src/lib/auth*`, `src/lib/auth/**`, `src/app/api/auth/**`, `src/proxy.ts`, `src/app/.well-known/**` | OAuth, MCP scope, .well-known, CSP, session token |
 | `allergens` | | `src/lib/ai/forbidden-foods.ts` | allergen, allergy, diet filter, dietary restriction, excluded ingredient, food safety |
 
 ## How a match works
 
-- **Paths:** the script takes every path-like token from the title and description (`src/lib/x.ts:42` counts as `src/lib/x.ts`) and tests it against each glob. `*` matches inside one path segment, `**` matches across segments.
+- **Paths:** the script takes every path-like token from the title and description (`src/lib/x.ts:42` counts as `src/lib/x.ts`, a GitHub `blob/<ref>/` link counts as its repository path) and tests it against each glob. `*` matches inside one path segment, `**` matches across segments, and a trailing `/**` also matches the bare directory.
 - **Labels:** exact label name, case-insensitive.
 - **Keywords:** case-insensitive, whole words, with an optional plural `s` or `es`, so `allergen` matches `allergens` and `market` does not match `supermarket`. Path-like tokens are removed from the text first, so `channel` does not match `src/lib/channels.ts`. Any other form (`allergy` and `allergies`) needs its own entry.
 - The first gate in list order that matches wins. The reason is `hard gate: <name>`.
@@ -48,7 +48,15 @@ A false positive costs one Hold, which a human reads anyway. A false negative le
     "name": "money",
     "labels": [],
     "paths": [],
-    "keywords": ["paid vendor", "paid plan", "subscription", "invoice", "billing"]
+    "keywords": [
+      "paid vendor",
+      "paid plan",
+      "subscription",
+      "invoice",
+      "billing",
+      "outbound call",
+      "costs money"
+    ]
   },
   {
     "name": "ai-spend",
@@ -64,7 +72,13 @@ A false positive costs one Hold, which a human reads anyway. A false negative le
       "migration",
       "backfill",
       "production deploy",
+      "household rows",
       "delete household",
+      "deletes household",
+      "deleting household",
+      "rewrite household",
+      "rewrites household",
+      "rewriting household",
       "household data loss"
     ]
   },

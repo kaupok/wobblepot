@@ -109,30 +109,54 @@ describe('finalizeVerdict', () => {
   })
 
   it('keeps a Send back move when its citations fail, and renders each reason', () => {
-    const dup = finalizeVerdict(
+    const stale = finalizeVerdict(
       {
         issue: 'HON-1',
         move: 'send_back',
-        sendBackReason: 'duplicate',
-        duplicateOf: 'HON-900',
-        citations: [],
-        reasoning: 'Same finding.',
-      },
-      readers,
-    )
-    expect(dup.heading).toBe('## Judge: Send back — duplicate of HON-900')
-    expect(dup.label).toBe('Judge: sent back')
-    expect(dup.comment).toContain('**Citations:** none')
-    const stale = finalizeVerdict(
-      {
-        ...dup.verdict,
         sendBackReason: 'no_evidence',
         citations: [{ source: 'x.ts', quote: 'q' }],
+        reasoning: 'No file named.',
       },
       readers,
     )
     expect(stale.verdict.move).toBe('send_back')
     expect(stale.heading).toBe('## Judge: Send back — no evidence')
+    expect(stale.label).toBe('Judge: sent back')
+    expect(stale.comment).toContain('**Citations:** none')
+  })
+
+  const duplicate = {
+    issue: 'HON-1',
+    move: 'send_back',
+    sendBackReason: 'duplicate',
+    duplicateOf: 'HON-900',
+    citations: [{ source: 'HON-900 description', quote: 'we keep the double tap on purpose' }],
+    reasoning: 'Same finding.',
+  }
+
+  it('sends back a duplicate that quotes the open target', () => {
+    const result = finalizeVerdict(duplicate, readers)
+    expect(result.heading).toBe('## Judge: Send back — duplicate of HON-900')
+    expect(result.label).toBe('Judge: sent back')
+  })
+
+  it('holds a duplicate with no verified quote from its target, or a closed target', () => {
+    expect(finalizeVerdict({ ...duplicate, citations: [] }, readers).heading).toBe(
+      '## Judge: Hold — no verifiable precedent',
+    )
+    const closed: Readers = {
+      ...readers,
+      linear: (id) => (id === 'HON-900' ? `Status: Canceled\n${linear['HON-900']}` : null),
+    }
+    expect(finalizeVerdict(duplicate, closed).heading).toBe(
+      '## Judge: Hold — no verifiable precedent',
+    )
+  })
+
+  it('rejects a duplicate of the judged issue itself', () => {
+    expect(() => validateVerdict({ ...duplicate, duplicateOf: 'HON-1' })).toThrow(
+      'duplicateOf: not the judged issue itself',
+    )
   })
 
   it('renders a hard-gate Hold', () => {

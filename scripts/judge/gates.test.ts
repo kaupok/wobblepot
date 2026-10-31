@@ -88,6 +88,18 @@ describe('matchGate', () => {
     ).toEqual({ gate: 'auth', kind: 'path', matched: 'src/proxy.ts' })
   })
 
+  it('holds a GitHub permalink path and household-row and paid-call phrasings', () => {
+    expect(
+      matchGate(
+        { title: 'See https://github.com/kaupok/wobblepot/blob/main/prisma/schema.prisma#L10' },
+        gates,
+      )?.gate,
+    ).toBe('irreversible')
+    expect(matchGate({ title: 'Clear deletes household rows' }, gates)?.gate).toBe('irreversible')
+    expect(matchGate({ title: 'Rewriting household meal rows' }, gates)?.gate).toBe('irreversible')
+    expect(matchGate({ title: 'Adds an outbound call per request' }, gates)?.gate).toBe('money')
+  })
+
   it('passes a plain UI finding', () => {
     expect(
       matchGate(

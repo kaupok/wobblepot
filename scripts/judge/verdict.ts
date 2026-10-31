@@ -56,6 +56,8 @@ export function validateVerdict(raw: unknown): Verdict {
       (typeof v.duplicateOf !== 'string' || !ISSUE_ID.test(v.duplicateOf))
     ) {
       problems.push('duplicateOf: an issue ID when sendBackReason is duplicate')
+    } else if (v.sendBackReason === 'duplicate' && v.duplicateOf === v.issue) {
+      problems.push('duplicateOf: not the judged issue itself')
     }
   }
   if (v.move === 'hold' && (typeof v.holdReason !== 'string' || !HOLD_REASON.test(v.holdReason))) {
@@ -192,7 +194,23 @@ function renderComment(verdict: Verdict, heading: string, dropped: Finalized['dr
   return lines.join('\n')
 }
 
-/** Keep the verified citations; a Decide left with none becomes Hold. */
+// The main session writes the issue's status as the first line of its Linear file.
+const CLOSED_STATUS = /^Status: (?:Done|Canceled|Duplicate)\b/
+
+/**
+ * A duplicate closes the finding into another issue, so it needs the same proof
+ * as a Decide: a verified quote from that issue, which must still be open.
+ */
+export function duplicateProblem(verdict: Verdict, readers: Readers): string | null {
+  if (verdict.move !== 'send_back' || verdict.sendBackReason !== 'duplicate') return null
+  const target = verdict.duplicateOf ?? ''
+  if (!verdict.citations.some((c) => citationTarget(c.source).id === target)) {
+    return `no verified quote from ${target}`
+  }
+  return CLOSED_STATUS.test(readers.linear(target) ?? '') ? `${target} is closed` : null
+}
+
+/** Keep the verified citations; a Decide left with none, or an unproven duplicate, becomes Hold. */
 export function finalizeVerdict(raw: unknown, readers: Readers): Finalized {
   const input = validateVerdict(raw)
   const dropped: Finalized['dropped'] = []
@@ -206,7 +224,10 @@ export function finalizeVerdict(raw: unknown, readers: Readers): Finalized {
     return reason === null
   })
   let verdict: Verdict = { ...input, citations }
-  if (verdict.move === 'decide' && citations.length === 0) {
+  if (
+    (verdict.move === 'decide' && citations.length === 0) ||
+    duplicateProblem(verdict, readers) !== null
+  ) {
     verdict = {
       issue: verdict.issue,
       move: 'hold',
