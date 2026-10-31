@@ -15,7 +15,7 @@ Read from `SKILL.md` → step 4. `pnpm judge finalize` validates the JSON and re
   "citations": [
     {
       "source": "docs/DESIGN.md → Reject list | HON-NNN comment 2026-10-21 | src/lib/x.ts:42",
-      "quote": "verbatim, at most 2 lines"
+      "quote": "verbatim, 5 words (docs and issues) to 2 lines"
     }
   ],
   "reasoning": "at most 3 sentences"
@@ -25,6 +25,8 @@ Read from `SKILL.md` → step 4. `pnpm judge finalize` validates the JSON and re
 - `outcome` only with `decide`. `sendBackReason` only with `send_back`; `duplicateOf` only with `duplicate`, and then a citation from `duplicateOf` is required, or the script holds the verdict. `holdReason` only with `hold`.
 - `source` starts with a repository path or an issue ID, because the script reads the source from its first token. A doc cites a heading path (`docs/DESIGN.md → Copy → Sentence case`), not a line number, because doc lines drift. Code may cite `path:line`.
 - `quote` is copied, not paraphrased. Whitespace may differ; nothing else may. A citation of the judged issue itself is dropped.
+- A quote from a doc (`.md`) or an issue has at least 5 words, so it carries a rule. A code quote may be one short line.
+- A Decide needs a verified quote from a doc or an issue: code shows behaviour, not a decision. A `stale` or `misread` Send back needs a verified quote of any kind, usually the current code.
 - The script adds `no_verifiable_precedent` itself. A subagent never writes it.
 
 ## Subagent prompt
@@ -51,7 +53,7 @@ You judge one Linear issue for the Wobblepot repository: <ID>. It is a review fi
 - **send_back**: `stale` (the code on `origin/main` no longer does it; cite the current code), `duplicate` (an open issue covers it; set `duplicateOf` and quote that issue), `no_evidence` (the issue names no file, line or reproduction), `misread` (the code does not do what the issue says; cite it).
 - **hold**: `no_precedent` (nothing recorded covers it), `options_open` (the fix needs a product or design choice). Hold is a good answer. Do not stretch a weak precedent into a Decide.
 
-A Decide needs at least one quote that is verbatim in the cited file on `origin/main` or in the cited Linear issue. Never cite <ID> itself: the finding is not its own precedent. The quote is checked by a script; an invented or paraphrased quote turns the verdict into Hold.
+A Decide needs at least one quote of 5 or more words that is verbatim in a cited doc on `origin/main` or in a cited Linear issue. An earlier `## Judge:` comment is not a decision, so never quote one. Never cite <ID> itself: the finding is not its own precedent. The quote is checked by a script; an invented or paraphrased quote turns the verdict into Hold.
 
 ## Write
 

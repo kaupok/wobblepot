@@ -70,6 +70,9 @@ export function validateVerdict(raw: unknown): Verdict {
     if (typeof source !== 'string' || source.trim() === '') problems.push(`citations[${i}].source`)
     if (typeof quote !== 'string' || quote.trim() === '') problems.push(`citations[${i}].quote`)
     else if (quote.trim().split('\n').length > 2) problems.push(`citations[${i}].quote: 2 lines`)
+    else if (typeof source === 'string' && isRecord(source) && words(quote) < MIN_RECORD_WORDS) {
+      problems.push(`citations[${i}].quote: at least ${MIN_RECORD_WORDS} words from a doc or issue`)
+    }
   })
   if (typeof v.reasoning !== 'string' || v.reasoning.trim() === '') problems.push('reasoning')
   if (problems.length > 0) throw new Error(`invalid verdict: ${problems.join('; ')}`)
@@ -115,11 +118,39 @@ export function citationTarget(source: string): { kind: 'linear' | 'file'; id: s
 }
 
 const normalise = (text: string) => text.replace(/\s+/g, ' ').trim()
+const words = (text: string) => text.trim().split(/\s+/).length
+
+// A quote from a doc or an issue must carry a rule, not one common word. A code
+// quote may be one short line, because it shows what the code does.
+const MIN_RECORD_WORDS = 5
+
+/** A doc or a Linear issue records a decision; code only shows behaviour. */
+export function isRecord(source: string): boolean {
+  const target = citationTarget(source)
+  return target.kind === 'linear' || target.id.endsWith('.md')
+}
+
+/**
+ * Removes earlier `/judge` comments from fetched Linear text. A verdict is a
+ * recommendation no human confirmed, so it is never a precedent.
+ */
+export function stripJudgeComments(text: string): string {
+  const lines = text.split('\n')
+  const kept: string[] = []
+  let inVerdict = false
+  for (const line of lines) {
+    if (line.startsWith('## Judge:')) inVerdict = true
+    if (!inVerdict) kept.push(line)
+    if (line.trim() === OVERRULE_LINE) inVerdict = false
+  }
+  return kept.join('\n')
+}
 
 /** Null when the quote is verbatim in its source (whitespace aside), else the reason it is not. */
 export function checkCitation(citation: Citation, readers: Readers): string | null {
   const target = citationTarget(citation.source)
-  const text = target.kind === 'linear' ? readers.linear(target.id) : readers.file(target.id)
+  const raw = target.kind === 'linear' ? readers.linear(target.id) : readers.file(target.id)
+  const text = raw !== null && target.kind === 'linear' ? stripJudgeComments(raw) : raw
   if (text === null) {
     return target.kind === 'linear'
       ? `${target.id} was not fetched`
@@ -210,7 +241,17 @@ export function duplicateProblem(verdict: Verdict, readers: Readers): string | n
   return CLOSED_STATUS.test(readers.linear(target) ?? '') ? `${target} is closed` : null
 }
 
-/** Keep the verified citations; a Decide left with none, or an unproven duplicate, becomes Hold. */
+/**
+ * A Decide needs a verified quote from a doc or an issue. A stale or misread
+ * Send back closes the finding too, so it needs a verified quote of any kind.
+ */
+function unproven(verdict: Verdict): boolean {
+  if (verdict.move === 'decide') return !verdict.citations.some((c) => isRecord(c.source))
+  const closes = verdict.sendBackReason === 'stale' || verdict.sendBackReason === 'misread'
+  return verdict.move === 'send_back' && closes && verdict.citations.length === 0
+}
+
+/** Keep the verified citations; an unproven Decide, Send back or duplicate becomes Hold. */
 export function finalizeVerdict(raw: unknown, readers: Readers): Finalized {
   const input = validateVerdict(raw)
   const dropped: Finalized['dropped'] = []
@@ -224,10 +265,7 @@ export function finalizeVerdict(raw: unknown, readers: Readers): Finalized {
     return reason === null
   })
   let verdict: Verdict = { ...input, citations }
-  if (
-    (verdict.move === 'decide' && citations.length === 0) ||
-    duplicateProblem(verdict, readers) !== null
-  ) {
+  if (unproven(verdict) || duplicateProblem(verdict, readers) !== null) {
     verdict = {
       issue: verdict.issue,
       move: 'hold',

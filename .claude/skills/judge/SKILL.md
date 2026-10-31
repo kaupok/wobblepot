@@ -123,13 +123,13 @@ The subagent writes `$SCRATCH/<ID>/verdict.json` and replies with one line. Do n
 
 ## Step 5: Verify citations and render
 
-For each Linear citation in the verdict (a `source` that starts with an issue ID), and for `duplicateOf`, fetch the cited issue yourself: `get_issue` and `list_comments`. Write `Status: <status>` as the first line, then its description, then each comment body with its date, verbatim, to `$SCRATCH/<ID>/linear/<CITED-ID>.txt`. The subagent never supplies this text, so it cannot vouch for its own quote.
+For each Linear citation in the verdict (a `source` that starts with an issue ID), and for `duplicateOf`, fetch the cited issue yourself: `get_issue` and `list_comments`. Write `Status: <status>` as the first line, then its description, then each comment body with its date, verbatim, to `$SCRATCH/<ID>/linear/<CITED-ID>.txt`. Copy every comment, `## Judge:` ones included: the script removes earlier verdicts itself, because a verdict no human confirmed is never precedent. The subagent never supplies this text, so it cannot vouch for its own quote.
 
 ```bash
 pnpm --silent judge finalize --verdict "$SCRATCH/<ID>/verdict.json" --linear-dir "$SCRATCH/<ID>/linear"
 ```
 
-The script reads code and docs at `origin/main` (`git fetch origin main` first), drops each citation whose quote is not verbatim in its source, and holds a Decide with no verified citation, reason `no verifiable precedent`. A Send back — duplicate is held the same way unless it quotes `duplicateOf` and that issue is still open, because it closes the finding into another issue. A judge that invents a precedent is worse than no judge.
+The script reads code and docs at `origin/main` (`git fetch origin main` first), drops each citation whose quote is not verbatim in its source, and holds a Decide with no verified quote from a doc or an issue, reason `no verifiable precedent`. A `stale` or `misread` Send back with no verified quote is held too. A Send back — duplicate is held the same way unless it quotes `duplicateOf` and that issue is still open, because it closes the finding into another issue. A judge that invents a precedent is worse than no judge.
 
 An `invalid verdict` error lists every problem. Send the subagent's prompt again once with the error appended. A second failure → Hold, reason `no_precedent`, with the error as the reasoning, and say so in the report.
 

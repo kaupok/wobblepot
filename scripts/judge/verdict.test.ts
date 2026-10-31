@@ -67,8 +67,8 @@ describe('finalizeVerdict', () => {
         ...decide,
         outcome: 'wont_fix',
         citations: [
-          { source: 'docs/NOPE.md → X', quote: 'anything' },
-          { source: 'HON-777 comment 2026-10-01', quote: 'anything' },
+          { source: 'docs/NOPE.md → X', quote: 'a rule of five words' },
+          { source: 'HON-777 comment 2026-10-01', quote: 'a rule of five words' },
         ],
       },
       readers,
@@ -159,6 +159,50 @@ describe('finalizeVerdict', () => {
     )
   })
 
+  it('holds a stale Send back whose quote was dropped, and a Decide that cites only code', () => {
+    const stale = finalizeVerdict(
+      {
+        issue: 'HON-1',
+        move: 'send_back',
+        sendBackReason: 'stale',
+        citations: [{ source: 'src/x.ts:4', quote: 'invented line' }],
+        reasoning: 'Gone.',
+      },
+      readers,
+    )
+    expect(stale.heading).toBe('## Judge: Hold — no verifiable precedent')
+    const codeOnly = finalizeVerdict(
+      { ...decide, citations: [{ source: 'src/a.ts:1', quote: 'x' }] },
+      { ...readers, file: (p) => (p === 'src/a.ts' ? 'const x = 1' : null) },
+    )
+    expect(codeOnly.dropped).toEqual([])
+    expect(codeOnly.heading).toBe('## Judge: Hold — no verifiable precedent')
+  })
+
+  it('never verifies a quote from an earlier judge comment', () => {
+    const judged: Readers = {
+      ...readers,
+      linear: () =>
+        [
+          'Status: Backlog',
+          'The cook view toast stays.',
+          "## Judge: Decide — won't fix",
+          '**Reasoning:** The double tap on the cook view is intended.',
+          OVERRULE_LINE,
+        ].join('\n'),
+    }
+    const quote = (q: string) => ({
+      ...decide,
+      citations: [{ source: 'HON-5 comment', quote: q }],
+    })
+    expect(
+      finalizeVerdict(quote('The double tap on the cook view is intended.'), judged).heading,
+    ).toBe('## Judge: Hold — no verifiable precedent')
+    expect(finalizeVerdict(quote('The cook view toast stays.'), judged).heading).toBe(
+      '## Judge: Decide — real',
+    )
+  })
+
   it('renders a hard-gate Hold', () => {
     const result = finalizeVerdict(
       {
@@ -186,6 +230,15 @@ describe('validateVerdict', () => {
     ).toThrow(
       'invalid verdict: issue: not an ID; outcome: one of real, wont_fix when move is decide; citations[0].quote: 2 lines; reasoning',
     )
+  })
+
+  it('needs five words from a doc or issue, but not from code', () => {
+    const one = (source: string) => ({ ...decide, citations: [{ source, quote: 'test' }] })
+    expect(() => validateVerdict(one('CLAUDE.md → Testing'))).toThrow(
+      'citations[0].quote: at least 5 words from a doc or issue',
+    )
+    expect(() => validateVerdict(one('HON-3 comment'))).toThrow('at least 5 words')
+    expect(validateVerdict(one('src/x.ts:3')).citations).toHaveLength(1)
   })
 
   it('needs duplicateOf for a duplicate', () => {
