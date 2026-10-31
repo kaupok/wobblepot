@@ -356,4 +356,37 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
       'strawberry',
     ],
   },
+  {
+    // HON-1481 gave clotted cream and jaggery loanword names with no "koor" or
+    // "suhkur" in them, so the part-of-word rule no longer finds them. As group
+    // words, "koor" and "suhkur" list their rows by English name. Coconut
+    // cream stays in, because "koor" matched "kookoskoor" before.
+    en: ['cream'],
+    et: ['koor'],
+    members: [
+      'clotted cream',
+      'coconut cream',
+      'crema mexicana',
+      'double cream',
+      'single cream',
+      'soured cream',
+      'whipped cream',
+      'whipping cream',
+    ],
+  },
+  {
+    en: ['sugar'],
+    et: ['suhkur'],
+    members: [
+      'brown sugar',
+      'caster sugar',
+      'coconut sugar',
+      'granulated sugar',
+      'icing sugar',
+      'jaggery',
+      'light brown sugar',
+      'palm sugar',
+      'piloncillo',
+    ],
+  },
 ]
