@@ -123,7 +123,10 @@ const guardUnlikely: Check = (files) =>
 
 // CLAUDE.md → Architecture Overview, "Server Components by default": a file
 // that gains "use client" but calls no hook, sets no event handler and touches
-// no browser API fails.
+// no browser API fails. next-intl's hooks run in Server Components, so they do
+// not count as a reason for "use client".
+const CLIENT_HOOK =
+  /\buse(?!Translations\b|Locale\b|Formatter\b|Now\b|TimeZone\b|Messages\b)[A-Z]\w*\s*[(<]/
 const serverComponentsDefault: Check = (files, worktree) =>
   files
     .filter((f) => isSource(f.path) && f.path.endsWith('.tsx'))
@@ -131,7 +134,7 @@ const serverComponentsDefault: Check = (files, worktree) =>
     .filter((f) => {
       const text = fullText(worktree, f)
       return (
-        !/\buse[A-Z]\w*\s*[(<]/.test(text) &&
+        !CLIENT_HOOK.test(text) &&
         !/\bon[A-Z]\w*=\{/.test(text) &&
         !/\b(window|document|navigator|localStorage|sessionStorage)\b/.test(text)
       )
