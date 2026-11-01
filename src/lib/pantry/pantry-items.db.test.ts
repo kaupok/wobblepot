@@ -209,6 +209,75 @@ describe('updatePantryItem', () => {
   })
 })
 
+describe('updatePantryItem — running low (HON-1586)', () => {
+  /** Alder's oil row as quantity and whether it is low. */
+  const oilOf = async (id: string) => {
+    const row = await prisma.pantryItem.findUniqueOrThrow({ where: { id } })
+    return { quantity: row.quantity, low: row.lowAt !== null }
+  }
+
+  it('marks a "have some" row low and leaves it at null', async () => {
+    const { alder, alderOil } = await world()
+    await prisma.pantryItem.update({ where: { id: alderOil }, data: { quantity: null } })
+
+    const outcome = await updatePantryItem(alder, alderOil, { low: true })
+
+    expect(outcome).toMatchObject({ status: 'updated', item: { quantity: null } })
+    expect(outcome.status === 'updated' && outcome.item.lowAt).toBeInstanceOf(Date)
+    expect(await oilOf(alderOil)).toEqual({ quantity: null, low: true })
+  })
+
+  it('sets a row at 0 to "have some" when it marks it low', async () => {
+    const { alder, alderOil } = await world()
+    await prisma.pantryItem.update({ where: { id: alderOil }, data: { quantity: 0 } })
+
+    await updatePantryItem(alder, alderOil, { low: true })
+
+    expect(await oilOf(alderOil)).toEqual({ quantity: null, low: true })
+  })
+
+  it('clears low when the quantity goes to 0, because ran out replaces it', async () => {
+    const { alder, alderOil } = await world()
+    await updatePantryItem(alder, alderOil, { low: true })
+
+    await updatePantryItem(alder, alderOil, { quantity: 0 })
+
+    expect(await oilOf(alderOil)).toEqual({ quantity: 0, low: false })
+  })
+
+  it('keeps low through an amount edit', async () => {
+    const { alder, alderOil } = await world()
+    await updatePantryItem(alder, alderOil, { low: true })
+
+    await updatePantryItem(alder, alderOil, { quantity: 120 })
+
+    expect(await oilOf(alderOil)).toEqual({ quantity: 120, low: true })
+  })
+
+  it('leaves the quantity as it is when it clears low', async () => {
+    const { alder, alderOil } = await world()
+    await updatePantryItem(alder, alderOil, { low: true })
+
+    await updatePantryItem(alder, alderOil, { low: false })
+
+    expect(await oilOf(alderOil)).toEqual({ quantity: 500, low: false })
+  })
+
+  it('puts a new row in low and at "have some" when it is created low at 0', async () => {
+    const { alder } = await world()
+
+    const outcome = await createPantryItem(alder, {
+      ingredientId: 'ing-salt',
+      quantity: 0,
+      isStaple: true,
+      low: true,
+    })
+
+    expect(outcome).toMatchObject({ status: 'created', item: { quantity: null, isStaple: true } })
+    expect(outcome.status === 'created' && outcome.item.lowAt).toBeInstanceOf(Date)
+  })
+})
+
 describe('deletePantryItem', () => {
   it("removes the item from the household's pantry", async () => {
     const { alder, alderOil } = await world()

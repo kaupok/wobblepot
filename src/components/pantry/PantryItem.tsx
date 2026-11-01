@@ -26,6 +26,11 @@ export interface PantryItemData {
   }
   quantity: number | null
   isStaple: boolean
+  /**
+   * Marked running low (HON-1586). `loadPantry` and the pantry API send it; a
+   * fixture may leave it out, which reads as not low.
+   */
+  low?: boolean
   updatedAt: string
   /** Raw needed quantity in grams (only present when window data is available) */
   neededQuantity?: number

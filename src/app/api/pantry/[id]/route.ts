@@ -13,16 +13,19 @@ import { deletePantryItem, pantryQuantitySchema, updatePantryItem } from '@/lib/
 // unknown keys, which Zod strips to `{}`. Prisma would still issue that UPDATE
 // and bump `@updatedAt`, and both shopping-list routes read a null quantity
 // with `updatedAt >= plan createdAt` as "purchased" (HON-642). Presence is
-// `!== undefined`, not truthiness: `quantity: null`, `0` and `isStaple: false`
-// are all real updates.
+// `!== undefined`, not truthiness: `quantity: null`, `0`, `isStaple: false`
+// and `low: false` are all real updates. `low` marks the row running low
+// (HON-1586); `updatePantryItem` owns how it combines with `quantity`.
 const updatePantryItemSchema = z
   .object({
     quantity: pantryQuantitySchema.optional(),
     isStaple: z.boolean().optional(),
+    low: z.boolean().optional(),
   })
-  .refine((data) => data.quantity !== undefined || data.isStaple !== undefined, {
-    message: 'At least one of quantity or isStaple must be provided',
-  })
+  .refine(
+    (data) => data.quantity !== undefined || data.isStaple !== undefined || data.low !== undefined,
+    { message: 'At least one of quantity, isStaple or low must be provided' },
+  )
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
@@ -73,6 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
       quantity: item.quantity,
       isStaple: item.isStaple,
+      low: item.lowAt !== null,
       updatedAt: item.updatedAt,
     })
   } catch (error) {

@@ -31,6 +31,7 @@ const LIST = {
           neededByDate: '2026-10-13',
           purchased: false,
           restock: false,
+          low: false,
         },
       ],
     },
@@ -48,6 +49,7 @@ const LIST = {
           neededByDate: '2026-10-12',
           purchased: true,
           restock: false,
+          low: false,
         },
         {
           ingredientId: 'ing-yoghurt',
@@ -59,6 +61,7 @@ const LIST = {
           neededByDate: '2026-10-12',
           purchased: false,
           restock: true,
+          low: false,
         },
       ],
     },
@@ -110,6 +113,7 @@ describe('get_shopping_list', () => {
           neededBy: '2026-10-13',
           purchased: false,
           restock: false,
+          low: false,
         },
         {
           ingredientId: 'ing-milk',
@@ -122,6 +126,7 @@ describe('get_shopping_list', () => {
           neededBy: '2026-10-12',
           purchased: true,
           restock: false,
+          low: false,
         },
         {
           // A staple the household marked ran out, with no amount (HON-1398).
@@ -134,6 +139,7 @@ describe('get_shopping_list', () => {
           neededBy: '2026-10-12',
           purchased: false,
           restock: true,
+          low: false,
         },
       ],
       customItems: [
@@ -153,6 +159,39 @@ describe('get_shopping_list', () => {
           isStaple: false,
         },
       ],
+    })
+    expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it('passes a running-low item through with no amount (HON-1586)', async () => {
+    vi.mocked(loadShoppingList).mockResolvedValue({
+      ...LIST,
+      groups: [
+        {
+          category: 'vegetable',
+          categoryLabel: 'Vegetables',
+          items: [
+            {
+              ingredientId: 'ing-onion',
+              name: 'Onion',
+              quantity: 0,
+              unit: 'g',
+              displayUnit: 'g',
+              displayQuantity: '',
+              neededByDate: '2026-11-04',
+              purchased: false,
+              restock: false,
+              low: true,
+            },
+          ],
+        },
+      ],
+    } as unknown as ShoppingListResult)
+
+    const result = await call()
+
+    expect(result.structuredContent).toMatchObject({
+      items: [{ ingredientId: 'ing-onion', quantity: 0, displayQuantity: '', low: true }],
     })
     expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)
   })

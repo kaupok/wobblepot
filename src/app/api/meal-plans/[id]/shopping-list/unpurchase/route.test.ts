@@ -138,6 +138,19 @@ describe('POST /api/meal-plans/[id]/shopping-list/unpurchase', () => {
     })
   })
 
+  it('passes restoreLow through and answers 200 with restored (HON-1586)', async () => {
+    mockUnpurchase.mockResolvedValue('restored')
+
+    expect(await answer(post({ ingredientId: 'ing-rice', restoreLow: true }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'restored' },
+    })
+    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'plan-123', 'ing-rice', {
+      restoreQuantity: undefined,
+      restoreLow: true,
+    })
+  })
+
   it('answers 200 with has_quantity when the household set an amount after the purchase', async () => {
     mockUnpurchase.mockResolvedValue('has_quantity')
 

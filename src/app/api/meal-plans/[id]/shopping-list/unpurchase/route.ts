@@ -15,6 +15,8 @@ import {
 const unpurchaseSchema = z.object({
   ingredientId: z.string().min(1),
   restoreQuantity: restoreQuantitySchema.optional(),
+  // The `replacedLow` a purchase returned (HON-1586).
+  restoreLow: z.boolean().optional(),
 })
 
 const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
@@ -57,10 +59,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    const { ingredientId, restoreQuantity } = parsed.data
+    const { ingredientId, restoreQuantity, restoreLow } = parsed.data
 
     const outcome = await unpurchasePlanIngredient(household.id, planId, ingredientId, {
       restoreQuantity,
+      restoreLow,
     })
     switch (outcome) {
       case 'not_in_pantry':
@@ -74,11 +77,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           { status: 400 },
         )
       // A staple stays in the pantry at 0 ("ran out") instead (HON-1398), and
-      // `restoreQuantity` keeps the row at that quantity (HON-1438).
+      // `restoreQuantity` keeps the row at that quantity (HON-1438), and
+      // `restoreLow` keeps it running low (HON-1586).
       case 'removed':
       case 'ran_out':
       case 'restored':
-      // Only with `restoreQuantity`: the household set an amount after the
+      // Only with `restoreQuantity` or `restoreLow`: the household set an amount after the
       // purchase, so the row stays as it is.
       case 'has_quantity':
         return NextResponse.json({ success: true, ingredientId, action: outcome }, { status: 200 })

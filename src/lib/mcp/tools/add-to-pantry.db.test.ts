@@ -142,6 +142,18 @@ describe('add_to_pantry', () => {
     expect((await pantryItem(alder, 'ing-oats'))?.quantity).toBe(800)
   })
 
+  it('clears a running-low mark on an item bought again (HON-1586)', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.updateMany({
+      where: { householdId: alder.id, ingredientId: 'ing-oats' },
+      data: { lowAt: new Date() },
+    })
+
+    await call(alder, [{ name: 'hush oats', quantity: 500, unit: 'g' }])
+
+    expect(await pantryItem(alder, 'ing-oats')).toMatchObject({ quantity: 800, low: false })
+  })
+
   it('adds up two lines for one ingredient', async () => {
     const { alder } = await world()
 

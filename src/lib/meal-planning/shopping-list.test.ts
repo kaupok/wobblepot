@@ -347,6 +347,7 @@ describe('computeShoppingList', () => {
         quantity: null,
         isStaple: true,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -401,6 +402,7 @@ describe('computeShoppingList', () => {
         quantity: null, // "have some, assume sufficient"
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -455,6 +457,7 @@ describe('computeShoppingList', () => {
         quantity: 0, // "ran out"
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -511,6 +514,7 @@ describe('computeShoppingList', () => {
         quantity: 100, // Have 100g
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -569,6 +573,7 @@ describe('computeShoppingList', () => {
         quantity: 1000, // Have 1kg
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -1248,6 +1253,7 @@ describe('computeRollingWindowShoppingList', () => {
         quantity: null,
         isStaple: true,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -1302,6 +1308,7 @@ describe('computeRollingWindowShoppingList', () => {
         id: `pantry-${i}`,
         quantity: null,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
         ...row,
       })),
@@ -1328,6 +1335,7 @@ describe('computeRollingWindowShoppingList', () => {
         quantity: null,
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -1349,6 +1357,7 @@ describe('computeRollingWindowShoppingList', () => {
         quantity: 0,
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])
@@ -1371,6 +1380,7 @@ describe('computeRollingWindowShoppingList', () => {
         quantity: 100,
         isStaple: false,
         expiresAt: null,
+        lowAt: null,
         updatedAt: new Date(),
       },
     ])

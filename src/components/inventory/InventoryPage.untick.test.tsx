@@ -49,13 +49,14 @@ describe('InventoryPage tick then untick', () => {
     })
   }
 
-  function purchaseAnswer(replacedQuantity: number | null) {
+  function purchaseAnswer(replacedQuantity: number | null, replacedLow = false) {
     return Response.json({
       success: true,
       results: [
         {
           ingredientId: 'butter',
           replacedQuantity,
+          replacedLow,
           pantryItem: {
             id: 'pantry-butter',
             ingredient: butter,
@@ -122,6 +123,31 @@ describe('InventoryPage tick then untick', () => {
     expect(untickBody()).toEqual({ ingredientId: 'butter' })
     const pantryColumn = within(screen.getByTestId('pantry-column'))
     await waitFor(() => expect(pantryColumn.queryByText('Butter')).not.toBeInTheDocument())
+  })
+
+  // HON-1586: a low item was at home before the shop, so the untick keeps it.
+  it('keeps a row that was running low before the tick in the pantry', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(purchaseAnswer(null, true))
+      .mockResolvedValueOnce(
+        Response.json({ success: true, ingredientId: 'butter', action: 'restored' }),
+      )
+    renderButterList([
+      {
+        id: 'pantry-butter',
+        ingredient: butter,
+        quantity: null,
+        isStaple: false,
+        low: true,
+        updatedAt: '2026-02-10T00:00:00.000Z',
+      },
+    ])
+
+    await tickThenUntick()
+
+    expect(untickBody()).toEqual({ ingredientId: 'butter', restoreLow: true })
+    const pantryColumn = within(screen.getByTestId('pantry-column'))
+    expect(pantryColumn.getByText('Butter')).toBeInTheDocument()
   })
 
   const butterAt200 = {

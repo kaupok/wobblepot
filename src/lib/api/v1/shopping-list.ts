@@ -34,6 +34,11 @@ export const shoppingListOutputSchema = z.object({
         .describe(
           'true when the item is a staple the household marked ran out; such a line can have no amount (quantity 0, displayQuantity empty).',
         ),
+      low: z
+        .boolean()
+        .describe(
+          'true when the household marked the item running low: a little is left, so it is on the list now. It has no amount (quantity 0, displayQuantity empty) unless planned meals need more than the pantry amount.',
+        ),
     }),
   ),
   // `neededBy` is the earliest day of a linked free-text extra from today on
@@ -80,6 +85,7 @@ export async function readShoppingList(
         neededBy: item.neededByDate,
         purchased: item.purchased,
         restock: item.restock,
+        low: item.low,
       })),
     ),
     customItems: list.customItems.map((item) => ({

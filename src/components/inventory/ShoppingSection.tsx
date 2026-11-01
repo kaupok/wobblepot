@@ -59,8 +59,15 @@ interface ShoppingSectionProps {
   initialPurchasedIds: Set<string>
   initialCustomItems?: CustomItemData[]
   onItemPurchased?: (item: PantryItemData) => void
-  /** `restoredQuantity` is set when the pantry row stays at the amount it had before the tick. */
-  onItemUnpurchased?: (ingredientId: string, restoredQuantity?: number) => void
+  /**
+   * `restoredQuantity` is set when the pantry row stays at the amount it had
+   * before the tick, and `restoredLow` when it stays, running low again.
+   */
+  onItemUnpurchased?: (
+    ingredientId: string,
+    restoredQuantity?: number,
+    restoredLow?: boolean,
+  ) => void
   /** Pantry rows removed or put back (Undo), by ingredient id: `usePantryChanges`. */
   externalPantryChanges?: Map<string, PantryChange>
   onExternalPantryChangesProcessed?: (listStale: boolean) => void

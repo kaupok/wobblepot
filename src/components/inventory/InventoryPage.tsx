@@ -99,16 +99,28 @@ export function InventoryPage({
 
   // Undo takes the row out of the pantry; a staple stays, back at 0 ("ran
   // out"), as `unpurchaseIngredient` leaves it (HON-1398). A row that had an
-  // amount before the tick stays at that amount (HON-1438).
-  const handleItemUnpurchased = useCallback((ingredientId: string, restoredQuantity?: number) => {
-    setPantryItems((prev) =>
-      prev.flatMap((item) => {
-        if (item.ingredient.id !== ingredientId) return [item]
-        if (restoredQuantity !== undefined) return [{ ...item, quantity: restoredQuantity }]
-        return item.isStaple ? [{ ...item, quantity: 0 }] : []
-      }),
-    )
-  }, [])
+  // amount before the tick stays at that amount (HON-1438), and one that was
+  // running low stays, low again (HON-1586).
+  const handleItemUnpurchased = useCallback(
+    (ingredientId: string, restoredQuantity?: number, restoredLow?: boolean) => {
+      setPantryItems((prev) =>
+        prev.flatMap((item) => {
+          if (item.ingredient.id !== ingredientId) return [item]
+          if (restoredQuantity !== undefined || restoredLow) {
+            return [
+              {
+                ...item,
+                ...(restoredQuantity !== undefined && { quantity: restoredQuantity }),
+                ...(restoredLow && { low: true }),
+              },
+            ]
+          }
+          return item.isStaple ? [{ ...item, quantity: 0 }] : []
+        }),
+      )
+    },
+    [],
+  )
 
   // Tell the shopping list a pantry row went or came back (Undo), so it unticks
   // or re-ticks the item. A removal also recomputes the list: the item may now

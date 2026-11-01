@@ -1,5 +1,5 @@
 import { createMcpHandler } from '@modelcontextprotocol/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { buildMcpServer } from '@/lib/mcp/server'
@@ -25,6 +25,16 @@ import {
   slot,
   world,
 } from './plan-fridge-meal.fixtures'
+
+// `create_meal` starts its image in `after()`, which throws outside a request.
+// The `unit-db` project shares one module cache across files (`isolate:
+// false`), so the first file to load `create-meal.ts` decides which `after` it
+// keeps. Mocking it here too keeps `create-meal.db.test.ts` and
+// `update-meal.db.test.ts` green whatever the file order (HON-1586).
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn(),
+}))
 
 // Runs against PGlite through the `unit-db` project, with no mocks (HON-1281).
 

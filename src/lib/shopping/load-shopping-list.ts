@@ -54,6 +54,7 @@ export async function loadShoppingList(
       select: {
         ingredientId: true,
         quantity: true,
+        lowAt: true,
         updatedAt: true,
       },
     }),
@@ -98,18 +99,24 @@ export async function loadShoppingList(
       // `computeRollingWindowShoppingList` drops a null item today, so a listed
       // item does not read as purchased: a bought item leaves the list. The
       // condition stays so that an edit can never read as a purchase if the
-      // list starts to keep bought items.
+      // list starts to keep bought items. A low row (HON-1586) is listed with
+      // a null quantity, and the low tap bumped `updatedAt`, so it is never
+      // purchased: a purchase clears `lowAt`.
       const purchased =
         pantryItem && result.earliestPlanCreatedAt
-          ? pantryItem.quantity === null && pantryItem.updatedAt >= result.earliestPlanCreatedAt
+          ? pantryItem.quantity === null &&
+            pantryItem.lowAt === null &&
+            pantryItem.updatedAt >= result.earliestPlanCreatedAt
           : false
 
       totalItems++
       if (purchased) purchasedItems++
 
       // A ran-out staple that nothing planned needs has no amount (HON-1398):
-      // the screens show its "Ran out" tag, never "0 g".
-      const noAmount = item.restock === true && item.shoppingQuantity === 0
+      // the screens show its "Ran out" tag, never "0 g". A low row with no
+      // shortfall has none either (HON-1586): the household said only that a
+      // little is left.
+      const noAmount = (item.restock === true || item.low === true) && item.shoppingQuantity === 0
 
       return {
         ingredientId: item.ingredientId,
@@ -118,6 +125,7 @@ export async function loadShoppingList(
         unit: item.ingredient.defaultUnit,
         restock: item.restock ?? false,
         ranOut: item.ranOut ?? false,
+        low: item.low ?? false,
         // `g`, `ml` or `piece`: `unit` stays the stored unit, and this is the one
         // every screen shows, so readers outside the UI (the MCP tools, HON-1151)
         // need not repeat the `measuredByVolume` rule.
@@ -294,6 +302,7 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
       select: {
         ingredientId: true,
         quantity: true,
+        lowAt: true,
         updatedAt: true,
       },
     }),
@@ -318,10 +327,15 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
       // quantity is not a purchase, as in `loadShoppingList` (HON-1173,
       // HON-1176). `computeShoppingList` drops a null item today, so a listed
       // item does not read as purchased; see `loadShoppingList` for why the
-      // condition stays.
+      // condition stays, and why a low row is never purchased (HON-1586).
       const purchased = pantryItem
-        ? pantryItem.quantity === null && pantryItem.updatedAt >= plan.createdAt
+        ? pantryItem.quantity === null &&
+          pantryItem.lowAt === null &&
+          pantryItem.updatedAt >= plan.createdAt
         : false
+      // No amount for a ran-out staple nothing planned needs, or a low row
+      // with no shortfall, as in `loadShoppingList`.
+      const noAmount = (item.restock === true || item.low === true) && item.shoppingQuantity === 0
 
       totalItems++
       if (purchased) purchasedItems++
@@ -332,19 +346,18 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
         restock: item.restock ?? false,
-        // No amount for a ran-out staple nothing planned needs, as in `loadShoppingList`.
-        displayQuantity:
-          item.restock && item.shoppingQuantity === 0
-            ? ''
-            : formatShoppingLineQuantity(
-                item.shoppingQuantity,
-                item.ingredient,
-                locale,
-                item.isVague,
-                item.originalPhrase,
-                tVague,
-                pieceLabel,
-              ),
+        low: item.low ?? false,
+        displayQuantity: noAmount
+          ? ''
+          : formatShoppingLineQuantity(
+              item.shoppingQuantity,
+              item.ingredient,
+              locale,
+              item.isVague,
+              item.originalPhrase,
+              tVague,
+              pieceLabel,
+            ),
         mealCount: item.mealCount,
         purchased,
         neededByDate: toDateString(item.earliestNeededDate),

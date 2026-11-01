@@ -29,6 +29,7 @@ const PANTRY = {
       },
       quantity: 500,
       isStaple: true,
+      low: false,
       updatedAt: new Date(),
       neededQuantity: 200,
       neededDisplayQuantity: '200g',
@@ -47,6 +48,7 @@ const PANTRY = {
       },
       quantity: null,
       isStaple: false,
+      low: true,
       updatedAt: new Date(),
     },
   ],
@@ -70,6 +72,7 @@ describe('get_pantry', () => {
           quantity: 500,
           unit: 'g',
           isStaple: true,
+          low: false,
           neededSoon: true,
         },
         {
@@ -79,6 +82,8 @@ describe('get_pantry', () => {
           // The unit the pantry screen shows, not the stored grams.
           unit: 'ml',
           isStaple: false,
+          // Marked running low (HON-1586).
+          low: true,
           neededSoon: false,
         },
       ],

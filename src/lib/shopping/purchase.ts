@@ -40,6 +40,11 @@ export type PurchaseResult = {
    * MCP tool returns it and the assistant can set it back (HON-1176).
    */
   replacedQuantity: number | null
+  /**
+   * The purchase cleared a running-low mark (HON-1586). The undo sends it
+   * back as `restoreLow`, so the item stays in the pantry, low again.
+   */
+  replacedLow: boolean
   pantryItem: {
     id: string
     ingredient: {
@@ -106,6 +111,7 @@ export async function purchaseIngredients(
   const select = {
     id: true,
     quantity: true,
+    lowAt: true,
     isStaple: true,
     updatedAt: true,
     ingredient: {
@@ -145,14 +151,16 @@ export async function purchaseIngredients(
       // A purchase means "have some, amount unknown", and `loadShoppingList`
       // reads only that state as purchased. So a 0 ("ran out") and a quantity
       // the household entered are both replaced: a quantity above 0 would
-      // read the same as an edit on the pantry page (HON-1173, HON-1176). The
-      // row is locked by the upsert already, so the lock order above still
-      // holds.
+      // read the same as an edit on the pantry page (HON-1173, HON-1176). A
+      // running-low mark is cleared too: the household restocked (HON-1586).
+      // The row is locked by the upsert already, so the lock order above
+      // still holds.
       const quantityBefore = pantryItem.quantity
-      if (quantityBefore !== null) {
+      const lowBefore = pantryItem.lowAt !== null
+      if (quantityBefore !== null || lowBefore) {
         pantryItem = await tx.pantryItem.update({
           where: { id: pantryItem.id },
-          data: { quantity: null },
+          data: { quantity: null, lowAt: null },
           select,
         })
       }
@@ -161,6 +169,7 @@ export async function purchaseIngredients(
       upserted.set(ingredientId, {
         ingredientId,
         replacedQuantity: quantityBefore !== null && quantityBefore > 0 ? quantityBefore : null,
+        replacedLow: lowBefore,
         pantryItem: {
           id: pantryItem.id,
           ingredient: {
@@ -202,7 +211,8 @@ export async function purchaseIngredients(
  *   any quantity, 0 included: the household set it after the purchase, so the
  *   item stays as it is
  * - `restored`: the pantry item stays, back at the quantity the purchase
- *   replaced; returned only with `restoreQuantity`
+ *   replaced, running low again or both; returned only with `restoreQuantity`
+ *   or `restoreLow`
  */
 export type UnpurchaseOutcome =
   'removed' | 'not_in_pantry' | 'ran_out' | 'too_old' | 'has_quantity' | 'restored'
@@ -228,11 +238,16 @@ export type UnpurchaseOutcome =
  * mistake does not lose the amount the household entered (HON-1438). A row
  * that is no longer `null` got its quantity after the purchase, so it is kept
  * as it is rather than overwritten with the older one.
+ *
+ * `restoreLow` is the `replacedLow` the purchase returned. With it, the row
+ * stays, staple or not, running low again with the quantity the purchase
+ * left (HON-1586): a low item was at home before the shop, so an undone tick
+ * must not take it out of the pantry.
  */
 export async function unpurchaseIngredient(
   householdId: string,
   ingredientId: string,
-  options: { keepWithQuantity?: boolean; restoreQuantity?: number } = {},
+  options: { keepWithQuantity?: boolean; restoreQuantity?: number; restoreLow?: boolean } = {},
 ): Promise<UnpurchaseOutcome> {
   const pantryItem = await prisma.pantryItem.findUnique({
     where: {
@@ -258,17 +273,24 @@ export async function unpurchaseIngredient(
   cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
   if (pantryItem.updatedAt < cutoffDate) return 'too_old'
 
-  if (options.restoreQuantity !== undefined) {
+  if (options.restoreQuantity !== undefined || options.restoreLow) {
     if (pantryItem.quantity !== null) return 'has_quantity'
     await prisma.pantryItem.update({
       where: { id: pantryItem.id },
-      data: { quantity: options.restoreQuantity },
+      data: {
+        ...(options.restoreQuantity !== undefined && { quantity: options.restoreQuantity }),
+        ...(options.restoreLow && { lowAt: new Date() }),
+      },
     })
     return 'restored'
   }
 
   if (pantryItem.isStaple) {
-    await prisma.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: 0 } })
+    // Ran out replaces running low (HON-1586).
+    await prisma.pantryItem.update({
+      where: { id: pantryItem.id },
+      data: { quantity: 0, lowAt: null },
+    })
     return 'ran_out'
   }
 
@@ -296,7 +318,7 @@ export async function purchasePlanIngredients(
 /**
  * `unpurchaseIngredient` for `POST /api/meal-plans/[id]/shopping-list/unpurchase`,
  * without `keepWithQuantity`, so it answers `has_quantity` only with
- * `restoreQuantity`. Throws
+ * `restoreQuantity` or `restoreLow`. Throws
  * `ShoppingPlanError` for a plan that does not exist or is another
  * household's, before anything is deleted.
  */
@@ -304,7 +326,7 @@ export async function unpurchasePlanIngredient(
   householdId: string,
   planId: string,
   ingredientId: string,
-  options: { restoreQuantity?: number } = {},
+  options: { restoreQuantity?: number; restoreLow?: boolean } = {},
 ): Promise<UnpurchaseOutcome> {
   await findHouseholdPlan(householdId, planId)
   return unpurchaseIngredient(householdId, ingredientId, options)

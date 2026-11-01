@@ -60,6 +60,7 @@ const savedItem = {
   ingredientId: 'ing-456',
   quantity: 250,
   isStaple: false,
+  lowAt: null,
   updatedAt: new Date('2024-01-10T00:00:00.000Z'),
   ingredient: {
     id: 'ing-456',
@@ -163,6 +164,7 @@ describe('PATCH /api/pantry/[id]', () => {
       ingredient: { id: 'ing-456', name: 'Olive oil', category: 'fat', defaultUnit: 'g' },
       quantity: 250,
       isStaple: false,
+      low: false,
       updatedAt: '2024-01-10T00:00:00.000Z',
     })
     expect(mockUpdatePantryItem).toHaveBeenCalledWith(mockHousehold, 'pantry-123', {
@@ -177,6 +179,8 @@ describe('PATCH /api/pantry/[id]', () => {
     ['a null quantity, "have some"', { quantity: null }],
     ['isStaple false', { isStaple: false }],
     ['both fields', { quantity: 0, isStaple: true }],
+    ['low true, "running low" (HON-1586)', { low: true }],
+    ['low false', { low: false }],
   ])('passes %s to the update', async (_label, body) => {
     mockUpdatePantryItem.mockResolvedValue({ status: 'updated', item: savedItem })
 
@@ -184,6 +188,18 @@ describe('PATCH /api/pantry/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(mockUpdatePantryItem).toHaveBeenCalledWith(mockHousehold, 'pantry-123', body)
+  })
+
+  it('returns low true for a row marked running low (HON-1586)', async () => {
+    mockUpdatePantryItem.mockResolvedValue({
+      status: 'updated',
+      item: { ...savedItem, quantity: null, lowAt: new Date('2026-11-01T18:00:00.000Z') },
+    })
+
+    const response = await patch({ low: true })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ quantity: null, low: true })
   })
 
   it('returns 500 with the { error } JSON shape and reports an unexpected error', async () => {

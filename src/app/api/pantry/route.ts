@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         },
         quantity: item.quantity,
         isStaple: item.isStaple,
+        low: item.lowAt !== null,
         updatedAt: item.updatedAt,
       },
       { status: 201 },

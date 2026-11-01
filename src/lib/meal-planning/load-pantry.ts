@@ -193,6 +193,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       },
       quantity: item.quantity,
       isStaple: item.isStaple,
+      // Running low (HON-1586): a little left, and on the shopping list.
+      low: item.lowAt !== null,
       updatedAt: item.updatedAt,
       ...(days && neededInfo !== undefined && neededInfo.quantity > 0
         ? {

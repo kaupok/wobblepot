@@ -43,13 +43,18 @@ export function shoppingIngredientArgs(locale: Locale) {
  * - A fresh herb (HON-1567): nothing, when its bare row holds the fresh plant
  *   (`FRESH_BARE_HERBS`), is in the pantry and has not run out. A dried herb
  *   has no such cover.
+ * - Running low (HON-1586, `lowAt` set): at home as above, and also one line
+ *   with `low`, staple or not. It has the shortfall when an amount falls
+ *   short, else no amount (`shoppingQuantity` 0). Dated by the first planned
+ *   need, or today when nothing planned needs it.
  *
  * A need is at home when its row is a staple not at 0, is covered by another
  * form of the herb, holds "have some" (null) or holds more than 0.
  *
  * A need is to check (`check`, HON-1584) when it is at home, every row that
- * keeps it there holds "have some" (null), two or more meals use it, it is
- * not a cupboard item (`isCupboardIngredient`) and it is not vague. The list
+ * keeps it there holds "have some" (null) and is not running low (a low row
+ * is on the list already), two or more meals use it, it is not a cupboard
+ * item (`isCupboardIngredient`) and it is not vague. The list
  * assumes "have some" is enough, and the second meal is the one at risk.
  *
  * @param today - Start of today in the household's timezone
@@ -60,7 +65,7 @@ export async function pantryShoppingLines(
   locale: Locale,
   today: Date,
 ): Promise<{ lines: ShoppingListItem[]; check: PantryCheckItem[] }> {
-  // The ingredient is for a ran-out staple that no planned meal needs.
+  // The ingredient is for a ran-out or low row that no planned meal needs.
   const pantryItems = await prisma.pantryItem.findMany({
     where: { householdId },
     include: { ingredient: shoppingIngredientArgs(locale) },
@@ -89,6 +94,7 @@ export async function pantryShoppingLines(
   ] of needed) {
     const pantry = pantryMap.get(ingredientId)
     const restock = pantry?.isStaple === true && pantry.quantity === 0
+    const low = pantry !== undefined && pantry.lowAt !== null
 
     const coveringRow = coveringRows.get(ingredientId)?.[0]
     // The rows that keep this need at home, its own row first. A staple at 0
@@ -105,7 +111,7 @@ export async function pantryShoppingLines(
       if (
         mealCount >= 2 &&
         !isVague &&
-        homeRows.every((row) => row.quantity === null) &&
+        homeRows.every((row) => row.quantity === null && row.lowAt === null) &&
         !isCupboardIngredient(ingredient.category, ingredient.subcategory ?? null)
       ) {
         check.push({
@@ -122,12 +128,11 @@ export async function pantryShoppingLines(
 
     let shoppingQty: number
 
-    if (pantry?.isStaple && !restock) {
-      // Staple the household has - always at home, not on the list
-      continue
-    } else if (!restock && coveringRow) {
-      // Another row of this herb that covers it is at home
-      continue
+    if ((pantry?.isStaple && !restock) || (!restock && coveringRow)) {
+      // A staple the household has, or another row of this herb that covers
+      // it, is at home. Not on the list unless the row is running low.
+      if (!low) continue
+      shoppingQty = 0
     } else if (!pantry) {
       // Not in pantry - need full amount
       shoppingQty = neededQty
@@ -142,8 +147,8 @@ export async function pantryShoppingLines(
       shoppingQty = Math.max(0, neededQty - pantry.quantity)
     }
 
-    // Only include if need to buy something
-    if (shoppingQty > 0) {
+    // Only include if need to buy something, or the row is running low
+    if (shoppingQty > 0 || low) {
       shoppingList.push({
         ingredientId,
         ingredient,
@@ -157,24 +162,32 @@ export async function pantryShoppingLines(
         ...(restock && { restock: true }),
         // Any other row at 0 (HON-1578): the household marked it ran out.
         ...(!restock && pantry?.quantity === 0 && { ranOut: true }),
+        ...(low && { low: true }),
       })
     }
   }
 
-  // A ran-out staple that nothing planned needs: one line with no amount.
+  // A ran-out staple or a low row that nothing planned needs: one line with
+  // no amount.
   for (const pantry of pantryItems) {
-    if (!pantry.isStaple || pantry.quantity !== 0 || needed.has(pantry.ingredientId)) continue
+    if (needed.has(pantry.ingredientId)) continue
+    const restock = pantry.isStaple && pantry.quantity === 0
+    const low = pantry.lowAt !== null
+    if (!restock && !low) continue
+    // A low herb row that covers another form's need is dated by that need.
+    const coveredNeed = low ? needed.get(coverIds.get(pantry.ingredientId) ?? '') : undefined
     shoppingList.push({
       ingredientId: pantry.ingredientId,
       ingredient: translateIngredient(pantry.ingredient, locale),
       neededQuantity: 0,
-      pantryQuantity: 0,
+      pantryQuantity: pantry.quantity,
       shoppingQuantity: 0,
       mealCount: 0,
-      earliestNeededDate: today,
+      earliestNeededDate: coveredNeed?.earliestNeededDate ?? today,
       isVague: false,
       originalPhrase: null,
-      restock: true,
+      ...(restock && { restock: true }),
+      ...(low && { low: true }),
     })
   }
 

@@ -63,14 +63,17 @@ function needs(...lines: [name: string, grams: number][]): Map<string, NeededIng
   )
 }
 
-/** Pantry rows: `null` is "have some". */
-function pantry(...rows: [name: string, quantity: number | null, isStaple?: boolean][]) {
+/** Pantry rows: `null` is "have some"; `low` marks the row running low. */
+function pantry(
+  ...rows: [name: string, quantity: number | null, isStaple?: boolean, low?: 'low'][]
+) {
   mockPantry.mockResolvedValue(
-    rows.map(([name, quantity, isStaple = false]) => ({
+    rows.map(([name, quantity, isStaple = false, low]) => ({
       ingredientId: id(name),
       id: `pantry-${name.replace(' ', '-')}`,
       quantity,
       isStaple,
+      lowAt: low ? new Date('2026-10-31T18:00:00Z') : null,
       ingredient: ingredient(name),
     })) as never,
   )
@@ -332,5 +335,66 @@ describe('pantryShoppingLines — a ran-out staple is dated by its first need (H
     expect(lines.map((line) => [line.ingredient.name, line.earliestNeededDate])).toEqual([
       ['onion', TODAY],
     ])
+  })
+})
+
+const WEDNESDAY = new Date('2026-11-04T00:00:00Z')
+
+describe('pantryShoppingLines — running low (HON-1586)', () => {
+  /** Each line as name, amount to buy, date, and its low flag. */
+  const lowLines = async (needed: Map<string, NeededIngredient>) =>
+    (await pantryShoppingLines(needed, 'household-1', 'en', TODAY)).lines.map((line) => [
+      line.ingredient.name,
+      line.shoppingQuantity,
+      line.earliestNeededDate,
+      line.low,
+    ])
+
+  it('lists a low onion staple needed Wednesday once, with no amount', async () => {
+    pantry(['onion', null, true, 'low'])
+    const needed = new Map([
+      need('onion', 300, { category: 'vegetable', mealCount: 1, earliestNeededDate: WEDNESDAY }),
+    ])
+    expect(await lowLines(needed)).toEqual([['onion', 0, WEDNESDAY, true]])
+  })
+
+  it('lists low tahini that nothing needs once, dated today', async () => {
+    pantry(['tahini', null, false, 'low'])
+    expect(await lowLines(new Map())).toEqual([['tahini', 0, TODAY, true]])
+  })
+
+  it('lists the shortfall of a low carrot at 300 g against a 500 g need', async () => {
+    pantry(['carrot', 300, false, 'low'])
+    expect(await lowLines(needs(['carrot', 500]))).toEqual([['carrot', 200, TODAY, true]])
+  })
+
+  it('lists a low carrot at 300 g against a 200 g need with no amount', async () => {
+    pantry(['carrot', 300, false, 'low'])
+    expect(await lowLines(needs(['carrot', 200]))).toEqual([['carrot', 0, TODAY, true]])
+  })
+
+  it('leaves a low row that 3 meals use out of the check', async () => {
+    pantry(['carrot', null, false, 'low'])
+    const needed = new Map([need('carrot', 900, { category: 'vegetable', mealCount: 3 })])
+    const { check } = await pantryShoppingLines(needed, 'household-1', 'en', TODAY)
+    expect(check).toEqual([])
+  })
+
+  it('dates a low fresh-basil row by the basil need it covers', async () => {
+    pantry(['fresh basil', null, false, 'low'])
+    const needed = new Map([
+      need('basil', 10, {
+        category: 'spice',
+        subcategory: 'herb',
+        mealCount: 1,
+        earliestNeededDate: WEDNESDAY,
+      }),
+    ])
+    expect(await lowLines(needed)).toEqual([['fresh basil', 0, WEDNESDAY, true]])
+  })
+
+  it('does not mark a line low when its row is not', async () => {
+    pantry(['carrot', 300])
+    expect(await lowLines(needs(['carrot', 500]))).toEqual([['carrot', 200, TODAY, undefined]])
   })
 })

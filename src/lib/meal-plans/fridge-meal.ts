@@ -178,7 +178,8 @@ export async function completeFridgeEntry(
       await tx.pantryItem.upsert({
         where: { householdId_ingredientId: { householdId, ingredientId } },
         create: { householdId, ingredientId, quantity: 0, isStaple: false },
-        update: { quantity: 0 },
+        // Ran out replaces running low (HON-1586).
+        update: { quantity: 0, lowAt: null },
       })
     }
     return true

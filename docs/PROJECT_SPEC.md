@@ -61,22 +61,23 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 
 ## Domain Glossary
 
-| Term                | Definition                                                                                                                                                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Plan**            | The household's single `MealPlan`. It has no dates of its own; its entries cover any days.                                                                                        |
-| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across days.                                                                                               |
-| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                                                                                             |
-| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                                                                                             |
-| **Slot**            | A date + mealType position.                                                                                                                                                       |
-| **Fridge meal**     | An entry with no meal: items from the pantry, an earlier meal's leftovers, or free text (`kind`). A leftover item may point at a dinner still planned, with the servings it takes |
-| **Extra**           | A snack or drink on a day, outside its meals: an ingredient with an optional amount, or free text.                                                                                |
-| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                                                                                                       |
-| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                                                                                             |
-| **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.                                                                                 |
-| **Pool**            | Candidates filtered by protein type (fish, legume, any).                                                                                                                          |
-| **Staple**          | Pantry item the household always keeps at home; on the shopping list only when marked ran out (`0`).                                                                              |
-| **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).                                                                                    |
-| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`).                                                                              |
+| Term                | Definition                                                                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plan**            | The household's single `MealPlan`. It has no dates of its own; its entries cover any days.                                                                                               |
+| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across days.                                                                                                      |
+| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                                                                                                    |
+| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                                                                                                    |
+| **Slot**            | A date + mealType position.                                                                                                                                                              |
+| **Fridge meal**     | An entry with no meal: items from the pantry, an earlier meal's leftovers, or free text (`kind`). A leftover item may point at a dinner still planned, with the servings it takes        |
+| **Extra**           | A snack or drink on a day, outside its meals: an ingredient with an optional amount, or free text.                                                                                       |
+| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                                                                                                              |
+| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                                                                                                    |
+| **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.                                                                                        |
+| **Pool**            | Candidates filtered by protein type (fish, legume, any).                                                                                                                                 |
+| **Staple**          | Pantry item the household always keeps at home; on the shopping list only when marked ran out (`0`) or running low.                                                                      |
+| **Running low**     | Pantry mark (`lowAt`) for a row with a little left, next to have some (`null` or an amount) and ran out (`0`). On the shopping list now, and still at home for planned meals (HON-1586). |
+| **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).                                                                                           |
+| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`).                                                                                     |
 
 ### Quantity Units
 
@@ -94,6 +95,8 @@ An ingredient with `pieceDisplay` shows its grams as pieces, so a cook reads "1Â
 | `null`        | "Have some"   | Skip             |
 | `0`           | "Ran out"     | Need full amount |
 | `> 0`         | "Have X"      | Need difference  |
+
+A row that is not at `0` can also be **running low** (`lowAt` set, HON-1586): the household tapped that a little is left. Low is a mark, not a quantity, so `null` and `> 0` keep their meaning. A low row still counts as at home for planned meals, and it also adds one restock line (`low: true`), staple or not: with the shortfall when an amount falls short of the plan, else with no amount. The line is needed on the first day a planned meal needs it, or today. Marking low on a row at `0` sets it to "have some"; setting `0` (ran out) clears low; an amount edit keeps it. A purchase clears low, and its undo puts it back. A low row is never a check item, because it is on the list already.
 
 A staple skips the list for a planned meal, as long as the household has some. A staple at `0` ("ran out") goes on the list now, with or without a planned meal: with the planned amount when a meal or extra needs it, and with no amount when nothing does. Either way the line is a restock line (`restock: true`), tagged "Ran out" (HON-1398). It is needed on the first day a meal or extra needs it, or today when nothing does (HON-1584). An ordinary item at `0` goes on the list only when a planned meal or extra needs it.
 

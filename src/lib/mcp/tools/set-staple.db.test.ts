@@ -88,6 +88,7 @@ describe('set_staple', () => {
     const pantry = await getPantry.run(alder, {}, CALLER)
     expect(pantry.items.find((i) => i.ingredientId === 'ing-rice')).toEqual({
       ...item,
+      low: false,
       neededSoon: false,
     })
   })

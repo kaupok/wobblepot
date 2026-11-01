@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// `create_meal` starts its image in `after()`, which throws outside a request.
+// The `unit-db` project shares one module cache across files (`isolate:
+// false`), so the first file to load `create-meal.ts` decides which `after` it
+// keeps. Mocking it here too keeps `create-meal.db.test.ts` and
+// `update-meal.db.test.ts` green whatever the file order (HON-1586).
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn(),
+}))
+
 import { listRecentlyDeletedHouseholdMeals } from '@/lib/deleted-household-meals'
 import { runTool, ToolInputError, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import { parseLocalDate } from '@/lib/meal-planning/dates'

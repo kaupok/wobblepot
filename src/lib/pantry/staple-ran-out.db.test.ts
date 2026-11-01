@@ -88,6 +88,16 @@ describe('markStapleRanOutByName', () => {
     expect(await quantityOf(birchMilk)).toBe(0)
   })
 
+  it('clears a running-low mark, because ran out replaces it (HON-1586)', async () => {
+    const { alder, alderMilk } = await world()
+    await prisma.pantryItem.update({ where: { id: alderMilk }, data: { lowAt: new Date() } })
+
+    await markStapleRanOutByName(alder, 'milk')
+
+    const row = await prisma.pantryItem.findUniqueOrThrow({ where: { id: alderMilk } })
+    expect({ quantity: row.quantity, lowAt: row.lowAt }).toEqual({ quantity: 0, lowAt: null })
+  })
+
   it('does not write a staple that is ran out already', async () => {
     const { alder, alderMilk } = await world()
     const before = await prisma.pantryItem.update({
