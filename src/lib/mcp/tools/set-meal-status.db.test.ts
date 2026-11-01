@@ -208,19 +208,78 @@ describe('set_meal_status', () => {
   })
 
   it.each([
-    ['a recipe meal', 1, 'cooked'],
+    ['a recipe meal set to skipped', 1, 'skipped'],
     ['a fridge meal set to skipped', 2, 'skipped'],
   ])('refuses usedUpIngredientIds on %s, and nothing changes', async (_, offset, status) => {
     const household = await world()
 
     expect(
       await refusal(household, day(offset), { status, usedUpIngredientIds: ['ing-peas'] }),
-    ).toMatch(/^usedUpIngredientIds is only for marking a fridge meal cooked/)
+    ).toMatch(/^usedUpIngredientIds is only for marking a meal cooked/)
     expect(await dinnerOn(household, day(offset))).toMatchObject({
       isCooked: false,
       isSkipped: false,
     })
     expect(await pantry(household)).toEqual(STOCKED)
+  })
+
+  it('asks before it takes a "have some" row, then takes what the household named', async () => {
+    const household = await world()
+    await prisma.pantryItem.updateMany({
+      where: { ingredientId: 'ing-peas' },
+      data: { quantity: null },
+    })
+    await prisma.ingredientTranslation.create({
+      data: { ingredientId: 'ing-peas', locale: 'et', name: 'särahernes' },
+    })
+    const estonian = { ...household, locale: 'et' }
+
+    const first = await call(estonian, day(1), { status: 'cooked' })
+
+    expect(first).toEqual({
+      outcome: 'needsPantryCheck',
+      date: day(1),
+      mealType: 'dinner',
+      status: 'cooked',
+      meal: { id: 'stew', name: 'Glimmer stew' },
+      pantryDeducted: false,
+      pantryCheck: [
+        {
+          ingredientId: 'ing-peas',
+          name: 'särahernes',
+          used: 100,
+          unit: 'g',
+          pantryQuantity: null,
+          default: 'usedUp',
+        },
+      ],
+      defaultUsedUpIngredientIds: ['ing-peas'],
+    })
+    expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: false })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': null })
+
+    const second = await call(estonian, day(1), {
+      status: 'cooked',
+      usedUpIngredientIds: ['ing-peas'],
+    })
+
+    expect(second).toMatchObject({ outcome: 'updated', pantryDeducted: true })
+    expect(second).not.toHaveProperty('pantryCheck')
+    expect(await dinnerOn(household, day(1))).toMatchObject({ isCooked: true })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': 0 })
+  })
+
+  it('keeps a "have some" row when the household answers with an empty list', async () => {
+    const household = await world()
+    await prisma.pantryItem.updateMany({
+      where: { ingredientId: 'ing-peas' },
+      data: { quantity: null },
+    })
+
+    const result = await call(household, day(1), { status: 'cooked', usedUpIngredientIds: [] })
+
+    expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': null })
   })
 
   it('refuses an empty slot', async () => {

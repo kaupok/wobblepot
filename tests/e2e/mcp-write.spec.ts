@@ -12,7 +12,9 @@ import { signIn, signUpWithHousehold } from './utils/test-helpers'
  * consent with `mcp:write`, then `mark_purchased` puts an ingredient in the
  * pantry and takes it out again, and `swap_meal` and `rate_meal` change a
  * planned dinner and rate it once cooked (HON-1174), and `plan_fridge_meal`
- * plans a fridge meal the app reads back (HON-1281). A read-only token gets the reconnect message.
+ * plans a fridge meal the app reads back (HON-1281), and `set_meal_status` asks
+ * about "have some" items before a cooked dinner takes them (HON-1565). A
+ * read-only token gets the reconnect message.
  *
  * Tier 1 only. The pantry tests sign up a household of their own, so its
  * pantry is empty and no other spec changes it in parallel. The meal plan
@@ -200,6 +202,87 @@ test.describe('MCP write tools', () => {
     expect(read.structuredContent!.entries).toEqual([
       expect.objectContaining({ kind: 'fridge', items }),
     ])
+  })
+
+  test('a client allowed to make changes is asked about "have some" items before a cooked dinner takes them', async ({
+    page,
+    request,
+  }) => {
+    // A household of its own, so its pantry holds only what this test adds.
+    await signUpWithHousehold(page)
+    const token = await connectMcpClient(page, request, { scope: WRITE_SCOPE })
+    const slot = { date: daysFromNow(1), mealType: 'dinner' }
+
+    const mealsResponse = await page.request.get('/api/meals?mealType=dinner&limit=20')
+    expect(mealsResponse.ok()).toBe(true)
+    const { meals } = (await mealsResponse.json()) as {
+      meals: { id: string; components?: { ingredientId: string }[] }[]
+    }
+    const meal = meals.find((m) => (m.components?.length ?? 0) > 0)
+    expect(meal, 'No seeded dinner has components').toBeTruthy()
+    const ingredientIds = meal!.components!.map((c) => c.ingredientId)
+
+    const planned = await mcpCallTool(request, token, 'plan_meal', { ...slot, mealId: meal!.id })
+    expect(planned.isError, planned.content[0]?.text).toBeFalsy()
+    // Every ingredient at home, amount unknown ("have some").
+    const stocked = await mcpCallTool(request, token, 'add_to_pantry', {
+      items: ingredientIds.map((ingredientId) => ({ name: ingredientId, ingredientId })),
+    })
+    expect(stocked.isError, stocked.content[0]?.text).toBeFalsy()
+
+    type CheckRow = { ingredientId: string; pantryQuantity: number | null; default: string }
+    type StatusOutput = {
+      outcome: string
+      pantryDeducted: boolean
+      pantryCheck?: CheckRow[]
+      defaultUsedUpIngredientIds?: string[]
+    }
+    const first = await mcpCallTool<StatusOutput>(request, token, 'set_meal_status', {
+      ...slot,
+      status: 'cooked',
+    })
+    expect(first.isError, first.content[0]?.text).toBeFalsy()
+    expect(first.structuredContent).toMatchObject({
+      outcome: 'needsPantryCheck',
+      pantryDeducted: false,
+    })
+    const check = first.structuredContent!.pantryCheck!
+    expect(check.map((row) => row.ingredientId).sort()).toEqual([...ingredientIds].sort())
+    expect(check.every((row) => row.pantryQuantity === null)).toBe(true)
+    // Asking writes nothing: the dinner is not cooked.
+    const read = await mcpCallTool<{ entries: { mealType: string; isCooked: boolean }[] }>(
+      request,
+      token,
+      'get_meal_plan',
+      { from: slot.date, to: slot.date },
+    )
+    expect(read.structuredContent!.entries).toEqual([
+      expect.objectContaining({ mealType: 'dinner', isCooked: false }),
+    ])
+
+    const usedUp = first.structuredContent!.defaultUsedUpIngredientIds!
+    const second = await mcpCallTool<StatusOutput>(request, token, 'set_meal_status', {
+      ...slot,
+      status: 'cooked',
+      usedUpIngredientIds: usedUp,
+    })
+    expect(second.isError, second.content[0]?.text).toBeFalsy()
+    expect(second.structuredContent).toMatchObject({ outcome: 'updated', pantryDeducted: true })
+    await test.info().attach('set_meal_status exchange', {
+      body: JSON.stringify({ first: first.structuredContent, second: second.structuredContent }),
+      contentType: 'application/json',
+    })
+
+    // The named items ran out (0); the rest still have some (null).
+    const pantry = await mcpCallTool<{
+      items: { ingredientId: string; quantity: number | null }[]
+    }>(request, token, 'get_pantry', {})
+    const quantities = Object.fromEntries(
+      pantry.structuredContent!.items.map((item) => [item.ingredientId, item.quantity]),
+    )
+    for (const ingredientId of ingredientIds) {
+      expect(quantities[ingredientId], ingredientId).toBe(usedUp.includes(ingredientId) ? 0 : null)
+    }
   })
 
   test('a client allowed to make changes swaps a planned dinner and rates it once cooked', async ({
