@@ -21,6 +21,18 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
       // 409 when the item is already in the pantry, a 404 when it is already
       // gone. Either way the pantry now matches what the user asked for.
       const toleratedStatus = hasIt ? 409 : 404
+      // Except a row that ran out (HON-1578): it is in the pantry at 0, and
+      // Today shows it unticked. "Have it" sets it to "have some", as the
+      // pantry page's switch does, or the tick would change nothing.
+      const restoreExisting = async (err: ApiError) => {
+        const existingId = (err.body as { existingId?: unknown }).existingId
+        if (typeof existingId !== 'string') return
+        await apiFetch<unknown>(`/api/pantry/${existingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: null }),
+        })
+      }
       const request = hasIt
         ? apiFetch<unknown>('/api/pantry', {
             method: 'POST',
@@ -28,9 +40,9 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
             body: JSON.stringify({ ingredientId }),
           })
         : apiFetch<void>(`/api/pantry/by-ingredient/${ingredientId}`, { method: 'DELETE' })
-      await request.catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === toleratedStatus) return
-        throw err
+      await request.catch(async (err: unknown) => {
+        if (!(err instanceof ApiError) || err.status !== toleratedStatus) throw err
+        if (hasIt) await restoreExisting(err)
       })
     },
     onMutate: async ({ ingredientId, hasIt }) => {

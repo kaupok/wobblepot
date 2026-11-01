@@ -80,6 +80,7 @@ vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
+vi.mock('@/lib/ingredient-form-cover-ids', () => ({ loadCoverIds: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/landing/load-demo-day', () => ({
   DEMO_TIMEZONE: 'Europe/Tallinn',
   loadDemoDay: vi.fn(async () => null),
@@ -112,6 +113,7 @@ const EMPTY_SHOPPING_LIST = {
   hasAnyPlan: true,
   groups: [],
   customItems: [],
+  atHome: [],
   summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
 }
 

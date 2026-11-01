@@ -77,6 +77,35 @@ describe('useIngredientAvailability', () => {
       })
     })
 
+    // A row at 0 is in the pantry but ran out (HON-1578): "have it" restores it.
+    it('sets an existing row to "have some" on a 409, then refreshes', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 409,
+          json: () =>
+            Promise.resolve({ error: 'Ingredient already in pantry', existingId: 'pantry-9' }),
+        })
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({}) })
+
+      const { wrapper } = createQueryWrapper()
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
+        wrapper,
+      })
+
+      act(() => {
+        result.current.handleToggleAvailability('ing-1', true)
+      })
+
+      await waitFor(() => expect(mockOnRefresh).toHaveBeenCalledOnce())
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(mockFetch.mock.calls[1]?.[0]).toBe('/api/pantry/pantry-9')
+      expect(mockFetch.mock.calls[1]?.[1]).toMatchObject({
+        method: 'PATCH',
+        body: JSON.stringify({ quantity: null }),
+      })
+    })
+
     it('shows toast on non-409 error', async () => {
       mockFetch.mockResolvedValue({
         ok: false,

@@ -8,8 +8,11 @@ import { useId, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Body, Heading } from '@/components/ui/typography'
 import { parseLocalDate, type UrgencyBucket } from '@/lib/meal-planning/dates'
+
+import { type AtHomeItem, AtHomeList } from './AtHomeList'
 
 interface ShoppingItem {
   ingredientId: string
@@ -21,6 +24,8 @@ interface ShoppingItem {
   urgency: UrgencyBucket
   /** A staple the household marked ran out (HON-1398); it can have no amount. */
   restock?: boolean
+  /** Any other pantry row at 0 (HON-1578): the household marked it ran out. */
+  ranOut?: boolean
 }
 
 interface UrgentShoppingProps {
@@ -38,7 +43,15 @@ interface UrgentShoppingProps {
    * to buy for today or tomorrow.
    */
   compact?: boolean
+  /**
+   * The needs the pantry covers, for the full panel's "At home" tab
+   * (HON-1578). The phone form does not read them.
+   */
+  atHomeItems?: AtHomeItem[]
 }
+
+/** One empty list for every render, so `AtHomeList` does not see a new prop on a default. */
+const NO_AT_HOME: AtHomeItem[] = []
 
 // The two days the panel covers, in the order they are listed.
 const URGENT_DAYS = ['today', 'tomorrow'] as const
@@ -81,6 +94,7 @@ export function UrgentShopping({
   todayDate,
   openCustomItemCount = 0,
   compact = false,
+  atHomeItems = NO_AT_HOME,
 }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
   const tShopping = useTranslations('shopping')
@@ -149,19 +163,27 @@ export function UrgentShopping({
     </Button>
   )
 
-  if (!hasUrgent) {
+  const hasAtHome = atHomeItems.some(
+    (item) => item.urgency === 'today' || item.urgency === 'tomorrow',
+  )
+
+  // A statement of fact, with no icon: it is reached as often by an empty
+  // plan as by a stocked pantry, so it claims nothing about being ready
+  // (DESIGN.md → empty states, HON-923).
+  const emptyLine = (
+    <div className="py-6 text-center">
+      <Body variant="muted">{tToday('listEmpty')}</Body>
+    </div>
+  )
+
+  if (!hasUrgent && (compact || !hasAtHome)) {
     if (compact) return null
     return (
       <Card>
         <CardHeader>{titleRow}</CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            {/* A statement of fact, with no icon: it is reached as often by an
-                empty plan as by a stocked pantry, so it claims nothing about
-                being ready (DESIGN.md → empty states, HON-923). */}
-            <div className="py-6 text-center">
-              <Body variant="muted">{tToday('listEmpty')}</Body>
-            </div>
+            {emptyLine}
             {continuationRow}
           </div>
         </CardContent>
@@ -205,69 +227,89 @@ export function UrgentShopping({
     items: unpurchasedItems.filter((item) => item.urgency === urgency),
   })).filter((group) => group.items.length > 0)
 
+  const toBuyContent = (
+    <div className="flex flex-col gap-4">
+      {!hasUrgent && emptyLine}
+      {groups.map((group) => (
+        <div key={group.urgency} className="flex flex-col gap-2">
+          <Heading variant="caption" as="p" id={`${labelId}-${group.urgency}`}>
+            {tUrgency(group.urgency)}
+          </Heading>
+          <ul aria-labelledby={`${labelId}-${group.urgency}`} className="flex flex-col gap-2">
+            {group.items.map((item) => (
+              <li
+                key={item.ingredientId}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="min-w-0 truncate">{item.name}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {item.displayQuantity && (
+                    <span className="text-muted-foreground">{item.displayQuantity}</span>
+                  )}
+                  {(item.restock || item.ranOut) && (
+                    <Badge variant="warning">{tShopping('ranOut')}</Badge>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {purchasedItems.length > 0 && (
+        <div className="border-t pt-3">
+          <button
+            onClick={() => setIsPurchasedExpanded(!isPurchasedExpanded)}
+            className="flex w-full items-center justify-between text-xs"
+          >
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Check className="size-3.5" />
+              {tToday('purchasedCollapse', { count: purchasedItems.length })}
+            </span>
+            {isPurchasedExpanded ? (
+              <ChevronUp className="text-muted-foreground size-3.5" />
+            ) : (
+              <ChevronDown className="text-muted-foreground size-3.5" />
+            )}
+          </button>
+          {isPurchasedExpanded && (
+            <ul className="mt-2 flex flex-col gap-1">
+              {purchasedItems.map((item) => (
+                <li
+                  key={item.ingredientId}
+                  className="text-muted-foreground flex items-center justify-between gap-2 text-sm line-through"
+                >
+                  <span className="min-w-0 truncate">{item.name}</span>
+                  <span className="shrink-0">{item.displayQuantity}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {continuationRow}
+    </div>
+  )
+
   return (
     // The note surface (globals.css → `[data-surface='note']`): the list is
     // the note on the fridge door, a pale yellow sheet rather than a card.
     <Card data-surface="note">
       <CardHeader>{titleRow}</CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-4">
-          {groups.map((group) => (
-            <div key={group.urgency} className="flex flex-col gap-2">
-              <Heading variant="caption" as="p" id={`${labelId}-${group.urgency}`}>
-                {tUrgency(group.urgency)}
-              </Heading>
-              <ul aria-labelledby={`${labelId}-${group.urgency}`} className="flex flex-col gap-2">
-                {group.items.map((item) => (
-                  <li
-                    key={item.ingredientId}
-                    className="flex items-center justify-between gap-2 text-sm"
-                  >
-                    <span className="min-w-0 truncate">{item.name}</span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {item.displayQuantity && (
-                        <span className="text-muted-foreground">{item.displayQuantity}</span>
-                      )}
-                      {item.restock && <Badge variant="warning">{tShopping('ranOut')}</Badge>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          {purchasedItems.length > 0 && (
-            <div className="border-t pt-3">
-              <button
-                onClick={() => setIsPurchasedExpanded(!isPurchasedExpanded)}
-                className="flex w-full items-center justify-between text-xs"
-              >
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Check className="size-3.5" />
-                  {tToday('purchasedCollapse', { count: purchasedItems.length })}
-                </span>
-                {isPurchasedExpanded ? (
-                  <ChevronUp className="text-muted-foreground size-3.5" />
-                ) : (
-                  <ChevronDown className="text-muted-foreground size-3.5" />
-                )}
-              </button>
-              {isPurchasedExpanded && (
-                <ul className="mt-2 flex flex-col gap-1">
-                  {purchasedItems.map((item) => (
-                    <li
-                      key={item.ingredientId}
-                      className="text-muted-foreground flex items-center justify-between gap-2 text-sm line-through"
-                    >
-                      <span className="min-w-0 truncate">{item.name}</span>
-                      <span className="shrink-0">{item.displayQuantity}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-          {continuationRow}
-        </div>
+        {/* Under the title, not on the title row: the tabs choose what the
+            card shows, they do not act on its subject (DESIGN.md → "Actions
+            sit on the title row"). Local state, To buy on every load. The
+            inactive tab unmounts, so At home's kept rows go on a tab change. */}
+        <Tabs defaultValue="toBuy">
+          <TabsList aria-label={tToday('shoppingTitle')}>
+            <TabsTrigger value="toBuy">{tToday('tabToBuy')}</TabsTrigger>
+            <TabsTrigger value="atHome">{tToday('tabAtHome')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="toBuy">{toBuyContent}</TabsContent>
+          <TabsContent value="atHome">
+            <AtHomeList items={atHomeItems} />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   )

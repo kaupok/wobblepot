@@ -7,6 +7,7 @@ import {
   urgentShoppingItems,
 } from '@/stories/fixtures'
 
+import type { AtHomeItem } from './AtHomeList'
 import { UrgentShopping } from './UrgentShopping'
 
 const meta = {
@@ -413,5 +414,58 @@ export const ExpandedPurchased: Story = {
     const toggle = canvas.getByRole('button', { name: /1 item purchased/i })
     await userEvent.click(toggle)
     await expect(canvas.getByText('Onion')).toBeVisible()
+  },
+}
+
+/** The needs the pantry covers, for the "At home" tab (HON-1578). */
+const atHomeItems: AtHomeItem[] = [
+  {
+    ingredientId: 'basmati-rice',
+    name: 'Basmati rice',
+    displayQuantity: '1.5kg',
+    neededByDate: timelineTodayDate,
+    urgency: 'today',
+    pantryRows: [{ id: 'pantry-basmati-rice', quantity: null }],
+    isStaple: false,
+  },
+  {
+    ingredientId: 'sea-salt',
+    name: 'Sea salt',
+    displayQuantity: '8g',
+    neededByDate: timelineTodayDate,
+    urgency: 'today',
+    pantryRows: [{ id: 'pantry-sea-salt', quantity: 5 }],
+    isStaple: true,
+  },
+]
+
+/**
+ * Two tabs under the title, To buy selected on load. At home lists the
+ * covered needs, each with the pantry's switch; the continuation row stays
+ * on To buy (HON-1578).
+ */
+export const AtHomeTab: Story = {
+  args: { items: urgentShoppingItems, atHomeItems },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const toBuyTab = canvas.getByRole('tab', { name: 'To buy' })
+    await expect(toBuyTab).toHaveAttribute('aria-selected', 'true')
+    await expect(canvas.getByText('Chicken thigh')).toBeVisible()
+
+    await userEvent.click(canvas.getByRole('tab', { name: 'At home' }))
+    await expect(canvas.getByRole('switch', { name: 'Have it: Sea salt' })).toBeChecked()
+    await expect(canvas.queryByText('Chicken thigh')).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('link')).not.toBeInTheDocument()
+  },
+}
+
+/** Nothing to buy for the two days, but the pantry covers the meals: the tabs stay. */
+export const NothingToBuy: Story = {
+  args: { items: [], atHomeItems },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Nothing on the list for today or tomorrow')).toBeVisible()
+    await userEvent.click(canvas.getByRole('tab', { name: 'At home' }))
+    await expect(canvas.getByText('Basmati rice')).toBeVisible()
   },
 }

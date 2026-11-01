@@ -21,6 +21,7 @@ import type { Locale } from '@/lib/i18n/locales'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 
+import type { AtHomeItem } from './AtHomeList'
 import { daySlots } from './day-slots'
 import { FillDaysAction } from './FillDaysAction'
 import { TimelineDayCard } from './TimelineDayCard'
@@ -35,6 +36,8 @@ interface ShoppingItem {
   purchased: boolean
   urgency: UrgencyBucket
   restock?: boolean
+  /** Any other pantry row at 0 (HON-1578): the household marked it ran out. */
+  ranOut?: boolean
 }
 
 interface TimelineViewProps {
@@ -45,6 +48,8 @@ interface TimelineViewProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   shoppingItems: ShoppingItem[]
+  /** The needs the pantry covers, for the shopping panel's "At home" tab (HON-1578). */
+  atHomeItems?: AtHomeItem[]
   /** Unchecked custom items on the list: they carry no date, so they are not in `shoppingItems`. */
   openCustomItemCount?: number
   todayDate: string // YYYY-MM-DD
@@ -87,6 +92,7 @@ export function TimelineView({
   pantryIngredients,
   pantryItems,
   shoppingItems,
+  atHomeItems,
   openCustomItemCount = 0,
   todayDate,
   extras = NO_EXTRAS,
@@ -279,6 +285,7 @@ export function TimelineView({
         <div className="hidden flex-col gap-6 lg:flex">
           <UrgentShopping
             items={shoppingItems}
+            atHomeItems={atHomeItems}
             openCustomItemCount={openCustomItemCount}
             todayDate={todayDate}
           />
