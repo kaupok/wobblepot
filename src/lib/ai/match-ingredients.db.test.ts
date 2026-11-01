@@ -377,6 +377,8 @@ describe('matchIngredients on the name of a merged row', () => {
     ['oats', 'rolled oats'],
     ['chicken fillet', 'chicken breast'],
     ['tomato puree', 'passata'],
+    ['tinned coconut milk', 'coconut milk'],
+    ['canned coconut milk', 'coconut milk'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     // Every seeded row, so the removed row's neighbours compete as they do in production.
     const rows = [
@@ -401,6 +403,53 @@ describe('matchIngredients on the name of a merged row', () => {
     })
 
     expect(await matchOne(recipeName)).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: false,
+    })
+  })
+})
+
+// HON-1552: "kookospiim" is the tin and "kookosjook" the carton drink.
+describe('matchIngredients on an Estonian coconut milk name', () => {
+  it.each([
+    ['kookospiim', 'coconut milk'],
+    ['kookosjook', 'coconut milk drink'],
+  ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
+    // Every seeded row with its seeded et name, so a mixed-up seed turns this test red.
+    const rows = [
+      ...baseIngredients,
+      ...comprehensiveIngredients,
+      ...newIngredients,
+      ...importCoverageIngredients,
+    ]
+    await prisma.ingredient.createMany({
+      data: rows.map((row) => ({
+        name: row.name,
+        category: row.category,
+        defaultUnit: row.defaultUnit,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      })),
+      skipDuplicates: true,
+    })
+    const saved = await prisma.ingredient.findMany({
+      where: { householdId: null },
+      select: { id: true, name: true },
+    })
+    const idOf = new Map(saved.map((row) => [row.name, row.id]))
+    await prisma.ingredientTranslation.createMany({
+      data: ingredientTranslationsEt
+        .filter((row) => idOf.has(row.en))
+        .map((row) => ({ ingredientId: idOf.get(row.en)!, locale: 'et', name: row.et })),
+      skipDuplicates: true,
+    })
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({
       type: 'matched',
       ingredient: { name: rowName },
       lowConfidence: false,
