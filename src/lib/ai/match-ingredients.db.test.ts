@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { prisma } from '@/lib/prisma'
 
 import { baseIngredients } from '../../../prisma/seed'
@@ -13,13 +14,18 @@ import { extracted } from './match-ingredients.fixtures'
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks:
 // the rows are written with Prisma and found by the real trigram search (HON-1267).
 
-function ingredient(id: string, name: string, householdId: string | null = null) {
+function ingredient(
+  id: string,
+  name: string,
+  householdId: string | null = null,
+  category: IngredientCategory = 'vegetable',
+) {
   return prisma.ingredient.create({
     data: {
       id,
       name,
       householdId,
-      category: 'vegetable',
+      category,
       defaultUnit: 'piece',
       calories: 50,
       protein: 1,
@@ -104,8 +110,8 @@ describe('matchIngredients on a recipe name with a form word', () => {
     await ingredient('ing-tinned-chopped', 'tinned chopped tomatoes')
     await ingredient('ing-tinned-plum', 'tinned plum tomatoes')
     await ingredient('ing-peas', 'peas')
-    await ingredient('ing-oregano', 'oregano')
-    await ingredient('ing-cumin', 'cumin')
+    await ingredient('ing-oregano', 'oregano', null, 'spice')
+    await ingredient('ing-cumin', 'cumin', null, 'spice')
   }
 
   it('matches "canned chopped tomatoes" to "tinned chopped tomatoes", sure', async () => {
@@ -143,7 +149,8 @@ describe('matchIngredients on a recipe name with a form word', () => {
   })
 
   it.each([
-    ['frozen peas', 'peas', false],
+    // No frozen peas row, so the fresh row needs review (HON-1554)
+    ['frozen peas', 'peas', true],
     ['dried oregano', 'dried oregano', false],
     ['dried cumin', 'cumin', false],
     ['canned tomatoes', 'tinned chopped tomatoes', true],

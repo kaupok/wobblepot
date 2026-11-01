@@ -8,15 +8,7 @@ import {
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
 
-import {
-  catalogueFormName,
-  foodNameOf,
-  type FormGuardResult,
-  guardFormMatch,
-  hasForm,
-  isOtherCutFillet,
-  removedForms,
-} from './form-modifier-guard'
+import { applyFormGuard, foodNameOf, isOtherCutFillet } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
 import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
@@ -144,7 +136,6 @@ export async function matchIngredients(
     // Phase 1: Search semantic candidates (direct, alias, normalized + plural,
     // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
-    let winningCandidate: string | undefined
     const matchesByCandidate = new Map<string, typeof matches>()
     for (const candidate of candidateNames) {
       const candidateMatches = await fuzzySearchIngredient(
@@ -154,37 +145,7 @@ export async function matchIngredients(
       matchesByCandidate.set(candidate, candidateMatches)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
-        winningCandidate = candidate
       }
-    }
-
-    // A normalized name that dropped a form word must not beat a form row the
-    // direct name finds: "canned chopped tomatoes" is not fresh `tomato` (HON-1313).
-    // The catalogue says "tinned", so the direct name is also searched that way.
-    let formGuard: FormGuardResult = { action: 'keep' }
-    const forms = removedForms(directName, normalizedName)
-    const normalizedWon =
-      winningCandidate !== aliasName &&
-      (winningCandidate === normalizedName || winningCandidate === normalizedAliasName)
-    if (
-      forms.length > 0 &&
-      normalizedWon &&
-      matches[0] &&
-      !hasForm(matches[0].matchedName, forms)
-    ) {
-      const directSide = [matchesByCandidate.get(directName) ?? []]
-      if (aliasName !== directName) directSide.push(matchesByCandidate.get(aliasName) ?? [])
-      const formName = catalogueFormName(directName)
-      if (!candidateNames.has(formName)) {
-        directSide.push(await fuzzySearchIngredient(formName, searchOptions))
-      }
-      // The catalogue names a boneless cut "<cut> fillet" (HON-1480)
-      const filletName = `${normalizedName} fillet`
-      if (forms.includes('boneless') && !candidateNames.has(filletName)) {
-        directSide.push(await fuzzySearchIngredient(filletName, searchOptions))
-      }
-      formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
-      if (formGuard.action === 'use') matches = formGuard.matches
     }
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
@@ -208,6 +169,19 @@ export async function matchIngredients(
         }
       }
     }
+
+    // A form word the winning row lacks must not save sure as the bare row (HON-1554)
+    const guarded = await applyFormGuard({
+      directName,
+      aliasName,
+      normalizedName,
+      normalizedAliasName,
+      matches,
+      matchesByCandidate,
+      search: (name) => fuzzySearchIngredient(name, searchOptions),
+    })
+    const formGuard = guarded.formGuard
+    matches = guarded.matches
 
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
@@ -251,10 +225,11 @@ export async function matchIngredients(
       // `butter`. The normalized name drops a modifier, so "fresh basil" stays a sure `basil`
       // (HON-1546). A curated synonym is the same food, so it stays sure.
       if (!isSynonymMatch && isBareLastWord(normalizedName, match.matchedName)) lowConfidence = true
-      // A form row the guard chose is judged in the catalogue's words, "tinned" for "canned"
-      const nounCheckName = formGuard.action === 'use' ? catalogueFormName(directName) : directName
+      // A form row the guard chose already names the form and the food, so its words are
+      // not judged again: "suitsutatud paprika" is `smoked paprika` as "suitsupaprikapulber"
+      const isFormRow = formGuard.action === 'use'
       if (!lowConfidence && !isSynonymMatch && directName.includes(' ')) {
-        if (primaryNounsDiffer(nounCheckName, match.matchedName)) lowConfidence = true
+        if (!isFormRow && primaryNounsDiffer(directName, match.matchedName)) lowConfidence = true
 
         if (isOtherCutFillet(normalizedName, match.matchedName)) lowConfidence = true
       }
