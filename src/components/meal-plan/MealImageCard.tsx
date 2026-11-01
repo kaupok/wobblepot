@@ -438,13 +438,14 @@ function CardImage({ src, alt, layout, trailingActions, height, onError }: CardI
 
   return (
     // Side: -z-10 inside the card's `isolate`, above the tint, below the content.
-    // The blend and the fade sit on this wrapper, not the img: a positioned
-    // element with a z-index is its own isolated group, so a blend on the img
-    // would multiply against nothing and leave the white surface white.
+    // The wrapper paints the card's own tint and the img multiplies into it,
+    // inside one isolated group, as the cook view hero does. A blend on the
+    // wrapper against the card behind it fails on iOS Safari and leaves the
+    // white surface as a box (HON-1556). The fade stays on the wrapper.
     <div
       data-testid="meal-card-image"
       className={cn(
-        'mix-blend-multiply',
+        'bg-card isolate',
         bottom
           ? // In flow, below the content, so nothing overlaps it. The top 40%
             // fades into the tint above; the full 3:2 frame shows the whole plate.
@@ -467,7 +468,7 @@ function CardImage({ src, alt, layout, trailingActions, height, onError }: CardI
         onLoad={onLoad}
         onError={onError}
         className={cn(
-          'object-cover transition-opacity duration-200 ease-out',
+          'object-cover mix-blend-multiply transition-opacity duration-200 ease-out',
           loaded ? 'opacity-100' : 'opacity-0',
         )}
       />

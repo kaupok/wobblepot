@@ -63,7 +63,6 @@
 6243 src/components/meal-plan/MealDetail.stories.tsx
 16870 src/components/meal-plan/MealDetailModal.stories.tsx
 5441 src/components/meal-plan/MealImageCard.stories.tsx
-5457 src/components/meal-plan/MealImageCard.test.tsx
 5202 src/components/meal-plan/MealImageCard.tsx
 6024 src/components/meal-plan/MealSelectorModal.stories.tsx
 5482 src/components/PostHogProvider.test.tsx
