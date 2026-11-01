@@ -5,11 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import {
-  CATEGORY_EMOJI,
-  CategoryGroup,
-  CUSTOM_ITEMS_EMOJI,
-} from '@/components/shopping/CategoryGroup'
+import { CategoryGroup, CUSTOM_ITEMS_EMOJI } from '@/components/shopping/CategoryGroup'
 import { type CustomItemData, CustomItemInput } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
@@ -27,9 +23,10 @@ import {
 import { Body } from '@/components/ui/typography'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import type { Locale } from '@/lib/i18n/locales'
-import type { ClipboardSection } from '@/lib/shopping/format-clipboard'
 
 import { GroupHeading } from './GroupHeading'
+import { PantryCheckList, type PantryCheckRow } from './PantryCheckList'
+import { buildClipboardSectionsFor } from './shopping-clipboard-sections'
 import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
@@ -69,7 +66,14 @@ interface ShoppingSectionProps {
   onExternalPantryChangesProcessed?: (listStale: boolean) => void
   /** "Add item" marked a staple ran out (HON-1400), by its pantry item id. */
   onStapleRanOut?: (pantryItemId: string) => void
+  /** The "have some" needs to check before a shop (HON-1585). */
+  check?: PantryCheckRow[]
+  /** The check's Add to list or Undo wrote these pantry rows, by pantry item id. */
+  onPantryQuantitiesChanged?: (rows: { id: string; quantity: number | null }[]) => void
 }
+
+/** One empty list for every render, so `PantryCheckList` does not see a new prop on a default. */
+const NO_CHECK: PantryCheckRow[] = []
 
 export function ShoppingSection({
   emptyVariant,
@@ -84,6 +88,8 @@ export function ShoppingSection({
   externalPantryChanges,
   onExternalPantryChangesProcessed,
   onStapleRanOut,
+  check = NO_CHECK,
+  onPantryQuantitiesChanged,
 }: ShoppingSectionProps) {
   const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
@@ -185,94 +191,39 @@ export function ShoppingSection({
     [customItems],
   )
 
-  /**
-   * Sections for the clipboard export, mirroring the grouping and ordering of
-   * the active sort mode. Purchased/checked items are dropped — the paste is a
-   * to-buy list — so every heading count is derived from the surviving lines
-   * rather than from the on-screen total, which still includes them.
-   */
-  const buildClipboardSections = useCallback((): ClipboardSection[] => {
-    // A ran-out staple with no amount (HON-1398) is the name alone.
-    const computedLine = (item: ShoppingItemData) =>
-      item.displayQuantity ? `${item.name} ${item.displayQuantity}` : item.name
-    const customLine = (item: CustomItemData) => item.name
-    const toBuy = (items: ShoppingItemData[]) => items.filter((item) => !item.purchased)
-    const unchecked = (items: CustomItemData[]) => items.filter((item) => !item.checked)
-
-    if (sortMode === 'alphabetical') {
-      return [
+  // The clipboard export, in the active sort mode's grouping and order.
+  const buildClipboardSections = useCallback(
+    () =>
+      buildClipboardSectionsFor(
         {
-          heading: null,
-          lines: alphabeticalItems
-            .filter((entry) =>
-              entry.kind === 'computed' ? !entry.item.purchased : !entry.item.checked,
-            )
-            .map((entry) =>
-              entry.kind === 'computed' ? computedLine(entry.item) : customLine(entry.item),
-            ),
+          sortMode,
+          alphabeticalItems,
+          urgencyGroups,
+          undatedCustomItems,
+          categoryGroups: enhancedGroups,
+          linkedCustomByCategory,
+          unlinkedCustomItems,
         },
-      ]
-    }
-
-    if (sortMode === 'urgency') {
-      // Undated custom items lead, as on screen.
-      const customLines = unchecked(undatedCustomItems).map(customLine)
-      return [
         {
-          heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('customItemsSection', { count: customLines.length })}`,
-          lines: customLines,
+          customItems: (count) => tShopping('customItemsSection', { count }),
+          other: (count) => tShopping('otherSection', { count }),
+          urgency: (bucket) => tUrgency(URGENCY_KEYS[bucket]),
+          category: (category) => tCategory(category),
         },
-        ...urgencyGroups.map((group) => {
-          const lines = [
-            ...toBuy(group.items).map(computedLine),
-            ...unchecked(group.customItems).map(customLine),
-          ]
-          return { heading: `${tUrgency(URGENCY_KEYS[group.bucket])} (${lines.length})`, lines }
-        }),
-      ]
-    }
-
-    const categorySection = (
-      category: IngredientCategory,
-      items: ShoppingItemData[],
-      linked: CustomItemData[] | undefined,
-    ): ClipboardSection => {
-      const lines = [...toBuy(items).map(computedLine), ...unchecked(linked ?? []).map(customLine)]
-      return {
-        heading: `${CATEGORY_EMOJI[category]} ${tCategory(category)} (${lines.length})`,
-        lines,
-      }
-    }
-
-    const sections: ClipboardSection[] = enhancedGroups.map((group) =>
-      categorySection(group.category, group.items, linkedCustomByCategory.get(group.category)),
-    )
-
-    // Categories reached only by a custom item get their own group on screen too.
-    for (const [category, items] of linkedCustomByCategory.entries()) {
-      if (enhancedGroups.some((group) => group.category === category)) continue
-      sections.push(categorySection(category as IngredientCategory, [], items))
-    }
-
-    const otherLines = unchecked(unlinkedCustomItems).map(customLine)
-    sections.push({
-      heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('otherSection', { count: otherLines.length })}`,
-      lines: otherLines,
-    })
-
-    return sections
-  }, [
-    alphabeticalItems,
-    enhancedGroups,
-    linkedCustomByCategory,
-    sortMode,
-    tCategory,
-    tShopping,
-    tUrgency,
-    undatedCustomItems,
-    unlinkedCustomItems,
-    urgencyGroups,
-  ])
+      ),
+    [
+      alphabeticalItems,
+      enhancedGroups,
+      linkedCustomByCategory,
+      sortMode,
+      tCategory,
+      tShopping,
+      tUrgency,
+      undatedCustomItems,
+      unlinkedCustomItems,
+      urgencyGroups,
+    ],
+  )
 
   const { copied, handleCopy } = useCopyShoppingList(buildClipboardSections, startDate, endDate)
 
@@ -386,6 +337,9 @@ export function ShoppingSection({
               onStapleRanOut={onStapleRanOut}
               disabled={isPending}
             />
+            {/* Above the groups, in every sort mode: the shopper settles what
+                is at home before reading what to buy (HON-1585). */}
+            <PantryCheckList items={check} onQuantitiesChanged={onPantryQuantitiesChanged} />
             {emptyLine && <Body variant="muted">{emptyLine}</Body>}
 
             {/* `totalItems > 0`, here and for urgency: an empty mode wrapper is

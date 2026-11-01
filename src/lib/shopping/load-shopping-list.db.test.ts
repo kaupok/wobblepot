@@ -42,7 +42,6 @@ describe('loadShoppingList', () => {
       hasAnyPlan: false,
       groups: [],
       customItems: [],
-      atHome: [],
       check: [],
       summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
     })
@@ -189,7 +188,6 @@ describe('loadShoppingList', () => {
         },
       ],
       customItems: [],
-      atHome: [],
       check: [],
       summary: { totalItems: 5, purchasedItems: 0, remainingItems: 5 },
     })

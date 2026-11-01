@@ -13,7 +13,6 @@ import { sumPortions } from '@/lib/meal-planning/servings'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 type TimelineShoppingItem = ComponentProps<typeof TimelineView>['shoppingItems'][number]
-type TimelineAtHomeItem = NonNullable<ComponentProps<typeof TimelineView>['atHomeItems']>[number]
 
 type Household = NonNullable<Awaited<ReturnType<typeof getHouseholdMembership>>>['household']
 
@@ -96,18 +95,6 @@ export async function TodayTimeline({
     })),
   )
 
-  // The needs the pantry covers (HON-1578), for the panel's "At home" tab.
-  // The panel keeps today's and tomorrow's.
-  const atHomeItems: TimelineAtHomeItem[] = shoppingList.atHome.map((item) => ({
-    ingredientId: item.ingredientId,
-    name: item.name,
-    displayQuantity: item.displayQuantity,
-    neededByDate: item.neededByDate,
-    pantryRows: item.pantryRows,
-    isStaple: item.isStaple,
-    urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
-  }))
-
   const expectedMealTypes = getExpectedMealTypes(household.preferences)
 
   return (
@@ -119,7 +106,7 @@ export async function TodayTimeline({
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}
-      atHomeItems={atHomeItems}
+      check={shoppingList.check}
       openCustomItemCount={shoppingList.customItems.filter((item) => !item.checked).length}
       todayDate={todayDate}
       extras={extras}

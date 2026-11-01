@@ -4,12 +4,7 @@ import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { isCupboardIngredient } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
-import type {
-  NeededIngredient,
-  PantryCheckItem,
-  PantryCoveredItem,
-  ShoppingListItem,
-} from './shopping-list'
+import type { NeededIngredient, PantryCheckItem, ShoppingListItem } from './shopping-list'
 
 /** An ingredient as the shopping list selects it, for a component and for a change's replacement. */
 export function shoppingIngredientArgs(locale: Locale) {
@@ -30,9 +25,8 @@ export function shoppingIngredientArgs(locale: Locale) {
 
 /**
  * Deduct the household's pantry from the planned need and return the lines
- * to buy, and the needs the pantry covers (`atHome`, HON-1578). Both
- * shopping-list builders call it, so the pantry rules live once and the
- * two lists cannot disagree:
+ * to buy, and the needs to check (`check`). Both shopping-list builders call
+ * it, so the pantry rules live once and the two lists cannot disagree:
  *
  * - Not in the pantry, or quantity = 0 (ran out): the full amount
  * - quantity = null: nothing (have some, assume sufficient)
@@ -51,8 +45,7 @@ export function shoppingIngredientArgs(locale: Locale) {
  *   has no such cover.
  *
  * A need is at home when its row is a staple not at 0, is covered by another
- * form of the herb, holds "have some" (null) or holds more than 0. A partial
- * amount is in both lists: the rest to buy, the pantry amount at home.
+ * form of the herb, holds "have some" (null) or holds more than 0.
  *
  * A need is to check (`check`, HON-1584) when it is at home, every row that
  * keeps it there holds "have some" (null), two or more meals use it, it is
@@ -66,7 +59,7 @@ export async function pantryShoppingLines(
   householdId: string,
   locale: Locale,
   today: Date,
-): Promise<{ lines: ShoppingListItem[]; atHome: PantryCoveredItem[]; check: PantryCheckItem[] }> {
+): Promise<{ lines: ShoppingListItem[]; check: PantryCheckItem[] }> {
   // The ingredient is for a ran-out staple that no planned meal needs.
   const pantryItems = await prisma.pantryItem.findMany({
     where: { householdId },
@@ -77,8 +70,9 @@ export async function pantryShoppingLines(
   // Herb id → in stock through another row of it: a bare herb through its
   // fresh or dried row, a fresh herb through its fresh bare row.
   const coverIds = await loadCoverIds()
-  // Covered herb id → every row that covers it and has not run out. The At
-  // home switch turns them all off, or another one keeps the need at home.
+  // Covered herb id → every row that covers it and has not run out. The
+  // check's Add to list sets them all to 0, or another one keeps the need at
+  // home.
   const coveringRows = new Map<string, (typeof pantryItems)[number][]>()
   for (const p of pantryItems) {
     const coveredId = coverIds.get(p.ingredientId)
@@ -87,7 +81,6 @@ export async function pantryShoppingLines(
   }
 
   const shoppingList: ShoppingListItem[] = []
-  const atHome: PantryCoveredItem[] = []
   const check: PantryCheckItem[] = []
 
   for (const [
@@ -109,20 +102,6 @@ export async function pantryShoppingLines(
     const [first] = homeRows
     if (first) {
       const pantryRows = homeRows.map((row) => ({ id: row.id, quantity: row.quantity }))
-      atHome.push({
-        ingredientId,
-        ingredient,
-        // Only a counted own row, with no other form covering, caps the amount.
-        coveredQuantity:
-          homeRows.length === 1 && first === pantry && !pantry.isStaple && pantry.quantity !== null
-            ? Math.min(neededQty, pantry.quantity)
-            : neededQty,
-        earliestNeededDate,
-        isVague,
-        originalPhrase,
-        pantryRows,
-        isStaple: first.isStaple,
-      })
       if (
         mealCount >= 2 &&
         !isVague &&
@@ -199,5 +178,5 @@ export async function pantryShoppingLines(
     })
   }
 
-  return { lines: shoppingList, atHome, check }
+  return { lines: shoppingList, check }
 }

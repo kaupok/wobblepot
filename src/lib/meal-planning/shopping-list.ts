@@ -59,25 +59,6 @@ export interface ShoppingListItem {
 }
 
 /**
- * A needed ingredient the pantry covers, fully or in part (HON-1578). It
- * carries the pantry rows that keep it at home, so Today's "At home" tab can
- * switch them off: its own row first, then each other form of the herb that
- * covers it.
- */
-export interface PantryCoveredItem {
-  ingredientId: string
-  ingredient: ShoppingListItem['ingredient']
-  /** The part of the need the pantry covers: the need, or the pantry amount when it is less. */
-  coveredQuantity: number
-  earliestNeededDate: Date
-  isVague: boolean
-  originalPhrase: string | null
-  pantryRows: { id: string; quantity: number | null }[]
-  /** The first row is a staple. */
-  isStaple: boolean
-}
-
-/**
  * A "have some" (null) need that two or more planned meals use (HON-1584).
  * The list assumes the pantry has enough, so the shopper checks it against
  * their next shop. It is not a line to buy.
@@ -362,8 +343,6 @@ export interface RollingWindowResult {
    * from today on counts as a plan too (HON-1309).
    */
   hasAnyPlan: boolean
-  /** The needed ingredients the pantry covers, in no order (HON-1578). */
-  atHome: PantryCoveredItem[]
   /** The "have some" needs to check before a shop, in no order (HON-1584). */
   check: PantryCheckItem[]
 }
@@ -485,12 +464,7 @@ export async function computeRollingWindowShoppingList(
   )
 
   // 4. Deduct the pantry (staples, ran-out items) from the need
-  const { lines, atHome, check } = await pantryShoppingLines(
-    needed,
-    householdId,
-    locale,
-    startOfToday,
-  )
+  const { lines, check } = await pantryShoppingLines(needed, householdId, locale, startOfToday)
 
   // Calculate actual end date for display (last day of window, inclusive)
   const displayEndDate = new Date(startOfToday)
@@ -504,7 +478,6 @@ export async function computeRollingWindowShoppingList(
     windowDays: days,
     earliestPlanCreatedAt,
     hasAnyPlan: totalEntryCount + totalExtraCount > 0,
-    atHome,
     check,
   }
 }

@@ -5,14 +5,12 @@ import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { useId, useMemo, useState } from 'react'
 
+import { PantryCheckList, type PantryCheckRow } from '@/components/inventory/PantryCheckList'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Body, Heading } from '@/components/ui/typography'
 import { parseLocalDate, type UrgencyBucket } from '@/lib/meal-planning/dates'
-
-import { type AtHomeItem, AtHomeList } from './AtHomeList'
 
 interface ShoppingItem {
   ingredientId: string
@@ -44,14 +42,15 @@ interface UrgentShoppingProps {
    */
   compact?: boolean
   /**
-   * The needs the pantry covers, for the full panel's "At home" tab
-   * (HON-1578). The phone form does not read them.
+   * The "have some" needs to check before a shop, for the full panel's Check
+   * section (HON-1585): the whole window's, not only today's and tomorrow's.
+   * The phone form does not read them.
    */
-  atHomeItems?: AtHomeItem[]
+  check?: PantryCheckRow[]
 }
 
-/** One empty list for every render, so `AtHomeList` does not see a new prop on a default. */
-const NO_AT_HOME: AtHomeItem[] = []
+/** One empty list for every render, so `PantryCheckList` does not see a new prop on a default. */
+const NO_CHECK: PantryCheckRow[] = []
 
 // The two days the panel covers, in the order they are listed.
 const URGENT_DAYS = ['today', 'tomorrow'] as const
@@ -94,7 +93,7 @@ export function UrgentShopping({
   todayDate,
   openCustomItemCount = 0,
   compact = false,
-  atHomeItems = NO_AT_HOME,
+  check = NO_CHECK,
 }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
   const tShopping = useTranslations('shopping')
@@ -163,10 +162,6 @@ export function UrgentShopping({
     </Button>
   )
 
-  const hasAtHome = atHomeItems.some(
-    (item) => item.urgency === 'today' || item.urgency === 'tomorrow',
-  )
-
   // A statement of fact, with no icon: it is reached as often by an empty
   // plan as by a stocked pantry, so it claims nothing about being ready
   // (DESIGN.md → empty states, HON-923).
@@ -176,7 +171,7 @@ export function UrgentShopping({
     </div>
   )
 
-  if (!hasUrgent && (compact || !hasAtHome)) {
+  if (!hasUrgent && (compact || check.length === 0)) {
     if (compact) return null
     return (
       <Card>
@@ -296,20 +291,12 @@ export function UrgentShopping({
     <Card data-surface="note">
       <CardHeader>{titleRow}</CardHeader>
       <CardContent>
-        {/* Under the title, not on the title row: the tabs choose what the
-            card shows, they do not act on its subject (DESIGN.md → "Actions
-            sit on the title row"). Local state, To buy on every load. The
-            inactive tab unmounts, so At home's kept rows go on a tab change. */}
-        <Tabs defaultValue="toBuy">
-          <TabsList aria-label={tToday('shoppingTitle')}>
-            <TabsTrigger value="toBuy">{tToday('tabToBuy')}</TabsTrigger>
-            <TabsTrigger value="atHome">{tToday('tabAtHome')}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="toBuy">{toBuyContent}</TabsContent>
-          <TabsContent value="atHome">
-            <AtHomeList items={atHomeItems} />
-          </TabsContent>
-        </Tabs>
+        {/* The check first, so the shopper settles what is at home before
+            reading what to buy (HON-1585). */}
+        <div className="flex flex-col gap-4">
+          <PantryCheckList items={check} />
+          {toBuyContent}
+        </div>
       </CardContent>
     </Card>
   )
