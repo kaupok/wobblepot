@@ -142,6 +142,14 @@ describe('findSynonymMatches', () => {
     ])
   })
 
+  // HON-1551: no synonym makes "tomat" a strong hit, so the picker keeps the
+  // tomato row first.
+  it('makes no strong match for "toma" or "tomat"', () => {
+    for (const term of ['toma', 'tomat']) {
+      expect(findSynonymMatches(term).filter((m) => m.strong)).toEqual([])
+    }
+  })
+
   it('returns every distinct target a term matches', () => {
     const targets = findSynonymMatches('pepper').map((m) => m.target)
     expect(targets).toEqual(

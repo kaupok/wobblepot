@@ -206,6 +206,13 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('korean kelp')).toBe('kombu')
   })
 
+  // HON-1551: tomato purée merged into passata.
+  it('resolves tomato purée to passata', () => {
+    expect(applyIngredientAlias('tomato puree')).toBe('passata')
+    expect(applyIngredientAlias('Tomato Purée')).toBe('passata')
+    expect(applyIngredientAlias('tomatipüree')).toBe('tomato paste')
+  })
+
   // HON-1099: a pasted American recipe still matches the renamed pool row.
   it('resolves the American name of a renamed pool row to its British name', () => {
     expect(applyIngredientAlias('cornstarch')).toBe('cornflour')

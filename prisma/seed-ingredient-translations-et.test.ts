@@ -48,6 +48,8 @@ const RENAMED: Record<string, string> = {
   'double cream': 'topeltkoor',
   'whipped cream': 'vahustatud koor',
   'clotted cream': 'clotted cream',
+  // HON-1551: the shelf name. "tomatikaste" is a seasoned sauce.
+  passata: 'passeeritud tomatid',
 }
 
 describe('Estonian names that two rows share', () => {

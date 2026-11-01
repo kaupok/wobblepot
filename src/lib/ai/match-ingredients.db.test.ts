@@ -376,6 +376,7 @@ describe('matchIngredients on the name of a merged row', () => {
   it.each([
     ['oats', 'rolled oats'],
     ['chicken fillet', 'chicken breast'],
+    ['tomato puree', 'passata'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     // Every seeded row, so the removed row's neighbours compete as they do in production.
     const rows = [

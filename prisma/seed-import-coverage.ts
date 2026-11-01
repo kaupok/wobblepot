@@ -605,7 +605,7 @@ export const importCoverageIngredients = [
   },
 
   // ============================================
-  // CANNED / JARRED (6)
+  // CANNED / JARRED (5)
   // ============================================
   {
     name: 'crushed tomatoes',
@@ -661,17 +661,6 @@ export const importCoverageIngredients = [
     carbs: 5.5,
     fat: 0.2,
     fiber: 1.2,
-  },
-  {
-    name: 'tomato puree',
-    category: 'condiment',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 38,
-    protein: 1.6,
-    carbs: 8.9,
-    fat: 0.2,
-    fiber: 1.5,
   },
 
   // ============================================

@@ -18,6 +18,11 @@ import { SHOP_INGREDIENT_SYNONYMS } from './ingredient-shop-synonyms'
  * - Only add aliases when the target is MORE specific than the key
  */
 export const INGREDIENT_ALIASES: Record<string, string> = {
+  // An Estonian shop's "tomatipüree" is the concentrate. It is an alias, not a
+  // synonym, because the picker reads only synonyms, and a one-word synonym key
+  // that starts with "tomat" would put tomato paste above tomato (HON-1551).
+  tomatipüree: 'tomato paste',
+
   // Spices and seasonings - "pepper" alone usually means black pepper
   pepper: 'black pepper',
   curry: 'curry powder', // "curry" in a spice list is the powder, not the dish
@@ -394,6 +399,14 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'haricot beans': 'white beans',
   'great northern beans': 'white beans',
   'desiccated coconut': 'coconut flakes',
+
+  // US tomato purée is a thicker passata, merged so "tomatipüree" can mean the
+  // concentrate an Estonian shop sells under that name (HON-1551)
+  'tomato puree': 'passata',
+  'tomato purée': 'passata',
+  // Rimi's shelf name; as a qualified name the trigram search finds only the
+  // bare "passata" for it, so it reads as unsure (HON-1551)
+  'tomati passata': 'passata',
 
   // Filled dumplings (HON-1262)
   hinkali: 'khinkali',
