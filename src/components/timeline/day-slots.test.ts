@@ -15,6 +15,7 @@ describe('daySlots otherSlots', () => {
       entries: [],
       emptySlots: ['dinner'],
       otherSlots: ['breakfast', 'lunch'],
+      hasExpectedEntry: false,
     })
   })
 
@@ -53,5 +54,19 @@ describe('daySlots otherSlots', () => {
       emptySlots: [],
       otherSlots: [],
     })
+  })
+})
+
+describe('daySlots hasExpectedEntry', () => {
+  it('is false when the only entry is an off-type one', () => {
+    const breakfast = createPlanEntry({ id: 'b', date: '2026-04-18', mealType: 'breakfast' })
+
+    expect(daySlots(saturday, [breakfast], dinnerOnly).hasExpectedEntry).toBe(false)
+  })
+
+  it('is true when an entry fills an expected slot', () => {
+    const dinner = createPlanEntry({ id: 'd', date: '2026-04-18', mealType: 'dinner' })
+
+    expect(daySlots(saturday, [dinner], dinnerOnly).hasExpectedEntry).toBe(true)
   })
 })

@@ -18,12 +18,21 @@ const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 
  * `otherSlots` are the meal types the day does not expect and has no entry
  * for, breakfast to dinner. Today's Add menu offers them after the expected
  * slots, so a dinner-only household can add one breakfast (HON-1518).
+ *
+ * `hasExpectedEntry` is true when an entry fills one of the expected slots.
+ * An off-type entry alone leaves it false, so the fill bar still treats the
+ * day as unplanned (HON-1541).
  */
 export function daySlots(
   date: Date,
   entries: PlanEntry[],
   expectedMealTypes: ExpectedMealTypes,
-): { entries: PlanEntry[]; emptySlots: MealType[]; otherSlots: MealType[] } {
+): {
+  entries: PlanEntry[]
+  emptySlots: MealType[]
+  otherSlots: MealType[]
+  hasExpectedEntry: boolean
+} {
   const expectedTypes = isWeekday(date)
     ? expectedMealTypes.weekdayMealTypes
     : expectedMealTypes.weekendMealTypes
@@ -37,5 +46,6 @@ export function daySlots(
     otherSlots: Object.values(MealType).filter(
       (mt) => !existingTypes.has(mt) && !expectedTypes.includes(mt),
     ),
+    hasExpectedEntry: expectedTypes.some((mt) => existingTypes.has(mt)),
   }
 }
