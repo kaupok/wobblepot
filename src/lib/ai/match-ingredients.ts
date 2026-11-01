@@ -1,11 +1,6 @@
 import type { IngredientCategory, ProteinType, Unit } from '@/generated/prisma/enums'
 import { applyIngredientAlias, findSynonym } from '@/lib/ingredient-aliases'
-import {
-  extractLastWord,
-  normalizeIngredientName,
-  pluralize,
-  singularize,
-} from '@/lib/normalize-ingredient'
+import { extractLastWord, normalizeIngredientName, pluralize } from '@/lib/normalize-ingredient'
 import {
   checkGuardrail,
   getVagueDefault,
@@ -23,6 +18,7 @@ import {
   removedForms,
 } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, DEFAULT_GRAMS_PER_PIECE, isReasonableQuantity } from './recipe-quantities'
 import type { ExtractedIngredient } from './recipe-schema'
@@ -248,35 +244,17 @@ export async function matchIngredients(
         [match.matchedName, match.name].some(
           (name) => name.toLowerCase() === synonymTarget.toLowerCase(),
         )
+      // A qualified name whose match is only its bare last word is a guess, not a match:
+      // "walnut butter" is not `butter`, "macadamia milk" is not `milk`. It goes to the user
+      // as unsure, with the rows as alternatives, whichever phase found it, because a short
+      // qualifier finds the bare row in the direct search: "nut butter" scores 0.64 against
+      // `butter`. The normalized name drops a modifier, so "fresh basil" stays a sure `basil`
+      // (HON-1546). A curated synonym is the same food, so it stays sure.
+      if (!isSynonymMatch && isBareLastWord(normalizedName, match.matchedName)) lowConfidence = true
       // A form row the guard chose is judged in the catalogue's words, "tinned" for "canned"
       const nounCheckName = formGuard.action === 'use' ? catalogueFormName(directName) : directName
       if (!lowConfidence && !isSynonymMatch && directName.includes(' ')) {
-        const COMMON_SUFFIXES = new Set([
-          'fillet',
-          'breast',
-          'thigh',
-          'leg',
-          'wing',
-          'steak',
-          'chop',
-          'loin',
-          'rib',
-        ])
-        // Singular words on both sides, so "bay leaf" is not judged against
-        // "bay leaves" as a different noun (HON-1267)
-        const extractedWords = new Set(nounCheckName.split(/\s+/).map(singularize))
-        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/).map(singularize))
-
-        const extractedUnique = [...extractedWords].filter(
-          (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
-        )
-        const matchedUnique = [...matchedWords].filter(
-          (w) => !extractedWords.has(w) && !COMMON_SUFFIXES.has(w),
-        )
-
-        if (extractedUnique.length > 0 && matchedUnique.length > 0) {
-          lowConfidence = true
-        }
+        if (primaryNounsDiffer(nounCheckName, match.matchedName)) lowConfidence = true
 
         if (isOtherCutFillet(normalizedName, match.matchedName)) lowConfidence = true
       }

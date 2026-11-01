@@ -278,6 +278,43 @@ describe('update_meal', () => {
     expect(meal.rows).toEqual(ORIGINAL_ROWS)
   })
 
+  // HON-1546: a qualified name that finds only its bare last word is unsure, so
+  // update_meal refuses it and offers the row, and does not save it as that row.
+  it('changes nothing when a qualified name finds only its bare last word', async () => {
+    const { household, mealId } = await world()
+    await prisma.ingredient.create({
+      data: {
+        name: 'zibblecrust',
+        householdId: household.id,
+        category: 'dairy',
+        defaultUnit: 'g',
+        calories: 700,
+        protein: 1,
+        carbs: 0,
+        fat: 80,
+      },
+    })
+
+    const result = await call(household, {
+      mealId,
+      servings: 4,
+      ingredients: [{ name: 'flarnwood zibblecrust', quantity: 50, unit: 'g' }],
+    })
+
+    expect(result).toMatchObject({
+      outcome: 'unmatched',
+      unmatched: [
+        {
+          name: 'flarnwood zibblecrust',
+          original: '50 g flarnwood zibblecrust',
+          alternatives: ['zibblecrust'],
+        },
+      ],
+    })
+    const meal = await stored(mealId)
+    expect(meal.rows).toEqual(ORIGINAL_ROWS)
+  })
+
   it('changes nothing when an amount looks wrong for the new servings', async () => {
     const { household, mealId } = await world()
 
