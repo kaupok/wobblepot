@@ -2,6 +2,7 @@
 name: diagnose
 description: Debug a reported bug with a feedback loop first. Build one command that goes red on the exact symptom, then minimise, rank hypotheses, instrument, fix with a regression test, and clean up. Use when the user says debug or diagnose, or reports something broken, failing or slow.
 argument-hint: '<bug description or HON-NNN>'
+disable-model-invocation: true
 context: inherit
 ---
 
