@@ -15,6 +15,9 @@ import { LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
  *
  * An Estonian form word maps to the form the catalogue writes in English:
  * "suitsutatud paprika" is smoked, like "smoked paprika" (HON-1554).
+ *
+ * Roasting is a cooking step, not a form the shop sells, so "roasted", "röstitud" and
+ * "praetud" are cooking modifiers: "roasted peanuts" is `peanuts`, sure (HON-1566).
  */
 const FORM_OF_WORD: Record<string, string> = {
   canned: 'tinned',
@@ -29,9 +32,6 @@ const FORM_OF_WORD: Record<string, string> = {
   suitsutatud: 'smoked',
   pickled: 'pickled',
   marineeritud: 'pickled',
-  roasted: 'roasted',
-  röstitud: 'roasted',
-  praetud: 'roasted',
   ground: 'ground',
   jahvatatud: 'ground',
   boneless: 'boneless',
@@ -51,7 +51,6 @@ const ESTONIAN_FORM_STEMS: Record<string, string[]> = {
   dried: ['kuivatatud'],
   smoked: ['suitsu'],
   pickled: ['marineeritud', 'hapu'],
-  roasted: ['röstitud', 'praetud'],
   ground: ['jahvatatud'],
 }
 
@@ -206,7 +205,7 @@ export type FormGuardResult =
  *
  * - `use`: a direct-side list's top match is a form row at a sure score, so it replaces the winner.
  * - `flag`: the winner needs review. Form rows come first in the alternatives; with none,
- *   the winner's list does, so "roasted garlic" offers `garlic` but never saves it sure (HON-1554).
+ *   the winner's list does, so "smoked cheese" offers `cheese` but never saves it sure (HON-1554).
  * - `keep`: the winner stands: no form is missing, or with no form row the bare row may
  *   already be the form, as `cumin` is for "ground cumin".
  *

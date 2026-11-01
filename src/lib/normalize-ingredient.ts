@@ -113,6 +113,7 @@ const COOKING_MODIFIERS = new Set([
   'purustatud',
   'keedetud',
   'röstitud',
+  'praetud',
 ])
 
 /**

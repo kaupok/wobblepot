@@ -90,10 +90,8 @@ describe('matchIngredients on a name with a form word', () => {
 
   it.each([
     ['kuivatatud sibul', 'onion'],
-    ['röstitud sibul', 'onion'],
     ['marineeritud kurk', 'cucumber'],
     ['külmutatud lillkapsas', 'cauliflower'],
-    ['roasted garlic', 'garlic'],
     ['pickled cucumbers', 'cucumber'],
     ['smoked cheese', 'cheese'],
     // The normalized name's alias ("prawn" → "prawns") does not name the form
@@ -115,14 +113,14 @@ describe('matchIngredients on a name with a form word', () => {
     await seedCatalogue()
 
     const lillkapsas = await matchOne('külmutatud lillkapsas')
-    const garlic = await matchOne('roasted garlic')
+    const cheese = await matchOne('smoked cheese')
 
     expect(lillkapsas).toMatchObject({ type: 'matched', lowConfidence: true })
     expect(lillkapsas.type === 'matched' && lillkapsas.alternatives?.map((a) => a.name)).toContain(
       'cauliflower',
     )
-    expect(garlic).toMatchObject({ type: 'matched', lowConfidence: true })
-    expect(garlic.type === 'matched' && garlic.alternatives?.[0]?.name).toBe('garlic')
+    expect(cheese).toMatchObject({ type: 'matched', lowConfidence: true })
+    expect(cheese.type === 'matched' && cheese.alternatives?.[0]?.name).toBe('cheese')
   })
 })
 
