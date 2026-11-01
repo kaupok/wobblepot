@@ -3,6 +3,7 @@
 import type { MouseEvent } from 'react'
 
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
+import { MealBadgeRow } from '@/components/meal-plan/MealBadgeRow'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
@@ -70,18 +71,17 @@ export function DemoMealCard({ entry, onOpen, description = true }: DemoMealCard
       }
       head={
         <CardHeader className="px-4 pt-1 pb-1">
-          <div className="flex min-h-8 items-center">
-            <div className="flex flex-wrap items-center gap-1.5">
+          {/* `min-w-0`: the header is a grid, and its column grows to the
+              badges' full width otherwise, so the row would overflow the
+              card rather than overlap its badges (HON-1577). */}
+          <div className="flex min-h-8 min-w-0 items-center">
+            <MealBadgeRow>
               <MealTypeBadge mealType={entry.mealType} />
-              {entry.meal.kidFriendly && (
-                <span data-card-click-ignore className="contents">
-                  <KidFriendlyBadge compact />
-                </span>
-              )}
+              {entry.meal.kidFriendly && <KidFriendlyBadge compact data-card-click-ignore />}
               {entry.meal.primaryProteinType && (
                 <ProteinBadge proteinType={entry.meal.primaryProteinType} />
               )}
-            </div>
+            </MealBadgeRow>
           </div>
           <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth())}>
             <div className="flex min-h-8 items-center">

@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 
 import type { DemoMeal } from '@/lib/landing/load-demo-day'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
+import { expectBadgeRowOnOneLine } from '@/stories/layout-helpers'
 
 import { DemoMealCard } from './DemoMealCard'
 
@@ -94,5 +95,52 @@ export const PictureCard: Story = {
     await expect(canvas.queryAllByRole('button')).toHaveLength(0)
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')
     await expect(getComputedStyle(card!).cursor).not.toBe('pointer')
+  },
+}
+
+/**
+ * A kid-friendly lunch on a 300px card in Estonian (HON-1577): the badges
+ * hold one line, every label stays in the tree, and a click on the
+ * Kid-friendly badge, a direct child of the row, still does not open the meal.
+ */
+export const Narrow: Story = {
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="w-75">
+        <Story />
+      </div>
+    ),
+  ],
+  args: { entry: { ...entry, meal: { ...entry.meal, kidFriendly: true } } },
+  play: async ({ canvasElement, args }) => {
+    await waitFor(() => expectBadgeRowOnOneLine(canvasElement))
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Lõunasöök')).toBeInTheDocument()
+    await expect(canvas.getByText('Veiseliha')).toBeInTheDocument()
+    const kid = canvas.getByText('Lastesõbralik').closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(kid).toHaveAttribute('data-card-click-ignore')
+    await userEvent.click(kid)
+    await expect(args.onOpen).not.toHaveBeenCalled()
+  },
+}
+
+/**
+ * A 176px card, well under the badges' width with any font: the row overlaps them rather than
+ * wrapping (`MealBadgeRow`, HON-1577), and the labels cut short.
+ */
+export const Overlapping: Story = {
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="w-44">
+        <Story />
+      </div>
+    ),
+  ],
+  args: { entry: { ...entry, meal: { ...entry.meal, kidFriendly: true } } },
+  play: async ({ canvasElement }) => {
+    const row = await waitFor(() => expectBadgeRowOnOneLine(canvasElement))
+    await waitFor(() => expect(row).toHaveAttribute('data-overlap'))
   },
 }

@@ -4,6 +4,7 @@ import { Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
+import { MealBadgeRow } from '@/components/meal-plan/MealBadgeRow'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { Badge } from '@/components/ui/badge'
@@ -32,18 +33,25 @@ export function SampleMealCard({ day }: { day: SampleDay }) {
         size="sm"
         head={
           <CardHeader className="px-4 pt-1 pb-1">
-            <div className="flex min-h-8 items-center">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="secondary">{day.dayName}</Badge>
+            {/* `min-w-0`: the header is a grid, and its column grows to the
+                badges' full width otherwise, so the row would overflow the
+                card rather than overlap its badges (HON-1577). */}
+            <div className="flex min-h-8 min-w-0 items-center">
+              {/* One line, as on the planner card: the day label gives way
+                  first and the time keeps the right edge (HON-1577). */}
+              <MealBadgeRow>
+                <Badge variant="secondary">
+                  <span className="truncate">{day.dayName}</span>
+                </Badge>
                 {meal.kidFriendly && <KidFriendlyBadge compact />}
                 <ProteinBadge proteinType={meal.primaryProteinType} />
                 {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-                  <Badge variant="surface">
+                  <Badge variant="surface" className="ml-auto">
                     <Clock aria-hidden="true" />
                     {tDetail('timeMinutes', { count: meal.timeMinutes })}
                   </Badge>
                 )}
-              </div>
+              </MealBadgeRow>
             </div>
             <div className={cn('flex min-w-0 flex-col gap-1 pb-2', mealImageTitleWidth())}>
               <div className="flex min-h-8 items-center">
