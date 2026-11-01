@@ -52,6 +52,8 @@ vi.mock('next-intl/server', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     pantryItem: { findMany: vi.fn() },
+    // The herb cover table (HON-1558): no catalogue rows here.
+    ingredient: { findMany: vi.fn().mockResolvedValue([]) },
     mealPlan: { findUnique: vi.fn() },
     mealPlanEntry: { findMany: vi.fn() },
   },

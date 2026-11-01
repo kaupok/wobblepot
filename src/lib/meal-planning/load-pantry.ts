@@ -6,6 +6,7 @@ import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/c
 import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
+import { loadFormCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import {
   applyEntryChanges,
@@ -154,8 +155,26 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
     }
   }
 
+  // A fresh or dried herb row shows the need for the bare herb when the pantry
+  // has no bare row, because the shopping list counts it as cover (HON-1558).
+  // Only the first form row shows it, so two jars do not double one need.
+  const formCoverIds = await loadFormCoverIds()
+  const pantryIngredientIds = new Set(pantryItems.map((item) => item.ingredientId))
+  const captionedBareIds = new Set<string>()
+  const coveredBareId = (ingredientId: string) => {
+    const bareId = formCoverIds.get(ingredientId)
+    if (bareId === undefined || pantryIngredientIds.has(bareId) || captionedBareIds.has(bareId)) {
+      return undefined
+    }
+    captionedBareIds.add(bareId)
+    return bareId
+  }
+
   const items = pantryItems.map((item) => {
-    const neededInfo = neededQuantities.get(item.ingredientId)
+    const bareId = coveredBareId(item.ingredientId)
+    const neededInfo =
+      neededQuantities.get(item.ingredientId) ??
+      (bareId === undefined ? undefined : neededQuantities.get(bareId))
     const translatedIngredient = translateIngredient(item.ingredient, locale)
     return {
       id: item.id,

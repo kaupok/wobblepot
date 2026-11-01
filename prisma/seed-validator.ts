@@ -18,6 +18,7 @@
 import { INGREDIENT_GROUPS } from '../src/lib/household/ingredient-groups'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
+import { INGREDIENT_FORM_COVERS } from '../src/lib/ingredient-form-covers'
 import { baseIngredients, baseMeals } from './seed'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { newIngredients, newMeals } from './seed-expansion'
@@ -31,6 +32,7 @@ import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translat
 import type { IngredientInput } from './seed-types'
 import { validateDryWeightNutrition } from './validate-dry-weight-nutrition'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
+import { validateIngredientFormCovers } from './validate-ingredient-form-covers'
 import { validateIngredientGroups } from './validate-ingredient-groups'
 import { validatePieceSpiceGramsPerPiece } from './validate-piece-spice-grams'
 import { validateRawMeatNutrition } from './validate-raw-meat-nutrition'
@@ -779,6 +781,7 @@ async function main() {
     checkMealComponentCounts(allMeals),
     validateIngredientAliases(ingredientNames, INGREDIENT_ALIASES, INGREDIENT_SYNONYMS),
     validateIngredientGroups(ingredientNames, INGREDIENT_GROUPS),
+    { errors: validateIngredientFormCovers(ingredientNames, INGREDIENT_FORM_COVERS), warnings: [] },
 
     // Translation coverage
     validateMealTranslationCoverage(allMeals, mealTranslationsEt),
@@ -803,6 +806,7 @@ async function main() {
   console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
   console.log(`   ${Object.keys(INGREDIENT_SYNONYMS).length} ingredient synonyms`)
   console.log(`   ${INGREDIENT_GROUPS.length} ingredient groups`)
+  console.log(`   ${Object.keys(INGREDIENT_FORM_COVERS).length} ingredient form covers`)
   console.log(`   ${mealTranslationsEt.length} et meal translations`)
   console.log(`   ${ingredientTranslationsEt.length} et ingredient translations`)
 

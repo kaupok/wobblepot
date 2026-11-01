@@ -1,5 +1,6 @@
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import type { Locale } from '@/lib/i18n/locales'
+import { loadFormCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { prisma } from '@/lib/prisma'
 
 import type { NeededIngredient, ShoppingListItem } from './shopping-list'
@@ -31,6 +32,10 @@ export function shoppingIngredientArgs(locale: Locale) {
  *   A staple at 0 (HON-1398) is a restock line, needed today because none is
  *   at home now: with the planned amount when a meal or extra needs it, and
  *   with no amount (`shoppingQuantity` 0) when nothing does.
+ * - A bare herb (HON-1558): nothing, when a fresh or dried row of it
+ *   (`INGREDIENT_FORM_COVERS`) is in the pantry and has not run out, whatever
+ *   the bare row holds. The form row's amount is not deducted, because fresh
+ *   and dried grams are not the same amount. A bare staple at 0 still restocks.
  *
  * @param today - Start of today in the household's timezone
  */
@@ -47,6 +52,14 @@ export async function pantryShoppingLines(
   })
   const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
 
+  // Bare herb id → in stock through a fresh or dried row of it.
+  const formCoverIds = await loadFormCoverIds()
+  const coveredBareIds = new Set(
+    pantryItems
+      .filter((p) => p.quantity !== 0 && formCoverIds.has(p.ingredientId))
+      .map((p) => formCoverIds.get(p.ingredientId)),
+  )
+
   const shoppingList: ShoppingListItem[] = []
 
   for (const [
@@ -60,6 +73,9 @@ export async function pantryShoppingLines(
 
     if (pantry?.isStaple && !restock) {
       // Staple the household has - always at home, not on the list
+      continue
+    } else if (!restock && coveredBareIds.has(ingredientId)) {
+      // A fresh or dried row of this herb is at home
       continue
     } else if (!pantry) {
       // Not in pantry - need full amount
