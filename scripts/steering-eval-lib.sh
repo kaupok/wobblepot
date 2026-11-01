@@ -6,7 +6,7 @@
 # Files that describe the eval. They quote every rule under test, so a run tree
 # that kept them would show the agent both the rule and the experiment.
 SE_EVAL_FILES=(scripts/steering-eval scripts/steering-eval.sh scripts/steering-eval-lib.sh
-  scripts/steering-eval.test.ts docs/STEERING_EVAL.md)
+  scripts/steering-eval.test.ts docs/STEERING_EVAL.md docs/GUIDANCE_PRUNE.md)
 
 # Doc sections that name the eval or quote a rule it verified, as "file|heading".
 # The run tree keeps the doc and loses the section.
