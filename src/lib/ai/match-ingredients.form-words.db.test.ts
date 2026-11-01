@@ -71,6 +71,9 @@ describe('matchIngredients on a name with a form word', () => {
     // No synonym: the guard finds the Estonian compound row, "suitsulõhe" and "suitsusink"
     ['suitsutatud lõhe', 'smoked salmon'],
     ['suitsutatud sink', 'smoked ham'],
+    // The normalized name keeps "fillet", so its curated alias names the form
+    ['chicken fillets', 'chicken breast'],
+    ['skinless chicken fillets', 'chicken breast'],
     // A spice row is ground and dried, a legume row dried, so the bare row is right
     ['ground cumin', 'cumin'],
     ['dried cumin', 'cumin'],
@@ -136,6 +139,7 @@ describe('applyFormGuard on an Estonian form name the synonyms do not cover', ()
       directName,
       aliasName: directName,
       normalizedName,
+      normalizedAliasName: normalizedName,
       matches: await search(bareWord),
       matchesByCandidate,
       search,
