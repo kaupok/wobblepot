@@ -234,11 +234,12 @@ export function PantrySection({
       onItemsChange((prev) => prev.map((row) => (row.id === item.id ? { ...row, quantity } : row)))
     },
     onSuccess: () => onPantryQuantityChanged?.(),
-    onError: (_error, { item }) => {
+    onError: (_error, { item, quantity }) => {
       // A 0 that failed brings the row back to On hand, where its amount
       // button returns, so follow the row to the control the household used.
+      // Any other amount leaves the row in place, so focus stays where it is.
       const onHand = sectionRef.current?.querySelector(onHandSelector(item.id))
-      if (onHand && onHand === document.activeElement) {
+      if (quantity === 0 && onHand && onHand === document.activeElement) {
         focusAfterRender.current = amountSelector(item.id)
       }
       onItemsChange((prev) =>

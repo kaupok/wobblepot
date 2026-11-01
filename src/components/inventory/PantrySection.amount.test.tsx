@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -230,5 +230,22 @@ describe('PantrySection amount', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(groupOf('Trout')).toBe('On hand 1')
     expect(screen.getByRole('button', { name: 'Amount: Trout, 1800\u00a0g' })).toHaveFocus()
+  })
+
+  it('keeps focus on the switch when a failed amount above 0 leaves the row in place', async () => {
+    let fail: (response: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(new Promise<Response>((resolve) => (fail = resolve))),
+    )
+    renderStateful([trout])
+
+    enterAmount('Trout', '1800')
+    const control = screen.getByRole('switch', { name: 'Have it: Trout' })
+    control.focus()
+    await act(async () => fail(new Response(null, { status: 500 })))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(control).toHaveFocus()
   })
 })
