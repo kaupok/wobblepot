@@ -437,7 +437,14 @@ Run it when a new model ships, before changing a default. It answers one questio
 
 ### Prune the guidance
 
-A new model can make a steering rule dead weight: the model does what the rule asks without it. After a swap, run the blind steering eval on the rules it covers (`scripts/steering-eval.sh <rule-id>`). It runs each rule on `AUTO_MODEL`, `AUTO_MODEL_SMALL` and `INTERACTIVE_MODEL`, control arm first. How to run it, add a rule and read its table: [STEERING_EVAL.md](STEERING_EVAL.md).
+A new model can make a steering rule dead weight: the model does what the rule asks without it. Run this checklist after a swap test adopts a new model. The prompts, groups and evidence rules are in [GUIDANCE_PRUNE.md](GUIDANCE_PRUNE.md); the eval is in [STEERING_EVAL.md](STEERING_EVAL.md).
+
+1. **Inventory.** Input: the three Explore prompts in GUIDANCE_PRUNE.md, one each for CLAUDE.md and the rule files, the delivery skills, and the planning and audit skills, with the current model timeline. Output: one table per file group, one row per rule: file:line, rule, words, incident, date, model, enforcing check, group. Save it as a Linear document on the prune's parent issue.
+2. **Sort.** Input: the inventory tables. Output: each row in one group: Keep, Mechanical, Harness, Candidate or Unknown, by the definitions in GUIDANCE_PRUNE.md → Groups.
+3. **Evidence.** Input: each row that is not Keep. Output: the evidence GUIDANCE_PRUNE.md → Evidence before a cut asks for (a dry run, the canonical copy, the check's output, or an eval run), or the note that the rule stays untested.
+4. **Eval.** Input: the Candidates that have a mechanical check. Run `scripts/steering-eval.sh <rule-id>` on each; it runs the control arm first, on `AUTO_MODEL`, `AUTO_MODEL_SMALL` and `INTERACTIVE_MODEL`. Output: a live or dead verdict per rule and model. A rule is cut only when it is dead on all three.
+5. **Cut.** Input: the rules with evidence. Output: one PR per steering file. Each cut quotes its evidence, and a rule the eval found live gets an AGENT_HISTORY entry.
+6. **Measure.** Input: the word baseline from the previous prune. Output: `wc -w` per file against that baseline, recorded on the parent issue as the next baseline. One month later, check `docs/AGENT_HISTORY.md` for a deleted rule that came back after an incident.
 
 ## Worktree Location
 
