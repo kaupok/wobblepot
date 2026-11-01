@@ -118,7 +118,9 @@ export function AtHomeList({ items }: AtHomeListProps) {
     scope: QUANTITY_SCOPE,
     mutationFn: ({ rows }: SwitchChange) =>
       patchQuantities(rows.map(({ id }) => ({ id, quantity: 0 }))),
-    onSuccess: () => router.refresh(),
+    // On an error too: with two herb rows, one request can land and the
+    // other fail, and the screen must show what the pantry now holds.
+    onSettled: () => router.refresh(),
     onError: (_error, { ingredientId }) => {
       setOn(ingredientId)
       toast.error(tPantry('errors.updateFailed'))
@@ -129,7 +131,7 @@ export function AtHomeList({ items }: AtHomeListProps) {
   const haveItMutation = useMutation({
     scope: QUANTITY_SCOPE,
     mutationFn: ({ rows }: SwitchChange) => patchQuantities(rows),
-    onSuccess: () => router.refresh(),
+    onSettled: () => router.refresh(),
     onError: (_error, { ingredientId, rows }) => {
       setOff(ingredientId, rows)
       toast.error(tPantry('errors.updateFailed'))

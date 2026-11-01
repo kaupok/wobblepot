@@ -4,6 +4,7 @@ import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
 import { loadDayExtras } from '@/lib/day-extras/day-extras'
 import type { getHouseholdMembership } from '@/lib/household'
+import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { getExpectedMealTypes } from '@/lib/meal-planning/expected-meal-types'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
@@ -49,11 +50,12 @@ export async function TodayTimeline({
   // pantry or shopping list were empty, and a failed entries load can never be
   // mistaken for a first-time household.
   const range = { startDate: todayParsed, endDate: fourteenDaysAhead }
-  const [{ entries, planId }, pantry, shoppingList, extras] = await Promise.all([
+  const [{ entries, planId }, pantry, shoppingList, extras, coverIds] = await Promise.all([
     loadPlanEntries(household, range),
     loadPantry(household, { days: null }),
     loadShoppingList(household, { days: 7 }),
     loadDayExtras(household, range),
+    loadCoverIds(),
   ])
 
   // First-time user: no entries and no plan
@@ -65,13 +67,18 @@ export async function TodayTimeline({
   // A row at 0 has run out, so the meal cards do not count it as at home: a
   // switch-off on the "At home" tab then changes the card's verdict (HON-1578).
   // It stays in the list, so the pantry still has data and the meal detail
-  // can tick it back. A row whose need another form of the herb keeps at home
-  // is not ran out, so the card and the panel agree (HON-1558).
-  const atHomeIds = new Set(shoppingList.atHome.map((item) => item.ingredientId))
+  // can tick it back. A row that another form of the herb covers is not ran
+  // out, as in `pantryShoppingLines`, so the card and the panel agree on
+  // every day of the timeline (HON-1558, HON-1567).
+  const coveredIds = new Set(
+    pantry.items
+      .filter((item) => item.quantity !== 0)
+      .map((item) => coverIds.get(item.ingredientId)),
+  )
   const pantryIngredients = pantry.items.map((item) => ({
     ingredientId: item.ingredient.id,
     isStaple: item.isStaple,
-    ...(item.quantity === 0 && !atHomeIds.has(item.ingredient.id) && { ranOut: true }),
+    ...(item.quantity === 0 && !coveredIds.has(item.ingredient.id) && { ranOut: true }),
   }))
 
   const shoppingItems: TimelineShoppingItem[] = shoppingList.groups.flatMap((group) =>

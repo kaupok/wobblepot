@@ -16,6 +16,10 @@ vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 vi.mock('@/lib/day-extras/day-extras', () => ({ loadDayExtras: vi.fn() }))
+// Fresh basil covers basil (HON-1558).
+vi.mock('@/lib/ingredient-form-cover-ids', () => ({
+  loadCoverIds: vi.fn(async () => new Map([['ing-fresh-basil', 'ing-basil']])),
+}))
 
 // Noon on Sunday 29 March in Tallinn.
 const NOW = new Date('2026-03-29T09:00:00Z')
@@ -89,20 +93,25 @@ describe('TodayTimeline', () => {
     ])
   })
 
-  it('does not mark a row at 0 ran out when another form keeps its need at home', async () => {
+  it('does not mark a row at 0 ran out when another form of the herb covers it', async () => {
     const props = await timelineProps({
       pantry: [pantryRow('ing-basil', 0), pantryRow('ing-fresh-basil', null)],
-      atHomeRows: [
-        {
-          ...atHome('basil', '2026-03-29'),
-          pantryRows: [{ id: 'pantry-ing-fresh-basil', quantity: null }],
-        },
-      ],
     })
 
     expect(props.pantryIngredients).toEqual([
       { ingredientId: 'ing-basil', isStaple: false },
       { ingredientId: 'ing-fresh-basil', isStaple: false },
+    ])
+  })
+
+  it('marks it ran out when the covering form ran out too', async () => {
+    const props = await timelineProps({
+      pantry: [pantryRow('ing-basil', 0), pantryRow('ing-fresh-basil', 0)],
+    })
+
+    expect(props.pantryIngredients).toEqual([
+      { ingredientId: 'ing-basil', isStaple: false, ranOut: true },
+      { ingredientId: 'ing-fresh-basil', isStaple: false, ranOut: true },
     ])
   })
 

@@ -190,6 +190,7 @@ describe('AtHomeList', () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(control).toBeChecked()
-    expect(refresh).not.toHaveBeenCalled()
+    // One herb row may have changed, so Today reads the pantry again.
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
   })
 })
