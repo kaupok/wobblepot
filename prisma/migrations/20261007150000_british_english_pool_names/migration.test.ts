@@ -18,6 +18,12 @@ describe('migration 20261007150000_british_english_pool_names', () => {
     .map((file) => readFileSync(join(__dirname, '../..', file), 'utf-8'))
     .join('\n')
   const pairs = [...sql.matchAll(/\('([^']+)',\s+'([^']+)'\)/g)].map((m) => [m[1]!, m[2]!] as const)
+  // A British name a later migration merged into another row, so the seeds,
+  // translations and synonyms hold that row instead.
+  const mergedLater: Record<string, string> = {
+    'tinned coconut milk': 'coconut milk', // HON-1552
+  }
+  const survivor = (name: string) => mergedLater[name] ?? name
 
   it('renames the 54 rows of HON-1099, each name once', () => {
     expect(pairs).toHaveLength(54)
@@ -31,20 +37,20 @@ describe('migration 20261007150000_british_english_pool_names', () => {
   })
 
   it.each(pairs)('keeps "%s" findable as a synonym of "%s"', (from, to) => {
-    expect(INGREDIENT_SYNONYMS[from]).toBe(to)
+    expect(INGREDIENT_SYNONYMS[from]).toBe(survivor(to))
   })
 
   it.each(pairs)('seeds no "%s" row and seeds "%s"', (from, to) => {
     expect(seeds).not.toContain(`name: '${from}',`)
     expect(seeds).not.toContain(`ingredient: '${from}'`)
-    expect(seeds).toContain(`name: '${to}',`)
+    expect(seeds).toContain(`name: '${survivor(to)}',`)
   })
 
   it('moves the et translation key to the British name', () => {
     const keys = new Set(ingredientTranslationsEt.map((t) => t.en))
     for (const [from, to] of pairs) {
       expect(keys.has(from)).toBe(false)
-      expect(keys.has(to)).toBe(true)
+      expect(keys.has(survivor(to))).toBe(true)
     }
   })
 

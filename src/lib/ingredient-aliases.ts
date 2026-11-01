@@ -317,7 +317,9 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'canned chopped tomatoes': 'tinned chopped tomatoes',
   'canned whole peeled tomatoes': 'tinned plum tomatoes',
   'canned green chiles': 'tinned green chillies',
-  'coconut milk canned': 'tinned coconut milk',
+  'coconut milk canned': 'coconut milk',
+  'canned coconut milk': 'coconut milk',
+  'tinned coconut milk': 'coconut milk',
 
   // Chilli spelling
   'chili oil': 'chilli oil',
