@@ -136,7 +136,10 @@ describe('findSynonymMatches', () => {
       { target: 'caster sugar', synonym: 'superfine sugar', strong: false },
     ])
     const onion = findSynonymMatches('onion')
-    expect(onion).toEqual([{ target: 'spring onion', synonym: 'green onion', strong: false }])
+    expect(onion).toEqual([
+      { target: 'spring onion', synonym: 'green onion', strong: false },
+      { target: 'crispy fried onions', synonym: 'crispy onions', strong: false },
+    ])
   })
 
   it('returns every distinct target a term matches', () => {
