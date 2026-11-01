@@ -177,6 +177,31 @@ export const OtherMealTypes: Story = {
   },
 }
 
+/**
+ * A Past meals day heading (HON-1519): a log of a meal type the day does not
+ * expect. The small heading button, no Extra, and with one such type its log
+ * routes sit flat under its label.
+ */
+export const PastMealsHeading: Story = {
+  args: {
+    emptySlots: [],
+    otherSlots: [MealType.lunch],
+    log: { frequentMeals: [], recentLabels: [] },
+    buttonStyle: 'heading',
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: ADD_NAME }))
+    const menu = await within(document.body).findByRole('menu')
+    await expect(within(menu).getByRole('group', { name: 'Lunch' })).toBeInTheDocument()
+    await expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Choose a recipe', 'Fridge meal'])
+    await pressEscape()
+  },
+}
+
 /** "Extra" opens the add-extra dialog, and focus comes back to "+ Add" on close. */
 export const ExtraFromMenu: Story = {
   play: async ({ canvasElement }) => {

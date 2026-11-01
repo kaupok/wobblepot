@@ -216,7 +216,12 @@ export function EmptySlotController({
     }
   }
 
+  // A saved log is a new Past meals row, which takes focus once the refresh
+  // lands, so its picker does not hand focus back to "+ Add" (HON-1519).
+  const isLogSavedRef = useRef(false)
+
   function handleSaved() {
+    if (log) isLogSavedRef.current = true
     onPicked?.()
     router.refresh()
   }
@@ -225,8 +230,14 @@ export function EmptySlotController({
   // return it to the day's "+ Add" button ourselves (HON-803). The button is
   // still pending here — the discard is in flight — which is why it is
   // `aria-disabled` rather than `disabled`: a disabled button cannot take focus.
+  // A day heading's "+ Add" stays on the page after a log, and the row only
+  // takes focus from the body (`usePastRowFocus`).
   function handleCloseAutoFocus(event: Event) {
     event.preventDefault()
+    if (isLogSavedRef.current) {
+      isLogSavedRef.current = false
+      return
+    }
     returnFocusRef.current?.focus()
   }
 

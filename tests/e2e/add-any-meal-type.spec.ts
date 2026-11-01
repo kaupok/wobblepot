@@ -11,7 +11,7 @@ import { signIn } from './utils/test-helpers'
 // Any meal type on any day (HON-1518). The smoke household plans dinner only
 // (prisma/seed.ts), so a breakfast sits under the day's other meal types. A
 // day of its own: the other smoke-household specs plant on days 2, 4, 5 and 7
-// to 13, and on days -3 and -5 (past-meals).
+// to 13, and on days -3, -5 and -6 (past-meals).
 const DAY_OFFSET = 6
 const MEAL_TYPE = 'breakfast'
 
