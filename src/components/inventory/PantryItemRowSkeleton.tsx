@@ -43,7 +43,7 @@ export function PantryItemRowSkeleton() {
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {/* The state word's fixed `w-12.75` caption, then the switch's 18px
+        {/* The state word's 51px (`min-w-12.75`) caption, then the switch's 18px
             track: both shorter than the 48px name column. */}
         <Skeleton aria-hidden className="h-4 w-12.75" />
         <Skeleton aria-hidden className="h-4.5 w-8 shrink-0" />

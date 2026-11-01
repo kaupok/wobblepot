@@ -137,10 +137,11 @@ export function PantryItemRow({
           {onHaveIt && onRanOut && (
             <>
               {/* The word names the state, not the action, so the row never
-                  reads as ran out while it is on hand (HON-1535). Fixed width,
-                  so a flip does not move the switch; `aria-checked` carries
+                  reads as ran out while it is on hand (HON-1535). A minimum
+                  width, so a flip does not move the switch, and a longer word
+                  pushes the switch left instead of covering it; `aria-checked` carries
                   the state to a screen reader. */}
-              <div aria-hidden data-state-word className="w-12.75 text-right">
+              <div aria-hidden data-state-word className="min-w-12.75 text-right">
                 <Body variant="caption">{tPantry(isRanOut ? 'ranOut' : 'haveIt')}</Body>
               </div>
               <Switch
