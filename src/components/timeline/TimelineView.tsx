@@ -129,7 +129,9 @@ export function TimelineView({
     // dinner) are filled per slot, not by the bar (HON-758). Anchoring on the
     // first unplanned day rather than after the last planned one keeps a
     // single far-future entry from hiding the bar above a run of empty days.
-    // Null when every day in the window has an entry.
+    // An off-type entry (a breakfast in a dinner-only household) does not
+    // count as planned, so its day's expected slots still fill (HON-1541).
+    // Null when every day in the window has an expected entry.
     let fillStart: string | null = null
 
     while (current <= endParsed) {
@@ -147,9 +149,10 @@ export function TimelineView({
         entries: dayEntries,
         emptySlots,
         otherSlots,
+        hasExpectedEntry,
       } = daySlots(current, entriesByDate.get(dateStr) ?? [], expectedMealTypes)
 
-      if (dayEntries.length === 0 && fillStart === null) {
+      if (!hasExpectedEntry && fillStart === null) {
         fillStart = dateStr
       }
 

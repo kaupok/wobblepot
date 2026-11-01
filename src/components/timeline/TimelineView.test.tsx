@@ -331,6 +331,36 @@ describe('TimelineView', () => {
       expect(isBefore(bar, screen.getByTestId('day-card-2026-04-03'))).toBe(true)
     })
 
+    // HON-1541: dinner-only, dinners Sun Mar 29 to Fri Apr 3, Saturday Apr 4
+    // holds only an off-type breakfast.
+    it('starts on a day whose only entry is an off-type meal', () => {
+      const entries = [
+        ...futureDates(6).map((date) => entry(date)),
+        entry('2026-04-04', 'breakfast'),
+      ]
+
+      renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-04-04')
+      expect(isBefore(screen.getByTestId('day-card-2026-04-03'), bar)).toBe(true)
+      expect(isBefore(bar, screen.getByTestId('day-card-2026-04-04'))).toBe(true)
+    })
+
+    it('starts the day after when that day also has its expected meal', () => {
+      const entries = [
+        ...futureDates(6).map((date) => entry(date)),
+        entry('2026-04-04', 'breakfast'),
+        entry('2026-04-04', 'dinner'),
+      ]
+
+      renderInLocale(<TimelineView {...defaultProps} entries={entries} />)
+
+      const bar = screen.getByTestId('fill-days')
+      expect(bar).toHaveTextContent('Fill from 2026-04-05')
+      expect(isBefore(screen.getByTestId('day-card-2026-04-04'), bar)).toBe(true)
+    })
+
     it('anchors after Today when Today is the last planned day', () => {
       renderInLocale(<TimelineView {...defaultProps} entries={[entry('2026-03-29')]} />)
 
