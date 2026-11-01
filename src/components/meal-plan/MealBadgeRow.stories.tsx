@@ -11,18 +11,24 @@ import { mealHueStyle } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'
 
-/** The recipe library card's row from the report: two slots, Kid-friendly, protein, time. */
+/**
+ * The recipe library card's row from the report: two slots, Kid-friendly,
+ * protein, time; `allSlots` adds Breakfast.
+ */
 function LibraryRow({
   width,
   protein = 'legume',
+  allSlots = false,
 }: {
-  width: 'w-75' | 'w-104' | 'w-140'
+  width: 'w-72' | 'w-75' | 'w-104' | 'w-140'
   protein?: 'legume' | 'fish'
+  allSlots?: boolean
 }) {
   return (
     <Card data-meal-surface="" className={width} style={mealHueStyle(52)}>
       <CardContent className="p-4">
         <MealBadgeRow>
+          {allSlots && <MealTypeBadge mealType="breakfast" />}
           <MealTypeBadge mealType="lunch" />
           <MealTypeBadge mealType="dinner" />
           <KidFriendlyBadge compact />
@@ -101,6 +107,26 @@ export const Narrow: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Lõunasöök')).toBeInTheDocument()
     await expect(canvas.getByText('Kaunviljad')).toBeInTheDocument()
+  },
+}
+
+/**
+ * The tightest case on `/recipes`: a recipe for all three meals on a 254px
+ * row (a two-column grid at 640px, or a 320px phone). Every badge stays
+ * inside the row.
+ */
+export const AllSlotsNarrowest: Story = {
+  globals: { locale: 'et' },
+  render: () => <LibraryRow width="w-72" allSlots />,
+  play: async ({ canvasElement }) => {
+    const all = badges(canvasElement)
+    const row = all[0]!.parentElement!
+    await waitFor(() => expect(row).toHaveAttribute('data-overlap'))
+    const { left, right } = row.getBoundingClientRect()
+    for (const badge of all) {
+      await expect(badge.getBoundingClientRect().left).toBeGreaterThanOrEqual(left - 0.5)
+      await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(right + 0.5)
+    }
   },
 }
 

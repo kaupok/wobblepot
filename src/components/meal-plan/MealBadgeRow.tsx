@@ -60,9 +60,10 @@ export function MealBadgeRow({ children, className }: { children: ReactNode; cla
       data-overlap={overlap || undefined}
       className={cn(
         'flex min-w-0 items-center gap-1.5',
-        // Labels give way, down to "Lõ…"; the rest keep their width. The floor
-        // only while overlapping: a roomy row's "Kala" keeps its own width.
-        '*:has-[.truncate]:not-hover:shrink data-overlap:*:has-[.truncate]:min-w-12',
+        // Labels give way, down to "L…", so a recipe for all three meals still
+        // fits a 256px row; the rest keep their width. The floor only while
+        // overlapping: a roomy row's "Kala" keeps its own width.
+        '*:has-[.truncate]:not-hover:shrink data-overlap:*:has-[.truncate]:min-w-9',
         // The badge under the pointer takes its full label, on top.
         '*:relative *:hover:z-10 *:hover:max-w-full',
         // The badge's own transition plus `flex-shrink`, so the swap on hover
