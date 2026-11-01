@@ -14,31 +14,27 @@ import { LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
  * fillet` (HON-1480).
  *
  * An Estonian form word maps to the form the catalogue writes in English:
- * "suitsutatud paprika" is smoked, like "smoked paprika" (HON-1554).
+ * "suitsutatud paprika" is smoked, like "smoked paprika" (HON-1554). Every form names
+ * its words in both languages, so a test can catch a missing pair (HON-1571).
  *
  * Roasting is a cooking step, not a form the shop sells, so "roasted", "röstitud" and
  * "praetud" are cooking modifiers: "roasted peanuts" is `peanuts`, sure (HON-1566).
  */
-const FORM_OF_WORD: Record<string, string> = {
-  canned: 'tinned',
-  tinned: 'tinned',
-  konserveeritud: 'tinned',
-  purgi: 'tinned',
-  frozen: 'frozen',
-  külmutatud: 'frozen',
-  dried: 'dried',
-  kuivatatud: 'dried',
-  smoked: 'smoked',
-  suitsutatud: 'smoked',
-  pickled: 'pickled',
-  marineeritud: 'pickled',
-  ground: 'ground',
-  jahvatatud: 'ground',
-  boneless: 'boneless',
-  deboned: 'boneless',
-  fillet: 'boneless',
-  fillets: 'boneless',
+export const FORM_WORDS: Record<string, { en: string[]; et: string[] }> = {
+  tinned: { en: ['canned', 'tinned'], et: ['konserveeritud', 'purgi'] },
+  frozen: { en: ['frozen'], et: ['külmutatud'] },
+  dried: { en: ['dried'], et: ['kuivatatud'] },
+  smoked: { en: ['smoked'], et: ['suitsutatud'] },
+  pickled: { en: ['pickled'], et: ['marineeritud'] },
+  ground: { en: ['ground'], et: ['jahvatatud'] },
+  boneless: { en: ['boneless', 'deboned', 'fillet', 'fillets'], et: ['kondita', 'filee'] },
 }
+
+const FORM_OF_WORD: Record<string, string> = Object.fromEntries(
+  Object.entries(FORM_WORDS).flatMap(([form, { en, et }]) =>
+    [...en, ...et].map((word) => [word, form]),
+  ),
+)
 
 /**
  * The stems an Estonian catalogue name writes a form with. Estonian joins the form
@@ -52,6 +48,8 @@ const ESTONIAN_FORM_STEMS: Record<string, string[]> = {
   smoked: ['suitsu'],
   pickled: ['marineeritud', 'hapu'],
   ground: ['jahvatatud'],
+  // Not bare "liha": "kanahakkliha" is mince and "küülikuliha" the bare rabbit
+  boneless: ['kintsuliha', 'filee'],
 }
 
 /**
@@ -68,6 +66,14 @@ const SHELF_FORMS_OF_CATEGORY: Partial<Record<IngredientCategory, string[]>> = {
 
 function isShelfForm(form: string, match: FuzzyIngredientMatch): boolean {
   return form === 'boneless' || (SHELF_FORMS_OF_CATEGORY[match.category] ?? []).includes(form)
+}
+
+/**
+ * The stem an Estonian plural compounds with: "kanakintsud" is "kanakintsu", as in
+ * "kanakintsuliha" (HON-1579). A short word keeps its "d", so "salad" is not "sala".
+ */
+function estonianPluralStem(word: string): string {
+  return word.length >= 6 && /[aeiouõäöü]d$/.test(word) ? word.slice(0, -1) : word
 }
 
 function wordsOf(name: string): string[] {
@@ -133,7 +139,7 @@ export function foodNameOf(name: string): string {
   const noteWords = wordsOf(notes.join(' '))
   if (noteWords.includes('or') || noteWords.includes('if')) return head
   const isMovableForm = (word: string) =>
-    FORM_OF_WORD[word] !== undefined && !word.startsWith('fillet')
+    FORM_OF_WORD[word] !== undefined && !word.startsWith('fillet') && word !== 'filee'
   if (!noteWords.every((word) => isMovableForm(word) || PREPARATION_NOTE_WORDS.has(word))) {
     return name
   }
@@ -171,6 +177,13 @@ export function compoundFormName(directName: string): string | undefined {
   const food = rest.pop()
   if (!formWord || !food) return undefined
   return [...rest, `${COMPOUND_STEM_OF_WORD[formWord]}${food}`].join(' ')
+}
+
+/** The Estonian fillet compounds of a cut: "kanakintsud" is "kanakintsuliha" or "kanakintsufilee". */
+function estonianFilletNames(normalizedName: string): string[] {
+  const words = wordsOf(normalizedName)
+  const cut = estonianPluralStem(words.pop() ?? '')
+  return ['liha', 'filee'].map((suffix) => [...words, `${cut}${suffix}`].join(' '))
 }
 
 /**
@@ -214,7 +227,7 @@ export type FormGuardResult =
  * @param winnerList - The winning candidate's matches, top match first
  * @param directSide - Result lists for the direct name, its alias, its catalogue-form name
  *   and its Estonian compound
- *   (for a boneless cut, the normalized name with "fillet")
+ *   (for a boneless cut, the normalized name with "fillet" and its Estonian fillet compounds)
  */
 export function guardFormMatch(
   forms: string[],
@@ -233,7 +246,11 @@ export function guardFormMatch(
   const namesFood = (name: string) => {
     const rowWords = wordsOf(name).map(singularize)
     return foodWords.every((word) =>
-      rowWords.some((rowWord) => rowWord === word || (word.length >= 4 && rowWord.includes(word))),
+      [word, estonianPluralStem(word)].some((food) =>
+        rowWords.some(
+          (rowWord) => rowWord === food || (food.length >= 4 && rowWord.includes(food)),
+        ),
+      ),
     )
   }
   const isFormRow = (match: FuzzyIngredientMatch) =>
@@ -314,10 +331,12 @@ export async function applyFormGuard(
       directSide.push(await input.search(formName))
     }
   }
-  // The catalogue names a boneless cut "<cut> fillet" (HON-1480)
-  const filletName = `${normalizedName} fillet`
-  if (forms.includes('boneless') && !input.matchesByCandidate.has(filletName)) {
-    directSide.push(await input.search(filletName))
+  // The catalogue names a boneless cut "<cut> fillet" (HON-1480), and in Estonian
+  // joins the fillet to the cut: "kanakintsud" is "kanakintsuliha" (HON-1579)
+  if (forms.includes('boneless')) {
+    for (const filletName of [`${normalizedName} fillet`, ...estonianFilletNames(normalizedName)]) {
+      if (!input.matchesByCandidate.has(filletName)) directSide.push(await input.search(filletName))
+    }
   }
   const formGuard = guardFormMatch(forms, normalizedName, matches, directSide)
   return { formGuard, matches: formGuard.action === 'use' ? formGuard.matches : matches }

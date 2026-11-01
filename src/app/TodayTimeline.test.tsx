@@ -42,28 +42,30 @@ function pantryRow(id: string, quantity: number | null) {
   }
 }
 
-function atHome(name: string, neededByDate: string) {
-  return {
-    ingredientId: `ing-${name}`,
-    name,
-    displayQuantity: '200g',
-    neededByDate,
-    pantryRows: [{ id: `pantry-${name}`, quantity: null }],
-    isStaple: false,
-  }
+const carrotCheck = {
+  ingredientId: 'ing-carrot',
+  name: 'carrot',
+  quantity: 1160,
+  displayUnit: 'g',
+  displayQuantity: '~20 pcs',
+  mealCount: 4,
+  neededByDate: '2026-04-01',
+  neededByRelative: 'Wednesday',
+  pantryRows: [{ id: 'pantry-carrot', quantity: null }],
+  isStaple: false,
 }
 
 /** Renders Today and returns the props it gave `TimelineView`. */
 async function timelineProps({
   pantry = [] as ReturnType<typeof pantryRow>[],
-  atHomeRows = [] as ReturnType<typeof atHome>[],
+  checkRows = [] as (typeof carrotCheck)[],
 } = {}) {
   vi.mocked(loadPlanEntries).mockResolvedValue({ entries: [], planId: 'plan-1' } as never)
   vi.mocked(loadPantry).mockResolvedValue({ items: pantry, windowDays: null } as never)
   vi.mocked(loadShoppingList).mockResolvedValue({
     groups: [],
     customItems: [],
-    atHome: atHomeRows,
+    check: checkRows,
   } as never)
   vi.mocked(loadDayExtras).mockResolvedValue([] as never)
   const element = await TodayTimeline({ household, userName: 'Test' })
@@ -115,14 +117,9 @@ describe('TodayTimeline', () => {
     ])
   })
 
-  it('passes the at-home rows with their day, bucketed against the household today', async () => {
-    const props = await timelineProps({
-      atHomeRows: [atHome('rice', '2026-03-29'), atHome('oats', '2026-03-30')],
-    })
+  it("passes the whole window's check to the panel, past tomorrow included", async () => {
+    const props = await timelineProps({ checkRows: [carrotCheck] })
 
-    expect(props.atHomeItems).toEqual([
-      { ...atHome('rice', '2026-03-29'), urgency: 'today' },
-      { ...atHome('oats', '2026-03-30'), urgency: 'tomorrow' },
-    ])
+    expect(props.check).toEqual([carrotCheck])
   })
 })

@@ -123,6 +123,7 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
     groups,
     initialPurchasedIds,
     customItems: shoppingList.customItems,
+    check: shoppingList.check,
   }
 
   return {

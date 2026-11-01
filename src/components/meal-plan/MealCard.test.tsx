@@ -90,6 +90,21 @@ async function dismissSelector() {
 }
 
 // One tap clears, and a toast offers Undo (HON-1123).
+
+/**
+ * A cooked card's rating sits inside the Cooked badge (HON-1589): two thumbs
+ * in the pill, and no "How was it?" strip or "Rate" row below the card.
+ */
+async function expectCookedPill() {
+  const up = await screen.findByRole('button', { name: 'Thumbs up' })
+  expect(up.closest('[data-slot="badge"]')).toHaveTextContent('Cooked')
+  expect(screen.getByRole('button', { name: 'Thumbs down' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  expect(screen.queryByText('How was it?')).not.toBeInTheDocument()
+  expect(screen.queryByText('Rate')).not.toBeInTheDocument()
+}
 describe('MealCard Clear and Undo', () => {
   let requests: { method: string; url: string; body: unknown }[]
   let restoreStatus: number
@@ -313,7 +328,7 @@ describe('MealCard status from the menu', () => {
 
     await pick(user, 'Cooked')
 
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(patches).toEqual([{ status: 'completed', deductPantry: true }])
     expect(screen.getByText('Cooked')).toHaveAttribute('data-variant', 'surface')
@@ -343,7 +358,7 @@ describe('MealCard status from the menu', () => {
         name: 'Confirm',
       }),
     )
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill()
     // The known row keeps its preset "Some left" (HON-1583).
     expect(patches).toEqual([{ status: 'completed', deductPantry: true, usedUpIngredientIds: [] }])
     await waitFor(() => expect(trigger()).toHaveFocus())
@@ -376,10 +391,30 @@ describe('MealCard status from the menu', () => {
     await waitFor(() => expect(trigger()).toHaveFocus())
   })
 
-  it('names the status on a read-only card too', () => {
+  it('names the status on a read-only card too, with the chosen thumb and no buttons', () => {
     renderCard({ meal, status: 'completed', rating: 'up', isReadOnly: true })
 
-    expect(screen.getByText('Cooked')).toBeInTheDocument()
+    const badge = screen.getByText('Thumbs up').closest('[data-slot="badge"]') as HTMLElement
+    expect(badge).toHaveTextContent('CookedThumbs up')
+    expect(within(badge).queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByText('Thumbs down')).not.toBeInTheDocument()
+  })
+
+  it('shows a cooked, unrated card as one pill with no row below the card', async () => {
+    renderCard({ meal, status: 'completed', rating: null })
+
+    await expectCookedPill()
+    expect(screen.getByRole('button', { name: 'Thumbs up' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+  })
+
+  it('shows Skipped on a skipped card, with no thumbs', () => {
+    renderCard({ meal, status: 'skipped' })
+
+    expect(screen.getByText('Skipped')).toHaveAttribute('data-variant', 'surface')
+    expect(screen.queryByRole('button', { name: 'Thumbs up' })).not.toBeInTheDocument()
   })
 })
 
@@ -538,7 +573,8 @@ describe('MealCard availability badge', () => {
 
 // "Done cooking" in the cook view runs the status select's completion: the
 // deduction preview (or a direct completion when already charged), then the
-// rating prompt, with focus back on the card (HON-933).
+// Cooked badge with its rating thumbs, with focus back on the card (HON-933,
+// HON-1589).
 describe('MealCard Done cooking', () => {
   const tips: PreparationSteps = {
     equipment: [],
@@ -557,7 +593,7 @@ describe('MealCard Done cooking', () => {
     return name
   }
 
-  it('closes the view, then confirms the deduction and asks for a rating', async () => {
+  it('closes the view, then confirms the deduction and shows the rating thumbs', async () => {
     const user = userEvent.setup()
     renderCard({ meal, preparationTips: tips })
 
@@ -568,7 +604,7 @@ describe('MealCard Done cooking', () => {
 
     await user.click(within(deduction).getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill()
     await waitFor(() => expect(name).toHaveFocus())
 
     expect(fetch).toHaveBeenCalledWith(
@@ -617,12 +653,14 @@ describe('MealCard Done cooking', () => {
     renderCard({ meal, preparationTips: tips, pantryDeducted: true })
 
     await doneCooking(user)
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill()
 
     await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
     await user.click(await screen.findByRole('menuitem', { name: 'Not cooked yet' }))
 
-    await waitFor(() => expect(screen.queryByText('How was it?')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Thumbs up' })).not.toBeInTheDocument(),
+    )
     expect(fetch).toHaveBeenLastCalledWith(
       '/api/meal-plans/plan-1/entries/entry-1',
       expect.objectContaining({
@@ -645,7 +683,7 @@ describe('MealCard Done cooking', () => {
     renderCard({ meal, preparationTips: tips, pantryDeducted: true })
 
     await doneCooking(user)
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill()
     expect(screen.queryByRole('dialog', { name: 'Mark as cooked' })).not.toBeInTheDocument()
   })
 })
@@ -938,13 +976,12 @@ describe('MealCard card click (HON-1010)', () => {
     expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
   })
 
-  it('leaves the rating badge and the rating prompt to themselves', async () => {
+  it('leaves the rating thumbs to themselves', async () => {
     const user = userEvent.setup()
     renderCard({ meal, status: 'completed', rating: 'up' })
 
-    await user.click(screen.getByRole('button', { name: /^Rating:/ }))
-    expect(await screen.findByText('How was it?')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Dismiss rating' }))
+    await user.click(screen.getByRole('button', { name: 'Thumbs down' }))
+    await user.click(screen.getByRole('button', { name: 'Thumbs down' }))
 
     expect(cookView()).not.toBeInTheDocument()
   })

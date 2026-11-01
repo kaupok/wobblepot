@@ -85,14 +85,6 @@ const listed = async (needed: Map<string, NeededIngredient>) =>
     line.shoppingQuantity,
   ])
 
-/** The at-home needs: name, covered amount, and the pantry rows that keep it at home. */
-const atHome = async (needed: Map<string, NeededIngredient>) =>
-  (await pantryShoppingLines(needed, 'household-1', 'en', TODAY)).atHome.map((line) => [
-    line.ingredient.name,
-    line.coveredQuantity,
-    line.pantryRows.map((r) => r.id),
-  ])
-
 beforeEach(() => {
   vi.clearAllMocks()
   mockCatalogue.mockImplementation((async (args: { where: { name: { in: string[] } } }) =>
@@ -201,61 +193,6 @@ describe('pantryShoppingLines — ran out (HON-1578)', () => {
     expect(lines.map((line) => [line.ingredient.name, line.ranOut])).toEqual([
       ['chickpeas', undefined],
       ['basil', undefined],
-    ])
-  })
-})
-
-describe('pantryShoppingLines — at home (HON-1578)', () => {
-  it('puts a "have some" row at home for the full need', async () => {
-    pantry(['basil', null])
-    expect(await atHome(needs(['basil', 10]))).toEqual([['basil', 10, ['pantry-basil']]])
-  })
-
-  it('puts a staple at home, and not on the list', async () => {
-    pantry(['oregano', 3, true])
-    const needed = needs(['oregano', 10])
-    expect(await atHome(needed)).toEqual([['oregano', 10, ['pantry-oregano']]])
-    expect(await listed(needed)).toEqual([])
-  })
-
-  it('puts a partial amount in both lists: the pantry amount at home, the rest to buy', async () => {
-    pantry(['chickpeas', 200])
-    const needed = needs(['chickpeas', 500])
-    expect(await atHome(needed)).toEqual([['chickpeas', 200, ['pantry-chickpeas']]])
-    expect(await listed(needed)).toEqual([['chickpeas', 300]])
-  })
-
-  it('puts a row at 0 on the list only', async () => {
-    pantry(['chickpeas', 0])
-    expect(await atHome(needs(['chickpeas', 400]))).toEqual([])
-  })
-
-  it('puts a staple at 0 on the list only', async () => {
-    pantry(['oregano', 0, true])
-    expect(await atHome(needs(['oregano', 10]))).toEqual([])
-  })
-
-  it('leaves out a need with no pantry row', async () => {
-    pantry()
-    expect(await atHome(needs(['chickpeas', 400]))).toEqual([])
-  })
-
-  it('puts a bare herb at home through the fresh row that covers it', async () => {
-    pantry(['basil', 0], ['fresh basil', null])
-    expect(await atHome(needs(['basil', 10]))).toEqual([['basil', 10, ['pantry-fresh-basil']]])
-  })
-
-  it('names every row that keeps a herb at home, its own row first', async () => {
-    pantry(['basil', 10], ['fresh basil', null], ['dried basil', 2])
-    expect(await atHome(needs(['basil', 20]))).toEqual([
-      ['basil', 20, ['pantry-basil', 'pantry-fresh-basil', 'pantry-dried-basil']],
-    ])
-  })
-
-  it('puts a fresh herb at home through the bare row that covers it', async () => {
-    pantry(['basil', 2])
-    expect(await atHome(needs(['fresh basil', 20]))).toEqual([
-      ['fresh basil', 20, ['pantry-basil']],
     ])
   })
 })
@@ -413,13 +350,12 @@ describe('pantryShoppingLines — running low (HON-1586)', () => {
       line.low,
     ])
 
-  it('lists a low onion staple needed Wednesday once, with no amount, and keeps it at home', async () => {
+  it('lists a low onion staple needed Wednesday once, with no amount', async () => {
     pantry(['onion', null, true, 'low'])
     const needed = new Map([
       need('onion', 300, { category: 'vegetable', mealCount: 1, earliestNeededDate: WEDNESDAY }),
     ])
     expect(await lowLines(needed)).toEqual([['onion', 0, WEDNESDAY, true]])
-    expect(await atHome(needed)).toEqual([['onion', 300, ['pantry-onion']]])
   })
 
   it('lists low tahini that nothing needs once, dated today', async () => {

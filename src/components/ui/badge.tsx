@@ -59,11 +59,23 @@ const badgeVariants = cva(
         default: '',
         touch: 'relative overflow-visible after:absolute after:-inset-x-1 after:-inset-y-2',
       },
+      // A badge with controls at its right end, the planner card's Cooked
+      // badge with its rating thumbs (HON-1589): the thumbs are `Toggle`
+      // `size="badge"`, as tall as the text badge's inside, so the pill keeps
+      // the text badge's height. No vertical padding and none at the right, so
+      // the last thumb's circle meets the pill's end; `overflow-visible` keeps
+      // the base `overflow-hidden` from clipping the thumbs' focus ring and
+      // their 32px targets.
+      split: {
+        false: '',
+        true: 'gap-0.5 py-0 pr-0 overflow-visible',
+      },
     },
     defaultVariants: {
       variant: 'default',
       size: 'default',
       hitArea: 'default',
+      split: false,
     },
   },
 )
@@ -73,6 +85,7 @@ function Badge({
   variant,
   size,
   hitArea,
+  split,
   asChild = false,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
@@ -82,7 +95,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant ?? 'default'}
-      className={cn(badgeVariants({ variant, size, hitArea }), className)}
+      className={cn(badgeVariants({ variant, size, hitArea, split }), className)}
       {...props}
     />
   )

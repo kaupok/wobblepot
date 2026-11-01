@@ -191,27 +191,6 @@ export async function loadShoppingList(
     }
   })
 
-  // The needs the pantry covers (HON-1578), each with the pantry rows that
-  // keep it at home, for Today's "At home" tab. The amount is the covered part.
-  const atHome = result.atHome
-    .map((item) => ({
-      ingredientId: item.ingredientId,
-      name: item.ingredient.name,
-      displayQuantity: formatShoppingLineQuantity(
-        item.coveredQuantity,
-        item.ingredient,
-        locale,
-        item.isVague,
-        item.originalPhrase,
-        tVague,
-        pieceLabel,
-      ),
-      neededByDate: toDateString(item.earliestNeededDate),
-      pantryRows: item.pantryRows,
-      isStaple: item.isStaple,
-    }))
-    .sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
-
   // The "have some" needs that two or more meals use (HON-1584), with the
   // window's whole need, for the shopper to check against their next shop.
   const check = result.check
@@ -261,7 +240,6 @@ export async function loadShoppingList(
     hasAnyPlan: result.hasAnyPlan,
     groups,
     customItems: formattedCustomItems,
-    atHome,
     check,
     summary: {
       totalItems,

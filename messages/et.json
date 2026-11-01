@@ -165,10 +165,16 @@
     "moreForDays": "Ja veel {count} järgmise {days, plural, one {# päeva} other {# päeva}} jaoks",
     "toBuyForDays": "{count, plural, one {# asi} other {# asja}} osta järgmise {days, plural, one {# päeva} other {# päeva}} jooksul",
     "listEmpty": "Tänaseks ja homseks pole nimekirjas midagi",
-    "tabToBuy": "Osta",
-    "tabAtHome": "Kodus",
-    "atHomeEmpty": "Tänaseks ja homseks pole sahvrist midagi vaja",
     "staple": "Põhitoode",
+    "check": {
+      "heading": "Kas kodus jätkub?",
+      "add": "Lisa nimekirja",
+      "addLabel": "Lisa nimekirja: {name}",
+      "added": "Lisatud",
+      "undo": "Võta tagasi",
+      "undoLabel": "Võta tagasi: {name}",
+      "meals": "{count, plural, one {# toit} other {# toitu}}"
+    },
     "summaryToday": "{count} tänaseks",
     "summaryTomorrow": "{count} homseks",
     "summaryNeed": "Vaja: {parts}",
@@ -234,7 +240,6 @@
       "notSkipped": "Pole vahele jäetud",
       "moreActions": "Rohkem toiminguid: {name}",
       "myRecipe": "Minu retsept",
-      "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "leftoverFor": "{weekday, select, monday {jäägid esmaspäevaks} tuesday {jäägid teisipäevaks} wednesday {jäägid kolmapäevaks} thursday {jäägid neljapäevaks} friday {jäägid reedeks} saturday {jäägid laupäevaks} other {jäägid pühapäevaks}}",
       "leftoverForDetail": "{servings} {mealType, select, breakfast {hommikusöögiks} lunch {lõunaks} other {õhtusöögiks}}: {day}",
@@ -318,14 +323,9 @@
       "moveFailed": "Märkuse liigutamine ebaõnnestus. Palun proovi uuesti."
     },
     "rating": {
-      "prompt": "Kuidas oli?",
       "thumbsUp": "Pöial üles",
       "thumbsDown": "Pöial alla",
-      "dismiss": "Sulge hinnang",
-      "saveFailed": "Hinnangu salvestamine ebaõnnestus",
-      "ariaCurrent": "Hinnang: {direction}. Klõpsa, et muuta.",
-      "directionUp": "pöial üles",
-      "directionDown": "pöial alla"
+      "saveFailed": "Hinnangu salvestamine ebaõnnestus"
     },
     "alternative": {
       "select": "Vali",
