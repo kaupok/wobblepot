@@ -43,7 +43,7 @@ mcp__linear-server__save_issue({
 })
 ```
 
-- **The `[AUTO DRAFT]` prefix is mandatory.** It is the only trace that an agent filed the issue rather than a human, and it is what the selection filters key on (1.5 here, step 5 in `/next-issue`). Never file without it, and never strip it yourself — `/refine-backlog --auto-drafts` removes it once a human has reviewed the issue.
+- **The `[AUTO DRAFT]` prefix is mandatory.** It is the only trace that an agent filed the issue rather than a human, and it is what the selection filter keys on (1.5 here). Never file without it, and never strip it yourself — `/refine-backlog --auto-drafts` removes it once a human has reviewed the issue.
 - **`state: "Backlog"`, never `Queued` (or `Todo`).** Queued means the work runs unattended, and Todo that a human intends to do it. A 6.8 finding has had no human review, so this step makes neither call.
 - **Unassigned** — do not pass `assignee`.
 - **Never `priority: 1` (Urgent).** An autonomous cycle does not get to page anyone. If a finding genuinely looks urgent, file it at 2 and say so in the 7.6 report.

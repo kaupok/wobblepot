@@ -11,7 +11,7 @@ You are assisting CPO+CTO in fleshing out draft ideas, features, and issues into
 
 ## Title prefixes
 
-`[DRAFT]` and `[AUTO DRAFT]` mean different things. Pick by _who filed it and how_, not by copying a neighbouring title. Both keep an issue out of unattended selection (`/auto-implement` 1.5, `/next-issue --auto` step 5), but different passes clear them:
+`[DRAFT]` and `[AUTO DRAFT]` mean different things. Pick by _who filed it and how_, not by copying a neighbouring title. Both keep an issue out of unattended selection (`/auto-implement` 1.5), but different passes clear them:
 
 - **`[DRAFT]`** — filed by a human, or by an agent in a session a human is driving (conversation, research, `/ideate`, `/refine-backlog`, `/browser-review`), whose spec is not yet ready to implement. It means "unrefined", not "unreviewed". This skill clears it (no arguments) once the spec is written up.
 - **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
@@ -51,7 +51,7 @@ After the user answers, lock the answers and work out the new frontier. An answe
 Determine the refinement scope:
 
 - **No arguments**: Find `[DRAFT]` issues (default behavior)
-- **`--auto-drafts`**: Find `[AUTO DRAFT]` issues — review findings filed by `/auto-implement` 6.8. These are already written to the "Writing for Agents" bar, so refinement is usually a judgment pass rather than a rewrite: confirm the finding is real and still current, adjust priority, then clear the prefix. Clearing `[AUTO DRAFT]` is what readmits the issue to unattended selection (`/auto-implement` 1.5, `/next-issue` step 5), so do not clear it on an issue you would not want an agent to pick up on its own.
+- **`--auto-drafts`**: Find `[AUTO DRAFT]` issues — review findings filed by `/auto-implement` 6.8. These are already written to the "Writing for Agents" bar, so refinement is usually a judgment pass rather than a rewrite: confirm the finding is real and still current, adjust priority, then clear the prefix. Clearing `[AUTO DRAFT]` is what readmits the issue to unattended selection (`/auto-implement` 1.5), so do not clear it on an issue you would not want an agent to pick up on its own.
 - **`--tech`**: Shortcut for `--label Tech` — find issues with the "Tech" label (typically created by `/tech-audit`)
 - **`--label <name>`**: Find issues with the specified label
 - **`--issue HON-XX`**: Refine a single specific issue
@@ -80,7 +80,7 @@ mcp__linear-server__list_issues({
 })
 ```
 
-**Then drop every result whose title starts with `[AUTO DRAFT]`.** Linear's search is full-text, so `query: '[DRAFT]'` matches `[AUTO DRAFT]` titles as well — verified against the live workspace, not assumed. Without this filter the default no-argument run sweeps up agent-filed review findings and strips their prefix, silently readmitting them to unattended selection (`/auto-implement` 1.5, `/next-issue` step 5). That gate is the whole reason the prefix exists. Auto-drafts are reachable only through `--auto-drafts`, which is a deliberate choice by the operator.
+**Then drop every result whose title starts with `[AUTO DRAFT]`.** Linear's search is full-text, so `query: '[DRAFT]'` matches `[AUTO DRAFT]` titles as well — verified against the live workspace, not assumed. Without this filter the default no-argument run sweeps up agent-filed review findings and strips their prefix, silently readmitting them to unattended selection (`/auto-implement` 1.5). That gate is the whole reason the prefix exists. Auto-drafts are reachable only through `--auto-drafts`, which is a deliberate choice by the operator.
 
 **Auto-draft mode (`--auto-drafts`):**
 
@@ -186,9 +186,7 @@ For issues that involve code changes, do a focused codebase scan of the files th
 
 ### Step 8: Update or create
 
-When writing descriptions, reference other issues as plain text (`HON-NNN`), never hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link goes, so it can silently point at the wrong issue.
-
-**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. Put the table at top level before or after the list, or use a nested bullet list instead. Top-level tables and tables inside a blockquote are safe. See CLAUDE.md → Writing for Agents.
+Write descriptions to CLAUDE.md → Writing for Agents (no table inside a list item) and → Linear (plain `HON-NNN` references).
 
 **For refinements:**
 
@@ -271,18 +269,9 @@ At end of session, provide:
 - **Remaining**: Draft issues not yet refined
 - **Loose ends**: Questions or decisions to revisit
 
-## Issue Quality Checklist
+## Issue quality
 
-Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implement`). They must contain enough context for an agent — coding, product, or design — to act without the refinement conversation. A well-refined issue should have:
-
-- [ ] Clear, concise title (sentence case, no [DRAFT])
-- [ ] Problem/motivation: Why does this matter? What user need or constraint drives it?
-- [ ] Description with enough context for an agent to make good judgment calls
-- [ ] Acceptance criteria with specific, testable outcomes (not "works correctly")
-- [ ] Implementation guidance: key files, patterns to follow, API/schema changes (for coding issues)
-- [ ] Appropriate relationships (blockedBy, blocks, relatedTo)
-- [ ] Priority set if important
-- [ ] Self-check: "Could an agent complete this from the issue alone?"
+A refined issue meets CLAUDE.md → Writing for Agents and → Issue titles, with no `[DRAFT]` prefix.
 
 ## Relationship Guidelines
 
