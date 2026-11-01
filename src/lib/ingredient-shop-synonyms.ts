@@ -66,8 +66,6 @@ export const SHOP_INGREDIENT_SYNONYMS: Record<string, string> = {
   gherkins: 'pickled gherkins',
   pickles: 'pickled gherkins',
   'dill pickles': 'pickled gherkins',
-  'praetud sibul': 'crispy fried onions',
-  'fried onions': 'crispy fried onions',
   'crispy onions': 'crispy fried onions',
   // Plain "suhkur" is the granulated sugar, as English "sugar" is in INGREDIENT_ALIASES
   suhkur: 'granulated sugar',

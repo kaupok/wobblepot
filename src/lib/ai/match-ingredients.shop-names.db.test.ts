@@ -432,4 +432,20 @@ describe('matchIngredients on a spice-rack or pickle-shelf name', () => {
 
     expect(result).toMatchObject({ type: 'matched', ingredient: { name } })
   })
+
+  // A recipe's fried onion is onion from the pan, not the gluten-flagged shop topping
+  it.each([
+    ['praetud sibul', 'et'],
+    ['fried onions', 'en'],
+  ] as const)('does not save "%s" as a sure `crispy fried onions`', async (recipeName, locale) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale })
+
+    expect(result).not.toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'crispy fried onions' },
+      lowConfidence: false,
+    })
+  })
 })

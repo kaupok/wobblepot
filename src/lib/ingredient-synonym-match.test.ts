@@ -138,7 +138,7 @@ describe('findSynonymMatches', () => {
     const onion = findSynonymMatches('onion')
     expect(onion).toEqual([
       { target: 'spring onion', synonym: 'green onion', strong: false },
-      { target: 'crispy fried onions', synonym: 'fried onions', strong: false },
+      { target: 'crispy fried onions', synonym: 'crispy onions', strong: false },
     ])
   })
 
