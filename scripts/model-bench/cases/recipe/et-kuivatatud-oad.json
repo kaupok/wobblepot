@@ -1,0 +1,50 @@
+{
+  "text": "Kolme oa hautis\n\n4 portsjonit. Leota kikerherned ja valged oad eelmisel õhtul.\n\n100 g kuivatatud kikerherneid, üleöö leotatud\n200 g kuivatatud valgeid ube, üleöö leotatud\n250 g keedetud mungube\n1 sibul\n2 küüslauguküünt\n400 ml kookospiima\n\n1. Keeda leotatud kikerherned ja valged oad värskes vees pehmeks, umbes 1 tund.\n2. Prae sibul ja küüslauk pannil pehmeks.\n3. Lisa kikerherned, valged oad, mungoad ja kookospiim ning hauta 15 minutit.",
+  "locale": "et",
+  "source": "HON-1570",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["kuivatatud kikerherned", "kuivatatud kikerhernes"],
+        "quantity": 100,
+        "unit": "g"
+      },
+      {
+        "names": ["kuivatatud valged oad", "kuivatatud valge uba", "kuivatatud valged aedoad"],
+        "quantity": 200,
+        "unit": "g"
+      },
+      {
+        "names": [
+          "mungoad",
+          "munguba",
+          "mungauba",
+          "mungoa",
+          "kuivatatud mungoad",
+          "kuivatatud munguba",
+          "kuivatatud mungauba"
+        ],
+        "quantity": 100,
+        "unit": "g"
+      },
+      {
+        "names": ["sibul"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["küüslauk", "küüslauguküüs"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["kookospiim"],
+        "quantity": 400,
+        "unit": "ml"
+      }
+    ],
+    "servings": 4,
+    "lowConfidence": false,
+    "stepCount": 3
+  }
+}

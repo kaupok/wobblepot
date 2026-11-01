@@ -16,8 +16,10 @@ describe('the committed cases', () => {
   // a regression threshold on its own. A task with an allergen check may hold
   // more, because the report's failure-rate bound for that check shrinks only
   // with more calls (`zeroFailureBound` in `report.ts`). Raised from 16 to 20
-  // for the Estonian step-word case (HON-1376).
-  const maxCases = (task: Task) => (TASK_SPECS[task].metrics.some((m) => m.safety) ? 20 : 10)
+  // for the Estonian step-word case (HON-1376). Recipe holds 12, for the
+  // dried-bean and dry-weight bean prompt rules (HON-1570).
+  const maxCases = (task: Task) =>
+    TASK_SPECS[task].metrics.some((m) => m.safety) ? 20 : task === 'recipe' ? 12 : 10
 
   it.each(TASKS)('%s has 8 to its maximum cases, at least 3 of them Estonian', (task) => {
     const locales = cases.filter((c) => c.task === task).map((c) => c.input.locale)

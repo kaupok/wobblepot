@@ -2,7 +2,7 @@
   "task": "recipe",
   "model": "claude-sonnet-5-5",
   "recordedAt": "2026-11-01",
-  "commit": "b8c7b02f",
+  "commit": "b74aefe2",
   "runs": 3,
   "cases": {
     "recipe/en-canned-chickpea-curry": {
@@ -16,7 +16,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7211.919833,
+          "latencyMs": 5623.073166,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -24,16 +24,16 @@
             "inputTokens": 6074,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1178,
+            "outputTokens": 840,
             "usageMissing": false
           },
-          "reasoningTokens": 333,
-          "costUsd": 0.023928,
+          "reasoningTokens": 0,
+          "costUsd": 0.020548,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Chickpea and spinach curry",
-            "description": "A mild, quick vegetarian curry of chickpeas, tomatoes and coconut milk with wilted spinach, served with basmati rice.",
+            "description": "A quick, mild curry of chickpeas, tomatoes and coconut milk with wilted spinach, served with basmati rice.",
             "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
             "timeMinutes": 30,
             "servings": 4,
@@ -125,7 +125,7 @@
                 "isDried": null
               }
             ],
-            "recipeConfidence": 98
+            "recipeConfidence": 97
           },
           "scores": {
             "recall": 1,
@@ -143,7 +143,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4730.32354100002,
+          "latencyMs": 4596.879666999994,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -270,7 +270,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4537.625791999977,
+          "latencyMs": 6918.6601669999945,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -278,16 +278,16 @@
             "inputTokens": 6074,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 840,
+            "outputTokens": 1230,
             "usageMissing": false
           },
-          "reasoningTokens": 0,
-          "costUsd": 0.020548,
+          "reasoningTokens": 392,
+          "costUsd": 0.024448,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Chickpea and spinach curry",
-            "description": "A quick, mild curry of chickpeas, tomatoes and coconut milk with wilted spinach, served with basmati rice.",
+            "description": "A quick, mild chickpea curry with tomatoes, coconut milk and wilted spinach, served with basmati rice.",
             "preparationNotes": "1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
             "timeMinutes": 30,
             "servings": 4,
@@ -379,7 +379,7 @@
                 "isDried": null
               }
             ],
-            "recipeConfidence": 97
+            "recipeConfidence": 98
           },
           "scores": {
             "recall": 1,
@@ -403,225 +403,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4310.4758329999995,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6100,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 768,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.01988,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Spaghetti carbonara",
-            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and black pepper in a glossy sauce.",
-            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
-            "timeMinutes": 25,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "spaghetti",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "400 g spaghetti",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "pancetta",
-                "quantity": 150,
-                "unit": "g",
-                "originalText": "150 g pancetta, diced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "egg",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 eggs",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "parmesan cheese",
-                "quantity": 50,
-                "unit": "g",
-                "originalText": "50 g parmesan cheese, finely grated",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 cloves garlic, peeled",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "black pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "black pepper to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 98
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0,
-            "servingsMatch": null
-          }
-        },
-        {
-          "caseId": "recipe/en-carbonara",
-          "task": "recipe",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4329.072207999998,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6100,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 768,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.01988,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Spaghetti carbonara",
-            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs and parmesan, finished with plenty of black pepper.",
-            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
-            "timeMinutes": 25,
-            "servings": 4,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "spaghetti",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "400 g spaghetti",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "pancetta",
-                "quantity": 150,
-                "unit": "g",
-                "originalText": "150 g pancetta, diced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "eggs",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 eggs",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "parmesan cheese",
-                "quantity": 50,
-                "unit": "g",
-                "originalText": "50 g parmesan cheese, finely grated",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 cloves garlic, peeled",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "black pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "black pepper to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 98
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 0,
-            "servingsMatch": null
-          }
-        },
-        {
-          "caseId": "recipe/en-carbonara",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4410.385208999971,
+          "latencyMs": 4456.8807910000005,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -722,6 +504,584 @@
             "stepCountDelta": 0,
             "servingsMatch": null
           }
+        },
+        {
+          "caseId": "recipe/en-carbonara",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4353.914707999997,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6100,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 773,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.01993,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Spaghetti carbonara",
+            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and black pepper in a glossy, creamy sauce.",
+            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
+            "timeMinutes": 25,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "400 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "pancetta",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g pancetta, diced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "eggs",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 eggs",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "parmesan cheese",
+                "quantity": 50,
+                "unit": "g",
+                "originalText": "50 g parmesan cheese, finely grated",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, peeled",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "black pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "black pepper to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 98
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-carbonara",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 23239.248625000007,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6100,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 772,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.01992,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Spaghetti carbonara",
+            "description": "A classic Italian pasta dish of spaghetti tossed with crisp pancetta, eggs, parmesan and black pepper in a glossy, creamy sauce.",
+            "preparationNotes": "1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over a medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
+            "timeMinutes": 25,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "400 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "pancetta",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g pancetta, diced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "egg",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 eggs",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "parmesan cheese",
+                "quantity": 50,
+                "unit": "g",
+                "originalText": "50 g parmesan cheese, finely grated",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, peeled",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "black pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "black pepper to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 98
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": null
+          }
+        }
+      ]
+    },
+    "recipe/en-dried-bean-chili": {
+      "promptHash": "4711672b7e549c8122d8833fd2cc57996061d26ae0e9909e4ccd85230cf726a7",
+      "requestHash": "00c029cb998afe90dbfef04348cd65af817c3c9ca9b2594bf2d54c26eead0056",
+      "calls": [
+        {
+          "caseId": "recipe/en-dried-bean-chili",
+          "task": "recipe",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 7172.901749999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6079,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1208,
+            "usageMissing": false
+          },
+          "reasoningTokens": 403,
+          "costUsd": 0.024238,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Store-cupboard five-bean chilli",
+            "description": "A hearty, store-cupboard chilli made with five kinds of beans, tinned tomatoes, onion and chilli powder.",
+            "preparationNotes": "1. Soak the chickpeas, kidney beans and black beans overnight, then drain them, cover with fresh water and boil for 1 hour until tender.\n2. Soften the onion in a large pan, then add the chilli powder and cook for 1 minute.\n3. Add the drained beans, the mung beans, the adzuki beans and the tomatoes, then simmer for 20 minutes.",
+            "timeMinutes": null,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": false,
+            "ingredients": [
+              {
+                "name": "dried chickpeas",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g dried chickpeas, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried kidney beans",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g dried kidney beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried black beans",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g dried black beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mung beans",
+                "quantity": 120,
+                "unit": "g",
+                "originalText": "300 g cooked mung beans",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "adzuki beans",
+                "quantity": 96,
+                "unit": "g",
+                "originalText": "1 can adzuki beans, drained",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 onion, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can chopped tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "chilli powder",
+                "quantity": 10,
+                "unit": "g",
+                "originalText": "10 g chilli powder",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 96
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/en-dried-bean-chili",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 9087.037209000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6079,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1465,
+            "usageMissing": false
+          },
+          "reasoningTokens": 631,
+          "costUsd": 0.026808,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Store-cupboard five-bean chilli",
+            "description": "A hearty, budget-friendly chilli made from five kinds of beans, onion, tinned tomatoes and chilli powder.",
+            "preparationNotes": "1. Soak the chickpeas, kidney beans and black beans overnight.\n2. Drain the soaked chickpeas, kidney beans and black beans, cover with fresh water and boil for 1 hour until tender.\n3. Soften the onion in a large pan, then add the chilli powder and cook for 1 minute.\n4. Add the drained beans, the mung beans, the adzuki beans and the chopped tomatoes, then simmer for 20 minutes.",
+            "timeMinutes": null,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": false,
+            "ingredients": [
+              {
+                "name": "dried chickpeas",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g dried chickpeas, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried kidney beans",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g dried kidney beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried black beans",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g dried black beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried mung beans",
+                "quantity": 120,
+                "unit": "g",
+                "originalText": "300 g cooked mung beans",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried adzuki beans",
+                "quantity": 96,
+                "unit": "g",
+                "originalText": "1 can adzuki beans, drained",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 onion, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can chopped tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "chilli powder",
+                "quantity": 10,
+                "unit": "g",
+                "originalText": "10 g chilli powder",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 96
+          },
+          "scores": {
+            "recall": 0.75,
+            "precision": 0.75,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 1,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/en-dried-bean-chili",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 7601.707708000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6079,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1273,
+            "usageMissing": false
+          },
+          "reasoningTokens": 429,
+          "costUsd": 0.024888,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Store-cupboard five-bean chilli",
+            "description": "A hearty store-cupboard chilli made with five kinds of beans, tinned tomatoes and chilli powder. The dried beans are soaked the night before.",
+            "preparationNotes": "1. The night before, soak the chickpeas, kidney beans and black beans in water.\n2. Drain the soaked chickpeas, kidney beans and black beans, cover with fresh water and boil for 1 hour until tender.\n3. Soften the chopped onion in a large pan, then add the chilli powder and cook for 1 minute.\n4. Add the drained beans, the mung beans, the adzuki beans and the chopped tomatoes, then simmer for 20 minutes.",
+            "timeMinutes": null,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": false,
+            "ingredients": [
+              {
+                "name": "dried chickpeas",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g dried chickpeas, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried kidney beans",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g dried kidney beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "dried black beans",
+                "quantity": 150,
+                "unit": "g",
+                "originalText": "150 g dried black beans, soaked overnight",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mung beans",
+                "quantity": 120,
+                "unit": "g",
+                "originalText": "300 g cooked mung beans",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "adzuki beans",
+                "quantity": 96,
+                "unit": "g",
+                "originalText": "1 can adzuki beans, drained",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 onion, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can chopped tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "chilli powder",
+                "quantity": 10,
+                "unit": "g",
+                "originalText": "10 g chilli powder",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 95
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 1,
+            "servingsMatch": 1
+          }
         }
       ]
     },
@@ -736,261 +1096,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4850.472040999999,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6141,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 871,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.020992,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Grandma's Weeknight Chilli",
-            "description": "A much-loved family chilli with beef mince, kidney beans and tomatoes, simmered until rich and left to rest before serving. Perfect for busy weeknights.",
-            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tinned tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
-            "timeMinutes": 75,
-            "servings": 6,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": false,
-            "ingredients": [
-              {
-                "name": "beef mince",
-                "quantity": 454,
-                "unit": "g",
-                "originalText": "1 lb ground beef",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "onion",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 large onion, chopped",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 cloves garlic, minced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "kidney beans",
-                "quantity": 480,
-                "unit": "g",
-                "originalText": "2 cans kidney beans, drained",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "tinned chopped tomatoes",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can diced tomatoes",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "beef stock",
-                "quantity": 250,
-                "unit": "ml",
-                "originalText": "250 ml beef stock",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "red pepper",
-                "quantity": 100,
-                "unit": "g",
-                "originalText": "100g red bell pepper, diced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "cayenne pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a pinch of cayenne pepper",
-                "isVague": true,
-                "vaguePhrase": "a pinch",
-                "isDried": null
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 96
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 1,
-            "servingsMatch": null
-          }
-        },
-        {
-          "caseId": "recipe/en-messy-blog-chili",
-          "task": "recipe",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4859.517334000033,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6141,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 876,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.021042,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Grandma's Weeknight Chilli",
-            "description": "A much-loved family beef chilli with kidney beans, tomatoes and red pepper, simmered until rich and left to rest before serving. Perfect for busy weeknights.",
-            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tinned chopped tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
-            "timeMinutes": 75,
-            "servings": 6,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": false,
-            "ingredients": [
-              {
-                "name": "beef mince",
-                "quantity": 454,
-                "unit": "g",
-                "originalText": "1 lb ground beef",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "onion",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 large onion, chopped",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "garlic",
-                "quantity": 3,
-                "unit": "piece",
-                "originalText": "3 cloves garlic, minced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "kidney beans",
-                "quantity": 480,
-                "unit": "g",
-                "originalText": "2 cans kidney beans, drained",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "tinned chopped tomatoes",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 can diced tomatoes",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "beef stock",
-                "quantity": 250,
-                "unit": "ml",
-                "originalText": "250 ml beef stock",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "red pepper",
-                "quantity": 100,
-                "unit": "g",
-                "originalText": "100g red bell pepper, diced",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "cayenne pepper",
-                "quantity": null,
-                "unit": null,
-                "originalText": "a pinch of cayenne pepper",
-                "isVague": true,
-                "vaguePhrase": "a pinch",
-                "isDried": null
-              },
-              {
-                "name": "salt",
-                "quantity": null,
-                "unit": null,
-                "originalText": "salt to taste",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              }
-            ],
-            "recipeConfidence": 96
-          },
-          "scores": {
-            "recall": 1,
-            "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 1,
-            "servingsMatch": null
-          }
-        },
-        {
-          "caseId": "recipe/en-messy-blog-chili",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4742.6587910000235,
+          "latencyMs": 4855.8581250000025,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1109,81 +1215,110 @@
             "stepCountDelta": 1,
             "servingsMatch": null
           }
-        }
-      ]
-    },
-    "recipe/en-no-servings-household-of-2": {
-      "promptHash": "d587cc20a6e1b5568bac198cfdd76a327b7b403deda1f26854304caa60886dcc",
-      "requestHash": "6b60e76595f020465d8b3d83ecafed84815d6e2d31186a51f7cb15748b5542df",
-      "calls": [
+        },
         {
-          "caseId": "recipe/en-no-servings-household-of-2",
+          "caseId": "recipe/en-messy-blog-chili",
           "task": "recipe",
-          "run": 1,
+          "run": 2,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2993.130000000001,
+          "latencyMs": 4669.705666000009,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 5935,
+            "inputTokens": 6141,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 498,
+            "outputTokens": 853,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.01685,
+          "costUsd": 0.020812,
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Tomato pasta",
-            "description": "A simple spaghetti dish with a fresh garlic and tomato sauce.",
-            "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
-            "timeMinutes": null,
-            "servings": 2,
+            "name": "Grandma's Weeknight Chilli",
+            "description": "A beloved family beef chilli with kidney beans, tomatoes and a touch of cayenne, perfect for busy weeknights.",
+            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let it rest for 10 minutes before serving.",
+            "timeMinutes": 75,
+            "servings": 6,
             "mealTypes": [
-              "lunch",
               "dinner"
             ],
-            "kidFriendly": true,
+            "kidFriendly": false,
             "ingredients": [
               {
-                "name": "spaghetti",
-                "quantity": 250,
+                "name": "beef mince",
+                "quantity": 454,
                 "unit": "g",
-                "originalText": "250 g spaghetti",
+                "originalText": "1 lb ground beef",
                 "isVague": false,
                 "vaguePhrase": null,
                 "isDried": null
               },
               {
-                "name": "tomato",
-                "quantity": 4,
+                "name": "onion",
+                "quantity": 1,
                 "unit": "piece",
-                "originalText": "4 ripe tomatoes, chopped",
+                "originalText": "1 large onion, chopped",
                 "isVague": false,
                 "vaguePhrase": null,
                 "isDried": null
               },
               {
                 "name": "garlic",
-                "quantity": 2,
+                "quantity": 3,
                 "unit": "piece",
-                "originalText": "2 cloves garlic, sliced",
+                "originalText": "3 cloves garlic, minced",
                 "isVague": false,
                 "vaguePhrase": null,
                 "isDried": null
               },
               {
-                "name": "olive oil",
-                "quantity": 30,
-                "unit": "ml",
-                "originalText": "30 ml olive oil",
+                "name": "kidney beans",
+                "quantity": 480,
+                "unit": "g",
+                "originalText": "2 cans kidney beans, drained",
                 "isVague": false,
                 "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can diced tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "beef stock",
+                "quantity": 250,
+                "unit": "ml",
+                "originalText": "250 ml beef stock",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "red pepper",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "100g red bell pepper, diced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "cayenne pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a pinch of cayenne pepper",
+                "isVague": true,
+                "vaguePhrase": "a pinch",
                 "isDried": null
               },
               {
@@ -1203,18 +1338,151 @@
             "precision": 1,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
-            "stepCountDelta": 0,
-            "servingsMatch": 1
+            "stepCountDelta": 1,
+            "servingsMatch": null
           }
         },
         {
-          "caseId": "recipe/en-no-servings-household-of-2",
+          "caseId": "recipe/en-messy-blog-chili",
           "task": "recipe",
-          "run": 2,
+          "run": 3,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3073.3854160000337,
+          "latencyMs": 4915.460916999989,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6141,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 873,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.021012,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Grandma's Weeknight Chilli",
+            "description": "A much-loved family beef chilli with kidney beans, tomatoes and red pepper, simmered until rich and left to rest before serving. A reliable weeknight dinner.",
+            "preparationNotes": "1. Brown the beef mince in a large pot, breaking it up as it cooks.\n2. Add the onion, garlic and red pepper and cook until soft, about 5 minutes.\n3. Stir in the tomatoes, kidney beans and beef stock, then simmer uncovered for 45 minutes.\n4. Season with the cayenne pepper and salt.\n5. Let the chilli rest for 10 minutes before serving.",
+            "timeMinutes": 75,
+            "servings": 6,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": false,
+            "ingredients": [
+              {
+                "name": "beef mince",
+                "quantity": 454,
+                "unit": "g",
+                "originalText": "1 lb ground beef",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "onion",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 large onion, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 3,
+                "unit": "piece",
+                "originalText": "3 cloves garlic, minced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kidney beans",
+                "quantity": 480,
+                "unit": "g",
+                "originalText": "2 cans kidney beans, drained",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tinned chopped tomatoes",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 can diced tomatoes",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "beef stock",
+                "quantity": 250,
+                "unit": "ml",
+                "originalText": "250 ml beef stock",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "red pepper",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "100g red bell pepper, diced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "cayenne pepper",
+                "quantity": null,
+                "unit": null,
+                "originalText": "a pinch of cayenne pepper",
+                "isVague": true,
+                "vaguePhrase": "a pinch",
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 96
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 1,
+            "servingsMatch": null
+          }
+        }
+      ]
+    },
+    "recipe/en-no-servings-household-of-2": {
+      "promptHash": "d587cc20a6e1b5568bac198cfdd76a327b7b403deda1f26854304caa60886dcc",
+      "requestHash": "6b60e76595f020465d8b3d83ecafed84815d6e2d31186a51f7cb15748b5542df",
+      "calls": [
+        {
+          "caseId": "recipe/en-no-servings-household-of-2",
+          "task": "recipe",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3054.975458000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1301,11 +1569,11 @@
         {
           "caseId": "recipe/en-no-servings-household-of-2",
           "task": "recipe",
-          "run": 3,
+          "run": 2,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3106.561207999941,
+          "latencyMs": 3142.410167000009,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1313,16 +1581,16 @@
             "inputTokens": 5935,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 501,
+            "outputTokens": 498,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.01688,
+          "costUsd": 0.01685,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Tomato pasta",
-            "description": "A simple spaghetti dish tossed in a fresh garlic and tomato sauce.",
+            "description": "A simple spaghetti dish with a fresh garlic and tomato sauce.",
             "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
             "timeMinutes": null,
             "servings": 2,
@@ -1388,6 +1656,97 @@
             "stepCountDelta": 0,
             "servingsMatch": 1
           }
+        },
+        {
+          "caseId": "recipe/en-no-servings-household-of-2",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3025.582416999998,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5935,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 498,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.01685,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Tomato pasta",
+            "description": "A simple spaghetti dish with a fresh garlic and tomato sauce.",
+            "preparationNotes": "1. Boil the spaghetti in salted water.\n2. Fry the garlic in the olive oil, add the tomatoes and cook for 10 minutes.\n3. Toss the pasta with the sauce.",
+            "timeMinutes": null,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "spaghetti",
+                "quantity": 250,
+                "unit": "g",
+                "originalText": "250 g spaghetti",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "tomato",
+                "quantity": 4,
+                "unit": "piece",
+                "originalText": "4 ripe tomatoes, chopped",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 cloves garlic, sliced",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "olive oil",
+                "quantity": 30,
+                "unit": "ml",
+                "originalText": "30 ml olive oil",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "salt",
+                "quantity": null,
+                "unit": null,
+                "originalText": "salt to taste",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 96
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 0,
+            "servingsMatch": 1
+          }
         }
       ]
     },
@@ -1402,7 +1761,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1392.4682920000014,
+          "latencyMs": 1455.5842090000006,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1446,7 +1805,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1526.189000000013,
+          "latencyMs": 1682.6052090000012,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1454,15 +1813,59 @@
             "inputTokens": 5989,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 160,
+            "outputTokens": 95,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.013578,
+          "costUsd": 0.012928,
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Harbour Kitchen, Old Town review (no recipe)",
+            "name": "Harbour Kitchen, Old Town review",
+            "description": null,
+            "preparationNotes": null,
+            "timeMinutes": null,
+            "servings": 3,
+            "mealTypes": [
+              "dinner"
+            ],
+            "kidFriendly": false,
+            "ingredients": [],
+            "recipeConfidence": 1
+          },
+          "scores": {
+            "recall": null,
+            "precision": null,
+            "quantityUnitMatch": null,
+            "confidenceAgrees": 1,
+            "stepCountDelta": null,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/en-not-a-recipe-restaurant-review",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1564.821249999979,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 5989,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 154,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.013518,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Harbour Kitchen, Old Town review",
             "description": null,
             "preparationNotes": null,
             "timeMinutes": null,
@@ -1492,50 +1895,6 @@
             "stepCountDelta": null,
             "servingsMatch": null
           }
-        },
-        {
-          "caseId": "recipe/en-not-a-recipe-restaurant-review",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 1244.158832999994,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 5989,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 95,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.012928,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Harbour Kitchen, Old Town review",
-            "description": null,
-            "preparationNotes": null,
-            "timeMinutes": null,
-            "servings": 3,
-            "mealTypes": [
-              "dinner"
-            ],
-            "kidFriendly": false,
-            "ingredients": [],
-            "recipeConfidence": 2
-          },
-          "scores": {
-            "recall": null,
-            "precision": null,
-            "quantityUnitMatch": null,
-            "confidenceAgrees": 1,
-            "stepCountDelta": null,
-            "servingsMatch": null
-          }
         }
       ]
     },
@@ -1550,7 +1909,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4212.1420419999995,
+          "latencyMs": 4247.51425,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1677,7 +2036,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4429.500792000035,
+          "latencyMs": 4820.8739579999965,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1685,16 +2044,16 @@
             "inputTokens": 6013,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 802,
+            "outputTokens": 805,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.020046,
+          "costUsd": 0.020076,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Greek salad",
-            "description": "A fresh Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, finished with olive oil and dried oregano.",
+            "description": "A fresh, simple Greek salad of ripe tomatoes, cucumber, red onion, feta and kalamata olives, finished with olive oil and dried oregano.",
             "preparationNotes": "1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
             "timeMinutes": 15,
             "servings": 2,
@@ -1804,7 +2163,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4195.458875000011,
+          "latencyMs": 4448.510540999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -1937,7 +2296,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4595.578375000001,
+          "latencyMs": 4481.524333000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2046,7 +2405,116 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4509.335459000024,
+          "latencyMs": 4510.25,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6946,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 720,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.021092,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Oa-tomatihautis",
+            "description": "Lihtne hautis punastest ubadest, hakitud tomatitest ja suitsupaprikast. Serveeritakse värske peterselliga.",
+            "preparationNotes": "1. Haki sibul ja küüslauk.\n2. Prae sibulat ja küüslauku pannil pehmeks.\n3. Lisa oad, tomatid ja suitsupaprika.\n4. Hauta 15 minutit.\n5. Maitsesta soolaga.\n6. Puista peale hakitud petersell.",
+            "timeMinutes": 25,
+            "servings": 2,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "punane uba",
+                "quantity": 240,
+                "unit": "g",
+                "originalText": "1 purk punaseid ube, nõrutatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "hakitud tomat",
+                "quantity": 400,
+                "unit": "g",
+                "originalText": "1 purk hakitud tomateid",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sibul",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 sibul",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "küüslauk",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 küüslauguküünt",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "suitsupaprika",
+                "quantity": null,
+                "unit": null,
+                "originalText": "näputäis suitsupaprikat",
+                "isVague": true,
+                "vaguePhrase": "a pinch",
+                "isDried": null
+              },
+              {
+                "name": "sool",
+                "quantity": null,
+                "unit": null,
+                "originalText": "soola maitse järgi",
+                "isVague": true,
+                "vaguePhrase": "to taste",
+                "isDried": null
+              },
+              {
+                "name": "petersell",
+                "quantity": null,
+                "unit": null,
+                "originalText": "värsket peterselli serveerimiseks",
+                "isVague": true,
+                "vaguePhrase": "for garnish",
+                "isDried": false
+              }
+            ],
+            "recipeConfidence": 95
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 3,
+            "servingsMatch": null
+          }
+        },
+        {
+          "caseId": "recipe/et-canned-oahautis",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4423.13816599999,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2142,115 +2610,6 @@
           "scores": {
             "recall": 1,
             "precision": 1,
-            "quantityUnitMatch": 1,
-            "confidenceAgrees": 1,
-            "stepCountDelta": 3,
-            "servingsMatch": null
-          }
-        },
-        {
-          "caseId": "recipe/et-canned-oahautis",
-          "task": "recipe",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4462.023667000001,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 6946,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 715,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.021042,
-          "errorName": null,
-          "errorMessage": null,
-          "output": {
-            "name": "Oa-tomatihautis",
-            "description": "Lihtne hautis punastest ubadest ja hakitud tomatitest suitsupaprika ja küüslauguga.",
-            "preparationNotes": "1. Haki sibul ja küüslauk.\n2. Prae sibulat ja küüslauku pannil pehmeks.\n3. Lisa oad, tomatid ja suitsupaprika.\n4. Hauta 15 minutit.\n5. Maitsesta soolaga.\n6. Puista peale hakitud petersell.",
-            "timeMinutes": 25,
-            "servings": 2,
-            "mealTypes": [
-              "lunch",
-              "dinner"
-            ],
-            "kidFriendly": true,
-            "ingredients": [
-              {
-                "name": "punane uba",
-                "quantity": 240,
-                "unit": "g",
-                "originalText": "1 purk punaseid ube, nõrutatud",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "tinned chopped tomatoes",
-                "quantity": 400,
-                "unit": "g",
-                "originalText": "1 purk hakitud tomateid",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "sibul",
-                "quantity": 1,
-                "unit": "piece",
-                "originalText": "1 sibul",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "küüslauk",
-                "quantity": 2,
-                "unit": "piece",
-                "originalText": "2 küüslauguküünt",
-                "isVague": false,
-                "vaguePhrase": null,
-                "isDried": null
-              },
-              {
-                "name": "suitsupaprika",
-                "quantity": null,
-                "unit": null,
-                "originalText": "näputäis suitsupaprikat",
-                "isVague": true,
-                "vaguePhrase": "a pinch",
-                "isDried": null
-              },
-              {
-                "name": "sool",
-                "quantity": null,
-                "unit": null,
-                "originalText": "soola maitse järgi",
-                "isVague": true,
-                "vaguePhrase": "to taste",
-                "isDried": null
-              },
-              {
-                "name": "petersell",
-                "quantity": null,
-                "unit": null,
-                "originalText": "värsket peterselli serveerimiseks",
-                "isVague": true,
-                "vaguePhrase": "for garnish",
-                "isDried": false
-              }
-            ],
-            "recipeConfidence": 93
-          },
-          "scores": {
-            "recall": 0.8571428571428571,
-            "precision": 0.8571428571428571,
             "quantityUnitMatch": 1,
             "confidenceAgrees": 1,
             "stepCountDelta": 3,
@@ -2270,7 +2629,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5332.998459000002,
+          "latencyMs": 7092.610457999996,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2278,23 +2637,22 @@
             "inputTokens": 6923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 657,
+            "outputTokens": 651,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.020416,
+          "costUsd": 0.020356,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Lihtsad pannkoogid",
-            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Taigen puhkab veidi ja pannkoogid praed kuumal pannil kuldseks.",
-            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Vispelda sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit puhata.\n4. Prae õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
+            "description": "Õhukesed pannkoogid piimast, jahust ja munadest, mis valmivad 25 minutiga. Sobivad hommikusöögiks või magustoiduks.",
+            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, seejärel ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesi pannkooke kuumal kergelt õlitatud pannil umbes 1 minut kummaltki poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
               "breakfast",
-              "lunch",
-              "dinner"
+              "lunch"
             ],
             "kidFriendly": true,
             "ingredients": [
@@ -2347,7 +2705,7 @@
                 "name": "või",
                 "quantity": 30,
                 "unit": "g",
-                "originalText": "30 g võid, sulatatud",
+                "originalText": "30 g sulatatud võid",
                 "isVague": false,
                 "vaguePhrase": null,
                 "isDried": null
@@ -2371,7 +2729,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 5104.569917000015,
+          "latencyMs": 31474.819917000015,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2379,17 +2737,17 @@
             "inputTokens": 6923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 639,
+            "outputTokens": 637,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.020236,
+          "costUsd": 0.020216,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Lihtsad pannkoogid",
-            "description": "Õhukesed pannkoogid jahust, piimast ja munadest. Retseptist tuleb 12 pannkooki.",
-            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Küpseta õhukesed pannkoogid kuumal kergelt määritud pannil, umbes 1 minut kummaltki poolt.",
+            "description": "Õhukesed pannkoogid piimast, jahust ja munadest. Retsept annab 12 pannkooki.",
+            "preparationNotes": "1. Vispelda jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Sega juurde munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt õlitatud pannil, umbes 1 minut kummaltki poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
@@ -2472,7 +2830,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8315.216124999919,
+          "latencyMs": 5184.5626660000125,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2480,17 +2838,17 @@
             "inputTokens": 6923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 656,
+            "outputTokens": 642,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.020406,
+          "costUsd": 0.020266,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Lihtsad pannkoogid",
-            "description": "Õhukesed pannkoogid piimast, munadest ja jahust. Taigen puhkab veidi ja pannkoogid küpsevad kuumal pannil kiiresti.",
-            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit puhata.\n4. Prae õhukesi pannkooke kuumal kergelt määritud pannil, umbes 1 minut kummaltki poolt.",
+            "description": "Õhukesed piimapõhised pannkoogid, mida praed kuumal pannil. Retseptist saab 12 pannkooki.",
+            "preparationNotes": "1. Sega jahu, suhkur ja sool poole piimaga ühtlaseks.\n2. Klopi sisse munad, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Prae õhukesed pannkoogid kuumal kergelt määritud pannil, umbes 1 minut mõlemalt poolt.",
             "timeMinutes": 25,
             "servings": 4,
             "mealTypes": [
@@ -2579,7 +2937,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4714.746542000001,
+          "latencyMs": 5246.055166000006,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2587,16 +2945,16 @@
             "inputTokens": 7000,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 798,
+            "outputTokens": 802,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.02198,
+          "costUsd": 0.02202,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Hakklihakaste",
-            "description": "Hakklihakaste on hapukoorega pehme kaste sea-veisehakklihast, sibulast ja porgandist. Sobib hästi kartulitega.",
+            "description": "Sea-veisehakklihast, sibulast ja porgandist valmistatud kaste, mis saab hapukoorega kreemja maitse. Serveeri kartulitega.",
             "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2697,7 +3055,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4772.427499999991,
+          "latencyMs": 4958.321166000009,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2705,16 +3063,16 @@
             "inputTokens": 7000,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 790,
+            "outputTokens": 803,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.0219,
+          "costUsd": 0.02203,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Hakklihakaste",
-            "description": "Sea-veisehakklihast, sibulast ja porgandist keedetud paks hapukoorekaste, mis sobib kartulitega.",
+            "description": "Sea-veisehakklihast, sibulast ja porgandist valmistatud kaste, mis saab hapukoorega pehme maitse. Sobib hästi kartulitega.",
             "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2815,7 +3173,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4471.50229199999,
+          "latencyMs": 4813.994666000013,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2823,16 +3181,16 @@
             "inputTokens": 7000,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 787,
+            "outputTokens": 792,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.02187,
+          "costUsd": 0.02192,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Hakklihakaste",
-            "description": "Pehme hakklihakaste sibula, porgandi ja hapukoorega. Sobib hästi kartulite kõrvale.",
+            "description": "Sea-veisehakklihast, sibulast ja porgandist valmistatud hapukoorekaste, mida serveeritakse kartulitega.",
             "preparationNotes": "1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
             "timeMinutes": 40,
             "servings": 4,
@@ -2939,7 +3297,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4609.804958000001,
+          "latencyMs": 8094.690750000002,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -2947,11 +3305,11 @@
             "inputTokens": 7017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 805,
+            "outputTokens": 814,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.022084,
+          "costUsd": 0.022174,
           "errorName": null,
           "errorMessage": null,
           "output": {
@@ -3024,7 +3382,7 @@
                 "name": "sool",
                 "quantity": null,
                 "unit": null,
-                "originalText": "soola maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3033,7 +3391,7 @@
                 "name": "must pipar",
                 "quantity": null,
                 "unit": null,
-                "originalText": "pipart maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3057,7 +3415,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7244.387374999991,
+          "latencyMs": 6975.3033339999965,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -3065,16 +3423,16 @@
             "inputTokens": 7017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 1141,
+            "outputTokens": 1173,
             "usageMissing": false
           },
-          "reasoningTokens": 319,
-          "costUsd": 0.025444,
+          "reasoningTokens": 327,
+          "costUsd": 0.025764,
           "errorName": null,
           "errorMessage": null,
           "output": {
-            "name": "Kõrvitsasupp",
-            "description": "Kreemjas kõrvitsasupp sibula, küüslaugu ja vahukoorega. Püreestatud supp on sametiselt sile.",
+            "name": "Kreemjas kõrvitsasupp",
+            "description": "Siidine kõrvitsasupp sibula, küüslaugu ja vahukoorega. Kõrvits keedetakse puljongis pehmeks ja püreestatakse.",
             "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde vahukoor ning maitsesta soola ja pipraga.",
             "timeMinutes": 40,
             "servings": 4,
@@ -3142,7 +3500,7 @@
                 "name": "sool",
                 "quantity": null,
                 "unit": null,
-                "originalText": "soola maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3151,7 +3509,7 @@
                 "name": "must pipar",
                 "quantity": null,
                 "unit": null,
-                "originalText": "pipart maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3175,7 +3533,7 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 4539.573625000077,
+          "latencyMs": 4513.084959,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
@@ -3183,17 +3541,17 @@
             "inputTokens": 7017,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 802,
+            "outputTokens": 814,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.022054,
+          "costUsd": 0.022174,
           "errorName": null,
           "errorMessage": null,
           "output": {
             "name": "Kõrvitsasupp",
             "description": "Kreemjas kõrvitsasupp sibula, küüslaugu ja vahukoorega.",
-            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde koor ning maitsesta soola ja pipraga.",
+            "preparationNotes": "1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde vahukoor ning maitsesta soola ja pipraga.",
             "timeMinutes": 40,
             "servings": 4,
             "mealTypes": [
@@ -3260,7 +3618,7 @@
                 "name": "sool",
                 "quantity": null,
                 "unit": null,
-                "originalText": "soola maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3269,7 +3627,7 @@
                 "name": "must pipar",
                 "quantity": null,
                 "unit": null,
-                "originalText": "pipart maitse järgi",
+                "originalText": "soola ja pipart maitse järgi",
                 "isVague": true,
                 "vaguePhrase": "to taste",
                 "isDried": null
@@ -3284,6 +3642,312 @@
             "confidenceAgrees": 1,
             "stepCountDelta": 0,
             "servingsMatch": null
+          }
+        }
+      ]
+    },
+    "recipe/et-kuivatatud-oad": {
+      "promptHash": "8ce983fcb227cf058a43a5e8f510068c2863b0c8e223310e30ba6a6d2f6da14d",
+      "requestHash": "d0afd9cb1c5acea6d3d270f0bea98a3fd87998622ebb6d78566fe4d114bdbff9",
+      "calls": [
+        {
+          "caseId": "recipe/et-kuivatatud-oad",
+          "task": "recipe",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 8843.354916000004,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6977,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1342,
+            "usageMissing": false
+          },
+          "reasoningTokens": 625,
+          "costUsd": 0.027374,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Kolme oa hautis",
+            "description": "Paks hautis kikerhernestest, valgetest ubadest ja mungaubadest kookospiimas. Sibul ja küüslauk annavad sellele pehme põhimaitse.",
+            "preparationNotes": "1. Leota kikerherned ja valged oad eelmisel õhtul vette.\n2. Keeda leotatud kikerherned ja valged oad värskes vees pehmeks, umbes 1 tund.\n3. Prae sibul ja küüslauk pannil pehmeks.\n4. Lisa kikerherned, valged oad, mungaoad ja kookospiim.\n5. Hauta 15 minutit.",
+            "timeMinutes": 80,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "kuivatatud kikerhernes",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "100 g kuivatatud kikerherneid, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kuivatatud valge uba",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g kuivatatud valgeid ube, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mungauba",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "250 g keedetud mungube",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sibul",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 sibul",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "küüslauk",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 küüslauguküünt",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kookospiim",
+                "quantity": 400,
+                "unit": "ml",
+                "originalText": "400 ml kookospiima",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 93
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 2,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/et-kuivatatud-oad",
+          "task": "recipe",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 9273.908750000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6977,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1338,
+            "usageMissing": false
+          },
+          "reasoningTokens": 643,
+          "costUsd": 0.027334,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Kolme oa hautis",
+            "description": "Kikerherne-, valgete ubade ja mungaubade hautis kookospiimas, sibula ja küüslauguga.",
+            "preparationNotes": "1. Leota kikerherned ja valged oad eelmisel õhtul vette.\n2. Keeda leotatud kikerherned ja valged oad värskes vees pehmeks, umbes 1 tund.\n3. Prae sibul ja küüslauk pannil pehmeks.\n4. Lisa kikerherned, valged oad, mungoad ja kookospiim.\n5. Hauta 15 minutit.",
+            "timeMinutes": 75,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "kuivatatud kikerhernes",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "100 g kuivatatud kikerherneid, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kuivatatud valge uba",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g kuivatatud valgeid ube, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mungauba",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "250 g keedetud mungube",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sibul",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 sibul",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "küüslauk",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 küüslauguküünt",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kookospiim",
+                "quantity": 400,
+                "unit": "ml",
+                "originalText": "400 ml kookospiima",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 90
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 2,
+            "servingsMatch": 1
+          }
+        },
+        {
+          "caseId": "recipe/et-kuivatatud-oad",
+          "task": "recipe",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 9091.255959000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 6977,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 1330,
+            "usageMissing": false
+          },
+          "reasoningTokens": 625,
+          "costUsd": 0.027254,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "name": "Kolme oa hautis",
+            "description": "Kikerhernestest, valgetest ubadest ja mungaubadest keedetud hautis sibula, küüslaugu ja kookospiimaga.",
+            "preparationNotes": "1. Leota kikerherned ja valged oad eelmisel õhtul vees.\n2. Keeda leotatud kikerherned ja valged oad värskes vees pehmeks, umbes 1 tund.\n3. Prae sibul ja küüslauk pannil pehmeks.\n4. Lisa kikerherned, valged oad, mungaoad ja kookospiim.\n5. Hauta 15 minutit.",
+            "timeMinutes": 85,
+            "servings": 4,
+            "mealTypes": [
+              "lunch",
+              "dinner"
+            ],
+            "kidFriendly": true,
+            "ingredients": [
+              {
+                "name": "kuivatatud kikerhernes",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "100 g kuivatatud kikerherneid, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kuivatatud valge uba",
+                "quantity": 200,
+                "unit": "g",
+                "originalText": "200 g kuivatatud valgeid ube, üleöö leotatud",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "mungauba",
+                "quantity": 100,
+                "unit": "g",
+                "originalText": "250 g keedetud mungube",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "sibul",
+                "quantity": 1,
+                "unit": "piece",
+                "originalText": "1 sibul",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "küüslauk",
+                "quantity": 2,
+                "unit": "piece",
+                "originalText": "2 küüslauguküünt",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              },
+              {
+                "name": "kookospiim",
+                "quantity": 400,
+                "unit": "ml",
+                "originalText": "400 ml kookospiima",
+                "isVague": false,
+                "vaguePhrase": null,
+                "isDried": null
+              }
+            ],
+            "recipeConfidence": 92
+          },
+          "scores": {
+            "recall": 1,
+            "precision": 1,
+            "quantityUnitMatch": 1,
+            "confidenceAgrees": 1,
+            "stepCountDelta": 2,
+            "servingsMatch": 1
           }
         }
       ]
