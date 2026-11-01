@@ -110,9 +110,10 @@ export const SurfaceOnTintedSurface: Story = {
       await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
     }
     // The meal's own badges keep their ring in the chip colour.
-    await expect(getComputedStyle(canvas.getByText('Poultry')).borderTopColor).not.toBe(
-      'rgba(0, 0, 0, 0)',
-    )
+    await expect(
+      getComputedStyle(canvas.getByText('Poultry').closest<HTMLElement>('[data-slot="badge"]')!)
+        .borderTopColor,
+    ).not.toBe('rgba(0, 0, 0, 0)')
   },
 }
 

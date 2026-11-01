@@ -84,7 +84,7 @@ export const OnTintedSurface: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const badge = canvas.getByText('3 ingredients to buy')
-    const slot = canvas.getByText('Dinner')
+    const slot = canvas.getByText('Dinner').closest<HTMLElement>('[data-slot="badge"]')!
     await expect(badge.getBoundingClientRect().height).toBe(slot.getBoundingClientRect().height)
     await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
   },
