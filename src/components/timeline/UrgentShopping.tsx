@@ -171,25 +171,15 @@ export function UrgentShopping({
     </div>
   )
 
-  if (!hasUrgent && (compact || check.length === 0)) {
-    if (compact) return null
-    return (
-      <Card>
-        <CardHeader>{titleRow}</CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            {emptyLine}
-            {continuationRow}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Nothing to buy today or tomorrow, and nothing to check: a plain card with
+  // the empty line rather than the note.
+  const isEmpty = !hasUrgent && check.length === 0
 
   // The phone form has no item list, so the "Need 2 for today, 1 for
   // tomorrow" line is the whole message; the full panel says the same through
   // its day groups.
   if (compact) {
+    if (!hasUrgent) return null
     const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
     const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
     const summaryParts: string[] = []
@@ -285,17 +275,27 @@ export function UrgentShopping({
     </div>
   )
 
+  // One tree whether or not the panel is empty, so the check stays mounted
+  // when its last item is added and the refresh empties `check`: its Added
+  // row, Undo and focus stay until a reload.
   return (
     // The note surface (globals.css → `[data-surface='note']`): the list is
     // the note on the fridge door, a pale yellow sheet rather than a card.
-    <Card data-surface="note">
+    <Card data-surface={isEmpty ? undefined : 'note'}>
       <CardHeader>{titleRow}</CardHeader>
       <CardContent>
         {/* The check first, so the shopper settles what is at home before
             reading what to buy (HON-1585). */}
         <div className="flex flex-col gap-4">
           <PantryCheckList items={check} />
-          {toBuyContent}
+          {isEmpty ? (
+            <>
+              {emptyLine}
+              {continuationRow}
+            </>
+          ) : (
+            toBuyContent
+          )}
         </div>
       </CardContent>
     </Card>

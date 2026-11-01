@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 // stubs `useTranslations`.
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 
 import { pantryCheckRows } from '@/stories/pantry-check-fixtures'
@@ -12,8 +13,15 @@ import enMessages from '../../../messages/en.json'
 import { UrgentShopping } from './UrgentShopping'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+vi.stubGlobal(
+  'fetch',
+  vi.fn(async () => new Response('{}', { status: 200 })),
+)
 
 const TODAY = '2026-11-01'
+
+// First needed on Wednesday: in the check, past the panel's two days.
+const carrot = pantryCheckRows[1]!
 
 const milk = {
   ingredientId: 'milk',
@@ -25,15 +33,20 @@ const milk = {
   urgency: 'today' as const,
 }
 
-function renderPanel(props: Partial<Parameters<typeof UrgentShopping>[0]> = {}) {
-  const { wrapper: QueryWrapper } = createQueryWrapper()
-  return render(
+const { wrapper: QueryWrapper } = createQueryWrapper()
+
+function panel(props: Partial<Parameters<typeof UrgentShopping>[0]> = {}) {
+  return (
     <NextIntlClientProvider locale="en" messages={enMessages}>
       <QueryWrapper>
         <UrgentShopping items={[]} todayDate={TODAY} {...props} />
       </QueryWrapper>
-    </NextIntlClientProvider>,
+    </NextIntlClientProvider>
   )
+}
+
+function renderPanel(props: Partial<Parameters<typeof UrgentShopping>[0]> = {}) {
+  return render(panel(props))
 }
 
 describe('UrgentShopping — the check (HON-1585)', () => {
@@ -59,6 +72,18 @@ describe('UrgentShopping — the check (HON-1585)', () => {
     renderPanel()
 
     expect(screen.queryByText('Enough at home?')).not.toBeInTheDocument()
+    expect(screen.getByText('Nothing on the list for today or tomorrow')).toBeInTheDocument()
+  })
+
+  it('keeps the Added row and its Undo when the last check item leaves the check', async () => {
+    const { rerender } = renderPanel({ check: [carrot] })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Carrot' }))
+    // The refresh: carrot is at 0 now, so the check is empty, and nothing is
+    // due today or tomorrow.
+    rerender(panel({ check: [] }))
+
+    expect(screen.getByRole('button', { name: 'Undo: Carrot' })).toHaveFocus()
     expect(screen.getByText('Nothing on the list for today or tomorrow')).toBeInTheDocument()
   })
 
