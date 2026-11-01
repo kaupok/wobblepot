@@ -124,7 +124,6 @@
     "haveIt": "Have it",
     "ariaHaveIt": "Have it: {name}",
     "ranOut": "Ran out",
-    "ariaRanOut": "Ran out: {name}",
     "addAmount": "Add amount",
     "ariaAddAmount": "Add amount: {name}",
     "ariaAmount": "Amount: {name}, {amount}",

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -121,24 +121,25 @@ describe('PantrySection amount', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   }
 
-  it('saves 0 as ran out, moves the row and focuses its "Have it"', async () => {
+  it('saves 0 as ran out, moves the row and focuses its switch', async () => {
     const fetchMock = okFetch()
     renderStateful([trout, makeItem({ quantity: 2 })])
 
     enterAmount('Trout', '0')
 
     await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
-    expect(screen.getByRole('button', { name: 'Have it: Trout' })).toHaveFocus()
+    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).toHaveFocus()
     expect(document.body).not.toHaveFocus()
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(0))
   })
 
-  it('brings the amount back when "Have it" follows a 0', async () => {
+  it('brings the amount back when switch-on follows a 0', async () => {
     const fetchMock = okFetch()
     renderStateful([{ ...trout, quantity: 1800 }])
 
     enterAmount('Trout', '0')
-    fireEvent.click(await screen.findByRole('button', { name: 'Have it: Trout' }))
+    fireEvent.click(await screen.findByRole('switch', { name: 'Have it: Trout' }))
 
     expect(
       await screen.findByRole('button', { name: 'Amount: Trout, 1800\u00a0g' }),
@@ -229,5 +230,22 @@ describe('PantrySection amount', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(groupOf('Trout')).toBe('On hand 1')
     expect(screen.getByRole('button', { name: 'Amount: Trout, 1800\u00a0g' })).toHaveFocus()
+  })
+
+  it('keeps focus on the switch when a failed amount above 0 leaves the row in place', async () => {
+    let fail: (response: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(new Promise<Response>((resolve) => (fail = resolve))),
+    )
+    renderStateful([trout])
+
+    enterAmount('Trout', '1800')
+    const control = screen.getByRole('switch', { name: 'Have it: Trout' })
+    control.focus()
+    await act(async () => fail(new Response(null, { status: 500 })))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(control).toHaveFocus()
   })
 })

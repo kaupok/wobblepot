@@ -281,7 +281,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // A staple the household marks ran out goes on the list with no planned
       // meal (HON-1398), from one tap in the pantry beside it (HON-1399). The
       // API adds an ingredient no meal here uses, as an ordinary row; the
-      // household stars it, then taps "Ran out".
+      // household stars it, then switches it off.
       const staple = await findReplacement(
         page.request,
         new Set([...meal!.components.map((c) => c.ingredientId), replacement.id]),
@@ -292,10 +292,10 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       expect(stapleResponse.status(), 'Adding the pantry row failed').toBe(201)
       createdPantryIds.push(staple.id)
       await page.reload()
-      const ranOutButton = page.getByRole('button', { name: `Ran out: ${staple.name}` })
-      // The innermost element holding both the row's "Ran out" and a star is the row.
+      const onHandSwitch = page.getByRole('switch', { name: `Have it: ${staple.name}` })
+      // The innermost element holding both the row's switch and a star is the row.
       const pantryStapleRow = page
-        .locator('div', { has: ranOutButton })
+        .locator('div', { has: onHandSwitch })
         .filter({ has: page.getByRole('button', { name: 'Mark as staple' }) })
         .last()
       await Promise.all([
@@ -308,9 +308,10 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
         page.waitForResponse(
           (r) => r.url().includes('/api/pantry/') && r.request().method() === 'PATCH',
         ),
-        ranOutButton.click(),
+        onHandSwitch.click(),
       ])
-      await expect(page.getByRole('button', { name: `Have it: ${staple.name}` })).toBeFocused()
+      await expect(onHandSwitch).not.toBeChecked()
+      await expect(onHandSwitch).toBeFocused()
       // No reload: the list beside the pantry re-reads on its own.
       const stapleRow = page.locator('label', {
         has: page.getByRole('checkbox', { name: `Mark ${staple.name} as purchased` }),
