@@ -503,3 +503,56 @@ describe('matchIngredients on an Estonian coconut milk name', () => {
     })
   })
 })
+
+// HON-1566: roasting is a cooking step, so a roasted name with no roasted row is the
+// bare row, sure; smoked and pickled stay forms the shop sells.
+describe('matchIngredients on a roasted, smoked or pickled name', () => {
+  async function seedRows() {
+    const rows = [
+      ['ing-peanuts', 'peanuts', 'maapähklid'],
+      ['ing-sunflower-seeds', 'sunflower seeds', 'päevalilleseemned'],
+      ['ing-onion', 'onion', 'sibul'],
+      ['ing-roasted-onion', 'roasted onion', 'röstitud sibul'],
+      ['ing-cheese', 'cheese', 'juust'],
+      ['ing-cucumber', 'cucumber', 'kurk'],
+    ]
+    for (const [id, name, et] of rows) {
+      await ingredient(id!, name!)
+      await prisma.ingredientTranslation.create({
+        data: { ingredientId: id!, locale: 'et', name: et! },
+      })
+    }
+  }
+
+  it.each([
+    ['roasted peanuts', 'en', 'peanuts'],
+    ['röstitud päevalilleseemned', 'et', 'sunflower seeds'],
+    ['praetud sibul', 'et', 'onion'],
+    ['röstitud sibul', 'et', 'roasted onion'],
+  ] as const)('matches "%s" (%s) to %s, sure', async (recipeName, locale, rowName) => {
+    await seedRows()
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale })
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: false,
+    })
+  })
+
+  it.each([
+    ['smoked cheese', 'cheese'],
+    ['pickled cucumbers', 'cucumber'],
+  ])('asks for review of "%s" when only the bare %s row exists', async (recipeName, rowName) => {
+    await seedRows()
+
+    const result = await matchOne(recipeName)
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: true,
+    })
+  })
+})
