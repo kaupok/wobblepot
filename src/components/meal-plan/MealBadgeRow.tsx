@@ -49,9 +49,17 @@ export function MealBadgeRow({ children, className }: { children: ReactNode; cla
       setOverlap(natural + GAP_PX * Math.max(badges.length - 1, 0) > row.clientWidth)
     }
     check()
+    // The labels change width when the web font replaces the fallback, and
+    // the row's own width does not, so the observer alone would miss it.
+    // `?.` because jsdom has no `document.fonts`.
+    let live = true
+    void document.fonts?.ready.then(() => live && check())
     const observer = new ResizeObserver(check)
     observer.observe(row)
-    return () => observer.disconnect()
+    return () => {
+      live = false
+      observer.disconnect()
+    }
   }, [children])
 
   return (
