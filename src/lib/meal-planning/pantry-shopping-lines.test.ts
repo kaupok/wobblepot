@@ -444,6 +444,19 @@ describe('pantryShoppingLines — running low (HON-1586)', () => {
     expect(check).toEqual([])
   })
 
+  it('dates a low fresh-basil row by the basil need it covers', async () => {
+    pantry(['fresh basil', null, false, 'low'])
+    const needed = new Map([
+      need('basil', 10, {
+        category: 'spice',
+        subcategory: 'herb',
+        mealCount: 1,
+        earliestNeededDate: WEDNESDAY,
+      }),
+    ])
+    expect(await lowLines(needed)).toEqual([['fresh basil', 0, WEDNESDAY, true]])
+  })
+
   it('does not mark a line low when its row is not', async () => {
     pantry(['carrot', 300])
     expect(await lowLines(needs(['carrot', 500]))).toEqual([['carrot', 200, TODAY, undefined]])

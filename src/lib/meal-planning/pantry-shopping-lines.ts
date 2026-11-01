@@ -194,6 +194,8 @@ export async function pantryShoppingLines(
     const restock = pantry.isStaple && pantry.quantity === 0
     const low = pantry.lowAt !== null
     if (!restock && !low) continue
+    // A low herb row that covers another form's need is dated by that need.
+    const coveredNeed = low ? needed.get(coverIds.get(pantry.ingredientId) ?? '') : undefined
     shoppingList.push({
       ingredientId: pantry.ingredientId,
       ingredient: translateIngredient(pantry.ingredient, locale),
@@ -201,7 +203,7 @@ export async function pantryShoppingLines(
       pantryQuantity: pantry.quantity,
       shoppingQuantity: 0,
       mealCount: 0,
-      earliestNeededDate: today,
+      earliestNeededDate: coveredNeed?.earliestNeededDate ?? today,
       isVague: false,
       originalPhrase: null,
       ...(restock && { restock: true }),
