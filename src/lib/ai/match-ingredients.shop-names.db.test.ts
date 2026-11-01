@@ -227,3 +227,70 @@ describe('matchIngredients on kama, grain flakes, spelt flour or cacao nibs', ()
     expect(result).not.toMatchObject({ ingredient: { name: other } })
   })
 })
+
+// HON-1549: dried and tinned beans are different purchases and different amounts,
+// so "dried chickpeas" finds its own row and the bare name stays the drained tin.
+// A berry the household buys finds its own row and not the fresh or dried one.
+describe('matchIngredients on a dried, tinned or berry name', () => {
+  const names = [
+    'chickpeas',
+    'dried chickpeas',
+    'kidney beans',
+    'dried kidney beans',
+    'sweetcorn',
+    'tinned sweetcorn',
+    'peas',
+    'tinned peas',
+    'lingonberry',
+    'frozen lingonberries',
+    'cranberry',
+    'dried cranberries',
+    'frozen cranberries',
+    'blackcurrants',
+    'blackberry',
+    'brown sugar',
+    'granulated sugar',
+    'salmon',
+    'salmon fillet',
+  ]
+
+  it.each([
+    ['kikerherned', 'chickpeas'],
+    ['kuivatatud kikerherned', 'dried chickpeas'],
+    ['külmutatud pohlad', 'frozen lingonberries'],
+    ['mustsõstrad', 'blackcurrants'],
+  ])('matches the Estonian "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['dried chickpeas', 'dried chickpeas'],
+    ['canned chickpeas', 'chickpeas'],
+    ['chickpeas, drained', 'chickpeas'],
+    ['chickpeas, dried', 'dried chickpeas'],
+    ['kidney beans, dried and soaked', 'dried kidney beans'],
+    ['sweetcorn, tinned', 'tinned sweetcorn'],
+  ])('matches the English "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  // A note that names the variety or the cut is part of the food, so it is not dropped
+  it.each([
+    ['sugar, brown', 'brown sugar'],
+    ['salmon, fillet', 'salmon fillet'],
+  ])('keeps the note in "%s", so it matches "%s"', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name } })
+  })
+})
