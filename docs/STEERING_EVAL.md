@@ -21,7 +21,7 @@ The three models are `AUTO_MODEL` at `AUTO_EFFORT` (unattended workers), `AUTO_M
 
 An arm takes the wall time of its slowest run: 2 to 12 minutes on Opus and Sonnet, up to 35 on Fable.
 
-Each run happens in its own tree under `/tmp/steering-eval/<rule>-<time>/<model>/<arm>-<i>/`:
+Each run writes its results under `/tmp/steering-eval/<rule>-<time>/<model>/<arm>-<i>/`. Its tree is a `mktemp -d` directory, named in that run's `tree` file, because the agent sees its working directory and a path under the results directory names the rule and the arm:
 
 - The tree is a `git archive` of `HEAD` with one "Initial commit". The control tree has the rule text removed before that commit, so `git log` and `git diff` cannot show the rule.
 - The eval's own files are removed from the tree, because they quote the rule and name the experiment.
@@ -32,7 +32,7 @@ Each run happens in its own tree under `/tmp/steering-eval/<rule>-<time>/<model>
 - A run that printed its `result` event counts as finished, even when its process outlived the bound on a child it started.
 - After the run, the script writes `diff.patch` (everything since the initial commit) and runs the rule's check on it.
 
-Env: `STEERING_EVAL_N` (3), `STEERING_EVAL_TIMEOUT` (3600 seconds per run; a Fable run can take 35 minutes), `STEERING_EVAL_REF` (`HEAD`), `STEERING_EVAL_OUT` (`/tmp/steering-eval`), and `STEERING_EVAL_KEEP=1` to keep the run trees for a look.
+Env: `STEERING_EVAL_N` (3), `STEERING_EVAL_TIMEOUT` (3600 seconds per run; a Fable run can take 35 minutes), `STEERING_EVAL_REF` (`HEAD`), `STEERING_EVAL_OUT` (`/tmp/steering-eval`), and `STEERING_EVAL_KEEP=1` to keep the run trees for a look (each run's `tree` file names its tree).
 
 ## Read the table
 
@@ -41,7 +41,7 @@ Env: `STEERING_EVAL_N` (3), `STEERING_EVAL_TIMEOUT` (3600 seconds per run; a Fab
 | -- | -- | -- | -- | -- |
 | validate-once | claude-opus-5-5 | 3/3 | not run | dead: control passes |
 | validate-once | claude-sonnet-5-5 (low) | 1/3 | 3/3 | live |
-| validate-once | claude-fable-5-1 | 2/3 (1 error) | 2/3 | dead: both arms fail |
+| validate-once | claude-fable-5-1 | 1/3 | 1/3 | dead: both arms fail |
 ```
 
 - A cell is the number of runs that passed the check. An `error` is a timeout, a non-zero `claude` exit, an empty diff or a check that printed neither `PASS` nor `FAIL`. An error counts as neither a pass nor a fail, because silence is not evidence.

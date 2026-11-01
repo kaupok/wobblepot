@@ -82,6 +82,10 @@ se_prepare_tree() {
   (
     cd "$dest/repo" &&
       git init -q -b main &&
+      # The one commit adds thousands of loose objects, so git would start a
+      # detached `gc --auto` that still writes here when the run tree is removed.
+      git config gc.auto 0 &&
+      git config maintenance.auto false &&
       git add -A &&
       GIT_AUTHOR_NAME=dev GIT_AUTHOR_EMAIL=dev@example.com \
         GIT_COMMITTER_NAME=dev GIT_COMMITTER_EMAIL=dev@example.com \
@@ -120,14 +124,18 @@ se_diff() {
 # One run: rule JSON $1, arm $2, model $3, effort $4, run directory $5. Writes
 # `pass`, `fail` or `error` to $5/result and the reason for an error to $5/reason.
 se_run_one() {
-  local rule="$1" arm="$2" model="$3" effort="$4" run="$5" result=error reason="" rc out check prompt
+  local rule="$1" arm="$2" model="$3" effort="$4" run="$5" result=error reason="" rc out check prompt tree
   mkdir -p "$run"
   prompt=$(jq -r .prompt "$rule")
   check=$(jq -r .check "$rule")
-  if ! se_prepare_tree "$rule" "$arm" "$run" >"$run/prepare.log" 2>&1; then
+  # The tree lives in a neutral temp directory, because the agent sees its cwd
+  # and the .git pointer: a path under $run names the eval, the rule and the arm.
+  tree=$(mktemp -d) || return 1
+  printf '%s\n' "$tree" >"$run/tree"
+  if ! se_prepare_tree "$rule" "$arm" "$tree" >"$run/prepare.log" 2>&1; then
     reason="prepare failed (prepare.log)"
   else
-    se_launch "$run/wt" "$model" "$effort" "$prompt" "$run/stream.jsonl"
+    se_launch "$tree/wt" "$model" "$effort" "$prompt" "$run/stream.jsonl"
     rc=$?
     # A session that printed its result is done, even when the process lingered
     # on a child the agent started (a dev server, a watcher) until the bound.
@@ -136,12 +144,12 @@ se_run_one() {
       reason=timeout
     elif [ "$rc" -ne 0 ]; then
       reason="claude exit $rc"
-    elif ! se_diff "$run/wt" >"$run/diff.patch" 2>"$run/diff.err" || [ ! -s "$run/diff.patch" ]; then
+    elif ! se_diff "$tree/wt" >"$run/diff.patch" 2>"$run/diff.err" || [ ! -s "$run/diff.patch" ]; then
       reason="no diff"
     else
       # The check runs from the real checkout, so the run tree cannot alter it.
       out=$(cd "$REPO_ROOT" && bash -c "$check \"\$@\"" se-check \
-        "$run/wt" "$run/stream.jsonl" "$run/diff.patch" 2>"$run/check.err" | tail -n 1)
+        "$tree/wt" "$run/stream.jsonl" "$run/diff.patch" 2>"$run/check.err" | tail -n 1)
       case "$out" in
         PASS) result=pass ;;
         FAIL) result=fail ;;
@@ -151,7 +159,7 @@ se_run_one() {
   fi
   printf '%s\n' "$result" >"$run/result"
   printf '%s\n' "$reason" >"$run/reason"
-  [ -n "${STEERING_EVAL_KEEP:-}" ] || rm -rf "${run:?}/repo" "${run:?}/wt"
+  [ -n "${STEERING_EVAL_KEEP:-}" ] || rm -rf "${tree:?}"
 }
 
 # Run the N ($6) runs of one arm in parallel under $5; print "pass fail error".
@@ -171,16 +179,17 @@ se_run_arm() {
 
 # The verdict from the control counts $1-$3 and the treatment counts $4-$6
 # (empty when treatment did not run): `live`, `dead: control passes`,
-# `dead: both arms fail` or `error`. An error never counts as a pass or a fail.
+# `dead: both arms fail` or `error`. An error never counts as a pass or a fail:
+# `live` needs treatment to beat control even if every errored control run passed.
 se_verdict() {
   local pc="$1" fc="$2" ec="$3" pt="${4:-}" et="${6:-}"
   if [ "$fc" -eq 0 ]; then
     if [ "$ec" -eq 0 ] && [ "$pc" -gt 0 ]; then echo "dead: control passes"; else echo error; fi
   elif [ -z "$pt" ]; then
     echo error
-  elif [ "$pt" -gt "$pc" ]; then
+  elif [ "$pt" -gt $((pc + ec)) ]; then
     echo live
-  elif [ "$et" -gt 0 ]; then
+  elif [ "$pt" -gt "$pc" ] || [ "$et" -gt 0 ]; then
     echo error
   else
     echo "dead: both arms fail"

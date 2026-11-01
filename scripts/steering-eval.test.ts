@@ -158,14 +158,15 @@ describe('se_prepare_tree', () => {
     60_000,
   )
 
-  it('strips the doc sections that name the eval', () => {
+  it('leaves no file in the tree that names the eval', () => {
     const wt = path.join(tmp, 'prepare-control', 'wt')
-    expect(fs.readFileSync(path.join(wt, 'docs/AGENT_HISTORY.md'), 'utf8')).not.toContain(
-      'steering eval',
+    const grep = spawnSync(
+      'grep',
+      // The .git pointer holds this test's own path; se_run_one keeps it neutral.
+      ['-rliE', '--exclude-dir=node_modules', '--exclude=.git', 'steering[ _-]?eval', '.'],
+      { cwd: wt, encoding: 'utf8' },
     )
-    expect(fs.readFileSync(path.join(wt, 'docs/PARALLEL_WORKFLOW.md'), 'utf8')).not.toContain(
-      'steering eval',
-    )
+    expect(grep.stdout).toBe('')
     // Only the section goes: the heading after it stays.
     expect(fs.readFileSync(path.join(wt, 'docs/AGENT_HISTORY.md'), 'utf8')).toContain(
       '## Steering file size',
@@ -181,6 +182,25 @@ describe('se_prepare_tree', () => {
     const result = lib(`se_prepare_tree "${stale}" control "${path.join(tmp, 'stale')}"`)
     expect(result.status).not.toBe(0)
     expect(result.stderr).toContain('rule text not found in')
+  }, 60_000)
+})
+
+describe('se_run_one', () => {
+  it('runs the agent in a directory whose path names neither the eval, the rule nor the arm', () => {
+    const cwdFile = path.join(tmp, 'cwd')
+    writeStub(`pwd > "${cwdFile}"; cat .git >> "${cwdFile}"; echo change > new-file.txt`)
+    const ruleFile = path.join(rulesDir, 'validate-once.json')
+    const run = path.join(tmp, 'steering-eval-out', 'validate-once', 'control-1')
+    const result = lib(`se_run_one "${ruleFile}" control m "" "${run}"`, {
+      STEERING_EVAL_TIMEOUT: '60',
+    })
+    expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
+    const seen = fs.readFileSync(cwdFile, 'utf8')
+    expect(seen).toContain('/wt')
+    expect(seen).not.toMatch(/steering|validate-once|control|treatment/i)
+    // The tree is removed after the run unless STEERING_EVAL_KEEP is set.
+    expect(fs.existsSync(fs.readFileSync(path.join(run, 'tree'), 'utf8').trim())).toBe(false)
   }, 60_000)
 })
 
@@ -232,6 +252,9 @@ describe('se_verdict', () => {
     ['0 3 0 0 3 0', 'dead: both arms fail'],
     ['1 2 0 1 2 0', 'dead: both arms fail'],
     ['0 3 0 0 0 3', 'error'],
+    // Had the errored control run passed, both arms would be 2/3.
+    ['1 1 1 2 1 0', 'error'],
+    ['1 1 1 3 0 0', 'live'],
   ])('%s → %s', (counts, verdict) => {
     expect(lib(`se_verdict ${counts}`).stdout.trim()).toBe(verdict)
   })

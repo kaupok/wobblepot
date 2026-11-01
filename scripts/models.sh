@@ -8,8 +8,8 @@
 #   orchestrator.sh     TRIAGE_MODEL, TRIAGE_EFFORT  the failed-worker triage call
 #   orchestrator.sh     AUTO_MODEL_SMALL, AUTO_EFFORT_SMALL  a worker for an issue
 #                       labelled `Small`, passed to `wt auto --model --effort` (HON-1193)
-#   steering-eval.sh    AUTO_*, AUTO_*_SMALL and INTERACTIVE_MODEL, INTERACTIVE_EFFORT:
-#                       every reader of the steering files (HON-1345)
+#   model comparisons   AUTO_*, AUTO_*_SMALL and INTERACTIVE_MODEL, INTERACTIVE_EFFORT:
+#                       every model that reads the guidance (docs/PARALLEL_WORKFLOW.md)
 #
 # Each one is overridable by its CLAUDE_* env var. A .env line reaches
 # every variable but the reviewer's through `wt`; pr-review.sh does not read
@@ -24,8 +24,8 @@ AUTO_MODEL="${CLAUDE_AUTO_MODEL:-claude-opus-5-5}"
 REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5-5}"
 TRIAGE_MODEL="${CLAUDE_TRIAGE_MODEL:-claude-sonnet-5}"
 AUTO_MODEL_SMALL="${CLAUDE_AUTO_MODEL_SMALL:-claude-sonnet-5-5}"
-# The model of an interactive session. No script launches it; the steering eval
-# runs it because interactive sessions read the same guidance as the workers.
+# The model of an interactive session. No worker launches it; it exists so a
+# tool can run the same guidance on the interactive model.
 INTERACTIVE_MODEL="${CLAUDE_INTERACTIVE_MODEL:-claude-fable-5-1}"
 
 # `claude --effort` levels: low, medium, high, xhigh, max. An empty value passes
