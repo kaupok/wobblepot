@@ -394,6 +394,7 @@ describe('matchIngredients on a spice-rack or pickle-shelf name', () => {
     ['grillmaitseaine', 'grill seasoning'],
     ['vanillisuhkur', 'vanilla sugar'],
     ['hapukurk', 'pickled gherkins'],
+    ['marineeritud kurgid', 'pickled gherkins'],
     ['marineeritud kurk', 'pickled gherkins'],
     ['röstitud sibul', 'crispy fried onions'],
   ])('matches the Estonian "%s" to "%s", sure', async (recipeName, name) => {

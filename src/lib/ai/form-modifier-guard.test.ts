@@ -52,7 +52,9 @@ describe('missingForms', () => {
     const smokedPaprika = row('ing-smoked-paprika', 'smoked paprika', 1, {
       matchedName: 'suitsupaprikapulber',
     })
-    const gherkins = row('ing-gherkins', 'pickled gherkins', 1, { matchedName: 'hapukurk' })
+    const gherkins = row('ing-gherkins', 'pickled gherkins', 1, {
+      matchedName: 'marineeritud kurgid',
+    })
 
     expect(missingForms('suitsutatud paprika', bellPepper)).toEqual(['smoked'])
     expect(missingForms('suitsutatud paprika', smokedPaprika)).toEqual([])
@@ -73,13 +75,13 @@ describe('missingForms', () => {
 describe('compoundFormName', () => {
   it('joins an Estonian form stem to the food', () => {
     expect(compoundFormName('suitsutatud paprika')).toBe('suitsupaprika')
-    expect(compoundFormName('marineeritud kurk')).toBe('hapukurk')
   })
 
   it('has no compound for a name without a compound form word', () => {
     expect(compoundFormName('kuivatatud sibul')).toBeUndefined()
     expect(compoundFormName('smoked paprika')).toBeUndefined()
     expect(compoundFormName('suitsutatud')).toBeUndefined()
+    expect(compoundFormName('marineeritud kurk')).toBeUndefined()
   })
 })
 
@@ -91,7 +93,7 @@ describe('hasForm and catalogueFormName', () => {
 
   it('finds an Estonian form stem inside a compound name', () => {
     expect(hasForm('suitsupaprikapulber', ['smoked'])).toBe(true)
-    expect(hasForm('hapukurk', ['pickled'])).toBe(true)
+    expect(hasForm('hapukapsas', ['pickled'])).toBe(true)
     expect(hasForm('külmutatud brokoli', ['frozen'])).toBe(true)
     expect(hasForm('paprika', ['smoked'])).toBe(false)
   })
