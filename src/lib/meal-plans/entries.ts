@@ -14,8 +14,10 @@ import {
   swapEntryData,
   writeSwappedEntry,
 } from '@/lib/meal-planning/swap-entry'
+import { COOK_OUTCOME_INGREDIENT_SELECT } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
+import { chargePantry, ranOutIngredientIds } from './cook-deduction'
 import { completeFridgeEntry } from './fridge-meal'
 
 /**
@@ -73,7 +75,11 @@ export interface EntryPatch {
   noteY?: number | null
   servingOverride?: number | null
   rating?: 'up' | 'down' | null
-  /** A fridge meal's pantry items the household used up (HON-1277). */
+  /**
+   * The pantry items the household used up: a fridge meal's (HON-1277), or
+   * the "have some" rows a cooked recipe meal ran out (HON-1563). Absent on a
+   * recipe meal, each row takes `defaultCookOutcome`.
+   */
   usedUpIngredientIds?: string[]
 }
 
@@ -185,12 +191,19 @@ export async function updateEntry(
             select: {
               ingredientId: true,
               quantityPerServing: true,
-              ingredient: { select: { id: true } },
+              ingredient: { select: COOK_OUTCOME_INGREDIENT_SELECT },
             },
           },
         },
       },
-      changes: ENTRY_CHANGES_FOR_DEDUCTION,
+      // The cook-outcome fields on an added or replacing ingredient too.
+      changes: {
+        ...ENTRY_CHANGES_FOR_DEDUCTION,
+        select: {
+          ...ENTRY_CHANGES_FOR_DEDUCTION.select,
+          replacementIngredient: { select: COOK_OUTCOME_INGREDIENT_SELECT },
+        },
+      },
     },
   })
 
@@ -276,7 +289,8 @@ export async function updateEntry(
   // Components of the meal this request swaps to, if it swaps at all. The
   // pantry deduction below has to charge for what gets cooked, and on a swap
   // that is the incoming meal — not the one `entry` was read with.
-  let swapMealComponents: { ingredientId: string; quantityPerServing: number }[] | undefined
+  let swapMealComponents:
+    NonNullable<Awaited<ReturnType<typeof findSwapMeal>>>['components'] | undefined
 
   if (patch.mealId) {
     // Visible to this household only: see `findSwapMeal`.
@@ -449,6 +463,9 @@ export async function updateEntry(
       // unit and not `localeCompare` (HON-632).
       .sort((a, b) => compareIngredientIds(a.ingredientId, b.ingredientId))
 
+    // Which "have some" rows the meal ran out (HON-1563).
+    const usedUpIds = ranOutIngredientIds(componentsToDeduct, deductions, patch.usedUpIngredientIds)
+
     const pantryDeducted = await prisma.$transaction(async (tx) => {
       // Claim the completion, and let the database decide who won. The
       // `status` and `pantryDeductedAt` this guards on were read at the top
@@ -577,72 +594,7 @@ export async function updateEntry(
         }
       }
 
-      // Charge the pantry one row at a time, in the sorted order above, and
-      // finish with a row before moving to the next.
-      //
-      // The one-pass shape is what makes the sort worth anything. Splitting
-      // the work into "every decrement, then every sweep" sorts each pass
-      // but not their concatenation: the decrement filters
-      // `quantity: { not: null }`, so a `quantity: null` row matches nothing
-      // and takes no lock in the first pass — it is locked in the second,
-      // after every quantified row is already held. With `ing-apple` at
-      // `quantity: null` and `ing-beef` at 500, that completion locks beef
-      // then apple, while a concurrent bulk purchase over the same two locks
-      // apple then beef, and the two deadlock (Postgres 40P01) — the failure
-      // HON-632 exists to remove, on exactly the rows the purchase routes
-      // create (`quantity: null` is the state they insert).
-      //
-      // Grouping by ingredient also sweeps once for a meal that lists the
-      // same ingredient in two components, and a `Map` iterates in insertion
-      // order, so building it from the sorted `deductions` keeps the order.
-      const deductionsByIngredientId = new Map<string, number[]>()
-      for (const { ingredientId, amount } of deductions) {
-        const amounts = deductionsByIngredientId.get(ingredientId)
-        if (amounts) amounts.push(amount)
-        else deductionsByIngredientId.set(ingredientId, [amount])
-      }
-
-      for (const [ingredientId, amounts] of deductionsByIngredientId) {
-        // `householdId` + `ingredientId` is unique, so this matches at most
-        // one row; `updateMany` (rather than `update`) is what makes an
-        // ingredient the household has no pantry row for a no-op instead of
-        // a throw. Staples are exempt from deduction, and a null quantity
-        // means "some, amount unknown" — there is nothing to subtract from,
-        // so both are filtered out here and the null rows are handled by the
-        // sweep below.
-        for (const amount of amounts) {
-          await tx.pantryItem.updateMany({
-            where: {
-              householdId,
-              ingredientId,
-              isStaple: false,
-              quantity: { not: null },
-            },
-            data: { quantity: { decrement: amount } },
-          })
-        }
-
-        // Clear the row out if the deduction emptied it. This still runs
-        // after the decrements it is judging — just this row's, which are
-        // the only writes that can change it — so depletion is evaluated
-        // against the post-decrement quantity without the application-side
-        // read that used to lose deductions. A row the deduction overshot is
-        // briefly negative, but never outside this transaction. Unquantified
-        // rows (`quantity: null`) are consumed in full by cooking with them,
-        // so they go too.
-        //
-        // One statement per row, never a `deleteMany` over an `IN` list: a
-        // multi-row DELETE lets Postgres pick its own scan order, which is
-        // the ordering the sort exists to remove.
-        await tx.pantryItem.deleteMany({
-          where: {
-            householdId,
-            ingredientId,
-            isStaple: false,
-            OR: [{ quantity: null }, { quantity: { lte: 0 } }],
-          },
-        })
-      }
+      await chargePantry(tx, householdId, deductions, usedUpIds)
 
       return true
     })

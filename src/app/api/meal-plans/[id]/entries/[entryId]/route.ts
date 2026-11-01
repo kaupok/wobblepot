@@ -34,8 +34,11 @@ const updateEntrySchema = z
     servingOverride: z.number().int().min(1).max(20).nullable().optional(),
     rating: z.enum(['up', 'down']).nullable().optional(),
     // A fridge meal (HON-1277): `fridgeItems` makes the entry one with these
-    // items, and `usedUpIngredientIds` names the pantry items its completion
-    // runs out.
+    // items. `usedUpIngredientIds` names the pantry items a completion runs
+    // out: a fridge meal's, or a recipe meal's "have some" rows (HON-1563),
+    // where leaving it out applies `defaultCookOutcome`. Not with `mealId`:
+    // a swap-and-complete prices the incoming meal, which the client has not
+    // seen.
     fridgeItems: fridgeItemsSchema.optional(),
     usedUpIngredientIds: z.array(z.string().min(1)).max(30).optional(),
   })
