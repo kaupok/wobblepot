@@ -222,7 +222,7 @@ Then `git diff origin/main...HEAD -- <file>` (or `--cached`, or unstaged) only f
 
 ### 4.3 Review the changes
 
-Run the PR reviewer's prompt on the local changes, in the foreground with `timeout: 600000`, then read the file. It posts nothing; a failure: `pre-pr-checks.md` → Local review.
+Run the PR reviewer's prompt on the local changes, in the foreground with `timeout: 600000` (why: `/review-pr`), then read the file. It posts nothing; a failure: `pre-pr-checks.md` → Local review.
 
 ```bash
 ./scripts/pr-review.sh --local <ID>
@@ -364,17 +364,17 @@ Run the 6.3 count before the reviewer, as `ROUND_BEFORE`. **`ROUND_BEFORE` ≥ 3
 
 ### 6.3 Trigger Claude review
 
-Print `[auto-implement] Running Claude review for PR #${PR_NUMBER}...` and run it in the foreground, `timeout: 600000` (shorter leaves a stale lock). Past 600 s, background it and wait on the comment in this turn, as `batched.md` does.
+Print `[auto-implement] Running Claude review for PR #${PR_NUMBER}...` and run it in the foreground, `timeout: 600000` (why: `/review-pr`). Past 600 s, background it and wait on the comment in this turn, as `batched.md` does.
 
 ```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
 Non-zero exit → stop: `[auto-implement] ✗ Error: Review script failed. Stopping to prevent merging without code review.`
 
 ```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-comments.sh "$PR_NUMBER" issue \
   | jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
@@ -388,7 +388,7 @@ No number → failed fetch: stop. The count is `ROUND`. **`ROUND` must exceed `R
 Anchored inline comments (`line != null` drops earlier rounds' orphans), then the newest summary only:
 
 ```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+PR_NUMBER=$(gh pr view --json number --jq .number)
 ./scripts/pr-comments.sh "$PR_NUMBER" inline \
   | jq '[.[] | select(.body | startswith("**")) | select(.line != null)]'
 ./scripts/pr-comments.sh "$PR_NUMBER" issue \
@@ -421,7 +421,7 @@ It polls about 8 minutes and prints one marker last; 6 chunks cover `ci.yml`'s 4
 - `CI_SETTLED` → verify in the same turn. Read the output: `--json` exits 0 on failures.
 
 ```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+PR_NUMBER=$(gh pr view --json number --jq .number)
 # A pending third-party commit status (empty workflow — Vercel) is exempt; a fail still blocks.
 gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
   --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
