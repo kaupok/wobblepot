@@ -15,9 +15,12 @@
  * Matching is per statement, case-insensitive, with SQL comments removed and
  * the contents of string literals and quoted identifiers blanked, so a
  * keyword in a comment or a column name does not count. Dollar-quoted bodies
- * (`DO $$ … $$`) are code and are matched. Flagged: DROP TABLE, DROP COLUMN,
- * DROP TYPE, TRUNCATE, DELETE FROM, UPDATE … SET, ALTER COLUMN … TYPE (and
- * SET DATA TYPE), RENAME. Not flagged: DROP INDEX, CREATE, ADD COLUMN.
+ * (`DO $$ … $$`) are code and are matched. Flagged: DROP TABLE, DROP COLUMN
+ * (also `ALTER TABLE … DROP "col"` without the keyword), DROP TYPE, DROP
+ * SCHEMA, DROP SEQUENCE, TRUNCATE, DELETE FROM, UPDATE … SET (also
+ * `ON CONFLICT DO UPDATE SET`), ALTER COLUMN … TYPE (and SET DATA TYPE),
+ * RENAME. Not flagged: DROP INDEX, ALTER INDEX … RENAME, ALTER TABLE … DROP
+ * CONSTRAINT / DEFAULT / NOT NULL / IDENTITY / EXPRESSION, CREATE, ADD COLUMN.
  *
  * Usage:
  *   node scripts/check-destructive-migrations.ts <migration dir>...
@@ -56,14 +59,23 @@ export const LABEL = 'destructive-migration'
 
 export const PATTERNS: readonly (readonly [name: string, pattern: RegExp])[] = [
   ['DROP TABLE', /\bDROP\s+TABLE\b/i],
-  ['DROP COLUMN', /\bDROP\s+COLUMN\b/i],
+  // Postgres lets `COLUMN` be omitted: any `DROP` in an `ALTER TABLE` that is
+  // not a constraint, default, `NOT NULL`, identity or generated expression.
+  // `[^;]*` keeps it inside one statement of a `DO $$ … $$` body.
+  [
+    'DROP COLUMN',
+    /\bDROP\s+COLUMN\b|\bALTER\s+TABLE\b[^;]*\bDROP\s+(?!(?:COLUMN|CONSTRAINT|DEFAULT|NOT|IDENTITY|EXPRESSION)\b)/i,
+  ],
   ['DROP TYPE', /\bDROP\s+TYPE\b/i],
+  ['DROP SCHEMA', /\bDROP\s+SCHEMA\b/i],
+  ['DROP SEQUENCE', /\bDROP\s+SEQUENCE\b/i],
   ['TRUNCATE', /\bTRUNCATE\b/i],
   ['DELETE FROM', /\bDELETE\s+FROM\b/i],
   // Not `ON UPDATE`: every Prisma foreign key ends in `ON UPDATE CASCADE`.
   ['UPDATE … SET', /(?<!\bON\s+)\bUPDATE\b[\s\S]*?\bSET\b/i],
   ['ALTER COLUMN … TYPE', /\bALTER\s+COLUMN\s+(?:""|\w+)\s+(?:SET\s+DATA\s+)?TYPE\b/i],
-  ['RENAME', /\bRENAME\b/i],
+  // Not `ALTER INDEX … RENAME`: Prisma emits it on an index rename; no data moves.
+  ['RENAME', /^(?!\s*ALTER\s+INDEX\b)[\s\S]*\bRENAME\b/i],
 ]
 
 const MIGRATION_SQL = /^prisma\/migrations\/[^/]+\/migration\.sql$/

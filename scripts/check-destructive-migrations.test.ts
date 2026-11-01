@@ -39,6 +39,14 @@ describe('checkSql', () => {
   it.each([
     ['DROP TABLE "recipes";', 'DROP TABLE'],
     ['ALTER TABLE "recipes" DROP COLUMN "note";', 'DROP COLUMN'],
+    ['ALTER TABLE "recipes" DROP "note";', 'DROP COLUMN'],
+    ['ALTER TABLE "recipes" DROP IF EXISTS "note";', 'DROP COLUMN'],
+    ['ALTER TABLE recipes DROP note CASCADE;', 'DROP COLUMN'],
+    ['ALTER TABLE "recipes" DROP CONSTRAINT "recipes_fkey", DROP "note";', 'DROP COLUMN'],
+    ['ALTER TABLE "recipes" DROP COLUMN "a", DROP "b";', 'DROP COLUMN'],
+    ['DO $$ BEGIN ALTER TABLE "recipes" DROP "note"; END $$;', 'DROP COLUMN'],
+    ['DROP SCHEMA "legacy" CASCADE;', 'DROP SCHEMA'],
+    ['DROP SEQUENCE "recipes_id_seq";', 'DROP SEQUENCE'],
     ['DROP TYPE "DietaryType_old";', 'DROP TYPE'],
     ['TRUNCATE "sessions";', 'TRUNCATE'],
     ['DELETE FROM "ingredients" WHERE "id" = 1;', 'DELETE FROM'],
@@ -46,6 +54,12 @@ describe('checkSql', () => {
     ['ALTER TABLE "recipes" ALTER COLUMN "servings" TYPE DOUBLE PRECISION;', 'ALTER COLUMN … TYPE'],
     ['ALTER TABLE "recipes" ALTER COLUMN "servings" SET DATA TYPE TEXT;', 'ALTER COLUMN … TYPE'],
     ['ALTER TABLE "recipes" RENAME COLUMN "name" TO "title";', 'RENAME'],
+    ['ALTER TABLE "t" RENAME COLUMN "a" TO "b";', 'RENAME'],
+    ['ALTER TABLE "t" RENAME TO "u";', 'RENAME'],
+    [
+      'INSERT INTO "recipes" ("id", "servings") VALUES (1, 4) ON CONFLICT ("id") DO UPDATE SET "servings" = 4;',
+      'UPDATE … SET',
+    ],
     ['ALTER TYPE "DietaryType" RENAME TO "DietaryType_old";', 'RENAME'],
   ])('flags %s', (sql, pattern) => {
     expect(flagged(sql)).toEqual([pattern])
@@ -68,6 +82,15 @@ describe('checkSql', () => {
       'ALTER TABLE "notes" ADD CONSTRAINT "notes_owner_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE SET NULL;',
     ],
     ['ALTER TABLE "recipes" ALTER COLUMN "servings" SET DEFAULT 4;'],
+    ['ALTER TABLE "recipes" DROP CONSTRAINT "recipes_owner_fkey";'],
+    ['ALTER TABLE "recipes" DROP CONSTRAINT IF EXISTS "recipes_owner_fkey";'],
+    ['ALTER TABLE "recipes" ALTER COLUMN "servings" DROP DEFAULT;'],
+    ['ALTER TABLE "recipes" ALTER COLUMN "servings" DROP NOT NULL;'],
+    ['ALTER TABLE "recipes" ALTER COLUMN "id" DROP IDENTITY IF EXISTS;'],
+    ['ALTER TABLE "recipes" ALTER COLUMN "total" DROP EXPRESSION;'],
+    ['ALTER INDEX "a" RENAME TO "b";'],
+    ['DO $$ BEGIN ALTER TABLE "recipes" ADD COLUMN "note" TEXT; DROP INDEX "recipes_idx"; END $$;'],
+    ['ALTER INDEX IF EXISTS "a" RENAME TO "b";'],
   ])('does not flag %s', (sql) => {
     expect(checkSql('m', sql)).toEqual([])
   })
