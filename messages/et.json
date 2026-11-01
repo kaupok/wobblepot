@@ -124,7 +124,6 @@
     "haveIt": "Olemas",
     "ariaHaveIt": "Olemas: {name}",
     "ranOut": "Otsas",
-    "ariaRanOut": "Otsas: {name}",
     "addAmount": "Lisa kogus",
     "ariaAddAmount": "Lisa kogus: {name}",
     "ariaAmount": "Kogus: {name}, {amount}",

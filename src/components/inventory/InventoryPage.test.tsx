@@ -474,7 +474,7 @@ describe('InventoryPage view', () => {
       windowDays: 7,
     })
 
-    await user.click(screen.getByRole('button', { name: 'Have it: Avocado' }))
+    await user.click(screen.getByRole('switch', { name: 'Have it: Avocado' }))
 
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
     expect(fetch).toHaveBeenCalledWith(
@@ -508,7 +508,7 @@ describe('InventoryPage view', () => {
       emptyStateVariant: 'nothing-needed',
       windowDays: 7,
     })
-    expect(screen.queryByRole('button', { name: 'Have it: Milk' })).not.toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Have it: Milk' })).toBeChecked()
 
     await user.type(
       screen.getByRole('combobox', { name: 'Add custom item to shopping list' }),
@@ -516,6 +516,6 @@ describe('InventoryPage view', () => {
     )
 
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('button', { name: 'Have it: Milk' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Have it: Milk' })).not.toBeChecked()
   })
 })

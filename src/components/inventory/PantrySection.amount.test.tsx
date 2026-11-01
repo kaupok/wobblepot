@@ -121,24 +121,25 @@ describe('PantrySection amount', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   }
 
-  it('saves 0 as ran out, moves the row and focuses its "Have it"', async () => {
+  it('saves 0 as ran out, moves the row and focuses its switch', async () => {
     const fetchMock = okFetch()
     renderStateful([trout, makeItem({ quantity: 2 })])
 
     enterAmount('Trout', '0')
 
     await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
-    expect(screen.getByRole('button', { name: 'Have it: Trout' })).toHaveFocus()
+    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).toHaveFocus()
     expect(document.body).not.toHaveFocus()
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(0))
   })
 
-  it('brings the amount back when "Have it" follows a 0', async () => {
+  it('brings the amount back when switch-on follows a 0', async () => {
     const fetchMock = okFetch()
     renderStateful([{ ...trout, quantity: 1800 }])
 
     enterAmount('Trout', '0')
-    fireEvent.click(await screen.findByRole('button', { name: 'Have it: Trout' }))
+    fireEvent.click(await screen.findByRole('switch', { name: 'Have it: Trout' }))
 
     expect(
       await screen.findByRole('button', { name: 'Amount: Trout, 1800\u00a0g' }),

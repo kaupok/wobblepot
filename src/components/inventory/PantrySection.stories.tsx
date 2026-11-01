@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
-import { type ComponentProps, useState } from 'react'
 import { toast, Toaster } from 'sonner'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 
@@ -8,59 +7,13 @@ import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { createPantryItemData } from '@/stories/fixtures'
 
 import { PantrySection } from './PantrySection'
-
-type Ingredient = PantryItemData['ingredient']
-
-const ingredient = (
-  id: string,
-  name: string,
-  category: Ingredient['category'],
-  defaultUnit: Ingredient['defaultUnit'] = 'g',
-): Ingredient => ({ id, name, category, defaultUnit })
-
-const staples: PantryItemData[] = [
-  createPantryItemData({ ingredient: ingredient('olive-oil', 'Olive oil', 'fat'), isStaple: true }),
-  createPantryItemData({ ingredient: ingredient('salt', 'Salt', 'condiment'), isStaple: true }),
-]
-
-const onHand: PantryItemData[] = [
-  createPantryItemData({ ingredient: ingredient('garlic', 'Garlic', 'vegetable', 'piece') }),
-  createPantryItemData({ ingredient: ingredient('lemon', 'Lemon', 'fruit', 'piece') }),
-  createPantryItemData({ ingredient: ingredient('short-grain-rice', 'Short-grain rice', 'carb') }),
-]
-
-// Quantity 0 is "ran out" (docs/PROJECT_SPEC.md → Pantry Quantity Semantics),
-// as the fridge meal's "Used it all" leaves a row.
-const ranOut: PantryItemData[] = [
-  createPantryItemData({
-    ingredient: ingredient('avocado', 'Avocado', 'fruit', 'piece'),
-    quantity: 0,
-  }),
-  createPantryItemData({ ingredient: ingredient('lime', 'Lime', 'fruit', 'piece'), quantity: 0 }),
-]
-
-/**
- * `PantrySection` is controlled — `InventoryPage` owns the list and passes its
- * `setState` as `onItemsChange`. Holding the list here lets a star toggle or a
- * removal actually move the row, while the spy still records each call.
- */
-function StatefulPantrySection({
-  items: initialItems,
-  onItemsChange,
-  ...props
-}: ComponentProps<typeof PantrySection>) {
-  const [items, setItems] = useState(initialItems)
-  return (
-    <PantrySection
-      {...props}
-      items={items}
-      onItemsChange={(update) => {
-        onItemsChange(update)
-        setItems(update)
-      }}
-    />
-  )
-}
+import {
+  ingredient,
+  onHand,
+  patchHandler,
+  staples,
+  StatefulPantrySection,
+} from './PantrySection.story.fixtures'
 
 const meta = {
   title: 'Feature/Inventory/PantrySection',
@@ -71,7 +24,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row not at 0 has a "Ran out" that sets it to 0; a row at 0 has a "Have it" that sets it back to "have some". An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples and says "Ran out" under its name. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row has a switch: on while the household has it, off at 0, with the state word ("Have it" or "Ran out") beside it. Switch-off sets the row to 0; switch-on sets it back to "have some" (HON-1535). An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples with its switch off. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -178,129 +131,6 @@ export const LoadFailed: Story = {
   },
 }
 
-export const RanOut: Story = {
-  args: { items: [...staples, ...onHand, ...ranOut] },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Two rows at quantity 0 under "Ran out", after "On hand". "Have it" moves the row back to On hand and focuses the next "Have it", so focus never falls to the page.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 2' })).toBeInTheDocument()
-    await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 3' })).toBeInTheDocument()
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Have it: Avocado' }))
-
-    await waitFor(() =>
-      expect(canvas.getByRole('heading', { level: 3, name: 'On hand 4' })).toBeInTheDocument(),
-    )
-    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: 'Have it: Lime' })).toHaveFocus()
-  },
-}
-
-export const RanOutEstonian: Story = {
-  args: { items: [...staples, ...onHand, ...ranOut] },
-  globals: { locale: 'et' },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The Ran out group in Estonian: "Otsas" over the rows, "Olemas" on each button, "Otsas" on the other rows. Checks that the longer labels fit the row.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { level: 3, name: 'Otsas 2' })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: 'Olemas: Avocado' })).toBeVisible()
-    await expect(canvas.getByRole('button', { name: 'Otsas: Garlic' })).toBeVisible()
-  },
-}
-
-/** Answers "Ran out" and "Have it" as the route does. */
-const patchHandler = http.patch('/api/pantry/:id', () => HttpResponse.json({ ok: true }))
-
-export const StapleRanOut: Story = {
-  args: {
-    items: [
-      createPantryItemData({
-        ingredient: ingredient('eggs', 'Eggs', 'protein', 'piece'),
-        isStaple: true,
-        quantity: 0,
-      }),
-      ...staples,
-      ...onHand,
-    ],
-  },
-  parameters: {
-    msw: { handlers: [patchHandler] },
-    docs: {
-      description: {
-        story:
-          'A staple at 0 stays under Staples, says "Ran out" under its name, and has "Have it". "Have it" sets it back to "have some" and focuses the row\'s "Ran out", so a second tap undoes a slip. Both buttons are 32px, and their `::after` reaches 6px above and below, so the target is 44px on a phone while the row keeps its height.',
-      },
-    },
-  },
-  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
-  play: async ({ canvasElement, args }) => {
-    const canvas = within(canvasElement)
-    await expect(
-      canvas.getByRole('heading', { level: 3, name: /^Staples.* 3$/ }),
-    ).toBeInTheDocument()
-    await expect(canvas.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
-    const haveIt = canvas.getByRole('button', { name: 'Have it: Eggs' })
-    const box = haveIt.getBoundingClientRect()
-    await expect(Math.round(box.height)).toBe(32)
-    const after = getComputedStyle(haveIt, '::after')
-    await expect(after.position).toBe('absolute')
-    await expect(after.top).toBe('-6px')
-    await expect(after.bottom).toBe('-6px')
-
-    await userEvent.click(haveIt)
-
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Ran out: Eggs' })).toHaveFocus())
-    await expect(canvas.queryByRole('button', { name: 'Have it: Eggs' })).not.toBeInTheDocument()
-    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
-  },
-}
-
-export const MarkRanOut: Story = {
-  parameters: {
-    msw: { handlers: [patchHandler] },
-    docs: {
-      description: {
-        story:
-          '"Ran out" on an On hand row moves it to the Ran out group and focuses its "Have it" there. On a staple it keeps the row under Staples.',
-      },
-    },
-  },
-  play: async ({ canvasElement, args }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.queryByRole('button', { name: /^Have it/ })).not.toBeInTheDocument()
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Ran out: Garlic' }))
-
-    await waitFor(() =>
-      expect(canvas.getByRole('button', { name: 'Have it: Garlic' })).toHaveFocus(),
-    )
-    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
-    await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 2' })).toBeInTheDocument()
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Ran out: Salt' }))
-
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Have it: Salt' })).toHaveFocus())
-    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
-    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(2))
-  },
-}
-
-/** Answers the Undo's POST with the posted row, named from the story's items. */
-// One On hand row holds an amount, the rest are "have some" (HON-1402).
 const withAmounts: PantryItemData[] = [
   ...staples,
   createPantryItemData({
@@ -316,7 +146,7 @@ export const Amounts: Story = {
     docs: {
       description: {
         story:
-          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits under the name, so on a phone the name keeps its width; the control is 32px with a 44px target, as "Ran out" is, and the row does not overflow.',
+          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits under the name, so on a phone the name keeps its width; the control is 32px with a 44px target, as the switch is, and the row does not overflow.',
       },
     },
   },

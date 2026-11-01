@@ -51,7 +51,7 @@ export interface AllowlistEntry {
 export const ALLOWLIST: AllowlistEntry[] = [
   {
     path: 'src/components/inventory/PantryItemRow.tsx',
-    why: 'The pantry row, split out of PantrySection for the file-size cap (HON-1399). Its states are stories of the section that renders it: PantrySection.stories.tsx (Populated, RanOut, RanOutEstonian, StapleRanOut, MarkRanOut, RemoveAndUndo), and PantryItemRowSkeleton.stories.tsx → AgainstLiveRow measures it.',
+    why: 'The pantry row, split out of PantrySection for the file-size cap (HON-1399). Its states are stories of the section that renders it: PantrySection.stories.tsx (Populated, Amounts, RemoveAndUndo) and PantrySection.ran-out.stories.tsx (RanOut, RanOutEstonian, StapleRanOut, MarkRanOut), and PantryItemRowSkeleton.stories.tsx → AgainstLiveRow measures it.',
   },
   {
     path: 'src/components/meal-plan/CookQuestionPanel.tsx',
