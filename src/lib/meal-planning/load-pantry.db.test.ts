@@ -347,6 +347,34 @@ describe('loadPantry', () => {
     expect(byId.get(driedBasil)).not.toHaveProperty('neededQuantity')
   })
 
+  // A bare herb row covers its fresh row too (HON-1567), but not its dried row.
+  it('shows the fresh herb need on the bare row when no fresh row is stocked', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const freshBasil = await herb('fresh basil')
+    await stock(alder.id, basil)
+    await plan(alder.id, [{ ingredientId: freshBasil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+
+    expect(result.items).toEqual([
+      expect.objectContaining({ ingredientId: basil, neededQuantity: 10 }),
+    ])
+  })
+
+  it('shows no dried herb need on the bare row', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const driedBasil = await herb('dried basil')
+    await stock(alder.id, basil)
+    await plan(alder.id, [{ ingredientId: driedBasil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+
+    expect(result.items).toEqual([expect.objectContaining({ ingredientId: basil })])
+    expect(result.items[0]).not.toHaveProperty('neededQuantity')
+  })
+
   it('reaches further with a 14-day window', async () => {
     const alder = await household()
     await ingredient('ing-chicken', { name: 'Chicken breast' })

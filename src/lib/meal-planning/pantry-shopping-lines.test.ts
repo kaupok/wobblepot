@@ -18,9 +18,17 @@ const mockCatalogue = vi.mocked(prisma.ingredient.findMany)
 const TODAY = new Date('2026-11-01T00:00:00Z')
 
 /** The global catalogue rows the cover table names, plus the chickpea pair. */
-const CATALOGUE = ['basil', 'fresh basil', 'dried basil', 'chickpeas', 'dried chickpeas'].map(
-  (name) => ({ id: `ing-${name.replace(' ', '-')}`, name }),
-)
+const CATALOGUE = [
+  'basil',
+  'fresh basil',
+  'dried basil',
+  'coriander',
+  'fresh coriander',
+  'oregano',
+  'fresh oregano',
+  'chickpeas',
+  'dried chickpeas',
+].map((name) => ({ id: `ing-${name.replace(' ', '-')}`, name }))
 
 const id = (name: string) => `ing-${name.replace(' ', '-')}`
 
@@ -120,5 +128,37 @@ describe('pantryShoppingLines — herb form covers (HON-1558)', () => {
   it('still restocks a basil staple at 0 when dried basil is at home', async () => {
     pantry(['basil', 0, true], ['dried basil', null])
     expect(await listed(needs(['basil', 10]))).toEqual([['basil', 10]])
+  })
+})
+
+describe('pantryShoppingLines — a bare herb covers its fresh row (HON-1567)', () => {
+  it('lists no fresh basil when basil is at home', async () => {
+    pantry(['basil', null])
+    expect(await listed(needs(['fresh basil', 20]))).toEqual([])
+  })
+
+  it('lists no fresh basil when basil has a counted amount', async () => {
+    pantry(['basil', 2])
+    expect(await listed(needs(['fresh basil', 20]))).toEqual([])
+  })
+
+  it('lists no fresh coriander when coriander is at home', async () => {
+    pantry(['coriander', null])
+    expect(await listed(needs(['fresh coriander', 15]))).toEqual([])
+  })
+
+  it('lists fresh oregano when only oregano, a dried row, is at home', async () => {
+    pantry(['oregano', null])
+    expect(await listed(needs(['fresh oregano', 10]))).toEqual([['fresh oregano', 10]])
+  })
+
+  it('lists dried basil when only basil is at home', async () => {
+    pantry(['basil', null])
+    expect(await listed(needs(['dried basil', 5]))).toEqual([['dried basil', 5]])
+  })
+
+  it('lists fresh basil when the basil has run out', async () => {
+    pantry(['basil', 0])
+    expect(await listed(needs(['fresh basil', 20]))).toEqual([['fresh basil', 20]])
   })
 })

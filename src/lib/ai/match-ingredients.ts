@@ -232,8 +232,9 @@ export async function matchIngredients(
       // "walnut butter" is not `butter`, "macadamia milk" is not `milk`. It goes to the user
       // as unsure, with the rows as alternatives, whichever phase found it, because a short
       // qualifier finds the bare row in the direct search: "nut butter" scores 0.64 against
-      // `butter`. The normalized name drops a modifier, so "fresh basil" stays a sure `basil`
-      // (HON-1546). A curated synonym is the same food, so it stays sure.
+      // `butter`. A name whose form row exists matches that row, so "fresh basil" is a sure
+      // `fresh basil`, which a pantry `basil` covers (HON-1546, HON-1567). A curated synonym
+      // is the same food, so it stays sure.
       if (!isSynonymMatch && isBareLastWord(normalizedName, match.matchedName)) lowConfidence = true
       // A form row the guard chose already names the form and the food, so its words are
       // not judged again: "suitsutatud paprika" is `smoked paprika` as "suitsupaprikapulber"
