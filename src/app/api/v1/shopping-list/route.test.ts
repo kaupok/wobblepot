@@ -48,6 +48,7 @@ const LIST = {
     { id: 'custom-1', name: 'Candles', checked: true, ingredientId: null, neededBy: null },
     { id: 'custom-2', name: 'chips', checked: false, ingredientId: null, neededBy: '2026-10-14' },
   ],
+  check: [],
 } as unknown as ShoppingListResult
 
 function get(query = '') {
@@ -94,6 +95,7 @@ describe('GET /api/v1/shopping-list (HON-1220)', () => {
         { id: 'custom-1', name: 'Candles', checked: true, neededBy: null },
         { id: 'custom-2', name: 'chips', checked: false, neededBy: '2026-10-14' },
       ],
+      check: [],
     })
     expect(loadShoppingList).toHaveBeenCalledWith(household, { days: 14 })
   })

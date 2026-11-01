@@ -1,9 +1,15 @@
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import type { Locale } from '@/lib/i18n/locales'
 import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
+import { isCupboardIngredient } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
-import type { NeededIngredient, PantryCoveredItem, ShoppingListItem } from './shopping-list'
+import type {
+  NeededIngredient,
+  PantryCheckItem,
+  PantryCoveredItem,
+  ShoppingListItem,
+} from './shopping-list'
 
 /** An ingredient as the shopping list selects it, for a component and for a change's replacement. */
 export function shoppingIngredientArgs(locale: Locale) {
@@ -12,6 +18,7 @@ export function shoppingIngredientArgs(locale: Locale) {
       id: true,
       name: true,
       category: true,
+      subcategory: true,
       defaultUnit: true,
       gramsPerPiece: true,
       measuredByVolume: true,
@@ -31,9 +38,10 @@ export function shoppingIngredientArgs(locale: Locale) {
  * - quantity = null: nothing (have some, assume sufficient)
  * - quantity > 0: the difference
  * - Staple: never bought for a planned meal while the household has some.
- *   A staple at 0 (HON-1398) is a restock line, needed today because none is
- *   at home now: with the planned amount when a meal or extra needs it, and
- *   with no amount (`shoppingQuantity` 0) when nothing does.
+ *   A staple at 0 (HON-1398) is a restock line. When a meal or extra needs
+ *   it, the line has the planned amount and the need's first date (HON-1584),
+ *   so the shopper can judge it against their next shop. When nothing does,
+ *   it has no amount (`shoppingQuantity` 0) and is needed today.
  * - A bare herb (HON-1558): nothing, when a fresh or dried row of it
  *   (`INGREDIENT_FORM_COVERS`) is in the pantry and has not run out, whatever
  *   the bare row holds. The form row's amount is not deducted, because fresh
@@ -46,6 +54,11 @@ export function shoppingIngredientArgs(locale: Locale) {
  * form of the herb, holds "have some" (null) or holds more than 0. A partial
  * amount is in both lists: the rest to buy, the pantry amount at home.
  *
+ * A need is to check (`check`, HON-1584) when it is at home, every row that
+ * keeps it there holds "have some" (null), two or more meals use it, it is
+ * not a cupboard item (`isCupboardIngredient`) and it is not vague. The list
+ * assumes "have some" is enough, and the second meal is the one at risk.
+ *
  * @param today - Start of today in the household's timezone
  */
 export async function pantryShoppingLines(
@@ -53,7 +66,7 @@ export async function pantryShoppingLines(
   householdId: string,
   locale: Locale,
   today: Date,
-): Promise<{ lines: ShoppingListItem[]; atHome: PantryCoveredItem[] }> {
+): Promise<{ lines: ShoppingListItem[]; atHome: PantryCoveredItem[]; check: PantryCheckItem[] }> {
   // The ingredient is for a ran-out staple that no planned meal needs.
   const pantryItems = await prisma.pantryItem.findMany({
     where: { householdId },
@@ -75,6 +88,7 @@ export async function pantryShoppingLines(
 
   const shoppingList: ShoppingListItem[] = []
   const atHome: PantryCoveredItem[] = []
+  const check: PantryCheckItem[] = []
 
   for (const [
     ingredientId,
@@ -94,6 +108,7 @@ export async function pantryShoppingLines(
         ]
     const [first] = homeRows
     if (first) {
+      const pantryRows = homeRows.map((row) => ({ id: row.id, quantity: row.quantity }))
       atHome.push({
         ingredientId,
         ingredient,
@@ -105,9 +120,25 @@ export async function pantryShoppingLines(
         earliestNeededDate,
         isVague,
         originalPhrase,
-        pantryRows: homeRows.map((row) => ({ id: row.id, quantity: row.quantity })),
+        pantryRows,
         isStaple: first.isStaple,
       })
+      if (
+        mealCount >= 2 &&
+        !isVague &&
+        homeRows.every((row) => row.quantity === null) &&
+        !isCupboardIngredient(ingredient.category, ingredient.subcategory ?? null)
+      ) {
+        check.push({
+          ingredientId,
+          ingredient,
+          totalQuantity: neededQty,
+          mealCount,
+          earliestNeededDate,
+          pantryRows,
+          isStaple: first.isStaple,
+        })
+      }
     }
 
     let shoppingQty: number
@@ -141,7 +172,7 @@ export async function pantryShoppingLines(
         pantryQuantity: pantry?.quantity ?? null,
         shoppingQuantity: shoppingQty,
         mealCount,
-        earliestNeededDate: restock ? today : earliestNeededDate,
+        earliestNeededDate,
         isVague,
         originalPhrase,
         ...(restock && { restock: true }),
@@ -168,5 +199,5 @@ export async function pantryShoppingLines(
     })
   }
 
-  return { lines: shoppingList, atHome }
+  return { lines: shoppingList, atHome, check }
 }

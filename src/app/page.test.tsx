@@ -114,6 +114,7 @@ const EMPTY_SHOPPING_LIST = {
   groups: [],
   customItems: [],
   atHome: [],
+  check: [],
   summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
 }
 

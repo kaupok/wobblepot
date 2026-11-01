@@ -1,3 +1,4 @@
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { prisma } from '@/lib/prisma'
 import { ShoppingPlanError, type ShoppingPlanRefusal } from '@/lib/shopping/load-shopping-list'
 
@@ -15,14 +16,19 @@ export const PANTRY_UPDATED_AT = new Date('2026-10-14T12:00:00Z')
 export async function ingredient(
   id: string,
   name: string,
-  category: 'protein' | 'carb' | 'dairy' | 'spice' | 'legume' | 'vegetable',
-  { et, measuredByVolume = false }: { et?: string; measuredByVolume?: boolean } = {},
+  category: IngredientCategory,
+  {
+    et,
+    measuredByVolume = false,
+    subcategory,
+  }: { et?: string; measuredByVolume?: boolean; subcategory?: string } = {},
 ) {
   await prisma.ingredient.create({
     data: {
       id,
       name,
       category,
+      subcategory,
       defaultUnit: 'g',
       measuredByVolume,
       calories: 100,
