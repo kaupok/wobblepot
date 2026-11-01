@@ -133,24 +133,27 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // The normalized name with its last word made plural, so a singular recipe word
-    // finds a plural catalogue or household row: "bay leaf" → "bay leaves" (HON-1267).
-    // It is searched in the normalized name's own query, so it costs no extra query.
-    const normalizedWords = normalizedName.split(' ')
-    const lastNormalizedWord = normalizedWords.pop()
-    const pluralName = lastNormalizedWord
-      ? [...normalizedWords, pluralize(lastNormalizedWord)].join(' ')
-      : undefined
+    // The direct and normalized names with their last word made plural, so a singular
+    // recipe word finds a plural catalogue or household row: "bay leaf" → "bay leaves"
+    // (HON-1267), "dried chive" → "dried chives" (HON-1559). Each is searched in its
+    // name's own query, so it costs no extra query.
+    const pluralNames = new Map<string, string>()
+    for (const name of [directName, normalizedName]) {
+      const words = name.split(' ')
+      const lastWord = words.pop()
+      if (lastWord) pluralNames.set(name, [...words, pluralize(lastWord)].join(' '))
+    }
 
-    // Phase 1: Search semantic candidates (direct, alias, normalized + plural,
+    // Phase 1: Search semantic candidates (direct + plural, alias, normalized + plural,
     // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     let winningCandidate: string | undefined
     const matchesByCandidate = new Map<string, typeof matches>()
     for (const candidate of candidateNames) {
+      const pluralName = pluralNames.get(candidate)
       const candidateMatches = await fuzzySearchIngredient(
         candidate,
-        candidate === normalizedName ? { ...searchOptions, pluralName } : searchOptions,
+        pluralName ? { ...searchOptions, pluralName } : searchOptions,
       )
       matchesByCandidate.set(candidate, candidateMatches)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {

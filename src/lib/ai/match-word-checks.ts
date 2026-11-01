@@ -1,4 +1,4 @@
-import { extractLastWord, singularize } from '@/lib/normalize-ingredient'
+import { extractLastWord, pluralize, singularize } from '@/lib/normalize-ingredient'
 
 // Checks that judge a fuzzy match by its words, not its score: a trigram score cannot
 // tell a different food that shares most letters from the same food.
@@ -23,12 +23,15 @@ const COMMON_SUFFIXES = new Set([
 export function primaryNounsDiffer(extractedName: string, matchedName: string): boolean {
   const extractedWords = new Set(extractedName.split(/\s+/).map(singularize))
   const matchedWords = new Set(matchedName.toLowerCase().split(/\s+/).map(singularize))
+  // A word that never singularizes still matches its singular: "chive" and "chives" (HON-1559)
+  const sameWord = (a: string, b: string) => a === b || pluralize(a) === b || pluralize(b) === a
+  const lacks = (words: Set<string>, w: string) => ![...words].some((other) => sameWord(other, w))
 
   const extractedUnique = [...extractedWords].filter(
-    (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
+    (w) => lacks(matchedWords, w) && !COMMON_SUFFIXES.has(w),
   )
   const matchedUnique = [...matchedWords].filter(
-    (w) => !extractedWords.has(w) && !COMMON_SUFFIXES.has(w),
+    (w) => lacks(extractedWords, w) && !COMMON_SUFFIXES.has(w),
   )
   return extractedUnique.length > 0 && matchedUnique.length > 0
 }

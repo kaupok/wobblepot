@@ -107,6 +107,8 @@ describe('matchIngredients on a recipe name with a form word', () => {
     await ingredient('ing-oregano', 'oregano')
     await ingredient('ing-basil', 'basil')
     await ingredient('ing-thyme', 'thyme')
+    await ingredient('ing-chives', 'chives')
+    await ingredient('ing-dried-chives', 'dried chives')
     await ingredient('ing-bay-leaves', 'bay leaves')
     await ingredient('ing-lime', 'lime')
     await ingredient('ing-kaffir-lime-leaves', 'kaffir lime leaves')
@@ -199,6 +201,7 @@ describe('matchIngredients on a recipe name with a form word', () => {
     ['frozen peas', 'peas', false],
     ['dried oregano', 'dried oregano', false],
     ['dried basil', 'dried basil', false],
+    ['dried chive', 'dried chives', false],
     ['basil leaves', 'basil', false],
     ['fresh basil leaves', 'basil', false],
     ['thyme leaves', 'thyme', false],
