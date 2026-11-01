@@ -44,6 +44,18 @@ describe('validateDryWeightNutrition', () => {
     ])
   })
 
+  it('warns for a dried legume row with drained-tin values, but not for the tinned row', () => {
+    expect(
+      validateDryWeightNutrition([
+        row({ name: 'dried chickpeas', category: 'legume', subcategory: 'beans', calories: 164 }),
+        row({ name: 'chickpeas', category: 'legume', subcategory: 'beans', calories: 164 }),
+        row({ name: 'dried black beans', category: 'legume', subcategory: 'beans', calories: 341 }),
+      ]),
+    ).toEqual([
+      'dried chickpeas: 164 kcal per 100 g looks cooked; a beans row holds dry, as-bought values',
+    ])
+  })
+
   it('passes every seed ingredient', () => {
     const pool: IngredientInput[] = [
       ...baseIngredients,

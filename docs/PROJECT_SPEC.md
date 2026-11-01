@@ -101,6 +101,8 @@ The household can also mark a staple ran out from the shopping list's "Add item"
 
 A frozen product a household keeps stocked has its own catalogue row (`frozen peas`, `frozen green beans`, `frozen mixed berries`), so its staple star does not hide the fresh vegetable from a recipe's shopping (HON-1471). The pantry row, and so the star, is unique per household and ingredient, so one row cannot be both a stocked frozen bag and a fresh vegetable bought for one recipe. A frozen row exists only for a product a household keeps stocked; the rows are in `prisma/seed-import-coverage.ts` → Frozen forms.
 
+Dried beans and chickpeas have their own rows (`dried chickpeas`, `dried kidney beans`) with dry values, because 100 g dried is about 250 g drained and a household keeps both a tin and a bag. The bare name (`chickpeas`, "kikerherned") stays the drained tin. The pantry and the shopping list do not convert between the two forms, so dried beans at home do not cover a recipe that needs a tin (HON-1549).
+
 ---
 
 ## User Flows
