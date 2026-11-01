@@ -118,7 +118,6 @@ Item 4 goes in only when 2.3 flagged a merged sibling. Item 5 always goes in, be
 
 - `### Proof` has one line per acceptance criterion of the issue, in the issue's order, and each line carries exactly one label. `measured`: a command, test or browser action, with its output quoted. `inferred`: reasoning from code, with the file and line. `not proven`: the reason. A criterion with no line is a gap the reader can see, so do not leave one out. Take the lines from the cycle's own test runs (3.2, 4.5, 6.6) and `Driven:` lines; run nothing new for the summary. Write "went red before the change" only when the cycle ran the test before the change; otherwise quote the green run.
 - `### Follow-ups` holds issue IDs only, from 2.8, 3.2 and 6.8. A post-merge step with no issue is never written there as text: it was filed at 6.8, or 6.8 failed and the 7.6 report says so.
-- Keep it concise: list files and stats, not full diffs.
 - Print the summary to the terminal as well. If the Linear call fails, the terminal copy still stands; do not block the merge flow.
 
 ## Filing report (7.6)

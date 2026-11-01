@@ -27,5 +27,3 @@ When the plan splits the work into sequential batches (dependency refreshes, mig
   `E2E_PASS` → continue. `E2E_FAIL` → read `/tmp/batch-verify.log` and fix forward with a follow-up commit in the same batch — never rewrite a pushed batch commit. `VERIFY_WAITING` → re-issue the wait; do not end the turn on it. Do not start the next batch until the verification result is in.
 
 **Why:** a batch commit gated on long verification is a batch that can be lost. The orchestrator deletes the worktree and local branch on every worker exit and gates clean 0-commit exits (HON-562, 2026-08-30: batch 1 was fully green but uncommitted while E2E was still seeding; the worker's turn ended, the process exited, and everything was discarded). Pushed commits are the only state that survives a worker death — and the foreground wait is what keeps the process alive long enough to act on the result (HON-573).
-
-Committing and pushing each batch is what makes a process death survivable, but it is not a licence to end the turn early: the Execution Model rule in `SKILL.md` still applies.
