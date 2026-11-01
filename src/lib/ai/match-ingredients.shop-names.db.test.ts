@@ -354,6 +354,102 @@ describe('matchIngredients on a dried, tinned or berry name', () => {
   })
 })
 
+// HON-1553: a household entered its spice rack by the shop names, and
+// "suitsutatud paprika" saved as the fresh bell pepper. Each blend, sugar and
+// pickle finds its own row, and the bare food still wins its own name.
+describe('matchIngredients on a spice-rack or pickle-shelf name', () => {
+  const names = [
+    'lemon pepper seasoning',
+    'black pepper',
+    'curry powder',
+    'curry paste',
+    'curry leaves',
+    'smoked paprika',
+    'paprika',
+    'bell pepper',
+    'taco seasoning',
+    'fajita seasoning',
+    'ground ginger',
+    'ginger',
+    'chicken seasoning',
+    'grill seasoning',
+    'meat seasoning',
+    'fish seasoning',
+    'vegetable seasoning',
+    'vanilla sugar',
+    'vanilla pod',
+    'granulated sugar',
+    'pickled gherkins',
+    'cucumber',
+    'crispy fried onions',
+    'onion',
+  ]
+
+  it.each([
+    ['sidrunipipar', 'lemon pepper seasoning'],
+    ['karri', 'curry powder'],
+    ['suitsutatud paprika', 'smoked paprika'],
+    ['taco maitseaine', 'taco seasoning'],
+    ['ingveripulber', 'ground ginger'],
+    ['kanamaitseaine', 'chicken seasoning'],
+    ['grillmaitseaine', 'grill seasoning'],
+    ['vanillisuhkur', 'vanilla sugar'],
+    ['hapukurk', 'pickled gherkins'],
+    ['marineeritud kurk', 'pickled gherkins'],
+    ['röstitud sibul', 'crispy fried onions'],
+  ])('matches the Estonian "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['lemon pepper', 'lemon pepper seasoning'],
+    ['curry', 'curry powder'],
+    ['pickles', 'pickled gherkins'],
+  ])('matches the English "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['paprika', 'bell pepper'],
+    ['paprikapulber', 'paprika'],
+    ['kurk', 'cucumber'],
+    ['sibul', 'onion'],
+    ['suhkur', 'granulated sugar'],
+    ['karripasta', 'curry paste'],
+    ['karrilehed', 'curry leaves'],
+  ])('still matches the bare "%s" to "%s"', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name } })
+  })
+
+  // A recipe's fried onion is onion from the pan, not the gluten-flagged shop topping
+  it.each([
+    ['praetud sibul', 'et'],
+    ['fried onions', 'en'],
+  ] as const)('does not save "%s" as a sure `crispy fried onions`', async (recipeName, locale) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale })
+
+    expect(result).not.toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'crispy fried onions' },
+      lowConfidence: false,
+    })
+  })
+})
+
 // HON-1551: an Estonian shop sells the concentrate as "tomatipüree", so the word
 // finds `tomato paste` ("tomatipasta"), not passata ("passeeritud tomatid"), which
 // is half its strength.

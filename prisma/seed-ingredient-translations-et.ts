@@ -258,7 +258,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (163)
+  // VEGETABLE (164)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -377,6 +377,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'peas', et: 'herned' },
   { en: 'pepperoncini', et: 'pepperoni-paprika' },
   { en: 'perilla leaves', et: 'perillalehed' },
+  { en: 'pickled gherkins', et: 'hapukurk' },
   { en: 'piquillo peppers', et: 'piquillo paprika' },
   { en: 'poblano pepper', et: 'poblano tšilli' },
   { en: 'porcini mushroom', et: 'kivipuravik' },
@@ -501,7 +502,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'watermelon', et: 'arbuus' },
   { en: 'yuzu', et: 'yuzu' },
   // ============================================================
-  // CARB (165)
+  // CARB (166)
   // ============================================================
   { en: '00 flour', et: '00-jahu' },
   { en: 'plain flour', et: 'nisujahu' },
@@ -657,6 +658,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'tortilla', et: 'tortilla' },
   { en: 'tteok', et: 'tteok' },
   { en: 'udon noodles', et: 'udon-nuudlid' },
+  { en: 'vanilla sugar', et: 'vanillisuhkur' },
   { en: 'vegetable gyoza', et: 'gyoza köögiviljadega' },
   { en: 'vermicelli', et: 'vermišell' },
   { en: 'waffle', et: 'vahvel' },
@@ -845,7 +847,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'white beans', et: 'valged oad' },
   { en: 'yellow lentils', et: 'kollased läätsed' },
   // ============================================================
-  // SPICE (136)
+  // SPICE (141)
   // ============================================================
   { en: 'active dry yeast', et: 'kuivpärm' },
   { en: 'ajwain seeds', et: 'ajwaini seemned' },
@@ -876,6 +878,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'celery salt', et: 'sellerisool' },
   { en: 'celery seed', et: 'selleriseemned' },
   { en: 'chaat masala', et: 'chaat masala' },
+  { en: 'chicken seasoning', et: 'kanamaitseaine' },
   { en: 'chilli flakes', et: 'tšillihelbed' },
   { en: 'chilli powder', et: 'tšillipulber' },
   { en: 'chinese five spice', et: 'hiina viievürtsisegu' },
@@ -905,6 +908,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'fajita seasoning', et: 'fajita vürtsisegu' },
   { en: 'fennel seeds', et: 'apteegitilli seemned' },
   { en: 'fenugreek', et: 'põld-lambalääts' },
+  { en: 'fish seasoning', et: 'kalamaitseaine' },
   { en: 'fresh basil', et: 'värske basiilik' },
   { en: 'fresh chives', et: 'värske murulauk' },
   { en: 'fresh coriander', et: 'värske koriandriroheline' },
@@ -926,6 +930,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'gochugaru', et: 'gochugaru' },
   { en: 'grains of paradise', et: 'paradiisiterad' },
   { en: 'green cardamom', et: 'roheline kardemon' },
+  { en: 'grill seasoning', et: 'grillmaitseaine' },
   { en: 'ground coriander', et: 'jahvatatud koriander' },
   { en: 'ground ginger', et: 'jahvatatud ingver' },
   { en: 'guajillo chilli', et: 'guajillo tšilli' },
@@ -942,6 +947,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'lemongrass', et: 'sidrunhein' },
   { en: 'mace', et: 'muskaatõis' },
   { en: 'marjoram', et: 'majoraan' },
+  { en: 'meat seasoning', et: 'lihamaitseaine' },
   { en: 'mexican oregano', et: 'mehhiko pune' },
   { en: 'mint', et: 'münt' },
   { en: 'mitmita', et: 'mitmita' },
@@ -981,10 +987,11 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'turmeric', et: 'kurkum' },
   { en: 'urfa pepper', et: 'urfa pipar' },
   { en: 'vanilla pod', et: 'vanillikaun' },
+  { en: 'vegetable seasoning', et: 'köögiviljamaitseaine' },
   { en: 'white pepper', et: 'valge pipar' },
   { en: 'za atar', et: "za'atar" },
   // ============================================================
-  // CONDIMENT (169)
+  // CONDIMENT (170)
   // ============================================================
   { en: 'achiote paste', et: 'achiote pasta' },
   { en: 'adobo sauce', et: 'adobo kaste' },
@@ -1024,6 +1031,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'cooking sherry', et: 'küpsetussherry' },
   { en: 'corn syrup', et: 'maisisiirup' },
   { en: 'cranberry sauce', et: 'jõhvikakaste' },
+  { en: 'crispy fried onions', et: 'röstitud sibul' },
   { en: 'crushed tomatoes', et: 'purustatud tomatid' },
   { en: 'curry paste', et: 'karripasta' },
   { en: 'curry paste massaman', et: 'massaman karripasta' },

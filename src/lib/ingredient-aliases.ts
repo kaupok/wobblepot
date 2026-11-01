@@ -1,3 +1,5 @@
+import { SHOP_INGREDIENT_SYNONYMS } from './ingredient-shop-synonyms'
+
 /**
  * Ingredient alias table for ambiguous short terms.
  *
@@ -23,6 +25,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Spices and seasonings - "pepper" alone usually means black pepper
   pepper: 'black pepper',
+  curry: 'curry powder', // "curry" in a spice list is the powder, not the dish
 
   // Vegetables - only expand when target exists in DB
   lettuce: 'romaine lettuce', // DB has romaine lettuce
@@ -373,44 +376,8 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   kintsufilee: 'chicken thigh fillet',
   kanakintsufilee: 'chicken thigh fillet',
 
-  // Shop names for one-pack mixes and the seeds, nuts and pastes in them
-  // (HON-1545). A translation row holds one Estonian name, so a second one
-  // goes here. A plain "marjasegu" is the frozen bag, as an Estonian shop sells it.
-  'mixed seeds': 'seed mix',
-  'salad seed mix': 'seed mix',
-  'salatiseemnete segu': 'seed mix',
-  'nut mix': 'mixed nuts',
-  wokisegu: 'frozen stir-fry vegetables',
-  wokiköögiviljad: 'frozen stir-fry vegetables',
-  'stir-fry vegetable mix': 'frozen stir-fry vegetables',
-  'wok vegetables': 'frozen stir-fry vegetables',
-  'india pähklid': 'cashews',
-  'india pähkli või': 'cashew butter',
-  kašupähklivõi: 'cashew butter',
-  seesamipasta: 'tahini',
-  'sesame paste': 'tahini',
-  sesame: 'sesame seeds',
-  seesam: 'sesame seeds',
-  chia: 'chia seeds',
-  'chia seemned': 'chia seeds',
-  linseed: 'flax seeds',
-  linseeds: 'flax seeds',
-  marjasegu: 'frozen mixed berries',
-  metsamarjasegu: 'frozen mixed berries',
-
-  // Second shop names for cacao nibs, kama, spelt flour and grain flakes (HON-1548)
-  'cocoa nibs': 'cacao nibs',
-  kakaonibsid: 'cacao nibs',
-  kakaotuumad: 'cacao nibs',
-  'kama flour': 'kama',
-  speltanisujahu: 'spelt flour',
-  'spelta jahu': 'spelt flour',
-  'toor-tatra kama': 'buckwheat kama',
-  'toortatra kama': 'buckwheat kama',
-  'tatra kama': 'buckwheat kama',
-  '4-vilja helbed': 'four-grain flakes',
-  'neljavilja helbed': 'four-grain flakes',
-  '4-grain flakes': 'four-grain flakes',
+  // Estonian shop names and pack names (HON-1545, HON-1548, HON-1553)
+  ...SHOP_INGREDIENT_SYNONYMS,
 
   // Rows that were one food under two English names, merged so no Estonian
   // name sits on two rows (HON-1500)
