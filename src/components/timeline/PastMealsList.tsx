@@ -10,6 +10,7 @@ import { RowGroup } from '@/components/ui/row-group'
 import { Heading } from '@/components/ui/typography'
 import type { MealType } from '@/generated/prisma/enums'
 
+import { DayAddMenu } from './DayAddMenu'
 import type { LogMode } from './EmptySlotController'
 import { PastEmptyRow } from './PastEmptyRow'
 import { PastFridgeRow } from './PastFridgeRow'
@@ -43,7 +44,8 @@ const headingId = (date: string) => `past-day-${date}`
  * one `RowGroup`, breakfast to dinner: the page is a task list, so a meal is
  * a row with one-click Cooked and Skipped, not a Today card (HON-1018). A
  * recipe meal, a fridge meal and an empty slot each have their own row
- * (HON-1383). "Show the week before" reaches back a week at a time.
+ * (HON-1383). The heading's "+ Add" logs a meal type the day does not expect
+ * (HON-1519). "Show the week before" reaches back a week at a time.
  */
 export function PastMealsList({
   days,
@@ -100,19 +102,39 @@ export function PastMealsList({
         ].sort((a, b) => MEAL_TYPE_ORDER[a.mealType] - MEAL_TYPE_ORDER[b.mealType])
         return (
           <div key={day.date} className="flex flex-col gap-2">
-            {/* Focusable from script only, for "Show the week before". */}
-            <Heading variant="section" as="h2" id={headingId(day.date)} tabIndex={-1}>
-              {day.label}
-              {day.dateLabel && (
-                <>
-                  {' '}
-                  {/* The date is a detail beside the weekday, dimmed and at
-                      normal weight, as on Today's day heading
-                      (`TimelineDayCard`). */}
-                  <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
-                </>
+            {/* "+ Add" sits beside the heading, not inside it, so the outline
+                still reads the day; it wraps below it on a narrow screen, as on
+                Today (`TimelineDayCard`). The expected empty slots keep their
+                row's Add, so this menu offers only the other meal types. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              {/* Focusable from script only, for "Show the week before". */}
+              <Heading variant="section" as="h2" id={headingId(day.date)} tabIndex={-1}>
+                {day.label}
+                {day.dateLabel && (
+                  <>
+                    {' '}
+                    {/* The date is a detail beside the weekday, dimmed and at
+                          normal weight, as on Today's day heading
+                          (`TimelineDayCard`). */}
+                    <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
+                  </>
+                )}
+              </Heading>
+              {day.otherSlots.length > 0 && (
+                <DayAddMenu
+                  planId={planId}
+                  date={day.date}
+                  dayLabel={dayLabel}
+                  emptySlots={[]}
+                  otherSlots={day.otherSlots}
+                  householdServings={householdServings}
+                  pantryItems={pantryItems}
+                  log={log}
+                  buttonStyle="heading"
+                  onPicked={(mealType) => setFocusSlot({ date: day.date, mealType, target: 'row' })}
+                />
               )}
-            </Heading>
+            </div>
             <RowGroup>
               {rows.map(({ mealType, entry }) => {
                 const slot = { date: day.date, mealType }

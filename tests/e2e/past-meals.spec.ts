@@ -11,6 +11,15 @@ const PAST_DAY_OFFSET = -3
 const MEAL_TYPE = 'dinner'
 // The day the log test writes to, apart from the other test's day.
 const LOG_DAY_OFFSET = -5
+// The day the heading Add test writes to, apart from both.
+const HEADING_LOG_DAY_OFFSET = -6
+
+// A past day's heading line: its heading, and the "+ Add" for the meal types
+// the day does not expect (HON-1519).
+const headingLine = (page: Page, date: string) => page.locator(`div:has(> #past-day-${date})`)
+// The day's rows sit in the `RowGroup` right after its heading line.
+const dayRows = (page: Page, date: string) =>
+  page.locator(`div:has(> #past-day-${date}) + [data-slot="row-group"]`)
 
 interface MealSummary {
   id: string
@@ -231,8 +240,7 @@ test('a dinner is logged in an empty past slot, cooked again, then removed', asy
   let entryId: string | null = null
   try {
     await page.goto('/past-meals')
-    // The day's rows sit in the `RowGroup` right after its heading.
-    const day = page.locator(`#past-day-${date} + [data-slot="row-group"]`)
+    const day = dayRows(page, date)
     const add = day.getByRole('button', { name: /^Add to / })
     await expect(add).toHaveAccessibleDescription('Dinner')
 
@@ -299,6 +307,79 @@ test('a dinner is logged in an empty past slot, cooked again, then removed', asy
       .poll(async () => (await listEntries(page)).entries.some((e) => e.id === entryId))
       .toBe(false)
     entryId = null
+  } finally {
+    if (entryId) {
+      await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
+    }
+  }
+})
+
+// The heading's "+ Add" logs a meal type the day does not expect (HON-1519).
+// The smoke household expects dinner only, so breakfast is on the heading's
+// menu, a submenu of the log routes. The log is one POST with
+// `status: 'completed'`, and the new row above dinner takes focus.
+test('a breakfast is logged on a dinner-only past day through the heading Add', async ({
+  page,
+}) => {
+  await signInAsSmoke(page)
+
+  const date = daysFromNow(HEADING_LOG_DAY_OFFSET)
+  const { entries, planId } = await listEntries(page)
+  expect(planId, 'The smoke household has no meal plan (prisma/seed.ts).').toBeTruthy()
+  const stale = entries.find((e) => e.date === date && e.mealType === 'breakfast')
+  if (stale) await page.request.delete(`/api/meal-plans/${planId}/entries/${stale.id}`)
+
+  const mealsResponse = await page.request.get(
+    '/api/meals?source=system&mealType=breakfast&limit=1',
+  )
+  expect(mealsResponse.ok()).toBe(true)
+  const [meal] = ((await mealsResponse.json()) as { meals: MealSummary[] }).meals
+  expect(meal, 'No seeded system breakfast').toBeTruthy()
+
+  let entryId: string | null = null
+  try {
+    await page.goto('/past-meals')
+    const add = headingLine(page, date).getByRole('button', { name: /^Add to / })
+    await expect(add).not.toHaveAttribute('aria-describedby')
+
+    await add.click()
+    await expect
+      .poll(async () => page.getByRole('menu').first().getByRole('menuitem').allTextContents())
+      .toEqual(['Breakfast', 'Lunch'])
+    await page.getByRole('menuitem', { name: 'Breakfast' }).click()
+    await page
+      .getByRole('menu', { name: 'Breakfast' })
+      .getByRole('menuitem', { name: 'Choose a recipe' })
+      .click()
+    const dialog = page.getByRole('dialog', { name: 'Choose a recipe' })
+    await dialog.getByRole('searchbox', { name: 'Search recipes' }).fill(meal!.name)
+
+    const [post] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === 'POST' &&
+          new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries`,
+      ),
+      dialog.getByRole('button', { name: meal!.name, exact: true }).first().click(),
+    ])
+    expect(post.ok()).toBe(true)
+    expect(post.request().postDataJSON()).toEqual({
+      date,
+      mealType: 'breakfast',
+      mealId: meal!.id,
+      status: 'completed',
+    })
+    entryId = ((await post.json()) as { id: string }).id
+
+    // The new breakfast row takes focus, above the day's dinner.
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const day = dayRows(page, date)
+    await expect(day.getByRole('button', { name: `Undo: ${meal!.name}` })).toBeFocused()
+    await expect(day).toHaveText(/Breakfast.*Dinner/)
+    // Breakfast is covered now, so the heading's menu offers Lunch alone.
+    await add.click()
+    await expect(page.getByRole('group', { name: 'Lunch' })).toBeVisible()
+    await page.keyboard.press('Escape')
   } finally {
     if (entryId) {
       await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})

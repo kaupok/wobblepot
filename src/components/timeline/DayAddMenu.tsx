@@ -62,8 +62,11 @@ interface DayAddMenuProps {
   focusSlot?: MealType
   /** Called once the menu has acted on `focusSlot`, so the page can drop it. */
   onSlotFocused?: () => void
-  /** "Pick for me" placed a meal, or a fridge meal was saved (HON-1248). */
-  onPicked?: () => void
+  /**
+   * "Pick for me" placed a meal, or a fridge meal or a log was saved
+   * (HON-1248), in the slot of this meal type.
+   */
+  onPicked?: (mealType: MealType) => void
   /**
    * Set on Past meals (HON-1383): a log of a meal already eaten. The menu
    * offers a recipe or a fridge meal only, saved as cooked; Pick for me,
@@ -72,6 +75,13 @@ interface DayAddMenuProps {
   log?: Omit<LogMode, 'dayLabel'>
   /** The id of the text that says which slot the button fills, for `aria-describedby`. */
   describedBy?: string
+  /**
+   * `row` sizes a log's button for a Past meals row, beside Cooked and
+   * Skipped (HON-1383). `heading` keeps the day heading's small ghost button,
+   * as on Today, for a Past meals day heading (HON-1519). The default is
+   * `row` with `log` and `heading` without.
+   */
+  buttonStyle?: 'row' | 'heading'
 }
 
 /** The routes a log offers: the household names what it ate. */
@@ -82,8 +92,9 @@ const LOG_ROUTES = MEAL_ROUTES.filter(({ choice }) => choice === 'library' || ch
  * for each empty slot and "Extra" last. With two or more empty slots, each
  * slot is a submenu of its routes (HON-1341): a flat list of every slot's
  * routes ran to 16 rows and scrolled. A submenu opens on a tap and from the
- * keyboard, not only on hover. With one empty slot the routes sit flat under
- * its label, so a half-planned day stays two taps away. The meal types the
+ * keyboard, not only on hover. With one empty slot, or one slot of any kind,
+ * the routes sit flat under its label, so a half-planned day stays two taps
+ * away. The meal types the
  * day does not expect follow after a separator, each a submenu (HON-1518), so
  * they never turn the one expected slot into a submenu. A day with every meal
  * type filled shows the "+ Extra" button alone, not a one-item menu.
@@ -104,6 +115,7 @@ export function DayAddMenu({
   onPicked,
   log,
   describedBy,
+  buttonStyle = log ? 'row' : 'heading',
 }: DayAddMenuProps) {
   const tCard = useTranslations('meal-plan.card')
   const tExtras = useTranslations('meal-plan.extras')
@@ -154,7 +166,10 @@ export function DayAddMenu({
 
   const routes = log ? LOG_ROUTES : MEAL_ROUTES
   // The only empty slot shows flat; two or more each get a submenu (HON-1341).
-  const onlySlot = emptySlots.length === 1 ? emptySlots[0] : undefined
+  // A menu of one other type alone shows it flat too (HON-1519).
+  const onlySlot =
+    emptySlots.length === 1 ? emptySlots[0] : allSlots.length === 1 ? allSlots[0] : undefined
+  const otherSubmenus = otherSlots.filter((mealType) => mealType !== onlySlot)
 
   function choose(mealType: MealType, choice: AddMealChoice) {
     controllers.current.get(mealType)?.choose(choice)
@@ -183,8 +198,8 @@ export function DayAddMenu({
               so it takes their size and the touch floor (HON-1383). */}
           <Button
             ref={buttonRef}
-            variant={log ? 'outline' : 'ghost'}
-            size={log ? 'default' : 'sm'}
+            variant={buttonStyle === 'row' ? 'outline' : 'ghost'}
+            size={buttonStyle === 'row' ? 'default' : 'sm'}
             // Not `disabled`: a disabled button drops focus and cannot take it
             // back when the selector closes (HON-803).
             aria-disabled={isPending || undefined}
@@ -220,10 +235,10 @@ export function DayAddMenu({
               />
             ))
           )}
-          {otherSlots.length > 0 && (
+          {otherSubmenus.length > 0 && (
             <>
               {emptySlots.length > 0 && <DropdownMenuSeparator />}
-              {otherSlots.map((mealType) => (
+              {otherSubmenus.map((mealType) => (
                 <SlotSubmenu
                   key={mealType}
                   mealType={mealType}
@@ -267,7 +282,7 @@ export function DayAddMenu({
           pantryItems={pantryItems}
           returnFocusRef={buttonRef}
           onPendingChange={handlePendingChange}
-          onPicked={onPicked}
+          onPicked={onPicked && (() => onPicked(mealType))}
           log={log && { ...log, dayLabel }}
         />
       ))}

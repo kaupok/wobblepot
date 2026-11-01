@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { MealType } from '@/generated/prisma/enums'
 import { fridgePantryItems } from '@/stories/fridge-fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -9,7 +10,8 @@ import { DayAddMenu } from './DayAddMenu'
 
 // Add on an empty slot of Past meals (HON-1383): a log of a meal the household
 // already ate. A recipe or a fridge meal only, each saved as cooked in one
-// request, with no placeholder.
+// request, with no placeholder. The day heading's Add logs a meal type the day
+// does not expect (HON-1519).
 
 const refresh = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -47,6 +49,29 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
 })
+
+/** A day heading's Add on Past meals: the other meal types only, no row to describe it. */
+function renderHeading(otherSlots: MealType[]) {
+  const onPicked = vi.fn()
+  const { wrapper: Wrapper } = createQueryWrapper()
+  render(
+    <Wrapper>
+      <DayAddMenu
+        planId="plan-1"
+        date="2026-04-14"
+        dayLabel="Tuesday Apr 14"
+        emptySlots={[]}
+        otherSlots={otherSlots}
+        householdServings={4}
+        pantryItems={fridgePantryItems}
+        onPicked={onPicked}
+        buttonStyle="heading"
+        log={{ frequentMeals: [], recentLabels: ['Wolt'] }}
+      />
+    </Wrapper>,
+  )
+  return { onPicked, user: userEvent.setup() }
+}
 
 function renderSlot() {
   const onPicked = vi.fn()
@@ -121,7 +146,9 @@ describe('DayAddMenu log mode', () => {
     expect(libraryUrls).toEqual(['/api/meals?limit=20&offset=0&source=custom'])
     expect(refresh).toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await waitFor(() => expect(addButton()).toHaveFocus())
+    // Not back to Add: the logged row takes focus once the refresh lands, and
+    // only from the body (HON-1519).
+    expect(document.body).toHaveFocus()
   })
 
   it('returns focus to Add when the recipe picker closes with no pick', async () => {
@@ -159,6 +186,61 @@ describe('DayAddMenu log mode', () => {
           status: 'completed',
         },
       },
+    ])
+  })
+
+  it("offers each other meal type's log routes in a submenu and saves the log under that type", async () => {
+    const { onPicked, user } = renderHeading(['breakfast', 'lunch'])
+
+    expect(addButton()).not.toHaveAccessibleDescription()
+    // By keyboard: jsdom does not finish a pointer click inside a Radix
+    // submenu.
+    addButton().focus()
+    await user.keyboard('{Enter}')
+    const menu = within(await screen.findByRole('menu'))
+    expect(menu.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Breakfast',
+      'Lunch',
+    ])
+    await waitFor(() => expect(menu.getByRole('menuitem', { name: 'Breakfast' })).toHaveFocus())
+    await user.keyboard('{ArrowRight}')
+    const submenu = within(await screen.findByRole('menu', { name: 'Breakfast' }))
+    expect(submenu.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Fridge meal',
+    ])
+    await waitFor(() =>
+      expect(submenu.getByRole('menuitem', { name: 'Choose a recipe' })).toHaveFocus(),
+    )
+    await user.keyboard('{Enter}')
+    const dialog = within(await screen.findByRole('dialog', { name: 'Choose a recipe' }))
+    await user.click(await dialog.findByRole('button', { name: 'Porridge' }))
+
+    await waitFor(() => expect(onPicked).toHaveBeenCalledWith('breakfast'))
+    expect(writes()).toEqual([
+      {
+        method: 'POST',
+        url: '/api/meal-plans/plan-1/entries',
+        body: {
+          date: '2026-04-14',
+          mealType: 'breakfast',
+          mealId: 'meal-porridge',
+          status: 'completed',
+        },
+      },
+    ])
+  })
+
+  it('shows the only other meal type flat, its routes under its label', async () => {
+    const { user } = renderHeading(['lunch'])
+
+    await user.click(addButton())
+    const menu = within(await screen.findByRole('menu'))
+
+    expect(menu.getByRole('group', { name: 'Lunch' })).toBeInTheDocument()
+    expect(menu.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Choose a recipe',
+      'Fridge meal',
     ])
   })
 })

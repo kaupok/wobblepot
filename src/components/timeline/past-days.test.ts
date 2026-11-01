@@ -66,7 +66,7 @@ describe('buildPastDays', () => {
     expect(new Set(days.flatMap((d) => d.emptySlots))).toEqual(new Set(['dinner']))
   })
 
-  // Past meals ignores them until HON-1519, but the list is there.
+  // The day heading's Add offers them (HON-1519).
   it('passes the meal types the day does not expect through as otherSlots', () => {
     const [yesterday] = build([])
 
