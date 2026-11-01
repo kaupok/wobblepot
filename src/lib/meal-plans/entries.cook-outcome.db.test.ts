@@ -15,12 +15,14 @@ const INGREDIENTS: Record<string, IngredientCategory> = {
   cumin: 'spice',
   quinoa: 'carb',
   tahini: 'condiment',
+  mince: 'protein',
+  carrot: 'vegetable',
 }
 
 /**
  * Alder: one adult, so 1 serving. Its plan has a planned roast dinner: 200 g
  * beetroot, 300 g pumpkin, 2 g cumin and 600 g quinoa per serving. Soup is
- * 400 g pumpkin.
+ * 400 g pumpkin. A planned stew lunch is 500 g mince and 400 g carrot.
  */
 async function world() {
   for (const [id, category] of Object.entries(INGREDIENTS)) {
@@ -60,6 +62,16 @@ async function world() {
     })
   await meal('meal-roast', { beetroot: 200, pumpkin: 300, cumin: 2, quinoa: 600 })
   await meal('meal-soup', { pumpkin: 400 })
+  await meal('meal-stew', { mince: 500, carrot: 400 })
+  await prisma.mealPlanEntry.create({
+    data: {
+      id: 'entry-stew',
+      planId: 'plan-alder',
+      mealId: 'meal-stew',
+      date: new Date('2026-11-01T00:00:00Z'),
+      mealType: 'lunch',
+    },
+  })
   await prisma.mealPlanEntry.create({
     data: {
       id: 'entry-roast',
@@ -162,5 +174,68 @@ describe('updateEntry: a cooked meal and "have some" rows', () => {
     await update(householdId, { ...complete, mealId: 'meal-soup' })
 
     expect(await pantry(householdId)).toEqual({ pumpkin: 0, cumin: null })
+  })
+})
+
+// A known-amount row the cook names used up or some left (HON-1583).
+describe('updateEntry: a cooked meal and known-amount rows', () => {
+  const cookStew = (householdId: string, patch: EntryPatch) =>
+    updateEntry(householdId, 'plan-alder', 'entry-stew', { ...complete, ...patch })
+
+  it('sets a used-up row with some left on paper to 0 and keeps it', async () => {
+    const householdId = await world()
+    await stock(householdId, { mince: 1000 })
+
+    await cookStew(householdId, { usedUpIngredientIds: ['mince'] })
+
+    expect(await pantry(householdId)).toEqual({ mince: 0 })
+  })
+
+  it('makes an overshot row the cook says has some left "have some"', async () => {
+    const householdId = await world()
+    await stock(householdId, { carrot: 300 })
+
+    await cookStew(householdId, { usedUpIngredientIds: [], someLeftIngredientIds: ['carrot'] })
+
+    expect(await pantry(householdId)).toEqual({ carrot: null })
+  })
+
+  it('subtracts a some-left row that still has some', async () => {
+    const householdId = await world()
+    await stock(householdId, { mince: 1000 })
+
+    await cookStew(householdId, { usedUpIngredientIds: [], someLeftIngredientIds: ['mince'] })
+
+    expect(await pantry(householdId)).toEqual({ mince: 500 })
+  })
+
+  it('sets an overshot row to 0 when the cook names neither', async () => {
+    const householdId = await world()
+    await stock(householdId, { carrot: 300, mince: 1000 })
+
+    await cookStew(householdId, {})
+
+    expect(await pantry(householdId)).toEqual({ carrot: 0, mince: 500 })
+  })
+
+  it('keeps a known row on subtraction when the cook names only "have some" rows', async () => {
+    const householdId = await world()
+    await stock(householdId, { mince: 1000 })
+
+    await cookStew(householdId, { usedUpIngredientIds: [] })
+
+    expect(await pantry(householdId)).toEqual({ mince: 500 })
+  })
+
+  it('lets used up win for an id in both lists', async () => {
+    const householdId = await world()
+    await stock(householdId, { carrot: 300 })
+
+    await cookStew(householdId, {
+      usedUpIngredientIds: ['carrot'],
+      someLeftIngredientIds: ['carrot'],
+    })
+
+    expect(await pantry(householdId)).toEqual({ carrot: 0 })
   })
 })

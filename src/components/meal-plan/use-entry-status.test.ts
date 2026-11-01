@@ -111,7 +111,14 @@ describe('useEntryStatus', () => {
 
       act(() => result.current.handleStatusChange('completed'))
       respond(200, { pantryDeducted: true })
-      act(() => result.current.handleDeductionConfirm({ usedUpIngredientIds, someLeftCount }))
+      act(() =>
+        result.current.handleDeductionConfirm({
+          usedUpIngredientIds,
+          someLeftIngredientIds: [],
+          usedUpCount: usedUpIngredientIds.length,
+          someLeftCount,
+        }),
+      )
 
       await waitFor(() => expect(result.current.status).toBe('completed'))
       expect(patchBodies()).toEqual([
@@ -128,6 +135,41 @@ describe('useEntryStatus', () => {
       )
     },
   )
+
+  // HON-1583: a known row the cook says has some left after the sum ran it out.
+  it("sends the dialog's some-left list when it names a row", async () => {
+    const { result } = renderStatusHook()
+
+    act(() => result.current.handleStatusChange('completed'))
+    respond(200, { pantryDeducted: true })
+    act(() =>
+      result.current.handleDeductionConfirm({
+        usedUpIngredientIds: ['mince'],
+        someLeftIngredientIds: ['carrot'],
+        usedUpCount: 2,
+        someLeftCount: 2,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.status).toBe('completed'))
+    expect(patchBodies()).toEqual([
+      {
+        status: 'completed',
+        deductPantry: true,
+        usedUpIngredientIds: ['mince'],
+        someLeftIngredientIds: ['carrot'],
+      },
+    ])
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+        plan_id: 'plan-1',
+        meal_id: meal.id,
+        source: 'past_meals',
+        used_up_count: 2,
+        some_left_count: 2,
+      }),
+    )
+  })
 
   it('sends no list for a fridge meal that used nothing up', async () => {
     const { result } = renderStatusHook()

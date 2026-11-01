@@ -36,11 +36,13 @@ const updateEntrySchema = z
     // A fridge meal (HON-1277): `fridgeItems` makes the entry one with these
     // items. `usedUpIngredientIds` names the pantry items a completion runs
     // out: a fridge meal's, or a recipe meal's "have some" rows (HON-1563),
-    // where leaving it out applies `defaultCookOutcome`. Not with `mealId`:
-    // a swap-and-complete prices the incoming meal, which the client has not
-    // seen.
+    // where leaving it out applies `defaultCookOutcome`, or its known-amount
+    // rows. `someLeftIngredientIds` names the known-amount rows a recipe meal
+    // left some of (HON-1583). Not with `mealId`: a swap-and-complete prices
+    // the incoming meal, which the client has not seen.
     fridgeItems: fridgeItemsSchema.optional(),
     usedUpIngredientIds: z.array(z.string().min(1)).max(30).optional(),
+    someLeftIngredientIds: z.array(z.string().min(1)).max(30).optional(),
   })
   // The note's place is one point: both axes or neither, both set or both
   // null (HON-975). A place beside a cleared note contradicts it, because
@@ -56,6 +58,13 @@ const updateEntrySchema = z
         code: 'custom',
         path: ['usedUpIngredientIds'],
         message: 'usedUpIngredientIds needs status completed and no mealId',
+      })
+    }
+    if (data.someLeftIngredientIds && (data.status !== 'completed' || data.mealId)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['someLeftIngredientIds'],
+        message: 'someLeftIngredientIds needs status completed and no mealId',
       })
     }
     if ('noteX' in data !== 'noteY' in data || (data.noteX === null) !== (data.noteY === null)) {

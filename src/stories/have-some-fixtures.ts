@@ -140,3 +140,22 @@ export const fetaPantryItem: PantryItemFull = createPantryItem({
   quantity: 100,
   ingredient: { id: 'feta', name: 'Feta', category: 'dairy', subcategory: null, defaultUnit: 'g' },
 })
+
+/** A known-quantity row with some left: 1000 g of mince, 125 g a serving (HON-1583). */
+export const minceComponent: MealComponent = createMealComponent({
+  ingredientId: 'mince',
+  quantityPerServing: 125,
+  ingredient: { id: 'mince', name: 'Beef mince', category: 'protein', defaultUnit: 'g' },
+})
+
+export const mincePantryItem: PantryItemFull = createPantryItem({
+  ingredientId: 'mince',
+  quantity: 1000,
+  ingredient: {
+    id: 'mince',
+    name: 'Beef mince',
+    category: 'protein',
+    subcategory: null,
+    defaultUnit: 'g',
+  },
+})
