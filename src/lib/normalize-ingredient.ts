@@ -9,7 +9,7 @@
  * Common cooking adjectives/modifiers that appear before ingredient names.
  * These are stripped to improve fuzzy matching against the database.
  */
-const COOKING_MODIFIERS = new Set([
+export const COOKING_MODIFIERS = new Set([
   // Freshness / state
   'fresh',
   'dried',
@@ -104,7 +104,8 @@ const COOKING_MODIFIERS = new Set([
   // Estonian prep words, so "värske spinat" normalizes as "fresh spinach" does and a
   // bare row it finds stays sure (HON-1546). The form words "külmutatud" and
   // "kuivatatud" stay, because the form guard reads them, and "sulatatud" stays,
-  // because "sulatatud juust" is processed cheese, not melted cheese.
+  // because "sulatatud juust" is processed cheese, not melted cheese. "kondita" goes,
+  // as "boneless" does, so "kondita seakarbonaad" finds `pork chop` (HON-1571).
   'värske',
   'hakitud',
   'riivitud',
@@ -114,6 +115,7 @@ const COOKING_MODIFIERS = new Set([
   'keedetud',
   'röstitud',
   'praetud',
+  'kondita',
 ])
 
 /**

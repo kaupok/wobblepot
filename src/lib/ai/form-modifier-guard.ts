@@ -14,31 +14,27 @@ import { LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
  * fillet` (HON-1480).
  *
  * An Estonian form word maps to the form the catalogue writes in English:
- * "suitsutatud paprika" is smoked, like "smoked paprika" (HON-1554).
+ * "suitsutatud paprika" is smoked, like "smoked paprika" (HON-1554). Every form names
+ * its words in both languages, so a test can catch a missing pair (HON-1571).
  *
  * Roasting is a cooking step, not a form the shop sells, so "roasted", "röstitud" and
  * "praetud" are cooking modifiers: "roasted peanuts" is `peanuts`, sure (HON-1566).
  */
-const FORM_OF_WORD: Record<string, string> = {
-  canned: 'tinned',
-  tinned: 'tinned',
-  konserveeritud: 'tinned',
-  purgi: 'tinned',
-  frozen: 'frozen',
-  külmutatud: 'frozen',
-  dried: 'dried',
-  kuivatatud: 'dried',
-  smoked: 'smoked',
-  suitsutatud: 'smoked',
-  pickled: 'pickled',
-  marineeritud: 'pickled',
-  ground: 'ground',
-  jahvatatud: 'ground',
-  boneless: 'boneless',
-  deboned: 'boneless',
-  fillet: 'boneless',
-  fillets: 'boneless',
+export const FORM_WORDS: Record<string, { en: string[]; et: string[] }> = {
+  tinned: { en: ['canned', 'tinned'], et: ['konserveeritud', 'purgi'] },
+  frozen: { en: ['frozen'], et: ['külmutatud'] },
+  dried: { en: ['dried'], et: ['kuivatatud'] },
+  smoked: { en: ['smoked'], et: ['suitsutatud'] },
+  pickled: { en: ['pickled'], et: ['marineeritud'] },
+  ground: { en: ['ground'], et: ['jahvatatud'] },
+  boneless: { en: ['boneless', 'deboned', 'fillet', 'fillets'], et: ['kondita', 'filee'] },
 }
+
+const FORM_OF_WORD: Record<string, string> = Object.fromEntries(
+  Object.entries(FORM_WORDS).flatMap(([form, { en, et }]) =>
+    [...en, ...et].map((word) => [word, form]),
+  ),
+)
 
 /**
  * The stems an Estonian catalogue name writes a form with. Estonian joins the form
@@ -133,7 +129,7 @@ export function foodNameOf(name: string): string {
   const noteWords = wordsOf(notes.join(' '))
   if (noteWords.includes('or') || noteWords.includes('if')) return head
   const isMovableForm = (word: string) =>
-    FORM_OF_WORD[word] !== undefined && !word.startsWith('fillet')
+    FORM_OF_WORD[word] !== undefined && !word.startsWith('fillet') && word !== 'filee'
   if (!noteWords.every((word) => isMovableForm(word) || PREPARATION_NOTE_WORDS.has(word))) {
     return name
   }

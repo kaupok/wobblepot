@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
+import { COOKING_MODIFIERS } from '@/lib/normalize-ingredient'
+
 import {
   catalogueFormName,
   compoundFormName,
   foodNameOf,
+  FORM_WORDS,
   guardFormMatch,
   hasForm,
   isOtherCutFillet,
@@ -217,6 +220,16 @@ describe('the boneless form', () => {
     expect(hasForm('chicken thigh', ['boneless'])).toBe(false)
   })
 
+  // HON-1571
+  it('names kondita and filee as the boneless form', () => {
+    expect(missingForms('kondita kanakintsud', thigh)).toEqual(['boneless'])
+    expect(missingForms('kanakintsu filee', thigh)).toEqual(['boneless'])
+  })
+
+  it('keeps "kanakintsud, filee" as written, as it does "salmon, fillet"', () => {
+    expect(foodNameOf('kanakintsud, filee')).toBe('kanakintsud, filee')
+  })
+
   it('uses the fillet row of the same cut', () => {
     const fillet = [row('ing-thigh-fillet', 'chicken thigh fillet', 1)]
 
@@ -249,5 +262,59 @@ describe('isOtherCutFillet', () => {
     expect(isOtherCutFillet('salmon fillet portion', 'salmon fillet')).toBe(false)
     expect(isOtherCutFillet('chicken thigh', 'chicken thigh fillet')).toBe(false)
     expect(isOtherCutFillet('chicken leg', 'chicken leg')).toBe(false)
+  })
+})
+
+// HON-1571: a word in one list and not the other moves a recipe line to another row
+describe('the form word lists', () => {
+  // A misspelt or dropped word names no form, so its line here goes red, even where
+  // the matcher result does not change (PINNED_LINES in the form-words db test)
+  it.each([
+    ['canned', 'tinned'],
+    ['tinned', 'tinned'],
+    ['konserveeritud', 'tinned'],
+    ['purgi', 'tinned'],
+    ['frozen', 'frozen'],
+    ['külmutatud', 'frozen'],
+    ['dried', 'dried'],
+    ['kuivatatud', 'dried'],
+    ['smoked', 'smoked'],
+    ['suitsutatud', 'smoked'],
+    ['pickled', 'pickled'],
+    ['marineeritud', 'pickled'],
+    ['ground', 'ground'],
+    ['jahvatatud', 'ground'],
+    ['boneless', 'boneless'],
+    ['deboned', 'boneless'],
+    ['fillet', 'boneless'],
+    ['fillets', 'boneless'],
+    ['kondita', 'boneless'],
+    ['filee', 'boneless'],
+  ])('reads "%s" as the %s form', (word, form) => {
+    expect(missingForms(`${word} vesi`, row('ing-water', 'water', 1))).toEqual([form])
+  })
+
+  it.each(Object.entries(FORM_WORDS))('names the %s form in English and Estonian', (_, words) => {
+    expect(words.en.length).toBeGreaterThan(0)
+    expect(words.et.length).toBeGreaterThan(0)
+  })
+
+  // Normalization strips these shelf-form and boneless words, but the guard reads
+  // the name as written, so both lists apply. A preparation word is in one list only.
+  it('shares only the shelf-form and boneless words with the cooking modifiers', () => {
+    const words = Object.values(FORM_WORDS).flatMap((form) => [...form.en, ...form.et])
+
+    expect(words.filter((word) => COOKING_MODIFIERS.has(word)).sort()).toEqual([
+      'boneless',
+      'canned',
+      'deboned',
+      'dried',
+      'frozen',
+      'ground',
+      'kondita',
+      'pickled',
+      'smoked',
+      'tinned',
+    ])
   })
 })
