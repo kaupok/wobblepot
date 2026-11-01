@@ -142,6 +142,12 @@ describe('stripModifiers', () => {
 })
 
 describe('normalizeIngredientName', () => {
+  it('drops an Estonian prep word but keeps a form word', () => {
+    expect(normalizeIngredientName('värske spinat')).toBe('spinat')
+    expect(normalizeIngredientName('hakitud sibul')).toBe('sibul')
+    expect(normalizeIngredientName('külmutatud brokoli')).toBe('külmutatud brokoli')
+  })
+
   it('normalizes plurals', () => {
     expect(normalizeIngredientName('eggs')).toBe('egg')
     expect(normalizeIngredientName('carrots')).toBe('carrot')

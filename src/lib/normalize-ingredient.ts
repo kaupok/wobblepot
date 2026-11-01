@@ -100,6 +100,19 @@ const COOKING_MODIFIERS = new Set([
   'unsweetened',
   'extra-virgin',
   'virgin',
+
+  // Estonian prep words, so "värske spinat" normalizes as "fresh spinach" does and a
+  // bare row it finds stays sure (HON-1546). The form words "külmutatud" and
+  // "kuivatatud" stay, because the form guard reads them, and "sulatatud" stays,
+  // because "sulatatud juust" is processed cheese, not melted cheese.
+  'värske',
+  'hakitud',
+  'riivitud',
+  'viilutatud',
+  'tükeldatud',
+  'purustatud',
+  'keedetud',
+  'röstitud',
 ])
 
 /**

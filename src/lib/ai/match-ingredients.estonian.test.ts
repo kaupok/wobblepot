@@ -136,8 +136,8 @@ describe('matchIngredients', () => {
       const matched = results[0] as MatchedIngredient
       expect(matched.type).toBe('matched')
       expect(matched.ingredient.id).toBe('ing-spinach')
-      // Only the bare last word matched, so the qualified name is unsure (HON-1546)
-      expect(matched.lowConfidence).toBe(true)
+      // "värske" is a prep word the normalizer drops, as it drops "fresh" (HON-1546)
+      expect(matched.lowConfidence).toBe(false)
     })
   })
 })

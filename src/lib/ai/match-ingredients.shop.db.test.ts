@@ -188,6 +188,17 @@ describe('matchIngredients on a qualified name whose own row is missing', () => 
     })
   })
 
+  it.each([
+    ['hakitud sibul', 'onion'],
+    ['riivitud juust', 'cheese'],
+  ])('keeps the Estonian "%s" a sure match for `%s`', async (recipeName, name) => {
+    await seedShopCatalogue([...names, 'onion', 'cheese'])
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
   it('keeps "bread" a sure match for `bread`', async () => {
     await seedShopCatalogue(names)
 
