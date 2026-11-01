@@ -157,13 +157,15 @@ describe('matchIngredients on a shop mix or a seed, nut or paste name', () => {
 // `butter` or `milk` through its last word, sure, so it saved as dairy with no nut
 // allergen. A guess for a qualified name goes to the user as unsure instead.
 describe('matchIngredients on a qualified name whose own row is missing', () => {
-  const names = ['butter', 'milk', 'walnuts', 'bread']
+  const names = ['butter', 'milk', 'walnuts', 'bread', 'peas']
 
   it.each([
     ['walnut butter', 'butter'],
     ['macadamia milk', 'milk'],
     // A short qualifier finds `butter` in the direct search, above the fallback's threshold
     ['nut butter', 'butter'],
+    // A plural bare row is judged in the singular, as the entered name is
+    ['wasabi peas', 'peas'],
   ])('returns "%s" unsure, with "%s" as an alternative', async (recipeName, name) => {
     await seedShopCatalogue(names)
 

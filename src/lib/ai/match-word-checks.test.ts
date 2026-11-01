@@ -22,6 +22,11 @@ describe('isBareLastWord', () => {
     expect(isBareLastWord('kašu või', 'või')).toBe(true)
   })
 
+  it('flags a bare row with a plural name against the singular normalized name', () => {
+    expect(isBareLastWord('wasabi pea', 'peas')).toBe(true)
+    expect(isBareLastWord('shirataki noodle', 'Noodles')).toBe(true)
+  })
+
   it('does not flag a one-word name or a longer matched name', () => {
     expect(isBareLastWord('bread', 'bread')).toBe(false)
     expect(isBareLastWord('dark soy sauce', 'soy sauce')).toBe(false)

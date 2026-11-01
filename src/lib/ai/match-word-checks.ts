@@ -36,7 +36,10 @@ export function primaryNounsDiffer(extractedName: string, matchedName: string): 
 /**
  * Whether a qualified name matched only its bare last word: "walnut butter" against
  * `butter`. The noun check misses it, because the bare row has no word of its own.
+ * The normalized name is singular, so the row's name is too: "wasabi peas" against
+ * `peas` is the same guess.
  */
 export function isBareLastWord(normalizedName: string, matchedName: string): boolean {
-  return matchedName.toLowerCase().trim() === extractLastWord(normalizedName)
+  const bareName = matchedName.toLowerCase().trim().split(/\s+/).map(singularize).join(' ')
+  return bareName === extractLastWord(normalizedName)
 }
