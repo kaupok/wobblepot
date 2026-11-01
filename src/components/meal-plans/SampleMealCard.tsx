@@ -33,7 +33,10 @@ export function SampleMealCard({ day }: { day: SampleDay }) {
         size="sm"
         head={
           <CardHeader className="px-4 pt-1 pb-1">
-            <div className="flex min-h-8 items-center">
+            {/* `min-w-0`: the header is a grid, and its column grows to the
+                badges' full width otherwise, so the row would overflow the
+                card rather than overlap its badges (HON-1577). */}
+            <div className="flex min-h-8 min-w-0 items-center">
               {/* One line, as on the planner card: the day label gives way
                   first and the time keeps the right edge (HON-1577). */}
               <MealBadgeRow>

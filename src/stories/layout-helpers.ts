@@ -85,8 +85,10 @@ export function expectFocusRingRoom(el: HTMLElement, container: HTMLElement, rin
 
 /**
  * Asserts a meal card's badge row holds one line (HON-1575, HON-1577): every
- * badge on the first badge's top, none past the row's edges. Returns the row,
- * so a story can also check that it overlaps (`data-overlap`).
+ * badge on the first badge's top, none past the row's edges, and the row
+ * inside its card header's padding. A grid header sizes its column to the
+ * row's content, so a row can hold one line by running off the card. Returns
+ * the row, so a story can also check that it overlaps (`data-overlap`).
  */
 export function expectBadgeRowOnOneLine(canvasElement: HTMLElement): HTMLElement {
   const badges = Array.from(canvasElement.querySelectorAll<HTMLElement>('[data-slot="badge"]'))
@@ -96,5 +98,14 @@ export function expectBadgeRowOnOneLine(canvasElement: HTMLElement): HTMLElement
     expect(Math.round(badge.getBoundingClientRect().top), `"${badge.textContent}" wraps`).toBe(top)
     expectWithinHorizontally(badge, row)
   }
+  const header = row.closest<HTMLElement>('[data-slot="card-header"]')!
+  const style = getComputedStyle(header)
+  const contentRight =
+    header.getBoundingClientRect().right -
+    Number.parseFloat(style.paddingRight) -
+    Number.parseFloat(style.borderRightWidth)
+  expect(row.getBoundingClientRect().right, 'the badge row overflows its card').toBeLessThanOrEqual(
+    contentRight + 0.5,
+  )
   return row
 }

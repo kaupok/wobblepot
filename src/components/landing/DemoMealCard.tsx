@@ -71,7 +71,10 @@ export function DemoMealCard({ entry, onOpen, description = true }: DemoMealCard
       }
       head={
         <CardHeader className="px-4 pt-1 pb-1">
-          <div className="flex min-h-8 items-center">
+          {/* `min-w-0`: the header is a grid, and its column grows to the
+              badges' full width otherwise, so the row would overflow the
+              card rather than overlap its badges (HON-1577). */}
+          <div className="flex min-h-8 min-w-0 items-center">
             <MealBadgeRow>
               <MealTypeBadge mealType={entry.mealType} />
               {entry.meal.kidFriendly && <KidFriendlyBadge compact data-card-click-ignore />}
