@@ -111,6 +111,13 @@ describe('matchIngredients on a recipe name with a form word', () => {
     await ingredient('ing-tinned-plum', 'tinned plum tomatoes')
     await ingredient('ing-peas', 'peas')
     await ingredient('ing-oregano', 'oregano', null, 'spice')
+    await ingredient('ing-basil', 'basil', null, 'spice')
+    await ingredient('ing-thyme', 'thyme', null, 'spice')
+    await ingredient('ing-chives', 'chives', null, 'spice')
+    await ingredient('ing-dried-chives', 'dried chives', null, 'spice')
+    await ingredient('ing-bay-leaves', 'bay leaves', null, 'spice')
+    await ingredient('ing-lime', 'lime', null, 'fruit')
+    await ingredient('ing-kaffir-lime-leaves', 'kaffir lime leaves', null, 'spice')
     await ingredient('ing-cumin', 'cumin', null, 'spice')
   }
 
@@ -148,10 +155,43 @@ describe('matchIngredients on a recipe name with a form word', () => {
     expect(result.alternatives?.[0]).toMatchObject({ id: 'ing-tinned-chopped' })
   })
 
+  it('asks for review of "fig leaves" when only the fruit row exists', async () => {
+    await seedCatalogue()
+    await ingredient('ing-fig', 'fig', null, 'fruit')
+
+    const result = await matchOne('fig leaves')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'fig' },
+      lowConfidence: true,
+    })
+  })
+
+  it('asks for review of "lemon leaves" when its direct search finds the fruit row', async () => {
+    await seedCatalogue()
+    await ingredient('ing-lemon', 'lemon', null, 'fruit')
+
+    const result = await matchOne('lemon leaves')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'lemon' },
+      lowConfidence: true,
+    })
+  })
+
   it.each([
     // No frozen peas row, so the fresh row needs review (HON-1554)
     ['frozen peas', 'peas', true],
     ['dried oregano', 'dried oregano', false],
+    ['dried basil', 'dried basil', false],
+    ['dried chive', 'dried chives', false],
+    ['basil leaves', 'basil', false],
+    ['fresh basil leaves', 'basil', false],
+    ['thyme leaves', 'thyme', false],
+    ['bay leaves', 'bay leaves', false],
+    ['kaffir lime leaves', 'kaffir lime leaves', false],
     ['dried cumin', 'cumin', false],
     ['canned tomatoes', 'tinned chopped tomatoes', true],
     ['canned diced tomatoes', 'tinned chopped tomatoes', false],

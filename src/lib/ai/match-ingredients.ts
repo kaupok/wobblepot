@@ -10,6 +10,7 @@ import {
 
 import { applyFormGuard, foodNameOf, isOtherCutFillet } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import { matchLeafPlant } from './leaf-plant-match'
 import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, DEFAULT_GRAMS_PER_PIECE, isReasonableQuantity } from './recipe-quantities'
@@ -124,29 +125,36 @@ export async function matchIngredients(
     const normalizedAliasName = applyIngredientAlias(normalizedName).toLowerCase().trim()
     candidateNames.add(normalizedAliasName)
 
-    // The normalized name with its last word made plural, so a singular recipe word
-    // finds a plural catalogue or household row: "bay leaf" → "bay leaves" (HON-1267).
-    // It is searched in the normalized name's own query, so it costs no extra query.
-    const normalizedWords = normalizedName.split(' ')
-    const lastNormalizedWord = normalizedWords.pop()
-    const pluralName = lastNormalizedWord
-      ? [...normalizedWords, pluralize(lastNormalizedWord)].join(' ')
-      : undefined
+    // The direct and normalized names with their last word made plural, so a singular
+    // recipe word finds a plural catalogue or household row: "bay leaf" → "bay leaves"
+    // (HON-1267), "dried chive" → "dried chives" (HON-1559). Each is searched in its
+    // name's own query, so it costs no extra query.
+    const pluralNames = new Map<string, string>()
+    for (const name of [directName, normalizedName]) {
+      const words = name.split(' ')
+      const lastWord = words.pop()
+      if (lastWord) pluralNames.set(name, [...words, pluralize(lastWord)].join(' '))
+    }
 
-    // Phase 1: Search semantic candidates (direct, alias, normalized + plural,
+    // Phase 1: Search semantic candidates (direct + plural, alias, normalized + plural,
     // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
     const matchesByCandidate = new Map<string, typeof matches>()
     for (const candidate of candidateNames) {
+      const pluralName = pluralNames.get(candidate)
       const candidateMatches = await fuzzySearchIngredient(
         candidate,
-        candidate === normalizedName ? { ...searchOptions, pluralName } : searchOptions,
+        pluralName ? { ...searchOptions, pluralName } : searchOptions,
       )
       matchesByCandidate.set(candidate, candidateMatches)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
       }
     }
+
+    // "basil leaves" is `basil`, not the `bay leaves` its letters find (HON-1559)
+    const leafPlant = await matchLeafPlant(normalizedName, matches, searchOptions)
+    if (leafPlant) matches = leafPlant.matches
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
     // This prevents "trout fillet" → "fillet" → "cod fillet" from overriding
@@ -180,7 +188,9 @@ export async function matchIngredients(
       matchesByCandidate,
       search: (name) => fuzzySearchIngredient(name, searchOptions),
     })
-    const formGuard = guarded.formGuard
+    // A leaf name on a fruit or other non-leaf plant row goes to review: "fig leaves"
+    const formGuard =
+      guarded.formGuard.action === 'keep' && leafPlant ? leafPlant.formGuard : guarded.formGuard
     matches = guarded.matches
 
     if (matches.length > 0 && matches[0]) {

@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
 
 describe('primaryNounsDiffer', () => {
+  it('reads a word and its plural as one noun when the plural never singularizes', () => {
+    expect(primaryNounsDiffer('dried chive', 'dried chives')).toBe(false)
+  })
+
   it('flags names where each side has a word the other lacks', () => {
     expect(primaryNounsDiffer('trout fillet', 'cod fillet')).toBe(true)
   })
