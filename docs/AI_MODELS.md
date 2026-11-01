@@ -18,6 +18,19 @@ After a model promotion or an accepted prompt change merges, re-record the golde
 
 **Every run costs real money**, except `--dry-run`, which prints the call count and an estimate. A real run needs `ANTHROPIC_API_KEY` in `.env`. The eval never runs in CI.
 
+### Budget
+
+`--max-usd` caps one run; a monthly budget caps the month (HON-1572). Before a real run, `pnpm ai-eval` sums the `**Total cost:**` line of every report in `scripts/model-bench/results/` whose filename date is in the current month, and adds this run's estimate.
+
+- **The budget** is `AI_EVAL_MONTHLY_USD` in `.env`, default `40`. The owner's API budget of 200 USD a month is shared with the production app.
+- **Over the budget,** the run prints the month's spend, this run's estimate and the budget, and exits 1 before any API call.
+- **At 75% of the budget,** it prints a warning line and runs.
+- **`--allow-over-budget`** runs anyway and prints the same line, so the override shows in the terminal log. An unattended worker never passes it: it files the run as a Todo follow-up instead (`.claude/skills/plan-issue/ai-eval.md` → **Budget gate:**).
+- **`--dry-run`** prints the month's spend and the budget beside its estimate.
+- A report with no `**Total cost:**` line is skipped with a warning.
+
+Known limit: the gate reads the reports in this working tree. A report in another worktree that has not merged is not counted, so the gate undercounts on a busy day. It still stops a loop of re-runs.
+
 ## Check the current configuration
 
 A comparison (below) says which of two models is better. `--check` asks the absolute question: does the configuration we ship pass? It runs one model per task against the same cases and scorers, holds each metric to a fixed gate, and exits 1 when any gate fails.
@@ -133,16 +146,17 @@ Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) me
 
 ### Flags
 
-| Flag          | Default                                                | Meaning                                                                              |
-| ------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `--baseline`  | required                                               | The model in production today, or `golden` (see A prompt change)                     |
-| `--candidate` | required                                               | The model you want to switch to                                                      |
-| `--task`      | `plan,recipe,imagine,review,tips,cook-question,adjust` | Comma-separated subset of tasks                                                      |
-| `--runs`      | `3`                                                    | Times each case runs per model                                                       |
-| `--max-usd`   | `10`                                                   | Stop, and mark the report partial, once measured spend passes this                   |
-| `--dry-run`   | off                                                    | Print the call count and an estimated cost. No API calls, no key needed              |
-| `--judge`     | off                                                    | Also export imagine, tips and cook-question pairs for judging in Claude Code (below) |
-| `--judge-api` | off                                                    | Judge those pairs with `claude-opus-5-5` through the API key instead                 |
+| Flag                  | Default                                                | Meaning                                                                                  |
+| --------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `--baseline`          | required                                               | The model in production today, or `golden` (see A prompt change)                         |
+| `--candidate`         | required                                               | The model you want to switch to                                                          |
+| `--task`              | `plan,recipe,imagine,review,tips,cook-question,adjust` | Comma-separated subset of tasks                                                          |
+| `--runs`              | `3`                                                    | Times each case runs per model                                                           |
+| `--max-usd`           | `10`                                                   | Stop, and mark the report partial, once measured spend passes this                       |
+| `--allow-over-budget` | off                                                    | Run even when this month's spend plus the estimate passes `AI_EVAL_MONTHLY_USD` (Budget) |
+| `--dry-run`           | off                                                    | Print the call count and an estimated cost. No API calls, no key needed                  |
+| `--judge`             | off                                                    | Also export imagine, tips and cook-question pairs for judging in Claude Code (below)     |
+| `--judge-api`         | off                                                    | Judge those pairs with `claude-opus-5-5` through the API key instead                     |
 
 `pnpm ai-eval --import-verdicts <stem>.judge-verdicts.json` is the second half of `--judge`; see below.
 

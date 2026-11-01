@@ -29,7 +29,7 @@ async function stock(
   }
 }
 
-/** The household's pantry as `ingredientId → quantity`; a missing key is a deleted row. */
+/** The household's pantry as `ingredientId → quantity`; a missing key is no row. */
 async function pantry(householdId: string) {
   const rows = await prisma.pantryItem.findMany({ where: { householdId } })
   return Object.fromEntries(rows.map((row) => [row.ingredientId, row.quantity]))
@@ -348,13 +348,14 @@ describe('updateEntry: pantry deduction', () => {
     expect(await pantry(birch.id)).toEqual({ 'ing-beef': 1000, 'ing-apple': 100 })
   })
 
-  it('removes the rows the deduction emptied or overshot, and unquantified rows it used', async () => {
+  it('marks the rows the deduction emptied or overshot ran out, and keeps a cupboard row it used', async () => {
     const { alder } = await world()
+    // Every fixture ingredient is a spice, so a cupboard item.
     await stock(alder.id, { 'ing-beef': 100, 'ing-apple': 50, 'ing-salt': null })
 
     await update(complete, alder.id)
 
-    expect(await pantry(alder.id)).toEqual({})
+    expect(await pantry(alder.id)).toEqual({ 'ing-beef': 0, 'ing-apple': 0, 'ing-salt': null })
   })
 
   it('charges the incoming meal on a swap-and-complete, at the household size', async () => {

@@ -235,14 +235,13 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
     const shown = await servings.getByText(/servings?$/).textContent()
     await servings.getByRole('button', { name: 'More servings' }).click()
     await expect(servings.getByText(/servings?$/)).not.toHaveText(shown ?? '')
-    const taken = (await servings.getByText(/servings?$/).textContent())!.split(' ')[0]
     await picker.getByRole('button', { name: 'Save' }).click()
     await expect(picker).toHaveCount(0)
 
     // The leftovers' meal is the fridge card's name, and its line names the
-    // source's slot and servings, and "planned".
+    // source's day.
     await expect(card.getByRole('heading', { name: meal!.name })).toBeVisible()
-    await expect(card).toContainText(new RegExp(`at dinner · ${taken} servings · planned`))
+    await expect(card).toContainText(/Leftovers from \w+day/)
     // The dinner cooks for the leftovers too (HON-1395's display). Its ⋯ is
     // named by the meal alone, which tells it from the fridge card.
     const dinnerMenu = page.getByRole('button', {
@@ -250,7 +249,7 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
       exact: true,
     })
     const dinner = page.locator('[data-slot="card"]').filter({ has: dinnerMenu })
-    await expect(dinner).toContainText(`${taken} for dinner:`)
+    await expect(dinner).toContainText(/servings · leftovers for \w+day/)
 
     // The smoke household does not plan lunch, and the action still plans it.
     const mealHeadings = page.getByRole('heading', { name: meal!.name })

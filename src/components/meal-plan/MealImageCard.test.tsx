@@ -48,19 +48,15 @@ describe('MealImageCard', () => {
     expect(screen.getByText('Content')).toBeInTheDocument()
   })
 
-  // HON-749: nothing the user taps sits on the opaque image.
-  it('ends the image before a trailing action column', () => {
+  // HON-1562: a box that ended before the action column cut the plate's sides
+  // on a phone, so the image runs under the menu to the card's right edge.
+  it('runs the image under a trailing action column to the card edge', () => {
     renderCard({ imageStatus: 'ready', imageUrl: URL, imageHue: 264 }, undefined, true)
 
     const wrapper = screen.getByTestId('meal-card-image')
-    expect(wrapper).toHaveClass(
-      'right-12',
-      'left-1/2',
-      '@md/meal-image:left-3/8',
-      'mask-r-from-80%',
-    )
+    expect(wrapper).toHaveClass('right-0', 'left-1/2', '@md/meal-image:left-3/8')
     expect(wrapper).toHaveClass('mask-l-from-90%', 'bg-card', 'isolate')
-    expect(wrapper).not.toHaveClass('right-0', 'w-9/20', '@md/meal-image:w-5/8')
+    expect(wrapper).not.toHaveClass('right-12', 'mask-r-from-80%', 'w-9/20')
   })
 
   // HON-927: the image is bounded by the head, so the full-width rows below
@@ -110,11 +106,11 @@ describe('MealImageCard', () => {
       expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 485px, 62vw')
     })
 
-    it('describes the planner side image, which ends before the action column', () => {
+    it('describes the planner side image, which runs under the action column', () => {
       renderCard(ready, undefined, true)
       expect(screen.getByRole('img')).toHaveAttribute(
         'sizes',
-        '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
+        '(min-width: 768px) 485px, (min-width: 480px) 62vw, 50vw',
       )
     })
 

@@ -107,6 +107,72 @@ it('changes nothing on a second run', async () => {
   expect(await mergedState()).toEqual(MERGED)
 })
 
+// The path a real household takes: it already holds coconut milk, so the unique keys
+// on (householdId, ingredientId) and (mealId, ingredientId) force a merge (HON-1569).
+it('merges a pantry item and a meal component that already exist on coconut milk', async () => {
+  await ingredient('g-tinned', 'tinned coconut milk')
+  await ingredient('g-coconut', 'coconut milk')
+  const birch = await prisma.household.create({ data: { id: 'birch', name: 'Birch' } })
+  await prisma.pantryItem.create({
+    data: {
+      householdId: birch.id,
+      ingredientId: 'g-tinned',
+      quantity: 2,
+      isStaple: true,
+      expiresAt: new Date('2027-03-01T00:00:00Z'),
+    },
+  })
+  await prisma.pantryItem.create({
+    data: {
+      householdId: birch.id,
+      ingredientId: 'g-coconut',
+      quantity: 3,
+      isStaple: false,
+      expiresAt: new Date('2027-01-01T00:00:00Z'),
+    },
+  })
+  await prisma.meal.create({
+    data: {
+      id: 'curry',
+      name: 'Curry',
+      components: {
+        create: [
+          { ingredientId: 'g-tinned', quantityPerServing: 80 },
+          { ingredientId: 'g-coconut', quantityPerServing: 20 },
+        ],
+      },
+    },
+  })
+
+  await runMigration()
+
+  expect(
+    await prisma.pantryItem.findMany({
+      select: {
+        householdId: true,
+        ingredientId: true,
+        quantity: true,
+        isStaple: true,
+        expiresAt: true,
+      },
+    }),
+  ).toEqual([
+    {
+      householdId: 'birch',
+      ingredientId: 'g-coconut',
+      quantity: 5,
+      isStaple: true,
+      expiresAt: new Date('2027-01-01T00:00:00Z'),
+    },
+  ])
+  expect(
+    await prisma.mealComponent.findMany({
+      select: { mealId: true, ingredientId: true, quantityPerServing: true },
+    }),
+  ).toEqual([{ mealId: 'curry', ingredientId: 'g-coconut', quantityPerServing: 100 }])
+  expect(await prisma.ingredient.count({ where: { id: 'g-tinned' } })).toBe(0)
+})
+
 // A database that holds only the old comprehensive-seed row: left in place, it
 // would shadow the alias to coconut milk.
 it('deletes an unused tinned coconut milk row when there is no coconut milk row', async () => {

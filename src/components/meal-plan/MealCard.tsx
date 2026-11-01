@@ -401,8 +401,8 @@ export function MealCard({
     onOpen: () => setIsDetailModalOpen(true),
   })
 
-  // The menu sits at the right end of the first row; the image ends before
-  // it and the title wraps before the image (HON-749).
+  // The menu sits at the right end of the first row, over the image's empty
+  // tint (HON-1562), and the title wraps before the image (HON-749).
   const hasTrailingActions = !isReadOnly
 
   if (!meal) {

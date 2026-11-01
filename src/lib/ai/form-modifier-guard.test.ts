@@ -43,7 +43,7 @@ describe('missingForms', () => {
   it('names the form the row lacks, with canned read as tinned', () => {
     expect(missingForms('canned chopped tomatoes', tomato)).toEqual(['tinned'])
     expect(missingForms('frozen peas', row('ing-pea', 'pea', 1))).toEqual(['frozen'])
-    expect(missingForms('roasted garlic', row('ing-garlic', 'garlic', 1))).toEqual(['roasted'])
+    expect(missingForms('smoked garlic', row('ing-garlic', 'garlic', 1))).toEqual(['smoked'])
   })
 
   // HON-1554: Estonian form words, checked against both of the row's names
@@ -148,7 +148,7 @@ describe('guardFormMatch', () => {
     const garlic = row('ing-garlic', 'garlic', 1)
     const direct = [row('ing-garlic', 'garlic', 0.5)]
 
-    expect(guardFormMatch(['roasted'], 'garlic', [garlic], [direct])).toEqual({
+    expect(guardFormMatch(['smoked'], 'garlic', [garlic], [direct])).toEqual({
       action: 'flag',
       alternatives: [garlic],
     })

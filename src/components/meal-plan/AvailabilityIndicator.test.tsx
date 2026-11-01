@@ -41,7 +41,7 @@ describe('AvailabilityIndicator', () => {
 
   it.each([
     ['en', 'Have all ingredients'],
-    ['et', 'Kõik koostisosad olemas'],
+    ['et', 'Kõik olemas'],
   ] as const)('says the household has everything when ready (%s)', (locale, text) => {
     renderIndicator(locale, 0)
     expect(screen.getByText(text)).toBeInTheDocument()

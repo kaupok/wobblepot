@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 
 import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndicator'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
+import { MealBadgeRow } from './MealBadgeRow'
 import { type MealImageFields, mealImageTitleWidth } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
 import { MyRecipeIcon } from './MyRecipeIcon'
@@ -138,8 +139,10 @@ export function MealCardBase({
           on the planner card, so a meal says when it fits and what it is
           before its name. The prep time ends the row at its right edge
           (HON-1352): a `surface` badge, the page background on the tint,
-          because the time is a fact about cooking, not the meal's own colour. */}
-      <div className="flex flex-wrap items-center gap-1.5">
+          because the time is a fact about cooking, not the meal's own colour.
+          One line: a row that does not fit overlaps and cuts its labels short,
+          rather than dropping the time onto a line of its own (HON-1575). */}
+      <MealBadgeRow>
         {mealTypes === 'show' &&
           meal.suitableFor?.map((type) => <MealTypeBadge key={type} mealType={type} />)}
         {meal.kidFriendly && <KidFriendlyBadge compact />}
@@ -152,7 +155,7 @@ export function MealCardBase({
             {tDetail('timeMinutes', { count: meal.timeMinutes })}
           </Badge>
         )}
-      </div>
+      </MealBadgeRow>
 
       {/* 1. Meal name — Section, not Title: the page or dialog title above owns
           that size (HON-784). Wraps before the image on a tinted

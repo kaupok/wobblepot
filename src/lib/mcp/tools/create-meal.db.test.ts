@@ -164,6 +164,39 @@ describe('create_meal', () => {
     expect(await mealCount(household.id)).toBe(0)
   })
 
+  // HON-1566: roasting is a cooking step, so "roasted peanuts" is the bare row, sure
+  it('saves the recipe with "roasted peanuts" matched to the peanuts row', async () => {
+    const household = await world()
+    await prisma.ingredient.create({
+      data: {
+        id: 'ing-peanuts',
+        name: 'peanuts',
+        householdId: household.id,
+        category: 'legume',
+        defaultUnit: 'g',
+        calories: 567,
+        protein: 26,
+        carbs: 16,
+        fat: 49,
+      },
+    })
+
+    const result = await call(household, {
+      ...LASAGNE,
+      ingredients: [...LASAGNE.ingredients, { name: 'roasted peanuts', quantity: 50, unit: 'g' }],
+    })
+
+    expect(result.outcome).toBe('created')
+    expect(result.unmatched).toEqual([])
+    expect(result.check).toEqual([])
+    expect(result.ingredients).toContainEqual({
+      name: 'peanuts',
+      quantity: 50,
+      unit: 'g',
+      note: null,
+    })
+  })
+
   it('saves nothing when one match is unsure, and returns it with the alternatives', async () => {
     const household = await world()
 

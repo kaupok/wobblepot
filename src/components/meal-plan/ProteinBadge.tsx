@@ -12,5 +12,10 @@ import { useEnumLabel } from '@/lib/i18n/enum-label'
 export function ProteinBadge({ proteinType }: { proteinType?: string | null }) {
   const label = useEnumLabel('ProteinType', proteinType ?? 'none')
   if (!proteinType || proteinType === 'none') return null
-  return <Badge variant="outline">{label}</Badge>
+  // The span lets a `MealBadgeRow` cut the label short (HON-1575).
+  return (
+    <Badge variant="outline">
+      <span className="truncate">{label}</span>
+    </Badge>
+  )
 }

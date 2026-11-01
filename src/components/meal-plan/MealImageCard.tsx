@@ -31,13 +31,12 @@ export interface MealImageFields {
  * over-estimate costs a few KB, an under-estimate a soft image.
  *
  * The widest side card is a planner row at the 1152px page width: 1fr beside
- * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px; with trailing
- * actions it ends `right-12` (48px) earlier, 437px. Below `md` the card is
- * `100vw - 2rem` at most, so 5/8 of it stays under 62vw. The trailing box
- * starts at half a card narrower than 448px, which every card is below a 480px
- * viewport: `(100vw - 2rem) / 2 - 48px`, under 37vw. From 480px the card may
- * be wide enough for the 3/8 start (`@md/meal-image`), up to 54vw, so that
- * band keeps 55vw (HON-1096).
+ * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px, with trailing
+ * actions too. Below `md` the card is `100vw - 2rem` at most, so 5/8 of it
+ * stays under 62vw. The trailing box starts at half a card narrower than
+ * 448px, which every card is below a 480px viewport: `(100vw - 2rem) / 2`,
+ * under 50vw. From 480px the card may be wide enough for the 3/8 start
+ * (`@md/meal-image`), so that band keeps 62vw (HON-1096).
  *
  * The bottom image spans the card. Two callsites: the alternatives grid (three
  * ~272px columns from `md` in the `max-w-4xl` add-meal dialog) and the recipe
@@ -51,23 +50,20 @@ export interface MealImageFields {
  */
 const SIZES = {
   default: '(min-width: 768px) 485px, 62vw',
-  trailingActions: '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
+  trailingActions: '(min-width: 768px) 485px, (min-width: 480px) 62vw, 50vw',
   bottom: '(min-width: 768px) 364px, 100vw',
 } as const
 
 /**
- * Where the image sits in the card. Nothing the user reads or taps sits on its
- * opaque part (docs/DESIGN.md → Imagery → Cards).
+ * Where the image sits in the card. Nothing the user reads sits on its opaque
+ * part (docs/DESIGN.md → Imagery → Cards).
  *
- * With trailing actions the image ends before the action column instead of
- * fading under it (HON-749). A right-end fade was the alternative, but a phone
- * card has room for the title, the actions and the plate between them, not for
- * an image underneath the actions as well. On a narrow card the box starts at
- * half the card, where the title column ends (HON-1096). `right-12` (48px) is
- * the column — the `icon-sm` menu, which holds Note as well as Swap and Clear —
- * plus the card's `px-4`. The inset box can be narrower than 3:2, so
- * `object-cover` may crop the plate at its right edge; the short right fade
- * keeps that from reading as a hard edge.
+ * With trailing actions the image still runs to the card's right edge, under
+ * the ⋯ menu (HON-1562). The plate sits in the middle of the illustration, so
+ * the menu's top-right corner is empty tint. Ending the box before the menu
+ * column (HON-749) made it narrower than the plate on a phone, and
+ * `object-cover` cut the plate's sides. On a narrow card the box starts at
+ * half the card, where the title column ends (HON-1096).
  *
  * The narrow/wide switch is a container query on the card (`@md`, 448px), not
  * a viewport breakpoint: the alternatives grid puts ~250px cards on a desktop
@@ -75,7 +71,7 @@ const SIZES = {
  */
 const IMAGE_BOX = {
   default: 'right-0 w-9/20 @md/meal-image:w-5/8',
-  trailingActions: 'right-12 left-1/2 @md/meal-image:left-3/8 mask-r-from-80%',
+  trailingActions: 'right-0 left-1/2 @md/meal-image:left-3/8',
 } as const
 
 /**
@@ -109,10 +105,11 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * slip's vertical inset. The wrapper hugs the slip, so only the slip takes
  * clicks.
  *
- * The right edge is the image box's: `right-13` keeps the ⋯ column
- * (`right-12`) clear however tall the slip grows, with 4px so the slip's
- * tilted corner doesn't touch it, and `right-4` is the card's `px-4` on a card
- * without actions.
+ * The right edge keeps clear of the ⋯ column: `right-13` is the column
+ * (`right-12`, the `icon-sm` menu plus the card's `px-4`) with 4px so the
+ * slip's tilted corner doesn't touch it, however tall the slip grows, and
+ * `right-4` is the card's `px-4` on a card without actions. The image runs
+ * under the column (HON-1562); the slip does not.
  *
  * The left edge is the width cap (`max-w-note-slip*` in globals.css). It is not
  * the trailing image box's: that starts at half a narrow card, under the
@@ -232,8 +229,8 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
   layout?: MealImageLayout
   /**
    * The card has an action column at the right end of its first row (the
-   * planner card's menu, beside the slot badge). The image then ends before
-   * it. `side` only.
+   * planner card's menu, beside the slot badge). The image still runs under
+   * it to the card edge (HON-1562); the overlay keeps clear of it. `side` only.
    */
   trailingActions?: boolean
   /**
