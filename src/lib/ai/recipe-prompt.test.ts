@@ -49,6 +49,16 @@ describe('buildRecipeExtractionPrompt', () => {
     expect(prompt).toContain('drained canned beans')
   })
 
+  it('keeps a dried bean or chickpea weight as written, with "dried" in the name (HON-1549)', () => {
+    const prompt = buildRecipeExtractionPrompt('test', 4)
+    expect(prompt).toContain(
+      'Dried beans and chickpeas are sold dry: keep "dried" in the name and the weight as written, even when the recipe soaks or cooks them. Do not convert a dried weight to drained or canned',
+    )
+    expect(prompt).toContain(
+      'Example: "250 g dried chickpeas, soaked overnight" → quantity: 250, unit: "g", name: "dried chickpeas"',
+    )
+  })
+
   it('weighs a drained can of beans or chickpeas at 240g, converts drained canned lentils to dry, and keeps an undrained can at 400g (HON-1489)', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain(

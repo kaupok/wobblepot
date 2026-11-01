@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   catalogueFormName,
+  foodNameOf,
   guardFormMatch,
   hasForm,
   isOtherCutFillet,
@@ -52,6 +53,21 @@ describe('hasForm and catalogueFormName', () => {
 
   it('writes canned as tinned', () => {
     expect(catalogueFormName('canned crushed tomatoes')).toBe('tinned crushed tomatoes')
+  })
+})
+
+describe('foodNameOf', () => {
+  it.each([
+    ['chickpeas, drained', 'chickpeas'],
+    ['chickpeas, dried', 'dried chickpeas'],
+    ['kidney beans, dried and soaked overnight', 'dried kidney beans'],
+    ['dried chickpeas, soaked', 'dried chickpeas'],
+    ['peas, frozen', 'frozen peas'],
+    ['chicken thighs, boneless', 'boneless chicken thighs'],
+    ['salmon, fillet', 'salmon'],
+    ['red onion', 'red onion'],
+  ])('reads "%s" as "%s"', (name, food) => {
+    expect(foodNameOf(name)).toBe(food)
   })
 })
 

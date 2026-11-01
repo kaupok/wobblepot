@@ -43,6 +43,24 @@ export function hasForm(name: string, forms: string[]): boolean {
   return forms.some((form) => named.has(form))
 }
 
+/**
+ * The food part of a recipe name. A note after a comma is preparation, so
+ * "chickpeas, drained" is "chickpeas", and "drained" cannot pull it to `dried
+ * chickpeas`. A form word in the note still names the product, so it moves to the
+ * front: "chickpeas, dried" is "dried chickpeas" (HON-1549). "fillet" stays a
+ * suffix, so it is not moved. No catalogue name holds a comma.
+ */
+export function foodNameOf(name: string): string {
+  const [head = '', ...notes] = name.split(',')
+  if (notes.length === 0) return name
+  const headForms = formsOf(head)
+  const noteForms = wordsOf(notes.join(' ')).filter((word) => {
+    const form = FORM_OF_WORD[word]
+    return form !== undefined && !word.startsWith('fillet') && !headForms.has(form)
+  })
+  return [...new Set(noteForms), head.trim()].join(' ')
+}
+
 /** The recipe name in the catalogue's words, which say "tinned" for "canned". */
 export function catalogueFormName(directName: string): string {
   return wordsOf(directName)
