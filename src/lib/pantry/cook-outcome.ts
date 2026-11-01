@@ -44,9 +44,11 @@ export function isCupboardIngredient(
     case 'condiment':
     case 'fat':
       return true
-    // Fresh and frozen peas and green beans are `legume-vegetable`.
+    // Fresh and frozen peas and green beans are `legume-vegetable`; tofu,
+    // tempeh and edamame are `soy` and keep only days. `soy product` (dried
+    // tofu skin) stays cupboard.
     case 'legume':
-      return subcategory !== 'legume-vegetable'
+      return subcategory !== 'legume-vegetable' && subcategory !== 'soy'
     case 'carb':
       return subcategory !== null && CUPBOARD_CARB_SUBCATEGORIES.has(subcategory)
     default:

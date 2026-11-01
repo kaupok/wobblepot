@@ -39,6 +39,7 @@ describe('defaultCookOutcome', () => {
       ['tahini', 'condiment', 'spread'],
       ['olive oil', 'fat', 'oil'],
       ['chickpeas', 'legume', 'bean'],
+      ['dried tofu skin', 'legume', 'soy product'],
       ['quinoa', 'carb', 'grain'],
       ['rice', 'carb', 'rice'],
       ['flour', 'carb', 'flour'],
@@ -51,6 +52,7 @@ describe('defaultCookOutcome', () => {
     it.each([
       ['fresh dill', 'spice', 'herb'],
       ['frozen peas', 'legume', 'legume-vegetable'],
+      ['tofu', 'legume', 'soy'],
       ['bread', 'carb', 'bread'],
       ['a potato', 'carb', 'root'],
       ['a carb with no subcategory', 'carb', null],
