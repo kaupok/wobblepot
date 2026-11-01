@@ -10,7 +10,7 @@ export type IngredientTranslationEt = {
 
 export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   // ============================================================
-  // PROTEIN (257)
+  // PROTEIN (245)
   // ============================================================
   { en: 'anchovies', et: 'anšoovised' },
   { en: 'andouille sausage', et: 'andouille vorst' },
@@ -258,7 +258,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (169)
+  // VEGETABLE (161)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -496,7 +496,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'watermelon', et: 'arbuus' },
   { en: 'yuzu', et: 'yuzu' },
   // ============================================================
-  // CARB (146)
+  // CARB (165)
   // ============================================================
   { en: '00 flour', et: '00-jahu' },
   { en: 'plain flour', et: 'nisujahu' },
@@ -520,7 +520,9 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'brown rice', et: 'täisterariis' },
   { en: 'bucatini', et: 'bucatini' },
   { en: 'buckwheat', et: 'tatar' },
+  { en: 'buckwheat flakes', et: 'tatrahelbed' },
   { en: 'buckwheat flour', et: 'tatrajahu' },
+  { en: 'buckwheat kama', et: 'tatrakama' },
   { en: 'bulgur', et: 'bulgur' },
   { en: 'cake flour', et: 'koogijahu' },
   { en: 'carnaroli rice', et: 'carnaroli riis' },
@@ -553,6 +555,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'flour tortilla', et: 'nisutortilla' },
   { en: 'focaccia', et: 'focaccia' },
   { en: 'fonio', et: 'fonio' },
+  { en: 'four-grain flakes', et: 'neljaviljahelbed' },
   { en: 'freekeh', et: 'friike' },
   { en: 'fufu flour', et: 'fufu jahu' },
   { en: 'fusilli', et: 'fusilli' },
@@ -567,6 +570,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'jaggery', et: 'jaggery' },
   { en: 'Japanese rice', et: 'Jaapani riis' },
   { en: 'jasmine rice', et: 'jasmiiniriis' },
+  { en: 'kama', et: 'kama' },
   { en: 'kamut', et: 'kamut' },
   { en: 'khinkali', et: 'hinkaalid' },
   { en: 'lasagne sheets', et: 'lasanjelehed' },
@@ -578,6 +582,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'masa harina', et: 'masa harina' },
   { en: 'matzo', et: 'matsa' },
   { en: 'millet', et: 'hirss' },
+  { en: 'millet flakes', et: 'hirsihelbed' },
   { en: 'muesli', et: 'müsli' },
   { en: 'naan bread', et: 'naan-leib' },
   { en: 'noodles', et: 'nuudlid' },
@@ -621,6 +626,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'risotto rice', et: 'risotoriis' },
   { en: 'rolled oats', et: 'kaerahelbed' },
   { en: 'rye bread', et: 'rukkileib' },
+  { en: 'rye flakes', et: 'rukkihelbed' },
   { en: 'rye flour', et: 'rukkijahu' },
   { en: 'self-raising flour', et: 'kerkejahu' },
   { en: 'semolina', et: 'manna' },
@@ -631,6 +637,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'sourdough bread', et: 'juuretiseleib' },
   { en: 'spaghetti', et: 'spagetid' },
   { en: 'spelt', et: 'speltanisu' },
+  { en: 'spelt flour', et: 'speltajahu' },
   { en: 'spring roll wrappers', et: 'kevadrullilehed' },
   { en: 'steel cut oats', et: 'kaeratangud' },
   { en: 'sticky rice', et: 'kleepriis' },
@@ -657,7 +664,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wonton wrappers', et: 'wontonilehed' },
   { en: 'yam', et: 'jamss' },
   // ============================================================
-  // DAIRY (77)
+  // DAIRY (75)
   // ============================================================
   { en: 'aged cheddar', et: 'laagerdunud cheddar' },
   { en: 'aged gouda', et: 'laagerdunud gouda' },
@@ -735,7 +742,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'whipped cream', et: 'vahustatud koor' },
   { en: 'whipping cream', et: 'vahukoor' },
   // ============================================================
-  // FAT (56)
+  // FAT (54)
   // ============================================================
   { en: 'almond butter', et: 'mandlivõi' },
   { en: 'almonds', et: 'mandlid' },
@@ -792,7 +799,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'walnut oil', et: 'kreeka pähkli õli' },
   { en: 'walnuts', et: 'kreeka pähklid' },
   // ============================================================
-  // LEGUME (37)
+  // LEGUME (34)
   // ============================================================
   { en: 'adzuki beans', et: 'aduki oad' },
   { en: 'beluga lentils', et: 'beluga läätsed' },
@@ -829,7 +836,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'white beans', et: 'valged oad' },
   { en: 'yellow lentils', et: 'kollased läätsed' },
   // ============================================================
-  // SPICE (138)
+  // SPICE (136)
   // ============================================================
   { en: 'active dry yeast', et: 'kuivpärm' },
   { en: 'ajwain seeds', et: 'ajwaini seemned' },
@@ -968,7 +975,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'white pepper', et: 'valge pipar' },
   { en: 'za atar', et: "za'atar" },
   // ============================================================
-  // CONDIMENT (171)
+  // CONDIMENT (169)
   // ============================================================
   { en: 'achiote paste', et: 'achiote pasta' },
   { en: 'adobo sauce', et: 'adobo kaste' },
@@ -991,6 +998,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'branston pickle', et: 'Branston pikkel' },
   { en: 'brown sugar', et: 'pruun suhkur' },
   { en: 'buffalo sauce', et: 'buffalo kaste' },
+  { en: 'cacao nibs', et: 'toorkakao tuumad' },
   { en: 'calvados', et: 'calvados' },
   { en: 'capers', et: 'kapparid' },
   { en: 'capers in brine', et: 'kapparid soolvees' },
