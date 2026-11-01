@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { loadFormCoverIds } from '@/lib/ingredient-form-cover-ids'
+import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project, with no mocks. The
@@ -22,7 +22,7 @@ async function globalId(name: string): Promise<string> {
   return row.id
 }
 
-describe('loadFormCoverIds', () => {
+describe('loadCoverIds', () => {
   it('maps the global form rows to their global bare row', async () => {
     const basil = await globalId('basil')
     const driedBasil = await globalId('dried basil')
@@ -30,11 +30,24 @@ describe('loadFormCoverIds', () => {
     const coriander = await globalId('coriander')
     const freshCoriander = await globalId('fresh coriander')
 
-    const covers = await loadFormCoverIds()
+    const covers = await loadCoverIds()
 
     expect(covers.get(driedBasil)).toBe(basil)
     expect(covers.get(freshBasil)).toBe(basil)
     expect(covers.get(freshCoriander)).toBe(coriander)
+  })
+
+  it('maps the global bare row to its global fresh row only (HON-1567)', async () => {
+    const basil = await globalId('basil')
+    await globalId('dried basil')
+    const freshBasil = await globalId('fresh basil')
+    const coriander = await globalId('coriander')
+    const freshCoriander = await globalId('fresh coriander')
+
+    const covers = await loadCoverIds()
+
+    expect(covers.get(basil)).toBe(freshBasil)
+    expect(covers.get(coriander)).toBe(freshCoriander)
   })
 
   it('does not cover a legume or a ground spice', async () => {
@@ -43,7 +56,7 @@ describe('loadFormCoverIds', () => {
     const driedChickpeas = await globalId('dried chickpeas')
     const groundCoriander = await globalId('ground coriander')
 
-    const covers = await loadFormCoverIds()
+    const covers = await loadCoverIds()
 
     expect(covers.has(driedChickpeas)).toBe(false)
     expect(covers.has(groundCoriander)).toBe(false)
@@ -56,6 +69,6 @@ describe('loadFormCoverIds', () => {
       data: { name: 'dried basil', householdId: household.id, ...NUTRITION },
     })
 
-    expect((await loadFormCoverIds()).has(own.id)).toBe(false)
+    expect((await loadCoverIds()).has(own.id)).toBe(false)
   })
 })

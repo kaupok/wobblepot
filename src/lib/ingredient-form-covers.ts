@@ -3,8 +3,10 @@
  *
  * Recipes name the bare row (`basil`), which holds the form shops sell most.
  * A household names the form of the jar or bunch it has (`dried basil`). For
- * the shopping list, either form at home satisfies a bare line; a `fresh basil`
- * or `dried basil` line is satisfied only by its own row.
+ * the shopping list, either form at home satisfies a bare line. A bare row
+ * that holds the fresh plant also satisfies its `fresh` line
+ * (`FRESH_BARE_HERBS`, HON-1567); a `dried basil` line is satisfied only by
+ * its own row.
  *
  * Legumes are left out on purpose: dried chickpeas do not cover a tin
  * (HON-1549). So are `ground coriander` and `ground ginger`, which are
@@ -38,3 +40,32 @@ export const INGREDIENT_FORM_COVERS: Readonly<Record<string, string>> = {
   'fresh oregano': 'oregano',
   'dried oregano': 'oregano',
 }
+
+/**
+ * The bare herb rows that hold fresh values (docs/PROJECT_SPEC.md), so a bare
+ * row in the pantry is the fresh plant. `oregano`, `tarragon`, `sage` and
+ * `marjoram` hold dried values and are left out: a jar of oregano is not fresh
+ * oregano. A herb missing here only loses the bare → fresh cover.
+ */
+export const FRESH_BARE_HERBS: ReadonlySet<string> = new Set([
+  'basil',
+  'parsley',
+  'coriander',
+  'dill',
+  'mint',
+  'chives',
+  'thyme',
+  'rosemary',
+])
+
+/**
+ * Every cover as `[pantry row, recipe row it covers]`: each form row covers
+ * its bare row, and each fresh bare row covers its `fresh` row (HON-1567). A
+ * row covers one other row only, so `dried basil` never reaches `fresh basil`.
+ */
+export const INGREDIENT_COVER_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ...Object.entries(INGREDIENT_FORM_COVERS),
+  ...Object.entries(INGREDIENT_FORM_COVERS)
+    .filter(([form, bare]) => form.startsWith('fresh ') && FRESH_BARE_HERBS.has(bare))
+    .map(([fresh, bare]) => [bare, fresh] as const),
+]
