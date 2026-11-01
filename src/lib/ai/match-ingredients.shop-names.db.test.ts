@@ -294,3 +294,37 @@ describe('matchIngredients on a dried, tinned or berry name', () => {
     expect(result).toMatchObject({ type: 'matched', ingredient: { name } })
   })
 })
+
+// HON-1551: an Estonian shop sells the concentrate as "tomatipüree", so the word
+// finds `tomato paste` ("tomatipasta"), not passata ("passeeritud tomatid"), which
+// is half its strength.
+describe('matchIngredients on an Estonian tomato product', () => {
+  const names = ['tomato paste', 'passata', 'tomato', 'crushed tomatoes', 'tinned chopped tomatoes']
+
+  it.each([
+    ['tomatipüree', 'tomato paste'],
+    ['tomatipasta', 'tomato paste'],
+    ['passeeritud tomatid', 'passata'],
+    ['tomati passata', 'passata'],
+  ])('matches the Estonian "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['tomato puree', 'passata'],
+    ['tomato purée', 'passata'],
+  ])('matches the English "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+    // An older migration inserts `tomato puree`, and the merge on an empty
+    // database skips it for want of a passata row; production has merged it
+    await prisma.ingredient.deleteMany({ where: { name: 'tomato puree', householdId: null } })
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+})

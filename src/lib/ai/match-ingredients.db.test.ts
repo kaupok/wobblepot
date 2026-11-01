@@ -376,6 +376,7 @@ describe('matchIngredients on the name of a merged row', () => {
   it.each([
     ['oats', 'rolled oats'],
     ['chicken fillet', 'chicken breast'],
+    ['tomato puree', 'passata'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     // Every seeded row, so the removed row's neighbours compete as they do in production.
     const rows = [
@@ -385,6 +386,9 @@ describe('matchIngredients on the name of a merged row', () => {
       ...importCoverageIngredients,
     ]
     expect(rows.some((row) => row.name === recipeName)).toBe(false)
+    // An older migration inserts the removed row, and the merge on an empty
+    // database skips it for want of a survivor; production has merged it
+    await prisma.ingredient.deleteMany({ where: { name: recipeName, householdId: null } })
     // A migration may have inserted a row already
     await prisma.ingredient.createMany({
       data: rows.map((row) => ({
