@@ -189,7 +189,7 @@ export async function matchIngredients(
     }
 
     // "basil leaves" is `basil`, not the `bay leaves` its letters find (HON-1559)
-    const leafPlant = await matchLeafPlant(normalizedName, matches[0], searchOptions)
+    const leafPlant = await matchLeafPlant(normalizedName, matches, searchOptions)
     if (leafPlant) ({ matches, formGuard } = leafPlant)
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold

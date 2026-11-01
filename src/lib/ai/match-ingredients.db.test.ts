@@ -171,6 +171,30 @@ describe('matchIngredients on a recipe name with a form word', () => {
     })
   })
 
+  it('asks for review of "lemon leaves" when its direct search finds the fruit row', async () => {
+    await seedCatalogue()
+    await prisma.ingredient.create({
+      data: {
+        id: 'ing-lemon',
+        name: 'lemon',
+        category: 'fruit',
+        defaultUnit: 'piece',
+        calories: 29,
+        protein: 1,
+        carbs: 9,
+        fat: 0,
+      },
+    })
+
+    const result = await matchOne('lemon leaves')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'lemon' },
+      lowConfidence: true,
+    })
+  })
+
   it.each([
     ['frozen peas', 'peas', false],
     ['dried oregano', 'dried oregano', false],
