@@ -77,10 +77,14 @@ export const Roomy: Story = {
     for (const label of canvasElement.querySelectorAll<HTMLElement>('.truncate')) {
       await expect(label.scrollWidth).toBe(label.clientWidth)
     }
-    const fish = within(canvasElement)
-      .getByText('Fish')
-      .closest<HTMLElement>('[data-slot="badge"]')!
-    await expect(fish.getBoundingClientRect().width).toBeLessThan(48)
+    // Its label plus the badge's 10px padding and 1px border a side, not
+    // stretched to the overlap's floor. Measured, not a fixed width, so the
+    // CI font's metrics cannot move it.
+    const label = within(canvasElement).getByText('Fish')
+    const fish = label.closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(Math.round(fish.getBoundingClientRect().width)).toBe(
+      Math.round(label.getBoundingClientRect().width + 22),
+    )
   },
 }
 
