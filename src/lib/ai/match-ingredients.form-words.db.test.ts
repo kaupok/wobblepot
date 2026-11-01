@@ -126,28 +126,40 @@ describe('applyFormGuard on an Estonian form name the synonyms do not cover', ()
   })
 })
 
-// HON-1571: one recipe line per form word, so a misspelt or dropped word fails here.
-// An Estonian word is not stripped before the search, so some lines only reach the
-// right row unsure.
-const FORM_WORD_LINES: [word: string, recipeName: string, rowName: string, sure: boolean][] = [
-  ['canned', 'canned chopped tomatoes', 'tinned chopped tomatoes', true],
-  ['tinned', 'tinned chopped tomatoes', 'tinned chopped tomatoes', true],
-  ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
-  ['purgi', 'purgi kookospiim', 'coconut milk', false],
-  ['frozen', 'frozen peas', 'frozen peas', true],
-  ['külmutatud', 'külmutatud herned', 'frozen peas', true],
-  ['dried', 'dried lentils', 'lentils', true],
-  ['kuivatatud', 'kuivatatud aprikoosid', 'dried apricots', true],
-  ['smoked', 'smoked salmon', 'smoked salmon', true],
+// HON-1571: one recipe line per form word. Each line here goes red when its word
+// leaves FORM_WORDS: the bare row wins without the guard, or the form row is lost.
+type FormWordLine = [word: string, recipeName: string, rowName: string, sure: boolean]
+
+const FORM_WORD_LINES: FormWordLine[] = [
+  ['canned', 'canned peaches', 'peach', false],
+  ['tinned', 'tinned tomatoes', 'tinned plum tomatoes', true],
+  ['frozen', 'frozen cauliflower', 'cauliflower', false],
+  ['dried', 'dried tomatoes', 'tomato', false],
+  ['smoked', 'smoked cheese', 'cheese', false],
   ['suitsutatud', 'suitsutatud lõhe', 'smoked salmon', true],
-  ['pickled', 'pickled ginger', 'pickled ginger', true],
-  ['marineeritud', 'marineeritud ingver', 'pickled ginger', true],
-  ['ground', 'ground black pepper', 'black pepper', true],
-  ['jahvatatud', 'jahvatatud kaneel', 'cinnamon', false],
+  ['pickled', 'pickled onions', 'onion', false],
+  ['ground', 'ground walnuts', 'walnuts', false],
   ['boneless', 'boneless chicken thighs', 'chicken thigh fillet', true],
   ['deboned', 'deboned chicken thighs', 'chicken thigh fillet', true],
-  ['fillet', 'salmon fillet', 'salmon fillet', true],
+  // "fillet" in the row name carries the boneless form
+  ['fillet', 'boneless salmon', 'salmon fillet', true],
+]
+
+// A word with no matcher effect yet: each line gives the same row and flag without
+// the word in FORM_WORDS, so it pins today's result, not the word. An Estonian form
+// word is not stripped before the search, so its line is unsure from a weak score,
+// not from the guard; a line with no form row lands sure on the exact row name. The
+// catalogue writes an Estonian fillet as one compound ("lõhefilee"), which no
+// boneless stem reads (HON-1579). A row is singular, so only "fillet" reads it.
+const PINNED_LINES: FormWordLine[] = [
+  ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
+  ['purgi', 'purgi kookospiim', 'coconut milk', false],
+  ['külmutatud', 'külmutatud herned', 'frozen peas', true],
+  ['kuivatatud', 'kuivatatud aprikoosid', 'dried apricots', true],
+  ['marineeritud', 'marineeritud ingver', 'pickled ginger', true],
+  ['jahvatatud', 'jahvatatud kaneel', 'cinnamon', false],
   ['fillets', 'chicken thigh fillets', 'chicken thigh fillet', true],
+  // COOKING_MODIFIERS strips "kondita"; without that the line is unsure
   ['kondita', 'kondita seakarbonaad', 'pork chop', true],
   ['filee', 'lõhe filee', 'salmon fillet', false],
 ]
@@ -156,10 +168,12 @@ describe('matchIngredients on each form word', () => {
   it('has a recipe line for every form word', () => {
     const words = Object.values(FORM_WORDS).flatMap((form) => [...form.en, ...form.et])
 
-    expect(FORM_WORD_LINES.map(([word]) => word).sort()).toEqual(words.sort())
+    const lineWords = [...FORM_WORD_LINES, ...PINNED_LINES].map(([word]) => word)
+
+    expect(lineWords.sort()).toEqual(words.sort())
   })
 
-  it.each(FORM_WORD_LINES)(
+  it.each([...FORM_WORD_LINES, ...PINNED_LINES])(
     '%s: matches "%s" to %s, sure: %s',
     async (_, recipeName, rowName, sure) => {
       await seedCatalogue()
