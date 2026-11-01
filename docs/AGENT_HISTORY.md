@@ -88,7 +88,7 @@ Entries are grouped by the `CLAUDE.md` section they belong to, or by the `.claud
 
 `scripts/steering-eval.sh` (HON-1345, docs/STEERING_EVAL.md) found these rules live: without them, an agent breaks them more often.
 
-- **`.claude/rules/auth.md` → Client, `authClient.signIn.email()` with callbacks.** Verified live on Sonnet 5.5 (low) and Fable 5.1, 2026-11-01; dead on Opus 5.5. Every run used `authClient`, with or without the rule. The rule changes only the callback form: without it, Sonnet passed 0 of 3 and Fable 2 of 3 runs; with it, 1 of 3 and 3 of 3.
+- **CLAUDE.md → Architecture Overview, Server Components by default.** Verified live on Opus 5.5 and Fable 5.1, 2026-11-01; dead on Sonnet 5.5 (low). Without the rule, one run of three on each of the two models put `"use client"` on a card that calls only next-intl hooks, which run on the server; with it, 3 of 3 passed.
 
 ## Steering file size
 
