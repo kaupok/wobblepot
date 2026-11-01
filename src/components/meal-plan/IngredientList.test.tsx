@@ -13,7 +13,6 @@ import etMessages from '../../../messages/et.json'
 import { IngredientList } from './IngredientList'
 
 const chicken = createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 150 })
-const lemon = createMealComponent({ ingredientId: 'lemon', quantityPerServing: 0.5 })
 const garlic = createMealComponent({ ingredientId: 'garlic', quantityPerServing: 1 })
 const oil = createMealComponent({ ingredientId: 'olive-oil', quantityPerServing: 60 })
 
@@ -98,15 +97,26 @@ describe('IngredientList piece quantities', () => {
     expect(row('Garlic').textContent).toBe('1 pcGarlic')
   })
 
-  it('leaves piece quantities fractional, with the label', () => {
-    renderInLocale(<IngredientList components={[lemon]} servings={3} />)
-    expect(row('Lemon').textContent).toBe('1.5 pcLemon')
-  })
-
-  it('renders the Estonian label with a decimal comma', () => {
-    renderInLocale(<IngredientList components={[lemon]} servings={3} />, 'et')
-    expect(row('Lemon').textContent).toBe('1,5 tkLemon')
-  })
+  // A half takes the glyph, as the gram-stored hint does, so one list never
+  // shows "0.5 pc" next to "½ pc"; any other fraction keeps the locale decimal
+  // and no "~", because a stored count is exact (HON-1521).
+  it.each([
+    [0.5, 1, 'en', '½\u00a0pcLemon'],
+    [0.5, 1, 'et', '½\u00a0tkLemon'],
+    [0.5, 3, 'en', '1½\u00a0pcLemon'],
+    [0.5, 3, 'et', '1½\u00a0tkLemon'],
+    [1, 2, 'en', '2\u00a0pcLemon'],
+    [1, 2, 'et', '2\u00a0tkLemon'],
+    [0.3, 1, 'en', '0.3\u00a0pcLemon'],
+    [0.3, 1, 'et', '0,3\u00a0tkLemon'],
+  ] as const)(
+    'renders %d per serving × %d in %s as %j',
+    (quantityPerServing, servings, locale, expected) => {
+      const comp = createMealComponent({ ingredientId: 'lemon', quantityPerServing })
+      renderInLocale(<IngredientList components={[comp]} servings={servings} />, locale)
+      expect(row('Lemon').textContent).toBe(expected)
+    },
+  )
 
   it('labels a staple piece count', () => {
     renderInLocale(

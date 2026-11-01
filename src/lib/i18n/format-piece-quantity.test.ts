@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatPieceFraction,
+  formatPieceStoredCount,
   type PieceDisplayIngredient,
   recipePieceCount,
   shoppingPieceCount,
@@ -122,6 +123,25 @@ describe('formatPieceFraction', () => {
     [{ pieces: 1.5, approximate: true }, 'et', '~1½'],
   ] as const)('formats %j in %s as %j', (count, locale, expected) => {
     expect(formatPieceFraction(count, locale)).toBe(expected)
+  })
+})
+
+describe('formatPieceStoredCount', () => {
+  it.each([
+    [0.5, 'en', '½'],
+    [0.5, 'et', '½'],
+    [1.5, 'en', '1½'],
+    [1.5, 'et', '1½'],
+    [2, 'en', '2'],
+    [0.3, 'en', '0.3'],
+    [0.3, 'et', '0,3'],
+    [1.5000000000000002, 'en', '1½'],
+    [0.33 * 1.5, 'en', '½'],
+    [0.33 * 4.5, 'et', '1½'],
+    [0.7, 'en', '0.7'],
+    [2.25, 'et', '2,3'],
+  ] as const)('formats %d in %s as %j', (count, locale, expected) => {
+    expect(formatPieceStoredCount(count, locale)).toBe(expected)
   })
 })
 

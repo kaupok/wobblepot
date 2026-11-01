@@ -6,8 +6,11 @@ import { useMemo } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
-import { formatPieceFraction, recipePieceCount } from '@/lib/i18n/format-piece-quantity'
+import {
+  formatPieceFraction,
+  formatPieceStoredCount,
+  recipePieceCount,
+} from '@/lib/i18n/format-piece-quantity'
 import { displayUnit, formatMeasure, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
@@ -81,7 +84,7 @@ interface IngredientListProps {
  *
  * For vague quantities, returns the phrase in the household's language
  * (e.g., "to taste" / "maitse järgi"). Piece counts carry `pieceLabel`
- * ("1.5 pc" / "1,5 tk", HON-956).
+ * ("1½ pc" / "0,3 tk", HON-956, HON-1521).
  *
  * A gram-stored vegetable under the piece rule shows a rounded piece count
  * first and keeps its grams as `grams`, so a cook who wants precision still
@@ -103,14 +106,10 @@ function formatQuantity(
   const unit = displayUnit(comp.ingredient)
 
   if (unit === 'piece') {
-    // Quantity is already in pieces. Locale-aware so `et` renders "1,5" not
-    // "1.5"; whole counts collapse to "3" and fractions pick up the locale
-    // decimal separator (maximumFractionDigits: 1 matches the prior rounding).
+    // Quantity is already in pieces. A half takes the glyph, as the gram-stored
+    // hint below does; other fractions keep the locale decimal ("0,3").
     return {
-      amount: withPieceUnit(
-        formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 }),
-        pieceLabel,
-      ),
+      amount: withPieceUnit(formatPieceStoredCount(totalQuantity, locale), pieceLabel),
       grams: null,
     }
   }

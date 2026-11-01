@@ -1,6 +1,6 @@
 import type { PieceDisplay } from '@/generated/prisma/enums'
 
-import { formatInteger } from './format-number'
+import { formatInteger, formatQuantity } from './format-number'
 import { displayUnit, formatShoppingQuantity, withPieceUnit } from './format-shopping-quantity'
 import type { Locale } from './locales'
 import type { VaguePhraseLabel } from './vague-phrase'
@@ -88,6 +88,24 @@ export function formatPieceFraction({ pieces, approximate }: RecipePieceCount, l
   const half = pieces - whole >= 0.5 ? '½' : ''
   const count = whole === 0 ? half : `${formatInteger(whole, locale)}${half}`
   return approximate ? `~${count}` : count
+}
+
+/**
+ * Format a piece-stored recipe count (a lemon stored as 0.5 pieces). An exact
+ * half takes the glyph, as the gram-stored hint does, so one list never shows
+ * "0.5 pc" next to "½ pc" (HON-1521): `½`, `1½`, including a count that
+ * rounds to a half at one digit. A whole count is `2`; any other fraction
+ * keeps the locale decimal with one digit, `0.3` / `0,3`, with no `~` because
+ * the stored count is exact.
+ */
+export function formatPieceStoredCount(count: number, locale: Locale): string {
+  // Decide on the count as it would print, so 0.33 × 1.5 servings (0.495)
+  // takes the glyph rather than printing "0.5"; this also absorbs float residue.
+  const halves = (Math.round(count * 10) / 10) * 2
+  if (Number.isInteger(halves) && halves % 2 === 1) {
+    return formatPieceFraction({ pieces: halves / 2, approximate: false }, locale)
+  }
+  return formatQuantity(count, locale, { maximumFractionDigits: 1 })
 }
 
 /**

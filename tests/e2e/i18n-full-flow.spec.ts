@@ -79,8 +79,15 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const
 
 // Mirror IngredientList's piece-quantity formatting (locale `et`, max 1 fraction
 // digit) so the predicted decimal string matches what the component renders.
-const fmtEtQty = (n: number) => new Intl.NumberFormat('et', { maximumFractionDigits: 1 }).format(n)
-// The cook view labels a piece count "1,5 tk" on a no-break space (HON-956);
+// A count that prints as a half renders the glyph ("1½ tk", HON-1521), so it
+// has no comma.
+const fmtEtQty = (n: number) => {
+  const halves = (Math.round(n * 10) / 10) * 2
+  return Number.isInteger(halves) && halves % 2 === 1
+    ? `${halves > 1 ? (halves - 1) / 2 : ''}½`
+    : new Intl.NumberFormat('et', { maximumFractionDigits: 1 }).format(n)
+}
+// The cook view labels a piece count "0,3 tk" on a no-break space (HON-956);
 // Playwright folds that into a regular space when it matches text.
 const fmtEtPieces = (n: number) => `${fmtEtQty(n)} tk`
 
@@ -248,7 +255,7 @@ test.describe(
       expect(
         commaTarget,
         `No seeded system meal has an Estonian name and a piece component whose quantity for ${householdServings} ` +
-          'serving(s) renders with a decimal comma (e.g. avocado 0.5 in prisma/seed-expansion.ts). ' +
+          'serving(s) renders with a decimal comma (e.g. lemon 0.33 in prisma/seed.ts; a half renders "½"). ' +
           'Check the seed data and the et meal translations.',
       ).toBeTruthy()
 
