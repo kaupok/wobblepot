@@ -127,7 +127,7 @@ A household has one plan, and the Today page (`/`) shows it as a timeline from t
 2. Later: from the first upcoming day with nothing planned, `FillDaysAction` offers to fill a number of days, calling the same route with `mode: 'fill-empty'`. Only empty slots are filled (`src/lib/ai/fill-plan.ts`)
 3. Review the days, optionally swap meals (see Meal Swap)
 4. Day by day: mark meals completed or skipped
-5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`). A meal logged on a past day, in the app or through the assistant, is saved with the marker set, so it is never charged
+5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`). A meal logged on a past day, in the app or through the assistant, is saved with the marker set, so it is never charged. A known amount that reaches 0 stays as "ran out". A "have some" row (no amount) goes to 0 when the cook names it used up; when the request names none, `defaultCookOutcome` (`src/lib/pantry/cook-outcome.ts`) keeps a cupboard item (spice, condiment, fat, dry legume, dry carb) and less than one piece, and runs out the rest. When unsure it says used up, because a skipped shopping line costs less than a short dinner (HON-1563)
 6. Any upcoming day: "+ Extra" adds a snack, a drink or another item outside the meals (see Pantry & Shopping List → Extras)
 
 Generation takes any start date, and `endDate` is exclusive. There is no week boundary and no plan per week; see Meal Plan Rules.

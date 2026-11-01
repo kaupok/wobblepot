@@ -15,8 +15,8 @@ import { prisma } from '@/lib/prisma'
  */
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
-// tracked"), `null` means "have some, amount unknown" (the deduction path
-// treats it as fully consumed), and a negative would render on /shopping as a
+// tracked"), `null` means "have some, amount unknown" (a cooked meal
+// leaves it or sets it to 0, HON-1563), and a negative would render on /shopping as a
 // real on-hand amount and inflate the shopping quantity: `computeShoppingList`
 // (src/lib/meal-planning/shopping-list.ts:279) and
 // `computeRollingWindowShoppingList` (:475) both net via

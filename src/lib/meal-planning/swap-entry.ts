@@ -2,6 +2,7 @@ import 'server-only'
 
 import type { Prisma } from '@/generated/prisma/client'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
+import { COOK_OUTCOME_INGREDIENT_SELECT } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -33,6 +34,7 @@ export function findSwapMeal(householdId: string, mealId: string) {
         select: {
           ingredientId: true,
           quantityPerServing: true,
+          ingredient: { select: COOK_OUTCOME_INGREDIENT_SELECT },
         },
       },
     },
