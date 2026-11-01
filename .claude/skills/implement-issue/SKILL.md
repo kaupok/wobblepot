@@ -21,7 +21,7 @@ This file states the goal, the gates and the context you cannot derive. How to r
 
 2. **Find the plan.** It is the issue comment that starts with `# Plan:`, posted by `/plan-issue`. Check that its issue ID is this one. With no plan, offer `/plan-issue HON-XX` or `--no-plan`. With `--no-plan`, the issue description is the plan; the gate in 1 still runs.
 
-3. **Claim it.** One `save_issue` call sets `state: "In Progress"` and `assignee: "me"`. When the issue is assigned to someone else, ask before reassigning. Do not touch the status again after this: Linear automation moves it once a PR exists.
+3. **Claim it.** One `save_issue` call sets `state: "In Progress"` and `assignee: "me"`. When the issue is assigned to someone else, ask before reassigning. Do not touch the status again after this (CLAUDE.md → Linear).
 
 4. **Be on the issue's branch.** In a worktree, the worktree's branch is the branch. In the main checkout, call `EnterWorktree` with `name: "hon-NN"` (the issue ID in lower case): the `WorktreeCreate` hook resolves it to the issue's branch, and the main checkout is shared with other sessions, so `guard-main-checkout` blocks a switch there. Only with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` switch in place, to Linear's `gitBranchName`.
 
@@ -29,9 +29,8 @@ CLAUDE.md is already loaded; do not re-read it. Read `docs/TYPOGRAPHY.md` only f
 
 ## Implementing
 
-Tell the user the branch, whether a plan was found, and the plan's steps. Then work the plan. Three things sit outside its step list, so a run that only walks the steps misses them:
+Tell the user the branch, whether a plan was found, and the plan's steps. Then work the plan. Two things sit outside its step list, and [Definition of done](#definition-of-done) adds the plan's `## Coupled callsites`, so a run that only walks the steps misses them:
 
-- **`## Coupled callsites`** is a sibling section of `## Implementation Steps`. Every entry bucketed **Mirror** is edited in this phase. `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing; leaving them for review is the failure that scan exists to prevent.
 - **A follow-up is an issue.** A step this issue needs but the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration) becomes a Linear issue before this skill ends, with the `save_issue` call in `/plan-issue` step 10: Queued or Todo, `blockedBy: ["HON-XX"]` when it needs this change on `main`, `addLabels: ["Follow-up"]`, first description line `Follow-up to HON-XX, filed by /implement-issue.`, no title prefix. A plan line still marked `to file:` is filed here too. Why: nobody reads a Done issue again, so a follow-up written only into the plan, a commit message or the summary is lost.
 - **Stories.** A change under `src/components/**` updates the colocated `.stories.tsx` (`.claude/rules/ui.md` → Storybook).
 

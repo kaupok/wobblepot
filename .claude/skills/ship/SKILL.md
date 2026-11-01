@@ -90,7 +90,7 @@ Find the first row that matches, top to bottom, and start there. **No issue yet 
 - **A stop becomes a question.** Where `/auto-implement` stops for a human (fix attempts used up, the CI-fix loop used up, `CI_TIMEOUT`, a stale review lock, the 6.7 hand-off), tell the user what blocks, the options and your recommendation. Do not write the 6.7 hand-off comments; the human is here.
 - **The thread is the spec.** A plan for a new issue records the decisions this thread made. Work done before `/ship` needs no plan comment; Phase 4 reviews it against the issue description you filed.
 - **Markers** use `[ship]` instead of `[auto-implement]`. The `[…:complete]` markers are for the orchestrator; leave them out.
-- **Waiting** follows 6.1: foreground chunks of `scripts/ci-settle.sh`, re-issued until terminal. No `ScheduleWakeup`, no Monitor.
+- **Waiting** follows 6.5: foreground chunks of `scripts/ci-settle.sh`, re-issued until terminal (CLAUDE.md → Working style).
 - **Merge** is 7.3: `WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash`, without `--delete-branch` in a worktree.
 
 ## Step 7: Report
