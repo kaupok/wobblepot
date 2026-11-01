@@ -60,6 +60,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
+import { budgetGate } from './budget'
 import { type Task, TASKS } from './case-schema'
 import { estimateCheck, estimateRun, type ModelEstimate } from './dry-run'
 import {
@@ -112,7 +113,8 @@ const USAGE = `Usage: pnpm ai-eval --baseline <model> --candidate <model> [--tas
        pnpm ai-eval --record [--force] [--model <model>] [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
        pnpm ai-eval --baseline ${GOLDEN} --candidate <model> [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
        pnpm ai-eval --import-verdicts <results/stem.judge-verdicts.json>
-       pnpm ai-eval --import-sample <sample file> --id <task>/<slug>`
+       pnpm ai-eval --import-sample <sample file> --id <task>/<slug>
+       A real run past the monthly budget (AI_EVAL_MONTHLY_USD) needs --allow-over-budget.`
 
 const VERDICTS_SUFFIX = '.judge-verdicts.json'
 
@@ -147,6 +149,7 @@ function parseCli(argv: string[]) {
         runs: { type: 'string' },
         'dry-run': { type: 'boolean', default: false },
         'max-usd': { type: 'string' },
+        'allow-over-budget': { type: 'boolean', default: false },
         judge: { type: 'boolean', default: false },
         'judge-api': { type: 'boolean', default: false },
         'import-verdicts': { type: 'string' },
@@ -249,7 +252,13 @@ function parseCli(argv: string[]) {
     )
   }
 
-  const common = { tasks: tasks as Task[], runs, maxUsd, dryRun: values['dry-run'] }
+  const common = {
+    tasks: tasks as Task[],
+    runs,
+    maxUsd,
+    dryRun: values['dry-run'],
+    allowOverBudget: values['allow-over-budget'],
+  }
   if (checkMode) {
     return {
       mode: 'check' as const,
@@ -404,6 +413,21 @@ function buildModelFactory(
   return (id) => anthropic(id)
 }
 
+/** The monthly budget (`budget.ts`), read from the reports in the results dir. */
+function gate(
+  estimateUsd: number,
+  args: { dryRun: boolean; allowOverBudget: boolean },
+  deps: MainDeps,
+  io: {
+    log: (line: string) => void
+    error: (line: string) => void
+    env: Record<string, string | undefined>
+  },
+): boolean {
+  const now = (deps.today ?? (() => new Date()))()
+  return budgetGate({ estimateUsd, ...args }, { ...io, dir: deps.outDir ?? RESULTS_DIR, now })
+}
+
 function gitShortHead(): string {
   return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
 }
@@ -424,6 +448,7 @@ async function check(
     runs: number
     maxUsd: number
     dryRun: boolean
+    allowOverBudget: boolean
   },
   deps: MainDeps,
   io: {
@@ -444,8 +469,8 @@ async function check(
     return 1
   }
 
+  const estimate = estimateCheck({ cases, runs: args.runs, modelFor })
   if (args.dryRun) {
-    const estimate = estimateCheck({ cases, runs: args.runs, modelFor })
     log(`Dry run — no API calls made.`)
     log(`Checking ${subject}:`)
     for (const task of args.tasks) log(`  ${task}: ${modelFor(task)}`)
@@ -462,8 +487,9 @@ async function check(
       const dir = relative(process.cwd(), deps.goldenDir ?? GOLDEN_DIR)
       log(`Would record: ${args.tasks.map((t) => join(dir, `${t}.json`)).join(', ')}`)
     }
-    return 0
+    return gate(estimate.totalCostUsd, args, deps, io) ? 0 : 1
   }
+  if (!gate(estimate.totalCostUsd, args, deps, io)) return 1
 
   const modelFactory = buildModelFactory(deps, env, error)
   if (!modelFactory) return 1
@@ -669,13 +695,13 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     }
   }
 
+  const estimate = estimateRun({
+    cases,
+    runs: runs,
+    models: fromGolden ? [args.candidate] : [args.baseline, args.candidate],
+    judge: args.judge === 'api',
+  })
   if (args.dryRun) {
-    const estimate = estimateRun({
-      cases,
-      runs: runs,
-      models: fromGolden ? [args.candidate] : [args.baseline, args.candidate],
-      judge: args.judge === 'api',
-    })
     log(`Dry run — no API calls made.`)
     if (golden) {
       log(`Baseline: golden, read from file — no calls.`)
@@ -703,8 +729,9 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
         `The estimate is above --max-usd ${args.maxUsd}: a real run would likely stop early and write a partial report. Raise --max-usd, or lower --runs.`,
       )
     }
-    return 0
+    return gate(estimate.totalCostUsd, args, deps, { log, error, env }) ? 0 : 1
   }
+  if (!gate(estimate.totalCostUsd, args, deps, { log, error, env })) return 1
 
   const modelFactory = buildModelFactory(deps, env, error)
   if (!modelFactory) return 1
