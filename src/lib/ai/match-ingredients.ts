@@ -8,15 +8,7 @@ import {
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
 
-import {
-  catalogueFormName,
-  foodNameOf,
-  type FormGuardResult,
-  guardFormMatch,
-  hasForm,
-  isOtherCutFillet,
-  removedForms,
-} from './form-modifier-guard'
+import { applyFormGuard, foodNameOf, isOtherCutFillet } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
 import { matchLeafPlant } from './leaf-plant-match'
 import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
@@ -147,7 +139,6 @@ export async function matchIngredients(
     // Phase 1: Search semantic candidates (direct + plural, alias, normalized + plural,
     // alias-normalized). A candidate wins only on a higher score.
     let matches: Awaited<ReturnType<typeof fuzzySearchIngredient>> = []
-    let winningCandidate: string | undefined
     const matchesByCandidate = new Map<string, typeof matches>()
     for (const candidate of candidateNames) {
       const pluralName = pluralNames.get(candidate)
@@ -158,42 +149,12 @@ export async function matchIngredients(
       matchesByCandidate.set(candidate, candidateMatches)
       if (candidateMatches[0] && candidateMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
         matches = candidateMatches
-        winningCandidate = candidate
       }
-    }
-
-    // A normalized name that dropped a form word must not beat a form row the
-    // direct name finds: "canned chopped tomatoes" is not fresh `tomato` (HON-1313).
-    // The catalogue says "tinned", so the direct name is also searched that way.
-    let formGuard: FormGuardResult = { action: 'keep' }
-    const forms = removedForms(directName, normalizedName)
-    const normalizedWon =
-      winningCandidate !== aliasName &&
-      (winningCandidate === normalizedName || winningCandidate === normalizedAliasName)
-    if (
-      forms.length > 0 &&
-      normalizedWon &&
-      matches[0] &&
-      !hasForm(matches[0].matchedName, forms)
-    ) {
-      const directSide = [matchesByCandidate.get(directName) ?? []]
-      if (aliasName !== directName) directSide.push(matchesByCandidate.get(aliasName) ?? [])
-      const formName = catalogueFormName(directName)
-      if (!candidateNames.has(formName)) {
-        directSide.push(await fuzzySearchIngredient(formName, searchOptions))
-      }
-      // The catalogue names a boneless cut "<cut> fillet" (HON-1480)
-      const filletName = `${normalizedName} fillet`
-      if (forms.includes('boneless') && !candidateNames.has(filletName)) {
-        directSide.push(await fuzzySearchIngredient(filletName, searchOptions))
-      }
-      formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
-      if (formGuard.action === 'use') matches = formGuard.matches
     }
 
     // "basil leaves" is `basil`, not the `bay leaves` its letters find (HON-1559)
     const leafPlant = await matchLeafPlant(normalizedName, matches, searchOptions)
-    if (leafPlant) ({ matches, formGuard } = leafPlant)
+    if (leafPlant) matches = leafPlant.matches
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
     // This prevents "trout fillet" → "fillet" → "cod fillet" from overriding
@@ -216,6 +177,21 @@ export async function matchIngredients(
         }
       }
     }
+
+    // A form word the winning row lacks must not save sure as the bare row (HON-1554)
+    const guarded = await applyFormGuard({
+      directName,
+      aliasName,
+      normalizedName,
+      normalizedAliasName,
+      matches,
+      matchesByCandidate,
+      search: (name) => fuzzySearchIngredient(name, searchOptions),
+    })
+    // A leaf name on a fruit or other non-leaf plant row goes to review: "fig leaves"
+    const formGuard =
+      guarded.formGuard.action === 'keep' && leafPlant ? leafPlant.formGuard : guarded.formGuard
+    matches = guarded.matches
 
     if (matches.length > 0 && matches[0]) {
       const match = matches[0]
@@ -245,7 +221,7 @@ export async function matchIngredients(
       // A curated synonym is the same food under another name, so its row is not
       // judged by its words: "canned diced tomatoes" is "tinned chopped tomatoes"
       // (HON-1099). The row may be found through its translation, so its own name
-      // counts too: "chia seemned" finds `chia seeds` as "chia-seemned" (HON-1545).
+      // counts too (HON-1545).
       const synonymTarget = findSynonym(directName) ?? findSynonym(normalizedName)
       const isSynonymMatch =
         synonymTarget !== undefined &&
@@ -259,10 +235,11 @@ export async function matchIngredients(
       // `butter`. The normalized name drops a modifier, so "fresh basil" stays a sure `basil`
       // (HON-1546). A curated synonym is the same food, so it stays sure.
       if (!isSynonymMatch && isBareLastWord(normalizedName, match.matchedName)) lowConfidence = true
-      // A form row the guard chose is judged in the catalogue's words, "tinned" for "canned"
-      const nounCheckName = formGuard.action === 'use' ? catalogueFormName(directName) : directName
+      // A form row the guard chose already names the form and the food, so its words are
+      // not judged again: "suitsutatud paprika" is `smoked paprika` as "suitsupaprikapulber"
+      const isFormRow = formGuard.action === 'use'
       if (!lowConfidence && !isSynonymMatch && directName.includes(' ')) {
-        if (primaryNounsDiffer(nounCheckName, match.matchedName)) lowConfidence = true
+        if (!isFormRow && primaryNounsDiffer(directName, match.matchedName)) lowConfidence = true
 
         if (isOtherCutFillet(normalizedName, match.matchedName)) lowConfidence = true
       }

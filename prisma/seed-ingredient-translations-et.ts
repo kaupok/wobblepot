@@ -689,7 +689,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'cheddar', et: 'cheddar' },
   { en: 'cheese', et: 'juust' },
   { en: 'clotted cream', et: 'clotted cream' },
-  { en: 'tinned coconut milk', et: 'kookospiim purgis' },
+  { en: 'coconut milk drink', et: 'kookosjook' },
   { en: 'colby', et: 'colby' },
   { en: 'colby jack cheese', et: 'colby jack juust' },
   { en: 'comté', et: 'comté' },

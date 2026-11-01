@@ -15,14 +15,18 @@ const COMMON_SUFFIXES = new Set([
   'rib',
 ])
 
+// The marks `synonymKey` reads as a space, so "chia seemned" and "chia-seemned" have
+// the same words (HON-1547).
+const WORD_BREAK = /[\s‐–-]+/
+
 /**
  * Whether each name has a word the other lacks: "trout fillet" against `cod fillet`.
  * Singular words on both sides, so "bay leaf" is not judged against "bay leaves" as a
  * different noun (HON-1267).
  */
 export function primaryNounsDiffer(extractedName: string, matchedName: string): boolean {
-  const extractedWords = new Set(extractedName.split(/\s+/).map(singularize))
-  const matchedWords = new Set(matchedName.toLowerCase().split(/\s+/).map(singularize))
+  const extractedWords = new Set(extractedName.split(WORD_BREAK).map(singularize))
+  const matchedWords = new Set(matchedName.toLowerCase().split(WORD_BREAK).map(singularize))
   // A word that never singularizes still matches its singular: "chive" and "chives" (HON-1559)
   const sameWord = (a: string, b: string) => a === b || pluralize(a) === b || pluralize(b) === a
   const lacks = (words: Set<string>, w: string) => ![...words].some((other) => sameWord(other, w))

@@ -18,6 +18,12 @@ describe('primaryNounsDiffer', () => {
   it('does not flag a plural of the same name', () => {
     expect(primaryNounsDiffer('bay leaf', 'Bay Leaves')).toBe(false)
   })
+
+  it('reads a hyphen as a word break on both sides', () => {
+    expect(primaryNounsDiffer('chia seemned', 'chia-seemned')).toBe(false)
+    expect(primaryNounsDiffer('black eyed beans', 'Black-eyed beans')).toBe(false)
+    expect(primaryNounsDiffer('self-raising flour', 'self raising flour')).toBe(false)
+  })
 })
 
 describe('isBareLastWord', () => {

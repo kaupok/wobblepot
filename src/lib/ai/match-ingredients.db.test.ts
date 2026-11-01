@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { IngredientCategory } from '@/generated/prisma/enums'
 import { prisma } from '@/lib/prisma'
 
 import { baseIngredients } from '../../../prisma/seed'
@@ -13,13 +14,18 @@ import { extracted } from './match-ingredients.fixtures'
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks:
 // the rows are written with Prisma and found by the real trigram search (HON-1267).
 
-function ingredient(id: string, name: string, householdId: string | null = null) {
+function ingredient(
+  id: string,
+  name: string,
+  householdId: string | null = null,
+  category: IngredientCategory = 'vegetable',
+) {
   return prisma.ingredient.create({
     data: {
       id,
       name,
       householdId,
-      category: 'vegetable',
+      category,
       defaultUnit: 'piece',
       calories: 50,
       protein: 1,
@@ -104,15 +110,15 @@ describe('matchIngredients on a recipe name with a form word', () => {
     await ingredient('ing-tinned-chopped', 'tinned chopped tomatoes')
     await ingredient('ing-tinned-plum', 'tinned plum tomatoes')
     await ingredient('ing-peas', 'peas')
-    await ingredient('ing-oregano', 'oregano')
-    await ingredient('ing-basil', 'basil')
-    await ingredient('ing-thyme', 'thyme')
-    await ingredient('ing-chives', 'chives')
-    await ingredient('ing-dried-chives', 'dried chives')
-    await ingredient('ing-bay-leaves', 'bay leaves')
-    await ingredient('ing-lime', 'lime')
-    await ingredient('ing-kaffir-lime-leaves', 'kaffir lime leaves')
-    await ingredient('ing-cumin', 'cumin')
+    await ingredient('ing-oregano', 'oregano', null, 'spice')
+    await ingredient('ing-basil', 'basil', null, 'spice')
+    await ingredient('ing-thyme', 'thyme', null, 'spice')
+    await ingredient('ing-chives', 'chives', null, 'spice')
+    await ingredient('ing-dried-chives', 'dried chives', null, 'spice')
+    await ingredient('ing-bay-leaves', 'bay leaves', null, 'spice')
+    await ingredient('ing-lime', 'lime', null, 'fruit')
+    await ingredient('ing-kaffir-lime-leaves', 'kaffir lime leaves', null, 'spice')
+    await ingredient('ing-cumin', 'cumin', null, 'spice')
   }
 
   it('matches "canned chopped tomatoes" to "tinned chopped tomatoes", sure', async () => {
@@ -151,18 +157,7 @@ describe('matchIngredients on a recipe name with a form word', () => {
 
   it('asks for review of "fig leaves" when only the fruit row exists', async () => {
     await seedCatalogue()
-    await prisma.ingredient.create({
-      data: {
-        id: 'ing-fig',
-        name: 'fig',
-        category: 'fruit',
-        defaultUnit: 'piece',
-        calories: 74,
-        protein: 1,
-        carbs: 19,
-        fat: 0,
-      },
-    })
+    await ingredient('ing-fig', 'fig', null, 'fruit')
 
     const result = await matchOne('fig leaves')
 
@@ -175,18 +170,7 @@ describe('matchIngredients on a recipe name with a form word', () => {
 
   it('asks for review of "lemon leaves" when its direct search finds the fruit row', async () => {
     await seedCatalogue()
-    await prisma.ingredient.create({
-      data: {
-        id: 'ing-lemon',
-        name: 'lemon',
-        category: 'fruit',
-        defaultUnit: 'piece',
-        calories: 29,
-        protein: 1,
-        carbs: 9,
-        fat: 0,
-      },
-    })
+    await ingredient('ing-lemon', 'lemon', null, 'fruit')
 
     const result = await matchOne('lemon leaves')
 
@@ -198,7 +182,8 @@ describe('matchIngredients on a recipe name with a form word', () => {
   })
 
   it.each([
-    ['frozen peas', 'peas', false],
+    // No frozen peas row, so the fresh row needs review (HON-1554)
+    ['frozen peas', 'peas', true],
     ['dried oregano', 'dried oregano', false],
     ['dried basil', 'dried basil', false],
     ['dried chive', 'dried chives', false],
@@ -439,6 +424,8 @@ describe('matchIngredients on the name of a merged row', () => {
     ['oats', 'rolled oats'],
     ['chicken fillet', 'chicken breast'],
     ['tomato puree', 'passata'],
+    ['tinned coconut milk', 'coconut milk'],
+    ['canned coconut milk', 'coconut milk'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     // Every seeded row, so the removed row's neighbours compete as they do in production.
     const rows = [
@@ -463,6 +450,53 @@ describe('matchIngredients on the name of a merged row', () => {
     })
 
     expect(await matchOne(recipeName)).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: false,
+    })
+  })
+})
+
+// HON-1552: "kookospiim" is the tin and "kookosjook" the carton drink.
+describe('matchIngredients on an Estonian coconut milk name', () => {
+  it.each([
+    ['kookospiim', 'coconut milk'],
+    ['kookosjook', 'coconut milk drink'],
+  ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
+    // Every seeded row with its seeded et name, so a mixed-up seed turns this test red.
+    const rows = [
+      ...baseIngredients,
+      ...comprehensiveIngredients,
+      ...newIngredients,
+      ...importCoverageIngredients,
+    ]
+    await prisma.ingredient.createMany({
+      data: rows.map((row) => ({
+        name: row.name,
+        category: row.category,
+        defaultUnit: row.defaultUnit,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      })),
+      skipDuplicates: true,
+    })
+    const saved = await prisma.ingredient.findMany({
+      where: { householdId: null },
+      select: { id: true, name: true },
+    })
+    const idOf = new Map(saved.map((row) => [row.name, row.id]))
+    await prisma.ingredientTranslation.createMany({
+      data: ingredientTranslationsEt
+        .filter((row) => idOf.has(row.en))
+        .map((row) => ({ ingredientId: idOf.get(row.en)!, locale: 'et', name: row.et })),
+      skipDuplicates: true,
+    })
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({
       type: 'matched',
       ingredient: { name: rowName },
       lowConfidence: false,

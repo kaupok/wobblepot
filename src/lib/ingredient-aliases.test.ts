@@ -213,6 +213,13 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('tomatipüree')).toBe('tomato paste')
   })
 
+  // HON-1552: tinned coconut milk merged into coconut milk.
+  it('resolves tinned coconut milk to coconut milk', () => {
+    expect(applyIngredientAlias('tinned coconut milk')).toBe('coconut milk')
+    expect(applyIngredientAlias('Canned Coconut Milk')).toBe('coconut milk')
+    expect(applyIngredientAlias('coconut milk canned')).toBe('coconut milk')
+  })
+
   // HON-1099: a pasted American recipe still matches the renamed pool row.
   it('resolves the American name of a renamed pool row to its British name', () => {
     expect(applyIngredientAlias('cornstarch')).toBe('cornflour')
