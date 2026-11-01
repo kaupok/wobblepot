@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 
-import { formatDayLong } from '@/lib/i18n/format-dates'
+import { formatDayLong, weekdayKey } from '@/lib/i18n/format-dates'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
@@ -48,24 +48,17 @@ export function useFridgeItemText() {
 
 /**
  * The card's line under a leftover's name, for a leftover the assistant
- * planned (HON-1395): its source's day and slot, its servings, and "planned"
- * while the source is not cooked yet: "Tuesday at dinner · 2.5 servings ·
- * planned". Null for a leftover picked in the dialog, which takes no servings.
+ * planned (HON-1395): the day its source is cooked, "Leftovers from Tuesday".
+ * The message selects on the weekday, so Estonian declines the day's name
+ * ("Jäägid teisipäevast"). Null for a leftover picked in the dialog, which
+ * takes no servings.
  */
 export function useLeftoverSourceText() {
   const t = useTranslations('meal-plan.fridge')
-  const locale = useLocale() as Locale
 
   return (item: FridgeItemShown): string | null => {
     if (item.servings === null || !item.sourceMealType || !item.sourceDate) return null
-    const day = formatDayLong(parseLocalDate(item.sourceDate), locale)
-    const text = t('leftoverSource', {
-      day: day.charAt(0).toLocaleUpperCase(locale) + day.slice(1),
-      mealType: item.sourceMealType,
-      count: item.servings,
-      servings: formatQuantity(item.servings, locale),
-    })
-    return item.sourceState === 'planned' ? `${text} · ${t('sourcePlanned')}` : text
+    return t('leftoverSource', { weekday: weekdayKey(parseLocalDate(item.sourceDate)) })
   }
 }
 

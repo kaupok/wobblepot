@@ -68,22 +68,35 @@ function renderCard(
 describe('MealCard with a leftover lunch (HON-1395)', () => {
   it('shows the total and the lunch part', () => {
     renderCard()
-    expect(screen.getByText('5.5 servings · 2.5 for lunch: Tuesday')).toBeInTheDocument()
+    expect(screen.getByText('5.5 servings · leftovers for Tuesday')).toBeInTheDocument()
   })
 
-  it('shows them in Estonian, with a decimal comma', () => {
+  it('shows them in Estonian, with a decimal comma and the day declined', () => {
     renderCard({}, 'et')
-    expect(screen.getByText('5,5 portsjonit · 2,5 lõunaks: teisipäev')).toBeInTheDocument()
+    expect(screen.getByText('5,5 portsjonit · jäägid teisipäevaks')).toBeInTheDocument()
   })
 
-  it('joins two lunches with a separator', () => {
+  it("declines Sunday, the message's other branch, in Estonian", () => {
+    renderCard({ leftoversFor: [{ ...tuesdayLunch, date: '2026-10-18' }] }, 'et')
+    expect(screen.getByText('5,5 portsjonit · jäägid pühapäevaks')).toBeInTheDocument()
+  })
+
+  it('joins two days with a separator', () => {
     renderCard({
       cookServings: 7.5,
       leftoversFor: [tuesdayLunch, { date: '2026-10-14', mealType: 'lunch', servings: 2 }],
     })
     expect(
-      screen.getByText('7.5 servings · 2.5 for lunch: Tuesday · 2 for lunch: Wednesday'),
+      screen.getByText('7.5 servings · leftovers for Tuesday · leftovers for Wednesday'),
     ).toBeInTheDocument()
+  })
+
+  it('names a day once when two meals on it take leftovers', () => {
+    renderCard({
+      cookServings: 7.5,
+      leftoversFor: [tuesdayLunch, { ...tuesdayLunch, mealType: 'dinner', servings: 2 }],
+    })
+    expect(screen.getByText('7.5 servings · leftovers for Tuesday')).toBeInTheDocument()
   })
 
   it('shows no servings badge with no leftover lunch and no override, as before', () => {
@@ -98,7 +111,7 @@ describe('MealCard with a leftover lunch (HON-1395)', () => {
 
   it('shows the stored count of a completed dinner', () => {
     renderCard({ status: 'completed', cookServings: 6 })
-    expect(screen.getByText('6 servings · 2.5 for lunch: Tuesday')).toBeInTheDocument()
+    expect(screen.getByText('6 servings · leftovers for Tuesday')).toBeInTheDocument()
   })
 
   it('shows no lunch part on a skipped dinner, which cooks nothing', () => {
@@ -132,7 +145,7 @@ describe('MealCard with a leftover lunch (HON-1395)', () => {
       await within(dialog).findByRole('button', { name: 'Serves 4. Click to edit.' }),
     ).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    expect(await screen.findByText('6.5 servings · 2.5 for lunch: Tuesday')).toBeInTheDocument()
+    expect(await screen.findByText('6.5 servings · leftovers for Tuesday')).toBeInTheDocument()
   })
 })
 

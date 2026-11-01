@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 
-import { formatDayLong } from '@/lib/i18n/format-dates'
+import { formatDayLong, weekdayKey } from '@/lib/i18n/format-dates'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
@@ -37,18 +37,37 @@ export function getShownCookServings(
 }
 
 /**
- * The words for a recipe entry's leftover lunches, one part each and joined
- * with " · ": "2.5 for lunch: Tuesday" (HON-1395). Separators, not
- * prepositions, so Estonian needs no declension (docs/LOCALIZATION.md).
+ * The words for a recipe entry's leftover lunches, one part per day and
+ * joined with " · ": "leftovers for Tuesday" (HON-1395). The servings total
+ * before it already counts them. The message selects on the weekday, so
+ * Estonian declines the day's name ("jäägid teisipäevaks").
  */
 export function useLeftoverLunchText() {
+  const t = useTranslations('meal-plan.card')
+
+  return (leftovers: readonly SharedLeftover[]): string => {
+    const parts = leftovers.map((leftover) =>
+      t('leftoverFor', { weekday: weekdayKey(parseLocalDate(leftover.date)) }),
+    )
+    return [...new Set(parts)].join(' · ')
+  }
+}
+
+/**
+ * The cook view's words for the leftover lunches, with each one's servings
+ * and slot: "2.5 for lunch: Tuesday" (HON-1395). The cook sees only the
+ * dinner, so the line says how much to set aside, which the card leaves to
+ * the lunch card beside it (HON-1574). Separators, not prepositions, so
+ * Estonian needs no declension (docs/LOCALIZATION.md).
+ */
+export function useLeftoverLunchDetailText() {
   const t = useTranslations('meal-plan.card')
   const locale = useLocale() as Locale
 
   return (leftovers: readonly SharedLeftover[]): string =>
     leftovers
       .map((leftover) =>
-        t('leftoverFor', {
+        t('leftoverForDetail', {
           servings: formatQuantity(leftover.servings, locale),
           mealType: leftover.mealType,
           day: formatDayLong(parseLocalDate(leftover.date), locale),

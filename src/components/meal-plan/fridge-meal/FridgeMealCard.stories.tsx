@@ -166,14 +166,14 @@ export const EditItems: Story = {
 
 /**
  * Tomorrow's lunch from tonight's dinner, still to cook (HON-1395): the
- * dinner is the name, and a line under it says which meal and how much.
+ * dinner is the name, and a line under it says which day it comes from.
  */
 export const LeftoverFromPlannedDinner: Story = {
   args: { mealType: 'lunch', items: [plannedLeftoverItem, fridgeItems[2]!] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent(/^Roast chicken$/)
-    await expect(canvas.getByText('Tuesday at dinner · 2.5 servings · planned')).toBeVisible()
+    await expect(canvas.getByText('Leftovers from Tuesday')).toBeVisible()
     await expect(canvas.getByText('+ Cucumber')).toBeVisible()
   },
 }
