@@ -34,12 +34,16 @@ vi.mock('@/lib/meal-planning/slots', () => ({
   computeMealSlots: vi.fn(),
 }))
 
+import { generateObject } from 'ai'
+
 import { getCandidates } from '@/lib/meal-planning/candidates'
-import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
+import { computeMealSlots } from '@/lib/meal-planning/slots'
 import { prisma } from '@/lib/prisma'
 
 import { fillEmptySlots } from './fill-plan'
 import { createCandidate, createDefaultMealSlots, date, fillOptions } from './fill-plan.fixtures'
+import { loadCandidatePools } from './plan-candidates'
+import { buildMealPlanRequest } from './prompts'
 
 function planEntry(dateStr: string, mealType: 'breakfast' | 'dinner', mealId: string) {
   return {
@@ -75,7 +79,28 @@ describe('fillEmptySlots off-type entries', () => {
 
     await expect(fillEmptySlots(fillOptions)).rejects.toThrow('stop after the call')
 
-    // The empty dinners the fill plans for: Saturday only.
-    expect(vi.mocked(computeRequiredSlots).mock.calls[0]![0].dates).toEqual([date('2026-01-17')])
+    // The request to the model asks for Saturday's dinner and nothing else.
+    const slots = [{ date: date('2026-01-17'), mealType: 'dinner' as const }]
+    const { candidatePools, candidatesByMealType } = await loadCandidatePools({
+      slots,
+      householdId: fillOptions.householdId,
+      allergensToAvoid: [],
+      excludedIngredientIds: [],
+      dietaryType: null,
+      favoriteMealIds: [],
+    })
+    expect(vi.mocked(generateObject).mock.calls[0]![0]).toMatchObject(
+      buildMealPlanRequest({
+        startDate: fillOptions.startDate,
+        endDate: fillOptions.endDate,
+        slots,
+        requiredSlots: [],
+        candidatePools,
+        candidatesByMealType,
+        restrictions: [],
+        pantryIngredients: [],
+        locale: 'en',
+      }),
+    )
   })
 })
