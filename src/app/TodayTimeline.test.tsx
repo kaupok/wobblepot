@@ -77,13 +77,14 @@ afterEach(() => {
 })
 
 describe('TodayTimeline', () => {
-  it('leaves a pantry row at 0 out of the ingredients the meal cards count', async () => {
+  it('marks a pantry row at 0 ran out for the meal cards, and keeps it', async () => {
     const props = await timelineProps({
       pantry: [pantryRow('ing-rice', null), pantryRow('ing-acai', 0), pantryRow('ing-oats', 200)],
     })
 
     expect(props.pantryIngredients).toEqual([
       { ingredientId: 'ing-rice', isStaple: false },
+      { ingredientId: 'ing-acai', isStaple: false, ranOut: true },
       { ingredientId: 'ing-oats', isStaple: false },
     ])
   })

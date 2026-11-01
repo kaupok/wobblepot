@@ -33,6 +33,21 @@ describe('getIngredientAvailabilitySets', () => {
     expect(result.stapleIds.has('c')).toBe(true)
   })
 
+  it('leaves a ran-out row, staple or not, out of both sets (HON-1578)', () => {
+    const pantry: PantryIngredient[] = [
+      { ingredientId: 'acai', isStaple: false, ranOut: true },
+      { ingredientId: 'salt', isStaple: true, ranOut: true },
+      { ingredientId: 'oats', isStaple: false },
+    ]
+    const result = getIngredientAvailabilitySets(pantry)
+    expect([...result.availableIds]).toEqual(['oats'])
+    expect([...result.stapleIds]).toEqual([])
+  })
+
+  it('still counts a ran-out row as pantry data (HON-1578)', () => {
+    expect(hasPantryData([{ ingredientId: 'acai', isStaple: false, ranOut: true }])).toBe(true)
+  })
+
   it('includes staples in both availableIds and stapleIds', () => {
     const pantry: PantryIngredient[] = [{ ingredientId: 'a', isStaple: true }]
     const result = getIngredientAvailabilitySets(pantry)

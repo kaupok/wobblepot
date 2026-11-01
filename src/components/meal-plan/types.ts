@@ -239,6 +239,11 @@ export interface MealAvailability {
 export interface PantryIngredient {
   ingredientId: string
   isStaple: boolean
+  /**
+   * In the pantry at 0 (HON-1578): the household marked it ran out, so it is
+   * not available, a staple included. Only Today sets it.
+   */
+  ranOut?: boolean
 }
 
 export interface PantryItemFull {

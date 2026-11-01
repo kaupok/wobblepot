@@ -17,9 +17,11 @@ export function getIngredientAvailabilitySets(pantryIngredients: PantryIngredien
   availableIds: Set<string>
   stapleIds: Set<string>
 } {
+  // A row that ran out is neither (HON-1578): a staple at 0 needs buying too.
+  const inStock = pantryIngredients.filter((p) => !p.ranOut)
   return {
-    availableIds: new Set(pantryIngredients.map((p) => p.ingredientId)),
-    stapleIds: new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId)),
+    availableIds: new Set(inStock.map((p) => p.ingredientId)),
+    stapleIds: new Set(inStock.filter((p) => p.isStaple).map((p) => p.ingredientId)),
   }
 }
 
@@ -36,7 +38,7 @@ export function hasPantryData(pantryIngredients: PantryIngredient[] | undefined)
 /**
  * Compute meal availability based on pantry contents.
  * An ingredient is considered available if it exists in the pantry
- * (regardless of quantity). Staples are always considered available
+ * (regardless of quantity), unless it is marked ran out. Staples are always considered available
  * and are excluded from missing ingredient counts.
  */
 export function computeMealAvailability(
