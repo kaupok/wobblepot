@@ -51,7 +51,7 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 
 **Tone in product chrome (buttons, labels, errors):**
 
-- Sentence case throughout (per CLAUDE.md text-casing rule).
+- Sentence case throughout (docs/DESIGN.md → Copy).
 - Imperative for actions ("Add meal," "Skip dinner").
 - Friendly but operational for empty states and errors — explain what happened and what to do next, not what went wrong technically.
 
