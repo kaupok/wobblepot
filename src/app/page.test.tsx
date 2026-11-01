@@ -112,6 +112,7 @@ const EMPTY_SHOPPING_LIST = {
   hasAnyPlan: true,
   groups: [],
   customItems: [],
+  atHome: [],
   summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
 }
 

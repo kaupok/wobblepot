@@ -42,6 +42,7 @@ describe('loadShoppingList', () => {
       hasAnyPlan: false,
       groups: [],
       customItems: [],
+      atHome: [],
       summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
     })
   })
@@ -79,6 +80,7 @@ describe('loadShoppingList', () => {
               quantity: 900,
               unit: 'g',
               restock: false,
+              ranOut: false,
               displayUnit: 'g',
               displayQuantity: '900g',
               pantryDisplayQuantity: '900g',
@@ -102,6 +104,7 @@ describe('loadShoppingList', () => {
               quantity: 1500,
               unit: 'g',
               restock: false,
+              ranOut: false,
               displayUnit: 'ml',
               displayQuantity: '1.5l',
               pantryDisplayQuantity: '1.5l',
@@ -125,6 +128,7 @@ describe('loadShoppingList', () => {
               quantity: 1500,
               unit: 'g',
               restock: false,
+              ranOut: false,
               displayUnit: 'g',
               displayQuantity: '1.5kg',
               pantryDisplayQuantity: '1.5kg',
@@ -148,6 +152,7 @@ describe('loadShoppingList', () => {
               quantity: 4,
               unit: 'g',
               restock: false,
+              ranOut: false,
               displayUnit: 'g',
               displayQuantity: 'to taste',
               pantryDisplayQuantity: 'to taste',
@@ -165,6 +170,7 @@ describe('loadShoppingList', () => {
               quantity: 6,
               unit: 'g',
               restock: false,
+              ranOut: false,
               displayUnit: 'g',
               // Vague with no phrase shows the amount, so it is not vague
               // here (HON-783).
@@ -182,6 +188,7 @@ describe('loadShoppingList', () => {
         },
       ],
       customItems: [],
+      atHome: [],
       summary: { totalItems: 5, purchasedItems: 0, remainingItems: 5 },
     })
   })

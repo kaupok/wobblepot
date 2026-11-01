@@ -6,11 +6,11 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
 import { PantryAmountButton, PantryAmountField } from './PantryAmountControl'
+import { PantrySwitch } from './PantrySwitch'
 
 interface PantryItemRowProps {
   item: PantryItemData
@@ -135,22 +135,13 @@ export function PantryItemRow({
             width (HON-1535). */}
         <div className="flex items-center gap-1">
           {onHaveIt && onRanOut && (
-            <>
-              {/* The word names the state, not the action, so the row never
-                  reads as ran out while it is on hand (HON-1535). A minimum
-                  width, so a flip does not move the switch, and a longer word
-                  pushes the switch left instead of covering it; `aria-checked` carries
-                  the state to a screen reader. */}
-              <div aria-hidden data-state-word className="min-w-12.75 text-right">
-                <Body variant="caption">{tPantry(isRanOut ? 'ranOut' : 'haveIt')}</Body>
-              </div>
-              <Switch
-                checked={!isRanOut}
-                onCheckedChange={(checked) => (checked ? onHaveIt(item) : onRanOut(item))}
-                data-on-hand={item.id}
-                aria-label={tPantry('ariaHaveIt', { name: item.ingredient.name })}
-              />
-            </>
+            <PantrySwitch
+              pantryItemId={item.id}
+              name={item.ingredient.name}
+              checked={!isRanOut}
+              onHaveIt={() => onHaveIt(item)}
+              onRanOut={() => onRanOut(item)}
+            />
           )}
           <Button
             variant="quiet-destructive"

@@ -12,6 +12,7 @@ import { sumPortions } from '@/lib/meal-planning/servings'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 
 type TimelineShoppingItem = ComponentProps<typeof TimelineView>['shoppingItems'][number]
+type TimelineAtHomeItem = NonNullable<ComponentProps<typeof TimelineView>['atHomeItems']>[number]
 
 type Household = NonNullable<Awaited<ReturnType<typeof getHouseholdMembership>>>['household']
 
@@ -61,10 +62,14 @@ export async function TodayTimeline({
   }
 
   const pantryItems = pantry.items
-  const pantryIngredients = pantry.items.map((item) => ({
-    ingredientId: item.ingredient.id,
-    isStaple: item.isStaple,
-  }))
+  // A row at 0 has run out, so the meal cards do not count it as at home: a
+  // switch-off on the "At home" tab then changes the card's verdict (HON-1578).
+  const pantryIngredients = pantry.items
+    .filter((item) => item.quantity !== 0)
+    .map((item) => ({
+      ingredientId: item.ingredient.id,
+      isStaple: item.isStaple,
+    }))
 
   const shoppingItems: TimelineShoppingItem[] = shoppingList.groups.flatMap((group) =>
     group.items.map((item) => ({
@@ -75,10 +80,23 @@ export async function TodayTimeline({
       neededByRelative: item.neededByRelative,
       purchased: item.purchased,
       restock: item.restock,
+      ranOut: item.ranOut,
       // Bucket against the household's day, not the server's (HON-762).
       urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
     })),
   )
+
+  // The needs the pantry covers (HON-1578), for the panel's "At home" tab.
+  // The panel keeps today's and tomorrow's.
+  const atHomeItems: TimelineAtHomeItem[] = shoppingList.atHome.map((item) => ({
+    ingredientId: item.ingredientId,
+    name: item.name,
+    displayQuantity: item.displayQuantity,
+    neededByDate: item.neededByDate,
+    pantryRows: item.pantryRows,
+    isStaple: item.isStaple,
+    urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
+  }))
 
   const expectedMealTypes = getExpectedMealTypes(household.preferences)
 
@@ -91,6 +109,7 @@ export async function TodayTimeline({
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}
+      atHomeItems={atHomeItems}
       openCustomItemCount={shoppingList.customItems.filter((item) => !item.checked).length}
       todayDate={todayDate}
       extras={extras}

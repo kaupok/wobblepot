@@ -117,6 +117,7 @@ export async function loadShoppingList(
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
         restock: item.restock ?? false,
+        ranOut: item.ranOut ?? false,
         // `g`, `ml` or `piece`: `unit` stays the stored unit, and this is the one
         // every screen shows, so readers outside the UI (the MCP tools, HON-1151)
         // need not repeat the `measuredByVolume` rule.
@@ -182,6 +183,27 @@ export async function loadShoppingList(
     }
   })
 
+  // The needs the pantry covers (HON-1578), each with the pantry rows that
+  // keep it at home, for Today's "At home" tab. The amount is the covered part.
+  const atHome = result.atHome
+    .map((item) => ({
+      ingredientId: item.ingredientId,
+      name: item.ingredient.name,
+      displayQuantity: formatShoppingLineQuantity(
+        item.coveredQuantity,
+        item.ingredient,
+        locale,
+        item.isVague,
+        item.originalPhrase,
+        tVague,
+        pieceLabel,
+      ),
+      neededByDate: toDateString(item.earliestNeededDate),
+      pantryRows: item.pantryRows,
+      isStaple: item.isStaple,
+    }))
+    .sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
+
   // Format custom items for response. `neededBy` is null for an item typed by
   // hand, and for one whose linked extras are all in the past: it stays on the
   // list, in the manual items section, until ticked off.
@@ -203,6 +225,7 @@ export async function loadShoppingList(
     hasAnyPlan: result.hasAnyPlan,
     groups,
     customItems: formattedCustomItems,
+    atHome,
     summary: {
       totalItems,
       purchasedItems,

@@ -3,7 +3,7 @@ import type { Locale } from '@/lib/i18n/locales'
 import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { prisma } from '@/lib/prisma'
 
-import type { NeededIngredient, ShoppingListItem } from './shopping-list'
+import type { NeededIngredient, PantryCoveredItem, ShoppingListItem } from './shopping-list'
 
 /** An ingredient as the shopping list selects it, for a component and for a change's replacement. */
 export function shoppingIngredientArgs(locale: Locale) {
@@ -23,7 +23,9 @@ export function shoppingIngredientArgs(locale: Locale) {
 
 /**
  * Deduct the household's pantry from the planned need and return the lines
- * to buy. Both shopping-list builders call it, so the pantry rules live once:
+ * to buy, and the needs the pantry covers (`atHome`, HON-1578). Both
+ * shopping-list builders call it, so the pantry rules live once and the
+ * two lists cannot disagree:
  *
  * - Not in the pantry, or quantity = 0 (ran out): the full amount
  * - quantity = null: nothing (have some, assume sufficient)
@@ -40,6 +42,10 @@ export function shoppingIngredientArgs(locale: Locale) {
  *   (`FRESH_BARE_HERBS`), is in the pantry and has not run out. A dried herb
  *   has no such cover.
  *
+ * A need is at home when its row is a staple not at 0, is covered by another
+ * form of the herb, holds "have some" (null) or holds more than 0. A partial
+ * amount is in both lists: the rest to buy, the pantry amount at home.
+ *
  * @param today - Start of today in the household's timezone
  */
 export async function pantryShoppingLines(
@@ -47,7 +53,7 @@ export async function pantryShoppingLines(
   householdId: string,
   locale: Locale,
   today: Date,
-): Promise<ShoppingListItem[]> {
+): Promise<{ lines: ShoppingListItem[]; atHome: PantryCoveredItem[] }> {
   // The ingredient is for a ran-out staple that no planned meal needs.
   const pantryItems = await prisma.pantryItem.findMany({
     where: { householdId },
@@ -58,13 +64,17 @@ export async function pantryShoppingLines(
   // Herb id → in stock through another row of it: a bare herb through its
   // fresh or dried row, a fresh herb through its fresh bare row.
   const coverIds = await loadCoverIds()
-  const coveredIds = new Set(
-    pantryItems
-      .filter((p) => p.quantity !== 0 && coverIds.has(p.ingredientId))
-      .map((p) => coverIds.get(p.ingredientId)),
-  )
+  // Covered herb id → every row that covers it and has not run out. The At
+  // home switch turns them all off, or another one keeps the need at home.
+  const coveringRows = new Map<string, (typeof pantryItems)[number][]>()
+  for (const p of pantryItems) {
+    const coveredId = coverIds.get(p.ingredientId)
+    if (p.quantity === 0 || !coveredId) continue
+    coveringRows.set(coveredId, [...(coveringRows.get(coveredId) ?? []), p])
+  }
 
   const shoppingList: ShoppingListItem[] = []
+  const atHome: PantryCoveredItem[] = []
 
   for (const [
     ingredientId,
@@ -73,12 +83,39 @@ export async function pantryShoppingLines(
     const pantry = pantryMap.get(ingredientId)
     const restock = pantry?.isStaple === true && pantry.quantity === 0
 
+    const coveringRow = coveringRows.get(ingredientId)?.[0]
+    // The rows that keep this need at home, its own row first. A staple at 0
+    // restocks whatever covers it, so none does.
+    const homeRows = restock
+      ? []
+      : [
+          ...(pantry && pantry.quantity !== 0 ? [pantry] : []),
+          ...(pantry?.isStaple ? [] : (coveringRows.get(ingredientId) ?? [])),
+        ]
+    const [first] = homeRows
+    if (first) {
+      atHome.push({
+        ingredientId,
+        ingredient,
+        // Only a counted own row, with no other form covering, caps the amount.
+        coveredQuantity:
+          homeRows.length === 1 && first === pantry && !pantry.isStaple && pantry.quantity !== null
+            ? Math.min(neededQty, pantry.quantity)
+            : neededQty,
+        earliestNeededDate,
+        isVague,
+        originalPhrase,
+        pantryRows: homeRows.map((row) => ({ id: row.id, quantity: row.quantity })),
+        isStaple: first.isStaple,
+      })
+    }
+
     let shoppingQty: number
 
     if (pantry?.isStaple && !restock) {
       // Staple the household has - always at home, not on the list
       continue
-    } else if (!restock && coveredIds.has(ingredientId)) {
+    } else if (!restock && coveringRow) {
       // Another row of this herb that covers it is at home
       continue
     } else if (!pantry) {
@@ -108,6 +145,8 @@ export async function pantryShoppingLines(
         isVague,
         originalPhrase,
         ...(restock && { restock: true }),
+        // Any other row at 0 (HON-1578): the household marked it ran out.
+        ...(!restock && pantry?.quantity === 0 && { ranOut: true }),
       })
     }
   }
@@ -129,5 +168,5 @@ export async function pantryShoppingLines(
     })
   }
 
-  return shoppingList
+  return { lines: shoppingList, atHome }
 }
