@@ -65,6 +65,9 @@ describe('foodNameOf', () => {
     ['peas, frozen', 'frozen peas'],
     ['chicken thighs, boneless', 'boneless chicken thighs'],
     ['salmon, fillet', 'salmon'],
+    ['peas, fresh or frozen', 'peas'],
+    ['spinach, thawed if frozen', 'spinach'],
+    ['chickpeas, canned and dried', 'chickpeas'],
     ['red onion', 'red onion'],
   ])('reads "%s" as "%s"', (name, food) => {
     expect(foodNameOf(name)).toBe(food)
