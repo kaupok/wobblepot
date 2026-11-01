@@ -313,6 +313,25 @@ describe('loadPantry', () => {
     expect(byId.get(driedBasil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
   })
 
+  it('shows the bare herb need on the form row that covers it, not on a run-out one', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const driedBasil = await herb('dried basil')
+    const freshBasil = await herb('fresh basil')
+    // The run-out jar goes in first, so the pantry query reads it first.
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: driedBasil, quantity: 0 },
+    })
+    await stock(alder.id, freshBasil)
+    await plan(alder.id, [{ ingredientId: basil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+    const byId = new Map(result.items.map((item) => [item.ingredientId, item]))
+
+    expect(byId.get(driedBasil)).not.toHaveProperty('neededQuantity')
+    expect(byId.get(freshBasil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
+  })
+
   it('keeps the bare herb need on the bare row when both are stocked', async () => {
     const alder = await household()
     const basil = await herb('basil')
