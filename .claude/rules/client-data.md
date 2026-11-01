@@ -9,8 +9,6 @@ paths:
 
 ## Data Fetching Patterns
 
-**Server Components (preferred):** fetch directly in async Server Components (`src/app/page.tsx`).
-
 **Client Components:** TanStack Query for all client-side data: `useQuery`, not `useEffect` + `fetch` + `useState`; `useMutation`, not manual `try/catch/finally`; loading and error state from the result. Invalidate with `invalidateQueries`, not `router.refresh()`. Optimistic updates use `onMutate`/`onError`/`onSettled`. Fetch with `apiFetch` (`src/lib/api.ts`).
 
 **Query keys:** `['meals']`, `['shopping-list', planId]`, `['meal', mealId]`, `['meal-plan', planId, 'entries']`, `['meals', { search: query }]`.
