@@ -195,7 +195,18 @@ export type EventPayload = {
   'auth:sign_up': { method: 'email' | 'google' }
   'onboarding:household_created': { household_id: string }
   'meal_plan:plan_generated': { plan_id: string }
-  'meal_plan:meal_completed': { plan_id: string; meal_id: string; source: Source }
+  /**
+   * `used_up_count` / `some_left_count`: the "have some" rows the cook left at
+   * or set to "Used up" / "Some left" in the Cooked dialog (HON-1564). Absent
+   * when no dialog asked.
+   */
+  'meal_plan:meal_completed': {
+    plan_id: string
+    meal_id: string
+    source: Source
+    used_up_count?: number
+    some_left_count?: number
+  }
   /**
    * "Pick for me" placed the slot's top suggestion with no dialog (HON-1248).
    * `via` leaves room for the other routes that fill a slot.

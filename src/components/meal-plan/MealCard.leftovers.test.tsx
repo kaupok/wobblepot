@@ -127,7 +127,7 @@ describe('MealCard with a leftover lunch (HON-1395)', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Cooked' }))
     const deduction = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     expect(within(deduction).getByText('Chicken thigh').nextElementSibling).toHaveTextContent(
-      '800g → used up',
+      '800g → Ran out',
     )
   })
 

@@ -14,6 +14,13 @@ import {
   lemonGarlicChickenComponents,
   lemonGarlicChickenComponentsFull,
 } from '@/stories/fixtures'
+import {
+  fetaComponent,
+  fetaPantryItem,
+  HAVE_SOME_SERVINGS,
+  haveSomeComponents,
+  haveSomePantryItems,
+} from '@/stories/have-some-fixtures'
 
 import { PantryDeductionModal } from './PantryDeductionModal'
 
@@ -61,14 +68,51 @@ export const SomeItemsRemoved: Story = {
     docs: {
       description: {
         story:
-          'Doubling the serving size uses up several pantry items, so their rows read "used up".',
+          'Doubling the serving size uses up several pantry items, so their rows read "Ran out", the pantry\'s own word.',
       },
     },
   },
   play: async () => {
     const body = within(document.body)
     await expect(await body.findByRole('dialog', { name: 'Mark as cooked' })).toBeInTheDocument()
-    await expect(body.getByText('800g → used up')).toBeInTheDocument()
+    await expect(body.getByText('800g → Ran out')).toBeInTheDocument()
+  },
+}
+
+/**
+ * The HON-1563 real case plus a known row: every "have some" row gets a "Used
+ * up" / "Some left" choice, preset by `defaultCookOutcome`, and the feta keeps
+ * its subtraction with no choice (HON-1564).
+ */
+export const HaveSomeRows: Story = {
+  args: {
+    mealName: 'Roast vegetable bowl',
+    components: [...haveSomeComponents, fetaComponent],
+    householdServings: HAVE_SOME_SERVINGS,
+    pantryItems: [...haveSomePantryItems, fetaPantryItem],
+  },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    const checkedIn = (name: string) =>
+      within(body.getByRole('radiogroup', { name: `What is left: ${name}` })).getByRole('radio', {
+        checked: true,
+      })
+
+    await body.findByRole('dialog', { name: 'Mark as cooked' })
+    await expect(checkedIn('Pumpkin')).toHaveTextContent('Used up')
+    await expect(checkedIn('Beetroot')).toHaveTextContent('Used up')
+    await expect(checkedIn('Tahini')).toHaveTextContent('Some left')
+    await expect(checkedIn('Lemon')).toHaveTextContent('Some left')
+    await expect(body.getByText('100g → Ran out')).toBeInTheDocument()
+
+    const tahini = body.getByRole('radiogroup', { name: 'What is left: Tahini' })
+    await userEvent.click(within(tahini).getByRole('radio', { name: 'Used up' }))
+    await userEvent.click(body.getByRole('button', { name: /^confirm$/i }))
+
+    await expect(args.onConfirm).toHaveBeenCalledWith({
+      usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot', 'tahini'],
+      someLeftCount: 6,
+    })
   },
 }
 
