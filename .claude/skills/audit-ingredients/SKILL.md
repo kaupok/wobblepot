@@ -2,6 +2,7 @@
 name: audit-ingredients
 description: Audit ingredient database for coverage gaps, matching issues, and nutritional/allergen data quality
 argument-hint: '[--focus coverage|data-quality|all]'
+disable-model-invocation: true
 context: fork
 allowed-tools:
   - Bash
