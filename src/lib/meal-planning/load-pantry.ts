@@ -171,10 +171,10 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
   }
 
   const items = pantryItems.map((item) => {
-    const bareId = coveredBareId(item.ingredientId)
-    const neededInfo =
-      neededQuantities.get(item.ingredientId) ??
-      (bareId === undefined ? undefined : neededQuantities.get(bareId))
+    // A row with a need of its own keeps it and leaves the bare caption free.
+    const ownNeed = neededQuantities.get(item.ingredientId)
+    const bareId = ownNeed === undefined ? coveredBareId(item.ingredientId) : undefined
+    const neededInfo = ownNeed ?? (bareId === undefined ? undefined : neededQuantities.get(bareId))
     const translatedIngredient = translateIngredient(item.ingredient, locale)
     return {
       id: item.id,

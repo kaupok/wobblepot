@@ -293,6 +293,26 @@ describe('loadPantry', () => {
     expect(result.items.map((item) => item.neededQuantity).filter(Boolean)).toEqual([10])
   })
 
+  it('shows the bare herb need on the other form row when one has a need of its own', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const freshBasil = await herb('fresh basil')
+    const driedBasil = await herb('dried basil')
+    // Fresh basil goes in first, so the pantry query reads it first.
+    await stock(alder.id, freshBasil)
+    await stock(alder.id, driedBasil)
+    await plan(alder.id, [
+      { ingredientId: freshBasil, quantityPerServing: 10 },
+      { ingredientId: basil, quantityPerServing: 5 },
+    ])
+
+    const result = await loadPantry(alder, { days: 7 })
+    const byId = new Map(result.items.map((item) => [item.ingredientId, item]))
+
+    expect(byId.get(freshBasil)).toEqual(expect.objectContaining({ neededQuantity: 20 }))
+    expect(byId.get(driedBasil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
+  })
+
   it('keeps the bare herb need on the bare row when both are stocked', async () => {
     const alder = await household()
     const basil = await herb('basil')
