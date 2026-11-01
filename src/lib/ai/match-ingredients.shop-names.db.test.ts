@@ -115,7 +115,6 @@ describe('matchIngredients on a shop mix or a seed, nut or paste name', () => {
     ['kašupähklivõi', 'cashew butter'],
     ['india pähklid', 'cashews'],
     ['seesamipasta', 'tahini'],
-    ['chia seemned', 'chia seeds'],
     ['marjasegu', 'frozen mixed berries'],
     ['päevalilleseemned', 'sunflower seeds'],
     ['kõrvitsaseemned', 'pumpkin seeds'],
@@ -478,5 +477,35 @@ describe('matchIngredients on an Estonian tomato product', () => {
     const [result] = await matchIngredients([extracted(recipeName)], 4)
 
     expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+})
+
+// HON-1547: the noun check once split on spaces only, so "chia seemned" against the
+// translation "chia-seemned" read as a different noun and came back unsure.
+describe('matchIngredients on a name typed with a space for its hyphen', () => {
+  const names = ['chia seeds', 'black-eyed beans', 'black beans']
+
+  it('matches the Estonian "chia seemned" to "chia seeds", sure, with no synonym', async () => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted('chia seemned')], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'chia seeds' },
+      lowConfidence: false,
+    })
+  })
+
+  it('matches the English "black eyed beans" to "black-eyed beans", sure', async () => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted('black eyed beans')], 4)
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'black-eyed beans' },
+      lowConfidence: false,
+    })
   })
 })
