@@ -763,7 +763,7 @@ async function main() {
     // Nutritional quality
     validateNutritionalValues(allIngredients),
     validateCalorieSanity(allIngredients),
-    { errors: [], warnings: validateDryWeightNutrition(allIngredients) },
+    { errors: validateDryWeightNutrition(allIngredients), warnings: [] },
     { errors: [], warnings: validateRawMeatNutrition(allIngredients) },
 
     // Duplicate detection

@@ -44,9 +44,22 @@ describe('buildRecipeExtractionPrompt', () => {
   it('converts a cooked rice, pasta or lentil weight to dry weight (HON-1473)', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain(
-      'If the recipe gives a cooked weight, convert it to dry: cooked rice, grains or lentils × 0.4, cooked pasta or noodles × 0.45',
+      'If the recipe gives a cooked weight, convert it to dry: cooked rice, grains, lentils',
     )
     expect(prompt).toContain('drained canned beans')
+  })
+
+  it('gives mung, adzuki and soy beans as dry and converts a cooked weight of them to dry (HON-1550)', () => {
+    const prompt = buildRecipeExtractionPrompt('test', 4)
+    expect(prompt).toContain(
+      'Give every weight as bought: dry rice, pasta, grains and lentils, dry mung, adzuki and soy beans, drained canned beans',
+    )
+    expect(prompt).toContain(
+      'If the recipe gives a cooked weight, convert it to dry: cooked rice, grains, lentils, or mung, adzuki or soy beans × 0.4, cooked pasta or noodles × 0.45',
+    )
+    expect(prompt).toContain(
+      'Drained canned lentils, and canned mung, adzuki or soy beans, are cooked: 1 can ≈ 240g cooked, so convert it to dry with the × 0.4 rule below (≈ 96g)',
+    )
   })
 
   it('keeps a dried bean or chickpea weight as written, with "dried" in the name (HON-1549)', () => {
@@ -62,7 +75,7 @@ describe('buildRecipeExtractionPrompt', () => {
   it('weighs a drained can of beans or chickpeas at 240g, converts drained canned lentils to dry, and keeps an undrained can at 400g (HON-1489)', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain(
-      'Drained canned beans and chickpeas weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry. Drained canned lentils are cooked: 1 can ≈ 240g cooked, so convert it to dry with the × 0.4 rule below (≈ 96g)',
+      'Drained canned beans and chickpeas weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry. Drained canned lentils',
     )
     expect(prompt).toContain(
       'Example: "2 cans chickpeas, drained" → quantity: 480, unit: "g", name: "chickpeas"',

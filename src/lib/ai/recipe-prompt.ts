@@ -99,7 +99,7 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
   Example: "2 cans peeled tomatoes" → quantity: 800, unit: "g", name: "tinned plum tomatoes"
   Example: "1 can diced tomatoes" → quantity: 400, unit: "g", name: "tinned chopped tomatoes"
   Example: "1 can coconut milk" → quantity: 400, unit: "g", name: "coconut milk"
-  Drained canned beans and chickpeas weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry. Drained canned lentils are cooked: 1 can ≈ 240g cooked, so convert it to dry with the × 0.4 rule below (≈ 96g)
+  Drained canned beans and chickpeas weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry. Drained canned lentils, and canned mung, adzuki or soy beans, are cooked: 1 can ≈ 240g cooked, so convert it to dry with the × 0.4 rule below (≈ 96g)
   Example: "2 cans chickpeas, drained" → quantity: 480, unit: "g", name: "chickpeas"
   Dried beans and chickpeas are sold dry: keep "dried" in the name and the weight as written, even when the recipe soaks or cooks them. Do not convert a dried weight to drained or canned
   Example: "250 g dried chickpeas, soaked overnight" → quantity: 250, unit: "g", name: "dried chickpeas"
@@ -108,8 +108,8 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
 - For weight measurements, always use grams: 1 oz = 28g, 1 lb = 454g
 - For small measurements: 1 tbsp = 15g, 1 tsp = 5g
-- Give every weight as bought: dry rice, pasta, grains and lentils, drained canned beans, bone-in cuts and whole fish with the bone. Ingredient nutrition is for that form
-  If the recipe gives a cooked weight, convert it to dry: cooked rice, grains or lentils × 0.4, cooked pasta or noodles × 0.45
+- Give every weight as bought: dry rice, pasta, grains and lentils, dry mung, adzuki and soy beans, drained canned beans, bone-in cuts and whole fish with the bone. Ingredient nutrition is for that form
+  If the recipe gives a cooked weight, convert it to dry: cooked rice, grains, lentils, or mung, adzuki or soy beans × 0.4, cooked pasta or noodles × 0.45
   Example: "500g cooked rice" → quantity: 200, unit: "g", name: "white rice"
 
 SANITY CHECKS - Typical per-serving quantities:
