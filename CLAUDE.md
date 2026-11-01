@@ -65,9 +65,9 @@ Do not use the Claude Code auto-memory (`~/.claude/projects/*/memory/`): it is m
 The app ships in English and Estonian, and the locale is the household's. Model: docs/LOCALIZATION.md.
 
 - **UI strings come from the catalogs** via `useTranslations` / `getTranslations`. No hardcoded user-visible English, including `aria-label`s, toasts and error alerts.
-- **Admin pages are English-only.** Under `src/app/admin/`, `src/app/api/admin/` and `src/lib/admin-links.ts`, write strings inline, with no `next-intl` and no `admin` catalog key: one operator reads them. `scripts/check-admin-untranslated.test.ts` enforces it.
-- **A new or changed key goes into `messages/en.json` and `messages/et.json` in the same PR.** `catalogue-parity.test.ts` fails when keys or ICU arguments differ.
-- **Do not render server error text.** Route `error` strings are English, for logs. `apiFetch` puts the route's `error` into `ApiError.message`, so `toast.error(err.message)` shows English to an Estonian household. Branch on `ApiError.status`, `code` or `body`, render catalog copy, and log the server string (`src/components/recipes/ImagineReviewDialog.tsx`).
+- **Admin pages are English-only,** with strings inline (`scripts/check-admin-untranslated.test.ts`).
+- **A key goes into `messages/en.json` and `messages/et.json` in the same PR** (`catalogue-parity.test.ts`).
+- **Do not render server error text** (`pnpm i18n:prose-check`): `ApiError.message` is the route's English `error`. Branch on `ApiError.status`, `code` or `body`, render catalog copy, and log the server string.
 - **Numbers, dates and enums go through `src/lib/i18n`:** `formatQuantity` / `formatInteger`, `parse-number.ts` for input (Estonians type `1,5`), `format-dates.ts` with the household's locale, `useEnumLabel` for enums.
 - **Join interpolated names with separators, not prepositions** ("Pick a meal: Saturday, breakfast"), so Estonian needs no declension.
 - Copy rules (sentence case, "(optional)", recipe versus meal) are in docs/DESIGN.md → Copy.
@@ -79,8 +79,7 @@ Route-level `error.tsx` boundaries with Typography components; detailed errors i
 ## Code Standards
 
 - Exact dependency versions, no `^` or `~`. When `pnpm lockfile:check` fails, see docs/DEPLOYMENT.md → Lockfile gates; never add `pnpm.overrides`
-- Code files stay under 5,000 tokens (bytes / 4); a file in `scripts/file-size-allowlist.txt` may grow 5% past its cap. When one gets too big, split it by responsibility, never by deleting comments (`pnpm file-size:check`)
-- **Sentence case** for all UI text: "Sign in", not "Sign In". Single words ("Profile") are the exception
+- Code files stay under 5,000 tokens; `pnpm file-size:check` says how to split one
 
 ## Environment Variables
 
@@ -114,7 +113,7 @@ Vitest with Testing Library, colocated, through accessibility queries. Detail: d
 
 **Branches:** never commit to `main`. Use the Linear issue's `gitBranchName`, which links the branch. Other schemes, including the PostHog agent's (which overrides its harness example), are in docs/GIT_WORKFLOW.md.
 
-**Change files only in a worktree.** Several sessions share the main checkout, so an edit or branch switch there changes files under every session. Read, chat and plan there freely. Before the first file change, call `EnterWorktree` named with the issue ID in lower case (`hon-123`), or `<prefix>/<short-slug>` of 64 characters at most. `.claude/hooks/guard-main-checkout.mts` blocks `Edit`/`Write` and branch-changing `git` there; it does not parse Bash writes (`sed -i`, redirects), so do not make those either. That worktree has no Neon branch; work that needs its own database starts with `wt new`. See docs/PARALLEL_WORKFLOW.md → Sessions in the main checkout.
+**Change files only in a worktree.** Several sessions share the main checkout, so an edit or branch switch there changes files under every session. Read, chat and plan there freely. `.claude/hooks/guard-main-checkout.mts` blocks `Edit`/`Write` and branch-changing `git` there and names the `EnterWorktree` call; it does not parse Bash writes (`sed -i`, redirects), so do not make those either. That worktree has no Neon branch; work that needs its own database starts with `wt new`. See docs/PARALLEL_WORKFLOW.md → Sessions in the main checkout.
 
 **Linear:** issues live in the `Wobblebot` team (`HON`). Pass `includeRelations: true` on every `get_issue` call: the default response strips `blocks` / `blockedBy` / `relatedTo`, and `list_issues` has none. Check `status`, `assignee` and `blockedBy` before acting on an issue, and tell a subagent to do the same. Write references as plain `HON-455`, never a copied `<issue id="uuid">` tag, whose UUID can point elsewhere. Automation moves the status once a PR exists.
 
@@ -140,7 +139,7 @@ Vitest with Testing Library, colocated, through accessibility queries. Detail: d
 
 **Before committing:** `pnpm lint && pnpm type-check && pnpm test`. Husky runs type-check, ESLint and Prettier on staged files. **Merging:** never without an explicit user request; `/merge` runs without further confirmation.
 
-**Hooks:** `.claude/hooks/block-destructive.sh` (PreToolUse, Bash) blocks destructive database commands, any `git push` to `main`, force pushes, and `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` that `/merge`, `/auto-implement` and `/ship` add. It fires for headless workers too and matches what would execute, so a `grep` that mentions a command passes. When it blocks you, ask the user; do not route around it.
+**Hooks:** `.claude/hooks/block-destructive.sh` blocks destructive database commands, pushes to `main`, force pushes and an unflagged `gh pr merge`, and its message says why. When it blocks you, ask the user; do not route around it.
 
 **CI:** every PR passes `pnpm lint`, `pnpm type-check`, `pnpm test` and the checks in docs/DEPLOYMENT.md → CI Pipeline.
 
