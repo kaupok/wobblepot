@@ -223,10 +223,9 @@ export const LiquidsInMillilitres: Story = {
 }
 
 /**
- * Estonian locale: piece quantities use a comma decimal separator and the
- * Estonian piece label. At 3 servings the lemon (0.5 per serving) renders as
- * "1,5 tk" — not "1.5 pc" — exercising the locale-aware `formatQuantity` path
- * (HON-546 item 1, HON-956). The rice (350g per
+ * Estonian locale: the Estonian piece label and a comma decimal separator.
+ * At 3 servings the lemon (0.5 per serving) renders as "1½ tk" — a half takes
+ * the glyph in every locale (HON-956, HON-1521). The rice (350g per
  * serving → 1050g) renders in kg with a comma: "1,1kg" (HON-950).
  */
 export const EstonianLocale: Story = {
@@ -238,9 +237,9 @@ export const EstonianLocale: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('maitse järgi')).toBeVisible()
     // The label hangs on a no-break space, which `getByText` folds into a space.
-    const lemonQuantity = canvas.getByText('1,5 tk')
+    const lemonQuantity = canvas.getByText('1½ tk')
     await expect(lemonQuantity).toBeVisible()
-    await expect(lemonQuantity.textContent).toBe('1,5\u00a0tk')
+    await expect(lemonQuantity.textContent).toBe('1½\u00a0tk')
     await expect(canvas.getByText('1,1kg')).toBeVisible()
   },
 }
@@ -304,6 +303,45 @@ export const VegetablesInPiecesEstonian: Story = {
     await expect(canvas.getByText('~1 tk')).toBeVisible()
     await expect(canvas.getByText('~2 tk')).toBeVisible()
     await expect(canvas.getByText('~3 tk')).toBeVisible()
+  },
+}
+
+// A piece-stored half lemon next to a gram-stored half courgette (100 g of a
+// 200 g piece): both read "½", so one list writes a half one way (HON-1521).
+const mixedHalves = [
+  createMealComponent({ ingredientId: 'lemon', quantityPerServing: 0.5 }),
+  createMealComponent({
+    ingredientId: 'courgette',
+    quantityPerServing: 100,
+    ingredient: {
+      id: 'courgette',
+      name: 'Courgette',
+      category: 'vegetable',
+      defaultUnit: 'g',
+      gramsPerPiece: 200,
+      pieceDisplay: 'recipe_and_shopping',
+    },
+  }),
+]
+
+export const MixedHalves: Story = {
+  args: { components: mixedHalves, servings: 1, householdServings: 1 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText('½ pc')).toHaveLength(2)
+    await expect(canvas.getByText('100g')).toBeVisible()
+    await expect(canvas.queryByText(/0\.5/)).toBeNull()
+  },
+}
+
+export const MixedHalvesEstonian: Story = {
+  name: 'Mixed halves (Estonian)',
+  globals: { locale: 'et' },
+  args: { components: mixedHalves, servings: 1, householdServings: 1 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText('½ tk')).toHaveLength(2)
+    await expect(canvas.queryByText(/0,5/)).toBeNull()
   },
 }
 
