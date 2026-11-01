@@ -28,9 +28,10 @@ interface PantryDeductionModalProps {
   householdServings: number
   pantryItems: PantryItemFull[]
   /**
-   * With the cook's answer when the dialog asked about a "have some" row;
-   * with none otherwise, so the server decides any such row the page did not
-   * know about by its default.
+   * With the cook's answer when the dialog asked about a "have some" row, and
+   * with none when it asked about none, so the server's default decides the
+   * null rows. The server reads a sent list as the answer for every null row,
+   * so a row added after the page loaded is kept as "Some left".
    */
   onConfirm: (answer?: CookAnswer) => void
   isLoading?: boolean
