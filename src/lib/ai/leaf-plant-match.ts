@@ -1,5 +1,6 @@
 import type { FormGuardResult } from './form-modifier-guard'
 import { type FuzzyIngredientMatch, fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import { VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 
 /**
  * The plant a "<plant> leaves" name means, when the best match does not name it:
@@ -25,7 +26,10 @@ export async function matchLeafPlant(
   best: FuzzyIngredientMatch | undefined,
   searchOptions: Parameters<typeof fuzzySearchIngredient>[1],
 ): Promise<{ matches: FuzzyIngredientMatch[]; formGuard: FormGuardResult } | null> {
-  const plantName = leafPlantName(normalizedName, best?.matchedName)
+  // A best match too weak to keep loses to the last-word fallback's `bay leaves`, so it
+  // does not count as naming the plant: "thyme leaves" scores 0.545 against `thyme`.
+  const keptBest = best && best.similarity >= VERY_LOW_CONFIDENCE_THRESHOLD ? best : undefined
+  const plantName = leafPlantName(normalizedName, keptBest?.matchedName)
   if (!plantName) return null
   const matches = await fuzzySearchIngredient(plantName, searchOptions)
   const plant = matches[0]
