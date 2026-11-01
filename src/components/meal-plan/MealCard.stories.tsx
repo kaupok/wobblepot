@@ -471,7 +471,7 @@ export const WithLeftoverLunch: Story = {
     leftoversFor: [{ date: '2026-10-13', mealType: MealType.lunch, servings: 2.5 }],
   },
   play: async ({ canvasElement }) => {
-    const line = within(canvasElement).getByText('5.5 servings · 2.5 for lunch: Tuesday')
+    const line = within(canvasElement).getByText('5.5 servings · leftovers for Tuesday')
     await expect(line).toBeVisible()
   },
 }

@@ -128,6 +128,24 @@ export function formatDayLong(date: Date, locale: Locale, options: DateFormatOpt
   )
 }
 
+const WEEKDAYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const
+
+/**
+ * The weekday as an ICU `select` key, for a message that declines the day's
+ * name ("jäägid esmaspäevaks"), which a formatted name cannot do.
+ */
+export function weekdayKey(date: Date): (typeof WEEKDAYS)[number] {
+  return WEEKDAYS[date.getDay()]!
+}
+
 /**
  * Format a date for compact display, combining the short weekday and an
  * absolute month-day (e.g. "Mon 5 Apr" / "E 5. apr"). Used in timeline rows.

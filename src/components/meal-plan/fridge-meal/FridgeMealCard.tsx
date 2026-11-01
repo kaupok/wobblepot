@@ -125,9 +125,9 @@ export function FridgeMealCard({
       : items.map(itemText).join(', '),
     locale,
   )
-  // A leftover the assistant planned says which meal feeds it and how much,
-  // so the household cooks enough (HON-1395).
-  const sourceLines = leftovers.flatMap((item) => leftoverSourceText(item) ?? [])
+  // A leftover the assistant planned says which day's meal feeds it
+  // (HON-1395), each day once (HON-1574).
+  const sourceLines = [...new Set(leftovers.flatMap((item) => leftoverSourceText(item) ?? []))]
   // The leftovers' meal was skipped or changed, so they will not exist. Only
   // while this meal is still to eat: the household must plan something else.
   const isLeftoverGone =

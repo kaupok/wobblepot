@@ -52,29 +52,50 @@ function renderCard(
 }
 
 describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
-  it('names the dinner, and under it its day and slot, its servings, and "planned"', () => {
+  it('names the dinner, and under it the day the leftovers come from', () => {
     renderCard([plannedLeftoverItem])
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Roast chicken$/)
-    expect(screen.getByText('Tuesday at dinner · 2.5 servings · planned')).toBeInTheDocument()
+    expect(screen.getByText('Leftovers from Tuesday')).toBeInTheDocument()
     expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
   })
 
-  it('says it in Estonian, with a decimal comma', () => {
+  it('says it in Estonian, with the day declined', () => {
     renderCard([plannedLeftoverItem], { locale: 'et' })
-    expect(
-      screen.getByText('Teisipäev, õhtusöök · 2,5 portsjonit · planeeritud'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Jäägid teisipäevast')).toBeInTheDocument()
   })
 
-  it('drops "planned" once the dinner is cooked', () => {
+  it("declines Sunday, the message's other branch, in Estonian", () => {
+    renderCard([{ ...plannedLeftoverItem, sourceDate: '2026-10-18' }], { locale: 'et' })
+    expect(screen.getByText('Jäägid pühapäevast')).toBeInTheDocument()
+  })
+
+  it('names a day once when two of its meals feed the lunch', () => {
+    renderCard([
+      plannedLeftoverItem,
+      {
+        ...plannedLeftoverItem,
+        id: 'item-porridge',
+        sourceEntryId: 'entry-porridge',
+        name: 'Porridge',
+        sourceMealType: 'breakfast',
+      },
+    ])
+    expect(screen.getAllByText('Leftovers from Tuesday')).toHaveLength(1)
+  })
+
+  it('says "Kõik olemas" in Estonian, as it needs nothing bought', () => {
+    renderCard([fridgeItems[0]!], { locale: 'et' })
+    expect(screen.getByText('Kõik olemas')).toBeInTheDocument()
+  })
+
+  it('says the same once the dinner is cooked', () => {
     renderCard([{ ...plannedLeftoverItem, sourceState: 'completed' }])
-    expect(screen.getByText('Tuesday at dinner · 2.5 servings')).toBeInTheDocument()
+    expect(screen.getByText('Leftovers from Tuesday')).toBeInTheDocument()
   })
 
   it('warns that the leftovers will not exist when the dinner is skipped', () => {
     renderCard([skippedLeftoverItem])
     expect(screen.getByText(WARNING)).toBeInTheDocument()
-    expect(screen.queryByText(/planned/)).not.toBeInTheDocument()
   })
 
   it('drops the warning once the lunch is eaten', () => {

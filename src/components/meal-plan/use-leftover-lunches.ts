@@ -1,10 +1,8 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
-import { formatDayLong } from '@/lib/i18n/format-dates'
-import { formatQuantity } from '@/lib/i18n/format-number'
-import type { Locale } from '@/lib/i18n/locales'
+import { weekdayKey } from '@/lib/i18n/format-dates'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 import type { LeftoverLunch } from './types'
@@ -37,22 +35,18 @@ export function getShownCookServings(
 }
 
 /**
- * The words for a recipe entry's leftover lunches, one part each and joined
- * with " · ": "2.5 for lunch: Tuesday" (HON-1395). Separators, not
- * prepositions, so Estonian needs no declension (docs/LOCALIZATION.md).
+ * The words for a recipe entry's leftover lunches, one part per day and
+ * joined with " · ": "leftovers for Tuesday" (HON-1395). The servings total
+ * before it already counts them. The message selects on the weekday, so
+ * Estonian declines the day's name ("jäägid teisipäevaks").
  */
 export function useLeftoverLunchText() {
   const t = useTranslations('meal-plan.card')
-  const locale = useLocale() as Locale
 
-  return (leftovers: readonly SharedLeftover[]): string =>
-    leftovers
-      .map((leftover) =>
-        t('leftoverFor', {
-          servings: formatQuantity(leftover.servings, locale),
-          mealType: leftover.mealType,
-          day: formatDayLong(parseLocalDate(leftover.date), locale),
-        }),
-      )
-      .join(' · ')
+  return (leftovers: readonly SharedLeftover[]): string => {
+    const parts = leftovers.map((leftover) =>
+      t('leftoverFor', { weekday: weekdayKey(parseLocalDate(leftover.date)) }),
+    )
+    return [...new Set(parts)].join(' · ')
+  }
 }
