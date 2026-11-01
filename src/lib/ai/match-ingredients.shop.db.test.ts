@@ -162,6 +162,8 @@ describe('matchIngredients on a qualified name whose own row is missing', () => 
   it.each([
     ['walnut butter', 'butter'],
     ['macadamia milk', 'milk'],
+    // A short qualifier finds `butter` in the direct search, above the fallback's threshold
+    ['nut butter', 'butter'],
   ])('returns "%s" unsure, with "%s" as an alternative', async (recipeName, name) => {
     await seedShopCatalogue(names)
 
