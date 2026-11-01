@@ -10,6 +10,7 @@ import {
 
 import {
   catalogueFormName,
+  foodNameOf,
   type FormGuardResult,
   guardFormMatch,
   hasForm,
@@ -111,14 +112,15 @@ export async function matchIngredients(
   const searchOptions = { householdId: options.householdId, locale: options.locale }
 
   for (const extracted of extractedIngredients) {
-    const directName = extracted.name.toLowerCase().trim()
+    const foodName = foodNameOf(extracted.name)
+    const directName = foodName.toLowerCase().trim()
 
     // Build candidate search names (deduplicated, in priority order)
     const candidateNames = new Set<string>()
     candidateNames.add(directName)
 
     // Alias expansion
-    const expandedName = applyIngredientAlias(extracted.name)
+    const expandedName = applyIngredientAlias(foodName)
     const aliasName = expandedName.toLowerCase().trim()
     candidateNames.add(aliasName)
 

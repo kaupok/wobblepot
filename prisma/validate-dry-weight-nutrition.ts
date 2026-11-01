@@ -1,6 +1,7 @@
 /**
  * An ingredient's nutrition is for the form you buy it in, so a dry grain,
- * pasta, rice, noodle or lentil row holds dry values. Recipes give these in
+ * pasta, rice, noodle or lentil row holds dry values, and so does a legume row
+ * named `dried …` (HON-1549); the bare bean rows hold the drained tin. Recipes give these in
  * dry grams; a row with cooked values (about 130 kcal) shows a third of the
  * real carbs and kcal per serving (HON-1473). Run by `pnpm db:validate` as a
  * warning, because a few rows in these subcategories are sold fresh or
@@ -12,7 +13,7 @@
 
 import type { IngredientInput } from './seed-types'
 
-/** Dry grains, pasta, rice and lentils all sit above 300 kcal per 100 g. */
+/** Dry grains, pasta, rice, lentils and beans all sit above 300 kcal per 100 g. */
 export const DRY_WEIGHT_MIN_CALORIES = 250
 
 const DRY_SUBCATEGORIES = new Set(['grain', 'pasta', 'rice', 'noodle', 'lentil', 'lentils'])
@@ -23,6 +24,7 @@ export const AS_SOLD_EXCEPTIONS = new Set(['gnocchi', 'udon noodles', 'tteok'])
 function isDryGood(ing: IngredientInput): boolean {
   const subcategory = ing.subcategory ?? ''
   if (DRY_SUBCATEGORIES.has(subcategory)) return true
+  if (ing.category === 'legume' && ing.name.startsWith('dried ')) return true
   return (subcategory === 'pea' || subcategory === 'peas') && ing.name.includes('split')
 }
 

@@ -258,7 +258,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (161)
+  // VEGETABLE (163)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -287,8 +287,10 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'callaloo', et: 'callaloo' },
   { en: 'tinned chopped tomatoes', et: 'konserveeritud tükeldatud tomatid' },
   { en: 'tinned green chillies', et: 'konserveeritud rohelised tšillid' },
+  { en: 'tinned peas', et: 'konserveeritud herned' },
   { en: 'tinned pumpkin', et: 'konserveeritud kõrvits' },
   { en: 'tinned plum tomatoes', et: 'konserveeritud kooritud terved tomatid' },
+  { en: 'tinned sweetcorn', et: 'konserveeritud mais' },
   { en: 'carrot', et: 'porgand' },
   { en: 'cauliflower', et: 'lillkapsas' },
   { en: 'celeriac', et: 'juurseller' },
@@ -422,7 +424,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'yu choy', et: 'yu choy' },
   { en: 'courgette', et: 'suvikõrvits' },
   // ============================================================
-  // FRUIT (71)
+  // FRUIT (74)
   // ============================================================
   { en: 'acai', et: 'assaimari' },
   { en: 'ackee', et: 'akee' },
@@ -431,6 +433,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'avocado', et: 'avokaado' },
   { en: 'banana', et: 'banaan' },
   { en: 'blackberry', et: 'murakas' },
+  { en: 'blackcurrants', et: 'mustsõstrad' },
   { en: 'blood orange', et: 'veriapelsin' },
   { en: 'blueberry', et: 'mustikas' },
   { en: 'cactus pear', et: 'kaktusviigimari' },
@@ -453,6 +456,8 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'feijoa', et: 'feijoa' },
   { en: 'fig', et: 'viigimari' },
   { en: 'frozen blueberries', et: 'külmutatud mustikad' },
+  { en: 'frozen cranberries', et: 'külmutatud jõhvikad' },
+  { en: 'frozen lingonberries', et: 'külmutatud pohlad' },
   { en: 'frozen mango', et: 'külmutatud mango' },
   { en: 'frozen mixed berries', et: 'külmutatud marjasegu' },
   { en: 'frozen raspberries', et: 'külmutatud vaarikad' },
@@ -799,7 +804,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'walnut oil', et: 'kreeka pähkli õli' },
   { en: 'walnuts', et: 'kreeka pähklid' },
   // ============================================================
-  // LEGUME (34)
+  // LEGUME (38)
   // ============================================================
   { en: 'adzuki beans', et: 'aduki oad' },
   { en: 'beluga lentils', et: 'beluga läätsed' },
@@ -810,6 +815,10 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'cannellini beans', et: 'cannellini oad' },
   { en: 'chana dal', et: 'poolitatud kikerherned' },
   { en: 'chickpeas', et: 'kikerherned' },
+  { en: 'dried black beans', et: 'kuivatatud mustad oad' },
+  { en: 'dried chickpeas', et: 'kuivatatud kikerherned' },
+  { en: 'dried kidney beans', et: 'kuivatatud aedoad' },
+  { en: 'dried white beans', et: 'kuivatatud valged oad' },
   { en: 'borlotti beans', et: 'borlotti oad' },
   { en: 'edamame', et: 'edamame' },
   { en: 'broad beans', et: 'põldoad' },

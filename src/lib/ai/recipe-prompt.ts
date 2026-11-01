@@ -101,6 +101,8 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
   Example: "1 can coconut milk" → quantity: 400, unit: "g", name: "coconut milk"
   Drained canned beans and chickpeas weigh less: 1 can, drained ≈ 240g. That is already the as-bought weight, so do not convert it to dry. Drained canned lentils are cooked: 1 can ≈ 240g cooked, so convert it to dry with the × 0.4 rule below (≈ 96g)
   Example: "2 cans chickpeas, drained" → quantity: 480, unit: "g", name: "chickpeas"
+  Dried beans and chickpeas are sold dry: keep "dried" in the name and the weight as written, even when the recipe soaks or cooks them. Do not convert a dried weight to drained or canned
+  Example: "250 g dried chickpeas, soaked overnight" → quantity: 250, unit: "g", name: "dried chickpeas"
 - For herbs/leaves measured in cups, convert to grams (1 cup fresh herbs ≈ 20-30g)
   Example: "2 cups basil leaves" → quantity: 50, unit: "g", name: "basil"
 - For liquids in cups, keep as cups OR convert (1 cup liquid = 240ml)
