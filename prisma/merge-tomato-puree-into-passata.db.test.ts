@@ -106,6 +106,72 @@ it('changes nothing on a second run', async () => {
   expect(await mergedState()).toEqual(MERGED)
 })
 
+// The path a real household takes: it already holds passata, so the unique keys
+// on (householdId, ingredientId) and (mealId, ingredientId) force a merge (HON-1569).
+it('merges a pantry item and a meal component that already exist on passata', async () => {
+  await ingredient('g-puree', 'tomato puree')
+  await ingredient('g-passata', 'passata')
+  const birch = await prisma.household.create({ data: { id: 'birch', name: 'Birch' } })
+  await prisma.pantryItem.create({
+    data: {
+      householdId: birch.id,
+      ingredientId: 'g-puree',
+      quantity: 2,
+      isStaple: true,
+      expiresAt: new Date('2027-03-01T00:00:00Z'),
+    },
+  })
+  await prisma.pantryItem.create({
+    data: {
+      householdId: birch.id,
+      ingredientId: 'g-passata',
+      quantity: 3,
+      isStaple: false,
+      expiresAt: new Date('2027-01-01T00:00:00Z'),
+    },
+  })
+  await prisma.meal.create({
+    data: {
+      id: 'ragu',
+      name: 'Ragu',
+      components: {
+        create: [
+          { ingredientId: 'g-puree', quantityPerServing: 80 },
+          { ingredientId: 'g-passata', quantityPerServing: 20 },
+        ],
+      },
+    },
+  })
+
+  await runMigration()
+
+  expect(
+    await prisma.pantryItem.findMany({
+      select: {
+        householdId: true,
+        ingredientId: true,
+        quantity: true,
+        isStaple: true,
+        expiresAt: true,
+      },
+    }),
+  ).toEqual([
+    {
+      householdId: 'birch',
+      ingredientId: 'g-passata',
+      quantity: 5,
+      isStaple: true,
+      expiresAt: new Date('2027-01-01T00:00:00Z'),
+    },
+  ])
+  expect(
+    await prisma.mealComponent.findMany({
+      select: { mealId: true, ingredientId: true, quantityPerServing: true },
+    }),
+  ).toEqual([{ mealId: 'ragu', ingredientId: 'g-passata', quantityPerServing: 100 }])
+  expect(await prisma.ingredient.count({ where: { id: 'g-puree' } })).toBe(0)
+})
+
 // A fresh database: 20260216130000 inserts `tomato puree` and the seed creates
 // passata after the migrations, so the seed would find a row with no et name.
 it('deletes an unused tomato puree row when there is no passata row', async () => {
