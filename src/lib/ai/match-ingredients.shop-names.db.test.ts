@@ -10,8 +10,8 @@ import { ingredientTranslationsEt } from '../../../prisma/seed-ingredient-transl
 import { matchIngredients } from './match-ingredients'
 import { extracted } from './match-ingredients.fixtures'
 
-// Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks, on
-// rows taken from the seed: each test names the catalogue rows it needs.
+// Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks.
+// Each shop name must find its own seeded row, through its Estonian name or a synonym.
 
 // The seeded rows and Estonian names, so a row that leaves the seed turns a test red
 async function seedShopCatalogue(names: string[]) {
@@ -150,6 +150,81 @@ describe('matchIngredients on a shop mix or a seed, nut or paste name', () => {
     const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
 
     expect(result).not.toMatchObject({ ingredient: { name: part } })
+  })
+})
+
+// HON-1548: kama and grain flakes are Estonian breakfast staples, and a pantry
+// photo saved them as unmatched or as the whole grain. A flake, a flour and the
+// grain each keep their own row.
+describe('matchIngredients on kama, grain flakes, spelt flour or cacao nibs', () => {
+  const names = [
+    'cacao nibs',
+    'kama',
+    'buckwheat kama',
+    'millet flakes',
+    'rye flakes',
+    'buckwheat flakes',
+    'four-grain flakes',
+    'millet',
+    'buckwheat',
+    'buckwheat flour',
+    'rye flour',
+    'rolled oats',
+    'cocoa powder',
+    'spelt flour',
+    'spelt',
+  ]
+
+  it.each([
+    ['toorkakao tuumad', 'cacao nibs'],
+    ['kakaonibsid', 'cacao nibs'],
+    ['kama', 'kama'],
+    ['toor-tatra kama', 'buckwheat kama'],
+    ['toortatra kama', 'buckwheat kama'],
+    ['tatrakama', 'buckwheat kama'],
+    ['hirsihelbed', 'millet flakes'],
+    ['rukkihelbed', 'rye flakes'],
+    ['tatrahelbed', 'buckwheat flakes'],
+    ['neljaviljahelbed', 'four-grain flakes'],
+    ['4-vilja helbed', 'four-grain flakes'],
+    ['speltajahu', 'spelt flour'],
+    ['speltanisujahu', 'spelt flour'],
+    ['speltanisu', 'spelt'],
+    ['hirss', 'millet'],
+    ['tatar', 'buckwheat'],
+    ['tatrajahu', 'buckwheat flour'],
+    ['kakaopulber', 'cocoa powder'],
+  ])('matches the Estonian "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['cacao nibs', 'cacao nibs'],
+    ['cocoa nibs', 'cacao nibs'],
+    ['millet flakes', 'millet flakes'],
+  ])('matches the English "%s" to "%s", sure', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  it.each([
+    ['kama', 'buckwheat kama'],
+    ['hirsihelbed', 'millet'],
+    ['tatrahelbed', 'buckwheat'],
+    ['speltajahu', 'spelt'],
+  ])('does not match "%s" to "%s"', async (recipeName, other) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4, { locale: 'et' })
+
+    expect(result).not.toMatchObject({ ingredient: { name: other } })
   })
 })
 

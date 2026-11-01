@@ -393,6 +393,20 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   marjasegu: 'frozen mixed berries',
   metsamarjasegu: 'frozen mixed berries',
 
+  // Second shop names for cacao nibs, kama, spelt flour and grain flakes (HON-1548)
+  'cocoa nibs': 'cacao nibs',
+  kakaonibsid: 'cacao nibs',
+  kakaotuumad: 'cacao nibs',
+  'kama flour': 'kama',
+  speltanisujahu: 'spelt flour',
+  'spelta jahu': 'spelt flour',
+  'toor-tatra kama': 'buckwheat kama',
+  'toortatra kama': 'buckwheat kama',
+  'tatra kama': 'buckwheat kama',
+  '4-vilja helbed': 'four-grain flakes',
+  'neljavilja helbed': 'four-grain flakes',
+  '4-grain flakes': 'four-grain flakes',
+
   // Rows that were one food under two English names, merged so no Estonian
   // name sits on two rows (HON-1500)
   oats: 'rolled oats',
