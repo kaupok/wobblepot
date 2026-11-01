@@ -406,7 +406,7 @@ export const WithLeftoverLunch: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeVisible()
     await expect(
-      canvas.getByText('Ingredients for 5.5 servings · leftovers for Tuesday'),
+      canvas.getByText('Ingredients for 5.5 servings · 2.5 for lunch: Tuesday'),
     ).toBeVisible()
   },
 }

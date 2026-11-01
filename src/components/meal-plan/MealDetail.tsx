@@ -36,7 +36,7 @@ import type {
 import {
   getShownCookServings,
   type SharedLeftover,
-  useLeftoverLunchText,
+  useLeftoverLunchDetailText,
 } from './use-leftover-lunches'
 
 interface MealDetailProps {
@@ -201,7 +201,7 @@ export function MealDetail({
   const tServing = useTranslations('meal-plan.serving')
   const tSteps = useTranslations('meal-plan.steps')
   const tCard = useTranslations('meal-plan.card')
-  const leftoverText = useLeftoverLunchText()
+  const leftoverText = useLeftoverLunchDetailText()
   // Effective servings: use explicit prop if provided, otherwise householdServings
   const effectiveServings = servings ?? householdServings
   const cookServings = getShownCookServings(

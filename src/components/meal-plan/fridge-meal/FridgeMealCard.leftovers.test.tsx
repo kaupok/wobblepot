@@ -88,6 +88,15 @@ describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
     expect(screen.getByText('Kõik olemas')).toBeInTheDocument()
   })
 
+  it('keeps the long leftover text in the card name the ⋯ menu reads', () => {
+    renderCard([plannedLeftoverItem])
+    expect(
+      screen.getByRole('button', {
+        name: 'More actions: Fridge meal: Roast chicken, from Tuesday at dinner · 2.5 servings · planned',
+      }),
+    ).toBeInTheDocument()
+  })
+
   it('says the same once the dinner is cooked', () => {
     renderCard([{ ...plannedLeftoverItem, sourceState: 'completed' }])
     expect(screen.getByText('Leftovers from Tuesday')).toBeInTheDocument()

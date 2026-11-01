@@ -233,6 +233,7 @@
       "rate": "Rate",
       "servings": "{count, plural, one {# serving} other {# servings}}",
       "leftoverFor": "{weekday, select, monday {leftovers for Monday} tuesday {leftovers for Tuesday} wednesday {leftovers for Wednesday} thursday {leftovers for Thursday} friday {leftovers for Friday} saturday {leftovers for Saturday} other {leftovers for Sunday}}",
+      "leftoverForDetail": "{servings} {mealType, select, breakfast {for breakfast} lunch {for lunch} other {for dinner}}: {day}",
       "statusUpdateFailed": "Failed to update status. Please try again.",
       "clearFailed": "Failed to clear meal. Please try again.",
       "cleared": "Cleared: {name}",

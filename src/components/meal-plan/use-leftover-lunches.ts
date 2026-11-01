@@ -1,8 +1,10 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
-import { weekdayKey } from '@/lib/i18n/format-dates'
+import { formatDayLong, weekdayKey } from '@/lib/i18n/format-dates'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 
 import type { LeftoverLunch } from './types'
@@ -49,4 +51,27 @@ export function useLeftoverLunchText() {
     )
     return [...new Set(parts)].join(' · ')
   }
+}
+
+/**
+ * The cook view's words for the leftover lunches, with each one's servings
+ * and slot: "2.5 for lunch: Tuesday" (HON-1395). The cook sees only the
+ * dinner, so the line says how much to set aside, which the card leaves to
+ * the lunch card beside it (HON-1574). Separators, not prepositions, so
+ * Estonian needs no declension (docs/LOCALIZATION.md).
+ */
+export function useLeftoverLunchDetailText() {
+  const t = useTranslations('meal-plan.card')
+  const locale = useLocale() as Locale
+
+  return (leftovers: readonly SharedLeftover[]): string =>
+    leftovers
+      .map((leftover) =>
+        t('leftoverForDetail', {
+          servings: formatQuantity(leftover.servings, locale),
+          mealType: leftover.mealType,
+          day: formatDayLong(parseLocalDate(leftover.date), locale),
+        }),
+      )
+      .join(' · ')
 }

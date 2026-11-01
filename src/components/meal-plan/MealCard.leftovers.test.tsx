@@ -175,7 +175,7 @@ describe('MealDetail with a leftover lunch (HON-1395)', () => {
     expect(chickenRow()).toHaveTextContent('825g') // 150 g × 5.5
     expect(screen.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeInTheDocument()
     expect(
-      screen.getByText('Ingredients for 5.5 servings · leftovers for Tuesday'),
+      screen.getByText('Ingredients for 5.5 servings · 2.5 for lunch: Tuesday'),
     ).toBeInTheDocument()
   })
 
