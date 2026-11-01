@@ -116,6 +116,16 @@ async function plan(
 const names = (result: { items: { ingredient: { name: string } }[] }) =>
   result.items.map((item) => item.ingredient.name)
 
+/** A global herb row: the migrations seed some of them, so reuse one that exists. */
+async function herb(name: string): Promise<string> {
+  const row =
+    (await prisma.ingredient.findFirst({ where: { householdId: null, name } })) ??
+    (await prisma.ingredient.create({
+      data: { name, category: 'spice', defaultUnit: 'g', ...nutrition },
+    }))
+  return row.id
+}
+
 describe('loadPantry', () => {
   it("returns the household's items, staples first, then A–Z", async () => {
     const alder = await household()
@@ -253,6 +263,88 @@ describe('loadPantry', () => {
     const result = await loadPantry(alder, { days: 7 })
 
     expect(result.items[0]).toMatchObject({ neededQuantity: 200 })
+  })
+
+  // The shopping list counts a dried or fresh herb as cover for the bare herb
+  // (HON-1558), so the pantry row shows what the plan needs of it.
+  it('shows the bare herb need on a dried herb row when no bare row is stocked', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const driedBasil = await herb('dried basil')
+    await stock(alder.id, driedBasil)
+    await plan(alder.id, [{ ingredientId: basil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+
+    expect(result.items).toEqual([
+      expect.objectContaining({ ingredientId: driedBasil, neededQuantity: 10 }),
+    ])
+  })
+
+  it('shows the bare herb need on one form row when two are stocked', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    await stock(alder.id, await herb('dried basil'))
+    await stock(alder.id, await herb('fresh basil'))
+    await plan(alder.id, [{ ingredientId: basil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+
+    expect(result.items.map((item) => item.neededQuantity).filter(Boolean)).toEqual([10])
+  })
+
+  it('shows the bare herb need on the other form row when one has a need of its own', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const freshBasil = await herb('fresh basil')
+    const driedBasil = await herb('dried basil')
+    // Fresh basil goes in first, so the pantry query reads it first.
+    await stock(alder.id, freshBasil)
+    await stock(alder.id, driedBasil)
+    await plan(alder.id, [
+      { ingredientId: freshBasil, quantityPerServing: 10 },
+      { ingredientId: basil, quantityPerServing: 5 },
+    ])
+
+    const result = await loadPantry(alder, { days: 7 })
+    const byId = new Map(result.items.map((item) => [item.ingredientId, item]))
+
+    expect(byId.get(freshBasil)).toEqual(expect.objectContaining({ neededQuantity: 20 }))
+    expect(byId.get(driedBasil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
+  })
+
+  it('shows the bare herb need on the form row that covers it, not on a run-out one', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const driedBasil = await herb('dried basil')
+    const freshBasil = await herb('fresh basil')
+    // The run-out jar goes in first, so the pantry query reads it first.
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: driedBasil, quantity: 0 },
+    })
+    await stock(alder.id, freshBasil)
+    await plan(alder.id, [{ ingredientId: basil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+    const byId = new Map(result.items.map((item) => [item.ingredientId, item]))
+
+    expect(byId.get(driedBasil)).not.toHaveProperty('neededQuantity')
+    expect(byId.get(freshBasil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
+  })
+
+  it('keeps the bare herb need on the bare row when both are stocked', async () => {
+    const alder = await household()
+    const basil = await herb('basil')
+    const driedBasil = await herb('dried basil')
+    await stock(alder.id, basil)
+    await stock(alder.id, driedBasil)
+    await plan(alder.id, [{ ingredientId: basil, quantityPerServing: 5 }])
+
+    const result = await loadPantry(alder, { days: 7 })
+    const byId = new Map(result.items.map((item) => [item.ingredientId, item]))
+
+    expect(byId.get(basil)).toEqual(expect.objectContaining({ neededQuantity: 10 }))
+    expect(byId.get(driedBasil)).not.toHaveProperty('neededQuantity')
   })
 
   it('reaches further with a 14-day window', async () => {

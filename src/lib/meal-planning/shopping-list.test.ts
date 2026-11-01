@@ -34,6 +34,11 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+// The herb cover table (HON-1558) is tested in `pantry-shopping-lines.test.ts`.
+vi.mock('@/lib/ingredient-form-cover-ids', () => ({
+  loadFormCoverIds: vi.fn().mockResolvedValue(new Map()),
+}))
+
 // Mock dates module to control "today" in tests
 vi.mock('./dates', async () => {
   const actual = await vi.importActual<typeof import('./dates')>('./dates')
