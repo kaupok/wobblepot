@@ -43,14 +43,32 @@ export function hasForm(name: string, forms: string[]): boolean {
   return forms.some((form) => named.has(form))
 }
 
+/** Note words that say how to prepare the food, not which food it is. */
+const PREPARATION_NOTE_WORDS = new Set([
+  'and',
+  'drained',
+  'rinsed',
+  'soaked',
+  'overnight',
+  'chopped',
+  'diced',
+  'sliced',
+  'minced',
+  'grated',
+  'peeled',
+  'halved',
+  'cooked',
+])
+
 /**
- * The food part of a recipe name. A note after a comma is preparation, so
- * "chickpeas, drained" is "chickpeas", and "drained" cannot pull it to `dried
- * chickpeas`. A form word in the note still names the product, so it moves to the
- * front: "chickpeas, dried" is "dried chickpeas" (HON-1549). A note that offers
- * a choice or a condition ("fresh or frozen", "thawed if frozen") names no one
- * form, so nothing moves. "fillet" stays a suffix, so it is not moved. No
- * catalogue name holds a comma.
+ * The food part of a recipe name. A note after a comma that only says how to
+ * prepare the food is dropped, so "chickpeas, drained" is "chickpeas", and
+ * "drained" cannot pull it to `dried chickpeas`. A form word in the note still
+ * names the product, so it moves to the front: "chickpeas, dried" is "dried
+ * chickpeas" (HON-1549). A note that offers a choice or a condition ("fresh or
+ * frozen", "thawed if frozen") or names two forms states no one form, so it is
+ * dropped. Any other note word may name the food ("sugar, brown", "salmon,
+ * fillet"), so the name is kept as written.
  */
 export function foodNameOf(name: string): string {
   const [rawHead = '', ...notes] = name.split(',')
@@ -58,13 +76,15 @@ export function foodNameOf(name: string): string {
   const head = rawHead.trim()
   const noteWords = wordsOf(notes.join(' '))
   if (noteWords.includes('or') || noteWords.includes('if')) return head
+  const isMovableForm = (word: string) =>
+    FORM_OF_WORD[word] !== undefined && !word.startsWith('fillet')
+  if (!noteWords.every((word) => isMovableForm(word) || PREPARATION_NOTE_WORDS.has(word))) {
+    return name
+  }
   const headForms = formsOf(head)
   const noteForms = [
     ...new Set(
-      noteWords.filter((word) => {
-        const form = FORM_OF_WORD[word]
-        return form !== undefined && !word.startsWith('fillet') && !headForms.has(form)
-      }),
+      noteWords.filter((word) => isMovableForm(word) && !headForms.has(FORM_OF_WORD[word]!)),
     ),
   ]
   if (new Set(noteForms.map((word) => FORM_OF_WORD[word])).size > 1) return head

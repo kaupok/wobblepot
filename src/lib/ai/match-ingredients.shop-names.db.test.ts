@@ -248,6 +248,10 @@ describe('matchIngredients on a dried, tinned or berry name', () => {
     'frozen cranberries',
     'blackcurrants',
     'blackberry',
+    'brown sugar',
+    'granulated sugar',
+    'salmon',
+    'salmon fillet',
   ]
 
   it.each([
@@ -276,5 +280,17 @@ describe('matchIngredients on a dried, tinned or berry name', () => {
     const [result] = await matchIngredients([extracted(recipeName)], 4)
 
     expect(result).toMatchObject({ type: 'matched', ingredient: { name }, lowConfidence: false })
+  })
+
+  // A note that names the variety or the cut is part of the food, so it is not dropped
+  it.each([
+    ['sugar, brown', 'brown sugar'],
+    ['salmon, fillet', 'salmon fillet'],
+  ])('keeps the note in "%s", so it matches "%s"', async (recipeName, name) => {
+    await seedShopCatalogue(names)
+
+    const [result] = await matchIngredients([extracted(recipeName)], 4)
+
+    expect(result).toMatchObject({ type: 'matched', ingredient: { name } })
   })
 })
