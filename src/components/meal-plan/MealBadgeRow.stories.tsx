@@ -16,7 +16,7 @@ function LibraryRow({
   width,
   protein = 'legume',
 }: {
-  width: 'w-75' | 'w-140'
+  width: 'w-75' | 'w-104' | 'w-140'
   protein?: 'legume' | 'fish'
 }) {
   return (
@@ -101,6 +101,27 @@ export const Narrow: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Lõunasöök')).toBeInTheDocument()
     await expect(canvas.getByText('Kaunviljad')).toBeInTheDocument()
+  },
+}
+
+/**
+ * A row a little too narrow: the overlap frees more room than it lacked, so
+ * nothing is cut, and the time still ends the row at its right edge
+ * (HON-1352) rather than tucking under the protein badge.
+ */
+export const SlightlyNarrow: Story = {
+  globals: { locale: 'et' },
+  render: () => <LibraryRow width="w-104" />,
+  play: async ({ canvasElement }) => {
+    const all = badges(canvasElement)
+    const row = all[0]!.parentElement!
+    await waitFor(() => expect(row).toHaveAttribute('data-overlap'))
+    for (const label of canvasElement.querySelectorAll<HTMLElement>('.truncate')) {
+      await expect(label.scrollWidth).toBe(label.clientWidth)
+    }
+    await expect(Math.round(all.at(-1)!.getBoundingClientRect().right)).toBe(
+      Math.round(row.getBoundingClientRect().right),
+    )
   },
 }
 

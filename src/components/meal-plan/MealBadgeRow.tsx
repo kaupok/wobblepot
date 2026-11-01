@@ -69,7 +69,9 @@ export function MealBadgeRow({ children, className }: { children: ReactNode; cla
         // slides; Tailwind has no token that names it, and one row uses it.
         // eslint-disable-next-line shadcn/no-arbitrary-values
         '*:transition-[flex-shrink,color,background-color,box-shadow] *:duration-200 motion-reduce:*:transition-none',
-        'data-overlap:*:ring-card data-overlap:*:data-[variant=outline]:bg-card data-overlap:*:ring-2 data-overlap:*:not-first:-ml-3.5',
+        // A badge pushed right with `ml-auto` (the time) stays out of the
+        // overlap, so it keeps the row's right edge (HON-1352).
+        'data-overlap:*:ring-card data-overlap:*:data-[variant=outline]:bg-card data-overlap:*:ring-2 data-overlap:*:not-first:not-[.ml-auto]:-ml-3.5',
         className,
       )}
     >
