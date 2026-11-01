@@ -109,11 +109,12 @@ export async function chargePantry(
   for (const [ingredientId, amounts] of deductionsByIngredientId) {
     // A row the cook named used up reads `0`, "ran out", whatever it held:
     // one write, with no decrement first, and no `quantity` filter, so a
-    // known amount and a "have some" row both get there.
+    // known amount and a "have some" row both get there. Ran out replaces
+    // running low (HON-1586), so every write of `0` here clears `lowAt`.
     if (outcomes.usedUp.has(ingredientId)) {
       await tx.pantryItem.updateMany({
         where: { householdId, ingredientId, isStaple: false },
-        data: { quantity: 0 },
+        data: { quantity: 0, lowAt: null },
       })
       continue
     }
@@ -166,7 +167,7 @@ export async function chargePantry(
           ? [{ quantity: null }, { quantity: { lte: 0 } }]
           : [{ quantity: { lte: 0 } }],
       },
-      data: { quantity: 0 },
+      data: { quantity: 0, lowAt: null },
     })
   }
 }

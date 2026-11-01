@@ -166,14 +166,28 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
   it('purchases a single ingredientId and returns replacedQuantity for the undo (HON-1438)', async () => {
     mockPurchase.mockResolvedValue({
       status: 'purchased',
-      results: [{ ingredientId: 'ing-rice', replacedQuantity: 300, pantryItem: ricePantryItem }],
+      results: [
+        {
+          ingredientId: 'ing-rice',
+          replacedQuantity: 300,
+          replacedLow: false,
+          pantryItem: ricePantryItem,
+        },
+      ],
     })
 
     expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
       status: 200,
       body: {
         success: true,
-        results: [{ ingredientId: 'ing-rice', replacedQuantity: 300, pantryItem: ricePantryItem }],
+        results: [
+          {
+            ingredientId: 'ing-rice',
+            replacedQuantity: 300,
+            replacedLow: false,
+            pantryItem: ricePantryItem,
+          },
+        ],
       },
     })
     expect(mockPurchase).toHaveBeenCalledWith(household, 'plan-123', ['ing-rice'])
@@ -183,9 +197,24 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     mockPurchase.mockResolvedValue({
       status: 'purchased',
       results: [
-        { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
-        { ingredientId: 'ing-rice', replacedQuantity: null, pantryItem: ricePantryItem },
-        { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
+        {
+          ingredientId: 'ing-milk',
+          replacedQuantity: null,
+          replacedLow: false,
+          pantryItem: milkPantryItem,
+        },
+        {
+          ingredientId: 'ing-rice',
+          replacedQuantity: null,
+          replacedLow: false,
+          pantryItem: ricePantryItem,
+        },
+        {
+          ingredientId: 'ing-milk',
+          replacedQuantity: null,
+          replacedLow: false,
+          pantryItem: milkPantryItem,
+        },
       ],
     })
 
@@ -194,9 +223,24 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
       body: {
         success: true,
         results: [
-          { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
-          { ingredientId: 'ing-rice', replacedQuantity: null, pantryItem: ricePantryItem },
-          { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
+          {
+            ingredientId: 'ing-milk',
+            replacedQuantity: null,
+            replacedLow: false,
+            pantryItem: milkPantryItem,
+          },
+          {
+            ingredientId: 'ing-rice',
+            replacedQuantity: null,
+            replacedLow: false,
+            pantryItem: ricePantryItem,
+          },
+          {
+            ingredientId: 'ing-milk',
+            replacedQuantity: null,
+            replacedLow: false,
+            pantryItem: milkPantryItem,
+          },
         ],
       },
     })

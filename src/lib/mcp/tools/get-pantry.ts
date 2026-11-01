@@ -12,7 +12,7 @@ export const getPantry = defineTool({
   name: 'get_pantry',
   title: 'Get pantry',
   description:
-    'Returns what the household has at home, with the amount when it is known. Use it to answer whether there is enough of something, or what can be cooked from what is in stock. quantity null means "have some, amount unknown"; 0 means it ran out.',
+    'Returns what the household has at home, with the amount when it is known. Use it to answer whether there is enough of something, or what can be cooked from what is in stock. quantity null means "have some, amount unknown"; 0 means it ran out. low true means the household marked it running low: a little is left, it is on the shopping list, and planned meals can still use it.',
   inputSchema: z.object({}),
   outputSchema: z.object({
     items: z.array(
@@ -22,6 +22,7 @@ export const getPantry = defineTool({
         quantity: z.number().nullable(),
         unit: z.string(),
         isStaple: z.boolean(),
+        low: z.boolean(),
         neededSoon: z.boolean(),
       }),
     ),
@@ -35,6 +36,7 @@ export const getPantry = defineTool({
         quantity: item.quantity,
         unit: item.ingredient.displayUnit,
         isStaple: item.isStaple,
+        low: item.low,
         // `loadPantry` sets `neededQuantity` only for an item a planned meal in
         // the window uses.
         neededSoon: 'neededQuantity' in item,

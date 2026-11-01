@@ -289,6 +289,20 @@ describe('completing a fridge meal', () => {
     expect(await pantryQuantity(alder.id, 'ing-rice')).toBe(200)
   })
 
+  it('clears a running-low mark on a used-up item, because ran out replaces it (HON-1586)', async () => {
+    const { alder, fridgeId } = await fridgeWorld()
+    const where = { householdId_ingredientId: { householdId: alder.id, ingredientId: 'ing-apple' } }
+    await prisma.pantryItem.update({ where, data: { lowAt: new Date() } })
+
+    await updateEntry(alder.id, 'plan-alder', fridgeId, {
+      status: 'completed',
+      usedUpIngredientIds: ['ing-apple'],
+    })
+
+    const row = await prisma.pantryItem.findUniqueOrThrow({ where })
+    expect({ quantity: row.quantity, lowAt: row.lowAt }).toEqual({ quantity: 0, lowAt: null })
+  })
+
   it('complete → revert → complete changes the pantry once only', async () => {
     const { alder, fridgeId } = await fridgeWorld()
     const complete = { status: 'completed' as const, usedUpIngredientIds: ['ing-apple'] }

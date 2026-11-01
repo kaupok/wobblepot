@@ -31,6 +31,7 @@ describe('purchaseIngredients', () => {
         {
           ingredientId: 'ing-rice',
           replacedQuantity: null,
+          replacedLow: false,
           pantryItem: {
             id: row.id,
             ingredient: {
@@ -289,6 +290,91 @@ describe('unpurchaseIngredient', () => {
 
     expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('not_in_pantry')
     expect(await pantryRow(birch.id, 'ing-rice')).toEqual({ quantity: null, isStaple: false })
+  })
+})
+
+describe('a running-low row (HON-1586)', () => {
+  const lowOf = async (householdId: string, ingredientId: string) => {
+    const row = await prisma.pantryItem.findUnique({
+      where: { householdId_ingredientId: { householdId, ingredientId } },
+      select: { quantity: true, lowAt: true },
+    })
+    return row && { quantity: row.quantity, low: row.lowAt !== null }
+  }
+
+  it('clears low when bought and reports replacedLow', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', lowAt: daysAgo(1) },
+    })
+
+    const outcome = await purchaseIngredients(alder, ['ing-rice'])
+
+    expect(outcome).toMatchObject({
+      status: 'purchased',
+      results: [{ ingredientId: 'ing-rice', replacedQuantity: null, replacedLow: true }],
+    })
+    expect(await lowOf(alder.id, 'ing-rice')).toEqual({ quantity: null, low: false })
+  })
+
+  it('reports replacedLow false for a row that was not low', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({ data: { householdId: alder.id, ingredientId: 'ing-rice' } })
+
+    expect(await purchaseIngredients(alder, ['ing-rice'])).toMatchObject({
+      results: [{ replacedLow: false }],
+    })
+  })
+
+  it('keeps the row, low again, when the purchase is undone with restoreLow', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', lowAt: daysAgo(1) },
+    })
+    await purchaseIngredients(alder, ['ing-rice'])
+
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice', { restoreLow: true })).toBe('restored')
+    expect(await lowOf(alder.id, 'ing-rice')).toEqual({ quantity: null, low: true })
+  })
+
+  it('still removes a non-staple when the purchase is undone without restoreLow', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', lowAt: daysAgo(1) },
+    })
+    await purchaseIngredients(alder, ['ing-rice'])
+
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('removed')
+    expect(await lowOf(alder.id, 'ing-rice')).toBeNull()
+  })
+
+  it('sets a staple back to ran out, not low, when undone without restoreLow', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', isStaple: true, lowAt: daysAgo(1) },
+    })
+    await purchaseIngredients(alder, ['ing-rice'])
+    // The household marked it low again after the purchase.
+    await prisma.pantryItem.update({
+      where: { householdId_ingredientId: { householdId: alder.id, ingredientId: 'ing-rice' } },
+      data: { lowAt: new Date() },
+    })
+
+    expect(await unpurchaseIngredient(alder.id, 'ing-rice')).toBe('ran_out')
+    expect(await lowOf(alder.id, 'ing-rice')).toEqual({ quantity: 0, low: false })
+  })
+
+  it('passes restoreLow through the plan-scoped undo', async () => {
+    const { alder } = await world()
+    await prisma.pantryItem.create({
+      data: { householdId: alder.id, ingredientId: 'ing-rice', lowAt: daysAgo(1) },
+    })
+    await purchaseIngredients(alder, ['ing-rice'])
+
+    expect(
+      await unpurchasePlanIngredient(alder.id, 'plan-alder', 'ing-rice', { restoreLow: true }),
+    ).toBe('restored')
+    expect(await lowOf(alder.id, 'ing-rice')).toEqual({ quantity: null, low: true })
   })
 })
 

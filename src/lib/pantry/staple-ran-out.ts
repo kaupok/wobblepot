@@ -106,7 +106,11 @@ export async function markStapleRanOutByName(
 
   // A write bumps `@updatedAt`, so a staple at 0 already is left alone.
   if (staple.quantity !== 0) {
-    await prisma.pantryItem.update({ where: { id: staple.id }, data: { quantity: 0 } })
+    // Ran out replaces running low (HON-1586).
+    await prisma.pantryItem.update({
+      where: { id: staple.id },
+      data: { quantity: 0, lowAt: null },
+    })
   }
   return { status: 'staple_ran_out', pantryItemId: staple.id, ingredientName: staple.name }
 }

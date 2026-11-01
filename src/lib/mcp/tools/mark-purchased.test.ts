@@ -31,6 +31,7 @@ function pantryRow(ingredientId: string) {
   return {
     id: `pantry-${ingredientId}`,
     quantity: null,
+    lowAt: null,
     isStaple: false,
     updatedAt: new Date('2026-10-12T10:00:00Z'),
     ingredient: { id: ingredientId, name: ingredientId, category: 'dairy', defaultUnit: 'ml' },
@@ -135,10 +136,16 @@ describe('mark_purchased', () => {
       // would read the same as an edit on the pantry page (HON-1173, HON-1176).
       expect(update).toHaveBeenCalledTimes(2)
       expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pantry-ing-milk' }, data: { quantity: null } }),
+        expect.objectContaining({
+          where: { id: 'pantry-ing-milk' },
+          data: { quantity: null, lowAt: null },
+        }),
       )
       expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pantry-ing-rice' }, data: { quantity: null } }),
+        expect.objectContaining({
+          where: { id: 'pantry-ing-rice' },
+          data: { quantity: null, lowAt: null },
+        }),
       )
       // An undo deletes the item, so the result gives the replaced 200 back for
       // the assistant to restore; a 0 ("ran out") is not worth restoring.
@@ -256,8 +263,67 @@ describe('mark_purchased', () => {
       // The staple stays, back at ran out, so it is on the list again (HON-1398).
       expect(prisma.pantryItem.update).toHaveBeenCalledExactlyOnceWith({
         where: { id: 'p-staple' },
-        data: { quantity: 0 },
+        data: { quantity: 0, lowAt: null },
       })
+    })
+
+    it('keeps only the items named in restoreLowIds, low again, and undoes the rest (HON-1586)', async () => {
+      vi.mocked(prisma.pantryItem.findUnique)
+        .mockResolvedValueOnce({
+          id: 'pantry-milk',
+          isStaple: false,
+          quantity: null,
+          updatedAt: new Date(),
+        } as never)
+        .mockResolvedValueOnce({
+          id: 'pantry-onion',
+          isStaple: false,
+          quantity: null,
+          updatedAt: new Date(),
+        } as never)
+
+      const result = await call({
+        ingredientIds: ['ing-milk', 'ing-onion'],
+        purchased: false,
+        restoreLowIds: ['ing-onion'],
+      })
+
+      expect(result.structuredContent).toEqual({
+        purchased: false,
+        items: [
+          { ingredientId: 'ing-milk', outcome: 'removed' },
+          { ingredientId: 'ing-onion', outcome: 'restored' },
+        ],
+      })
+      expect(prisma.pantryItem.delete).toHaveBeenCalledExactlyOnceWith({
+        where: { id: 'pantry-milk' },
+      })
+      expect(prisma.pantryItem.update).toHaveBeenCalledExactlyOnceWith({
+        where: { id: 'pantry-onion' },
+        data: { lowAt: expect.any(Date) },
+      })
+    })
+  })
+
+  it('reports replacedLow for an item the purchase took off running low (HON-1586)', async () => {
+    vi.mocked(prisma.ingredient.findMany).mockResolvedValue([{ id: 'ing-onion' }] as never)
+    upsert.mockImplementation(async ({ create }) => ({
+      ...pantryRow(create.ingredientId),
+      lowAt: new Date('2026-10-31T18:00:00Z'),
+    }))
+    update.mockImplementation(async ({ where }) => pantryRow(where.id.replace('pantry-', '')))
+
+    const result = await call({ ingredientIds: ['ing-onion'], purchased: true })
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pantry-ing-onion' },
+        data: { quantity: null, lowAt: null },
+      }),
+    )
+    expect(result.structuredContent).toEqual({
+      purchased: true,
+      items: [{ ingredientId: 'ing-onion', outcome: 'in_pantry', replacedLow: true }],
     })
   })
 })

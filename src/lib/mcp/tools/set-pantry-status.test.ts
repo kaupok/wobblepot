@@ -53,6 +53,7 @@ function pantryRow(overrides: Record<string, unknown> = {}) {
     quantity: 500,
     isStaple: false,
     expiresAt: null,
+    lowAt: null,
     updatedAt: new Date('2026-10-01'),
     ...overrides,
   }
@@ -101,7 +102,14 @@ describe('set_pantry_status', () => {
 
       expect(result.structuredContent).toEqual({
         outcome: 'created',
-        item: { ingredientId: 'ing-milk', name: 'Milk', quantity, unit: 'ml', isStaple: false },
+        item: {
+          ingredientId: 'ing-milk',
+          name: 'Milk',
+          quantity,
+          unit: 'ml',
+          isStaple: false,
+          low: false,
+        },
       })
       expect(prisma.ingredient.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -121,6 +129,8 @@ describe('set_pantry_status', () => {
     },
   )
 
+  // Both clear a running-low mark (HON-1586): `have_some` with `low: false`,
+  // `ran_out` through quantity 0.
   it.each([
     ['have_some', null],
     ['ran_out', 0],
@@ -135,7 +145,14 @@ describe('set_pantry_status', () => {
 
       expect(result.structuredContent).toEqual({
         outcome: 'updated',
-        item: { ingredientId: 'ing-milk', name: 'Milk', quantity, unit: 'ml', isStaple: false },
+        item: {
+          ingredientId: 'ing-milk',
+          name: 'Milk',
+          quantity,
+          unit: 'ml',
+          isStaple: false,
+          low: false,
+        },
       })
       // The update is scoped to the caller's household, so another
       // household's pantry is never read or written.
@@ -144,7 +161,7 @@ describe('set_pantry_status', () => {
       })
       expect(prisma.pantryItem.update).toHaveBeenCalledWith({
         where: { id: 'pantry-1' },
-        data: { quantity },
+        data: { quantity, lowAt: null },
         include: INCLUDE,
       })
       expect(prisma.pantryItem.create).not.toHaveBeenCalled()
@@ -167,7 +184,10 @@ describe('set_pantry_status', () => {
     const result = await call({ ingredientId: 'ing-milk', status })
 
     expect(result.structuredContent).toMatchObject({ item: { quantity, isStaple: true } })
-    expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({ quantity })
+    expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({
+      quantity,
+      lowAt: null,
+    })
   })
 
   it('writes the amount have_some brings, on a new item and on an existing one', async () => {
@@ -195,7 +215,10 @@ describe('set_pantry_status', () => {
       item: { quantity: 1800 },
     })
     expect(prisma.pantryItem.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 1800 } }),
+      expect.objectContaining({
+        where: { id: 'pantry-1' },
+        data: { quantity: 1800, lowAt: null },
+      }),
     )
   })
 
@@ -246,7 +269,7 @@ describe('set_pantry_status', () => {
 
     expect(result.structuredContent).toMatchObject({ outcome: 'updated', item: { quantity: 0 } })
     expect(prisma.pantryItem.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 0 } }),
+      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 0, lowAt: null } }),
     )
   })
 
@@ -283,6 +306,7 @@ describe('set_pantry_status', () => {
     ['another string', { status: 'half' }],
     ['the old quantity field', { quantity: 200 }],
     ['an amount with ran_out', { status: 'ran_out', amount: 1800 }],
+    ['an amount with running_low', { status: 'running_low', amount: 1800 }],
     ['an amount of 0', { status: 'have_some', amount: 0 }],
     ['a negative amount', { status: 'have_some', amount: -1 }],
     ['an amount as text', { status: 'have_some', amount: '1800' }],
@@ -305,5 +329,101 @@ describe('set_pantry_status', () => {
     )
 
     expect(result.structuredContent).toMatchObject({ item: { name: 'Piim' } })
+  })
+
+  describe('running_low (HON-1586)', () => {
+    it('marks a staple at "have some" low and keeps it a staple at null', async () => {
+      const staple = pantryRow({ isStaple: true, quantity: null })
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(staple as never)
+      vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(staple as never)
+      vi.mocked(prisma.pantryItem.update).mockImplementation((async ({ data }: never) => ({
+        ...staple,
+        ...(data as object),
+        ingredient: MILK,
+      })) as never)
+
+      const result = await call({ ingredientId: 'ing-milk', status: 'running_low' })
+
+      expect(result.structuredContent).toEqual({
+        outcome: 'updated',
+        item: {
+          ingredientId: 'ing-milk',
+          name: 'Milk',
+          quantity: null,
+          unit: 'ml',
+          isStaple: true,
+          low: true,
+        },
+      })
+      expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({
+        lowAt: expect.any(Date),
+      })
+    })
+
+    it('marks a non-staple at 0 low and sets it to "have some"', async () => {
+      const ranOut = pantryRow({ quantity: 0 })
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(ranOut as never)
+      vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(ranOut as never)
+
+      const result = await call({ ingredientId: 'ing-milk', status: 'running_low' })
+
+      expect(result.structuredContent).toMatchObject({
+        outcome: 'updated',
+        item: { quantity: null, isStaple: false, low: true },
+      })
+      expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({
+        lowAt: expect.any(Date),
+        quantity: null,
+      })
+    })
+
+    it('keeps the amount of a counted row it marks low', async () => {
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(pantryRow() as never)
+      vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(pantryRow() as never)
+
+      const result = await call({ ingredientId: 'ing-milk', status: 'running_low' })
+
+      expect(result.structuredContent).toMatchObject({ item: { quantity: 500, low: true } })
+    })
+
+    it('puts an ingredient not in the pantry in as "have some" plus low', async () => {
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(null)
+
+      const result = await call({ ingredientId: 'ing-milk', status: 'running_low' })
+
+      expect(result.structuredContent).toMatchObject({
+        outcome: 'created',
+        item: { quantity: null, low: true },
+      })
+      expect(prisma.pantryItem.create).toHaveBeenCalledWith({
+        data: {
+          householdId: 'household-a',
+          ingredientId: 'ing-milk',
+          quantity: null,
+          isStaple: false,
+          lowAt: expect.any(Date),
+        },
+        include: INCLUDE,
+      })
+    })
+
+    it('clears low with have_some', async () => {
+      const low = pantryRow({ quantity: null, lowAt: new Date('2026-10-31') })
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(low as never)
+      vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(low as never)
+      vi.mocked(prisma.pantryItem.update).mockImplementation((async ({ data }: never) => ({
+        ...low,
+        ...(data as object),
+        ingredient: MILK,
+      })) as never)
+
+      const result = await call({ ingredientId: 'ing-milk', status: 'have_some' })
+
+      expect(result.structuredContent).toMatchObject({ item: { quantity: null, low: false } })
+      expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({
+        quantity: null,
+        lowAt: null,
+      })
+    })
   })
 })

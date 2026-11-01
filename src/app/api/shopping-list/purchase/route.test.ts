@@ -57,6 +57,7 @@ const membership = {
 const rice = {
   ingredientId: 'ing-rice',
   replacedQuantity: 300,
+  replacedLow: false,
   pantryItem: {
     id: 'pantry-rice',
     ingredient: {
@@ -75,6 +76,7 @@ const rice = {
 const milk = {
   ingredientId: 'ing-milk',
   replacedQuantity: null,
+  replacedLow: false,
   pantryItem: {
     id: 'pantry-milk',
     ingredient: {

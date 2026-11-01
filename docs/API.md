@@ -125,14 +125,15 @@ What to buy for the planned meals, plus the staples the household marked ran out
       "category": "vegetable",
       "neededBy": "2026-10-15",
       "purchased": false,
-      "restock": false
+      "restock": false,
+      "low": false
     }
   ],
   "customItems": [{ "id": "cm…", "name": "Candles", "checked": false, "neededBy": null }]
 }
 ```
 
-An item with `purchased: true` is already in the pantry. An item with `restock: true` is a staple the household marked ran out (HON-1398): its `neededBy` is today, and when no planned meal or extra needs it, it has no amount (`quantity` 0, `displayQuantity` empty). A custom item's `neededBy` is the earliest day, from today on, of a free-text day extra that put it on the list; it is `null` for an item typed by hand.
+An item with `purchased: true` is already in the pantry. An item with `restock: true` is a staple the household marked ran out (HON-1398): its `neededBy` is today, and when no planned meal or extra needs it, it has no amount (`quantity` 0, `displayQuantity` empty). An item with `low: true` is one the household marked running low (HON-1586): a little is left, so it is on the list now. It has no amount unless planned meals need more than the pantry amount, and it is needed on the first day a planned meal needs it, or today. A custom item's `neededBy` is the earliest day, from today on, of a free-text day extra that put it on the list; it is `null` for an item typed by hand.
 
 ## Errors
 

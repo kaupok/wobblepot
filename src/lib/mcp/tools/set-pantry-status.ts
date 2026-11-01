@@ -18,6 +18,17 @@ import {
  */
 const STATUS_QUANTITY = { have_some: null, ran_out: 0 } as const
 
+/**
+ * What each status writes on a row already in the pantry. `running_low` keeps
+ * the amount, and `updatePantryItem` sets a row at 0 to have some (HON-1586).
+ * `have_some` clears low; `ran_out` clears it through quantity 0.
+ */
+function statusUpdate(status: 'have_some' | 'ran_out' | 'running_low', amount?: number) {
+  if (status === 'running_low') return { low: true }
+  if (status === 'have_some') return { quantity: amount ?? STATUS_QUANTITY.have_some, low: false }
+  return { quantity: STATUS_QUANTITY.ran_out }
+}
+
 function itemOutput(item: PantryItemWithIngredient) {
   return {
     ingredientId: item.ingredientId,
@@ -25,6 +36,7 @@ function itemOutput(item: PantryItemWithIngredient) {
     quantity: item.quantity,
     unit: displayUnit(item.ingredient),
     isStaple: item.isStaple,
+    low: item.lowAt !== null,
   }
 }
 
@@ -32,7 +44,7 @@ export const setPantryStatus = defineTool({
   name: 'set_pantry_status',
   title: 'Set pantry status',
   description:
-    'Records whether the household has an ingredient at home, and how much. have_some: it is in the pantry, with an amount or without one. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry, get_shopping_list or add_to_pantry. To put food the household bought in the pantry by name, use add_to_pantry. A staple stays a staple, and an ingredient that is not one does not become one: to star or unstar a staple, use set_staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. With have_some, pass amount when the user says how much there is, in the unit get_pantry reports: the shopping list then asks for that much less, and completing a meal takes its ingredients off it. A staple takes no amount.',
+    'Records whether the household has an ingredient at home, and how much. have_some: it is in the pantry, with an amount or without one. ran_out: it is used up, so the shopping list needs the full amount again. running_low: there is a little left, so it goes on the shopping list now, with no amount, and planned meals can still use it. Use it when the household says something is running out, nearly gone, or the last pack is open. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry, get_shopping_list or add_to_pantry. To put food the household bought in the pantry by name, use add_to_pantry. A staple stays a staple, and an ingredient that is not one does not become one: to star or unstar a staple, use set_staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. With have_some, pass amount when the user says how much there is, in the unit get_pantry reports: the shopping list then asks for that much less, and completing a meal takes its ingredients off it. A staple takes no amount.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z
     .object({
@@ -40,7 +52,11 @@ export const setPantryStatus = defineTool({
         .string()
         .min(1)
         .describe('The ingredientId of the ingredient, from get_pantry or get_shopping_list.'),
-      status: z.enum(['have_some', 'ran_out']).describe('have_some: at home. ran_out: used up.'),
+      status: z
+        .enum(['have_some', 'ran_out', 'running_low'])
+        .describe(
+          'have_some: at home. ran_out: used up. running_low: a little left, so it goes on the shopping list.',
+        ),
       amount: z
         .number()
         .positive()
@@ -67,11 +83,21 @@ export const setPantryStatus = defineTool({
         ),
       unit: z.string(),
       isStaple: z.boolean(),
+      low: z
+        .boolean()
+        .describe(
+          'true: marked running low, so it is on the shopping list while planned meals can still use it.',
+        ),
     }),
   }),
   run: async (household, { ingredientId, status, amount }) => {
-    const quantity = amount ?? STATUS_QUANTITY[status]
-    const created = await createPantryItem(household, { ingredientId, quantity, isStaple: false })
+    const created = await createPantryItem(household, {
+      ingredientId,
+      // Running low on a new row is have some plus low.
+      quantity: status === 'running_low' ? null : (amount ?? STATUS_QUANTITY[status]),
+      isStaple: false,
+      low: status === 'running_low',
+    })
 
     if (created.status === 'ingredient_not_found') {
       throw new ToolInputError(
@@ -90,8 +116,12 @@ export const setPantryStatus = defineTool({
       )
     }
 
-    // Only the quantity changes, so a staple stays a staple.
-    const updated = await updatePantryItem(household, created.existingId, { quantity })
+    // The staple flag is not written, so a staple stays a staple.
+    const updated = await updatePantryItem(
+      household,
+      created.existingId,
+      statusUpdate(status, amount),
+    )
     if (updated.status === 'not_found') {
       // The household removed the item after `createPantryItem` read it.
       throw new ToolInputError('The pantry changed while this ran. Try again.')

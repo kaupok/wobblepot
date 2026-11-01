@@ -49,6 +49,8 @@ export interface PantryItemWithIngredient {
   ingredientId: string
   quantity: number | null
   isStaple: boolean
+  /** Set when the household marked the row running low (HON-1586). */
+  lowAt: Date | null
   updatedAt: Date
   ingredient: {
     id: string
@@ -98,7 +100,14 @@ export async function findPantryIngredient(
       gramsPerPiece: true,
       pantryItems: {
         where: { householdId: household.id },
-        select: { id: true, ingredientId: true, quantity: true, isStaple: true, updatedAt: true },
+        select: {
+          id: true,
+          ingredientId: true,
+          quantity: true,
+          isStaple: true,
+          lowAt: true,
+          updatedAt: true,
+        },
       },
     },
   })
@@ -124,10 +133,13 @@ export type CreatePantryItemOutcome =
   | { status: 'ingredient_not_found' }
   | { status: 'exists'; existingId: string; isStaple: boolean }
 
-/** Puts an ingredient in the household's pantry. */
+/**
+ * Puts an ingredient in the household's pantry. `low` marks it running low,
+ * which a row at 0 cannot be, so it writes have some (null) plus low.
+ */
 export async function createPantryItem(
   household: Household,
-  input: { ingredientId: string; quantity: number | null; isStaple: boolean },
+  input: { ingredientId: string; quantity: number | null; isStaple: boolean; low?: boolean },
 ): Promise<CreatePantryItemOutcome> {
   const ingredient = await prisma.ingredient.findFirst({
     where: {
@@ -157,8 +169,9 @@ export async function createPantryItem(
       data: {
         householdId: household.id,
         ingredientId: input.ingredientId,
-        quantity: input.quantity,
+        quantity: input.low && input.quantity === 0 ? null : input.quantity,
         isStaple: input.isStaple,
+        ...(input.low && { lowAt: new Date() }),
       },
       include: itemInclude(locale),
     })
@@ -182,15 +195,18 @@ export type UpdatePantryItemOutcome =
   { status: 'updated'; item: PantryItemWithIngredient } | { status: 'not_found' }
 
 /**
- * Changes a pantry item's quantity, staple flag or both. Only the fields
- * given are written. The caller makes sure at least one is given: an empty
+ * Changes a pantry item's quantity, staple flag, running-low mark or any of
+ * them. Only the fields given are written, under the running-low rules
+ * (HON-1586): quantity 0 clears low, because ran out replaces it; low on a
+ * row at 0 also sets the quantity to null (have some); an amount edit keeps
+ * low; clearing low leaves the quantity. The caller makes sure at least one is given: an empty
  * update still bumps `@updatedAt`, which the shopping-list routes read as
  * "purchased" when the quantity is null (HON-642, HON-1176).
  */
 export async function updatePantryItem(
   household: Household,
   id: string,
-  update: { quantity?: number | null; isStaple?: boolean },
+  update: { quantity?: number | null; isStaple?: boolean; low?: boolean },
 ): Promise<UpdatePantryItemOutcome> {
   const pantryItem = await prisma.pantryItem.findFirst({
     where: { id, householdId: household.id },
@@ -198,9 +214,16 @@ export async function updatePantryItem(
 
   if (!pantryItem) return { status: 'not_found' }
 
-  const data: { quantity?: number | null; isStaple?: boolean } = {}
+  const data: { quantity?: number | null; isStaple?: boolean; lowAt?: Date | null } = {}
   if (update.quantity !== undefined) data.quantity = update.quantity
   if (update.isStaple !== undefined) data.isStaple = update.isStaple
+  if (update.low === true) {
+    data.lowAt = new Date()
+    const quantity = update.quantity !== undefined ? update.quantity : pantryItem.quantity
+    if (quantity === 0) data.quantity = null
+  } else if (update.low === false || update.quantity === 0) {
+    data.lowAt = null
+  }
 
   // The app ignores the name today, but the item matches what `loadPantry`
   // returns for the same row (HON-913).

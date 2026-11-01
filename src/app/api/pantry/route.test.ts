@@ -172,6 +172,7 @@ describe('POST /api/pantry', () => {
     ingredientId: 'ing-456',
     quantity: 500,
     isStaple: true,
+    lowAt: null,
     updatedAt: new Date('2024-01-10T00:00:00.000Z'),
     ingredient: {
       id: 'ing-456',
@@ -270,6 +271,7 @@ describe('POST /api/pantry', () => {
       },
       quantity: 500,
       isStaple: true,
+      low: false,
       updatedAt: '2024-01-10T00:00:00.000Z',
     })
     expect(mockCreatePantryItem).toHaveBeenCalledWith(mockHousehold, {

@@ -952,6 +952,10 @@ model PantryItem {
   quantity     Float?
   isStaple     Boolean   @default(false)
   expiresAt    DateTime?
+  /// Set when the household marks the row running low (HON-1586): it has a
+  /// little left, so it goes on the shopping list and planned meals still use
+  /// it. Never set on a row at quantity 0; ran out replaces low.
+  lowAt        DateTime?
 
   household  Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredient Ingredient @relation(fields: [ingredientId], references: [id])

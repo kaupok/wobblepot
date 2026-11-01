@@ -56,6 +56,8 @@ export interface ShoppingListItem {
   restock?: boolean
   /** Any other pantry row at 0, marked ran out (HON-1578). */
   ranOut?: boolean
+  /** A pantry row marked running low (HON-1586). With `shoppingQuantity` 0, the line has no amount. */
+  low?: boolean
 }
 
 /**

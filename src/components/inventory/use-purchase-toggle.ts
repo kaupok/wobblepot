@@ -16,6 +16,8 @@ interface PurchaseToggleVariables {
   purchased: boolean
   /** On an untick, the quantity the tick replaced, so the pantry row keeps it. */
   restoreQuantity?: number
+  /** On an untick, the tick cleared a running-low mark, so the row stays, low again. */
+  restoreLow?: boolean
 }
 
 /** What `/api/shopping-list/purchase` and `/unpurchase` answer with. */
@@ -23,7 +25,11 @@ interface PurchaseToggleResponse {
   success?: boolean
   /** The unpurchase outcome (`UnpurchaseOutcome`). */
   action?: string
-  results?: Array<{ pantryItem?: PantryItemData; replacedQuantity?: number | null }>
+  results?: Array<{
+    pantryItem?: PantryItemData
+    replacedQuantity?: number | null
+    replacedLow?: boolean
+  }>
 }
 
 interface UsePurchaseToggleOptions {
@@ -31,8 +37,15 @@ interface UsePurchaseToggleOptions {
   windowDays: number
   setPurchasedIds: Dispatch<SetStateAction<Set<string>>>
   onItemPurchased?: (item: PantryItemData) => void
-  /** `restoredQuantity` is set when the pantry row stays at the amount it had before the tick. */
-  onItemUnpurchased?: (ingredientId: string, restoredQuantity?: number) => void
+  /**
+   * `restoredQuantity` is set when the pantry row stays at the amount it had
+   * before the tick, and `restoredLow` when it stays, running low again.
+   */
+  onItemUnpurchased?: (
+    ingredientId: string,
+    restoredQuantity?: number,
+    restoredLow?: boolean,
+  ) => void
 }
 
 /**
@@ -78,31 +91,42 @@ export function usePurchaseToggle({
   // entered (HON-1438). A row ticked before the page loaded has no entry, so
   // its untick removes the row as before.
   const replacedQuantities = useRef(new Map<string, number>())
+  // The ids whose tick in this session cleared a running-low mark, sent back
+  // as `restoreLow` so the untick keeps the row in the pantry (HON-1586).
+  const replacedLows = useRef(new Set<string>())
 
   const purchaseToggleMutation = useMutation({
     mutationKey: PURCHASE_TOGGLE_KEY,
-    mutationFn: ({ ingredientId, purchased, restoreQuantity }: PurchaseToggleVariables) => {
+    mutationFn: ({
+      ingredientId,
+      purchased,
+      restoreQuantity,
+      restoreLow,
+    }: PurchaseToggleVariables) => {
       const endpoint = purchased ? 'purchase' : 'unpurchase'
       return apiFetch<PurchaseToggleResponse>(
         `/api/shopping-list/${endpoint}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ingredientId, restoreQuantity }),
+          body: JSON.stringify({ ingredientId, restoreQuantity, restoreLow }),
         },
         tErrors('updateFailed'),
       )
     },
     onMutate: ({ ingredientId, purchased }) => setPurchased(ingredientId, purchased),
-    onSuccess: (data, { ingredientId, purchased, restoreQuantity }) => {
+    onSuccess: (data, { ingredientId, purchased, restoreQuantity, restoreLow }) => {
       if (purchased) {
         const replacedQuantity = data.results?.[0]?.replacedQuantity
         // Every tick sets its own entry, so an older one cannot outlive a row
         // the household removed in between.
         if (replacedQuantity) replacedQuantities.current.set(ingredientId, replacedQuantity)
         else replacedQuantities.current.delete(ingredientId)
+        if (data.results?.[0]?.replacedLow) replacedLows.current.add(ingredientId)
+        else replacedLows.current.delete(ingredientId)
       } else if (data.success) {
         replacedQuantities.current.delete(ingredientId)
+        replacedLows.current.delete(ingredientId)
       }
 
       // Notify parent about pantry changes (for real-time update)
@@ -127,7 +151,9 @@ export function usePurchaseToggle({
       } else if (!purchased && onItemUnpurchased && data.success) {
         // `has_quantity`: the household set an amount after the tick, so the
         // server kept the row as it is, and so does the pantry column.
-        if (data.action !== 'has_quantity') onItemUnpurchased(ingredientId, restoreQuantity)
+        if (data.action !== 'has_quantity') {
+          onItemUnpurchased(ingredientId, restoreQuantity, restoreLow)
+        }
       }
     },
     onError: (_error, { ingredientId, purchased }) => {
@@ -143,7 +169,10 @@ export function usePurchaseToggle({
     purchaseToggleMutation.mutate({
       ingredientId,
       purchased,
-      ...(!purchased && { restoreQuantity: replacedQuantities.current.get(ingredientId) }),
+      ...(!purchased && {
+        restoreQuantity: replacedQuantities.current.get(ingredientId),
+        restoreLow: replacedLows.current.has(ingredientId) || undefined,
+      }),
     })
   }
 

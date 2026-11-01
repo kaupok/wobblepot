@@ -134,6 +134,27 @@ describe('POST /api/shopping-list/unpurchase', () => {
     })
   })
 
+  it('passes restoreLow through and answers 200 with restored (HON-1586)', async () => {
+    mockUnpurchase.mockResolvedValue('restored')
+
+    expect(await answer(post({ ingredientId: 'ing-rice', restoreLow: true }))).toEqual({
+      status: 200,
+      body: { success: true, ingredientId: 'ing-rice', action: 'restored' },
+    })
+    expect(mockUnpurchase).toHaveBeenCalledWith('household-123', 'ing-rice', {
+      restoreQuantity: undefined,
+      restoreLow: true,
+    })
+  })
+
+  it('returns 400 naming restoreLow for a value that is not a boolean', async () => {
+    const { status, body } = await answer(post({ ingredientId: 'ing-rice', restoreLow: 'yes' }))
+
+    expect(status).toBe(400)
+    expect(Object.keys(body.details)).toEqual(['restoreLow'])
+    expect(mockUnpurchase).not.toHaveBeenCalled()
+  })
+
   it.each([0, -200, '200'])(
     'returns 400 naming restoreQuantity for %j',
     async (restoreQuantity) => {
