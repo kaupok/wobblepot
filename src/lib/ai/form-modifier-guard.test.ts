@@ -239,6 +239,24 @@ describe('the boneless form', () => {
     })
   })
 
+  // HON-1579: Estonian joins the fillet to the cut
+  it('reads an Estonian fillet compound as boneless, but not mince or a bare meat', () => {
+    expect(hasForm('kanakintsuliha', ['boneless'])).toBe(true)
+    expect(hasForm('lõhefilee', ['boneless'])).toBe(true)
+    expect(hasForm('kanakints', ['boneless'])).toBe(false)
+    expect(hasForm('kanahakkliha', ['boneless'])).toBe(false)
+    expect(hasForm('küülikuliha', ['boneless'])).toBe(false)
+  })
+
+  it('uses the Estonian fillet row of a plural cut', () => {
+    const fillet = [row('ing-thigh-fillet', 'kanakintsuliha', 1)]
+
+    expect(guardFormMatch(['boneless'], 'kanakintsud', [thigh], [fillet])).toEqual({
+      action: 'use',
+      matches: fillet,
+    })
+  })
+
   it('keeps the bare row when the only fillet row is another cut', () => {
     const others = [
       row('ing-turkey-thigh-fillet', 'turkey thigh fillet', 0.8),

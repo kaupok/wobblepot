@@ -150,9 +150,8 @@ const FORM_WORD_LINES: FormWordLine[] = [
 // the word in FORM_WORDS, so it pins today's result; the guard unit test reads the
 // word. An Estonian form word is not stripped before the search, so its line is
 // unsure from a weak score, not from the guard; a line with no form row lands sure
-// on the exact row name. The catalogue writes an Estonian fillet as one compound
-// ("lõhefilee"), which no boneless stem reads (HON-1579). A row is singular, so only
-// "fillet" reads it.
+// on the exact row name: "lõhe filee" scores low against "lõhefilee". A row is
+// singular, so only "fillet" reads it.
 const PINNED_LINES: FormWordLine[] = [
   ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
   ['purgi', 'purgi kookospiim', 'coconut milk', false],
@@ -188,14 +187,17 @@ describe('matchIngredients on each form word', () => {
     },
   )
 
-  // The bare cut, not yet its fillet row: the guard does not find "kanakintsuliha" (HON-1579)
-  it('matches "kondita kanakintsud" to chicken thigh, unsure', async () => {
+  // HON-1579: the guard searches the Estonian fillet compound, "kanakintsuliha"
+  it.each([
+    ['kondita kanakintsud', 'chicken thigh fillet'],
+    ['kondita lõhe', 'salmon fillet'],
+  ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     await seedCatalogue()
 
-    expect(await matchOne('kondita kanakintsud')).toMatchObject({
+    expect(await matchOne(recipeName)).toMatchObject({
       type: 'matched',
-      ingredient: { name: 'chicken thigh' },
-      lowConfidence: true,
+      ingredient: { name: rowName },
+      lowConfidence: false,
     })
   })
 })
