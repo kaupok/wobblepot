@@ -258,7 +258,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'wild boar', et: 'metssealiha' },
   { en: 'wild boar steak', et: 'metssea praad' },
   // ============================================================
-  // VEGETABLE (168)
+  // VEGETABLE (169)
   // ============================================================
   { en: 'acorn squash', et: 'tammetõrukõrvits' },
   { en: 'anaheim pepper', et: 'anaheimi tšilli' },
@@ -329,6 +329,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'frozen mixed vegetables', et: 'külmutatud köögiviljasegu' },
   { en: 'frozen peas', et: 'külmutatud herned' },
   { en: 'frozen spinach', et: 'külmutatud spinat' },
+  { en: 'frozen stir-fry vegetables', et: 'külmutatud wokiköögiviljad' },
   { en: 'garlic', et: 'küüslauk' },
   { en: 'garlic scapes', et: 'küüslauguvarred' },
   { en: 'gem lettuce', et: 'gem-salat' },
@@ -734,7 +735,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'whipped cream', et: 'vahustatud koor' },
   { en: 'whipping cream', et: 'vahukoor' },
   // ============================================================
-  // FAT (54)
+  // FAT (56)
   // ============================================================
   { en: 'almond butter', et: 'mandlivõi' },
   { en: 'almonds', et: 'mandlid' },
@@ -766,6 +767,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'hemp seeds', et: 'kanepiseemned' },
   { en: 'lard', et: 'searasv' },
   { en: 'macadamia nuts', et: 'makadaamiapähklid' },
+  { en: 'mixed nuts', et: 'pähklisegu' },
   { en: 'niter kibbeh', et: 'niter kibbeh' },
   { en: 'ogbono seeds', et: 'ogbono seemned' },
   { en: 'olive oil', et: 'oliiviõli' },
@@ -776,6 +778,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'pumpkin seeds', et: 'kõrvitsaseemned' },
   { en: 'pine nuts', et: 'piiniaseemned' },
   { en: 'pistachio', et: 'pistaatsiapähkel' },
+  { en: 'seed mix', et: 'seemnesegu' },
   { en: 'sesame oil', et: 'seesamiõli' },
   { en: 'sesame seeds', et: 'seesamiseemned' },
   { en: 'shredded coconut', et: 'kookoslaastud' },
