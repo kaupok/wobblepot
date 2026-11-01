@@ -21,6 +21,7 @@ The trigger is the reviewer's: run this item when the diff touches a file that t
 - The diff changes a request builder or text the eval sends → run `pnpm ai-eval --baseline golden --candidate <current-id> --judge`, then `/bench-judge`.
 - The diff changes a model constant in `src/lib/ai/models.ts` → run the comparison that **Model changes:** names.
 - The diff changes `budgets.ts` or a committed case → run `pnpm ai-eval --check`.
+- The monthly budget gate refuses the run → do not pass `--allow-over-budget`. File the run as a Todo follow-up by `ai-eval.md` → **Budget gate:**, with the refused command and the gate's output, and name it under "Not verified" in the PR body.
 
 Commit the report and cite it in the PR body. A run past 600 s: `batched.md`.
 
