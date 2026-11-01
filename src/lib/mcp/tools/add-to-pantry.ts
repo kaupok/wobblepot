@@ -237,9 +237,10 @@ async function addOne(household: McpHousehold, entry: Entry): Promise<Result> {
 
   // A receipt says what came in, so an amount adds to what is at home. An
   // unknown amount (null) and ran out (0) both count as none. A staple's
-  // amount is null here, so it is saved as "have some".
+  // amount is null here, so it is saved as "have some". The household bought
+  // it, so a running-low mark is cleared, as a purchase does (HON-1586).
   const next = amount === null ? null : rounded((item.quantity ?? 0) + amount)
-  const updated = await updatePantryItem(household, item.id, { quantity: next })
+  const updated = await updatePantryItem(household, item.id, { quantity: next, low: false })
   if (updated.status === 'not_found') throw changedWhileRunning(name)
   return {
     ...base,

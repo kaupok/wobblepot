@@ -209,10 +209,16 @@ export async function updateCustomShoppingItem(
       })
       // Buying it means "have some", the only state the shopping list reads
       // as purchased, so a 0 or an entered quantity is replaced, as in
-      // `purchaseIngredients` (HON-1173, HON-1176).
-      if (pantryItem.quantity !== null) {
-        if (pantryItem.quantity > 0) replacedQuantity = pantryItem.quantity
-        await tx.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: null } })
+      // `purchaseIngredients` (HON-1173, HON-1176). A running-low mark is
+      // cleared too, so the item leaves the list (HON-1586).
+      if (pantryItem.quantity !== null || pantryItem.lowAt !== null) {
+        if (pantryItem.quantity !== null && pantryItem.quantity > 0) {
+          replacedQuantity = pantryItem.quantity
+        }
+        await tx.pantryItem.update({
+          where: { id: pantryItem.id },
+          data: { quantity: null, lowAt: null },
+        })
       }
     }
 

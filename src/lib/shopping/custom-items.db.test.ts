@@ -367,6 +367,22 @@ describe('updateCustomShoppingItem', () => {
     expect((await pantryRow('hh-alder', 'ing-alder'))?.quantity).toBeNull()
   })
 
+  // HON-1586: a checked linked item is bought, so it leaves the list.
+  it('checking clears a running-low mark on a "have some" pantry row', async () => {
+    await alderItem()
+    await prisma.pantryItem.create({
+      data: { householdId: 'hh-alder', ingredientId: 'ing-alder', lowAt: new Date() },
+    })
+
+    const outcome = await updateCustomShoppingItem('hh-alder', 'item-1', { checked: true })
+
+    expect(outcome).toMatchObject({ status: 'updated', replacedQuantity: null })
+    const row = await prisma.pantryItem.findUniqueOrThrow({
+      where: { householdId_ingredientId: { householdId: 'hh-alder', ingredientId: 'ing-alder' } },
+    })
+    expect({ quantity: row.quantity, lowAt: row.lowAt }).toEqual({ quantity: null, lowAt: null })
+  })
+
   // HON-1233: an empty upsert update left `updatedAt` alone, so the 7-day
   // unpurchase window was not renewed.
   it('checking renews the updatedAt of an old "have some" pantry row', async () => {
