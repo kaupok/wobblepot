@@ -368,6 +368,31 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   kintsufilee: 'chicken thigh fillet',
   kanakintsufilee: 'chicken thigh fillet',
 
+  // Shop names for one-pack mixes and the seeds, nuts and pastes in them
+  // (HON-1545). A translation row holds one Estonian name, so a second one
+  // goes here. A plain "marjasegu" is the frozen bag, as an Estonian shop sells it.
+  'mixed seeds': 'seed mix',
+  'salad seed mix': 'seed mix',
+  'salatiseemnete segu': 'seed mix',
+  'nut mix': 'mixed nuts',
+  wokisegu: 'frozen stir-fry vegetables',
+  wokiköögiviljad: 'frozen stir-fry vegetables',
+  'stir-fry vegetable mix': 'frozen stir-fry vegetables',
+  'wok vegetables': 'frozen stir-fry vegetables',
+  'india pähklid': 'cashews',
+  'india pähkli või': 'cashew butter',
+  kašupähklivõi: 'cashew butter',
+  seesamipasta: 'tahini',
+  'sesame paste': 'tahini',
+  sesame: 'sesame seeds',
+  seesam: 'sesame seeds',
+  chia: 'chia seeds',
+  'chia seemned': 'chia seeds',
+  linseed: 'flax seeds',
+  linseeds: 'flax seeds',
+  marjasegu: 'frozen mixed berries',
+  metsamarjasegu: 'frozen mixed berries',
+
   // Rows that were one food under two English names, merged so no Estonian
   // name sits on two rows (HON-1500)
   oats: 'rolled oats',

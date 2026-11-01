@@ -4672,4 +4672,46 @@ export const importCoverageIngredients = [
     fat: 0.1,
     fiber: 0.5,
   },
+  // ── One-pack shop mixes (HON-1545) ── 3 items
+  // An Estonian shop sells these as one pack, so splitting them into their parts
+  // matches neither the shelf nor the receipt. Seed mix nutrition is the mean of
+  // the sunflower, pumpkin, flax and sesame rows. Each mix carries the allergens
+  // of a part most packs hold or warn of, because too many tags is the safe way
+  // to fail. Nutrition is per 100 g.
+  {
+    name: 'seed mix',
+    category: 'fat',
+    subcategory: 'seed',
+    defaultUnit: 'g',
+    allergens: ['sesame'],
+    calories: 563,
+    protein: 22,
+    carbs: 21,
+    fat: 48,
+    fiber: 13,
+  },
+  {
+    name: 'mixed nuts',
+    category: 'fat',
+    subcategory: 'nut',
+    defaultUnit: 'g',
+    allergens: ['nuts', 'peanuts'],
+    calories: 610,
+    protein: 20,
+    carbs: 15,
+    fat: 54,
+    fiber: 7,
+  },
+  {
+    name: 'frozen stir-fry vegetables',
+    category: 'vegetable',
+    subcategory: 'mixed',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 40,
+    protein: 2,
+    carbs: 6,
+    fat: 0.5,
+    fiber: 3,
+  },
 ] satisfies IngredientInput[]
