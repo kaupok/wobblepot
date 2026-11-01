@@ -29,10 +29,11 @@ describe('MealImageCard with a head', () => {
     expect(wrapper).toHaveClass('absolute', '-z-10', '-inset-y-2', 'mask-b-from-60%')
     expect(wrapper).not.toHaveClass('inset-y-0', 'h-20')
     // The head keeps the horizontal geometry, fades and `sizes` of the trailing box.
-    expect(wrapper).toHaveClass('right-12', 'left-1/2', 'mask-l-from-90%', 'mask-r-from-80%')
+    expect(wrapper).toHaveClass('right-0', 'left-1/2', 'mask-l-from-90%')
+    expect(wrapper).not.toHaveClass('mask-r-from-80%')
     expect(screen.getByRole('img')).toHaveAttribute(
       'sizes',
-      '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
+      '(min-width: 768px) 485px, (min-width: 480px) 62vw, 50vw',
     )
   })
 

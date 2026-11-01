@@ -3,26 +3,18 @@ import { MoreHorizontal } from 'lucide-react'
 import { expect, waitFor, within } from 'storybook/test'
 
 import { Button } from '@/components/ui/button'
-import { CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { CardContent, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { MealType, ProteinType } from '@/generated/prisma/enums'
 import { cn } from '@/lib/utils'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, lemonGarlicChickenPantry } from '@/stories/fixtures'
 
 import { MealCardBase, type MealCardBaseData } from './MealCardBase'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { withImage } from './MealImageCard.fixtures'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'
 import { StickyNote } from './StickyNote'
-
-const withImage = (hue: number, overrides: Partial<MealCardBaseData> = {}) =>
-  createMealCardBaseData({
-    imageStatus: 'ready',
-    imageUrl: mealIllustration.src,
-    imageHue: hue,
-    ...overrides,
-  })
 
 const meta = {
   title: 'Meal plan/MealImageCard',
@@ -33,7 +25,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating, except a `bottom` card with `reserveWhileGenerating` (My recipes), which holds the image's 3:2 slot with a plain `bg-muted` box (HON-1364). With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `head` (the planner card) the image runs from the card's top edge to the bottom of the head, and the children are the full-width rows below it, on the plain tint (HON-927). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
+          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating, except a `bottom` card with `reserveWhileGenerating` (My recipes), which holds the image's 3:2 slot with a plain `bg-muted` box (HON-1364). With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's menu) the image box starts at half a narrow card and runs under the menu to the card edge, so the whole plate shows; the menu sits on the empty tint beside the plate (HON-1562). With `head` (the planner card) the image runs from the card's top edge to the bottom of the head, and the children are the full-width rows below it, on the plain tint (HON-927). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
       },
     },
   },
@@ -214,9 +206,9 @@ const LONG_TITLE = 'Baked Salmon with Asparagus'
 
 /**
  * The planner card's header: the slot badge with the menu at the right end
- * of its row, then a long name on its own row (HON-749). The image ends
- * before the menu, and the title wraps before the image, so both sit on the
- * plain tint. Mirrors `MealCard`'s header markup.
+ * of its row, then a long name on its own row (HON-749). The image runs
+ * under the menu to the card edge, on the empty tint beside the plate
+ * (HON-1562), and the title wraps before the image, on the plain tint. Mirrors `MealCard`'s header markup.
  */
 function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
   return (
@@ -255,9 +247,12 @@ function TrailingActionsHeader({ name, children }: { name: string; children?: Re
 }
 
 /**
- * Asserts that the actions and the title clear the image's opaque part: the
- * actions start at or after the image box's right edge, and the title ends
- * inside the short left fade (the first 10% of the box).
+ * Asserts the planner card's geometry (HON-1562). The actions lie inside the
+ * image box's top-right corner, on the empty tint beside the plate. The plate
+ * is about half the 3:2 image's width and centred, and `object-cover` makes
+ * the image at least 1.5× the box's height wide. So the plate's rim clears the
+ * left fade (the first 10% of the box) when 0.4 of the box's width holds half
+ * the plate: width ≥ 0.9375 × height. The title ends inside that fade.
  */
 async function assertOnTint(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
@@ -266,7 +261,9 @@ async function assertOnTint(canvasElement: HTMLElement) {
   const actions = canvas.getByTestId('card-actions').getBoundingClientRect()
   const title = canvas.getByRole('button', { name: LONG_TITLE }).getBoundingClientRect()
   await expect(box.width).toBeGreaterThan(0)
-  await expect(actions.left).toBeGreaterThanOrEqual(box.right)
+  await expect(actions.right).toBeLessThanOrEqual(box.right)
+  await expect(actions.left).toBeGreaterThanOrEqual(box.left)
+  await expect(box.width * 0.4).toBeGreaterThanOrEqual(box.height * 1.5 * 0.25)
   await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
 }
 
@@ -470,72 +467,5 @@ export const NarrowGridDesktop: Story = {
       await expect(wrapper.getBoundingClientRect().width).toBeCloseTo(content / 2, 0)
       await expect(box.width).toBeCloseTo(card.clientWidth * 0.45, 0)
     }
-  },
-}
-
-/**
- * A card taller than wide — the add-meal dialog's alternatives (HON-750). The
- * image is a 3:2 block below the content, fading upward, with the actions below
- * it; no text overlaps it and the title keeps the full row.
- */
-function BottomCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
-  return (
-    <MealImageCard
-      {...args}
-      meal={meal}
-      layout="bottom"
-      className="flex h-full w-68 flex-col"
-      footer={
-        <CardFooter className="p-4 pt-0">
-          <Button className="w-full">Select</Button>
-        </CardFooter>
-      }
-    >
-      <CardContent className="flex-1 p-4 pb-2">
-        <MealCardBase
-          meal={meal as MealCardBaseData}
-          pantryIngredients={lemonGarlicChickenPantry}
-          nameHeadingTag="h3"
-        />
-      </CardContent>
-    </MealImageCard>
-  )
-}
-
-export const BottomWithImage: Story = {
-  name: 'Bottom, with image',
-  render: (args) => <BottomCard {...args} />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await canvas.findByRole('img', { name: 'Lemon-garlic roast chicken' })
-    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-    const list = canvas.getByRole('list').getBoundingClientRect()
-    const select = canvas.getByRole('button', { name: 'Select' }).getBoundingClientRect()
-    // The content ends above the image and the button starts below it.
-    await expect(list.bottom).toBeLessThanOrEqual(box.top)
-    await expect(select.top).toBeGreaterThanOrEqual(box.bottom)
-    // The whole 3:2 frame, full card width.
-    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
-    await expect(box.width).toBeCloseTo(card.clientWidth, 0)
-    await expect(box.width / box.height).toBeCloseTo(1.5, 1)
-    // Nothing sits beside the name, so it keeps the full row.
-    const heading = canvas.getByRole('heading', { name: 'Lemon-garlic roast chicken' })
-    await expect(getComputedStyle(heading.parentElement!).maxWidth).toBe('none')
-  },
-}
-
-export const BottomWithImageDark: Story = {
-  name: 'Bottom, with image (dark)',
-  globals: { theme: 'dark' },
-  render: (args) => <BottomCard {...args} />,
-}
-
-export const BottomWithoutImage: Story = {
-  name: 'Bottom, without image',
-  args: { meal: createMealCardBaseData() },
-  render: (args) => <BottomCard {...args} />,
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByTestId('meal-card-image')).not.toBeInTheDocument()
-    await expect(within(canvasElement).getByRole('button', { name: 'Select' })).toBeInTheDocument()
   },
 }
