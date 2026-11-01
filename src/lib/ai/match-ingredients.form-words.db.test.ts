@@ -99,6 +99,9 @@ describe('matchIngredients on a name with a form word', () => {
     // The normalized name's alias ("prawn" → "prawns") does not name the form
     ['smoked prawns', 'prawns'],
     ['frozen shrimp', 'prawns'],
+    // A form row carries every missing form: `chicken thigh fillet` is not frozen
+    ['frozen chicken fillets', 'chicken thigh fillet'],
+    ['frozen chicken fillets', 'chicken breast'],
   ])('does not match "%s" to the bare %s for sure', async (recipeName, bareRow) => {
     await seedCatalogue()
 

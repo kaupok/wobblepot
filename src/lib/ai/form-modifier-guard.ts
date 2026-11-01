@@ -239,7 +239,9 @@ export function guardFormMatch(
     )
   }
   const isFormRow = (match: FuzzyIngredientMatch) =>
-    [match.name, match.matchedName].some((name) => hasForm(name, forms) && namesFood(name))
+    [match.name, match.matchedName].some(
+      (name) => forms.every((form) => hasForm(name, [form])) && namesFood(name),
+    )
 
   const sureLists = directSide.filter(
     (list) => list[0] && isFormRow(list[0]) && list[0].similarity >= LOW_CONFIDENCE_THRESHOLD,
