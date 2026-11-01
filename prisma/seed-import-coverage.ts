@@ -4875,7 +4875,7 @@ export const importCoverageIngredients = [
   {
     name: 'pickled gherkins',
     category: 'vegetable',
-    subcategory: 'pickled',
+    subcategory: 'pickle',
     defaultUnit: 'g',
     allergens: [],
     calories: 14,

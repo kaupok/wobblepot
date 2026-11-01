@@ -377,7 +377,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'peas', et: 'herned' },
   { en: 'pepperoncini', et: 'pepperoni-paprika' },
   { en: 'perilla leaves', et: 'perillalehed' },
-  { en: 'pickled gherkins', et: 'hapukurk' },
+  { en: 'pickled gherkins', et: 'marineeritud kurgid' },
   { en: 'piquillo peppers', et: 'piquillo paprika' },
   { en: 'poblano pepper', et: 'poblano tšilli' },
   { en: 'porcini mushroom', et: 'kivipuravik' },

@@ -124,9 +124,11 @@ describe('matchIngredients on a name with a form word', () => {
   })
 })
 
-// "suitsutatud paprika" and "marineeritud kurk" are curated synonyms (HON-1553), so
-// `matchIngredients` never reaches the guard for them. The guard is run here on the
-// bare row the last-word search finds, as it did before the synonyms.
+// "suitsutatud paprika" is a curated synonym (HON-1553), so `matchIngredients` never
+// reaches the guard for it. The guard is run here on the bare row the last-word search
+// finds, as it did before the synonym. "marineeritud kurk" is a synonym too, and the
+// guard flags the bare `cucumber` row for it, so a pickled-cucumber name with no
+// synonym does not save sure as `cucumber`.
 describe('applyFormGuard on an Estonian form name the synonyms do not cover', () => {
   const search = (name: string) => fuzzySearchIngredient(name, { locale: 'et' })
 
@@ -156,12 +158,11 @@ describe('applyFormGuard on an Estonian form name the synonyms do not cover', ()
     expect(matches[0]?.name).toBe('smoked paprika')
   })
 
-  it('does not keep `cucumber` for "marineeritud kurk"', async () => {
+  it('flags `cucumber` for "marineeritud kurk"', async () => {
     await seedCatalogue()
 
-    const { formGuard, matches } = await guardBareRow('marineeritud kurk', 'kurk')
+    const { formGuard } = await guardBareRow('marineeritud kurk', 'kurk')
 
-    expect(formGuard.action).not.toBe('keep')
-    expect(matches[0]?.name).not.toBe('cucumber')
+    expect(formGuard.action).toBe('flag')
   })
 })

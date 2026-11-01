@@ -2609,7 +2609,7 @@ export const newIngredients = [
   {
     name: 'capers',
     category: 'condiment',
-    subcategory: 'pickled',
+    subcategory: 'pickle',
     defaultUnit: 'g',
     allergens: [],
     calories: 23,

@@ -42,8 +42,8 @@ const FORM_OF_WORD: Record<string, string> = {
 
 /**
  * The stems an Estonian catalogue name writes a form with. Estonian joins the form
- * to the food, so `smoked paprika` is "suitsupaprikapulber" and `pickled gherkins`
- * is "hapukurk": a stem anywhere in a word names the form.
+ * to the food, so `smoked paprika` is "suitsupaprikapulber" and `sauerkraut`
+ * is "hapukapsas": a stem anywhere in a word names the form.
  */
 const ESTONIAN_FORM_STEMS: Record<string, string[]> = {
   tinned: ['konserveeritud', 'konserv'],
@@ -157,7 +157,6 @@ export function catalogueFormName(directName: string): string {
 /** The stem Estonian joins to a food for a form: "suitsutatud paprika" is "suitsupaprika". */
 const COMPOUND_STEM_OF_WORD: Record<string, string> = {
   suitsutatud: 'suitsu',
-  marineeritud: 'hapu',
 }
 
 /**

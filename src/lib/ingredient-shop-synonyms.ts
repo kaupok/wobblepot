@@ -62,6 +62,7 @@ export const SHOP_INGREDIENT_SYNONYMS: Record<string, string> = {
   grillimaitseaine: 'grill seasoning',
   'marineeritud kurk': 'pickled gherkins',
   'marineeritud kurgid': 'pickled gherkins',
+  hapukurk: 'pickled gherkins',
   gherkins: 'pickled gherkins',
   pickles: 'pickled gherkins',
   'dill pickles': 'pickled gherkins',
