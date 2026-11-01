@@ -91,14 +91,14 @@ export const Narrow: Story = {
 }
 
 /**
- * A 224px card, narrower than the badges: the row overlaps them rather than
+ * A 176px card, well under the badges' width with any font: the row overlaps them rather than
  * wrapping (`MealBadgeRow`, HON-1577), and the labels cut short.
  */
 export const Overlapping: Story = {
   globals: { locale: 'et' },
   decorators: [
     (Story) => (
-      <div className="w-56">
+      <div className="w-44">
         <Story />
       </div>
     ),
