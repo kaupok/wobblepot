@@ -28,10 +28,10 @@ interface PantryDeductionModalProps {
   householdServings: number
   pantryItems: PantryItemFull[]
   /**
-   * With the cook's answer when the dialog asked about a "have some" row, and
-   * with none when it asked about none, so the server's default decides the
-   * null rows. The server reads a sent list as the answer for every null row,
-   * so a row added after the page loaded is kept as "Some left".
+   * With the cook's answer when the dialog shows a row, and with none when it
+   * shows none, so the server's default decides. The server reads a sent list
+   * as the answer for every null row, so a row added after the page loaded is
+   * kept as "Some left".
    */
   onConfirm: (answer?: CookAnswer) => void
   isLoading?: boolean
@@ -43,11 +43,22 @@ interface PantryDeductionModalProps {
   onCloseAutoFocus?: (event: Event) => void
 }
 
-/** What the cook said about the "have some" rows (HON-1564). */
+/** What the cook said about each row (HON-1564, HON-1583). */
 export interface CookAnswer {
-  /** The ingredient ids at "Used up". `[]` when every row has some left. */
+  /**
+   * The "have some" rows at "Used up", and the known rows the cook switched to
+   * it. `[]` when there are none. A known row the sum runs out is left to the
+   * server's subtraction, which reads the live pantry, so a preview from a
+   * stale pantry cannot zero a row that was restocked meanwhile.
+   */
   usedUpIngredientIds: string[]
-  /** The rows at "Some left", for the completion event. */
+  /**
+   * The known rows at "Some left" that the sum runs out: the server keeps them
+   * as "have some". `[]` when there are none.
+   */
+  someLeftIngredientIds: string[]
+  /** The rows at "Used up" and at "Some left", for the completion event. */
+  usedUpCount: number
   someLeftCount: number
 }
 
@@ -185,8 +196,23 @@ function DeductionContent({
     return t('gramsQuantity', { count: Math.round(quantity) })
   }
 
+  // A known row opens at what the sum says; a "have some" row at its default.
   const choiceOf = (item: PantryDeductionItem): HaveSomeChoice =>
-    choices[item.ingredientId] ?? (item.outcome === 'usedUp' ? 'usedUp' : 'someLeft')
+    choices[item.ingredientId] ??
+    (item.currentQuantity === null
+      ? item.outcome === 'usedUp'
+        ? 'usedUp'
+        : 'someLeft'
+      : item.willBeRemoved
+        ? 'usedUp'
+        : 'someLeft')
+
+  // What the row will read after Confirm. "Some left" on a row the sum runs
+  // out has an unknown amount, so it reads "some".
+  const resultOf = (item: PantryDeductionItem) => {
+    if (choiceOf(item) === 'usedUp') return tPantry('ranOut')
+    return formatQuantity(item.newQuantity, item.unit)
+  }
 
   const choiceOptions = [
     { value: 'usedUp', label: t('usedUp') },
@@ -194,17 +220,20 @@ function DeductionContent({
   ]
 
   function handleConfirm() {
-    const haveSome = deductions.filter((item) => item.currentQuantity === null)
-    if (haveSome.length === 0) {
+    if (deductions.length === 0) {
       onConfirm()
       return
     }
-    const usedUpIngredientIds = haveSome
-      .filter((item) => choiceOf(item) === 'usedUp')
-      .map((item) => item.ingredientId)
+    const usedUp = deductions.filter((item) => choiceOf(item) === 'usedUp')
     onConfirm({
-      usedUpIngredientIds,
-      someLeftCount: haveSome.length - usedUpIngredientIds.length,
+      usedUpIngredientIds: usedUp
+        .filter((item) => !item.willBeRemoved)
+        .map((item) => item.ingredientId),
+      someLeftIngredientIds: deductions
+        .filter((item) => item.willBeRemoved && choiceOf(item) === 'someLeft')
+        .map((item) => item.ingredientId),
+      usedUpCount: usedUp.length,
+      someLeftCount: deductions.length - usedUp.length,
     })
   }
 
@@ -229,7 +258,14 @@ function DeductionContent({
                 className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm"
               >
                 <span className="font-medium">{item.ingredientName}</span>
-                {item.currentQuantity === null ? (
+                <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                  {item.currentQuantity !== null && (
+                    <span className="text-muted-foreground">
+                      {formatQuantity(item.currentQuantity, item.unit)}
+                      {' → '}
+                      {resultOf(item)}
+                    </span>
+                  )}
                   <ChoiceChips
                     aria-label={t('choiceLabel', { name: item.ingredientName })}
                     size="sm-touch"
@@ -243,15 +279,7 @@ function DeductionContent({
                     options={choiceOptions}
                     disabled={isLoading}
                   />
-                ) : (
-                  <span className="text-muted-foreground">
-                    {formatQuantity(item.currentQuantity, item.unit)}
-                    {' → '}
-                    {item.willBeRemoved
-                      ? tPantry('ranOut')
-                      : formatQuantity(item.newQuantity, item.unit)}
-                  </span>
-                )}
+                </div>
               </li>
             ))}
           </ul>

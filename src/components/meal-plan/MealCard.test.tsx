@@ -344,7 +344,8 @@ describe('MealCard status from the menu', () => {
       }),
     )
     expect(await screen.findByText('How was it?')).toBeInTheDocument()
-    expect(patches).toEqual([{ status: 'completed', deductPantry: true }])
+    // The known row keeps its preset "Some left" (HON-1583).
+    expect(patches).toEqual([{ status: 'completed', deductPantry: true, usedUpIngredientIds: [] }])
     await waitFor(() => expect(trigger()).toHaveFocus())
   })
 
@@ -574,13 +575,15 @@ describe('MealCard Done cooking', () => {
       '/api/meal-plans/plan-1/entries/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ status: 'completed', deductPantry: true }),
+        body: JSON.stringify({ status: 'completed', deductPantry: true, usedUpIngredientIds: [] }),
       }),
     )
     expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
       plan_id: 'plan-1',
       meal_id: meal.id,
       source: 'cook_view',
+      used_up_count: 0,
+      some_left_count: 1,
     })
   })
 

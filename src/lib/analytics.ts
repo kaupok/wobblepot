@@ -196,9 +196,9 @@ export type EventPayload = {
   'onboarding:household_created': { household_id: string }
   'meal_plan:plan_generated': { plan_id: string }
   /**
-   * `used_up_count` / `some_left_count`: the "have some" rows the cook left at
-   * or set to "Used up" / "Some left" in the Cooked dialog (HON-1564). Absent
-   * when no dialog asked.
+   * `used_up_count` / `some_left_count`: the rows, "have some" and known
+   * amounts, the cook left at or set to "Used up" / "Some left" in the Cooked
+   * dialog (HON-1564, HON-1583). Absent when no dialog asked.
    */
   'meal_plan:meal_completed': {
     plan_id: string

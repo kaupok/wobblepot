@@ -13,6 +13,8 @@ import {
   HAVE_SOME_SERVINGS,
   haveSomeComponents,
   haveSomePantryItems,
+  minceComponent,
+  mincePantryItem,
 } from '@/stories/have-some-fixtures'
 
 import enMessages from '../../../messages/en.json'
@@ -80,15 +82,105 @@ describe('PantryDeductionModal', () => {
     expect(await screen.findByText('800g → Ran out')).toBeInTheDocument()
   })
 
-  it('confirms with no answer when no row is "have some"', async () => {
+  it('confirms with no answer when nothing is deducted', async () => {
     const user = userEvent.setup()
     const onConfirm = vi.fn()
-    renderModal({ onConfirm })
+    renderModal({ onConfirm, pantryItems: [] })
 
     await user.click(await screen.findByRole('button', { name: 'Confirm' }))
 
     expect(onConfirm).toHaveBeenCalledWith()
     expect(screen.queryByRole('radiogroup')).toBeNull()
+  })
+
+  describe('known-amount rows (HON-1583)', () => {
+    function renderKnown() {
+      const onConfirm = vi.fn()
+      renderModal({
+        onConfirm,
+        mealName: 'Bolognese',
+        components: [minceComponent, fetaComponent],
+        householdServings: HAVE_SOME_SERVINGS,
+        pantryItems: [mincePantryItem, fetaPantryItem],
+      })
+      return { onConfirm }
+    }
+
+    const group = (name: string) =>
+      screen.getByRole('radiogroup', { name: `What is left: ${name}` })
+    const row = (name: string) => screen.getByText(name).closest('li')!
+
+    it('opens a row with some left at "Some left" and a row that runs out at "Used up"', async () => {
+      renderKnown()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      expect(row('Beef mince')).toHaveTextContent('1000g → 500g')
+      expect(within(group('Beef mince')).getByRole('radio', { name: 'Some left' })).toBeChecked()
+      expect(row('Feta')).toHaveTextContent('100g → Ran out')
+      expect(within(group('Feta')).getByRole('radio', { name: 'Used up' })).toBeChecked()
+    })
+
+    // The server subtracts from the live pantry, so a preset row is not named:
+    // a restock while the dialog is open still counts.
+    it('leaves the preset rows to the server on Confirm and counts them', async () => {
+      const user = userEvent.setup()
+      const { onConfirm } = renderKnown()
+
+      await user.click(await screen.findByRole('button', { name: 'Confirm' }))
+
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: [],
+        someLeftIngredientIds: [],
+        usedUpCount: 1,
+        someLeftCount: 1,
+      })
+    })
+
+    it('reads "Ran out" and sends the id as used up when the cook switches a row with some left', async () => {
+      const user = userEvent.setup()
+      const { onConfirm } = renderKnown()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(within(group('Beef mince')).getByRole('radio', { name: 'Used up' }))
+      expect(row('Beef mince')).toHaveTextContent('1000g → Ran out')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: ['mince'],
+        someLeftIngredientIds: [],
+        usedUpCount: 2,
+        someLeftCount: 0,
+      })
+    })
+
+    it('reads "some" and sends the id as some left when the cook switches a row that runs out', async () => {
+      const user = userEvent.setup()
+      const { onConfirm } = renderKnown()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(within(group('Feta')).getByRole('radio', { name: 'Some left' }))
+      expect(row('Feta')).toHaveTextContent('100g → some')
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: [],
+        someLeftIngredientIds: ['feta'],
+        usedUpCount: 0,
+        someLeftCount: 2,
+      })
+    })
+
+    it('reaches each control by Tab', async () => {
+      const user = userEvent.setup()
+      renderKnown()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      const minceChecked = within(group('Beef mince')).getByRole('radio', { name: 'Some left' })
+      for (let i = 0; i < 6 && document.activeElement !== minceChecked; i++) await user.tab()
+      expect(minceChecked).toHaveFocus()
+      await user.tab()
+      expect(within(group('Feta')).getByRole('radio', { name: 'Used up' })).toHaveFocus()
+    })
   })
 
   describe('"have some" rows (HON-1564)', () => {
@@ -131,7 +223,7 @@ describe('PantryDeductionModal', () => {
       }
     })
 
-    it('shows no control on a known-quantity row', async () => {
+    it('shows the amount beside the control on a known-quantity row only', async () => {
       renderHaveSome({
         components: [...haveSomeComponents, fetaComponent],
         pantryItems: [...haveSomePantryItems, fetaPantryItem],
@@ -139,8 +231,9 @@ describe('PantryDeductionModal', () => {
 
       const feta = (await screen.findByText('Feta')).closest('li')!
       expect(feta).toHaveTextContent('100g → Ran out')
-      expect(within(feta).queryByRole('radiogroup')).toBeNull()
-      expect(screen.getAllByRole('radiogroup')).toHaveLength(11)
+      expect(within(feta).getByRole('radiogroup')).toBeInTheDocument()
+      expect(screen.getAllByRole('radiogroup')).toHaveLength(12)
+      expect(screen.getByText('Pumpkin').closest('li')).not.toHaveTextContent('→')
     })
 
     it('sends the ids left at "Used up" on Confirm', async () => {
@@ -151,6 +244,8 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot'],
+        someLeftIngredientIds: [],
+        usedUpCount: 4,
         someLeftCount: 7,
       })
     })
@@ -167,6 +262,8 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'sweet-potato', 'beetroot', 'tahini'],
+        someLeftIngredientIds: [],
+        usedUpCount: 4,
         someLeftCount: 7,
       })
     })
@@ -180,7 +277,12 @@ describe('PantryDeductionModal', () => {
 
       await user.click(await screen.findByRole('button', { name: 'Confirm' }))
 
-      expect(onConfirm).toHaveBeenCalledWith({ usedUpIngredientIds: [], someLeftCount: 3 })
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: [],
+        someLeftIngredientIds: [],
+        usedUpCount: 0,
+        someLeftCount: 3,
+      })
     })
 
     it('reaches the control by Tab and changes it with an arrow key and Space', async () => {
@@ -204,7 +306,12 @@ describe('PantryDeductionModal', () => {
       expect(someLeft).toBeChecked()
 
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
-      expect(onConfirm).toHaveBeenCalledWith({ usedUpIngredientIds: [], someLeftCount: 1 })
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: [],
+        someLeftIngredientIds: [],
+        usedUpCount: 0,
+        someLeftCount: 1,
+      })
     })
 
     it('reads the options in Estonian', async () => {

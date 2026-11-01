@@ -78,9 +78,16 @@ export interface EntryPatch {
   /**
    * The pantry items the household used up: a fridge meal's (HON-1277), or
    * the "have some" rows a cooked recipe meal ran out (HON-1563). Absent on a
-   * recipe meal, each row takes `defaultCookOutcome`.
+   * recipe meal, each row takes `defaultCookOutcome`. On a recipe meal it can
+   * name a known-amount row too, which goes to `0` with no decrement
+   * (HON-1583).
    */
   usedUpIngredientIds?: string[]
+  /**
+   * The known-amount rows a cooked recipe meal left some of: a decrement that
+   * empties or overshoots one gives "have some" (`null`), not `0` (HON-1583).
+   */
+  someLeftIngredientIds?: string[]
 }
 
 /** What the route sends back after an update. */
@@ -463,8 +470,13 @@ export async function updateEntry(
       // unit and not `localeCompare` (HON-632).
       .sort((a, b) => compareIngredientIds(a.ingredientId, b.ingredientId))
 
-    // Which "have some" rows the meal ran out (HON-1563).
-    const usedUpIds = ranOutIngredientIds(componentsToDeduct, deductions, patch.usedUpIngredientIds)
+    // Which rows the meal ran out, and which it left some of (HON-1563, HON-1583).
+    const outcomes = ranOutIngredientIds(
+      componentsToDeduct,
+      deductions,
+      patch.usedUpIngredientIds,
+      patch.someLeftIngredientIds,
+    )
 
     const pantryDeducted = await prisma.$transaction(async (tx) => {
       // Claim the completion, and let the database decide who won. The
@@ -594,7 +606,7 @@ export async function updateEntry(
         }
       }
 
-      await chargePantry(tx, householdId, deductions, usedUpIds)
+      await chargePantry(tx, householdId, deductions, outcomes)
 
       return true
     })

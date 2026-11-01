@@ -115,6 +115,8 @@ describe('PastMealRow', () => {
       plan_id: 'plan-1',
       meal_id: meal.id,
       source: 'past_meals',
+      used_up_count: 0,
+      some_left_count: 1,
     })
   })
 

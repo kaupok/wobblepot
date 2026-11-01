@@ -20,6 +20,8 @@ import {
   HAVE_SOME_SERVINGS,
   haveSomeComponents,
   haveSomePantryItems,
+  minceComponent,
+  mincePantryItem,
 } from '@/stories/have-some-fixtures'
 
 import { PantryDeductionModal } from './PantryDeductionModal'
@@ -81,8 +83,9 @@ export const SomeItemsRemoved: Story = {
 
 /**
  * The HON-1563 real case plus a known row: every "have some" row gets a "Used
- * up" / "Some left" choice, preset by `defaultCookOutcome`, and the feta keeps
- * its subtraction with no choice (HON-1564).
+ * up" / "Some left" choice, preset by `defaultCookOutcome` (HON-1564). The
+ * feta shows its subtraction beside the same choice, preset at "Used up"
+ * because the sum runs it out (HON-1583).
  */
 export const HaveSomeRows: Story = {
   args: {
@@ -110,8 +113,54 @@ export const HaveSomeRows: Story = {
     await userEvent.click(body.getByRole('button', { name: /^confirm$/i }))
 
     await expect(args.onConfirm).toHaveBeenCalledWith({
+      // The feta is at its preset, so the server's subtraction decides it.
       usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot', 'tahini'],
+      someLeftIngredientIds: [],
+      usedUpCount: 6,
       someLeftCount: 6,
+    })
+  },
+}
+
+/**
+ * Known rows above and at 0 next to "have some" rows (HON-1583). The mince
+ * keeps 500 g and opens at "Some left"; the feta runs out and opens at "Used
+ * up". Switching each one changes its result before Confirm: the mince reads
+ * "Ran out", and the feta reads "some", because the amount left is unknown.
+ */
+export const KnownAmountRows: Story = {
+  args: {
+    mealName: 'Bolognese',
+    components: [minceComponent, fetaComponent, ...haveSomeComponents.slice(0, 2)],
+    householdServings: HAVE_SOME_SERVINGS,
+    pantryItems: [mincePantryItem, fetaPantryItem, ...haveSomePantryItems.slice(0, 2)],
+  },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    const group = (name: string) => body.getByRole('radiogroup', { name: `What is left: ${name}` })
+    const row = (name: string) => body.getByText(name).closest('li')!
+
+    await body.findByRole('dialog', { name: 'Mark as cooked' })
+    await expect(row('Beef mince')).toHaveTextContent('1000g → 500g')
+    await expect(
+      within(group('Beef mince')).getByRole('radio', { checked: true }),
+    ).toHaveTextContent('Some left')
+    await expect(row('Feta')).toHaveTextContent('100g → Ran out')
+    await expect(within(group('Feta')).getByRole('radio', { checked: true })).toHaveTextContent(
+      'Used up',
+    )
+
+    await userEvent.click(within(group('Beef mince')).getByRole('radio', { name: 'Used up' }))
+    await expect(row('Beef mince')).toHaveTextContent('1000g → Ran out')
+    await userEvent.click(within(group('Feta')).getByRole('radio', { name: 'Some left' }))
+    await expect(row('Feta')).toHaveTextContent('100g → some')
+    await userEvent.click(body.getByRole('button', { name: /^confirm$/i }))
+
+    await expect(args.onConfirm).toHaveBeenCalledWith({
+      usedUpIngredientIds: ['mince', 'pumpkin', 'carrot'],
+      someLeftIngredientIds: ['feta'],
+      usedUpCount: 3,
+      someLeftCount: 1,
     })
   },
 }
