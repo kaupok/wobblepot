@@ -248,3 +248,24 @@ export const Estonian: Story = {
   args: { days: days('et') },
   globals: { locale: 'et' },
 }
+
+/**
+ * A narrow screen: "+ Add" wraps below the day heading, as on Today's day
+ * card, rather than squeezing it (HON-1519).
+ */
+export const NarrowScreen: Story = {
+  decorators: [
+    (Story) => (
+      <div className="w-44">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole('heading', { level: 2, name: 'Friday Apr 10' })
+    const add = headingAddTo(canvasElement, 'Friday Apr 10')
+    await expect(add.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      heading.getBoundingClientRect().bottom,
+    )
+  },
+}
