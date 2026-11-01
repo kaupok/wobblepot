@@ -73,7 +73,7 @@ async function world(locale = 'en') {
 }
 
 describe('a staple marked ran out, in the rolling-window list', () => {
-  it('lists only the ran-out staples, each needed today and marked restock', async () => {
+  it('lists only the ran-out staples, each marked restock', async () => {
     const { alder } = await world()
 
     const items = itemsById(await loadShoppingList(alder, { days: 7 }))
@@ -104,14 +104,14 @@ describe('a staple marked ran out, in the rolling-window list', () => {
     ).toContain('ing-yoghurt')
   })
 
-  it('gives a staple a planned meal needs the 300 g, needed today', async () => {
+  it("gives a staple a planned meal needs the 300 g, needed on the meal's day (HON-1584)", async () => {
     const { alder } = await world()
 
     expect(itemsById(await loadShoppingList(alder, { days: 7 }))['ing-eggs']).toMatchObject({
       quantity: 300,
       displayQuantity: '300g',
       restock: true,
-      neededByDate: '2026-10-15',
+      neededByDate: '2026-10-17',
     })
   })
 
@@ -122,7 +122,7 @@ describe('a staple marked ran out, in the rolling-window list', () => {
       quantity: 200,
       displayQuantity: '200g',
       restock: true,
-      neededByDate: '2026-10-15',
+      neededByDate: '2026-10-16',
     })
   })
 
@@ -183,7 +183,7 @@ describe('a staple marked ran out, in the per-plan list', () => {
       quantity: 300,
       displayQuantity: '300g',
       restock: true,
-      neededByDate: '2026-10-15',
+      neededByDate: '2026-10-17',
     })
     expect(items['ing-yoghurt']).toMatchObject({
       quantity: 0,

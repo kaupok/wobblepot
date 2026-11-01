@@ -42,6 +42,8 @@ export interface ShoppingListItem {
     measuredByVolume: boolean
     /** Shown as pieces (HON-1312). Absent reads as `none`. */
     pieceDisplay?: PieceDisplay
+    /** Read by `isCupboardIngredient` for the pantry check (HON-1584). */
+    subcategory?: string | null
   }
   neededQuantity: number // Total needed for all planned meals
   pantryQuantity: number | null // What's in pantry (null = have some)
@@ -76,6 +78,22 @@ export interface PantryCoveredItem {
 }
 
 /**
+ * A "have some" (null) need that two or more planned meals use (HON-1584).
+ * The list assumes the pantry has enough, so the shopper checks it against
+ * their next shop. It is not a line to buy.
+ */
+export interface PantryCheckItem {
+  ingredientId: string
+  ingredient: ShoppingListItem['ingredient']
+  /** The window's whole need, in `defaultUnit`. */
+  totalQuantity: number
+  mealCount: number
+  earliestNeededDate: Date
+  pantryRows: { id: string; quantity: number | null }[]
+  isStaple: boolean
+}
+
+/**
  * Shopping list items grouped by ingredient category.
  */
 export interface GroupedShoppingList {
@@ -97,6 +115,8 @@ export interface NeededIngredient {
     measuredByVolume: boolean
     /** Shown as pieces (HON-1312). Absent reads as `none`. */
     pieceDisplay?: PieceDisplay
+    /** Read by `isCupboardIngredient` for the pantry check (HON-1584). */
+    subcategory?: string | null
   }
   quantity: number
   mealCount: number
@@ -344,6 +364,8 @@ export interface RollingWindowResult {
   hasAnyPlan: boolean
   /** The needed ingredients the pantry covers, in no order (HON-1578). */
   atHome: PantryCoveredItem[]
+  /** The "have some" needs to check before a shop, in no order (HON-1584). */
+  check: PantryCheckItem[]
 }
 
 /**
@@ -463,7 +485,12 @@ export async function computeRollingWindowShoppingList(
   )
 
   // 4. Deduct the pantry (staples, ran-out items) from the need
-  const { lines, atHome } = await pantryShoppingLines(needed, householdId, locale, startOfToday)
+  const { lines, atHome, check } = await pantryShoppingLines(
+    needed,
+    householdId,
+    locale,
+    startOfToday,
+  )
 
   // Calculate actual end date for display (last day of window, inclusive)
   const displayEndDate = new Date(startOfToday)
@@ -478,5 +505,6 @@ export async function computeRollingWindowShoppingList(
     earliestPlanCreatedAt,
     hasAnyPlan: totalEntryCount + totalExtraCount > 0,
     atHome,
+    check,
   }
 }

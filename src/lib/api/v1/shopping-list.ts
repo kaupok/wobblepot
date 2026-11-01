@@ -46,6 +46,20 @@ export const shoppingListOutputSchema = z.object({
       neededBy: z.iso.date().nullable(),
     }),
   ),
+  // The "have some" items two or more planned meals use (HON-1584). They are
+  // not on `items`: the list assumes the pantry has enough.
+  check: z.array(
+    z.object({
+      ingredientId: z.string(),
+      name: z.string(),
+      quantity: z.number().describe("The window's whole need, in `unit`."),
+      unit: z.string(),
+      displayQuantity: z.string(),
+      mealCount: z.number(),
+      neededBy: z.iso.date().describe('The first day a planned meal needs it.'),
+      isStaple: z.boolean(),
+    }),
+  ),
 })
 
 export async function readShoppingList(
@@ -73,6 +87,16 @@ export async function readShoppingList(
       name: item.name,
       checked: item.checked,
       neededBy: item.neededBy,
+    })),
+    check: list.check.map((item) => ({
+      ingredientId: item.ingredientId,
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.displayUnit,
+      displayQuantity: item.displayQuantity,
+      mealCount: item.mealCount,
+      neededBy: item.neededByDate,
+      isStaple: item.isStaple,
     })),
   }
 }

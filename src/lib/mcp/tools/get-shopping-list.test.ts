@@ -67,6 +67,20 @@ const LIST = {
     { id: 'custom-1', name: 'Candles', checked: false, ingredientId: null, neededBy: null },
     { id: 'custom-2', name: 'chips', checked: false, ingredientId: null, neededBy: '2026-10-14' },
   ],
+  check: [
+    {
+      ingredientId: 'ing-pepper',
+      name: 'Red pepper',
+      quantity: 420,
+      displayUnit: 'g',
+      displayQuantity: '420g',
+      mealCount: 2,
+      neededByDate: '2026-10-13',
+      neededByRelative: 'Tomorrow',
+      pantryRows: [{ id: 'pantry-pepper', quantity: null }],
+      isStaple: false,
+    },
+  ],
 } as unknown as ShoppingListResult
 
 function call(input: Record<string, unknown> = {}) {
@@ -125,6 +139,19 @@ describe('get_shopping_list', () => {
       customItems: [
         { id: 'custom-1', name: 'Candles', checked: false, neededBy: null },
         { id: 'custom-2', name: 'chips', checked: false, neededBy: '2026-10-14' },
+      ],
+      // A "have some" item two meals use (HON-1584), not on `items`.
+      check: [
+        {
+          ingredientId: 'ing-pepper',
+          name: 'Red pepper',
+          quantity: 420,
+          unit: 'g',
+          displayQuantity: '420g',
+          mealCount: 2,
+          neededBy: '2026-10-13',
+          isStaple: false,
+        },
       ],
     })
     expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)

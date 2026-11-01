@@ -204,6 +204,34 @@ export async function loadShoppingList(
     }))
     .sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
 
+  // The "have some" needs that two or more meals use (HON-1584), with the
+  // window's whole need, for the shopper to check against their next shop.
+  const check = result.check
+    .map((item) => ({
+      ingredientId: item.ingredientId,
+      name: item.ingredient.name,
+      quantity: item.totalQuantity,
+      displayUnit: displayUnit(item.ingredient),
+      displayQuantity: formatShoppingLineQuantity(
+        item.totalQuantity,
+        item.ingredient,
+        locale,
+        false,
+        null,
+        tVague,
+        pieceLabel,
+      ),
+      mealCount: item.mealCount,
+      neededByDate: toDateString(item.earliestNeededDate),
+      neededByRelative: formatRelativeDate(item.earliestNeededDate, locale, tDates, {
+        referenceDate: todayInTz,
+        timeZone: household.timezone,
+      }),
+      pantryRows: item.pantryRows,
+      isStaple: item.isStaple,
+    }))
+    .sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
+
   // Format custom items for response. `neededBy` is null for an item typed by
   // hand, and for one whose linked extras are all in the past: it stays on the
   // list, in the manual items section, until ticked off.
@@ -226,6 +254,7 @@ export async function loadShoppingList(
     groups,
     customItems: formattedCustomItems,
     atHome,
+    check,
     summary: {
       totalItems,
       purchasedItems,
