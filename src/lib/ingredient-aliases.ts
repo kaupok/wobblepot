@@ -437,6 +437,9 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   // concentrate an Estonian shop sells under that name (HON-1551)
   'tomato puree': 'passata',
   'tomato purée': 'passata',
+  // Rimi's shelf name; as a qualified name the trigram search finds only the
+  // bare "passata" for it, so it reads as unsure (HON-1551)
+  'tomati passata': 'passata',
 
   // Filled dumplings (HON-1262)
   hinkali: 'khinkali',
