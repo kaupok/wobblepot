@@ -534,10 +534,12 @@ function ChoiceList({
   return (
     <ul className="flex flex-wrap gap-2">
       {choices.map((choice) => (
-        <li key={choice.key}>
+        // `max-w-full` caps a long chip at the list's width, so its label
+        // wraps instead of running past the dialog (HON-1520).
+        <li key={choice.key} className="max-w-full">
           <Button
             variant="outline"
-            size="sm"
+            size="sm-wrap"
             aria-label={addLabel(choice.text)}
             aria-disabled={disabled || undefined}
             onClick={() => onAdd(choice.item)}

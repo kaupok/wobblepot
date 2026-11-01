@@ -204,6 +204,60 @@ export const PlannedSourceEt: Story = {
   },
 }
 
+const LONG_LEFTOVER = 'Add: Scrambled Eggs with Toast, from Wednesday · planned'
+
+/**
+ * A long leftover at 390px (HON-1520): its chip wraps inside the list, with
+ * "+" on the first line, and a short chip stays one 32px line.
+ */
+export const LongLeftoverPhone: Story = {
+  args: { date: '2026-10-22', mealType: 'lunch' },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/entries/recent', () =>
+          HttpResponse.json({
+            meals: [
+              { ...fridgePlannedSource, mealName: 'Scrambled Eggs with Toast' },
+              ...fridgeRecentMeals,
+            ],
+            defaultServings: FRIDGE_DEFAULT_SERVINGS,
+          }),
+        ),
+      ],
+    },
+  },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    const long = await dialog.findByRole('button', { name: LONG_LEFTOVER })
+    const list = long.closest('ul')!.getBoundingClientRect()
+    for (const chip of within(long.closest('ul')!).getAllByRole('button')) {
+      await expect(chip.getBoundingClientRect().right).toBeLessThanOrEqual(list.right)
+    }
+    const chip = long.getBoundingClientRect()
+    // Two lines of the 24px label, so taller than the 32px one-line chip.
+    await expect(chip.height).toBeGreaterThan(40)
+    // "+" sits on the first line: border, padding and its 4px offset.
+    const icon = long.querySelector('svg')!.getBoundingClientRect()
+    await expect(icon.top - chip.top).toBeLessThan(12)
+    await expect(dialog.getByRole('button', { name: 'Add: Cucumber' }).offsetHeight).toBe(32)
+  },
+}
+
+/** The same at desktop width: the chip stays inside the wider dialog. */
+export const LongLeftoverDesktop: Story = {
+  ...LongLeftoverPhone,
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async () => {
+    const dialog = within(await within(document.body).findByRole('dialog', { name: 'Fridge meal' }))
+    const long = await dialog.findByRole('button', { name: LONG_LEFTOVER })
+    const list = long.closest('ul')!.getBoundingClientRect()
+    await expect(long.getBoundingClientRect().right).toBeLessThanOrEqual(list.right)
+    await expect(dialog.getByRole('button', { name: 'Add: Cucumber' }).offsetHeight).toBe(32)
+  },
+}
+
 /** Save with nothing chosen asks for an item and sends nothing. */
 export const NeedsAnItem: Story = {
   play: async ({ args }) => {

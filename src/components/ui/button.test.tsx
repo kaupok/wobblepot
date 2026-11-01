@@ -127,6 +127,13 @@ describe('Button component', () => {
       expect(button).toHaveClass('h-8')
     })
 
+    it('lets the sm-wrap size wrap its label at the sm floor', () => {
+      render(<Button size="sm-wrap">Scrambled Eggs with Toast, from Wednesday</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('min-h-8', 'h-auto', 'whitespace-normal', 'items-start')
+      expect(button).not.toHaveClass('h-8', 'whitespace-nowrap', 'items-center')
+    })
+
     it('applies large size classes', () => {
       render(<Button size="lg">Large</Button>)
       const button = screen.getByRole('button')

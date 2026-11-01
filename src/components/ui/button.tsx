@@ -51,6 +51,14 @@ const buttonVariants = cva(
         // button beside it.
         'sm-touch':
           'relative h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 after:absolute after:inset-x-0 after:-inset-y-1.5',
+        // `sm` for a chip whose label can outrun its list (the fridge meal
+        // picker's "Scrambled Eggs with Toast, from Wednesday · planned",
+        // HON-1520): one line is the same 32px box, and a long label wraps
+        // inside the chip instead of running past it. `py-[3px]` plus the
+        // outline's border fits the 24px line in 32px, so `items-start` keeps a
+        // short chip centred; `mt-1` sets the icon on the first line's middle.
+        'sm-wrap':
+          'min-h-8 h-auto py-[3px] items-start whitespace-normal text-left rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 [&_svg]:mt-1',
         lg: 'h-12 md:h-11 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-touch md:size-10',
         'icon-sm': 'size-8',

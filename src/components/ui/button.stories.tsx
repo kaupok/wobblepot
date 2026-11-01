@@ -191,6 +191,7 @@ export const AllSizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
       <Button size="sm">Small</Button>
+      <Button size="sm-wrap">Small, wraps</Button>
       <Button size="default">Default</Button>
       <Button size="lg">Large</Button>
       <Button size="icon-xs" aria-label="Add">
