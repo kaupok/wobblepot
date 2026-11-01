@@ -84,19 +84,27 @@ export const PlannedWithImage: Story = {
     // Every card has this menu, so its name carries the meal (HON-807).
     const menu = canvas.getByRole('button', { name: `More actions: ${mealFixture.name}` })
     await expect(menu).toBeVisible()
-    // The image ends before the menu, and the title and the description wrap
-    // before the image's opaque part (HON-749).
+    // The image runs under the menu to the card's edge, so a phone card shows
+    // the whole plate (HON-1562). The title and the description wrap before
+    // the image's opaque part (HON-749).
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
     const title = canvas.getByRole('heading', { name: mealFixture.name }).getBoundingClientRect()
     const description = canvas.getByText(DESCRIPTION).getBoundingClientRect()
-    await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
+    await expect(menu.getBoundingClientRect().right).toBeLessThanOrEqual(box.right)
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
     await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.1)
     // Nothing runs across the width below the head, so the plate runs the
     // card's full height, inside its border, unfaded (HON-927).
     const cardBox = card.getBoundingClientRect()
+    await expect(box.right).toBeCloseTo(cardBox.right - card.clientLeft, 0)
     await expect(box.top).toBeCloseTo(cardBox.top + card.clientTop, 0)
     await expect(box.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
+    // The menu still opens from over the image (HON-1562).
+    await userEvent.click(menu)
+    await expect(
+      await within(document.body).findByRole('menuitem', { name: /^note$/i }),
+    ).toBeVisible()
+    await userEvent.keyboard('{Escape}')
     // The pantry's verdict is a surface badge: the page background, no ring.
     const availability = canvas.getByText(/ingredients to buy|have all/i)
     await expect(availability).toHaveAttribute('data-variant', expect.stringMatching(/^surface-/))
