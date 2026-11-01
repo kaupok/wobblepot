@@ -1,0 +1,12 @@
+{
+  "id": "typography-components",
+  "summary": ".claude/rules/ui.md → Typography Components: the component list",
+  "remove": [
+    {
+      "file": ".claude/rules/ui.md",
+      "text": "`Heading` (levels plus an `as` prop for the tag), `Body` (variants plus `tone`), `Blockquote`, `Ul`/`Ol`/`Li`, `Code`, `Pre`; form errors use `FieldError`.\n"
+    }
+  ],
+  "prompt": "Add a help page at `/help/shortcuts` for the cook view. It has a page heading, one intro sentence, and a list of three shortcuts: Space starts or pauses the timer, the right arrow goes to the next step, and the left arrow goes to the previous step. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts typography-components"
+}

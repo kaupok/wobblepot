@@ -435,6 +435,10 @@ Run it when a new model ships, before changing a default. It answers one questio
 
 **Replaying an issue that has already merged is not possible yet.** It would be the fairer comparison, since the same issue runs on both models, but `wt auto` always branches from `origin/main`, which already has the change, `/auto-implement` stops on a Done issue (step 2.1), and a full cycle ends by merging. Until replay is supported, the test runs on new issues and compares them with similar merged ones, so read one-PR differences as noise and look for a pattern across the 2–3.
 
+### Prune the guidance
+
+A new model can make a steering rule dead weight: the model does what the rule asks without it. After a swap, run the blind steering eval on the rules it covers (`scripts/steering-eval.sh <rule-id>`). It runs each rule on `AUTO_MODEL`, `AUTO_MODEL_SMALL` and `INTERACTIVE_MODEL`, control arm first. How to run it, add a rule and read its table: [STEERING_EVAL.md](STEERING_EVAL.md).
+
 ## Worktree Location
 
 All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean. A `/` in the branch name becomes `--` in the directory name (`feat/x` → `feat--x`).

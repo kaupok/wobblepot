@@ -1,0 +1,25 @@
+diff --git a/src/components/CopyLinkButton.tsx b/src/components/CopyLinkButton.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/components/CopyLinkButton.tsx
+@@ -0,0 +1,19 @@
++'use client'
++
++import { useEffect, useState } from 'react'
++
++import { Button } from '@/components/ui/button'
++
++export function CopyLinkButton({ url }: { url: string }) {
++  const [copied, setCopied] = useState(false)
++  useEffect(() => {
++    if (!copied) return
++    const timer = setTimeout(() => setCopied(false), 2000)
++    return () => clearTimeout(timer)
++  }, [copied])
++  async function copy() {
++    await navigator.clipboard.writeText(url)
++    setCopied(true)
++  }
++  return <Button onClick={copy}>{copied ? 'Copied' : 'Copy link'}</Button>
++}

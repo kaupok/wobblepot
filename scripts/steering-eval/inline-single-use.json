@@ -1,0 +1,12 @@
+{
+  "id": "inline-single-use",
+  "summary": ".claude/rules/code.md, second bullet: inline logic that runs in one place",
+  "remove": [
+    {
+      "file": ".claude/rules/code.md",
+      "text": "- Inline logic that runs in one place. Extract a helper when a second caller needs it or it names a real concept, not to make a function shorter. A split for the file-size cap is by responsibility, which is different.\n"
+    }
+  ],
+  "prompt": "Add a household size label. Create `src/lib/household-size-label.ts` with `householdSizeLabel(adults: number, children: number)`, which returns `'solo'`, `'couple'`, `'family'` or `'large'`: one adult and no children is solo, two adults and no children is a couple, up to five people is a family, and more is large. Add a route `GET /api/tools/household-size` that reads `adults` and `children` from the query string and returns `{ label }`, and a component `src/components/HouseholdSizeBadge.tsx` that shows the label it gets as a prop. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts inline-single-use"
+}

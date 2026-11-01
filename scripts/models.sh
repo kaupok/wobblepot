@@ -8,6 +8,8 @@
 #   orchestrator.sh     TRIAGE_MODEL, TRIAGE_EFFORT  the failed-worker triage call
 #   orchestrator.sh     AUTO_MODEL_SMALL, AUTO_EFFORT_SMALL  a worker for an issue
 #                       labelled `Small`, passed to `wt auto --model --effort` (HON-1193)
+#   model comparisons   AUTO_*, AUTO_*_SMALL and INTERACTIVE_MODEL, INTERACTIVE_EFFORT:
+#                       every model that reads the guidance (docs/PARALLEL_WORKFLOW.md)
 #
 # Each one is overridable by its CLAUDE_* env var. A .env line reaches
 # every variable but the reviewer's through `wt`; pr-review.sh does not read
@@ -22,6 +24,9 @@ AUTO_MODEL="${CLAUDE_AUTO_MODEL:-claude-opus-5-5}"
 REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-claude-opus-5-5}"
 TRIAGE_MODEL="${CLAUDE_TRIAGE_MODEL:-claude-sonnet-5}"
 AUTO_MODEL_SMALL="${CLAUDE_AUTO_MODEL_SMALL:-claude-sonnet-5-5}"
+# The model of an interactive session. No worker launches it; it exists so a
+# tool can run the same guidance on the interactive model.
+INTERACTIVE_MODEL="${CLAUDE_INTERACTIVE_MODEL:-claude-fable-5-1}"
 
 # `claude --effort` levels: low, medium, high, xhigh, max. An empty value passes
 # no flag, so the CLI's default applies. The single-dash expansion is deliberate:
@@ -31,6 +36,7 @@ AUTO_EFFORT="${CLAUDE_AUTO_EFFORT-}"
 REVIEW_EFFORT="${CLAUDE_REVIEW_EFFORT-medium}"
 TRIAGE_EFFORT="${CLAUDE_TRIAGE_EFFORT-low}"
 AUTO_EFFORT_SMALL="${CLAUDE_AUTO_EFFORT_SMALL-low}"
+INTERACTIVE_EFFORT="${CLAUDE_INTERACTIVE_EFFORT-}"
 
 # The model flags for one `claude` call: `--model <model>`, plus
 # `--effort <effort>` when the effort is non-empty. Sets the array

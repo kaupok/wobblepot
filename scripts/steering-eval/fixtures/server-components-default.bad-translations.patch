@@ -1,0 +1,15 @@
+diff --git a/src/components/RecipeStatsCard.tsx b/src/components/RecipeStatsCard.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/components/RecipeStatsCard.tsx
+@@ -0,0 +1,9 @@
++'use client'
++
++import { useTranslations } from 'next-intl'
++import { Body } from '@/components/ui/typography'
++
++export function RecipeStatsCard({ count, averageMinutes }: { count: number; averageMinutes: number }) {
++  const t = useTranslations('recipes')
++  return <Body>{t('stats', { count, averageMinutes })}</Body>
++}

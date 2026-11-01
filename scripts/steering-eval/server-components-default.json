@@ -1,0 +1,12 @@
+{
+  "id": "server-components-default",
+  "summary": "CLAUDE.md → Architecture Overview: Server Components by default",
+  "remove": [
+    {
+      "file": "CLAUDE.md",
+      "text": "Server Components by default, \"use client\" only for interactivity, browser APIs or hooks. "
+    }
+  ],
+  "prompt": "Add a recipe stats card. Create `src/lib/recipe-stats.ts` with `recipeStats(cookTimes: number[])`, which returns the number of recipes and their average cook time in minutes. Create `src/components/RecipeStatsCard.tsx`, which takes those two numbers as props and shows them, and render it at the top of the recipes list page under `src/app`. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts server-components-default"
+}

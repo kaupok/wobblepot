@@ -1,0 +1,12 @@
+{
+  "id": "auth-client-sign-in",
+  "summary": ".claude/rules/auth.md → Client: sign in with authClient.signIn.email() and callbacks",
+  "remove": [
+    {
+      "file": ".claude/rules/auth.md",
+      "text": "`authClient.signIn.email()` with callbacks (`src/app/sign-in/SignInForm.tsx`). "
+    }
+  ],
+  "prompt": "Add a re-authentication dialog, `src/components/auth/ReauthDialog.tsx`: a client component that shows the user's email (a prop), asks for the password, signs the user in again and calls an `onDone` prop on success. It shows an error message when the password is wrong. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts auth-client-sign-in"
+}
