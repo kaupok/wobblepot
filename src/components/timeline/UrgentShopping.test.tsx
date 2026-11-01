@@ -14,6 +14,10 @@ import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { getLaterItemsSummary, UrgentShopping } from './UrgentShopping'
 
+// These cases are the To buy rows. The check section needs a query client and
+// the router, and has its own tests: `UrgentShopping.check.test.tsx`.
+vi.mock('@/components/inventory/PantryCheckList', () => ({ PantryCheckList: () => null }))
+
 const TODAY = '2026-09-22'
 
 function item(name: string, urgency: UrgencyBucket = 'today', neededByDate = TODAY) {
