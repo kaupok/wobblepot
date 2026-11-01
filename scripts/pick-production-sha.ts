@@ -165,7 +165,10 @@ function main(): void {
   const repo = process.env.GITHUB_REPOSITORY
   if (!repo) throw new Error('GITHUB_REPOSITORY is not set.')
 
-  const gh: Gh = (args) => execFileSync('gh', args, { encoding: 'utf8' })
+  // A page of 100 smoke runs, each with its full commit and repository, passes
+  // the 1 MB default buffer and the call dies with ENOBUFS.
+  const gh: Gh = (args) =>
+    execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   const picked = pickProductionSha({ repo, sha: process.env.INPUT_SHA, gh })
 
   console.log(`Picked ${picked.sha}`)
