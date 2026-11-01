@@ -605,11 +605,11 @@
       }
     },
     "deduction": {
-      "title": "Mark as completed",
-      "willDeduct": "Marking \"{mealName}\" as completed will deduct the following from your pantry:",
-      "noDeduction": "Mark \"{mealName}\" as completed? No pantry items will be affected.",
+      "title": "Mark as cooked",
+      "willDeduct": "Marking \"{mealName}\" as cooked takes these from your pantry:",
+      "noDeduction": "Mark \"{mealName}\" as cooked? Your pantry does not change.",
       "noPantryItemsBody": "Either all ingredients are staples, not in your pantry, or the meal has no ingredients.",
-      "remove": "remove",
+      "remove": "used up",
       "confirm": "Confirm",
       "updating": "Updating…",
       "pieceQuantity": "{count, plural, =0 {0 pieces} one {# piece} other {# pieces}}",

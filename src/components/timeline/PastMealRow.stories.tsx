@@ -65,7 +65,7 @@ export const Planned: Story = {
     await expect(cooked(canvasElement)).toHaveAccessibleDescription(meal.name)
 
     await userEvent.click(cooked(canvasElement))
-    const dialog = await body.findByRole('dialog', { name: 'Mark as completed' })
+    const dialog = await body.findByRole('dialog', { name: 'Mark as cooked' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
     await awaitDialogClosed(3000)
 
@@ -83,7 +83,7 @@ export const CancelDeduction: Story = {
     const body = within(document.body)
 
     await userEvent.click(cooked(canvasElement))
-    const dialog = await body.findByRole('dialog', { name: 'Mark as completed' })
+    const dialog = await body.findByRole('dialog', { name: 'Mark as cooked' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await awaitDialogClosed()
 

@@ -112,9 +112,9 @@ describe('MealCard with a leftover lunch (HON-1395)', () => {
     renderCard({ pantryItems: lemonGarlicChickenPantryItems })
     await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
     await user.click(await screen.findByRole('menuitem', { name: 'Cooked' }))
-    const deduction = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     expect(within(deduction).getByText('Chicken thigh').nextElementSibling).toHaveTextContent(
-      '800g → remove',
+      '800g → used up',
     )
   })
 

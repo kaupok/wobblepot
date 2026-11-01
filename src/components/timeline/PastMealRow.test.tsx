@@ -103,7 +103,7 @@ describe('PastMealRow', () => {
     renderRow()
 
     await user.click(cooked())
-    const dialog = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    const dialog = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     expect(fetchMock).not.toHaveBeenCalled()
 
     respond(200, { pantryDeducted: true })
@@ -123,7 +123,7 @@ describe('PastMealRow', () => {
     renderRow()
 
     await user.click(cooked())
-    await screen.findByRole('dialog', { name: 'Mark as completed' })
+    await screen.findByRole('dialog', { name: 'Mark as cooked' })
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -221,7 +221,7 @@ describe('PastMealRow', () => {
       renderRow({ onCleared })
 
       await user.click(cooked())
-      await screen.findByRole('dialog', { name: 'Mark as completed' })
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
       respond(200, { pantryDeducted: true })
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
       await waitFor(() => expect(undo()).toHaveFocus())
