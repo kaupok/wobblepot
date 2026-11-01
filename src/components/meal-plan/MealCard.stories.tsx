@@ -905,44 +905,48 @@ export const SavedPlaceKeepsMenuClear: Story = {
 const COOKED_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**
- * Asserts the image runs from the card's top edge (inside its border) past the
- * bottom of the head to the first row below it, and returns its box (HON-927).
+ * A cooked meal with its rating inside the Cooked badge (HON-1589): the pill
+ * is one piece in the badge row, as tall as a text badge, so it adds no row
+ * below the head and the plate runs the card's height (HON-927). Each thumb is
+ * 20px tall with a 32px target. The note's slip lies over the head's
+ * bottom-right corner, clear of the pill and the title (HON-974).
  */
-async function assertImageBoundedByHead(card: HTMLElement) {
-  const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
-  const head = card.querySelector('[data-slot="meal-image-head"]')!
-  const firstRow = head.nextElementSibling!.getBoundingClientRect()
-  await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
-  await expect(box.bottom).toBeGreaterThanOrEqual(head.getBoundingClientRect().bottom)
-  await expect(box.bottom).toBeCloseTo(firstRow.top, 0)
-  return box
-}
-
-/**
- * A cooked meal with everything below the title: the rating prompt (opened
- * from the rating badge) is a row below the head, and the image runs the
- * head's height (HON-927), so it does not sit on the dish (HON-755). The note is not a row: its slip lies over the head's bottom-right
- * corner, on the plate and off the rows below (HON-974).
- */
-async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
+async function assertRatingInCookedBadge(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
   await canvas.findByRole('img', { name: mealFixture.name })
-  await userEvent.click(canvas.getByRole('button', { name: /^rating:/i }))
   await document.fonts.ready
-  const rows = [
-    await canvas.findByText('How was it?'),
-    canvas.getByRole('button', { name: /^thumbs up$/i }),
-    canvas.getByRole('button', { name: /^thumbs down$/i }),
-  ]
-  const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
-  const box = await assertImageBoundedByHead(card)
-  for (const row of rows) {
-    await expect(row.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom)
+  const up = canvas.getByRole('button', { name: /^thumbs up$/i })
+  const down = canvas.getByRole('button', { name: /^thumbs down$/i })
+  const pill = up.closest<HTMLElement>('[data-slot="badge"]')!
+  await expect(pill).toHaveTextContent(/^cooked$/i)
+  await expect(down.closest('[data-slot="badge"]')).toBe(pill)
+  const pillBox = pill.getBoundingClientRect()
+  // The badge row's floor is `min-h-6.5`; the pill fits inside it.
+  await expect(pillBox.height).toBeLessThanOrEqual(26)
+  for (const thumb of [up, down]) {
+    const box = thumb.getBoundingClientRect()
+    await expect(box.top).toBeGreaterThanOrEqual(pillBox.top)
+    await expect(box.bottom).toBeLessThanOrEqual(pillBox.bottom)
+    await expect(box.width).toBe(32)
+    // The `::after` reaches 6px above and below the 20px thumb: a 32px target.
+    await expect(box.height).toBe(20)
+    await expect(getComputedStyle(thumb, '::after').top).toBe('-6px')
+    await expect(getComputedStyle(thumb, '::after').bottom).toBe('-6px')
   }
+  // No row below the head, so the plate runs the card's height.
+  const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+  const head = card.querySelector('[data-slot="meal-image-head"]')!
+  await expect(head.nextElementSibling).toBeNull()
+  const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
+  await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
+  await expect(box.bottom).toBeGreaterThanOrEqual(head.getBoundingClientRect().bottom)
+  await expect(pillBox.bottom).toBeLessThanOrEqual(box.bottom)
+  await expect(canvas.queryByText('How was it?')).not.toBeInTheDocument()
   const slip = canvas.getByText(COOKED_NOTE).closest<HTMLElement>('[data-surface="sticky"]')!
   const slipBox = slip.getBoundingClientRect()
   await expect(slipBox.top).toBeGreaterThanOrEqual(card.getBoundingClientRect().top)
   await expect(slipBox.bottom).toBeLessThanOrEqual(box.bottom)
+  await expect(overlaps(slipBox, pillBox)).toBe(false)
   // The title still clears the opaque part, as in `PlannedWithImage`, and the
   // slip clears the title.
   const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
@@ -959,7 +963,7 @@ export const CompletedWithImagePhone: Story = {
     note: COOKED_NOTE,
   },
   parameters: { cardWidth: 'phone' },
-  play: async ({ canvasElement }) => assertLowerRowsOnTint(canvasElement),
+  play: async ({ canvasElement }) => assertRatingInCookedBadge(canvasElement),
 }
 
 export const CompletedWithImageDesktop: Story = {
@@ -1121,14 +1125,14 @@ export const PlannedAlreadyCharged: Story = {
 
     // The status did change — so the missing dialog below is not a click that
     // never landed.
-    await expect(await canvas.findByText('How was it?', {}, ROUND_TRIP)).toBeInTheDocument()
+    await expectCookedPill(canvasElement)
     await expect(body.queryByRole('dialog')).not.toBeInTheDocument()
   },
 }
 
 /**
  * "Done cooking" in the cook view runs the completion (HON-933): the view closes first, then the pantry deduction opens —
- * never stacked on it — and confirming shows the rating prompt, with focus
+ * never stacked on it — and confirming shows the Cooked badge with its thumbs, with focus
  * back on the meal's name rather than the page body.
  */
 /** The status PATCH bodies the menu stories' entry handler received. */
@@ -1145,6 +1149,19 @@ const statusPatchHandlers = {
   ],
 }
 
+/**
+ * The card just marked cooked: the rating thumbs sit inside the Cooked badge,
+ * unpressed, and there is no "How was it?" strip or "Rate" row (HON-1589).
+ */
+async function expectCookedPill(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const up = await canvas.findByRole('button', { name: 'Thumbs up' }, ROUND_TRIP)
+  await expect(up.closest('[data-slot="badge"]')).toHaveTextContent('Cooked')
+  await expect(up).toHaveAttribute('aria-pressed', 'false')
+  await expect(canvas.queryByText('How was it?')).not.toBeInTheDocument()
+  await expect(canvas.queryByText('Rate')).not.toBeInTheDocument()
+}
+
 /** Opens ⋯ and picks `name`. */
 async function pickFromMenu(canvasElement: HTMLElement, name: string) {
   await openMoreActions(canvasElement)
@@ -1155,8 +1172,8 @@ async function pickFromMenu(canvasElement: HTMLElement, name: string) {
  * Cooked in the ⋯ menu, with none of the meal's ingredients in the pantry: no
  * dialog, since it would only say "No pantry items will be affected". The
  * PATCH still asks the server to deduct, in case the page's pantry is stale.
- * The rating prompt follows, the card says "Cooked", and focus stays on ⋯
- * (HON-1125).
+ * The card says "Cooked", with the rating thumbs inside the badge and no
+ * "How was it?" strip (HON-1589), and focus stays on ⋯ (HON-1125).
  */
 export const CookedFromMenu: Story = {
   args: { meal: mealFixture, status: 'planned', pantryIngredients: [], pantryItems: [] },
@@ -1168,7 +1185,7 @@ export const CookedFromMenu: Story = {
 
     await pickFromMenu(canvasElement, 'Cooked')
 
-    await expect(await canvas.findByText('How was it?', {}, ROUND_TRIP)).toBeInTheDocument()
+    await expectCookedPill(canvasElement)
     await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() =>
       expect(statusPatches).toEqual([{ status: 'completed', deductPantry: true }]),
@@ -1247,13 +1264,15 @@ export const DoneCookingFromCookView: Story = {
     await userEvent.click(within(deduction).getByRole('button', { name: 'Confirm' }))
     await awaitDialogClosed(ROUND_TRIP.timeout)
 
-    await expect(await canvas.findByText('How was it?')).toBeInTheDocument()
+    await expectCookedPill(canvasElement)
     await waitFor(() => expect(name).toHaveFocus())
 
     // The card has no status control, so the menu carries the way back.
     await openMoreActions(canvasElement)
     await userEvent.click(await body.findByRole('menuitem', { name: 'Not cooked yet' }))
-    await waitFor(() => expect(canvas.queryByText('How was it?')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(canvas.queryByRole('button', { name: 'Thumbs up' })).not.toBeInTheDocument(),
+    )
   },
 }
 
@@ -1661,24 +1680,11 @@ export const CompletedThumbsUp: Story = {
     // Undo after Clear cannot restore what the pantry was charged for, so a
     // completed entry goes back through "Not cooked yet" (HON-1123).
     await expect(body.queryByRole('menuitem', { name: /^clear$/i })).not.toBeInTheDocument()
-    // The status reads in words, not only from the thumb (HON-1125).
-    await expect(within(canvasElement).getByText('Cooked')).toBeInTheDocument()
-  },
-}
-
-export const CompletedThumbsDown: Story = {
-  args: {
-    meal: mealFixture,
-    status: 'completed',
-    rating: 'down',
-  },
-}
-
-export const CompletedUnrated: Story = {
-  args: {
-    meal: mealFixture,
-    status: 'completed',
-    rating: null,
+    // The status reads in words, not only from the thumb (HON-1125), and the
+    // thumb sits inside its badge (HON-1589).
+    const up = within(canvasElement).getByRole('button', { name: 'Thumbs up' })
+    await expect(up).toHaveAttribute('aria-pressed', 'true')
+    await expect(up.closest('[data-slot="badge"]')).toHaveTextContent('Cooked')
   },
 }
 
@@ -1721,15 +1727,6 @@ export const Skipped: Story = {
       () => expect(statusPatches).toEqual([{ status: 'planned', deductPantry: false }]),
       ROUND_TRIP,
     )
-  },
-}
-
-export const CompletedReadonly: Story = {
-  args: {
-    meal: mealFixture,
-    status: 'completed',
-    rating: 'up',
-    isReadOnly: true,
   },
 }
 

@@ -26,7 +26,7 @@ import type { LeftoverLunchOption } from './leftover-lunch-option'
 import { MealCardMenu } from './MealCardMenu'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
-import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
+import { CookedRatingBadge } from './MealRating'
 import { MealSelectorModal } from './MealSelectorModal'
 import { MealTypeBadge } from './MealTypeBadge'
 import { MyRecipeIcon } from './MyRecipeIcon'
@@ -126,7 +126,6 @@ export function MealCard({
   const router = useRouter()
   const tCard = useTranslations('meal-plan.card')
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
-  const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [note, setNote] = useState<string | null>(initialNote ?? null)
   const [servingOverride, setServingOverride] = useState<number | null>(
     initialServingOverride ?? null,
@@ -171,7 +170,6 @@ export function MealCard({
     // The server dropped the entry's cached tips on the way out of
     // `completed`; the cook view's copy has to go with them.
     onLeaveCompleted: () => detailModalRef.current?.dropSteps(),
-    onCompleted: () => setShowRatingPrompt(true),
   })
   // Skipped cooks nothing; `cookServings` is stored only if loaded completed.
   const leftovers = status === 'skipped' ? [] : sharedLeftovers(leftoversFor)
@@ -493,11 +491,9 @@ export function MealCard({
         onPointerDownCapture={cardClick.onPointerDownCapture}
         onClick={cardClick.onClick}
         // The head is every row from the slot badge down to the badges; the
-        // plate runs its height. The rows below it — the rating prompt
-        // and the inline thumbs — run across the width, so they are the
-        // card's children and sit on the plain tint below the plate (HON-755,
-        // HON-927). A planned card has none, and its plate runs the card's
-        // full height. The note is not a row: it lies over the head's
+        // plate runs its height. The card has no rows below it, so the plate
+        // runs the card's full height; the rating thumbs sit inside the
+        // Cooked badge (HON-1589). The note is not a row: it lies over the head's
         // bottom-right corner as a slip, so it doesn't change the card's
         // shape (HON-974), at its own offset and tilt or wherever the
         // household dragged it (HON-975).
@@ -657,12 +653,18 @@ export function MealCard({
                 </Badge>
               )}
               {/* The status in words, so it reads without the thumbs or the
-                  missing availability badge (HON-1125). */}
-              {status === 'completed' && <Badge variant="surface">{tCard('cooked')}</Badge>}
-              {status === 'skipped' && <Badge variant="surface">{tCard('skipped')}</Badge>}
-              {status === 'completed' && rating && !showRatingPrompt && (
-                <RatingBadge rating={rating} onClick={() => setShowRatingPrompt(true)} />
+                  missing availability badge (HON-1125), with the rating
+                  thumbs inside the Cooked badge (HON-1589). */}
+              {status === 'completed' && (
+                <CookedRatingBadge
+                  planId={planId}
+                  entryId={entryId}
+                  rating={rating}
+                  onRatingChange={setRating}
+                  isReadOnly={isReadOnly}
+                />
               )}
+              {status === 'skipped' && <Badge variant="surface">{tCard('skipped')}</Badge>}
             </div>
           </CardHeader>
         }
@@ -699,32 +701,7 @@ export function MealCard({
         }
         overlayWide={isNoteEditing}
         overlayPlacement={notePlacement}
-      >
-        {status === 'completed' && showRatingPrompt && (
-          <CardContent className="px-4 pb-2">
-            <MealRatingPrompt
-              planId={planId}
-              entryId={entryId}
-              onRated={(r) => {
-                setRating(r)
-                setShowRatingPrompt(false)
-              }}
-              onDismiss={() => setShowRatingPrompt(false)}
-            />
-          </CardContent>
-        )}
-        {status === 'completed' && !rating && !showRatingPrompt && !isReadOnly && (
-          <CardContent className="flex items-center gap-1.5 px-4 pb-2">
-            <Body variant="caption">{tCard('rate')}</Body>
-            <MealRatingInline
-              planId={planId}
-              entryId={entryId}
-              rating={rating}
-              onRatingChange={setRating}
-            />
-          </CardContent>
-        )}
-      </MealImageCard>
+      />
       <MealDetailModal
         ref={detailModalRef}
         meal={meal}

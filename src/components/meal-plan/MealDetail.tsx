@@ -438,8 +438,9 @@ export function MealDetail({
                 </Button>
               )}
               {/* Where cooking ends, the view ends: marks the entry completed,
-                  which runs the pantry deduction and the rating prompt. It does
-                  not wait for every step to be ticked. */}
+                  which runs the pantry deduction; the card's Cooked badge then
+                  holds the rating thumbs. It does not wait for every step to be
+                  ticked. */}
               {onDoneCooking && (
                 <Button
                   size="lg"

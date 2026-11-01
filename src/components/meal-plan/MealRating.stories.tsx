@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 
-import { MealRatingInline, MealRatingPrompt, RatingBadge } from './MealRating'
+import { CookedRatingBadge, MealRatingInline } from './MealRating'
 
 const meta = {
   title: 'Meal plan/MealRating',
@@ -69,36 +69,45 @@ export const InlineThumbsDown: Story = {
   play: async ({ canvasElement }) => expectThumbsPressed(canvasElement, 'down'),
 }
 
-export const Prompt: StoryObj = {
-  parameters: {
-    docs: {
-      description: {
-        story: 'Shown after marking a meal as completed — asks the user to rate their experience.',
-      },
-    },
+/**
+ * The planner card's Cooked badge with the thumbs inside it (HON-1589): each
+ * thumb is 20px tall, so the pill keeps a text badge's height, and its
+ * `::after` reaches 6px above and below for a 32×32 target.
+ */
+async function expectBadgeThumbs(canvasElement: HTMLElement, rating: 'up' | 'down' | null) {
+  const canvas = within(canvasElement)
+  const up = canvas.getByRole('button', { name: 'Thumbs up' })
+  const down = canvas.getByRole('button', { name: 'Thumbs down' })
+  await expect(up).toHaveAttribute('aria-pressed', String(rating === 'up'))
+  await expect(down).toHaveAttribute('aria-pressed', String(rating === 'down'))
+  for (const thumb of [up, down]) {
+    const { width, height } = thumb.getBoundingClientRect()
+    await expect(width).toBe(32)
+    await expect(height + 2 * -parseFloat(getComputedStyle(thumb, '::after').top)).toBe(32)
+  }
+}
+
+export const CookedBadgeUnrated: StoryObj = {
+  render: () => <CookedRatingBadge planId="plan-1" entryId="entry-1" rating={null} />,
+  play: async ({ canvasElement }) => expectBadgeThumbs(canvasElement, null),
+}
+
+export const CookedBadgeUp: StoryObj = {
+  render: () => <CookedRatingBadge planId="plan-1" entryId="entry-1" rating="up" />,
+  play: async ({ canvasElement }) => expectBadgeThumbs(canvasElement, 'up'),
+}
+
+export const CookedBadgeDown: StoryObj = {
+  render: () => <CookedRatingBadge planId="plan-1" entryId="entry-1" rating="down" />,
+  play: async ({ canvasElement }) => expectBadgeThumbs(canvasElement, 'down'),
+}
+
+/** Read-only: the chosen thumb, not a button. */
+export const CookedBadgeReadOnly: StoryObj = {
+  render: () => <CookedRatingBadge planId="plan-1" entryId="entry-1" rating="up" isReadOnly />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Thumbs up')).toBeInTheDocument()
+    await expect(canvas.queryByRole('button')).not.toBeInTheDocument()
   },
-  render: () => (
-    <MealRatingPrompt planId="plan-1" entryId="entry-1" onRated={fn()} onDismiss={fn()} />
-  ),
-  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
-}
-
-export const BadgeUp: StoryObj = {
-  render: () => <RatingBadge rating="up" />,
-}
-
-export const BadgeDown: StoryObj = {
-  render: () => <RatingBadge rating="down" />,
-}
-
-export const BadgeClickable: StoryObj = {
-  parameters: {
-    docs: {
-      description: {
-        story: 'The badge becomes an interactive button when `onClick` is provided.',
-      },
-    },
-  },
-  render: () => <RatingBadge rating="up" onClick={fn()} />,
-  play: async ({ canvasElement }) => expectButtonsAtFloor(canvasElement),
 }

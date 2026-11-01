@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { CheckIcon, Clock, Pencil } from 'lucide-react'
+import { CheckIcon, Clock, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { expect, userEvent, within } from 'storybook/test'
 
 import { Badge } from './badge'
+import { Toggle } from './toggle'
 
 const meta = {
   title: 'UI/Badge',
@@ -266,6 +267,36 @@ export const TouchHitArea: Story = {
     await expect(after.left).toBe('-4px')
     await expect(box.height + 16).toBeGreaterThanOrEqual(44)
     await expect(getComputedStyle(badge).overflow).toBe('visible')
+  },
+}
+
+/**
+ * `split`: a badge with controls at its right end, the planner card's Cooked
+ * badge with its rating thumbs (HON-1589). The thumbs are `Toggle`
+ * `size="badge"`, so the pill stays as tall as the text badge beside it, and
+ * `overflow-visible` keeps their focus ring and 32px targets unclipped.
+ */
+export const Split: Story = {
+  render: () => (
+    <div className="flex items-center gap-1">
+      <Badge variant="surface">Text</Badge>
+      <Badge variant="surface" split>
+        Cooked
+        <Toggle tone="success" shape="circle" size="badge" pressed aria-label="Thumbs up">
+          <ThumbsUp className="size-3.5" />
+        </Toggle>
+        <Toggle tone="destructive" shape="circle" size="badge" aria-label="Thumbs down">
+          <ThumbsDown className="size-3.5" />
+        </Toggle>
+      </Badge>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const badges = canvasElement.querySelectorAll<HTMLElement>('[data-slot="badge"]')
+    await expect(badges).toHaveLength(2)
+    const [text, split] = [badges[0]!, badges[1]!]
+    await expect(split.getBoundingClientRect().height).toBe(text.getBoundingClientRect().height)
+    await expect(getComputedStyle(split).overflow).toBe('visible')
   },
 }
 

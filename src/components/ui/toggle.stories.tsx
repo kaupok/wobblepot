@@ -115,6 +115,28 @@ export const Circle: Story = {
 }
 
 /**
+ * `badge`: a 20px thumb inside a `split` `Badge` (HON-1589). Its `::after`
+ * reaches 6px above and below, so the target is 32×32 without growing the pill.
+ */
+export const BadgeSize: Story = {
+  args: {
+    shape: 'circle',
+    size: 'badge',
+    tone: 'success',
+    'aria-label': 'Thumbs up',
+    children: <ThumbsUp className="size-3.5" />,
+  },
+  play: async ({ canvasElement }) => {
+    const toggle = within(canvasElement).getByRole('button')
+    const { width, height } = toggle.getBoundingClientRect()
+    await expect(width).toBe(32)
+    await expect(height).toBe(20)
+    await expect(getComputedStyle(toggle, '::after').top).toBe('-6px')
+    await expect(getComputedStyle(toggle, '::after').bottom).toBe('-6px')
+  },
+}
+
+/**
  * Every tone, at rest and pressed. The pressed state carries the tone's
  * meaning — the thumbs pair in `MealRatingInline` is the reference use — so
  * the a11y run measures each pressed tint's contrast in light and dark.
