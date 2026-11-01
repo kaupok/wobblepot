@@ -1,5 +1,5 @@
 {
-  "text": "Four-bean chili from the store cupboard\n\nServes 4. Soak the beans the night before.\n\nIngredients\n- 200 g dried chickpeas, soaked overnight\n- 250 g dried kidney beans, soaked overnight\n- 300 g cooked mung beans\n- 1 can adzuki beans, drained\n- 1 onion, chopped\n- 1 can chopped tomatoes\n- 10 g chilli powder\n\nMethod\n1. Drain the soaked chickpeas and kidney beans, cover with fresh water and boil for 1 hour until tender.\n2. Soften the onion in a large pan, then add the chilli powder for 1 minute.\n3. Add the drained beans, the mung beans, the adzuki beans and the tomatoes and simmer for 20 minutes.",
+  "text": "Store-cupboard five-bean chili\n\nServes 4. Soak the beans the night before.\n\nIngredients\n- 200 g dried chickpeas, soaked overnight\n- 250 g dried kidney beans, soaked overnight\n- 150 g dried black beans, soaked overnight\n- 300 g cooked mung beans\n- 1 can adzuki beans, drained\n- 1 onion, chopped\n- 1 can chopped tomatoes\n- 10 g chilli powder\n\nMethod\n1. Drain the soaked chickpeas, kidney beans and black beans, cover with fresh water and boil for 1 hour until tender.\n2. Soften the onion in a large pan, then add the chilli powder for 1 minute.\n3. Add the drained beans, the mung beans, the adzuki beans and the tomatoes and simmer for 20 minutes.",
   "locale": "en",
   "source": "HON-1570",
   "expected": {
@@ -15,12 +15,17 @@
         "unit": "g"
       },
       {
-        "names": ["mung beans", "mung bean"],
+        "names": ["dried black beans", "dried black bean"],
+        "quantity": 150,
+        "unit": "g"
+      },
+      {
+        "names": ["mung beans", "mung bean", "dried mung beans"],
         "quantity": 120,
         "unit": "g"
       },
       {
-        "names": ["adzuki beans", "adzuki bean", "aduki beans"],
+        "names": ["adzuki beans", "adzuki bean", "aduki beans", "dried adzuki beans"],
         "quantity": 96,
         "unit": "g"
       },
