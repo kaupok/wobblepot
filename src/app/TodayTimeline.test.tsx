@@ -89,6 +89,23 @@ describe('TodayTimeline', () => {
     ])
   })
 
+  it('does not mark a row at 0 ran out when another form keeps its need at home', async () => {
+    const props = await timelineProps({
+      pantry: [pantryRow('ing-basil', 0), pantryRow('ing-fresh-basil', null)],
+      atHomeRows: [
+        {
+          ...atHome('basil', '2026-03-29'),
+          pantryRows: [{ id: 'pantry-ing-fresh-basil', quantity: null }],
+        },
+      ],
+    })
+
+    expect(props.pantryIngredients).toEqual([
+      { ingredientId: 'ing-basil', isStaple: false },
+      { ingredientId: 'ing-fresh-basil', isStaple: false },
+    ])
+  })
+
   it('passes the at-home rows with their day, bucketed against the household today', async () => {
     const props = await timelineProps({
       atHomeRows: [atHome('rice', '2026-03-29'), atHome('oats', '2026-03-30')],

@@ -65,11 +65,13 @@ export async function TodayTimeline({
   // A row at 0 has run out, so the meal cards do not count it as at home: a
   // switch-off on the "At home" tab then changes the card's verdict (HON-1578).
   // It stays in the list, so the pantry still has data and the meal detail
-  // can tick it back.
+  // can tick it back. A row whose need another form of the herb keeps at home
+  // is not ran out, so the card and the panel agree (HON-1558).
+  const atHomeIds = new Set(shoppingList.atHome.map((item) => item.ingredientId))
   const pantryIngredients = pantry.items.map((item) => ({
     ingredientId: item.ingredient.id,
     isStaple: item.isStaple,
-    ...(item.quantity === 0 && { ranOut: true }),
+    ...(item.quantity === 0 && !atHomeIds.has(item.ingredient.id) && { ranOut: true }),
   }))
 
   const shoppingItems: TimelineShoppingItem[] = shoppingList.groups.flatMap((group) =>
