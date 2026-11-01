@@ -56,6 +56,22 @@ describe('validateDryWeightNutrition', () => {
     ])
   })
 
+  it('warns for mung, adzuki and soy beans with cooked values, but not for a drained-tin bean (HON-1550)', () => {
+    expect(
+      validateDryWeightNutrition([
+        row({ name: 'mung beans', category: 'legume', subcategory: 'bean', calories: 105 }),
+        row({ name: 'adzuki beans', category: 'legume', subcategory: 'bean', calories: 128 }),
+        row({ name: 'soybeans', category: 'legume', subcategory: 'bean', calories: 173 }),
+        row({ name: 'mung beans', category: 'legume', subcategory: 'bean', calories: 347 }),
+        row({ name: 'borlotti beans', category: 'legume', subcategory: 'bean', calories: 120 }),
+      ]),
+    ).toEqual([
+      'mung beans: 105 kcal per 100 g looks cooked; a bean row holds dry, as-bought values',
+      'adzuki beans: 128 kcal per 100 g looks cooked; a bean row holds dry, as-bought values',
+      'soybeans: 173 kcal per 100 g looks cooked; a bean row holds dry, as-bought values',
+    ])
+  })
+
   it('passes every seed ingredient', () => {
     const pool: IngredientInput[] = [
       ...baseIngredients,
