@@ -1,0 +1,17 @@
+diff --git a/src/app/help/shortcuts/page.tsx b/src/app/help/shortcuts/page.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/app/help/shortcuts/page.tsx
+@@ -0,0 +1,11 @@
++export default function ShortcutsPage() {
++  return (
++    <main>
++      <h1 className="text-2xl font-bold">Shortcuts</h1>
++      <p>Use these keys in the cook view.</p>
++      <ul>
++        <li>Space: start or pause the timer</li>
++      </ul>
++    </main>
++  )
++}

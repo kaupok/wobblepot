@@ -1,0 +1,12 @@
+{
+  "id": "validate-once",
+  "summary": ".claude/rules/code.md, first bullet: validate input once, at the boundary that owns it",
+  "remove": [
+    {
+      "file": ".claude/rules/code.md",
+      "text": "- Validate input once, at the boundary that owns it: Zod in `env.ts`, the body check in a route, the parser on AI output. Inside, pass the typed value and do not check it again. A second check hides which layer owns the contract.\n"
+    }
+  ],
+  "prompt": "Add a quantity scaler. Create `POST /api/tools/scale-quantity`: it takes a JSON body `{ quantity, factor }`, both positive numbers, and returns `{ quantity }`, the quantity multiplied by the factor and rounded to two decimals. Put the arithmetic in a new function `scaleQuantity(quantity, factor)` in `src/lib/scale-quantity.ts`. Add `src/components/ScaledQuantity.tsx`, which takes `quantity` and `factor` props and shows the scaled value. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts validate-once"
+}

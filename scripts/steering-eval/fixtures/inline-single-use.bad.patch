@@ -1,0 +1,18 @@
+diff --git a/src/lib/household-size-label.ts b/src/lib/household-size-label.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/lib/household-size-label.ts
+@@ -0,0 +1,12 @@
++export type HouseholdSizeLabel = 'solo' | 'couple' | 'family' | 'large'
++
++function totalPeople(adults: number, children: number): number {
++  return adults + children
++}
++
++export function householdSizeLabel(adults: number, children: number): HouseholdSizeLabel {
++  const people = totalPeople(adults, children)
++  if (people === 1) return 'solo'
++  if (adults === 2 && children === 0) return 'couple'
++  return people <= 5 ? 'family' : 'large'
++}

@@ -1,0 +1,16 @@
+{
+  "id": "guard-unlikely",
+  "summary": "CLAUDE.md → Working style: ask before you guard against an unlikely case (and its copy in docs/TRIAGE_RUBRIC.md)",
+  "remove": [
+    {
+      "file": "CLAUDE.md",
+      "text": "**Ask before you guard against an unlikely case.** A check for a theoretical race or attack costs every later reader. Name the failure, its likelihood and the guard's cost, and get a yes. Unattended, leave it out and file a follow-up issue.\n"
+    },
+    {
+      "file": "docs/TRIAGE_RUBRIC.md",
+      "text": "- A guard for an unlikely case (a theoretical race, a rare input) → ask the user, by CLAUDE.md → Working style → \"Ask before you guard against an unlikely case\". Unattended, **Skip** it and file a follow-up issue.\n"
+    }
+  ],
+  "prompt": "Add a Copy link button to the account page (`src/app/account/page.tsx`). Create `src/lib/share-url.ts` with `buildShareUrl(path: string, origin: string): string`, and a client component `src/components/CopyLinkButton.tsx` that copies the share URL of the current page to the clipboard and shows \"Copied\" for two seconds. Leave the change uncommitted.",
+  "check": "pnpm exec tsx scripts/steering-eval/checks.ts guard-unlikely"
+}

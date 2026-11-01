@@ -1,0 +1,34 @@
+diff --git a/src/app/api/tools/scale-quantity/route.ts b/src/app/api/tools/scale-quantity/route.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/app/api/tools/scale-quantity/route.ts
+@@ -0,0 +1,12 @@
++import { NextResponse } from 'next/server'
++import { z } from 'zod'
++
++import { scaleQuantity } from '@/lib/scale-quantity'
++
++const bodySchema = z.object({ quantity: z.number().positive(), factor: z.number().positive() })
++
++export async function POST(request: Request) {
++  const parsed = bodySchema.safeParse(await request.json())
++  if (!parsed.success) return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
++  return NextResponse.json({ quantity: scaleQuantity(parsed.data.quantity, parsed.data.factor) })
++}
+diff --git a/src/lib/scale-quantity.ts b/src/lib/scale-quantity.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/lib/scale-quantity.ts
+@@ -0,0 +1,3 @@
++export function scaleQuantity(quantity: number, factor: number): number {
++  return Math.round(quantity * factor * 100) / 100
++}
+diff --git a/src/lib/scale-quantity.test.ts b/src/lib/scale-quantity.test.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/lib/scale-quantity.test.ts
+@@ -0,0 +1,1 @@
++it('rejects NaN', () => expect(Number.isNaN(scaleQuantity(1, 2))).toBe(false))

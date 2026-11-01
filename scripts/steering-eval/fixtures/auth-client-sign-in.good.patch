@@ -1,0 +1,23 @@
+diff --git a/src/components/auth/ReauthDialog.tsx b/src/components/auth/ReauthDialog.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/components/auth/ReauthDialog.tsx
+@@ -0,0 +1,17 @@
++'use client'
++
++import { useState } from 'react'
++
++import { authClient } from '@/lib/auth-client'
++
++export function ReauthDialog({ email, onDone }: { email: string; onDone: () => void }) {
++  const [password, setPassword] = useState('')
++  const [error, setError] = useState('')
++  async function submit() {
++    await authClient.signIn.email(
++      { email, password },
++      { onSuccess: () => onDone(), onError: (ctx) => setError(ctx.error.message) },
++    )
++  }
++  return <form onSubmit={submit}>{email}{error}<input value={password} onChange={(e) => setPassword(e.target.value)} /></form>
++}

@@ -1,0 +1,29 @@
+diff --git a/src/components/RecipeStatsCard.tsx b/src/components/RecipeStatsCard.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/components/RecipeStatsCard.tsx
+@@ -0,0 +1,9 @@
++import { Body } from '@/components/ui/typography'
++
++export function RecipeStatsCard({ count, averageMinutes }: { count: number; averageMinutes: number }) {
++  return (
++    <Body>
++      {count} · {averageMinutes}
++    </Body>
++  )
++}
+diff --git a/src/components/CookTimer.tsx b/src/components/CookTimer.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/components/CookTimer.tsx
+@@ -0,0 +1,8 @@
++'use client'
++
++import { useState } from 'react'
++
++export function CookTimer() {
++  const [running, setRunning] = useState(false)
++  return <button onClick={() => setRunning(!running)}>{String(running)}</button>
++}

@@ -84,6 +84,12 @@ Entries are grouped by the `CLAUDE.md` section they belong to, or by the `.claud
 - **HON-1303 — rules imported without an incident.** The edge-case, boundary-validation and single-use-helper rules came from opencode's `AGENTS.md` on 2026-10-23, with no incident of our own behind them. A session that finds one earns nothing may drop it.
 - **HON-1527 — the harness check that kept three lines.** On 2026-11-01, `claude -p` (Claude Code 2.1.312) quoted its own instructions in a worktree. The `ScheduleWakeup` tool says "Instead schedule a long fallback (1200s+) so the loop survives if the work hangs or never notifies", so the HON-529 line overrides the harness and does not repeat it. Nothing in the harness says "grep broadly", and its nearest line to the verify preamble is "Do not report a capability as unavailable without first searching", which is about tools. All three lines stay. Run the same check again before you cut a line as a harness duplicate.
 
+## Verified by the steering eval
+
+`scripts/steering-eval.sh` (HON-1345, docs/STEERING_EVAL.md) found these rules live: without them, an agent breaks them more often.
+
+- **`.claude/rules/auth.md` → Client, `authClient.signIn.email()` with callbacks.** Verified live on Sonnet 5.5 (low) and Fable 5.1, 2026-11-01; dead on Opus 5.5. Every run used `authClient`, with or without the rule. The rule changes only the callback form: without it, Sonnet passed 0 of 3 and Fable 2 of 3 runs; with it, 1 of 3 and 3 of 3.
+
 ## Steering file size
 
 - **HON-786, HON-1187 — CLAUDE.md regrew.** HON-786 cut CLAUDE.md on 2026-09-30, from 5,675 words. By 2026-10-14 it was 7,096, because each incident added a paragraph and nothing removed one. HON-1187 moved every rule that serves one task into the skill or doc that task reads, cut the file to 2,989 words, and added `scripts/check-steering-size.test.ts`, which fails above 3,300. The failure message says to move content, not to shorten sentences: a rule cut to fit loses its reason, and a rule without its reason gets skipped.
