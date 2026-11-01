@@ -265,6 +265,33 @@ describe('isOtherCutFillet', () => {
 
 // HON-1571: a word in one list and not the other moves a recipe line to another row
 describe('the form word lists', () => {
+  // A misspelt or dropped word names no form, so its line here goes red, even where
+  // the matcher result does not change (PINNED_LINES in the form-words db test)
+  it.each([
+    ['canned', 'tinned'],
+    ['tinned', 'tinned'],
+    ['konserveeritud', 'tinned'],
+    ['purgi', 'tinned'],
+    ['frozen', 'frozen'],
+    ['külmutatud', 'frozen'],
+    ['dried', 'dried'],
+    ['kuivatatud', 'dried'],
+    ['smoked', 'smoked'],
+    ['suitsutatud', 'smoked'],
+    ['pickled', 'pickled'],
+    ['marineeritud', 'pickled'],
+    ['ground', 'ground'],
+    ['jahvatatud', 'ground'],
+    ['boneless', 'boneless'],
+    ['deboned', 'boneless'],
+    ['fillet', 'boneless'],
+    ['fillets', 'boneless'],
+    ['kondita', 'boneless'],
+    ['filee', 'boneless'],
+  ])('reads "%s" as the %s form', (word, form) => {
+    expect(missingForms(`${word} vesi`, row('ing-water', 'water', 1))).toEqual([form])
+  })
+
   it.each(Object.entries(FORM_WORDS))('names the %s form in English and Estonian', (_, words) => {
     expect(words.en.length).toBeGreaterThan(0)
     expect(words.et.length).toBeGreaterThan(0)

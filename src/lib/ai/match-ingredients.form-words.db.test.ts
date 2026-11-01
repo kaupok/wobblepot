@@ -146,11 +146,12 @@ const FORM_WORD_LINES: FormWordLine[] = [
 ]
 
 // A word with no matcher effect yet: each line gives the same row and flag without
-// the word in FORM_WORDS, so it pins today's result, not the word. An Estonian form
-// word is not stripped before the search, so its line is unsure from a weak score,
-// not from the guard; a line with no form row lands sure on the exact row name. The
-// catalogue writes an Estonian fillet as one compound ("lõhefilee"), which no
-// boneless stem reads (HON-1579). A row is singular, so only "fillet" reads it.
+// the word in FORM_WORDS, so it pins today's result; the guard unit test reads the
+// word. An Estonian form word is not stripped before the search, so its line is
+// unsure from a weak score, not from the guard; a line with no form row lands sure
+// on the exact row name. The catalogue writes an Estonian fillet as one compound
+// ("lõhefilee"), which no boneless stem reads (HON-1579). A row is singular, so only
+// "fillet" reads it.
 const PINNED_LINES: FormWordLine[] = [
   ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
   ['purgi', 'purgi kookospiim', 'coconut milk', false],
