@@ -101,9 +101,9 @@ export const PlannedWithImage: Story = {
     await expect(box.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
     // The menu still opens from over the image (HON-1562).
     await userEvent.click(menu)
-    await expect(
-      await within(document.body).findByRole('menuitem', { name: /^note$/i }),
-    ).toBeVisible()
+    // The item mounts before the menu's open animation ends, so wait for it.
+    const note = await within(document.body).findByRole('menuitem', { name: /^note$/i })
+    await waitFor(() => expect(note).toBeVisible())
     await userEvent.keyboard('{Escape}')
     // The pantry's verdict is a surface badge: the page background, no ring.
     const availability = canvas.getByText(/ingredients to buy|have all/i)
