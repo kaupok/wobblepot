@@ -44,7 +44,7 @@ interface RowChange {
 interface PantryCheckListProps {
   items: PantryCheckRow[]
   /**
-   * The rows a request wrote, once it lands: `/shopping`'s pantry column
+   * The rows a request wrote, as each lands, a partly failed one included: `/shopping`'s pantry column
    * holds its own copy of the rows, and the refresh does not reset it.
    */
   onQuantitiesChanged?: (rows: PantryRow[]) => void
@@ -104,8 +104,10 @@ export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListP
     })
 
   // One request per row: a herb stays at home while any form of it is left.
-  const patchQuantities = (rows: PantryRow[]) =>
-    Promise.all(
+  // Each request is settled before any error is thrown, so the rows that
+  // landed reach the pantry column even when another failed.
+  const patchQuantities = async (rows: PantryRow[]) => {
+    const results = await Promise.allSettled(
       rows.map(({ id, quantity }) =>
         apiFetch(
           `/api/pantry/${id}`,
@@ -118,6 +120,11 @@ export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListP
         ),
       ),
     )
+    const written = rows.filter((_, i) => results[i]?.status === 'fulfilled')
+    if (written.length > 0) onQuantitiesChanged?.(written)
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed) throw failed.reason
+  }
 
   // The row changes on the press, not in `onMutate`, which waits for an
   // earlier request in the scope.
@@ -125,8 +132,6 @@ export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListP
     scope: QUANTITY_SCOPE,
     mutationFn: ({ rows }: RowChange) =>
       patchQuantities(rows.map(({ id }) => ({ id, quantity: 0 }))),
-    onSuccess: (_data, { rows }) =>
-      onQuantitiesChanged?.(rows.map(({ id }) => ({ id, quantity: 0 }))),
     // On an error too: with two herb rows, one request can land and the
     // other fail, and the screen must show what the pantry now holds.
     onSettled: () => router.refresh(),
@@ -140,7 +145,6 @@ export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListP
   const undoMutation = useMutation({
     scope: QUANTITY_SCOPE,
     mutationFn: ({ rows }: RowChange) => patchQuantities(rows),
-    onSuccess: (_data, { rows }) => onQuantitiesChanged?.(rows),
     onSettled: () => router.refresh(),
     onError: (_error, { ingredientId, rows }) => {
       markAdded(ingredientId, rows)

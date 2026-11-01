@@ -183,6 +183,21 @@ describe('PantryCheckList', () => {
     )
   })
 
+  it('reports the row that landed when the other row of a herb fails', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith('pantry-fresh-basil')
+        ? new Response('{}', { status: 500 })
+        : new Response('{}', { status: 200 }),
+    )
+    renderList([basil])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(onQuantitiesChanged).toHaveBeenCalledTimes(1)
+    expect(onQuantitiesChanged).toHaveBeenCalledWith([{ id: 'pantry-basil', quantity: 0 }])
+  })
+
   it('keeps the row when Undo is pressed before the Add refresh lands', async () => {
     const { rerenderWith } = renderList([basil, carrot])
 
