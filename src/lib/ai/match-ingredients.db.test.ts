@@ -105,6 +105,10 @@ describe('matchIngredients on a recipe name with a form word', () => {
     await ingredient('ing-tinned-plum', 'tinned plum tomatoes')
     await ingredient('ing-peas', 'peas')
     await ingredient('ing-oregano', 'oregano')
+    await ingredient('ing-basil', 'basil')
+    await ingredient('ing-bay-leaves', 'bay leaves')
+    await ingredient('ing-lime', 'lime')
+    await ingredient('ing-kaffir-lime-leaves', 'kaffir lime leaves')
     await ingredient('ing-cumin', 'cumin')
   }
 
@@ -142,9 +146,38 @@ describe('matchIngredients on a recipe name with a form word', () => {
     expect(result.alternatives?.[0]).toMatchObject({ id: 'ing-tinned-chopped' })
   })
 
+  it('asks for review of "fig leaves" when only the fruit row exists', async () => {
+    await seedCatalogue()
+    await prisma.ingredient.create({
+      data: {
+        id: 'ing-fig',
+        name: 'fig',
+        category: 'fruit',
+        defaultUnit: 'piece',
+        calories: 74,
+        protein: 1,
+        carbs: 19,
+        fat: 0,
+      },
+    })
+
+    const result = await matchOne('fig leaves')
+
+    expect(result).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'fig' },
+      lowConfidence: true,
+    })
+  })
+
   it.each([
     ['frozen peas', 'peas', false],
     ['dried oregano', 'dried oregano', false],
+    ['dried basil', 'dried basil', false],
+    ['basil leaves', 'basil', false],
+    ['fresh basil leaves', 'basil', false],
+    ['bay leaves', 'bay leaves', false],
+    ['kaffir lime leaves', 'kaffir lime leaves', false],
     ['dried cumin', 'cumin', false],
     ['canned tomatoes', 'tinned chopped tomatoes', true],
     ['canned diced tomatoes', 'tinned chopped tomatoes', false],

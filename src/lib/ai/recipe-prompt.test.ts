@@ -72,6 +72,20 @@ describe('buildRecipeExtractionPrompt', () => {
     )
   })
 
+  it('keeps "dried" in a dried herb\'s name and leaves a fresh herb bare (HON-1559)', () => {
+    const prompt = buildRecipeExtractionPrompt('test', 4)
+    expect(prompt).toContain("Keep 'dried' in the name; the catalogue has dried herb rows.")
+    expect(prompt).toContain(
+      'Example: "1 tsp dried basil" → quantity: 5, unit: "g", name: "dried basil", isDried: true',
+    )
+    expect(prompt).toContain(
+      '"dried basil (optional)" → name: "dried basil", isVague: true, vaguePhrase: "optional"',
+    )
+    expect(prompt).toContain(
+      'If not specified or clearly fresh (e.g., "fresh basil", "basil leaves"), name the bare herb ("basil")',
+    )
+  })
+
   it('weighs a drained can of beans or chickpeas at 240g, converts drained canned lentils to dry, and keeps an undrained can at 400g (HON-1489)', () => {
     const prompt = buildRecipeExtractionPrompt('test', 4)
     expect(prompt).toContain(

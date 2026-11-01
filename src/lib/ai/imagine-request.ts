@@ -191,6 +191,7 @@ Ingredient naming rules (IMPORTANT — names are matched against a database):
 - Use singular form: "egg" not "eggs", "tomato" not "tomatoes", "carrot" not "carrots"
 - Use simple base names without cooking adjectives: "chives" not "fresh chives", "bread" not "black bread"
 - Do NOT prefix with preparation words like fresh, dried, sliced, chopped, minced, frozen, canned, etc.
+- Exception: a herb the dish uses dried is "dried <herb>" (a pizza sauce: "dried oregano"). A fresh herb is the bare name.
 - Specificity is OK when it's part of the ingredient identity: "chicken breast", "olive oil", "sour cream"
 - Name the form of a meat or fish cut. A boneless chicken thigh or fish is "<cut> fillet": "chicken thigh fillet", "trout fillet". A bone-in cut or a whole fish is the bare name: "chicken thigh", "trout". Any other cut keeps its bare name, boneless or not: "chicken leg", "beef chuck", "pork chop"
 

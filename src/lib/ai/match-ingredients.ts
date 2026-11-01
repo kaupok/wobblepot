@@ -18,6 +18,7 @@ import {
   removedForms,
 } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
+import { matchLeafPlant } from './leaf-plant-match'
 import { isBareLastWord, primaryNounsDiffer } from './match-word-checks'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
 import { convertQuantity, DEFAULT_GRAMS_PER_PIECE, isReasonableQuantity } from './recipe-quantities'
@@ -186,6 +187,10 @@ export async function matchIngredients(
       formGuard = guardFormMatch(forms, normalizedName, matches[0], directSide)
       if (formGuard.action === 'use') matches = formGuard.matches
     }
+
+    // "basil leaves" is `basil`, not the `bay leaves` its letters find (HON-1559)
+    const leafPlant = await matchLeafPlant(normalizedName, matches[0], searchOptions)
+    if (leafPlant) ({ matches, formGuard } = leafPlant)
 
     // Phase 2: Last-word fallback — ONLY if no semantic match found above threshold
     // This prevents "trout fillet" → "fillet" → "cod fillet" from overriding

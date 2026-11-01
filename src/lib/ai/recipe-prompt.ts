@@ -85,11 +85,13 @@ Examples:
 - "salt to taste" → name: "salt", isVague: true, vaguePhrase: "to taste", quantity: null, unit: null
 - "a pinch of paprika" → name: "paprika", isVague: true, vaguePhrase: "a pinch", quantity: null, unit: null
 - "fresh parsley for garnish" → name: "parsley", isVague: true, vaguePhrase: "for garnish", quantity: null, unit: null
-- "dried basil (optional)" → name: "basil", isVague: true, vaguePhrase: "optional", quantity: null, unit: null, isDried: true
+- "dried basil (optional)" → name: "dried basil", isVague: true, vaguePhrase: "optional", quantity: null, unit: null, isDried: true
 
 DRIED HERBS:
 If an herb is explicitly "dried" (e.g., "dried oregano", "1 tsp dried basil"), set isDried: true.
-If not specified or clearly fresh (e.g., "fresh basil", "basil leaves"), set isDried: false or null.
+Keep 'dried' in the name; the catalogue has dried herb rows.
+Example: "1 tsp dried basil" → quantity: 5, unit: "g", name: "dried basil", isDried: true
+If not specified or clearly fresh (e.g., "fresh basil", "basil leaves"), name the bare herb ("basil") and set isDried: false or null.
 
 CRITICAL QUANTITY RULES (for non-vague ingredients):
 - For countable items (eggs, garlic cloves, chicken breasts, onions), use "piece" as unit with the COUNT as quantity

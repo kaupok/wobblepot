@@ -28,6 +28,27 @@ describe('buildImagineRequest on meat and fish cuts', () => {
   })
 })
 
+// A dried herb has its own row with dried values, so the dish names the form it uses (HON-1559)
+describe('buildImagineRequest on herbs', () => {
+  const system = buildImagineRequest({
+    prompt: 'pizza',
+    household: {
+      allergens: [],
+      dietaryType: null,
+      excludedIngredients: [],
+      restrictions: [],
+      householdSize: 4,
+    },
+    locale: 'en',
+  }).system
+
+  it('names a herb the dish uses dried "dried <herb>" and a fresh herb by its bare name', () => {
+    expect(system).toContain(
+      'Exception: a herb the dish uses dried is "dried <herb>" (a pizza sauce: "dried oregano"). A fresh herb is the bare name.',
+    )
+  })
+})
+
 describe('imaginedIngredientText', () => {
   const base = { name: 'chicken breast', quantity: null, unit: null, vaguePhrase: null }
 
