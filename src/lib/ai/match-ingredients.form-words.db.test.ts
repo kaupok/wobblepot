@@ -93,6 +93,9 @@ describe('matchIngredients on a name with a form word', () => {
     ['roasted garlic', 'garlic'],
     ['pickled cucumbers', 'cucumber'],
     ['smoked cheese', 'cheese'],
+    // The normalized name's alias ("prawn" → "prawns") does not name the form
+    ['smoked prawns', 'prawns'],
+    ['frozen shrimp', 'prawns'],
   ])('does not match "%s" to the bare %s for sure', async (recipeName, bareRow) => {
     await seedCatalogue()
 
@@ -133,7 +136,6 @@ describe('applyFormGuard on an Estonian form name the synonyms do not cover', ()
       directName,
       aliasName: directName,
       normalizedName,
-      normalizedAliasName: normalizedName,
       matches: await search(bareWord),
       matchesByCandidate,
       search,

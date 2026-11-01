@@ -270,7 +270,6 @@ export type FormGuardInput = {
   directName: string
   aliasName: string
   normalizedName: string
-  normalizedAliasName: string
   matches: FuzzyIngredientMatch[]
   matchesByCandidate: Map<string, FuzzyIngredientMatch[]>
   search: (name: string) => Promise<FuzzyIngredientMatch[]>
@@ -286,16 +285,14 @@ export type FormGuardInput = {
 export async function applyFormGuard(
   input: FormGuardInput,
 ): Promise<{ formGuard: FormGuardResult; matches: FuzzyIngredientMatch[] }> {
-  const { directName, aliasName, normalizedName, normalizedAliasName, matches } = input
+  const { directName, aliasName, normalizedName, matches } = input
   const winner = matches[0]
   if (!winner) return { formGuard: { action: 'keep' }, matches }
-  const aliasTargets = [
-    aliasName !== directName && aliasName,
-    normalizedAliasName !== normalizedName && normalizedAliasName,
-  ].filter((name): name is string => !!name)
-  const isAliasRow = [winner.name, winner.matchedName].some((name) =>
-    aliasTargets.includes(name.toLowerCase()),
-  )
+  // Only the whole name's alias names the form: the normalized name's alias drops it,
+  // so "smoked prawns" ("prawn" → "prawns") is not `prawns`
+  const isAliasRow =
+    aliasName !== directName &&
+    [winner.name, winner.matchedName].some((name) => name.toLowerCase() === aliasName)
   const forms = missingForms(directName, winner)
   if (forms.length === 0 || isAliasRow) return { formGuard: { action: 'keep' }, matches }
 

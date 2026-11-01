@@ -175,7 +175,6 @@ export async function matchIngredients(
       directName,
       aliasName,
       normalizedName,
-      normalizedAliasName,
       matches,
       matchesByCandidate,
       search: (name) => fuzzySearchIngredient(name, searchOptions),
