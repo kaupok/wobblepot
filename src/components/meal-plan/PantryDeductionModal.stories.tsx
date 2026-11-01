@@ -33,7 +33,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Confirms which pantry items will be deducted when marking a meal as completed — portal-based.',
+          'Confirms which pantry items will be deducted when marking a meal as cooked — portal-based.',
       },
     },
   },
@@ -61,9 +61,14 @@ export const SomeItemsRemoved: Story = {
     docs: {
       description: {
         story:
-          'Doubling the serving size exhausts several pantry items — they’ll be removed after.',
+          'Doubling the serving size uses up several pantry items, so their rows read "used up".',
       },
     },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await expect(await body.findByRole('dialog', { name: 'Mark as cooked' })).toBeInTheDocument()
+    await expect(body.getByText('800g → used up')).toBeInTheDocument()
   },
 }
 
@@ -100,6 +105,13 @@ export const NoDeductions: Story = {
         story: 'Empty pantry — nothing will be deducted, modal asks for simple confirmation.',
       },
     },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await expect(await body.findByRole('dialog', { name: 'Mark as cooked' })).toBeInTheDocument()
+    await expect(
+      body.getByText('Mark "Lemon-garlic roast chicken" as cooked? Your pantry does not change.'),
+    ).toBeInTheDocument()
   },
 }
 

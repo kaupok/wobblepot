@@ -330,7 +330,7 @@ describe('MealCard status from the menu', () => {
     renderCard({ meal })
 
     await pick(user, 'Cooked')
-    const deduction = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     expect(patches).toEqual([])
 
     await user.click(within(deduction).getByRole('button', { name: 'Cancel' }))
@@ -339,7 +339,7 @@ describe('MealCard status from the menu', () => {
 
     await pick(user, 'Cooked')
     await user.click(
-      within(await screen.findByRole('dialog', { name: 'Mark as completed' })).getByRole('button', {
+      within(await screen.findByRole('dialog', { name: 'Mark as cooked' })).getByRole('button', {
         name: 'Confirm',
       }),
     )
@@ -561,7 +561,7 @@ describe('MealCard Done cooking', () => {
     renderCard({ meal, preparationTips: tips })
 
     const name = await doneCooking(user)
-    const deduction = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     // Never stacked: the cook view is gone by the time the deduction opens.
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
 
@@ -589,7 +589,7 @@ describe('MealCard Done cooking', () => {
     renderCard({ meal, preparationTips: tips })
 
     const name = await doneCooking(user)
-    const deduction = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await screen.findByRole('dialog', { name: 'Mark as cooked' })
     await user.click(within(deduction).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => expect(name).toHaveFocus())
@@ -643,7 +643,7 @@ describe('MealCard Done cooking', () => {
 
     await doneCooking(user)
     expect(await screen.findByText('How was it?')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'Mark as completed' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Mark as cooked' })).not.toBeInTheDocument()
   })
 })
 

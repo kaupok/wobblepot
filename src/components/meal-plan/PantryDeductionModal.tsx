@@ -139,11 +139,7 @@ export function PantryDeductionModal({
                   <span className="text-muted-foreground">
                     {formatQuantity(item.currentQuantity, item.unit)}
                     {' → '}
-                    {item.willBeRemoved ? (
-                      <span className="text-destructive">{t('remove')}</span>
-                    ) : (
-                      formatQuantity(item.newQuantity, item.unit)
-                    )}
+                    {item.willBeRemoved ? t('remove') : formatQuantity(item.newQuantity, item.unit)}
                   </span>
                 </li>
               ))}

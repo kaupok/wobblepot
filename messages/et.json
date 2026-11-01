@@ -609,7 +609,7 @@
       "willDeduct": "„{mealName}\" tehtuks märkimisel arvatakse sahvrist maha:",
       "noDeduction": "Märgi „{mealName}\" tehtuks? Sahvris muudatusi ei tehta.",
       "noPantryItemsBody": "Kõik koostisosad on kas põhitooted, ei ole sahvris või toidul polegi koostisosi.",
-      "remove": "eemalda",
+      "remove": "otsas",
       "confirm": "Kinnita",
       "updating": "Uuendan…",
       "pieceQuantity": "{count, plural, =0 {0 tk} one {# tk} other {# tk}}",

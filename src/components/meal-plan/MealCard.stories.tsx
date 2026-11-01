@@ -1184,7 +1184,7 @@ export const CookedFromMenuWithDeduction: Story = {
 
     await pickFromMenu(canvasElement, 'Cooked')
 
-    const deduction = await body.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await body.findByRole('dialog', { name: 'Mark as cooked' })
     await expect(within(deduction).getByText('Chicken thigh')).toBeInTheDocument()
     await userEvent.click(within(deduction).getByRole('button', { name: 'Cancel' }))
     await awaitDialogClosed()
@@ -1233,7 +1233,7 @@ export const DoneCookingFromCookView: Story = {
       await within(cookView).findByRole('button', { name: 'Done cooking' }, ROUND_TRIP),
     )
 
-    const deduction = await body.findByRole('dialog', { name: 'Mark as completed' })
+    const deduction = await body.findByRole('dialog', { name: 'Mark as cooked' })
     // One dialog at a time: the cook view is gone before the deduction opens.
     await expect(body.getAllByRole('dialog')).toHaveLength(1)
     await userEvent.click(within(deduction).getByRole('button', { name: 'Confirm' }))
