@@ -9,39 +9,13 @@ vi.mock('@/lib/prisma', () => ({
 import { prisma } from '@/lib/prisma'
 
 import { type MatchedIngredient, matchIngredients } from './match-ingredients'
-import type { ExtractedIngredient } from './recipe-schema'
+import { makeDbMatch, makeExtracted } from './match-ingredients.fixtures'
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 
 describe('matchIngredients', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  const makeExtracted = (overrides: Partial<ExtractedIngredient> = {}): ExtractedIngredient => ({
-    name: 'chicken breast',
-    quantity: 500,
-    unit: 'g',
-    originalText: '500g chicken breast',
-    isVague: false,
-    vaguePhrase: null,
-    isDried: null,
-    ...overrides,
-  })
-
-  const makeDbMatch = (overrides: Record<string, unknown> = {}) => ({
-    id: 'ing-1',
-    name: 'chicken breast',
-    category: 'protein' as const,
-    subcategory: null,
-    defaultUnit: 'g' as const,
-    measuredByVolume: false,
-    gramsPerPiece: null,
-    similarity: 0.9,
-    source: 'global' as const,
-    ...overrides,
-    // The name the match was made on; defaults to the canonical name, as for a global row.
-    matchedName: overrides.matchedName ?? overrides.name ?? 'chicken breast',
   })
 
   it('returns matched ingredient with high confidence', async () => {
@@ -211,7 +185,8 @@ describe('matchIngredients', () => {
 
   it('still uses last-word fallback when no semantic match found', async () => {
     // Semantic search for "black bread" returns nothing above threshold
-    // Last-word "bread" returns "bread" at 0.90 — should match high-confidence
+    // Last-word "bread" returns "bread" at 0.90 — a guess for a qualified name,
+    // so it is unsure with "bread" as the alternative (HON-1546)
     mockQueryRaw
       .mockResolvedValueOnce([]) // "black bread" semantic search → no results
       .mockResolvedValueOnce([makeDbMatch({ name: 'bread', similarity: 0.9 })]) // "bread" fallback
@@ -231,7 +206,38 @@ describe('matchIngredients', () => {
     expect(matched.type).toBe('matched')
     expect(matched.ingredient.name).toBe('bread')
     expect(matched.similarityScore).toBe(0.9)
+    expect(matched.lowConfidence).toBe(true)
+    expect((results[0] as MatchedIngredient).alternatives?.map((a) => a.name)).toEqual(['bread'])
+  })
+
+  it('keeps a last-word fallback sure when the matched name is longer than the last word', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([]) // "dark soy sauce" direct search → no results
+      .mockResolvedValueOnce([makeDbMatch({ name: 'soy sauce', similarity: 0.9 })]) // "sauce" fallback
+
+    const results = await matchIngredients([makeExtracted({ name: 'dark soy sauce' })], 4)
+
+    const matched = results[0] as MatchedIngredient
+    expect(matched.type).toBe('matched')
+    expect(matched.ingredient.name).toBe('soy sauce')
     expect(matched.lowConfidence).toBe(false)
+  })
+
+  it('keeps a one-word name sure: "bread" to "bread" and "sauce" to "soy sauce"', async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([makeDbMatch({ id: 'ing-bread', name: 'bread', similarity: 1 })])
+      .mockResolvedValueOnce([makeDbMatch({ id: 'ing-soy', name: 'soy sauce', similarity: 0.8 })])
+
+    const results = await matchIngredients(
+      [makeExtracted({ name: 'bread' }), makeExtracted({ name: 'sauce' })],
+      4,
+    )
+
+    expect(results.map((r) => (r as MatchedIngredient).ingredient.name)).toEqual([
+      'bread',
+      'soy sauce',
+    ])
+    expect(results.map((r) => (r as MatchedIngredient).lowConfidence)).toEqual([false, false])
   })
 
   it('rejects last-word fallback when matched name does not contain the last word', async () => {
@@ -705,6 +711,7 @@ describe('matchIngredients', () => {
     }
     expect(matched.ingredient.name).toBe('bread')
     expect(matched.similarityScore).toBe(0.9)
+    expect((results[0] as MatchedIngredient).lowConfidence).toBe(true)
   })
 
   it('keeps best match when direct name scores higher than fallbacks', async () => {
@@ -717,125 +724,5 @@ describe('matchIngredients', () => {
     expect(results[0]!.type).toBe('matched')
     const matched = results[0] as { type: 'matched'; similarityScore: number }
     expect(matched.similarityScore).toBe(0.95)
-  })
-  describe('Estonian household (HON-912)', () => {
-    const et = { householdId: 'hh-1', locale: 'et' }
-
-    // Answers each fuzzy search by its search term, so a test does not depend on how
-    // many candidate names (direct, alias, normalized) the matcher tries.
-    const mockSearch = (rowsBySearchName: Record<string, ReturnType<typeof makeDbMatch>[]>) => {
-      mockQueryRaw.mockImplementation(((_strings: TemplateStringsArray, searchName: string) =>
-        Promise.resolve(rowsBySearchName[searchName] ?? [])) as never)
-    }
-
-    it('resolves "paprika" to bell pepper, not the spice', async () => {
-      // Seed data: both score 1.0 — the spice by its English name, bell pepper by its
-      // Estonian translation. The household's language wins the tie.
-      mockSearch({
-        paprika: [
-          makeDbMatch({ id: 'ing-paprika', name: 'paprika', category: 'spice', similarity: 1 }),
-          makeDbMatch({
-            id: 'ing-bell-pepper',
-            name: 'bell pepper',
-            matchedName: 'paprika',
-            category: 'vegetable',
-            similarity: 1,
-            source: 'translation',
-          }),
-        ],
-      })
-
-      const results = await matchIngredients([makeExtracted({ name: 'paprika' })], 4, et)
-
-      const matched = results[0] as MatchedIngredient
-      expect(matched.type).toBe('matched')
-      expect(matched.ingredient.id).toBe('ing-bell-pepper')
-      expect(matched.ingredient.name).toBe('bell pepper')
-      expect(matched.matchedName).toBe('paprika')
-    })
-
-    it('prefers an exact translation over a weaker English hit', async () => {
-      mockSearch({
-        spinat: [
-          makeDbMatch({ id: 'ing-spinach-en', name: 'spinach', similarity: 0.5 }),
-          makeDbMatch({
-            id: 'ing-spinach',
-            name: 'spinach',
-            matchedName: 'spinat',
-            similarity: 1,
-            source: 'translation',
-          }),
-        ],
-      })
-
-      const results = await matchIngredients([makeExtracted({ name: 'spinat' })], 4, et)
-
-      const matched = results[0] as MatchedIngredient
-      expect(matched.type).toBe('matched')
-      expect(matched.ingredient.id).toBe('ing-spinach')
-      expect(matched.similarityScore).toBe(1)
-      expect(matched.lowConfidence).toBe(false)
-    })
-
-    it('does not flag a multi-word translation match whose words agree', async () => {
-      mockSearch({
-        'must pipar': [
-          makeDbMatch({
-            id: 'ing-black-pepper',
-            name: 'black pepper',
-            matchedName: 'must pipar',
-            similarity: 1,
-            source: 'translation',
-          }),
-        ],
-      })
-
-      const results = await matchIngredients([makeExtracted({ name: 'must pipar' })], 4, et)
-
-      const matched = results[0] as MatchedIngredient
-      expect(matched.ingredient.name).toBe('black pepper')
-      expect(matched.lowConfidence).toBe(false)
-      expect(matched.alternatives).toBeUndefined()
-    })
-
-    it('still flags a multi-word translation match whose primary words differ', async () => {
-      mockSearch({
-        'valge pipar': [
-          makeDbMatch({
-            id: 'ing-black-pepper',
-            name: 'black pepper',
-            matchedName: 'must pipar',
-            similarity: 0.7,
-            source: 'translation',
-          }),
-        ],
-      })
-
-      const results = await matchIngredients([makeExtracted({ name: 'valge pipar' })], 4, et)
-
-      const matched = results[0] as MatchedIngredient
-      expect(matched.type).toBe('matched')
-      expect(matched.lowConfidence).toBe(true)
-    })
-
-    it('accepts a last-word fallback whose word is in the translation name', async () => {
-      mockSearch({
-        spinat: [
-          makeDbMatch({
-            id: 'ing-spinach',
-            name: 'spinach',
-            matchedName: 'spinat',
-            similarity: 1,
-            source: 'translation',
-          }),
-        ],
-      })
-
-      const results = await matchIngredients([makeExtracted({ name: 'värske spinat' })], 4, et)
-
-      const matched = results[0] as MatchedIngredient
-      expect(matched.type).toBe('matched')
-      expect(matched.ingredient.id).toBe('ing-spinach')
-    })
   })
 })

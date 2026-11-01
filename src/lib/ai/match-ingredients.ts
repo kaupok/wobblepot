@@ -194,6 +194,7 @@ export async function matchIngredients(
     // the direct search result when a reasonable match already exists.
     // Uses VERY_LOW_CONFIDENCE_THRESHOLD because matches below it would be treated
     // as unmatched anyway — so the fallback can only improve the outcome.
+    let bareLastWord = false
     if (!matches[0] || matches[0].similarity < VERY_LOW_CONFIDENCE_THRESHOLD) {
       const lastWord = extractLastWord(directName)
       if (lastWord) {
@@ -206,6 +207,12 @@ export async function matchIngredients(
           const matchedWords = new Set(fallbackMatches[0].matchedName.toLowerCase().split(/\s+/))
           if (matchedWords.has(lastWord)) {
             matches = fallbackMatches
+            // A qualified name that found only its bare last word is a guess, not a
+            // match: "walnut butter" is not `butter`, "macadamia milk" is not `milk`.
+            // It goes to the user as unsure, with the fallback rows as alternatives (HON-1546).
+            bareLastWord =
+              directName.includes(' ') &&
+              fallbackMatches[0].matchedName.toLowerCase().trim() === lastWord
           }
         }
       }
@@ -229,7 +236,8 @@ export async function matchIngredients(
         continue
       }
 
-      let lowConfidence = similarityScore < LOW_CONFIDENCE_THRESHOLD || formGuard.action === 'flag'
+      let lowConfidence =
+        similarityScore < LOW_CONFIDENCE_THRESHOLD || formGuard.action === 'flag' || bareLastWord
 
       // Safety check: if primary nouns differ between extracted and matched name,
       // force low-confidence regardless of trigram score.

@@ -75,7 +75,7 @@
 11454 src/lib/ai/generate-plan.test.ts
 13851 src/lib/ai/imagine-fixtures.ts
 5435 src/lib/ai/imagine-meal.test.ts
-7455 src/lib/ai/match-ingredients.test.ts
+6679 src/lib/ai/match-ingredients.test.ts
 7258 src/lib/ai/parse-recipe.test.ts
 6610 src/lib/ai/prompts.test.ts
 5365 src/lib/ai/prompts.ts
