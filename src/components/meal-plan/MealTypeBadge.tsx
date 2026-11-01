@@ -13,5 +13,10 @@ import { useEnumLabel } from '@/lib/i18n/enum-label'
  */
 export function MealTypeBadge({ mealType }: { mealType: MealType }) {
   const label = useEnumLabel('MealType', mealType)
-  return <Badge variant="secondary">{label}</Badge>
+  // The span lets a `MealBadgeRow` cut the label short (HON-1575).
+  return (
+    <Badge variant="secondary">
+      <span className="truncate">{label}</span>
+    </Badge>
+  )
 }

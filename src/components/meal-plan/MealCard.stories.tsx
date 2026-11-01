@@ -267,7 +267,7 @@ export const OwnRecipe: Story = {
     await expect(icon).not.toHaveAttribute('title')
     // Not in the badge row: that ends with the protein.
     await expect(icon.closest('[data-slot="badge"]')).toBeNull()
-    const protein = canvas.getByText('Poultry')
+    const protein = canvas.getByText('Poultry').closest<HTMLElement>('[data-slot="badge"]')!
     const row = [...protein.parentElement!.querySelectorAll('[data-slot="badge"]')]
     await expect(row.at(-1)).toBe(protein)
 

@@ -95,7 +95,7 @@ export const CompactInBadgeRow: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const slot = canvas.getByText('Dinner').getBoundingClientRect()
+    const slot = canvas.getByText('Dinner').closest('[data-slot="badge"]')!.getBoundingClientRect()
     const kid = canvas.getByText('Kid-friendly').closest('[data-slot="badge"]')!
     await expect(kid.getBoundingClientRect().height).toBe(slot.height)
   },
