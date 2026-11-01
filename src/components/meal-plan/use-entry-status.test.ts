@@ -99,6 +99,46 @@ describe('useEntryStatus', () => {
     })
   })
 
+  // HON-1564: the dialog's answer is authoritative, so an all-"Some left"
+  // dialog still sends its empty list.
+  it.each([
+    [['pumpkin', 'carrot'], 3],
+    [[], 4],
+  ])(
+    "sends the dialog's used-up list %j and counts both answers",
+    async (usedUpIngredientIds, someLeftCount) => {
+      const { result } = renderStatusHook()
+
+      act(() => result.current.handleStatusChange('completed'))
+      respond(200, { pantryDeducted: true })
+      act(() => result.current.handleDeductionConfirm({ usedUpIngredientIds, someLeftCount }))
+
+      await waitFor(() => expect(result.current.status).toBe('completed'))
+      expect(patchBodies()).toEqual([
+        { status: 'completed', deductPantry: true, usedUpIngredientIds },
+      ])
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+          plan_id: 'plan-1',
+          meal_id: meal.id,
+          source: 'past_meals',
+          used_up_count: usedUpIngredientIds.length,
+          some_left_count: someLeftCount,
+        }),
+      )
+    },
+  )
+
+  it('sends no list for a fridge meal that used nothing up', async () => {
+    const { result } = renderStatusHook()
+
+    respond(200)
+    act(() => result.current.completeFridgeMeal([]))
+
+    await waitFor(() => expect(result.current.status).toBe('completed'))
+    expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: false }])
+  })
+
   it('completes an already-charged entry directly, with no deduction (HON-651)', async () => {
     const onCompleted = vi.fn()
     const { result } = renderStatusHook({ pantryDeducted: true, onCompleted })

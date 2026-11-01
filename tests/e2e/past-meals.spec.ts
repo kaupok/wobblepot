@@ -1,9 +1,15 @@
 // ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PastEmptyRow, DayAddMenu, LogMealPicker, PantryDeductionModal, MealRatingInline, Header (User menu)
 import { expect, type Page, test } from '@playwright/test'
 
-import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
-import { signIn } from './utils/test-helpers'
+import {
+  dayRows,
+  daysFromNow,
+  headingLine,
+  listEntries,
+  type MealSummary,
+  signInWithConsent,
+} from './utils/past-meals'
 
 // A past day and slot of its own. The other specs on the smoke household plant
 // only on today and later days, so nothing else writes here.
@@ -13,52 +19,6 @@ const MEAL_TYPE = 'dinner'
 const LOG_DAY_OFFSET = -5
 // The day the heading Add test writes to, apart from both.
 const HEADING_LOG_DAY_OFFSET = -6
-
-// A past day's heading line: its heading, and the "+ Add" for the meal types
-// the day does not expect (HON-1519).
-const headingLine = (page: Page, date: string) => page.locator(`div:has(> #past-day-${date})`)
-// The day's rows sit in the `RowGroup` right after its heading line.
-const dayRows = (page: Page, date: string) =>
-  page.locator(`div:has(> #past-day-${date}) + [data-slot="row-group"]`)
-
-interface MealSummary {
-  id: string
-  name: string
-  components: { ingredientId: string; quantityPerServing: number; isVague?: boolean }[]
-}
-
-interface EntrySummary {
-  id: string
-  date: string
-  mealType: string
-  status: string
-  rating: string | null
-  pantryDeducted?: boolean
-  meal: MealSummary | null
-}
-
-function daysFromNow(offset: number): string {
-  const date = new Date()
-  date.setDate(date.getDate() + offset)
-  return date.toISOString().slice(0, 10)
-}
-
-async function signInAsSmoke(page: Page) {
-  const { email, password } = smokeFixture()
-  // Pre-grant consent so the CookieBanner cannot take focus or clicks.
-  await page
-    .context()
-    .addCookies([{ name: 'consent-v1', value: 'essential', url: e2eBaseURL(), sameSite: 'Lax' }])
-  await signIn(page, email, password)
-}
-
-async function listEntries(page: Page) {
-  const response = await page.request.get(
-    `/api/entries?startDate=${daysFromNow(-8)}&endDate=${daysFromNow(16)}`,
-  )
-  expect(response.ok()).toBe(true)
-  return (await response.json()) as { entries: EntrySummary[]; planId: string | null }
-}
 
 // The account trigger's name while the household has past meals to mark: the
 // red dot on it is aria-hidden, so the name carries it (HON-1028).
@@ -105,7 +65,7 @@ async function otherPastMealsToMark(page: Page, exceptId: string) {
 test('a past meal is marked cooked from its row in one click, charged once, and rated', async ({
   page,
 }) => {
-  await signInAsSmoke(page)
+  await signInWithConsent(page, smokeFixture())
 
   const date = daysFromNow(PAST_DAY_OFFSET)
   const { entries, planId } = await listEntries(page)
@@ -224,7 +184,7 @@ test('a past meal is marked cooked from its row in one click, charged once, and 
 // Undo, then Remove, leaves the slot empty with Add again. The smoke household
 // expects dinner on every day.
 test('a dinner is logged in an empty past slot, cooked again, then removed', async ({ page }) => {
-  await signInAsSmoke(page)
+  await signInWithConsent(page, smokeFixture())
 
   const date = daysFromNow(LOG_DAY_OFFSET)
   const { entries, planId } = await listEntries(page)
@@ -321,7 +281,7 @@ test('a dinner is logged in an empty past slot, cooked again, then removed', asy
 test('a breakfast is logged on a dinner-only past day through the heading Add', async ({
   page,
 }) => {
-  await signInAsSmoke(page)
+  await signInWithConsent(page, smokeFixture())
 
   const date = daysFromNow(HEADING_LOG_DAY_OFFSET)
   const { entries, planId } = await listEntries(page)

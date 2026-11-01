@@ -2,6 +2,7 @@ import type { MealImageStatus, MealType, PieceDisplay } from '@/generated/prisma
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
+import type { CookOutcome } from '@/lib/pantry/cook-outcome'
 
 import type { MealImageFields } from './MealImageCard'
 
@@ -268,7 +269,14 @@ export interface PantryDeductionItem {
   currentQuantity: number | null
   deductionAmount: number
   newQuantity: number | null // null means "will be removed"
+  /** A known quantity at or under zero after the meal: the row reads "Ran out". */
   willBeRemoved: boolean
+  /**
+   * `subtract` for a known quantity; for a "have some" row (`currentQuantity:
+   * null`), the default the dialog presets, which the cook can change
+   * (HON-1564).
+   */
+  outcome: CookOutcome
 }
 
 export interface ExpectedMealTypes {

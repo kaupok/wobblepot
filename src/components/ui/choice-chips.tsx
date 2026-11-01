@@ -29,8 +29,11 @@ type ChoiceChipsProps = ChoiceChipsLabel & {
   value: string | undefined
   onValueChange: (value: string) => void
   options: ChoiceChipOption[]
-  /** `Button`'s sizes: `default` is the 44px touch target below `md`, `sm` 32px. */
-  size?: 'default' | 'sm'
+  /**
+   * `Button`'s sizes: `default` is the 44px touch target below `md`, `sm` 32px,
+   * `sm-touch` the 32px box with a 44px target, for a chip pair in a list row.
+   */
+  size?: 'default' | 'sm' | 'sm-touch'
   disabled?: boolean
   /** An error or hint about the whole choice, e.g. a form's `FieldError` id. */
   'aria-describedby'?: string

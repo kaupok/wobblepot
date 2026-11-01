@@ -13,6 +13,7 @@
  */
 export const SHARED_FIXTURE_SPECS = [
   'add-any-meal-type.spec.ts',
+  'cooked-have-some.spec.ts',
   'day-extras.spec.ts',
   'forgot-password.spec.ts',
   'fridge-meal.spec.ts',

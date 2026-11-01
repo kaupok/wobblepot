@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { type Source, track } from '@/lib/analytics'
 import { apiFetch } from '@/lib/api'
 
-import { computeDeductions } from './PantryDeductionModal'
+import { computeDeductions, type CookAnswer } from './PantryDeductionModal'
 import type { MealData, MealStatus, PantryItemFull } from './types'
 
 interface UseEntryStatusOptions {
@@ -82,8 +82,15 @@ export function useEntryStatus({
     }: {
       newStatus: MealStatus
       deductPantry?: boolean
-      /** A fridge meal's pantry items the household used up (HON-1277). */
+      /**
+       * The pantry items the household used up: a fridge meal's (HON-1277), or
+       * a recipe meal's "have some" rows from the dialog (HON-1564). Sent when
+       * set, `[]` included, so the server applies the cook's answer and not
+       * its own default.
+       */
       usedUpIngredientIds?: string[]
+      /** The dialog's "Some left" rows, for the completion event. */
+      someLeftCount?: number
       source?: Source
     }) => {
       const data = await apiFetch<{ pantryDeducted?: boolean }>(
@@ -94,7 +101,7 @@ export function useEntryStatus({
           body: JSON.stringify({
             status: newStatus,
             deductPantry,
-            ...(usedUpIngredientIds?.length ? { usedUpIngredientIds } : {}),
+            ...(usedUpIngredientIds ? { usedUpIngredientIds } : {}),
           }),
         },
       )
@@ -106,7 +113,11 @@ export function useEntryStatus({
       setStatus(newStatus)
       return { previousStatus }
     },
-    onSuccess: ({ newStatus }, { source = defaultSource }, context) => {
+    onSuccess: (
+      { newStatus },
+      { source = defaultSource, usedUpIngredientIds, someLeftCount },
+      context,
+    ) => {
       if (context?.previousStatus === 'completed' && newStatus !== 'completed') {
         onLeaveCompleted?.()
       }
@@ -125,6 +136,11 @@ export function useEntryStatus({
           plan_id: planId,
           meal_id: meal.id,
           source,
+          // Only from the dialog's answer, so the default's hit rate reads
+          // from these two (HON-1564).
+          ...(someLeftCount !== undefined && usedUpIngredientIds
+            ? { used_up_count: usedUpIngredientIds.length, some_left_count: someLeftCount }
+            : {}),
         })
       } else if (newStatus === 'skipped') {
         void track('meal_plan:meal_skipped', {
@@ -174,10 +190,19 @@ export function useEntryStatus({
     statusMutation.mutate({ newStatus, source })
   }
 
-  // The dialog's Confirm, and a completion with nothing to preview.
-  function completeWithDeduction() {
+  // The dialog's Confirm, and a completion with nothing to preview. With no
+  // answer the server decides the "have some" rows by `defaultCookOutcome`.
+  function completeWithDeduction(answer?: CookAnswer) {
     statusMutation.mutate(
-      { newStatus: 'completed', deductPantry: true, source: completionSourceRef.current },
+      {
+        newStatus: 'completed',
+        deductPantry: true,
+        source: completionSourceRef.current,
+        ...(answer && {
+          usedUpIngredientIds: answer.usedUpIngredientIds,
+          someLeftCount: answer.someLeftCount,
+        }),
+      },
       {
         onSuccess: ({ pantryDeducted: charged }) => {
           if (charged) setChargedHere(true)
@@ -192,7 +217,12 @@ export function useEntryStatus({
   // the household names what it used up (HON-1277).
   function completeFridgeMeal(usedUpIngredientIds: string[], onDone?: () => void) {
     statusMutation.mutate(
-      { newStatus: 'completed', usedUpIngredientIds },
+      {
+        newStatus: 'completed',
+        // The server reads a fridge completion off a non-empty list, so an
+        // empty one stays unsent, as before HON-1564.
+        ...(usedUpIngredientIds.length > 0 && { usedUpIngredientIds }),
+      },
       {
         onSuccess: ({ pantryDeducted: charged }) => {
           if (charged) setChargedHere(true)
