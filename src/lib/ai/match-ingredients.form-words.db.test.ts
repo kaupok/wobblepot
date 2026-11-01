@@ -1,56 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizeIngredientName } from '@/lib/normalize-ingredient'
-import { prisma } from '@/lib/prisma'
 
-import { baseIngredients } from '../../../prisma/seed'
-import { comprehensiveIngredients } from '../../../prisma/seed-comprehensive'
-import { newIngredients } from '../../../prisma/seed-expansion'
-import { importCoverageIngredients } from '../../../prisma/seed-import-coverage'
-import { ingredientTranslationsEt } from '../../../prisma/seed-ingredient-translations-et'
-import { applyFormGuard } from './form-modifier-guard'
+import { applyFormGuard, FORM_WORDS } from './form-modifier-guard'
 import { fuzzySearchIngredient } from './fuzzy-ingredient-match'
 import { matchIngredients } from './match-ingredients'
+import { seedCatalogue } from './match-ingredients.catalogue.fixtures'
 import { extracted } from './match-ingredients.fixtures'
 
 // Runs against PGlite with pg_trgm through the `unit-db` project, with no mocks.
 // HON-1554: a form word, English or Estonian, must not save sure as the bare row.
 // Every seeded row and Estonian name is in the catalogue, so real neighbours compete.
-
-async function seedCatalogue() {
-  const names = new Set<string>()
-  const rows = [
-    ...baseIngredients,
-    ...newIngredients,
-    ...comprehensiveIngredients,
-    ...importCoverageIngredients,
-  ].filter((row) => !names.has(row.name) && names.add(row.name))
-
-  // A migration may have inserted a row already, so its id is read back by name
-  await prisma.ingredient.createMany({
-    data: rows.map((row) => ({
-      name: row.name,
-      category: row.category,
-      defaultUnit: row.defaultUnit,
-      calories: row.calories,
-      protein: row.protein,
-      carbs: row.carbs,
-      fat: row.fat,
-    })),
-    skipDuplicates: true,
-  })
-  const saved = await prisma.ingredient.findMany({
-    where: { householdId: null },
-    select: { id: true, name: true },
-  })
-  const idOf = new Map(saved.map((row) => [row.name, row.id]))
-  await prisma.ingredientTranslation.createMany({
-    data: ingredientTranslationsEt
-      .filter((row) => idOf.has(row.en))
-      .map((row) => ({ ingredientId: idOf.get(row.en)!, locale: 'et', name: row.et })),
-    skipDuplicates: true,
-  })
-}
 
 async function matchOne(name: string) {
   const [result] = await matchIngredients([extracted(name)], 4, { locale: 'et' })
@@ -163,5 +123,63 @@ describe('applyFormGuard on an Estonian form name the synonyms do not cover', ()
 
     expect(formGuard.action).not.toBe('keep')
     expect(matches[0]?.name).not.toBe('cucumber')
+  })
+})
+
+// HON-1571: one recipe line per form word, so a misspelt or dropped word fails here.
+// An Estonian word is not stripped before the search, so some lines only reach the
+// right row unsure.
+const FORM_WORD_LINES: [word: string, recipeName: string, rowName: string, sure: boolean][] = [
+  ['canned', 'canned chopped tomatoes', 'tinned chopped tomatoes', true],
+  ['tinned', 'tinned chopped tomatoes', 'tinned chopped tomatoes', true],
+  ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
+  ['purgi', 'purgi kookospiim', 'coconut milk', false],
+  ['frozen', 'frozen peas', 'frozen peas', true],
+  ['külmutatud', 'külmutatud herned', 'frozen peas', true],
+  ['dried', 'dried lentils', 'lentils', true],
+  ['kuivatatud', 'kuivatatud aprikoosid', 'dried apricots', true],
+  ['smoked', 'smoked salmon', 'smoked salmon', true],
+  ['suitsutatud', 'suitsutatud lõhe', 'smoked salmon', true],
+  ['pickled', 'pickled ginger', 'pickled ginger', true],
+  ['marineeritud', 'marineeritud ingver', 'pickled ginger', true],
+  ['ground', 'ground black pepper', 'black pepper', true],
+  ['jahvatatud', 'jahvatatud kaneel', 'cinnamon', false],
+  ['boneless', 'boneless chicken thighs', 'chicken thigh fillet', true],
+  ['deboned', 'deboned chicken thighs', 'chicken thigh fillet', true],
+  ['fillet', 'salmon fillet', 'salmon fillet', true],
+  ['fillets', 'chicken thigh fillets', 'chicken thigh fillet', true],
+  ['kondita', 'kondita seakarbonaad', 'pork chop', true],
+  ['filee', 'lõhe filee', 'salmon fillet', false],
+]
+
+describe('matchIngredients on each form word', () => {
+  it('has a recipe line for every form word', () => {
+    const words = Object.values(FORM_WORDS).flatMap((form) => [...form.en, ...form.et])
+
+    expect(FORM_WORD_LINES.map(([word]) => word).sort()).toEqual(words.sort())
+  })
+
+  it.each(FORM_WORD_LINES)(
+    '%s: matches "%s" to %s, sure: %s',
+    async (_, recipeName, rowName, sure) => {
+      await seedCatalogue()
+
+      expect(await matchOne(recipeName)).toMatchObject({
+        type: 'matched',
+        ingredient: { name: rowName },
+        lowConfidence: !sure,
+      })
+    },
+  )
+
+  // The bare cut, not yet its fillet row: the guard does not find "kanakintsuliha" (HON-1579)
+  it('matches "kondita kanakintsud" to chicken thigh, unsure', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('kondita kanakintsud')).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'chicken thigh' },
+      lowConfidence: true,
+    })
   })
 })
