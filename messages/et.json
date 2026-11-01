@@ -234,7 +234,6 @@
       "notSkipped": "Pole vahele jäetud",
       "moreActions": "Rohkem toiminguid: {name}",
       "myRecipe": "Minu retsept",
-      "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "leftoverFor": "{weekday, select, monday {jäägid esmaspäevaks} tuesday {jäägid teisipäevaks} wednesday {jäägid kolmapäevaks} thursday {jäägid neljapäevaks} friday {jäägid reedeks} saturday {jäägid laupäevaks} other {jäägid pühapäevaks}}",
       "leftoverForDetail": "{servings} {mealType, select, breakfast {hommikusöögiks} lunch {lõunaks} other {õhtusöögiks}}: {day}",
@@ -318,14 +317,9 @@
       "moveFailed": "Märkuse liigutamine ebaõnnestus. Palun proovi uuesti."
     },
     "rating": {
-      "prompt": "Kuidas oli?",
       "thumbsUp": "Pöial üles",
       "thumbsDown": "Pöial alla",
-      "dismiss": "Sulge hinnang",
-      "saveFailed": "Hinnangu salvestamine ebaõnnestus",
-      "ariaCurrent": "Hinnang: {direction}. Klõpsa, et muuta.",
-      "directionUp": "pöial üles",
-      "directionDown": "pöial alla"
+      "saveFailed": "Hinnangu salvestamine ebaõnnestus"
     },
     "alternative": {
       "select": "Vali",

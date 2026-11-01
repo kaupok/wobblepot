@@ -234,7 +234,6 @@
       "notSkipped": "Not skipped",
       "moreActions": "More actions: {name}",
       "myRecipe": "My recipe",
-      "rate": "Rate",
       "servings": "{count, plural, one {# serving} other {# servings}}",
       "leftoverFor": "{weekday, select, monday {leftovers for Monday} tuesday {leftovers for Tuesday} wednesday {leftovers for Wednesday} thursday {leftovers for Thursday} friday {leftovers for Friday} saturday {leftovers for Saturday} other {leftovers for Sunday}}",
       "leftoverForDetail": "{servings} {mealType, select, breakfast {for breakfast} lunch {for lunch} other {for dinner}}: {day}",
@@ -318,14 +317,9 @@
       "moveFailed": "Failed to move note. Please try again."
     },
     "rating": {
-      "prompt": "How was it?",
       "thumbsUp": "Thumbs up",
       "thumbsDown": "Thumbs down",
-      "dismiss": "Dismiss rating",
-      "saveFailed": "Failed to save rating",
-      "ariaCurrent": "Rating: {direction}. Click to change.",
-      "directionUp": "thumbs up",
-      "directionDown": "thumbs down"
+      "saveFailed": "Failed to save rating"
     },
     "alternative": {
       "select": "Select",
