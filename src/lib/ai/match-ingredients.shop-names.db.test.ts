@@ -319,9 +319,6 @@ describe('matchIngredients on an Estonian tomato product', () => {
     ['tomato purée', 'passata'],
   ])('matches the English "%s" to "%s", sure', async (recipeName, name) => {
     await seedShopCatalogue(names)
-    // An older migration inserts `tomato puree`, and the merge on an empty
-    // database skips it for want of a passata row; production has merged it
-    await prisma.ingredient.deleteMany({ where: { name: 'tomato puree', householdId: null } })
 
     const [result] = await matchIngredients([extracted(recipeName)], 4)
 

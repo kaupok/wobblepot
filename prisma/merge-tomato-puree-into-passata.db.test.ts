@@ -35,11 +35,6 @@ function ingredient(id: string, name: string, householdId: string | null = null)
  * its own `tomato puree` row, which is its data and stays.
  */
 async function world() {
-  // 20260216130000 inserts a global `tomato puree`, and the replay kept it
-  // because no `passata` row existed yet
-  await prisma.ingredient.deleteMany({
-    where: { name: { in: ['tomato puree', 'passata'] }, householdId: null },
-  })
   await ingredient('g-puree', 'tomato puree')
   await ingredient('g-passata', 'passata')
   await prisma.ingredientTranslation.create({
@@ -109,4 +104,31 @@ it('changes nothing on a second run', async () => {
   await runMigration()
 
   expect(await mergedState()).toEqual(MERGED)
+})
+
+// A fresh database: 20260216130000 inserts `tomato puree` and the seed creates
+// passata after the migrations, so the seed would find a row with no et name.
+it('deletes an unused tomato puree row when there is no passata row', async () => {
+  await ingredient('g-puree', 'tomato puree')
+  await prisma.ingredientTranslation.create({
+    data: { ingredientId: 'g-puree', locale: 'et', name: 'tomatipüree' },
+  })
+
+  await runMigration()
+
+  expect(await prisma.ingredient.count({ where: { name: 'tomato puree' } })).toBe(0)
+})
+
+it('stops, and deletes nothing, when tomato puree is in use and there is no passata row', async () => {
+  await ingredient('g-puree', 'tomato puree')
+  await prisma.meal.create({
+    data: {
+      id: 'ragu',
+      name: 'Ragu',
+      components: { create: { ingredientId: 'g-puree', quantityPerServing: 80 } },
+    },
+  })
+
+  await expect(runMigration()).rejects.toThrow('HON-1551: tomato puree is in use')
+  expect(await prisma.mealComponent.count({ where: { ingredientId: 'g-puree' } })).toBe(1)
 })

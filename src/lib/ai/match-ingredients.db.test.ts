@@ -386,9 +386,6 @@ describe('matchIngredients on the name of a merged row', () => {
       ...importCoverageIngredients,
     ]
     expect(rows.some((row) => row.name === recipeName)).toBe(false)
-    // An older migration inserts the removed row, and the merge on an empty
-    // database skips it for want of a survivor; production has merged it
-    await prisma.ingredient.deleteMany({ where: { name: recipeName, householdId: null } })
     // A migration may have inserted a row already
     await prisma.ingredient.createMany({
       data: rows.map((row) => ({

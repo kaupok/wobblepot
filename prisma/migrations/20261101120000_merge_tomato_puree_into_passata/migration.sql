@@ -10,8 +10,10 @@
 -- is safe on a database whose rows have drifted.
 --
 -- Global rows only (householdId IS NULL): a household's own row is its data.
--- A missing row on either side (a fresh CI or Neon branch, or a second run)
--- changes nothing.
+-- With no `tomato puree` row (a second run) nothing changes. With no `passata`
+-- row (a fresh CI or Neon branch, built from the migrations before the seed)
+-- an unused `tomato puree` row is deleted, so the seed finds no row without an
+-- Estonian name.
 
 DO $$
 DECLARE
@@ -31,7 +33,27 @@ BEGIN
 
     SELECT * INTO kept FROM "ingredient"
     WHERE "name" = pair[2] AND "householdId" IS NULL;
-    CONTINUE WHEN NOT FOUND;
+    IF NOT FOUND THEN
+      -- A fresh database: 20260216130000 inserted the row and the seed creates
+      -- passata later. Left in place, the row has no et name and the seed
+      -- fails. Nothing can point at it yet; if something does, stop, because
+      -- some references cascade on delete.
+      IF EXISTS (SELECT 1 FROM "meal_component" WHERE "ingredientId" = dup."id")
+        OR EXISTS (SELECT 1 FROM "pantry_item" WHERE "ingredientId" = dup."id")
+        OR EXISTS (SELECT 1 FROM "custom_shopping_item" WHERE "ingredientId" = dup."id")
+        OR EXISTS (SELECT 1 FROM "meal_plan_entry_component"
+                   WHERE dup."id" IN ("originalIngredientId", "replacementIngredientId"))
+        OR EXISTS (SELECT 1 FROM "meal_plan_entry_item" WHERE "ingredientId" = dup."id")
+        OR EXISTS (SELECT 1 FROM "day_extra" WHERE "ingredientId" = dup."id")
+        OR EXISTS (SELECT 1 FROM "household_preferences"
+                   WHERE dup."id" = ANY("excludedIngredientIds"))
+      THEN
+        RAISE EXCEPTION 'HON-1551: % is in use but no global % row exists', pair[1], pair[2];
+      END IF;
+      DELETE FROM "ingredient_translation" WHERE "ingredientId" = dup."id";
+      DELETE FROM "ingredient" WHERE "id" = dup."id";
+      CONTINUE;
+    END IF;
 
     -- One unit of the removed row in the survivor's unit. NULL when a piece
     -- weight is missing.
