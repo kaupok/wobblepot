@@ -26,7 +26,6 @@ export const SHOP_INGREDIENT_SYNONYMS: Record<string, string> = {
   sesame: 'sesame seeds',
   seesam: 'sesame seeds',
   chia: 'chia seeds',
-  'chia seemned': 'chia seeds',
   linseed: 'flax seeds',
   linseeds: 'flax seeds',
   marjasegu: 'frozen mixed berries',

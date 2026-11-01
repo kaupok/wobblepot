@@ -237,7 +237,7 @@ export async function matchIngredients(
       // A curated synonym is the same food under another name, so its row is not
       // judged by its words: "canned diced tomatoes" is "tinned chopped tomatoes"
       // (HON-1099). The row may be found through its translation, so its own name
-      // counts too: "chia seemned" finds `chia seeds` as "chia-seemned" (HON-1545).
+      // counts too (HON-1545).
       const synonymTarget = findSynonym(directName) ?? findSynonym(normalizedName)
       const isSynonymMatch =
         synonymTarget !== undefined &&
