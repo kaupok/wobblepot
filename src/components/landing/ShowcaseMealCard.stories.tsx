@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
+
+import { expectBadgeRowOnOneLine } from '@/stories/layout-helpers'
 
 import { ShowcaseMealCard } from './ShowcaseMealCard'
 
@@ -62,5 +64,48 @@ export const NoDescription: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Avocado toast with poached egg')).toBeInTheDocument()
     await expect(canvas.queryByText(/Sourdough with smashed avocado/)).toBeNull()
+  },
+}
+
+/**
+ * The widest labels (lunch, beef) on a 300px card in Estonian (HON-1577): the
+ * badges hold one line, and every label stays in the tree.
+ */
+export const Narrow: Story = {
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="w-75">
+        <Story />
+      </div>
+    ),
+  ],
+  args: { meal: 'lunch' },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expectBadgeRowOnOneLine(canvasElement))
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Lõunasöök')).toBeInTheDocument()
+    await expect(canvas.getByText('Lastesõbralik')).toBeInTheDocument()
+    await expect(canvas.getByText('Veiseliha')).toBeInTheDocument()
+  },
+}
+
+/**
+ * A 224px card, narrower than the badges: the row overlaps them rather than
+ * wrapping (`MealBadgeRow`, HON-1577), and the labels cut short.
+ */
+export const Overlapping: Story = {
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="w-56">
+        <Story />
+      </div>
+    ),
+  ],
+  args: { meal: 'lunch' },
+  play: async ({ canvasElement }) => {
+    const row = await waitFor(() => expectBadgeRowOnOneLine(canvasElement))
+    await waitFor(() => expect(row).toHaveAttribute('data-overlap'))
   },
 }

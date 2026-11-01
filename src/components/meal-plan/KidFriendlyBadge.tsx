@@ -1,11 +1,17 @@
 import { Baby } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import type { ComponentProps } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTapTooltip } from '@/hooks/use-tap-tooltip'
 
-interface KidFriendlyBadgeProps {
+/**
+ * Extra `span` attributes pass through to the badge, so a caller can mark it
+ * (`data-card-click-ignore` on the landing demo card) and keep it a direct
+ * child of `MealBadgeRow` (HON-1577).
+ */
+interface KidFriendlyBadgeProps extends Omit<ComponentProps<'span'>, 'children'> {
   /**
    * The icon alone, for a badge row that already carries the slot and protein
    * badges (the recipe library card). The label stays in the accessible name
@@ -24,7 +30,11 @@ interface KidFriendlyBadgeProps {
  * re-scoped to the meal's chip colour inside `[data-meal-surface]`, so the same
  * markup reads on a neutral background and on a tinted meal card.
  */
-export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFriendlyBadgeProps) {
+export function KidFriendlyBadge({
+  compact = false,
+  size = 'default',
+  ...props
+}: KidFriendlyBadgeProps) {
   const t = useTranslations('meal-plan.detail')
   const label = t('kidFriendly')
   // In the cook view (`lg`) a tap opens it too, because a phone has no hover
@@ -32,7 +42,7 @@ export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFrien
   const tap = useTapTooltip(size === 'lg')
   if (!compact) {
     return (
-      <Badge variant="secondary" size={size}>
+      <Badge {...props} variant="secondary" size={size}>
         <Baby aria-hidden="true" />
         {label}
       </Badge>
@@ -48,6 +58,7 @@ export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFrien
     <Tooltip {...tap.rootProps}>
       <TooltipTrigger asChild {...tap.triggerProps}>
         <Badge
+          {...props}
           variant="secondary"
           size={size}
           hitArea={size === 'lg' ? 'touch' : 'default'}

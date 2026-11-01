@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
+import { MealBadgeRow } from '@/components/meal-plan/MealBadgeRow'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
@@ -86,11 +87,11 @@ export function ShowcaseMealCard({ meal: key, description = true }: ShowcaseMeal
       head={
         <CardHeader className="px-4 pt-1 pb-1">
           <div className="flex min-h-8 items-center">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <MealBadgeRow>
               <MealTypeBadge mealType={meal.mealType} />
               <KidFriendlyBadge compact />
               <ProteinBadge proteinType={meal.proteinType} />
-            </div>
+            </MealBadgeRow>
           </div>
           <div className={`flex min-w-0 flex-col ${mealImageTitleWidth()}`}>
             <div className="flex min-h-8 items-center">

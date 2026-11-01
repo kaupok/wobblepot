@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
 
 import type { SampleDay } from '@/lib/meal-plans/build-sample-week'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { expectBadgeRowOnOneLine } from '@/stories/layout-helpers'
 
 import { SampleMealCard } from './SampleMealCard'
 
@@ -98,5 +99,34 @@ export const Minimal: Story = {
       },
       ingredients: day.ingredients.slice(3),
     },
+  },
+}
+
+/**
+ * A 300px card in Estonian (HON-1577): the day, Kid-friendly, protein and
+ * time badges hold one line, overlapping if they must, and the time keeps
+ * the right edge. Every label stays in the tree.
+ */
+export const Narrow: Story = {
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="w-75">
+        <Story />
+      </div>
+    ),
+  ],
+  args: { day: { ...day, dayName: 'Kolmapäev', anchor: 'kolmapaev' } },
+  play: async ({ canvasElement }) => {
+    const row = await waitFor(() => expectBadgeRowOnOneLine(canvasElement))
+    const time = within(row).getByText('45 min').closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(time.getBoundingClientRect().right).toBeCloseTo(
+      row.getBoundingClientRect().right,
+      0,
+    )
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Kolmapäev')).toBeInTheDocument()
+    await expect(canvas.getByText('Lastesõbralik')).toBeInTheDocument()
+    await expect(canvas.getByText('Veiseliha')).toBeInTheDocument()
   },
 }
