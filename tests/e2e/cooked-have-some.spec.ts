@@ -60,12 +60,12 @@ test('the Cooked dialog marks one "have some" row used up and keeps the other', 
         m.components.every((c) => !taken.has(c.ingredientId)),
     )
   expect(meal, 'No seeded system meal shares no ingredient with the shared household').toBeTruthy()
-  const [usedUpId, someLeftId] = concrete(meal!)
+  const ingredientIds = concrete(meal!).slice(0, 2)
 
   const pantryIds: string[] = []
   let entryId: string | null = null
   try {
-    for (const ingredientId of [usedUpId!, someLeftId!]) {
+    for (const ingredientId of ingredientIds) {
       const response = await page.request.post('/api/pantry', { data: { ingredientId } })
       expect(response.status()).toBe(201)
       const created = (await response.json()) as { id: string; quantity: number | null }
@@ -85,7 +85,8 @@ test('the Cooked dialog marks one "have some" row used up and keeps the other', 
 
     const dialog = page.getByRole('dialog', { name: 'Mark as cooked' })
     const groups = dialog.getByRole('radiogroup')
-    // The rows follow the meal's order, and only these two are in the pantry.
+    // Only these two are in the pantry. Their order is the entry's component
+    // order, which no query sorts, so the ids come from the PATCH below.
     await expect(groups).toHaveCount(2)
     const nameOf = async (index: number) =>
       ((await groups.nth(index).getAttribute('aria-label')) ?? '').replace('What is left: ', '')
@@ -111,11 +112,15 @@ test('the Cooked dialog marks one "have some" row used up and keeps the other', 
       dialog.getByRole('button', { name: 'Confirm' }).click(),
     ])
     expect(patch.ok()).toBe(true)
-    expect(patch.request().postDataJSON()).toEqual({
+    const body = patch.request().postDataJSON() as { usedUpIngredientIds: string[] }
+    expect(body).toEqual({
       status: 'completed',
       deductPantry: true,
-      usedUpIngredientIds: [usedUpId],
+      usedUpIngredientIds: [expect.any(String)],
     })
+    const usedUpId = body.usedUpIngredientIds[0]!
+    expect(ingredientIds).toContain(usedUpId)
+    const someLeftId = ingredientIds.find((id) => id !== usedUpId)!
     await expect(dialog).toBeHidden()
 
     // The pantry page: the used-up row in the Ran out group, the other still
