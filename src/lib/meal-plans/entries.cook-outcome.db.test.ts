@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { type EntryPatch, updateEntry } from '@/lib/meal-plans/entries'
 import { prisma } from '@/lib/prisma'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+import { itemsById } from '@/lib/shopping/load-shopping-list.fixtures'
 
 // What a cooked recipe meal does to "have some" pantry rows (HON-1563): the
 // cook's `usedUpIngredientIds` when sent, else `defaultCookOutcome`. A row
@@ -286,9 +288,13 @@ describe('updateEntry: a cooked meal and running-low rows', () => {
     expect(await row(householdId, 'carrot')).toEqual({ quantity: 0, low: false })
   })
 
-  it('keeps low on an emptied row the cook says has some left', async () => {
+  // Some left is more than running low (HON-1592), so it clears the mark.
+  it('clears low on an emptied row the cook says has some left, and drops its shopping line', async () => {
     const householdId = await world()
     await stockLow(householdId, 'carrot', 300)
+    const household = await prisma.household.findUniqueOrThrow({ where: { id: householdId } })
+    const before = itemsById(await loadShoppingList(household, { days: 7 }))
+    expect(before.carrot).toMatchObject({ low: true })
 
     await updateEntry(householdId, 'plan-alder', 'entry-stew', {
       ...complete,
@@ -296,7 +302,56 @@ describe('updateEntry: a cooked meal and running-low rows', () => {
       someLeftIngredientIds: ['carrot'],
     })
 
-    expect(await row(householdId, 'carrot')).toEqual({ quantity: null, low: true })
+    expect(await row(householdId, 'carrot')).toEqual({ quantity: null, low: false })
+    const after = itemsById(await loadShoppingList(household, { days: 7 }))
+    expect(after.carrot).toBeUndefined()
+  })
+
+  it('clears only low on a row the sum does not run out that the cook says has some left', async () => {
+    const householdId = await world()
+    await stockLow(householdId, 'mince', 1000)
+
+    await updateEntry(householdId, 'plan-alder', 'entry-stew', {
+      ...complete,
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: ['mince'],
+    })
+
+    expect(await row(householdId, 'mince')).toEqual({ quantity: 500, low: false })
+  })
+
+  it('clears low on a staple the cook says has some left', async () => {
+    const householdId = await world()
+    await prisma.pantryItem.create({
+      data: {
+        householdId,
+        ingredientId: 'onion',
+        quantity: null,
+        isStaple: true,
+        lowAt: new Date('2026-10-31T18:00:00Z'),
+      },
+    })
+
+    await updateEntry(householdId, 'plan-alder', 'entry-salad', {
+      ...complete,
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: ['onion'],
+    })
+
+    expect(await row(householdId, 'onion')).toEqual({ quantity: null, low: false })
+  })
+
+  it('keeps low on a row the cook leaves at running low', async () => {
+    const householdId = await world()
+    await stockLow(householdId, 'mince', 1000)
+
+    await updateEntry(householdId, 'plan-alder', 'entry-stew', {
+      ...complete,
+      usedUpIngredientIds: [],
+      lowIngredientIds: ['mince'],
+    })
+
+    expect(await row(householdId, 'mince')).toEqual({ quantity: 500, low: true })
   })
 })
 

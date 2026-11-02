@@ -25,7 +25,11 @@ export interface CookOutcomeSets {
   ranOut: ReadonlySet<string>
   /** Rows the cook named used up: `0`, whatever the quantity, with no decrement. */
   usedUp: ReadonlySet<string>
-  /** Known rows the cook named some left: a decrement that empties or overshoots one gives `null`, "have some". */
+  /**
+   * Rows the cook named some left: a decrement that empties or overshoots a
+   * known one gives `null`, "have some", and a running-low mark clears
+   * (HON-1592).
+   */
   someLeft: ReadonlySet<string>
   /**
    * Rows the cook named running low (HON-1588): `lowAt` set after any
@@ -182,7 +186,8 @@ export async function chargePantry(
     // it — so it needs no application-side read. A row the deduction
     // overshot is briefly negative, but never outside this transaction. A
     // "have some" row the meal ran out goes to `0` too; one with some left
-    // stays as it is.
+    // stays as it is. Some left is more than running low (HON-1592), so it
+    // clears `lowAt` too, staples included, and changes no other quantity.
     //
     // One statement per row, never an update over an `IN` list: a
     // multi-row write lets Postgres pick its own scan order, which is the
@@ -191,6 +196,10 @@ export async function chargePantry(
       await tx.pantryItem.updateMany({
         where: { householdId, ingredientId, isStaple: false, quantity: { lte: 0 } },
         data: { quantity: null },
+      })
+      await tx.pantryItem.updateMany({
+        where: { householdId, ingredientId, lowAt: { not: null } },
+        data: { lowAt: null },
       })
       continue
     }

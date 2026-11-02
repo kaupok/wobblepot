@@ -84,8 +84,9 @@ export interface EntryPatch {
    */
   usedUpIngredientIds?: string[]
   /**
-   * The known-amount rows a cooked recipe meal left some of: a decrement that
-   * empties or overshoots one gives "have some" (`null`), not `0` (HON-1583).
+   * The rows a cooked recipe meal left some of: a decrement that empties or
+   * overshoots a known-amount one gives "have some" (`null`), not `0`
+   * (HON-1583), and a running-low mark clears, staples included (HON-1592).
    */
   someLeftIngredientIds?: string[]
   /**

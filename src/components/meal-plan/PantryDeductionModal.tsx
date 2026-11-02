@@ -54,8 +54,9 @@ export interface CookAnswer {
    */
   usedUpIngredientIds: string[]
   /**
-   * The known rows at "Some left" that the sum runs out: the server keeps them
-   * as "have some". `[]` when there are none.
+   * The rows at "Some left" the server acts on: a known row the sum runs out,
+   * kept as "have some" (HON-1583), and any running-low row, staples
+   * included, whose mark clears (HON-1592). `[]` when there are none.
    */
   someLeftIngredientIds: string[]
   /** Every row at "Running low", staples included. `[]` when there are none. */
@@ -227,8 +228,8 @@ function DeductionContent({
   // A row already running low opens at "Running low", so the dialog shows
   // its state. Else a known row opens at what the sum says, and a "have some"
   // row or a staple at its default. Nothing opens at "Running low" otherwise.
-  // "Some left" does not clear a low mark: the server keeps `lowAt` on a row
-  // it does not run out (HON-1586); only "Used up" or a purchase clears it.
+  // "Some left" is more than "Running low", so switching a low row to it
+  // clears the mark (HON-1592).
   const choiceOf = (item: PantryDeductionItem): HaveSomeChoice =>
     choices[item.ingredientId] ??
     (item.low
@@ -273,9 +274,11 @@ function DeductionContent({
       usedUpIngredientIds: usedUp
         .filter((item) => !item.willBeRemoved)
         .map((item) => item.ingredientId),
-      // A staple at "Some left" is in no list: the server never touches it.
+      // A row the sum runs out goes here so it reads "have some", and a low
+      // row so its mark clears. Any other row at "Some left" is in no list:
+      // the server leaves it as the sum says.
       someLeftIngredientIds: someLeft
-        .filter((item) => item.willBeRemoved)
+        .filter((item) => item.willBeRemoved || item.low)
         .map((item) => item.ingredientId),
       lowIngredientIds: low.map((item) => item.ingredientId),
       usedUpCount: usedUp.length,

@@ -37,8 +37,9 @@ const updateEntrySchema = z
     // items. `usedUpIngredientIds` names the pantry items a completion runs
     // out: a fridge meal's, or a recipe meal's "have some" rows (HON-1563),
     // where leaving it out applies `defaultCookOutcome`, or its known-amount
-    // rows. `someLeftIngredientIds` names the known-amount rows a recipe meal
-    // left some of (HON-1583), and `lowIngredientIds` the rows it left running
+    // rows. `someLeftIngredientIds` names the rows a recipe meal left some
+    // of: a known-amount row keeps "have some" (HON-1583) and a running-low
+    // row, staple or not, loses the mark (HON-1592); and `lowIngredientIds` the rows it left running
     // low, staples included (HON-1588). Not with `mealId`: a swap-and-complete prices
     // the incoming meal, which the client has not seen.
     fridgeItems: fridgeItemsSchema.optional(),
