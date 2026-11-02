@@ -14,7 +14,7 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
-  getHouseholdIdForUser: vi.fn(),
+  getCachedMembership: vi.fn(),
 }))
 
 vi.mock('@/lib/consent.server', () => ({
@@ -42,18 +42,20 @@ vi.mock('@/components/footer', () => ({ Footer: () => null }))
 vi.mock('@/components/bottom-tab-bar', () => ({ BottomTabBar: () => null }))
 vi.mock('@/components/theme-provider', () => ({ ThemeProvider: () => null }))
 vi.mock('@/components/ConsentProvider', () => ({ ConsentProvider: () => null }))
+vi.mock('@/components/RefreshOnResume', () => ({ RefreshOnResume: () => null }))
 
 import { getMessages, getTranslations } from 'next-intl/server'
 
+import { RefreshOnResume } from '@/components/RefreshOnResume'
 import { readConsentCookieServer } from '@/lib/consent.server'
 import { bootstrapFlags } from '@/lib/feature-flags'
 import { getLocale } from '@/lib/i18n/get-locale'
-import { getHouseholdIdForUser, getSession } from '@/lib/session'
+import { getCachedMembership, getSession } from '@/lib/session'
 
 import RootLayout, { generateMetadata } from './layout'
 
 const mockGetSession = vi.mocked(getSession)
-const mockGetHouseholdIdForUser = vi.mocked(getHouseholdIdForUser)
+const mockGetCachedMembership = vi.mocked(getCachedMembership)
 const mockReadConsentCookieServer = vi.mocked(readConsentCookieServer)
 const mockGetLocale = vi.mocked(getLocale)
 const mockGetMessages = vi.mocked(getMessages)
@@ -61,6 +63,12 @@ const mockGetTranslations = vi.mocked(getTranslations)
 const mockBootstrapFlags = vi.mocked(bootstrapFlags)
 
 type Session = Awaited<ReturnType<typeof getSession>>
+type Membership = Awaited<ReturnType<typeof getCachedMembership>>
+
+const MEMBERSHIP = {
+  householdId: 'household-1',
+  household: { locale: 'en', timezone: 'Pacific/Auckland' },
+} as NonNullable<Membership>
 
 const SIGNED_IN = {
   user: { id: 'user-1', name: 'Ada', email: 'ada@example.com' },
@@ -103,11 +111,27 @@ function findPropsWith(node: ReactNode, propName: string): Record<string, unknow
   return findPropsWith(props.children as ReactNode, propName)
 }
 
+/** The first element in the tree whose type is `component`, or null. */
+function findElementOf(node: ReactNode, component: unknown): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElementOf(child, component)
+      if (found) return found
+    }
+    return null
+  }
+
+  if (!isValidElement(node)) return null
+  if (node.type === component) return node
+
+  return findElementOf((node.props as { children?: ReactNode }).children, component)
+}
+
 describe('RootLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue(null)
-    mockGetHouseholdIdForUser.mockResolvedValue(null)
+    mockGetCachedMembership.mockResolvedValue(null)
     mockReadConsentCookieServer.mockResolvedValue(null)
     mockGetLocale.mockResolvedValue('en')
     mockGetMessages.mockResolvedValue({})
@@ -143,18 +167,18 @@ describe('RootLayout', () => {
   })
 
   it('overlaps the household lookup with the feature-flag bootstrap', async () => {
-    const householdId = deferred<string | null>()
+    const membership = deferred<Membership>()
     mockGetSession.mockResolvedValue(SIGNED_IN)
-    mockGetHouseholdIdForUser.mockReturnValue(householdId.promise)
+    mockGetCachedMembership.mockReturnValue(membership.promise)
 
     const tree = RootLayout({ children: null })
 
     await vi.waitFor(() => {
-      expect(mockGetHouseholdIdForUser).toHaveBeenCalledWith('user-1')
+      expect(mockGetCachedMembership).toHaveBeenCalledWith('user-1')
       expect(mockBootstrapFlags).toHaveBeenCalledWith('user-1')
     })
 
-    householdId.resolve('household-1')
+    membership.resolve(MEMBERSHIP)
     const element = await tree
     const props = findPropsWith(element, 'hasHousehold')
     expect(props?.hasHousehold).toBe(true)
@@ -175,8 +199,36 @@ describe('RootLayout', () => {
     // No tab bar, so no reserved space under the cookie banner (HON-845).
     expect(findPropsWith(element, 'hasTabBar')?.hasTabBar).toBe(false)
 
-    expect(mockGetHouseholdIdForUser).not.toHaveBeenCalled()
+    expect(mockGetCachedMembership).not.toHaveBeenCalled()
     expect(mockBootstrapFlags).toHaveBeenCalledWith('anonymous')
+  })
+
+  // A home-screen app resumes without a reload, so Today went stale overnight (HON-1593).
+  it('mounts the resume refresher with the household date and timezone', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // 11:30Z on 2026-11-01 is already 2026-11-02 in Auckland (UTC+13).
+    vi.setSystemTime(new Date('2026-11-01T11:30:00Z'))
+    mockGetSession.mockResolvedValue(SIGNED_IN)
+    mockGetCachedMembership.mockResolvedValue(MEMBERSHIP)
+
+    const element = await RootLayout({ children: null })
+    vi.useRealTimers()
+
+    expect(findElementOf(element, RefreshOnResume)?.props).toEqual({
+      renderedDate: '2026-11-02',
+      timezone: 'Pacific/Auckland',
+    })
+  })
+
+  it('leaves the resume refresher out when signed out', async () => {
+    const element = await RootLayout({ children: null })
+    expect(findElementOf(element, RefreshOnResume)).toBeNull()
+  })
+
+  it('leaves the resume refresher out for a member with no household', async () => {
+    mockGetSession.mockResolvedValue(SIGNED_IN)
+    const element = await RootLayout({ children: null })
+    expect(findElementOf(element, RefreshOnResume)).toBeNull()
   })
 
   // Tailwind resolves the font variable at `:root`. Set only on `body`, it

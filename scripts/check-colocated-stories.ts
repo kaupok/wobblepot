@@ -81,6 +81,10 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: 'src/components/timeline/EmptySlotController.tsx',
     why: 'One empty slot\'s placeholder requests and dialogs, with no button of its own: the day\'s "+ Add" menu drives it through a ref (HON-1335). DayAddMenu.stories.tsx covers its states (Adding, Discarding, PickForMeWithUndo, PickForMeNoMatch), and MealSelectorModal and FridgeMealPicker have their own stories.',
   },
+  {
+    path: 'src/components/RefreshOnResume.tsx',
+    why: 'Renders null: it listens for the app coming back (visibilitychange, pageshow) and the household midnight, then calls router.refresh() (HON-1593). Nothing to show; RefreshOnResume.test.tsx covers every trigger.',
+  },
 ]
 
 // ============================================
