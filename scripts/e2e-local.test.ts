@@ -12,150 +12,24 @@
  * up-to-date lockfile, Prisma client and Chromium build, so only the
  * `toolchain preparation` tests see an install step.
  */
-import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
-const script = path.join(scriptsDir, 'e2e-local.sh')
+import {
+  calls,
+  root,
+  run,
+  script,
+  serverEnv,
+  setupScratchRepo,
+  stubDir,
+  stubEnv,
+} from './e2e-local.fixtures'
 
-const PNPM_STUB = `#!/usr/bin/env bash
-echo "pnpm $*" >> "$STUB_DIR/calls.log"
-record_env() {
-  env | grep -E '^(DATABASE_URL|DATABASE_URL_UNPOOLED|NEXT_PUBLIC_APP_ENV|NEXT_PUBLIC_APP_URL|E2E_DISABLE_RATE_LIMIT|SIGNUP_TIMING_LOG|E2E_LOCAL_PORT|CRON_SECRET)=' | sort > "$STUB_DIR/server.env"
-}
-case "$*" in
-  "dlx neonctl@"*" branches create "*)
-    if [ -n "\${STUB_CAP:-}" ]; then echo "ERROR: branches limit exceeded" >&2; exit 1; fi
-    echo '{}' ;;
-  "dlx neonctl@"*" connection-string "*"--pooled"*) echo "postgres://branch-pooled" ;;
-  "dlx neonctl@"*" connection-string "*) echo "postgres://branch-unpooled" ;;
-  "dlx neonctl@"*" branches list "*) echo '[]' ;;
-  "dlx neonctl@"*) ;;
-  "prisma migrate status")
-    echo "\${STUB_MIGRATE_STATUS:-Database schema is up to date!}"
-    exit "\${STUB_MIGRATE_RC:-0}" ;;
-  "exec next dev "*)
-    record_env
-    echo "$$" > "$STUB_DIR/server.pid"
-    touch "$STUB_DIR/server-up"
-    exec sleep "\${STUB_SERVER_SECS:-1}" ;;
-  "install --frozen-lockfile") [ "\${STUB_FAIL_STEP:-}" != install ] || exit 1 ;;
-  "db:generate") [ "\${STUB_FAIL_STEP:-}" != generate ] || exit 1 ;;
-  "exec playwright install --dry-run chromium")
-    printf '  Install location:    %s\n' "$STUB_DIR/browsers/chromium-1" "$STUB_DIR/browsers/ffmpeg-1" ;;
-  "exec playwright install chromium")
-    [ "\${STUB_FAIL_STEP:-}" != chromium ] || exit 1
-    mkdir -p "$STUB_DIR/browsers/chromium-1" && touch "$STUB_DIR/browsers/chromium-1/INSTALLATION_COMPLETE" ;;
-  "exec playwright "*) record_env ;;
-  "db:seed") echo "$DATABASE_URL" > "$STUB_DIR/seed.db" ;;
-esac
-`
-
-const CURL_STUB = `#!/usr/bin/env bash
-for arg; do url="$arg"; done
-echo "curl $url" >> "$STUB_DIR/calls.log"
-if [ -e "$STUB_DIR/server-up" ]; then printf 200; else printf 000; exit 7; fi
-`
-
-let root: string
-let stubDir: string
-
-beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-local-'))
-  stubDir = path.join(root, 'stub')
-  const bin = path.join(root, 'bin')
-  fs.mkdirSync(path.join(root, 'scripts'))
-  fs.mkdirSync(stubDir)
-  fs.mkdirSync(bin)
-  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh', 'e2e-branch-liveness.sh']) {
-    fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
-  }
-  writeToolchain()
-  fs.writeFileSync(
-    path.join(root, '.env'),
-    [
-      'DATABASE_URL=postgres://env-db',
-      'DATABASE_URL_UNPOOLED=postgres://env-db-unpooled',
-      'NEON_API_KEY=neon-key',
-      'NEON_PROJECT_ID=neon-project',
-      '',
-    ].join('\n'),
-  )
-  fs.writeFileSync(path.join(bin, 'pnpm'), PNPM_STUB, { mode: 0o755 })
-  fs.writeFileSync(path.join(bin, 'curl'), CURL_STUB, { mode: 0o755 })
-})
-
-afterEach(() => {
-  fs.rmSync(root, { recursive: true, force: true })
-})
-
-/** Older than any output, so a fresh fixture needs no toolchain step. */
-const INPUT_TIME = new Date('2026-01-01T00:00:00Z')
-const OUTPUT_TIME = new Date('2026-01-02T00:00:00Z')
-
-const LOCKFILE = 'pnpm-lock.yaml'
-const MODULES = 'node_modules/.modules.yaml'
-const SCHEMA = 'prisma/schema.prisma'
-const CLIENT = 'src/generated/prisma/client.ts'
-
-function touch(relative: string, time: Date) {
-  const file = path.join(root, relative)
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, '')
-  fs.utimesSync(file, time, time)
-}
-
-/** An up-to-date checkout: outputs newer than inputs, Chromium installed. */
-function writeToolchain() {
-  touch(LOCKFILE, INPUT_TIME)
-  touch(MODULES, OUTPUT_TIME)
-  touch(SCHEMA, INPUT_TIME)
-  touch(CLIENT, OUTPUT_TIME)
-  for (const browser of ['chromium-1', 'ffmpeg-1']) {
-    touch(path.join('stub', 'browsers', browser, 'INSTALLATION_COMPLETE'), OUTPUT_TIME)
-  }
-}
-
-/**
- * A clean environment: nothing inherited from vitest's own env block, which sets
- * NEXT_PUBLIC_APP_ENV and would mask what the script exports.
- */
-function stubEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  return {
-    NODE_ENV: 'test',
-    PATH: `${path.join(root, 'bin')}:${process.env.PATH ?? ''}`,
-    HOME: root,
-    STUB_DIR: stubDir,
-    ...extra,
-  }
-}
-
-function run(args: string[], extra: Record<string, string> = {}) {
-  const result = spawnSync('bash', [path.join(root, 'scripts', 'e2e-local.sh'), ...args], {
-    encoding: 'utf8',
-    timeout: 30_000,
-    env: stubEnv(extra),
-  })
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr }
-}
-
-const calls = () => {
-  const file = path.join(stubDir, 'calls.log')
-  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-}
-
-/** The environment the stub dev server (or Playwright) was started with. */
-function serverEnv(): Map<string, string> {
-  const lines = fs.readFileSync(path.join(stubDir, 'server.env'), 'utf8').trim().split('\n')
-  return new Map(
-    lines.map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
-  )
-}
+setupScratchRepo()
 
 describe('e2e-local.sh', () => {
   it('lists serve, --db env and --seed in --help', () => {
@@ -259,6 +133,17 @@ describe('e2e-local.sh', () => {
       expect(log.indexOf('pnpm exec next dev')).toBeGreaterThan(log.indexOf('pnpm db:seed'))
     })
 
+    it('plants no fixture users in the .env database without their credentials', () => {
+      const { status } = run(['serve', '--db', 'env', '--seed'])
+
+      expect(status).toBe(0)
+      expect(calls()).not.toContain('print-seed-test-user-defaults')
+      for (const env of [serverEnv('seed'), serverEnv()]) {
+        expect(env.has('SEED_TEST_USERS')).toBe(false)
+        expect(env.has('SMOKE_TEST_EMAIL')).toBe(false)
+      }
+    })
+
     it('does not seed with --seed when the .env database is behind', () => {
       const { status } = run(['serve', '--db', 'env', '--seed'], {
         STUB_MIGRATE_STATUS: 'Following migration have not yet been applied: 20260929_x',
@@ -350,7 +235,7 @@ describe('e2e-local.sh', () => {
     }, 30_000)
   })
 
-  describe('run (test:e2e:local) is unchanged', () => {
+  describe('run (test:e2e:local)', () => {
     // HON-1415: the run's pid is gone once it exits, so the old name would
     // read as dead to the next GC on this host.
     it('renames a --keep branch out of the pid rule instead of deleting it', () => {
@@ -378,123 +263,48 @@ describe('e2e-local.sh', () => {
       expect(env.get('DATABASE_URL')).toBe('postgres://branch-pooled')
     })
 
+    // HON-1594: smoke-fixture specs skipped locally, and a skip exits 0.
+    it('gives the seed and Playwright the default fixture users on its branch', () => {
+      const { status } = run([])
+
+      expect(status).toBe(0)
+      for (const env of [serverEnv('seed'), serverEnv()]) {
+        expect(env.get('SEED_TEST_USERS')).toBe('1')
+        expect(env.get('SMOKE_TEST_EMAIL')).toBe('default-smoke@test')
+        expect(env.get('SMOKE_TEST_PASSWORD')).toBe('default-smoke-pass')
+        expect(env.get('FORGOT_PASSWORD_TEST_EMAIL')).toBe('default-forgot@test')
+        expect(env.get('FORGOT_PASSWORD_TEST_PASSWORD')).toBe('default-forgot-pass')
+      }
+    })
+
+    it('keeps fixture credentials the shell sets and fills the rest', () => {
+      const { status } = run([], {
+        SMOKE_TEST_EMAIL: 'ci-smoke@test',
+        SMOKE_TEST_PASSWORD: 'ci-smoke-pass',
+      })
+
+      expect(status).toBe(0)
+      const env = serverEnv()
+      expect(env.get('SEED_TEST_USERS')).toBe('1')
+      expect(env.get('SMOKE_TEST_EMAIL')).toBe('ci-smoke@test')
+      expect(env.get('SMOKE_TEST_PASSWORD')).toBe('ci-smoke-pass')
+      expect(env.get('FORGOT_PASSWORD_TEST_EMAIL')).toBe('default-forgot@test')
+      expect(env.get('FORGOT_PASSWORD_TEST_PASSWORD')).toBe('default-forgot-pass')
+    })
+
+    it('stops before the seed when it cannot read the default credentials', () => {
+      const { status, stderr } = run([], { STUB_FAIL_STEP: 'defaults' })
+
+      expect(status).not.toBe(0)
+      expect(stderr).toContain("Could not read the seed's default fixture credentials")
+      expect(calls()).not.toContain('pnpm db:seed')
+    })
+
     it('exports the shared environment from one place', () => {
       const source = fs.readFileSync(script, 'utf8')
 
       expect(source.split('export E2E_DISABLE_RATE_LIMIT=').length - 1).toBe(1)
       expect(source.split('export CRON_SECRET=').length - 1).toBe(1)
-    })
-  })
-
-  describe('toolchain preparation', () => {
-    const INSTALL = 'pnpm install --frozen-lockfile'
-    const GENERATE = 'pnpm db:generate'
-    const CHROMIUM = 'pnpm exec playwright install chromium'
-
-    it('runs no install or generate step when everything is up to date', () => {
-      const { status } = run([])
-      const log = calls()
-
-      expect(status).toBe(0)
-      expect(log).toContain('pnpm exec playwright install --dry-run chromium')
-      expect(log).not.toContain(INSTALL)
-      expect(log).not.toContain(GENERATE)
-      expect(log).not.toContain(CHROMIUM)
-    })
-
-    it.each([
-      ['the lockfile is newer than node_modules', () => touch(LOCKFILE, new Date())],
-      ['node_modules has no .modules.yaml', () => fs.rmSync(path.join(root, MODULES))],
-    ])('installs dependencies when %s', (_case, arrange) => {
-      arrange()
-      const { status, stderr } = run([])
-
-      expect(status).toBe(0)
-      expect(calls()).toContain(INSTALL)
-      expect(stderr).toContain('installing dependencies')
-    })
-
-    it.each([
-      ['the schema is newer than the client', () => touch(SCHEMA, new Date())],
-      ['there is no generated client', () => fs.rmSync(path.join(root, CLIENT))],
-    ])('regenerates the Prisma client when %s', (_case, arrange) => {
-      arrange()
-      const { status, stderr } = run([])
-
-      expect(status).toBe(0)
-      expect(calls()).toContain(GENERATE)
-      expect(stderr).toContain('regenerating it')
-    })
-
-    it('installs Chromium when one of its builds is incomplete', () => {
-      fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true })
-      const { status, stderr } = run([])
-
-      expect(status).toBe(0)
-      expect(calls()).toContain(CHROMIUM)
-      expect(stderr).toContain('Installing the Chromium build')
-    })
-
-    it.each(['run', 'serve'])(
-      'prepares everything before %s creates a branch or starts a server',
-      (command) => {
-        touch(LOCKFILE, new Date())
-        touch(SCHEMA, new Date())
-        fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true })
-        const { status } = run([command])
-        const log = calls()
-        const start = log.indexOf(
-          command === 'run' ? 'pnpm exec playwright test' : 'pnpm exec next dev',
-        )
-
-        expect(status).toBe(0)
-        expect(log.indexOf(INSTALL)).toBeGreaterThanOrEqual(0)
-        expect(log.indexOf(GENERATE)).toBeGreaterThan(log.indexOf(INSTALL))
-        expect(log.indexOf(CHROMIUM)).toBeGreaterThan(log.indexOf(GENERATE))
-        expect(log.indexOf('branches create')).toBeGreaterThan(log.indexOf(CHROMIUM))
-        expect(start).toBeGreaterThan(log.indexOf('branches create'))
-      },
-    )
-
-    it('prepares the toolchain for serve --db env too', () => {
-      touch(SCHEMA, new Date())
-      const { status } = run(['serve', '--db', 'env'])
-
-      expect(status).toBe(0)
-      expect(calls().indexOf('pnpm exec next dev')).toBeGreaterThan(calls().indexOf(GENERATE))
-    })
-
-    it.each([
-      ['install', () => touch(LOCKFILE, new Date()), INSTALL],
-      ['generate', () => touch(SCHEMA, new Date()), GENERATE],
-      [
-        'chromium',
-        () => fs.rmSync(path.join(stubDir, 'browsers', 'chromium-1'), { recursive: true }),
-        CHROMIUM,
-      ],
-    ])('stops on a failing %s step, names it and creates no branch', (step, arrange, name) => {
-      arrange()
-      const { status, stderr } = run([], { STUB_FAIL_STEP: step })
-
-      expect(status).toBe(1)
-      expect(stderr).toContain(`toolchain step '${name}' failed`)
-      expect(calls()).not.toContain('neonctl')
-      expect(calls()).not.toContain('playwright test')
-    })
-
-    // A changed dry-run format must not leave a run with no browser.
-    it('installs Chromium when the dry run names no install location', () => {
-      fs.writeFileSync(
-        path.join(root, 'bin', 'pnpm'),
-        PNPM_STUB.replace(
-          `"exec playwright install --dry-run chromium")`,
-          `"exec playwright install --dry-run chromium") echo "new format" ;;\n  "unused")`,
-        ),
-        { mode: 0o755 },
-      )
-      run([])
-
-      expect(calls()).toContain(CHROMIUM)
     })
   })
 })
