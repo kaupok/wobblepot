@@ -16,6 +16,15 @@ import type { Prisma } from '@/generated/prisma/client'
  */
 export const DEFAULT_STAPLE_NAMES = ['salt', 'black pepper', 'water'] as const
 
+/**
+ * Whether an ingredient's English `name` (not the translated one) is a starter
+ * staple. The Cooked check leaves these out: nobody runs out of water, and
+ * salt is not worth a question after every meal (HON-1588).
+ */
+export function isStarterStaple(name: string): boolean {
+  return (DEFAULT_STAPLE_NAMES as readonly string[]).includes(name)
+}
+
 type StapleClient = Pick<Prisma.TransactionClient, 'ingredient' | 'pantryItem'>
 
 /**

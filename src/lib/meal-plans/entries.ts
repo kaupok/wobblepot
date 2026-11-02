@@ -88,6 +88,13 @@ export interface EntryPatch {
    * empties or overshoots one gives "have some" (`null`), not `0` (HON-1583).
    */
   someLeftIngredientIds?: string[]
+  /**
+   * The rows a cooked recipe meal left running low (HON-1588): each keeps
+   * what the subtraction leaves and gets `lowAt`, and one the subtraction
+   * emptied reads "have some". A staple is never subtracted, so it only gets
+   * `lowAt`. A staple in `usedUpIngredientIds` goes to `0`.
+   */
+  lowIngredientIds?: string[]
 }
 
 /** What the route sends back after an update. */
@@ -470,12 +477,14 @@ export async function updateEntry(
       // unit and not `localeCompare` (HON-632).
       .sort((a, b) => compareIngredientIds(a.ingredientId, b.ingredientId))
 
-    // Which rows the meal ran out, and which it left some of (HON-1563, HON-1583).
+    // Which rows the meal ran out, left some of, or left running low (HON-1563,
+    // HON-1583, HON-1588).
     const outcomes = ranOutIngredientIds(
       componentsToDeduct,
       deductions,
       patch.usedUpIngredientIds,
       patch.someLeftIngredientIds,
+      patch.lowIngredientIds,
     )
 
     const pantryDeducted = await prisma.$transaction(async (tx) => {

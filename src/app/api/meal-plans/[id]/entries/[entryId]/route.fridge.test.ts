@@ -186,6 +186,29 @@ describe('PATCH with usedUpIngredientIds', () => {
     })
   })
 
+  it('hands the running-low ids to updateEntry with the completion', async () => {
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'completed',
+      mealId: null,
+      rating: undefined,
+      pantryDeducted: true,
+    })
+
+    const { status } = await patch({
+      status: 'completed',
+      usedUpIngredientIds: ['ing-tahini'],
+      lowIngredientIds: ['ing-onion'],
+    })
+
+    expect(status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith('household-123', 'plan-123', 'entry-123', {
+      status: 'completed',
+      usedUpIngredientIds: ['ing-tahini'],
+      lowIngredientIds: ['ing-onion'],
+    })
+  })
+
   it.each([
     ['without a completion', { usedUpIngredientIds: ['a'] }],
     ['with a revert', { status: 'planned', usedUpIngredientIds: ['a'] }],
@@ -194,6 +217,11 @@ describe('PATCH with usedUpIngredientIds', () => {
     [
       'for some-left ids with a swap',
       { status: 'completed', mealId: 'meal-1', someLeftIngredientIds: ['a'] },
+    ],
+    ['for running-low ids with a revert', { status: 'planned', lowIngredientIds: ['a'] }],
+    [
+      'for running-low ids with a swap',
+      { status: 'completed', mealId: 'meal-1', lowIngredientIds: ['a'] },
     ],
   ])('answers 400 %s', async (_, body) => {
     expect((await patch(body)).status).toBe(400)

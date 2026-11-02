@@ -62,10 +62,9 @@ export function useEntryStatus({
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
   const isPantryCharged = pantryDeducted || chargedHere
-  // What the deduction dialog would list. The server matches the same rows
-  // (non-staples holding one of the meal's ingredients), so an empty list
-  // means a confirm would change nothing in the pantry, as far as this page
-  // knows.
+  // What the deduction dialog would list: the pantry rows holding one of the
+  // meal's ingredients, staples included (HON-1588). An empty list means a
+  // confirm would change nothing in the pantry, as far as this page knows.
   const hasDeductions = useMemo(
     () => !!meal && computeDeductions(meal.components, servings, pantryItems).length > 0,
     [meal, servings, pantryItems],
@@ -80,6 +79,7 @@ export function useEntryStatus({
       deductPantry = false,
       usedUpIngredientIds,
       someLeftIngredientIds,
+      lowIngredientIds,
     }: {
       newStatus: MealStatus
       deductPantry?: boolean
@@ -95,9 +95,13 @@ export function useEntryStatus({
        * out (HON-1583). Sent only when not empty.
        */
       someLeftIngredientIds?: string[]
-      /** The dialog's "Used up" and "Some left" rows, for the completion event. */
+      /** The rows the dialog says are running low (HON-1588). Sent only when not empty. */
+      lowIngredientIds?: string[]
+      /** The dialog's rows at each choice, and its staple rows, for the completion event. */
       usedUpCount?: number
       someLeftCount?: number
+      lowCount?: number
+      stapleRows?: number
       source?: Source
     }) => {
       const data = await apiFetch<{ pantryDeducted?: boolean }>(
@@ -110,6 +114,7 @@ export function useEntryStatus({
             deductPantry,
             ...(usedUpIngredientIds ? { usedUpIngredientIds } : {}),
             ...(someLeftIngredientIds?.length ? { someLeftIngredientIds } : {}),
+            ...(lowIngredientIds?.length ? { lowIngredientIds } : {}),
           }),
         },
       )
@@ -121,7 +126,11 @@ export function useEntryStatus({
       setStatus(newStatus)
       return { previousStatus }
     },
-    onSuccess: ({ newStatus }, { source = defaultSource, usedUpCount, someLeftCount }, context) => {
+    onSuccess: (
+      { newStatus },
+      { source = defaultSource, usedUpCount, someLeftCount, lowCount, stapleRows },
+      context,
+    ) => {
       if (context?.previousStatus === 'completed' && newStatus !== 'completed') {
         onLeaveCompleted?.()
       }
@@ -143,7 +152,12 @@ export function useEntryStatus({
           // Only from the dialog's answer, so the default's hit rate reads
           // from these two (HON-1564).
           ...(usedUpCount !== undefined && someLeftCount !== undefined
-            ? { used_up_count: usedUpCount, some_left_count: someLeftCount }
+            ? {
+                used_up_count: usedUpCount,
+                some_left_count: someLeftCount,
+                low_count: lowCount,
+                staple_rows: stapleRows,
+              }
             : {}),
         })
       } else if (newStatus === 'skipped') {
@@ -206,8 +220,11 @@ export function useEntryStatus({
         ...(answer && {
           usedUpIngredientIds: answer.usedUpIngredientIds,
           someLeftIngredientIds: answer.someLeftIngredientIds,
+          lowIngredientIds: answer.lowIngredientIds,
           usedUpCount: answer.usedUpCount,
           someLeftCount: answer.someLeftCount,
+          lowCount: answer.lowCount,
+          stapleRows: answer.stapleRows,
         }),
       },
       {

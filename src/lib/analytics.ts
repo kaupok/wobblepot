@@ -198,7 +198,9 @@ export type EventPayload = {
   /**
    * `used_up_count` / `some_left_count`: the rows, "have some" and known
    * amounts, the cook left at or set to "Used up" / "Some left" in the Cooked
-   * dialog (HON-1564, HON-1583). Absent when no dialog asked.
+   * dialog (HON-1564, HON-1583). `low_count`: the rows at "Running low";
+   * `staple_rows`: the staple rows the dialog listed (HON-1588). Absent when
+   * no dialog asked.
    */
   'meal_plan:meal_completed': {
     plan_id: string
@@ -206,6 +208,8 @@ export type EventPayload = {
     source: Source
     used_up_count?: number
     some_left_count?: number
+    low_count?: number
+    staple_rows?: number
   }
   /**
    * "Pick for me" placed the slot's top suggestion with no dialog (HON-1248).

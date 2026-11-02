@@ -22,6 +22,10 @@ import {
   haveSomePantryItems,
   minceComponent,
   mincePantryItem,
+  onionComponent,
+  onionPantryItem,
+  saltComponent,
+  saltPantryItem,
 } from '@/stories/have-some-fixtures'
 
 import { PantryDeductionModal } from './PantryDeductionModal'
@@ -116,8 +120,11 @@ export const HaveSomeRows: Story = {
       // The feta is at its preset, so the server's subtraction decides it.
       usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot', 'tahini'],
       someLeftIngredientIds: [],
+      lowIngredientIds: [],
       usedUpCount: 6,
       someLeftCount: 6,
+      lowCount: 0,
+      stapleRows: 0,
     })
   },
 }
@@ -159,8 +166,65 @@ export const KnownAmountRows: Story = {
     await expect(args.onConfirm).toHaveBeenCalledWith({
       usedUpIngredientIds: ['mince', 'pumpkin', 'carrot'],
       someLeftIngredientIds: ['feta'],
+      lowIngredientIds: [],
       usedUpCount: 3,
       someLeftCount: 1,
+      lowCount: 0,
+      stapleRows: 0,
+    })
+  },
+}
+
+/**
+ * A staple row, a row already running low and a known row (HON-1588). Onion
+ * is a staple: it opens at "Some left" with the star and shows no amount.
+ * Tahini is already low, so it opens at "Running low". Salt (a starter staple)
+ * gets no row. Switching the mince to "Running low" reads "1000g → 500g,
+ * running low".
+ */
+export const RunningLowAndStaples: Story = {
+  args: {
+    mealName: 'Bolognese',
+    components: [
+      minceComponent,
+      haveSomeComponents.find((c) => c.ingredientId === 'tahini')!,
+      onionComponent,
+      saltComponent,
+    ],
+    householdServings: HAVE_SOME_SERVINGS,
+    pantryItems: [
+      mincePantryItem,
+      { ...haveSomePantryItems.find((item) => item.ingredientId === 'tahini')!, low: true },
+      onionPantryItem,
+      saltPantryItem,
+    ],
+  },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    const group = (name: string) => body.getByRole('radiogroup', { name: `What is left: ${name}` })
+    const row = (name: string) => body.getByText(name).closest('li')!
+    const checkedIn = (name: string) => within(group(name)).getByRole('radio', { checked: true })
+
+    await body.findByRole('dialog', { name: 'Mark as cooked' })
+    await expect(body.getAllByRole('radiogroup')).toHaveLength(3)
+    await expect(body.queryByText('Salt')).toBeNull()
+    await expect(checkedIn('Onion')).toHaveTextContent('Some left')
+    await expect(row('Onion')).not.toHaveTextContent('→')
+    await expect(checkedIn('Tahini')).toHaveTextContent('Running low')
+    await expect(row('Tahini')).toHaveTextContent('→ a little')
+
+    await userEvent.click(within(group('Beef mince')).getByRole('radio', { name: 'Running low' }))
+    await expect(row('Beef mince')).toHaveTextContent('1000g → 500g, running low')
+    await userEvent.click(body.getByRole('button', { name: /^confirm$/i }))
+
+    await expect(args.onConfirm).toHaveBeenCalledWith({
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: [],
+      lowIngredientIds: ['mince', 'tahini'],
+      usedUpCount: 0,
+      someLeftCount: 1,
+      lowCount: 2,
+      stapleRows: 1,
     })
   },
 }
@@ -208,14 +272,17 @@ export const NoDeductions: Story = {
   },
 }
 
-export const OnlyStaples: Story = {
+export const OnlyAStaple: Story = {
   args: {
     components: [lemonGarlicChickenComponents[3]!],
     pantryItems: [pantryItems[3]!],
   },
   parameters: {
     docs: {
-      description: { story: 'Staples are never deducted, so the list is empty.' },
+      description: {
+        story:
+          'A staple is never subtracted, so its row shows no amount and opens at "Some left" (HON-1588).',
+      },
     },
   },
 }

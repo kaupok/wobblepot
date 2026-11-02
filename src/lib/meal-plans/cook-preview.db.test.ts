@@ -18,12 +18,15 @@ const INGREDIENTS: Record<string, [IngredientCategory, Unit, boolean?]> = {
   salt: ['spice', 'g'],
   yoghurt: ['dairy', 'g'],
   kale: ['vegetable', 'g'],
+  onion: ['vegetable', 'g'],
+  garlic: ['vegetable', 'g'],
 }
 
 /**
  * Alder: two adults, so 2 servings. A planned roast: 200 g beetroot, half a
- * lemon, 2 g cumin, 100 ml milk and 1 g salt per serving.
- * Pantry: beetroot and cumin have some, lemon 3, milk 1000 ml, salt a staple.
+ * lemon, 2 g cumin, 100 ml milk, 1 g salt, 50 g onion and garlic "to taste"
+ * per serving. Pantry: beetroot and cumin have some, lemon 3, milk 1000 ml;
+ * salt, onion (running low) and garlic are staples.
  */
 async function world() {
   for (const [id, [category, defaultUnit, measuredByVolume]] of Object.entries(INGREDIENTS)) {
@@ -59,6 +62,13 @@ async function world() {
           { ingredientId: 'cumin', quantityPerServing: 2 },
           { ingredientId: 'milk', quantityPerServing: 100 },
           { ingredientId: 'salt', quantityPerServing: 1 },
+          { ingredientId: 'onion', quantityPerServing: 50 },
+          {
+            ingredientId: 'garlic',
+            quantityPerServing: 0,
+            isVague: true,
+            originalPhrase: 'to taste',
+          },
         ],
       },
     },
@@ -80,6 +90,14 @@ async function world() {
       { householdId: alder.id, ingredientId: 'milk', quantity: 1000 },
       { householdId: alder.id, ingredientId: 'salt', quantity: null, isStaple: true },
       { householdId: alder.id, ingredientId: 'kale', quantity: null },
+      {
+        householdId: alder.id,
+        ingredientId: 'onion',
+        quantity: null,
+        isStaple: true,
+        lowAt: new Date('2026-11-01T18:00:00Z'),
+      },
+      { householdId: alder.id, ingredientId: 'garlic', quantity: null, isStaple: true },
     ],
   })
   return alder.id
@@ -89,7 +107,7 @@ const preview = (householdId: string, locale = 'en') =>
   previewCookDeduction(householdId, 'plan-alder', 'entry-roast', locale)
 
 describe('previewCookDeduction', () => {
-  it('lists the non-staple pantry rows the meal takes from, scaled, in recipe order', async () => {
+  it('lists the pantry rows the meal takes from, scaled, in recipe order, with no starter staple or vague staple', async () => {
     const householdId = await world()
 
     expect(await preview(householdId)).toEqual([
@@ -100,6 +118,8 @@ describe('previewCookDeduction', () => {
         unit: 'g',
         pantryQuantity: null,
         default: 'usedUp',
+        isStaple: false,
+        low: false,
       },
       {
         ingredientId: 'lemon',
@@ -108,6 +128,8 @@ describe('previewCookDeduction', () => {
         unit: 'piece',
         pantryQuantity: 3,
         default: 'subtract',
+        isStaple: false,
+        low: false,
       },
       {
         ingredientId: 'cumin',
@@ -116,6 +138,8 @@ describe('previewCookDeduction', () => {
         unit: 'g',
         pantryQuantity: null,
         default: 'someLeft',
+        isStaple: false,
+        low: false,
       },
       {
         ingredientId: 'milk',
@@ -124,6 +148,18 @@ describe('previewCookDeduction', () => {
         unit: 'ml',
         pantryQuantity: 1000,
         default: 'subtract',
+        isStaple: false,
+        low: false,
+      },
+      {
+        ingredientId: 'onion',
+        name: 'onion',
+        used: 100,
+        unit: 'g',
+        pantryQuantity: null,
+        default: 'someLeft',
+        isStaple: true,
+        low: true,
       },
     ])
   })
@@ -160,6 +196,7 @@ describe('previewCookDeduction', () => {
     expect(rows.map((row) => [row.ingredientId, row.used])).toEqual([
       ['lemon', 0.5],
       ['cumin', 4],
+      ['onion', 100],
       ['kale', 60],
     ])
   })

@@ -116,7 +116,10 @@ describe('PastMealRow', () => {
       meal_id: meal.id,
       source: 'past_meals',
       used_up_count: 0,
-      some_left_count: 1,
+      // The fixture pantry's staple is a row too (HON-1588).
+      some_left_count: 2,
+      low_count: 0,
+      staple_rows: 1,
     })
   })
 

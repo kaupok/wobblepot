@@ -159,3 +159,34 @@ export const mincePantryItem: PantryItemFull = createPantryItem({
     defaultUnit: 'g',
   },
 })
+
+// Staples the meal uses (HON-1588): onion is asked about, salt is a starter
+// staple and chili flakes are "to taste", so neither gets a row.
+const staple = (id: string, name: string, category: string, quantityPerServing = 25) => ({
+  component: createMealComponent({
+    ingredientId: id,
+    quantityPerServing,
+    ingredient: { id, name, category, defaultUnit: 'g' },
+  }),
+  pantryItem: createPantryItem({
+    ingredientId: id,
+    quantity: null,
+    isStaple: true,
+    ingredient: { id, name, category, subcategory: null, defaultUnit: 'g' },
+  }),
+})
+
+const onion = staple('onion', 'Onion', 'vegetable')
+const salt = staple('salt', 'Salt', 'spice', 1)
+const chili = staple('chili-flakes', 'Chili flakes', 'spice', 0)
+
+export const onionComponent: MealComponent = onion.component
+export const onionPantryItem: PantryItemFull = onion.pantryItem
+export const saltComponent: MealComponent = salt.component
+export const saltPantryItem: PantryItemFull = { ...salt.pantryItem, starterStaple: true }
+export const chiliToTasteComponent: MealComponent = {
+  ...chili.component,
+  isVague: true,
+  originalPhrase: 'to taste',
+}
+export const chiliPantryItem: PantryItemFull = chili.pantryItem

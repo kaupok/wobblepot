@@ -115,8 +115,11 @@ describe('useEntryStatus', () => {
         result.current.handleDeductionConfirm({
           usedUpIngredientIds,
           someLeftIngredientIds: [],
+          lowIngredientIds: [],
           usedUpCount: usedUpIngredientIds.length,
           someLeftCount,
+          lowCount: 0,
+          stapleRows: 0,
         }),
       )
 
@@ -131,6 +134,8 @@ describe('useEntryStatus', () => {
           source: 'past_meals',
           used_up_count: usedUpIngredientIds.length,
           some_left_count: someLeftCount,
+          low_count: 0,
+          staple_rows: 0,
         }),
       )
     },
@@ -146,8 +151,11 @@ describe('useEntryStatus', () => {
       result.current.handleDeductionConfirm({
         usedUpIngredientIds: ['mince'],
         someLeftIngredientIds: ['carrot'],
+        lowIngredientIds: [],
         usedUpCount: 2,
         someLeftCount: 2,
+        lowCount: 0,
+        stapleRows: 0,
       }),
     )
 
@@ -167,6 +175,48 @@ describe('useEntryStatus', () => {
         source: 'past_meals',
         used_up_count: 2,
         some_left_count: 2,
+        low_count: 0,
+        staple_rows: 0,
+      }),
+    )
+  })
+
+  // HON-1588: the running-low rows, staples included, and the staple count.
+  it("sends the dialog's running-low list and counts the staple rows", async () => {
+    const { result } = renderStatusHook()
+
+    act(() => result.current.handleStatusChange('completed'))
+    respond(200, { pantryDeducted: true })
+    act(() =>
+      result.current.handleDeductionConfirm({
+        usedUpIngredientIds: ['tahini'],
+        someLeftIngredientIds: [],
+        lowIngredientIds: ['onion'],
+        usedUpCount: 1,
+        someLeftCount: 1,
+        lowCount: 1,
+        stapleRows: 2,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.status).toBe('completed'))
+    expect(patchBodies()).toEqual([
+      {
+        status: 'completed',
+        deductPantry: true,
+        usedUpIngredientIds: ['tahini'],
+        lowIngredientIds: ['onion'],
+      },
+    ])
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+        plan_id: 'plan-1',
+        meal_id: meal.id,
+        source: 'past_meals',
+        used_up_count: 1,
+        some_left_count: 1,
+        low_count: 1,
+        staple_rows: 2,
       }),
     )
   })
@@ -201,9 +251,10 @@ describe('useEntryStatus', () => {
       'a pantry with none of its ingredients',
       [createPantryItem({ ingredientId: 'salmon-fillet' })],
     ],
+    // Salt, black pepper and water get no row (HON-1588).
     [
-      'a pantry with only staples of it',
-      [createPantryItem({ ingredientId: 'chicken-thigh', isStaple: true })],
+      'a pantry with only starter staples of it',
+      [createPantryItem({ ingredientId: 'chicken-thigh', isStaple: true, starterStaple: true })],
     ],
   ])(
     'completes directly against %s, still asking the server to deduct',
@@ -227,6 +278,18 @@ describe('useEntryStatus', () => {
       })
     },
   )
+
+  // HON-1588: a staple the meal used is a row the cook can mark low or used up.
+  it('opens the dialog when the meal touches only a staple', async () => {
+    const { result } = renderStatusHook({
+      pantryItems: [createPantryItem({ ingredientId: 'chicken-thigh', isStaple: true })],
+    })
+
+    act(() => result.current.handleStatusChange('completed'))
+
+    expect(result.current.isDeductionModalOpen).toBe(true)
+    expect(patchBodies()).toEqual([])
+  })
 
   it('does not preview a second deduction after a revert in the same session', async () => {
     const { result } = renderStatusHook()

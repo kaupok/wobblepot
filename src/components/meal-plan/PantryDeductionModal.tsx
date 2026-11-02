@@ -1,5 +1,6 @@
 'use client'
 
+import { Star } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 
@@ -43,11 +44,11 @@ interface PantryDeductionModalProps {
   onCloseAutoFocus?: (event: Event) => void
 }
 
-/** What the cook said about each row (HON-1564, HON-1583). */
+/** What the cook said about each row (HON-1564, HON-1583, HON-1588). */
 export interface CookAnswer {
   /**
-   * The "have some" rows at "Used up", and the known rows the cook switched to
-   * it. `[]` when there are none. A known row the sum runs out is left to the
+   * The "have some" rows and staples at "Used up", and the known rows the cook
+   * switched to it. `[]` when there are none. A known row the sum runs out is left to the
    * server's subtraction, which reads the live pantry, so a preview from a
    * stale pantry cannot zero a row that was restocked meanwhile.
    */
@@ -57,18 +58,25 @@ export interface CookAnswer {
    * as "have some". `[]` when there are none.
    */
   someLeftIngredientIds: string[]
-  /** The rows at "Used up" and at "Some left", for the completion event. */
+  /** Every row at "Running low", staples included. `[]` when there are none. */
+  lowIngredientIds: string[]
+  /** The rows at each choice, and the staple rows, for the completion event. */
   usedUpCount: number
   someLeftCount: number
+  lowCount: number
+  stapleRows: number
 }
 
-type HaveSomeChoice = 'usedUp' | 'someLeft'
+type HaveSomeChoice = 'usedUp' | 'runningLow' | 'someLeft'
 
 /**
  * The pantry rows a cooked meal touches, one per ingredient, in the order the
  * meal lists them. A known quantity subtracts; a "have some" row
  * (`quantity: null`) carries the default `defaultCookOutcome` gives it, the
- * rule the server applies when no one chose (HON-1563).
+ * rule the server applies when no one chose (HON-1563). A staple is never
+ * subtracted, so its row shows no amount and defaults to "Some left"
+ * (HON-1588); a starter staple (salt, black pepper, water) and a vague
+ * component ("to taste") get no row.
  */
 export function computeDeductions(
   components: MealComponent[],
@@ -98,6 +106,24 @@ export function computeDeductions(
     if (!pantryItem) continue
 
     const deductionAmount = amountUsed.get(component.ingredientId) ?? 0
+
+    if (pantryItem.isStaple) {
+      if (pantryItem.starterStaple || component.isVague) continue
+      deductions.push({
+        ingredientId: component.ingredientId,
+        ingredientName: component.ingredient.name,
+        unit: displayUnit(component.ingredient),
+        currentQuantity: null,
+        deductionAmount,
+        newQuantity: null,
+        willBeRemoved: false,
+        outcome: 'someLeft',
+        isStaple: true,
+        low: pantryItem.low ?? false,
+      })
+      continue
+    }
+
     const currentQuantity = pantryItem.quantity
     const outcome = defaultCookOutcome({
       pantryQuantity: currentQuantity,
@@ -108,7 +134,7 @@ export function computeDeductions(
       defaultUnit: pantryItem.ingredient.defaultUnit,
       amountUsed: deductionAmount,
     })
-    // A staple is never deducted.
+    // Never null: staples are handled above.
     if (outcome === null) continue
 
     const newQuantity = currentQuantity === null ? null : currentQuantity - deductionAmount
@@ -122,6 +148,8 @@ export function computeDeductions(
       newQuantity: newQuantity === null || newQuantity <= 0 ? null : newQuantity,
       willBeRemoved: newQuantity !== null && newQuantity <= 0,
       outcome,
+      isStaple: false,
+      low: pantryItem.low ?? false,
     })
   }
 
@@ -196,26 +224,40 @@ function DeductionContent({
     return t('gramsQuantity', { count: Math.round(quantity) })
   }
 
-  // A known row opens at what the sum says; a "have some" row at its default.
+  // A row already running low opens at "Running low", so the dialog shows
+  // its state. Else a known row opens at what the sum says, and a "have some"
+  // row or a staple at its default. Nothing opens at "Running low" otherwise.
+  // "Some left" does not clear a low mark: the server keeps `lowAt` on a row
+  // it does not run out (HON-1586); only "Used up" or a purchase clears it.
   const choiceOf = (item: PantryDeductionItem): HaveSomeChoice =>
     choices[item.ingredientId] ??
-    (item.currentQuantity === null
-      ? item.outcome === 'usedUp'
-        ? 'usedUp'
-        : 'someLeft'
-      : item.willBeRemoved
-        ? 'usedUp'
-        : 'someLeft')
+    (item.low
+      ? 'runningLow'
+      : item.currentQuantity === null
+        ? item.outcome === 'usedUp'
+          ? 'usedUp'
+          : 'someLeft'
+        : item.willBeRemoved
+          ? 'usedUp'
+          : 'someLeft')
 
-  // What the row will read after Confirm. "Some left" on a row the sum runs
-  // out has an unknown amount, so it reads "some".
+  // What a known row will read after Confirm. "Some left" on a row the sum
+  // runs out has an unknown amount, so it reads "some", and "Running low" on
+  // one reads "a little".
   const resultOf = (item: PantryDeductionItem) => {
-    if (choiceOf(item) === 'usedUp') return tPantry('ranOut')
+    const choice = choiceOf(item)
+    if (choice === 'usedUp') return tPantry('ranOut')
+    if (choice === 'runningLow') {
+      return item.newQuantity === null
+        ? t('lowQuantity')
+        : t('lowResult', { quantity: formatQuantity(item.newQuantity, item.unit) })
+    }
     return formatQuantity(item.newQuantity, item.unit)
   }
 
   const choiceOptions = [
     { value: 'usedUp', label: t('usedUp') },
+    { value: 'runningLow', label: t('runningLow') },
     { value: 'someLeft', label: t('someLeft') },
   ]
 
@@ -225,15 +267,21 @@ function DeductionContent({
       return
     }
     const usedUp = deductions.filter((item) => choiceOf(item) === 'usedUp')
+    const someLeft = deductions.filter((item) => choiceOf(item) === 'someLeft')
+    const low = deductions.filter((item) => choiceOf(item) === 'runningLow')
     onConfirm({
       usedUpIngredientIds: usedUp
         .filter((item) => !item.willBeRemoved)
         .map((item) => item.ingredientId),
-      someLeftIngredientIds: deductions
-        .filter((item) => item.willBeRemoved && choiceOf(item) === 'someLeft')
+      // A staple at "Some left" is in no list: the server never touches it.
+      someLeftIngredientIds: someLeft
+        .filter((item) => item.willBeRemoved)
         .map((item) => item.ingredientId),
+      lowIngredientIds: low.map((item) => item.ingredientId),
       usedUpCount: usedUp.length,
-      someLeftCount: deductions.length - usedUp.length,
+      someLeftCount: someLeft.length,
+      lowCount: low.length,
+      stapleRows: deductions.filter((item) => item.isStaple).length,
     })
   }
 
@@ -257,14 +305,30 @@ function DeductionContent({
                 key={item.ingredientId}
                 className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm"
               >
-                <span className="font-medium">{item.ingredientName}</span>
+                <span className="flex items-center gap-1 font-medium">
+                  {item.ingredientName}
+                  {item.isStaple && (
+                    <>
+                      <Star aria-hidden className="fill-warning text-warning size-4" />
+                      <span className="sr-only">{t('staple')}</span>
+                    </>
+                  )}
+                </span>
                 <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-                  {item.currentQuantity !== null && (
+                  {item.currentQuantity !== null ? (
                     <span className="text-muted-foreground">
                       {formatQuantity(item.currentQuantity, item.unit)}
                       {' → '}
                       {resultOf(item)}
                     </span>
+                  ) : (
+                    // No amount to subtract from: only "Running low" changes the text.
+                    choiceOf(item) === 'runningLow' && (
+                      <span className="text-muted-foreground">
+                        {'→ '}
+                        {t('lowQuantity')}
+                      </span>
+                    )
                   )}
                   <ChoiceChips
                     aria-label={t('choiceLabel', { name: item.ingredientName })}

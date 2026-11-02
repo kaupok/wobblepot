@@ -1,4 +1,4 @@
-// ROUTES: /past-meals, /pantry · COMPONENTS: PastMealRow, PantryDeductionModal, PantrySection
+// ROUTES: /past-meals, /pantry, /shopping · COMPONENTS: PastMealRow, PantryDeductionModal, PantrySection
 import { expect, test } from '@playwright/test'
 
 import { smokeFixture } from './utils/fixtures'
@@ -9,7 +9,7 @@ import {
   type MealSummary,
   signInWithConsent,
 } from './utils/past-meals'
-import { pantryRows } from './utils/shopping-pantry-api'
+import { pantryRows, shoppingItems } from './utils/shopping-pantry-api'
 
 // A past day of its own on the smoke household: past-meals.spec.ts writes -3,
 // -5 and -6, and the other specs plant only today and later.
@@ -24,8 +24,10 @@ const MEAL_TYPE = 'dinner'
 // option that is already the default changes nothing, so the PATCH body is
 // what proves the answer reached the server. A known-amount row with plenty
 // left opens at "Some left"; the cook switches it to Used up, and it lands in
-// the Ran out group too (HON-1583).
-test('the Cooked dialog marks "have some" and known-amount rows used up or some left', async ({
+// the Ran out group too (HON-1583). The other "have some" row is set to
+// "Running low" (HON-1588): it stays in the pantry, marked low, and goes on
+// the shopping list now.
+test('the Cooked dialog marks "have some" and known-amount rows used up or running low', async ({
   page,
 }) => {
   await signInWithConsent(page, smokeFixture())
@@ -104,7 +106,10 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or some 
     const nameOf = async (index: number) =>
       ((await groups.nth(index).getAttribute('aria-label')) ?? '').replace('What is left: ', '')
     const usedUpName = await nameOf(0)
-    const someLeftName = await nameOf(1)
+    const lowName = await nameOf(1)
+    // By name from here: "Running low" gives its row an arrow ("→ a little").
+    const group = (name: string) =>
+      dialog.getByRole('radiogroup', { name: `What is left: ${name}` })
 
     // Cancel returns focus to Cooked; the answer is asked again on reopen.
     await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -115,10 +120,16 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or some 
     await expect(knownRow).not.toContainText('Ran out')
     await known.getByRole('radio', { name: 'Used up' }).click()
     await expect(knownRow).toContainText('→ Ran out')
-    await groups.nth(0).getByRole('radio', { name: 'Used up' }).click()
-    await groups.nth(1).getByRole('radio', { name: 'Some left' }).click()
-    await expect(groups.nth(0).getByRole('radio', { name: 'Used up' })).toBeChecked()
-    await expect(groups.nth(1).getByRole('radio', { name: 'Some left' })).toBeChecked()
+    await group(usedUpName).getByRole('radio', { name: 'Used up' }).click()
+    await group(lowName).getByRole('radio', { name: 'Running low' }).click()
+    await expect(group(usedUpName).getByRole('radio', { name: 'Used up' })).toBeChecked()
+    await expect(group(lowName).getByRole('radio', { name: 'Running low' })).toBeChecked()
+    await expect(
+      dialog
+        .getByRole('listitem')
+        // `has` takes a locator rooted at the page, not at the dialog.
+        .filter({ has: page.getByRole('radiogroup', { name: `What is left: ${lowName}` }) }),
+    ).toContainText('→ a little')
 
     const [patch] = await Promise.all([
       page.waitForResponse(
@@ -129,33 +140,52 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or some 
       dialog.getByRole('button', { name: 'Confirm' }).click(),
     ])
     expect(patch.ok()).toBe(true)
-    const body = patch.request().postDataJSON() as { usedUpIngredientIds: string[] }
+    const body = patch.request().postDataJSON() as {
+      usedUpIngredientIds: string[]
+      lowIngredientIds: string[]
+    }
     expect(body).toEqual({
       status: 'completed',
       deductPantry: true,
       usedUpIngredientIds: expect.arrayContaining([knownId]),
+      lowIngredientIds: [expect.any(String)],
     })
     expect(body.usedUpIngredientIds).toHaveLength(2)
     const usedUpId = body.usedUpIngredientIds.find((id) => id !== knownId)!
     expect(ingredientIds).toContain(usedUpId)
-    const someLeftId = ingredientIds.find((id) => id !== usedUpId)!
+    const lowId = ingredientIds.find((id) => id !== usedUpId)!
+    expect(body.lowIngredientIds).toEqual([lowId])
     await expect(dialog).toBeHidden()
 
-    // The pantry page: the used-up rows in the Ran out group, the other still
-    // on hand.
+    // The pantry page: the used-up rows in the Ran out group, the low one
+    // still on hand.
     await page.goto('/pantry')
     const ranOutRows = page
       .getByRole('heading', { level: 3, name: /^Ran out/ })
       .locator('xpath=../following-sibling::*[1]')
     await expect(ranOutRows).toContainText(usedUpName)
     await expect(ranOutRows).toContainText(knownName)
-    await expect(ranOutRows).not.toContainText(someLeftName)
-    await expect(page.getByText(someLeftName, { exact: true }).first()).toBeVisible()
+    await expect(ranOutRows).not.toContainText(lowName)
+    await expect(page.getByText(lowName, { exact: true }).first()).toBeVisible()
 
     const rows = await pantryRows(page.request)
     expect(rows.find((row) => row.ingredient.id === usedUpId)?.quantity).toBe(0)
-    expect(rows.find((row) => row.ingredient.id === someLeftId)?.quantity).toBeNull()
+    expect(rows.find((row) => row.ingredient.id === lowId)).toMatchObject({
+      quantity: null,
+      low: true,
+    })
     expect(rows.find((row) => row.ingredient.id === knownId)?.quantity).toBe(0)
+
+    // The low row is on the shopping list now, with no amount. The "Running
+    // low" tag on the row ships with HON-1587; HON-1590 asserts it.
+    expect(
+      (await shoppingItems(page.request)).find((item) => item.ingredientId === lowId),
+    ).toMatchObject({
+      low: true,
+      purchased: false,
+    })
+    await page.goto('/shopping')
+    await expect(page.getByText(lowName, { exact: true }).first()).toBeVisible()
   } finally {
     if (entryId) {
       await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
