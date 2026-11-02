@@ -150,20 +150,22 @@ export const setMealStatus = defineTool({
       return { ...result, outcome: 'unchanged' as const, pantryDeducted: false }
     }
 
-    // `[]` is an answer too: everything has some left. So is a low list.
-    if (
-      status === 'cooked' &&
-      !isFridge &&
-      usedUpIngredientIds === undefined &&
-      lowIngredientIds === undefined
-    ) {
+    // `[]` is an answer too: everything has some left. A low list answers only
+    // the rows it names, so a "have some" row outside it is still asked: the
+    // server's default could run it out, once and for good.
+    if (status === 'cooked' && !isFridge && usedUpIngredientIds === undefined) {
       const pantryCheck = await previewCookDeduction(
         household.id,
         slot.planId,
         slot.id,
         resolveHouseholdLocale(household),
       )
-      if (pantryCheck.some((row) => row.pantryQuantity === null || row.isStaple)) {
+      const low = new Set(lowIngredientIds)
+      const unanswered = (row: (typeof pantryCheck)[number]) =>
+        lowIngredientIds === undefined
+          ? row.pantryQuantity === null || row.isStaple
+          : row.pantryQuantity === null && !row.isStaple && !low.has(row.ingredientId)
+      if (pantryCheck.some(unanswered)) {
         return {
           ...result,
           outcome: 'needsPantryCheck' as const,

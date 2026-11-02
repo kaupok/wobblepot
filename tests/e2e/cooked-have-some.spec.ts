@@ -124,9 +124,12 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or runni
     await group(lowName).getByRole('radio', { name: 'Running low' }).click()
     await expect(group(usedUpName).getByRole('radio', { name: 'Used up' })).toBeChecked()
     await expect(group(lowName).getByRole('radio', { name: 'Running low' })).toBeChecked()
-    await expect(dialog.getByRole('listitem').filter({ has: group(lowName) })).toContainText(
-      '→ a little',
-    )
+    await expect(
+      dialog
+        .getByRole('listitem')
+        // `has` takes a locator rooted at the page, not at the dialog.
+        .filter({ has: page.getByRole('radiogroup', { name: `What is left: ${lowName}` }) }),
+    ).toContainText('→ a little')
 
     const [patch] = await Promise.all([
       page.waitForResponse(

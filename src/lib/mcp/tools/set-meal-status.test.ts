@@ -219,6 +219,18 @@ describe('set_meal_status cooked on a recipe meal', () => {
     expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
   })
 
+  it('still asks about a "have some" row the low list does not name', async () => {
+    vi.mocked(previewCookDeduction).mockResolvedValue([ONION, BEETROOT, CUMIN])
+
+    const result = await call({ status: 'cooked', lowIngredientIds: ['onion', 'cumin'] })
+
+    expect(updateEntry).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      outcome: 'needsPantryCheck',
+      defaultUsedUpIngredientIds: ['beetroot'],
+    })
+  })
+
   it('refuses running-low ids on a skip', async () => {
     await expect(call({ status: 'skipped', lowIngredientIds: ['onion'] })).rejects.toThrow(
       'lowIngredientIds is only for marking a recipe meal cooked. Nothing was changed.',
