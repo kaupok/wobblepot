@@ -37,7 +37,7 @@ export const shoppingListOutputSchema = z.object({
       low: z
         .boolean()
         .describe(
-          'true when the household marked the item running low: a little is left, so it is on the list now. It has no amount (quantity 0, displayQuantity empty) unless planned meals need more than the pantry amount.',
+          'true when the household marked the item running low: a little is left. It is listed when a planned meal needs it or it is a staple. It has no amount (quantity 0, displayQuantity empty) unless planned meals need more than the pantry amount.',
         ),
     }),
   ),

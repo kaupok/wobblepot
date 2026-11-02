@@ -25,8 +25,9 @@ const MEAL_TYPE = 'dinner'
 // what proves the answer reached the server. A known-amount row with plenty
 // left opens at "Some left"; the cook switches it to Used up, and it lands in
 // the Ran out group too (HON-1583). The other "have some" row is set to
-// "Running low" (HON-1588): it stays in the pantry, marked low, and goes on
-// the shopping list now.
+// "Running low" (HON-1588): it stays in the pantry, marked low. It is not a
+// staple and no planned meal needs it, so it stays off the shopping list
+// (HON-1595).
 test('the Cooked dialog marks "have some" and known-amount rows used up or running low', async ({
   page,
 }) => {
@@ -176,19 +177,16 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or runni
     })
     expect(rows.find((row) => row.ingredient.id === knownId)?.quantity).toBe(0)
 
-    // The low row is on the shopping list now, with no amount, and its row
-    // carries the "Running low" tag.
+    // The low row is a non-staple that no planned meal needs, so it is not on
+    // the shopping list (HON-1595).
     expect(
       (await shoppingItems(page.request)).find((item) => item.ingredientId === lowId),
-    ).toMatchObject({
-      low: true,
-      purchased: false,
-    })
+    ).toBeUndefined()
     await page.goto('/shopping')
-    const lowCheckbox = page.getByRole('checkbox', { name: `Mark ${lowName} as purchased` })
-    const lowListRow = page.locator('label', { has: lowCheckbox })
-    await expect(lowListRow).toBeVisible()
-    await expect(lowListRow.getByText('Running low', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Shopping list' })).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: `Mark ${lowName} as purchased` })).toHaveCount(
+      0,
+    )
   } finally {
     if (entryId) {
       await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})

@@ -44,7 +44,7 @@ export const setPantryStatus = defineTool({
   name: 'set_pantry_status',
   title: 'Set pantry status',
   description:
-    'Records whether the household has an ingredient at home, and how much. have_some: it is in the pantry, with an amount or without one. ran_out: it is used up, so the shopping list needs the full amount again. running_low: there is a little left, so it goes on the shopping list now, with no amount, and planned meals can still use it. Use it when the household says something is running out, nearly gone, or the last pack is open. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry, get_shopping_list or add_to_pantry. To put food the household bought in the pantry by name, use add_to_pantry. A staple stays a staple, and an ingredient that is not one does not become one: to star or unstar a staple, use set_staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. With have_some, pass amount when the user says how much there is, in the unit get_pantry reports: the shopping list then asks for that much less, and completing a meal takes its ingredients off it. A staple takes no amount.',
+    'Records whether the household has an ingredient at home, and how much. have_some: it is in the pantry, with an amount or without one. ran_out: it is used up, so the shopping list needs the full amount again. running_low: there is a little left, and planned meals can still use it. It goes on the shopping list, with no amount, when a planned meal needs it or it is a staple; any other item stays off the list. Use it when the household says something is running out, nearly gone, or the last pack is open. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry, get_shopping_list or add_to_pantry. To put food the household bought in the pantry by name, use add_to_pantry. A staple stays a staple, and an ingredient that is not one does not become one: to star or unstar a staple, use set_staple. On a staple, ran_out puts the item on the shopping list now, also when no planned meal needs it. With have_some, pass amount when the user says how much there is, in the unit get_pantry reports: the shopping list then asks for that much less, and completing a meal takes its ingredients off it. A staple takes no amount.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z
     .object({
@@ -55,7 +55,7 @@ export const setPantryStatus = defineTool({
       status: z
         .enum(['have_some', 'ran_out', 'running_low'])
         .describe(
-          'have_some: at home. ran_out: used up. running_low: a little left, so it goes on the shopping list.',
+          'have_some: at home. ran_out: used up. running_low: a little left; on the shopping list when a planned meal needs it or it is a staple.',
         ),
       amount: z
         .number()
@@ -86,7 +86,7 @@ export const setPantryStatus = defineTool({
       low: z
         .boolean()
         .describe(
-          'true: marked running low, so it is on the shopping list while planned meals can still use it.',
+          'true: marked running low. Planned meals can still use it, and it is on the shopping list when a planned meal needs it or it is a staple.',
         ),
     }),
   }),

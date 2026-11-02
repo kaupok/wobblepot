@@ -194,7 +194,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       },
       quantity: item.quantity,
       isStaple: item.isStaple,
-      // Running low (HON-1586): a little left, and on the shopping list.
+      // Running low (HON-1586): a little left, and on the shopping list when a
+      // planned meal needs it or it is a staple (HON-1595).
       low: item.lowAt !== null,
       // Salt, black pepper, water: the Cooked dialog does not ask about them
       // (HON-1588). Matched on the English name, before translation.

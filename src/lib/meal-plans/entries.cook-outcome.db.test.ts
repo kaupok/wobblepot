@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { type EntryPatch, updateEntry } from '@/lib/meal-plans/entries'
@@ -290,6 +290,13 @@ describe('updateEntry: a cooked meal and running-low rows', () => {
 
   // Some left is more than running low (HON-1592), so it clears the mark.
   it('clears low on an emptied row the cook says has some left, and drops its shopping line', async () => {
+    // On the plan's day, so the planned meals need the carrot: a low
+    // non-staple is on the list only then (HON-1595).
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-01T08:00:00Z'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const householdId = await world()
     await stockLow(householdId, 'carrot', 300)
     const household = await prisma.household.findUniqueOrThrow({ where: { id: householdId } })
