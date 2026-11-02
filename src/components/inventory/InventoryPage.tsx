@@ -115,7 +115,7 @@ export function InventoryPage({
               },
             ]
           }
-          return item.isStaple ? [{ ...item, quantity: 0 }] : []
+          return item.isStaple ? [{ ...item, quantity: 0, low: false }] : []
         }),
       )
     },
@@ -144,7 +144,9 @@ export function InventoryPage({
   const handleStapleRanOut = useCallback(
     (pantryItemId: string) => {
       setPantryItems((prev) =>
-        prev.map((item) => (item.id === pantryItemId ? { ...item, quantity: 0 } : item)),
+        prev.map((item) =>
+          item.id === pantryItemId ? { ...item, quantity: 0, low: false } : item,
+        ),
       )
       router.refresh()
     },

@@ -15,15 +15,12 @@ import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 
 import { GroupHeading } from './GroupHeading'
 import { PantryItemRow } from './PantryItemRow'
+import { QUANTITY_SCOPE, usePantryLow } from './use-pantry-low'
 
 const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
 const HAVE_IT_KEY = ['pantry', 'have-it'] as const
 const RAN_OUT_KEY = ['pantry', 'ran-out'] as const
 const AMOUNT_KEY = ['pantry', 'amount'] as const
-// The switch's two flips and an amount share one queue, so a quick second tap that undoes
-// the first lands after it on the server. Each `onMutate` still runs at once;
-// only the request waits.
-const QUANTITY_SCOPE = { id: 'pantry-quantity' }
 
 const onHandSelector = (id: string) => `[data-on-hand="${id}"]`
 const removeSelector = (id: string) => `[data-remove="${id}"]`
@@ -153,20 +150,23 @@ export function PantrySection({
       // An ordinary row moves to Ran out, so focus follows its switch there:
       // a second press undoes a slip.
       focusAfterRender.current = onHandSelector(id)
+      // Ran out replaces running low, as the server clears it (HON-1586).
       onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item)),
+        prev.map((item) => (item.id === id ? { ...item, quantity: 0, low: false } : item)),
       )
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     // A failed switch-off leaves its entry: the row is back above 0, so no
     // switch-on reads it before the next switch-off writes it again.
-    onError: (_error, { id, quantity }) => {
+    onError: (_error, { id, quantity, low }) => {
       // An ordinary row moves back to On hand and its switch remounts, so follow it.
       const onHand = sectionRef.current?.querySelector(onHandSelector(id))
       if (onHand && onHand === document.activeElement) {
         focusAfterRender.current = onHandSelector(id)
       }
-      onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
+      onItemsChange((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, quantity, low } : item)),
+      )
       toast.error(tPantry('errors.updateFailed'))
     },
   })
@@ -204,7 +204,7 @@ export function PantrySection({
         focusAfterRender.current = onHandSelector(id)
       }
       onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item)),
+        prev.map((item) => (item.id === id ? { ...item, quantity: 0, low: false } : item)),
       )
       toast.error(tPantry('errors.updateFailed'))
     },
@@ -231,7 +231,12 @@ export function PantrySection({
         quantityBeforeRanOut.current.set(item.id, item.quantity)
         focusAfterRender.current = onHandSelector(item.id)
       }
-      onItemsChange((prev) => prev.map((row) => (row.id === item.id ? { ...row, quantity } : row)))
+      // A 0 is ran out, which replaces running low; an amount keeps it (HON-1586).
+      onItemsChange((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, quantity, ...(quantity === 0 && { low: false }) } : row,
+        ),
+      )
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, { item, quantity }) => {
@@ -243,7 +248,9 @@ export function PantrySection({
         focusAfterRender.current = amountSelector(item.id)
       }
       onItemsChange((prev) =>
-        prev.map((row) => (row.id === item.id ? { ...row, quantity: item.quantity } : row)),
+        prev.map((row) =>
+          row.id === item.id ? { ...row, quantity: item.quantity, low: item.low } : row,
+        ),
       )
       toast.error(tPantry('errors.updateFailed'))
     },
@@ -344,6 +351,8 @@ export function PantrySection({
 
   const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
+  const handleSetLow = usePantryLow(onItemsChange, onPantryQuantityChanged)
+
   const handleSetAmount = (item: PantryItemData, quantity: number | null) =>
     amountMutation.mutate({ item, quantity })
 
@@ -380,6 +389,7 @@ export function PantrySection({
                 onRemove={handleRemove}
                 onRanOut={handleRanOut}
                 onHaveIt={handleHaveIt}
+                onSetLow={handleSetLow}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}
@@ -400,6 +410,7 @@ export function PantrySection({
                 onRanOut={handleRanOut}
                 onHaveIt={handleHaveIt}
                 onSetAmount={handleSetAmount}
+                onSetLow={handleSetLow}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}

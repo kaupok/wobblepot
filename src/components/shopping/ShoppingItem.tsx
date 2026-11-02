@@ -34,6 +34,11 @@ export interface ShoppingItemData {
    * out" tag; with an empty `displayQuantity` the tag stands in for the amount.
    */
   restock?: boolean
+  /**
+   * A pantry row the household marked running low (HON-1586). The row shows a
+   * "Running low" tag after the amount, or in its place when there is none.
+   */
+  low?: boolean
 }
 
 interface ShoppingItemProps {
@@ -107,6 +112,7 @@ export function ShoppingItem({
             </Body>
           )}
           {item.restock && <Badge variant="warning">{tShopping('ranOut')}</Badge>}
+          {item.low && <Badge variant="warning">{tShopping('runningLow')}</Badge>}
         </div>
       </div>
       {showDue && (

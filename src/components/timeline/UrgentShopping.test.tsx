@@ -139,6 +139,26 @@ describe('UrgentShopping', () => {
     ).toEqual(['Apple1 pc', 'Eggs300gRan out', 'Greek yoghurtRan out'])
   })
 
+  it('shows a running-low line as its name and "Running low" in Today', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <UrgentShopping
+          items={[
+            { ...item('Onion'), displayQuantity: '', low: true },
+            { ...item('Rice'), displayQuantity: '200 g', low: true },
+          ]}
+          todayDate={TODAY}
+        />
+      </NextIntlClientProvider>,
+    )
+
+    expect(
+      within(screen.getByRole('list', { name: 'Today' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['OnionRunning low', 'Rice200 gRunning low'])
+  })
+
   it('shows only the label for the one day that has items', () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>

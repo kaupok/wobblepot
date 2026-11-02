@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
+import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,11 @@ interface PantryItemRowProps {
    * staple would never change.
    */
   onSetAmount?: (item: PantryItemData, quantity: number | null) => void
+  /**
+   * Marks the row running low, or clears it (HON-1587). Shown while the
+   * switch is on: ran out replaces low.
+   */
+  onSetLow?: (item: PantryItemData, low: boolean) => void
   isToggling?: boolean
 }
 
@@ -44,11 +50,13 @@ export function PantryItemRow({
   onHaveIt,
   onRanOut,
   onSetAmount,
+  onSetLow,
   isToggling = false,
 }: PantryItemRowProps) {
   const tPantry = useTranslations('pantry')
   const isRanOut = item.quantity === 0
   const hasAmount = onSetAmount && !item.isStaple && !isRanOut
+  const hasLow = onSetLow && !isRanOut
 
   const handleToggle = () => onToggleStaple(item.id, item.isStaple)
 
@@ -117,14 +125,32 @@ export function PantryItemRow({
               )}
             {/* Under the name, not beside the switch: at 390px a third action
                 squeezed the name and its caption to a word per line. `-ml-3`
-                lines the label up with the name past the button's padding. */}
-            {hasAmount && !isEditingAmount && (
-              <div className="-ml-3">
-                <PantryAmountButton
-                  ref={amountButtonRef}
-                  item={item}
-                  onClick={() => setIsEditingAmount(true)}
-                />
+                lines the first label up with the name past the button's
+                padding. Running low sits here for the same reason (HON-1587):
+                beside the switch, "Vähe järel" left the name about 70px. */}
+            {((hasAmount && !isEditingAmount) || hasLow) && (
+              <div className="-ml-3 flex flex-wrap items-center gap-1">
+                {hasAmount && !isEditingAmount && (
+                  <PantryAmountButton
+                    ref={amountButtonRef}
+                    item={item}
+                    onClick={() => setIsEditingAmount(true)}
+                  />
+                )}
+                {hasLow && (
+                  // The visible word is the tag, and the check marks the
+                  // pressed state, so it does not rest on the fill alone.
+                  <Toggle
+                    size="sm-touch"
+                    indicator
+                    pressed={item.low ?? false}
+                    onPressedChange={(low) => onSetLow(item, low)}
+                    data-low={item.id}
+                    aria-label={tPantry('ariaRunningLow', { name: item.ingredient.name })}
+                  >
+                    {tPantry('runningLow')}
+                  </Toggle>
+                )}
               </div>
             )}
           </div>

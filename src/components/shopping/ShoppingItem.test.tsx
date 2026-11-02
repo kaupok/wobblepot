@@ -52,6 +52,29 @@ describe('ShoppingItem', () => {
     expect(screen.getByText('Ran out')).toBeInTheDocument()
   })
 
+  it('shows the name and "Running low" for a low line with no amount, and no "0 g"', () => {
+    const onion = {
+      ...baseItem,
+      ingredientId: 'ing-4',
+      name: 'Onion',
+      displayQuantity: '',
+      low: true,
+    }
+    render(<ShoppingItem item={onion} onToggle={vi.fn()} />)
+
+    const row = screen.getByRole('checkbox', { name: 'Mark Onion as purchased' }).closest('label')!
+    expect(row).toHaveTextContent(/^OnionRunning lowtomorrow$/)
+    expect(row).not.toHaveTextContent('0 g')
+  })
+
+  it('shows the amount and "Running low" for a low line with a shortfall', () => {
+    const onion = { ...baseItem, name: 'Onion', displayQuantity: '200 g', low: true }
+    render(<ShoppingItem item={onion} onToggle={vi.fn()} />)
+
+    expect(screen.getByText('200 g')).toBeInTheDocument()
+    expect(screen.getByText('Running low')).toBeInTheDocument()
+  })
+
   it('shows no "Ran out" tag on an ordinary line', () => {
     render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
 

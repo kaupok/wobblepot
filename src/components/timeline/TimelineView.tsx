@@ -38,6 +38,8 @@ interface ShoppingItem {
   restock?: boolean
   /** Any other pantry row at 0 (HON-1578): the household marked it ran out. */
   ranOut?: boolean
+  /** A pantry row marked running low (HON-1586); it can have no amount. */
+  low?: boolean
 }
 
 interface TimelineViewProps {

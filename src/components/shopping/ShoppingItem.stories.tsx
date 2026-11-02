@@ -94,6 +94,44 @@ export const RanOutWithAmount: Story = {
   },
 }
 
+// A pantry row the household marked running low (HON-1587), with no
+// planned shortfall: the "Running low" tag stands in for the amount.
+export const RunningLow: Story = {
+  args: {
+    item: createShoppingItem({
+      name: 'Onion',
+      displayQuantity: '',
+      neededByRelative: 'Today',
+      dueToday: true,
+      low: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Onion').closest('label')).toHaveTextContent(
+      /^OnionRunning lowToday$/,
+    )
+  },
+}
+
+// A low row a planned meal also needs: the shortfall and the tag.
+export const RunningLowWithAmount: Story = {
+  args: {
+    item: createShoppingItem({
+      name: 'Onion',
+      displayQuantity: '200 g',
+      neededByRelative: 'Today',
+      dueToday: true,
+      low: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('200 g')).toBeInTheDocument()
+    await expect(canvas.getByText('Running low')).toBeInTheDocument()
+  },
+}
+
 // Due today: the label takes the `warning` status token, the same one the
 // Today card uses for "Today" (HON-762).
 export const DueToday: Story = {
