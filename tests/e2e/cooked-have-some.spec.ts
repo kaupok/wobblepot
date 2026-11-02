@@ -176,8 +176,8 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or runni
     })
     expect(rows.find((row) => row.ingredient.id === knownId)?.quantity).toBe(0)
 
-    // The low row is on the shopping list now, with no amount. The "Running
-    // low" tag on the row ships with HON-1587; HON-1590 asserts it.
+    // The low row is on the shopping list now, with no amount, and its row
+    // carries the "Running low" tag.
     expect(
       (await shoppingItems(page.request)).find((item) => item.ingredientId === lowId),
     ).toMatchObject({
@@ -185,7 +185,10 @@ test('the Cooked dialog marks "have some" and known-amount rows used up or runni
       purchased: false,
     })
     await page.goto('/shopping')
-    await expect(page.getByText(lowName, { exact: true }).first()).toBeVisible()
+    const lowCheckbox = page.getByRole('checkbox', { name: `Mark ${lowName} as purchased` })
+    const lowListRow = page.locator('label', { has: lowCheckbox })
+    await expect(lowListRow).toBeVisible()
+    await expect(lowListRow.getByText('Running low', { exact: true })).toBeVisible()
   } finally {
     if (entryId) {
       await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
