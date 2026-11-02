@@ -12,6 +12,7 @@ import { BottomTabBar } from '@/components/bottom-tab-bar'
 import { ConsentProvider } from '@/components/ConsentProvider'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { RefreshOnResume } from '@/components/RefreshOnResume'
 import { ThemeProvider } from '@/components/theme-provider'
 import { getAppIcons } from '@/lib/app-icons'
 import { readConsentCookieServer } from '@/lib/consent.server'
@@ -20,7 +21,8 @@ import { bootstrapFlags } from '@/lib/feature-flags'
 import { geistMono, geistSans } from '@/lib/fonts'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { toOgLocale } from '@/lib/i18n/og-locale'
-import { getHouseholdIdForUser, getSession } from '@/lib/session'
+import { getTodayInTimezone } from '@/lib/meal-planning/dates'
+import { getCachedMembership, getSession } from '@/lib/session'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -105,10 +107,11 @@ export default async function RootLayout({
   // per request and for 30 s per distinct id, and an anonymous `getServerFlag`
   // read in the page shares it, so a landing render makes one `/flags` request.
   // It fails open to `FLAG_DEFAULTS`, so this never throws and never blocks the page.
-  const [householdId, bootstrap] = await Promise.all([
-    session ? getHouseholdIdForUser(session.user.id) : Promise.resolve(null),
+  const [membership, bootstrap] = await Promise.all([
+    session ? getCachedMembership(session.user.id) : Promise.resolve(null),
     bootstrapFlags(session?.user.id ?? 'anonymous'),
   ])
+  const householdId = membership?.householdId ?? null
   const hasHousehold = householdId !== null
 
   return (
@@ -148,6 +151,12 @@ export default async function RootLayout({
                   toastOptions={{ closeButtonAriaLabel: tToaster('close') }}
                 />
                 <Header />
+                {membership && (
+                  <RefreshOnResume
+                    renderedDate={getTodayInTimezone(membership.household.timezone)}
+                    timezone={membership.household.timezone}
+                  />
+                )}
                 <main
                   id="main-content"
                   className="max-w-page mx-auto min-h-screen pt-[calc(4.5rem+env(safe-area-inset-top,0px))] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
