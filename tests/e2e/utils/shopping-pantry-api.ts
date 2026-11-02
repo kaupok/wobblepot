@@ -33,11 +33,15 @@ export interface ShoppingListItem {
   quantity: number
   /** A staple the household marked ran out (HON-1398). */
   restock: boolean
+  /** Running low (HON-1586): listed with no amount. */
+  low: boolean
 }
 
 export interface PantryRow {
   ingredient: { id: string }
   quantity: number | null
+  /** Running low (HON-1586). */
+  low: boolean
 }
 
 export async function shoppingItems(request: APIRequestContext): Promise<ShoppingListItem[]> {

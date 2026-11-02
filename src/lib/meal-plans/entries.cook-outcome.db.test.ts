@@ -17,12 +17,14 @@ const INGREDIENTS: Record<string, IngredientCategory> = {
   tahini: 'condiment',
   mince: 'protein',
   carrot: 'vegetable',
+  onion: 'vegetable',
 }
 
 /**
  * Alder: one adult, so 1 serving. Its plan has a planned roast dinner: 200 g
  * beetroot, 300 g pumpkin, 2 g cumin and 600 g quinoa per serving. Soup is
- * 400 g pumpkin. A planned stew lunch is 500 g mince and 400 g carrot.
+ * 400 g pumpkin. A planned stew lunch is 500 g mince and 400 g carrot. A
+ * planned salad breakfast is 200 g carrot and 100 g onion.
  */
 async function world() {
   for (const [id, category] of Object.entries(INGREDIENTS)) {
@@ -63,6 +65,16 @@ async function world() {
   await meal('meal-roast', { beetroot: 200, pumpkin: 300, cumin: 2, quinoa: 600 })
   await meal('meal-soup', { pumpkin: 400 })
   await meal('meal-stew', { mince: 500, carrot: 400 })
+  await meal('meal-salad', { carrot: 200, onion: 100 })
+  await prisma.mealPlanEntry.create({
+    data: {
+      id: 'entry-salad',
+      planId: 'plan-alder',
+      mealId: 'meal-salad',
+      date: new Date('2026-11-01T00:00:00Z'),
+      mealType: 'breakfast',
+    },
+  })
   await prisma.mealPlanEntry.create({
     data: {
       id: 'entry-stew',
@@ -281,6 +293,111 @@ describe('updateEntry: a cooked meal and running-low rows', () => {
     await updateEntry(householdId, 'plan-alder', 'entry-stew', {
       ...complete,
       usedUpIngredientIds: [],
+      someLeftIngredientIds: ['carrot'],
+    })
+
+    expect(await row(householdId, 'carrot')).toEqual({ quantity: null, low: true })
+  })
+})
+
+// Running low from the Cooked dialog, and the staples it lists (HON-1588).
+describe('updateEntry: lowIngredientIds and staple rows', () => {
+  async function stockRow(
+    householdId: string,
+    ingredientId: string,
+    data: { quantity: number | null; isStaple?: boolean; lowAt?: Date },
+  ) {
+    await prisma.pantryItem.create({ data: { householdId, ingredientId, ...data } })
+  }
+
+  async function row(householdId: string, ingredientId: string) {
+    const item = await prisma.pantryItem.findUniqueOrThrow({
+      where: { householdId_ingredientId: { householdId, ingredientId } },
+    })
+    return { quantity: item.quantity, low: item.lowAt !== null }
+  }
+
+  const cookSalad = (householdId: string, patch: Partial<EntryPatch>) =>
+    updateEntry(householdId, 'plan-alder', 'entry-salad', { ...complete, ...patch })
+
+  it('marks a staple running low, with no amount', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'onion', { quantity: null, isStaple: true })
+
+    await cookSalad(householdId, { usedUpIngredientIds: [], lowIngredientIds: ['onion'] })
+
+    expect(await row(householdId, 'onion')).toEqual({ quantity: null, low: true })
+  })
+
+  it('runs out a staple the cook names used up', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'onion', { quantity: null, isStaple: true })
+
+    await cookSalad(householdId, { usedUpIngredientIds: ['onion'] })
+
+    expect(await row(householdId, 'onion')).toEqual({ quantity: 0, low: false })
+  })
+
+  it('leaves a staple in neither list untouched', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'onion', { quantity: 5, isStaple: true })
+
+    await cookSalad(householdId, { usedUpIngredientIds: [] })
+
+    expect(await row(householdId, 'onion')).toEqual({ quantity: 5, low: false })
+  })
+
+  it('keeps what a running-low known row has left after the meal', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'carrot', { quantity: 300 })
+
+    await cookSalad(householdId, { usedUpIngredientIds: [], lowIngredientIds: ['carrot'] })
+
+    expect(await row(householdId, 'carrot')).toEqual({ quantity: 100, low: true })
+  })
+
+  it('gives "have some" to a running-low known row the meal overshoots', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'carrot', { quantity: 300 })
+
+    await updateEntry(householdId, 'plan-alder', 'entry-stew', {
+      ...complete,
+      usedUpIngredientIds: [],
+      lowIngredientIds: ['carrot'],
+    })
+
+    expect(await row(householdId, 'carrot')).toEqual({ quantity: null, low: true })
+  })
+
+  it('marks a "have some" row running low and keeps it', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'beetroot', { quantity: null })
+
+    await update(householdId, { ...complete, lowIngredientIds: ['beetroot'] })
+
+    expect(await row(householdId, 'beetroot')).toEqual({ quantity: null, low: true })
+  })
+
+  it('takes used up over running low when an id is in both', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'carrot', { quantity: 300 })
+
+    await cookSalad(householdId, {
+      usedUpIngredientIds: ['carrot'],
+      lowIngredientIds: ['carrot'],
+    })
+
+    expect(await row(householdId, 'carrot')).toEqual({ quantity: 0, low: false })
+  })
+
+  it('takes running low over some left when an id is in both', async () => {
+    const householdId = await world()
+    await stockRow(householdId, 'carrot', { quantity: 300 })
+
+    await updateEntry(householdId, 'plan-alder', 'entry-stew', {
+      ...complete,
+      usedUpIngredientIds: [],
+      lowIngredientIds: ['carrot'],
       someLeftIngredientIds: ['carrot'],
     })
 

@@ -27,15 +27,21 @@ export interface CookOutcomeSets {
   usedUp: ReadonlySet<string>
   /** Known rows the cook named some left: a decrement that empties or overshoots one gives `null`, "have some". */
   someLeft: ReadonlySet<string>
+  /**
+   * Rows the cook named running low (HON-1588): `lowAt` set after any
+   * decrement, and a row the decrement emptied reads `null`, "have some".
+   */
+  low: ReadonlySet<string>
 }
 
 /**
  * Sort the meal's ingredients into `CookOutcomeSets`. With the cook's
  * `usedUpListed` sent, those ids are used up and every other null row keeps
  * its "have some"; without it, `defaultCookOutcome` picks the null rows the
- * meal ran out, and a known row only subtracts. An id in both lists is used
- * up. An id that is not one of `components` is never returned, so a
- * completion cannot zero the rest of the pantry.
+ * meal ran out, and a known row only subtracts. An id in more than one list
+ * takes the first of used up, running low, some left. An id that is not one
+ * of `components` is never returned, so a completion cannot zero the rest of
+ * the pantry.
  */
 export function ranOutIngredientIds(
   components: readonly {
@@ -45,16 +51,27 @@ export function ranOutIngredientIds(
   deductions: readonly Deduction[],
   usedUpListed: readonly string[] | undefined,
   someLeftListed: readonly string[] | undefined = undefined,
+  lowListed: readonly string[] | undefined = undefined,
 ): CookOutcomeSets {
   const usedUpIds = usedUpListed === undefined ? undefined : new Set(usedUpListed)
   const someLeftIds = new Set(someLeftListed)
+  const lowIds = new Set(lowListed)
   const ranOut = new Set<string>()
   const usedUp = new Set<string>()
   const someLeft = new Set<string>()
+  const low = new Set<string>()
   for (const { ingredientId, ingredient } of components) {
-    if (usedUpIds) {
-      if (usedUpIds.has(ingredientId)) usedUp.add(ingredientId)
-    } else if (
+    if (usedUpIds?.has(ingredientId)) {
+      usedUp.add(ingredientId)
+      continue
+    }
+    if (lowIds.has(ingredientId)) {
+      low.add(ingredientId)
+      continue
+    }
+    if (someLeftIds.has(ingredientId)) someLeft.add(ingredientId)
+    if (
+      !usedUpIds &&
       defaultCookOutcome({
         pantryQuantity: null,
         isStaple: false,
@@ -68,9 +85,8 @@ export function ranOutIngredientIds(
     ) {
       ranOut.add(ingredientId)
     }
-    if (someLeftIds.has(ingredientId) && !usedUp.has(ingredientId)) someLeft.add(ingredientId)
   }
-  return { ranOut, usedUp, someLeft }
+  return { ranOut, usedUp, someLeft, low }
 }
 
 /**
@@ -110,10 +126,12 @@ export async function chargePantry(
     // A row the cook named used up reads `0`, "ran out", whatever it held:
     // one write, with no decrement first, and no `quantity` filter, so a
     // known amount and a "have some" row both get there. Ran out replaces
-    // running low (HON-1586), so every write of `0` here clears `lowAt`.
+    // running low (HON-1586), so every write of `0` here clears `lowAt`. A
+    // staple is never decremented, but the cook can say this meal used the
+    // last of it (HON-1588), so this write has no `isStaple` filter.
     if (outcomes.usedUp.has(ingredientId)) {
       await tx.pantryItem.updateMany({
-        where: { householdId, ingredientId, isStaple: false },
+        where: { householdId, ingredientId },
         data: { quantity: 0, lowAt: null },
       })
       continue
@@ -136,6 +154,24 @@ export async function chargePantry(
         },
         data: { quantity: { decrement: amount } },
       })
+    }
+
+    // Running low (HON-1588): a little is left, whatever the subtraction
+    // says, so a row it emptied or overshot reads `null`, "have some", and
+    // every other row keeps its amount. Both writes set `lowAt`, staples
+    // too, and their `quantity` filters split the row's states, so exactly
+    // one of them matches.
+    if (outcomes.low.has(ingredientId)) {
+      const lowAt = new Date()
+      await tx.pantryItem.updateMany({
+        where: { householdId, ingredientId, OR: [{ quantity: null }, { quantity: { gt: 0 } }] },
+        data: { lowAt },
+      })
+      await tx.pantryItem.updateMany({
+        where: { householdId, ingredientId, quantity: { lte: 0 } },
+        data: { quantity: null, lowAt },
+      })
+      continue
     }
 
     // A row the deduction emptied or overshot reads `0`, "ran out"

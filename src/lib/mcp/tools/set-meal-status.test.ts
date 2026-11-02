@@ -44,6 +44,8 @@ const BEETROOT: PantryCheckRow = {
   unit: 'g',
   pantryQuantity: null,
   default: 'usedUp',
+  isStaple: false,
+  low: false,
 }
 const CUMIN: PantryCheckRow = {
   ingredientId: 'cumin',
@@ -52,6 +54,8 @@ const CUMIN: PantryCheckRow = {
   unit: 'g',
   pantryQuantity: null,
   default: 'someLeft',
+  isStaple: false,
+  low: false,
 }
 const RICE: PantryCheckRow = {
   ingredientId: 'rice',
@@ -60,6 +64,18 @@ const RICE: PantryCheckRow = {
   unit: 'g',
   pantryQuantity: 1000,
   default: 'subtract',
+  isStaple: false,
+  low: false,
+}
+const ONION: PantryCheckRow = {
+  ingredientId: 'onion',
+  name: 'Onion',
+  used: 100,
+  unit: 'g',
+  pantryQuantity: null,
+  default: 'someLeft',
+  isStaple: true,
+  low: false,
 }
 
 function call(input: Record<string, unknown>, household = mcpHousehold()) {
@@ -101,6 +117,8 @@ describe('set_meal_status cooked on a recipe meal', () => {
           unit: 'g',
           pantryQuantity: null,
           default: 'usedUp',
+          isStaple: false,
+          low: false,
         },
         {
           ingredientId: 'cumin',
@@ -109,6 +127,8 @@ describe('set_meal_status cooked on a recipe meal', () => {
           unit: 'g',
           pantryQuantity: null,
           default: 'someLeft',
+          isStaple: false,
+          low: false,
         },
       ],
       defaultUsedUpIngredientIds: ['beetroot'],
@@ -155,14 +175,55 @@ describe('set_meal_status cooked on a recipe meal', () => {
     expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
   })
 
-  it('deducts at once when the meal touches only staples', async () => {
-    // The preview leaves staples out, so a staples-only meal has no rows.
-    vi.mocked(previewCookDeduction).mockResolvedValue([])
+  it('asks about a staple the meal used, preset to some left', async () => {
+    // The preview leaves salt out (a starter staple), so onion is the one row.
+    vi.mocked(previewCookDeduction).mockResolvedValue([ONION])
 
     const result = await call({ status: 'cooked' })
 
+    expect(updateEntry).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      outcome: 'needsPantryCheck',
+      pantryCheck: [
+        {
+          ingredientId: 'onion',
+          pantryQuantity: null,
+          default: 'someLeft',
+          isStaple: true,
+          low: false,
+        },
+      ],
+      defaultUsedUpIngredientIds: [],
+    })
+  })
+
+  it('keeps defaultUsedUpIngredientIds to the non-staple rows', async () => {
+    vi.mocked(previewCookDeduction).mockResolvedValue([BEETROOT, ONION, CUMIN])
+
+    const result = await call({ status: 'cooked' })
+
+    expect(result).toMatchObject({ defaultUsedUpIngredientIds: ['beetroot'] })
+  })
+
+  it('passes the running-low ids through on the second call', async () => {
+    vi.mocked(previewCookDeduction).mockResolvedValue([ONION])
+
+    const result = await call({ status: 'cooked', lowIngredientIds: ['onion'] })
+
     expect(updateEntry).toHaveBeenCalledTimes(1)
-    expect(result).toMatchObject({ outcome: 'updated' })
+    expect(updateEntry).toHaveBeenCalledWith('household-1', 'plan-1', 'entry-roast', {
+      status: 'completed',
+      deductPantry: true,
+      lowIngredientIds: ['onion'],
+    })
+    expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
+  })
+
+  it('refuses running-low ids on a skip', async () => {
+    await expect(call({ status: 'skipped', lowIngredientIds: ['onion'] })).rejects.toThrow(
+      'lowIngredientIds is only for marking a recipe meal cooked. Nothing was changed.',
+    )
+    expect(updateEntry).not.toHaveBeenCalled()
   })
 
   it('asks for the rows in the household’s locale', async () => {
