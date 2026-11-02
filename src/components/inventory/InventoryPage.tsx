@@ -154,14 +154,17 @@ export function InventoryPage({
   )
 
   // The check's Add to list or Undo wrote these rows: the pantry column shows
-  // the new amounts, and the refresh it ran re-reads the list (HON-1585).
+  // the new amounts, and the refresh it ran re-reads the list (HON-1585). A 0
+  // is ran out, which clears running low, as the server does (HON-1586).
   const handlePantryQuantitiesWritten = useCallback(
     (rows: { id: string; quantity: number | null }[]) => {
       const written = new Map(rows.map((row) => [row.id, row.quantity]))
       setPantryItems((prev) =>
-        prev.map((item) =>
-          written.has(item.id) ? { ...item, quantity: written.get(item.id) ?? null } : item,
-        ),
+        prev.map((item) => {
+          if (!written.has(item.id)) return item
+          const quantity = written.get(item.id) ?? null
+          return { ...item, quantity, ...(quantity === 0 && { low: false }) }
+        }),
       )
     },
     [],

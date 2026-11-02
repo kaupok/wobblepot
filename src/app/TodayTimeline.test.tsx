@@ -59,11 +59,12 @@ const carrotCheck = {
 async function timelineProps({
   pantry = [] as ReturnType<typeof pantryRow>[],
   checkRows = [] as (typeof carrotCheck)[],
+  groups = [] as unknown[],
 } = {}) {
   vi.mocked(loadPlanEntries).mockResolvedValue({ entries: [], planId: 'plan-1' } as never)
   vi.mocked(loadPantry).mockResolvedValue({ items: pantry, windowDays: null } as never)
   vi.mocked(loadShoppingList).mockResolvedValue({
-    groups: [],
+    groups,
     customItems: [],
     check: checkRows,
   } as never)
@@ -114,6 +115,23 @@ describe('TodayTimeline', () => {
     expect(props.pantryIngredients).toEqual([
       { ingredientId: 'ing-basil', isStaple: false, ranOut: true },
       { ingredientId: 'ing-fresh-basil', isStaple: false, ranOut: true },
+    ])
+  })
+
+  it('carries a running-low line to the panel with low set', async () => {
+    const onion = {
+      ingredientId: 'ing-onion',
+      name: 'onion',
+      displayQuantity: '',
+      neededByDate: '2026-04-01',
+      neededByRelative: 'Today',
+      purchased: false,
+      low: true,
+    }
+    const props = await timelineProps({ groups: [{ items: [onion] }] })
+
+    expect(props.shoppingItems).toEqual([
+      expect.objectContaining({ ingredientId: 'ing-onion', displayQuantity: '', low: true }),
     ])
   })
 
