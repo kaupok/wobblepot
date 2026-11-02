@@ -122,6 +122,32 @@ describe('PantrySection running low', () => {
     expect(lowToggle('Onion')).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('keeps a Running low tap queued behind an amount that fails', async () => {
+    const user = userEvent.setup()
+    let failAmount: (() => void) | null = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        init.body === '{"quantity":200}'
+          ? new Promise<Response>((resolve) => {
+              failAmount = () => resolve(new Response(null, { status: 500 }))
+            })
+          : Promise.resolve(Response.json({ ok: true })),
+      ),
+    )
+    renderStateful([bread])
+
+    await user.click(screen.getByRole('button', { name: 'Add amount: Bread' }))
+    await user.type(screen.getByRole('textbox', { name: 'How much do you have?' }), '200')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(failAmount).not.toBeNull())
+    fireEvent.click(lowToggle('Bread'))
+    failAmount!()
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('sends quantity 0 when a low row is switched off, and renders it in Ran out with no toggle', async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)

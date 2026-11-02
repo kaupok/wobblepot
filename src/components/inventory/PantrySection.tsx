@@ -247,9 +247,13 @@ export function PantrySection({
       if (quantity === 0 && onHand && onHand === document.activeElement) {
         focusAfterRender.current = amountSelector(item.id)
       }
+      // Only a 0 cleared low, so only a 0 puts it back: a Running low tap
+      // queued behind a failed amount keeps its own state.
       onItemsChange((prev) =>
         prev.map((row) =>
-          row.id === item.id ? { ...row, quantity: item.quantity, low: item.low } : row,
+          row.id === item.id
+            ? { ...row, quantity: item.quantity, ...(quantity === 0 && { low: item.low }) }
+            : row,
         ),
       )
       toast.error(tPantry('errors.updateFailed'))
