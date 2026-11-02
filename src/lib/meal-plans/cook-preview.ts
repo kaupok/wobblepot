@@ -2,6 +2,7 @@ import 'server-only'
 
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { type DisplayUnit, displayUnit } from '@/lib/i18n/format-shopping-quantity'
+import { isStarterStaple } from '@/lib/meal-planning/default-staples'
 import {
   applyEntryChanges,
   ENTRY_CHANGES_FOR_DEDUCTION,
@@ -24,13 +25,19 @@ export interface PantryCheckRow {
   unit: DisplayUnit
   pantryQuantity: number | null
   default: CookOutcome
+  /** A staple: never subtracted, so it changes only when the household says so (HON-1588). */
+  isStaple: boolean
+  /** Running low already (HON-1586). */
+  low: boolean
 }
 
 /**
  * The pantry rows `updateEntry` would charge if this entry were completed
  * now with `deductPantry` (HON-1565), without writing anything: the meal's
  * components with the entry's changes merged, scaled by the cook servings,
- * one row per non-staple pantry item, in component order. Empty when the
+ * one row per pantry item, in component order. A staple is listed with
+ * default `someLeft`, except a starter staple (salt, black pepper, water) and
+ * a vague component ("to taste"), which are left out (HON-1588). Empty when the
  * completion would charge nothing: a fridge meal, an entry already completed,
  * or one charged before a revert (`pantryDeductedAt`, HON-651).
  */
@@ -67,6 +74,7 @@ export async function previewCookDeduction(
             select: {
               ingredientId: true,
               quantityPerServing: true,
+              isVague: true,
               ingredient: { select: ingredientSelect },
             },
           },
@@ -99,35 +107,39 @@ export async function previewCookDeduction(
     where: {
       householdId,
       ingredientId: { in: components.map((c) => c.ingredientId) },
-      isStaple: false,
     },
-    select: { ingredientId: true, quantity: true },
+    select: { ingredientId: true, quantity: true, isStaple: true, lowAt: true },
   })
-  const pantryQuantity = new Map(pantryRows.map((row) => [row.ingredientId, row.quantity]))
+  const pantryRow = new Map(pantryRows.map((row) => [row.ingredientId, row]))
 
   // One row per component: a meal lists an ingredient once (`MealComponent`
   // is unique on it), and `applyEntryChanges` drops a change that would list
   // it twice.
   const rows: PantryCheckRow[] = []
-  for (const { ingredientId, ingredient, quantityPerServing } of components) {
-    if (!pantryQuantity.has(ingredientId)) continue
-    const quantity = pantryQuantity.get(ingredientId) ?? null
+  for (const { ingredientId, ingredient, quantityPerServing, isVague } of components) {
+    const row = pantryRow.get(ingredientId)
+    if (!row) continue
+    if (row.isStaple && (isVague || isStarterStaple(ingredient.name))) continue
     const used = quantityPerServing * servings
     rows.push({
       ingredientId,
       name: translateIngredient(ingredient, locale).name,
       used,
       unit: displayUnit(ingredient),
-      pantryQuantity: quantity,
-      // Never null: staples are filtered out above.
-      default: defaultCookOutcome({
-        pantryQuantity: quantity,
-        isStaple: false,
-        category: ingredient.category,
-        subcategory: ingredient.subcategory,
-        defaultUnit: ingredient.defaultUnit,
-        amountUsed: used,
-      })!,
+      pantryQuantity: row.quantity,
+      // A staple is never subtracted: it stays unless the household says otherwise.
+      default: row.isStaple
+        ? 'someLeft'
+        : defaultCookOutcome({
+            pantryQuantity: row.quantity,
+            isStaple: false,
+            category: ingredient.category,
+            subcategory: ingredient.subcategory,
+            defaultUnit: ingredient.defaultUnit,
+            amountUsed: used,
+          })!,
+      isStaple: row.isStaple,
+      low: row.lowAt !== null,
     })
   }
   return rows

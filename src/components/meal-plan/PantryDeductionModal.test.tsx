@@ -8,6 +8,8 @@ import { NextIntlClientProvider } from 'next-intl'
 
 import { createPantryItem, lemonGarlicChickenComponents } from '@/stories/fixtures'
 import {
+  chiliPantryItem,
+  chiliToTasteComponent,
   fetaComponent,
   fetaPantryItem,
   HAVE_SOME_SERVINGS,
@@ -15,6 +17,10 @@ import {
   haveSomePantryItems,
   minceComponent,
   mincePantryItem,
+  onionComponent,
+  onionPantryItem,
+  saltComponent,
+  saltPantryItem,
 } from '@/stories/have-some-fixtures'
 
 import enMessages from '../../../messages/en.json'
@@ -131,8 +137,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
         someLeftIngredientIds: [],
+        lowIngredientIds: [],
         usedUpCount: 1,
         someLeftCount: 1,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -148,8 +157,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['mince'],
         someLeftIngredientIds: [],
+        lowIngredientIds: [],
         usedUpCount: 2,
         someLeftCount: 0,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -165,8 +177,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
         someLeftIngredientIds: ['feta'],
+        lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 2,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -245,8 +260,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot'],
         someLeftIngredientIds: [],
+        lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -263,8 +281,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'sweet-potato', 'beetroot', 'tahini'],
         someLeftIngredientIds: [],
+        lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -280,8 +301,11 @@ describe('PantryDeductionModal', () => {
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
         someLeftIngredientIds: [],
+        lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 3,
+        lowCount: 0,
+        stapleRows: 0,
       })
     })
 
@@ -298,19 +322,28 @@ describe('PantryDeductionModal', () => {
       expect(usedUp).toHaveFocus()
 
       // jsdom does not check a Radix radio on arrow focus, as a browser does,
-      // so Space picks the focused option.
+      // so Space picks the focused option. Three chips: Used up, Running low,
+      // Some left (HON-1588).
+      const runningLow = screen.getByRole('radio', { name: 'Running low' })
       const someLeft = screen.getByRole('radio', { name: 'Some left' })
       await user.keyboard('{ArrowRight}')
+      expect(runningLow).toHaveFocus()
+      await user.keyboard('{ArrowRight}')
       expect(someLeft).toHaveFocus()
+      await user.keyboard('{ArrowLeft}')
+      expect(runningLow).toHaveFocus()
       await user.keyboard(' ')
-      expect(someLeft).toBeChecked()
+      expect(runningLow).toBeChecked()
 
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
         someLeftIngredientIds: [],
+        lowIngredientIds: ['pumpkin'],
         usedUpCount: 0,
-        someLeftCount: 1,
+        someLeftCount: 0,
+        lowCount: 1,
+        stapleRows: 0,
       })
     })
 
@@ -327,6 +360,155 @@ describe('PantryDeductionModal', () => {
       const group = await screen.findByRole('radiogroup', { name: 'Mis alles jäi: Pumpkin' })
       expect(within(group).getByRole('radio', { name: 'Otsas' })).toBeChecked()
       expect(within(group).getByRole('radio', { name: 'Jäi alles' })).not.toBeChecked()
+    })
+  })
+
+  describe('"Running low" and staple rows (HON-1588)', () => {
+    const group = (name: string) =>
+      screen.getByRole('radiogroup', { name: `What is left: ${name}` })
+    const row = (name: string) => screen.getByText(name).closest('li')!
+    const checked = (name: string) =>
+      within(group(name)).getByRole('radio', { checked: true }).textContent
+
+    function renderMixed(pantryOverrides: Partial<Record<string, { low: boolean }>> = {}) {
+      const onConfirm = vi.fn()
+      const tahini = haveSomePantryItems.find((item) => item.ingredientId === 'tahini')!
+      const items = [tahini, mincePantryItem, fetaPantryItem, onionPantryItem, saltPantryItem]
+      renderModal({
+        onConfirm,
+        mealName: 'Bowl',
+        components: [
+          haveSomeComponents.find((c) => c.ingredientId === 'tahini')!,
+          minceComponent,
+          fetaComponent,
+          onionComponent,
+          saltComponent,
+          chiliToTasteComponent,
+        ],
+        householdServings: HAVE_SOME_SERVINGS,
+        pantryItems: [
+          ...items.map((item) => ({ ...item, ...pantryOverrides[item.ingredientId] })),
+          chiliPantryItem,
+        ],
+      })
+      return { onConfirm }
+    }
+
+    it('gives a "have some" row three chips, opened at its default', async () => {
+      renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      expect(
+        within(group('Tahini'))
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual(['Used up', 'Running low', 'Some left'])
+      expect(checked('Tahini')).toBe('Some left')
+    })
+
+    it('reads "1000g → 500g, running low" on a known row switched to "Running low"', async () => {
+      const user = userEvent.setup()
+      renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(within(group('Beef mince')).getByRole('radio', { name: 'Running low' }))
+
+      expect(row('Beef mince')).toHaveTextContent('1000g → 500g, running low')
+    })
+
+    it('reads "→ a little" on a known row the meal empties, and on a "have some" row', async () => {
+      const user = userEvent.setup()
+      renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(within(group('Feta')).getByRole('radio', { name: 'Running low' }))
+      await user.click(within(group('Tahini')).getByRole('radio', { name: 'Running low' }))
+
+      expect(row('Feta')).toHaveTextContent('100g → a little')
+      expect(row('Tahini')).toHaveTextContent('→ a little')
+    })
+
+    it('opens a staple at "Some left" with the star and no subtraction', async () => {
+      renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      expect(checked('Onion')).toBe('Some left')
+      expect(row('Onion')).toHaveTextContent('Staple')
+      expect(row('Onion').querySelector('svg.fill-warning')).not.toBeNull()
+      expect(row('Onion')).not.toHaveTextContent('→')
+    })
+
+    it('lists no row for a starter staple or a "to taste" staple', async () => {
+      renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      expect(screen.queryByText('Salt')).toBeNull()
+      expect(screen.queryByText('Chili flakes')).toBeNull()
+      expect(screen.getAllByRole('radiogroup')).toHaveLength(4)
+    })
+
+    it('opens a row that is already low at "Running low"', async () => {
+      renderMixed({ mince: { low: true }, onion: { low: true } })
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      expect(checked('Beef mince')).toBe('Running low')
+      expect(checked('Onion')).toBe('Running low')
+      expect(checked('Tahini')).toBe('Some left')
+    })
+
+    it('sends onion as low and tahini as used up', async () => {
+      const user = userEvent.setup()
+      const { onConfirm } = renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(within(group('Onion')).getByRole('radio', { name: 'Running low' }))
+      await user.click(within(group('Tahini')).getByRole('radio', { name: 'Used up' }))
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+      expect(onConfirm).toHaveBeenCalledWith({
+        usedUpIngredientIds: ['tahini'],
+        someLeftIngredientIds: [],
+        lowIngredientIds: ['onion'],
+        usedUpCount: 2,
+        someLeftCount: 1,
+        lowCount: 1,
+        stapleRows: 1,
+      })
+    })
+
+    it('sends a staple at "Used up" as used up, and no low list when all rows keep their preset', async () => {
+      const user = userEvent.setup()
+      const { onConfirm } = renderMixed()
+      await screen.findByRole('dialog', { name: 'Mark as cooked' })
+
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(onConfirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({ usedUpIngredientIds: [], lowIngredientIds: [] }),
+      )
+
+      await user.click(within(group('Onion')).getByRole('radio', { name: 'Used up' }))
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(onConfirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({ usedUpIngredientIds: ['onion'] }),
+      )
+    })
+
+    it('reads the three options in Estonian', async () => {
+      renderModal(
+        {
+          components: [onionComponent],
+          householdServings: HAVE_SOME_SERVINGS,
+          pantryItems: [onionPantryItem],
+        },
+        'et',
+      )
+
+      const group = await screen.findByRole('radiogroup', { name: 'Mis alles jäi: Onion' })
+      expect(
+        within(group)
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual(['Otsas', 'Vähe järel', 'Jäi alles'])
     })
   })
 

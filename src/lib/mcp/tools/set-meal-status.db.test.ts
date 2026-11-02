@@ -251,6 +251,8 @@ describe('set_meal_status', () => {
           unit: 'g',
           pantryQuantity: null,
           default: 'usedUp',
+          isStaple: false,
+          low: false,
         },
       ],
       defaultUsedUpIngredientIds: ['ing-peas'],

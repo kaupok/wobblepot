@@ -58,7 +58,8 @@ async function otherPastMealsToMark(page: Page, exceptId: string) {
 // The real page, the real PATCH and the real pantry charge: Cooked completes
 // the entry and charges it, and the row and the rating survive a reload
 // (HON-1018). The meal shares no ingredient with the pantry, so there is
-// nothing to preview and no dialog to confirm (HON-1125); the deduction dialog
+// nothing to preview and no dialog to confirm (HON-1125). A staple the meal
+// uses is a dialog row too, except the starter staples (HON-1588); the deduction dialog
 // is covered by PastMealRow's tests and stories. The account menu's dot
 // follows each status change through `router.refresh()`, with no reload
 // (HON-1028). Unit tests and Storybook cover the row in isolation.
@@ -84,13 +85,13 @@ test('a past meal is marked cooked from its row in one click, charged once, and 
   const pantryResponse = await page.request.get('/api/pantry')
   expect(pantryResponse.ok()).toBe(true)
   const { items } = (await pantryResponse.json()) as {
-    items: { isStaple: boolean; ingredient: { id: string } }[]
+    items: { starterStaple?: boolean; ingredient: { id: string } }[]
   }
   const shoppingMeal = meals.find((m) =>
     m.components.some((c) => !c.isVague && c.quantityPerServing > 0),
   )
   const taken = new Set([
-    ...items.filter((item) => !item.isStaple).map((item) => item.ingredient.id),
+    ...items.filter((item) => !item.starterStaple).map((item) => item.ingredient.id),
     ...[shoppingMeal, ...entries.map((e) => e.meal)].flatMap(
       (m) => m?.components.map((c) => c.ingredientId) ?? [],
     ),

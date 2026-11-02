@@ -8,6 +8,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 import { loadCoverIds } from '@/lib/ingredient-form-cover-ids'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { isStarterStaple } from '@/lib/meal-planning/default-staples'
 import {
   applyEntryChanges,
   ENTRY_CHANGES_FOR_DEDUCTION,
@@ -195,6 +196,9 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       isStaple: item.isStaple,
       // Running low (HON-1586): a little left, and on the shopping list.
       low: item.lowAt !== null,
+      // Salt, black pepper, water: the Cooked dialog does not ask about them
+      // (HON-1588). Matched on the English name, before translation.
+      ...(item.isStaple && isStarterStaple(item.ingredient.name) && { starterStaple: true }),
       updatedAt: item.updatedAt,
       ...(days && neededInfo !== undefined && neededInfo.quantity > 0
         ? {

@@ -614,6 +614,7 @@
       "noDeduction": "Märgi „{mealName}\" tehtuks? Sahvris muudatusi ei tehta.",
       "noPantryItemsBody": "Kõik koostisosad on kas põhitooted, ei ole sahvris või toidul polegi koostisosi.",
       "usedUp": "Otsas",
+      "runningLow": "Vähe järel",
       "someLeft": "Jäi alles",
       "choiceLabel": "Mis alles jäi: {name}",
       "confirm": "Kinnita",
@@ -621,7 +622,10 @@
       "pieceQuantity": "{count, plural, =0 {0 tk} one {# tk} other {# tk}}",
       "gramsQuantity": "{count}g",
       "millilitresQuantity": "{count}ml",
-      "someQuantity": "veidi"
+      "someQuantity": "veidi",
+      "lowQuantity": "natuke",
+      "lowResult": "{quantity}, vähe järel",
+      "staple": "Põhitoode"
     },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"

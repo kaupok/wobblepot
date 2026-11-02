@@ -252,6 +252,10 @@ export interface PantryItemFull {
   ingredientId: string
   quantity: number | null
   isStaple: boolean
+  /** Running low (HON-1586). Absent reads as not low. */
+  low?: boolean
+  /** Salt, black pepper or water: the Cooked dialog leaves it out (HON-1588). */
+  starterStaple?: boolean
   ingredient: {
     id: string
     name: string
@@ -274,9 +278,13 @@ export interface PantryDeductionItem {
   /**
    * `subtract` for a known quantity; for a "have some" row (`currentQuantity:
    * null`), the default the dialog presets, which the cook can change
-   * (HON-1564).
+   * (HON-1564). `someLeft` for a staple, which is never subtracted.
    */
   outcome: CookOutcome
+  /** A staple the meal used (HON-1588): it shows no amount and changes only when the cook says so. */
+  isStaple: boolean
+  /** Running low already, so the row opens at "Running low" (HON-1588). */
+  low: boolean
 }
 
 export interface ExpectedMealTypes {
