@@ -24,6 +24,7 @@ export const SHARED_FIXTURE_SPECS = [
   'meal-card-pick-swap.spec.ts',
   'modal-focus-restore.spec.ts',
   'note-placement.spec.ts',
+  'pantry-running-low.spec.ts',
   'past-meals.spec.ts',
   'recipe-cook-view.spec.ts',
   'shopping-to-pantry.spec.ts',

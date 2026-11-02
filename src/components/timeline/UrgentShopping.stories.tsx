@@ -283,6 +283,31 @@ export const RanOutStaples: Story = {
   },
 }
 
+// A pantry row the household marked running low (HON-1587): with no amount
+// the tag stands alone; with a planned shortfall it follows the amount.
+export const RunningLow: Story = {
+  args: {
+    items: [
+      createUrgentShoppingItem({
+        ingredientId: 'onion',
+        name: 'Onion',
+        displayQuantity: '',
+        low: true,
+      }),
+      createUrgentShoppingItem({
+        ingredientId: 'rice',
+        name: 'Rice',
+        displayQuantity: '200\u00a0g',
+        low: true,
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expectDayGroups(canvasElement, ['Today'])
+    await expect(within(canvasElement).getAllByText('Running low')).toHaveLength(2)
+  },
+}
+
 export const TomorrowOnly: Story = {
   args: {
     items: [

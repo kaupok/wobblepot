@@ -12,7 +12,7 @@ const meta = {
     variant: { control: 'select', options: ['default', 'outline'] },
     tone: { control: 'select', options: ['default', 'success', 'destructive', 'primary'] },
     shape: { control: 'select', options: ['default', 'circle'] },
-    size: { control: 'select', options: ['default', 'sm', 'lg', 'chip'] },
+    size: { control: 'select', options: ['default', 'sm', 'sm-touch', 'lg', 'chip', 'badge'] },
     indicator: { control: 'boolean' },
     pressed: { control: 'boolean' },
     disabled: { control: 'boolean' },
@@ -131,6 +131,27 @@ export const BadgeSize: Story = {
     const { width, height } = toggle.getBoundingClientRect()
     await expect(width).toBe(32)
     await expect(height).toBe(20)
+    await expect(getComputedStyle(toggle, '::after').top).toBe('-6px')
+    await expect(getComputedStyle(toggle, '::after').bottom).toBe('-6px')
+  },
+}
+
+/**
+ * `sm-touch`: a labelled 32px toggle in a card row a phone must reach (the
+ * pantry row's Running low, HON-1587). Its `::after` reaches 6px above and
+ * below, so the target is 44px tall without growing the row.
+ */
+export const SmallTouch: Story = {
+  args: {
+    size: 'sm-touch',
+    indicator: true,
+    pressed: true,
+    'aria-label': 'Running low',
+    children: 'Running low',
+  },
+  play: async ({ canvasElement }) => {
+    const toggle = within(canvasElement).getByRole('button')
+    await expect(toggle.getBoundingClientRect().height).toBe(32)
     await expect(getComputedStyle(toggle, '::after').top).toBe('-6px')
     await expect(getComputedStyle(toggle, '::after').bottom).toBe('-6px')
   },

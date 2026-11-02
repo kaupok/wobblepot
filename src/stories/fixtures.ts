@@ -1178,6 +1178,8 @@ export interface UrgentShoppingItemData {
   purchased: boolean
   urgency: UrgencyBucket
   restock?: boolean
+  /** A pantry row marked running low (HON-1586). */
+  low?: boolean
 }
 
 /**

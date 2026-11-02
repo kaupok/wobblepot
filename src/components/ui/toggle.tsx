@@ -54,6 +54,10 @@ const toggleVariants = cva(
       size: {
         default: 'h-touch min-w-touch px-2 md:h-10 md:min-w-10',
         sm: 'h-8 min-w-8 px-1.5',
+        // `sm` with a text label in a card row a phone must reach (the pantry
+        // row's Running low, HON-1587): `Button`'s `sm-touch`, a 32px box whose
+        // `::after` reaches 6px above and below it for a 44px target.
+        'sm-touch': 'relative h-8 min-w-8 px-3 after:absolute after:inset-x-0 after:-inset-y-1.5',
         lg: 'h-12 min-w-12 px-2.5 md:h-11 md:min-w-11',
         chip: 'h-touch px-4 data-[state=on]:has-[>svg]:px-3 md:h-10',
         // A thumb inside a `split` `Badge` (the planner card's Cooked badge,
