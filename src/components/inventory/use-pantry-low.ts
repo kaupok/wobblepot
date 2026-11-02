@@ -21,9 +21,9 @@ interface SetLowVariables {
 }
 
 /**
- * The pantry row's Running low toggle (HON-1587): `PATCH { low }`. A low row
- * gets a no-amount shopping list line (HON-1586), so a change re-reads the
- * list. The toggle stays mounted, so focus stays on it.
+ * The pantry row's Running low toggle (HON-1587): `PATCH { low }`. A low
+ * staple, or a low row a planned meal needs, gets a shopping list line
+ * (HON-1586, HON-1595), so a change re-reads the list. The toggle stays mounted, so focus stays on it.
  */
 export function usePantryLow(
   onItemsChange: Dispatch<SetStateAction<PantryItemData[]>>,

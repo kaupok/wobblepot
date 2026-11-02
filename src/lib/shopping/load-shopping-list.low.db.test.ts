@@ -6,7 +6,8 @@ import { loadPlanShoppingList, loadShoppingList } from '@/lib/shopping/load-shop
 
 import { entry, household, ingredient, itemsById, NOW } from './load-shopping-list.fixtures'
 
-// A row the household marked running low goes on the list (HON-1586). Runs
+// A row the household marked running low goes on the list when a planned meal
+// needs it or it is a staple (HON-1586, HON-1595). Runs
 // against PGlite through the `unit-db` project, with no mocks, through both
 // loaders. The low tap goes through `updatePantryItem`, as the app's does, so
 // it bumps `updatedAt` after the plan was made: the case where the line would
@@ -25,13 +26,16 @@ afterEach(() => {
  * Alder, an Estonian household, read on Thursday 15 October:
  *
  * - Onions: have some, marked low. A soup for 1 on 17 Oct needs 150 g.
- * - Tahini: have some, marked low. Nothing planned needs it.
+ * - Tahini: have some, marked low. Nothing planned needs it, and it is not a
+ *   staple.
+ * - Rice: a staple, have some, marked low. Nothing planned needs it.
  * - Carrots: have some, not low. The soup needs 200 g.
  */
 async function world() {
   await ingredient('ing-onion', 'onions', 'vegetable', { et: 'sibulad' })
   await ingredient('ing-tahini', 'tahini', 'condiment', { et: 'tahiini' })
   await ingredient('ing-carrot', 'carrots', 'vegetable', { et: 'porgandid' })
+  await ingredient('ing-rice', 'rice', 'carb', { et: 'riis' })
   await prisma.meal.create({
     data: {
       id: 'meal-soup',
@@ -46,9 +50,14 @@ async function world() {
   })
   const alder = await household('alder', 'et')
   await entry('plan-alder', '2026-10-17', 'meal-soup', 1)
-  for (const ingredientId of ['ing-onion', 'ing-tahini', 'ing-carrot']) {
+  for (const ingredientId of ['ing-onion', 'ing-tahini', 'ing-carrot', 'ing-rice']) {
     const row = await prisma.pantryItem.create({
-      data: { householdId: alder.id, ingredientId, quantity: null },
+      data: {
+        householdId: alder.id,
+        ingredientId,
+        quantity: null,
+        isStaple: ingredientId === 'ing-rice',
+      },
     })
     if (ingredientId !== 'ing-carrot') await updatePantryItem(alder, row.id, { low: true })
   }
@@ -61,8 +70,9 @@ describe('a row marked running low', () => {
 
     const items = itemsById(await loadShoppingList(alder, { days: 7 }))
 
-    // Carrots are at home and not low, so they have no line.
-    expect(Object.keys(items).sort()).toEqual(['ing-onion', 'ing-tahini'])
+    // Carrots are at home and not low, so they have no line. Tahini is low,
+    // but nothing planned needs it and it is not a staple, so it has no line.
+    expect(Object.keys(items).sort()).toEqual(['ing-onion', 'ing-rice'])
     expect(items['ing-onion']).toMatchObject({
       name: 'sibulad',
       quantity: 0,
@@ -72,8 +82,8 @@ describe('a row marked running low', () => {
       purchased: false,
       neededByDate: '2026-10-17',
     })
-    expect(items['ing-tahini']).toMatchObject({
-      name: 'tahiini',
+    expect(items['ing-rice']).toMatchObject({
+      name: 'riis',
       quantity: 0,
       displayQuantity: '',
       mealCount: 0,
@@ -94,6 +104,7 @@ describe('a row marked running low', () => {
       low: true,
       purchased: false,
     })
-    expect(items['ing-tahini']).toMatchObject({ displayQuantity: '', low: true, purchased: false })
+    expect(items['ing-rice']).toMatchObject({ displayQuantity: '', low: true, purchased: false })
+    expect(items['ing-tahini']).toBeUndefined()
   })
 })

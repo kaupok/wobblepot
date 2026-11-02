@@ -10,8 +10,8 @@ import { signIn } from './utils/test-helpers'
  * Pantry → Running low → shopping list → tick → pantry (HON-1587).
  *
  * `@smoke`, pattern (b)-compatible (HON-560): it signs in as the seeded smoke
- * fixture and needs no plan entry, because a low row goes on the list as a
- * line with no amount (HON-1586). The staple it adds is an ingredient the
+ * fixture and needs no plan entry, because a low staple goes on the list as
+ * a line with no amount (HON-1586, HON-1595). The staple it adds is an ingredient the
  * pantry does not hold, and teardown deletes it.
  */
 test.describe('Pantry running low', { tag: '@smoke' }, () => {

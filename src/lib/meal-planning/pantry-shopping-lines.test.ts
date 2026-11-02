@@ -358,9 +358,27 @@ describe('pantryShoppingLines — running low (HON-1586)', () => {
     expect(await lowLines(needed)).toEqual([['onion', 0, WEDNESDAY, true]])
   })
 
-  it('lists low tahini that nothing needs once, dated today', async () => {
+  it('lists no line for low tahini, a non-staple that nothing needs', async () => {
     pantry(['tahini', null, false, 'low'])
+    expect(await lowLines(new Map())).toEqual([])
+  })
+
+  it('lists a low tahini staple that nothing needs once, dated today', async () => {
+    pantry(['tahini', null, true, 'low'])
     expect(await lowLines(new Map())).toEqual([['tahini', 0, TODAY, true]])
+  })
+
+  it('lists a low carrot needed Wednesday once, dated Wednesday', async () => {
+    pantry(['carrot', null, false, 'low'])
+    const needed = new Map([
+      need('carrot', 200, { category: 'vegetable', mealCount: 1, earliestNeededDate: WEDNESDAY }),
+    ])
+    expect(await lowLines(needed)).toEqual([['carrot', 0, WEDNESDAY, true]])
+  })
+
+  it('lists no line for a low fresh-basil row when no basil is needed', async () => {
+    pantry(['fresh basil', null, false, 'low'])
+    expect(await lowLines(new Map())).toEqual([])
   })
 
   it('lists the shortfall of a low carrot at 300 g against a 500 g need', async () => {

@@ -44,9 +44,11 @@ export function shoppingIngredientArgs(locale: Locale) {
  *   (`FRESH_BARE_HERBS`), is in the pantry and has not run out. A dried herb
  *   has no such cover.
  * - Running low (HON-1586, `lowAt` set): at home as above, and also one line
- *   with `low`, staple or not. It has the shortfall when an amount falls
- *   short, else no amount (`shoppingQuantity` 0). Dated by the first planned
- *   need, or today when nothing planned needs it.
+ *   with `low` when a planned meal needs it or it is a staple. It has the
+ *   shortfall when an amount falls short, else no amount (`shoppingQuantity`
+ *   0). Dated by the first planned need, or today for a staple nothing
+ *   planned needs. A low non-staple that nothing planned needs adds no line
+ *   (HON-1595): a non-staple is bought for a planned meal only.
  *
  * A need is at home when its row is a staple not at 0, is covered by another
  * form of the herb, holds "have some" (null) or holds more than 0.
@@ -167,15 +169,17 @@ export async function pantryShoppingLines(
     }
   }
 
-  // A ran-out staple or a low row that nothing planned needs: one line with
-  // no amount.
+  // A ran-out or low staple that nothing planned needs, or a low herb row that
+  // covers another form's need: one line with no amount. A low non-staple
+  // that nothing needs stays in the pantry, off the list (HON-1595).
   for (const pantry of pantryItems) {
     if (needed.has(pantry.ingredientId)) continue
     const restock = pantry.isStaple && pantry.quantity === 0
-    const low = pantry.lowAt !== null
-    if (!restock && !low) continue
     // A low herb row that covers another form's need is dated by that need.
-    const coveredNeed = low ? needed.get(coverIds.get(pantry.ingredientId) ?? '') : undefined
+    const coveredNeed =
+      pantry.lowAt !== null ? needed.get(coverIds.get(pantry.ingredientId) ?? '') : undefined
+    const low = pantry.lowAt !== null && (pantry.isStaple || coveredNeed !== undefined)
+    if (!restock && !low) continue
     shoppingList.push({
       ingredientId: pantry.ingredientId,
       ingredient: translateIngredient(pantry.ingredient, locale),
