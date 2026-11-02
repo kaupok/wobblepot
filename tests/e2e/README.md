@@ -62,6 +62,14 @@ servers before the workers start (`tests/e2e/utils/warm-dev-server.ts`). Require
 need `ANTHROPIC_API_KEY`. Because it runs on :3100 with its own server, a normal
 `pnpm dev` on :3000 can keep running alongside it.
 
+**Smoke-fixture specs run, not skip.** On its throwaway branch the wrapper
+exports the seed's default fixture credentials (`SMOKE_TEST_*`,
+`FORGOT_PASSWORD_TEST_*`, from `prisma/seed-test-user-defaults.ts`) for each
+one the shell or `.env` does not set, and sets `SEED_TEST_USERS=1`. So a spec
+that calls `smokeFixture()` runs locally without CI secrets (HON-1594).
+`pnpm review:local --db env --seed` does not do this: it plants fixture users
+in your `.env` database only when you set the credentials yourself.
+
 Before it forks the branch, the wrapper also prepares the browser and the
 Prisma client (`scripts/e2e-local-toolchain.sh`), so a dependency update or a
 `git pull` with a new model does not fail every spec. It runs
@@ -355,6 +363,8 @@ Where each environment's seed actually runs (and therefore where the
 
 - **Preview** — PR branches no longer deploy on Vercel (PR #1396), so no
   preview environment needs a seed.
+- **`pnpm test:e2e:local`** — the wrapper sets `SEED_TEST_USERS=1` and the
+  seed's default credentials on its throwaway branch (see Running locally).
 - **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
   `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
   sets `SEED_TEST_USERS=1` and passes the four credential secrets

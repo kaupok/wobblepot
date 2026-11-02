@@ -38,7 +38,12 @@ beforeEach(() => {
   fs.mkdirSync(path.join(root, 'scripts'))
   fs.mkdirSync(stubDir)
   fs.mkdirSync(path.join(root, 'bin'))
-  for (const file of ['e2e-local.sh', 'e2e-local-toolchain.sh', 'e2e-branch-liveness.sh']) {
+  for (const file of [
+    'e2e-local.sh',
+    'e2e-local-toolchain.sh',
+    'e2e-branch-liveness.sh',
+    'e2e-local-seed.sh',
+  ]) {
     fs.copyFileSync(path.join(scriptsDir, file), path.join(root, 'scripts', file))
   }
   fs.writeFileSync(path.join(root, '.env'), 'NEON_API_KEY=neon-key\nNEON_PROJECT_ID=neon-project\n')

@@ -18,6 +18,7 @@ import { importCoverageIngredients } from './seed-import-coverage'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translations-et'
 import { seedTargetLine } from './seed-target'
+import { SEED_TEST_USER_DEFAULTS } from './seed-test-user-defaults'
 import type { IngredientInput } from './seed-types'
 
 const adapter = new PrismaPg({
@@ -3858,11 +3859,6 @@ async function seedIngredientTranslationsEt() {
 // Passwords are hashed with Better Auth's built-in scrypt (`hashPassword`)
 // so a direct `signIn.email` call through the app stack can verify them.
 
-const SMOKE_DEFAULT_EMAIL = 'smoke@test.honkadori.local'
-const SMOKE_DEFAULT_PASSWORD = 'smoke-test-pass-1234'
-const FORGOT_PASSWORD_DEFAULT_EMAIL = 'forgot-password@test.honkadori.local'
-const FORGOT_PASSWORD_DEFAULT_PASSWORD = 'forgot-pass-test-1234'
-
 interface TestUserSpec {
   label: string
   email: string
@@ -3990,14 +3986,18 @@ async function seedTestUsers() {
   const specs: TestUserSpec[] = [
     {
       label: 'smoke',
-      email: process.env.SMOKE_TEST_EMAIL ?? SMOKE_DEFAULT_EMAIL,
-      password: process.env.SMOKE_TEST_PASSWORD ?? SMOKE_DEFAULT_PASSWORD,
+      email: process.env.SMOKE_TEST_EMAIL ?? SEED_TEST_USER_DEFAULTS.SMOKE_TEST_EMAIL,
+      password: process.env.SMOKE_TEST_PASSWORD ?? SEED_TEST_USER_DEFAULTS.SMOKE_TEST_PASSWORD,
       name: 'Smoke Test User',
     },
     {
       label: 'forgot-password',
-      email: process.env.FORGOT_PASSWORD_TEST_EMAIL ?? FORGOT_PASSWORD_DEFAULT_EMAIL,
-      password: process.env.FORGOT_PASSWORD_TEST_PASSWORD ?? FORGOT_PASSWORD_DEFAULT_PASSWORD,
+      email:
+        process.env.FORGOT_PASSWORD_TEST_EMAIL ??
+        SEED_TEST_USER_DEFAULTS.FORGOT_PASSWORD_TEST_EMAIL,
+      password:
+        process.env.FORGOT_PASSWORD_TEST_PASSWORD ??
+        SEED_TEST_USER_DEFAULTS.FORGOT_PASSWORD_TEST_PASSWORD,
       name: 'Forgot Password Test User',
     },
   ]

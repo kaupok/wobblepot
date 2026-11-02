@@ -85,6 +85,8 @@ fail() { printf '%b\n' "${RED}error: $*${NC}" >&2; exit 1; }
 source "$SCRIPT_DIR/e2e-local-toolchain.sh"
 # shellcheck source=scripts/e2e-branch-liveness.sh
 source "$SCRIPT_DIR/e2e-branch-liveness.sh"
+# shellcheck source=scripts/e2e-local-seed.sh
+source "$SCRIPT_DIR/e2e-local-seed.sh"
 
 neon() { pnpm dlx "neonctl@$NEONCTL_VERSION" "$@"; }
 
@@ -313,17 +315,6 @@ export_isolated_env() {
   # test-only branch. Mirrors the value in .github/workflows/ci.yml. 32+ chars
   # to satisfy the env schema.
   export CRON_SECRET="${CRON_SECRET:-local-e2e-cron-secret-not-a-real-credential}"
-}
-
-run_seed() {
-  # Seed the smoke fixtures only when their credentials are present (they live
-  # in CI secrets, not local .env). The base meal/translation seed always runs.
-  if [ -n "${SMOKE_TEST_EMAIL:-}" ]; then export SEED_TEST_USERS="1"; fi
-
-  # The seed reads DATABASE_URL from this process, which is the branch in branch
-  # mode and .env's value in env mode (load_env exports it over the shell's).
-  if [ -n "$BRANCH" ]; then info "Seeding the ephemeral branch…"; else info "Seeding the .env database…"; fi
-  pnpm db:seed
 }
 
 # HTTP status from the local server, or 000 when nothing answers. `--max-time`
