@@ -183,6 +183,39 @@ export function compoundFormName(directName: string): string | undefined {
   return [...rest, `${COMPOUND_STEM_OF_WORD[formWord]}${food}`].join(' ')
 }
 
+/**
+ * The Estonian form words whose stem goes after the food, and on which side of the
+ * word the recipe writes the food: "konserveeritud tuunikala", but "lõhe filee".
+ */
+const SUFFIX_STEM_OF_WORD: Record<string, { stem: string; foodAfter: boolean }> = {
+  konserveeritud: { stem: 'konserv', foodAfter: true },
+  purgi: { stem: 'konserv', foodAfter: true },
+  filee: { stem: 'filee', foodAfter: false },
+}
+
+/**
+ * The recipe name as Estonian compounds with the form stem after the food, or none
+ * when it has no such form word. The catalogue writes `tinned tuna` "tuunikalakonserv"
+ * and `salmon fillet` "lõhefilee", so a recipe's separate form word finds the row only
+ * this way. The food is tried as written and as its plural stem: "sardiinid" is in
+ * "sardiinikonserv" (HON-1601).
+ */
+export function suffixCompoundNames(directName: string): string[] {
+  const words = wordsOf(directName)
+  const formAt = words.findIndex((word) => SUFFIX_STEM_OF_WORD[word] !== undefined)
+  if (formAt < 0) return []
+  const { stem, foodAfter } = SUFFIX_STEM_OF_WORD[words[formAt]!]!
+  const foodAt = foodAfter ? formAt + 1 : formAt - 1
+  const food = words[foodAt]
+  if (!food) return []
+  const names = [food, estonianPluralStem(food)].map((foodStem) =>
+    words
+      .flatMap((word, at) => (at === formAt ? [] : at === foodAt ? `${foodStem}${stem}` : word))
+      .join(' '),
+  )
+  return [...new Set(names)]
+}
+
 /** The Estonian fillet compounds of a cut: "kanakintsud" is "kanakintsuliha" or "kanakintsufilee". */
 function estonianFilletNames(normalizedName: string): string[] {
   const words = wordsOf(normalizedName)
@@ -230,7 +263,7 @@ export type FormGuardResult =
  *   its words for a boneless cut
  * @param winnerList - The winning candidate's matches, top match first
  * @param directSide - Result lists for the direct name, its alias, its catalogue-form name
- *   and its Estonian compound
+ *   and its Estonian compounds
  *   (for a boneless cut, the normalized name with "fillet" and its Estonian fillet compounds)
  */
 export function guardFormMatch(
@@ -329,12 +362,29 @@ export async function applyFormGuard(
   const isAliasRow = [winner.name, winner.matchedName].some((name) =>
     aliasTargets.includes(name.toLowerCase()),
   )
+  if (isAliasRow) return { formGuard: { action: 'keep' }, matches }
   const forms = missingForms(directName, winner)
-  if (forms.length === 0 || isAliasRow) return { formGuard: { action: 'keep' }, matches }
+  const suffixNames = suffixCompoundNames(directName).filter(
+    (name) => !input.matchesByCandidate.has(name),
+  )
+  if (forms.length === 0) {
+    // The winner may already be the form row at a weak score: "lõhe filee" against
+    // "lõhefilee". Its suffix compound finds that row sure, or the winner stands (HON-1601)
+    if (suffixNames.length === 0) return { formGuard: { action: 'keep' }, matches }
+    const suffixSide = await Promise.all(suffixNames.map((name) => input.search(name)))
+    const formGuard = guardFormMatch([...formsOf(directName)], normalizedName, [], suffixSide)
+    return formGuard.action === 'use'
+      ? { formGuard, matches: formGuard.matches }
+      : { formGuard: { action: 'keep' }, matches }
+  }
 
   const directSide = [input.matchesByCandidate.get(directName) ?? []]
   if (aliasName !== directName) directSide.push(input.matchesByCandidate.get(aliasName) ?? [])
-  for (const formName of [catalogueFormName(directName), compoundFormName(directName)]) {
+  for (const formName of [
+    catalogueFormName(directName),
+    compoundFormName(directName),
+    ...suffixNames,
+  ]) {
     if (formName && !input.matchesByCandidate.has(formName)) {
       directSide.push(await input.search(formName))
     }
