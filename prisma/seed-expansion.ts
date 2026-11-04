@@ -409,11 +409,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 208,
-    protein: 25,
-    carbs: 0,
-    fat: 11,
-    fiber: 0,
+    // USDA SR Legacy has no raw sardine; Ciqual 2025 (ANSES) 26065, sardine, raw (Sardina pilchardus)
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, European pilchard
+    ...asSold({ calories: 160, protein: 19.5, carbs: 0, fat: 9.2, fiber: 0 }, 0.62),
   },
   {
     name: 'halibut',
@@ -494,11 +492,9 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['fish'],
-    calories: 210,
-    protein: 29,
-    carbs: 0,
-    fat: 10,
-    fiber: 0,
+    // USDA SR Legacy 15001, fish, anchovy, european, raw
+    // Edible part: FAO Fisheries Technical Paper 309, edible flesh of the whole fish, European anchovy
+    ...asSold({ calories: 131, protein: 20.4, carbs: 0, fat: 4.8, fiber: 0 }, 0.62),
   },
   {
     name: 'smoked salmon',
