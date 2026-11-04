@@ -320,6 +320,58 @@ describe('useIngredientAvailability', () => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['shopping-list'] })
     })
 
+    it('adds the item back when the staple left the pantry after the view loaded', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: () => Promise.resolve({ error: 'Pantry item not found' }),
+        })
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+
+      const { wrapper } = createQueryWrapper()
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
+        wrapper,
+      })
+
+      act(() => {
+        result.current.handleToggleAvailability('ing-oil', true, true)
+      })
+
+      await waitFor(() => {
+        expect(mockOnRefresh).toHaveBeenCalledOnce()
+      })
+      expect(mockFetch).toHaveBeenLastCalledWith('/api/pantry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId: 'ing-oil' }),
+      })
+    })
+
+    it('settles an untick when the staple already left the pantry', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ error: 'Pantry item not found' }),
+      })
+
+      const { wrapper } = createQueryWrapper()
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
+        wrapper,
+      })
+
+      act(() => {
+        result.current.handleToggleAvailability('ing-oil', false, true)
+      })
+
+      await waitFor(() => {
+        expect(mockOnRefresh).toHaveBeenCalledOnce()
+      })
+      expect(mockFetch).toHaveBeenLastCalledWith('/api/pantry/by-ingredient/ing-oil', {
+        method: 'DELETE',
+      })
+    })
+
     it('shows the toast and reverts the tick when the PATCH fails', async () => {
       mockFetch.mockResolvedValue({
         ok: false,

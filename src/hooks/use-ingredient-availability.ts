@@ -31,12 +31,18 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
       // line; ticking sets it back to have some (null) (HON-1599). A DELETE
       // would drop the star, and the household would lose the staple.
       if (isStaple) {
-        await apiFetch<unknown>(`/api/pantry/by-ingredient/${ingredientId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity: hasIt ? null : 0 }),
-        })
-        return
+        try {
+          await apiFetch<unknown>(`/api/pantry/by-ingredient/${ingredientId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: hasIt ? null : 0 }),
+          })
+          return
+        } catch (err) {
+          // The staple left the pantry after the view loaded: treat the row
+          // as a non-staple, so an untick is a no-op and a tick adds it back.
+          if (!(err instanceof ApiError) || err.status !== 404) throw err
+        }
       }
       // Each direction tolerates the status that means "already that way": a
       // 409 when the item is already in the pantry, a 404 when it is already
