@@ -2876,6 +2876,8 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15271, crustaceans, shrimp, cooked
+    // Shops sell these already cooked ("krevetid"), so the row keeps cooked values
     calories: 99,
     protein: 24,
     carbs: 0.2,
@@ -2888,10 +2890,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 99,
-    protein: 24,
-    carbs: 0.2,
-    fat: 0.3,
+    // USDA SR Legacy 15270, crustaceans, shrimp, raw
+    // Shops sell these raw and frozen
+    calories: 85,
+    protein: 20.1,
+    carbs: 0,
+    fat: 0.5,
   },
   {
     name: 'tiger prawn',
@@ -2900,10 +2904,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 99,
-    protein: 24,
-    carbs: 0.2,
-    fat: 0.3,
+    // USDA SR Legacy 15270, crustaceans, shrimp, raw
+    // Shops sell these raw and frozen
+    calories: 85,
+    protein: 20.1,
+    carbs: 0,
+    fat: 0.5,
   },
   {
     name: 'crab leg',
@@ -2912,10 +2918,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 84,
-    protein: 18.3,
+    // USDA SR Legacy 15137, crustaceans, crab, alaska king, cooked, moist heat
+    // Shops sell crab legs cooked and frozen
+    calories: 97,
+    protein: 19.4,
     carbs: 0,
-    fat: 0.6,
+    fat: 1.5,
   },
   {
     name: 'lobster tail',
@@ -2924,10 +2932,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 89,
-    protein: 19,
+    // USDA SR Legacy 15147, crustaceans, lobster, northern, raw
+    // Shops sell lobster tails raw and frozen
+    calories: 77,
+    protein: 16.5,
     carbs: 0,
-    fat: 0.9,
+    fat: 0.8,
   },
   {
     name: 'small prawns',
@@ -2936,6 +2946,8 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15271, crustaceans, shrimp, cooked
+    // Shops sell these already cooked ("krevetid"), so the row keeps cooked values
     calories: 99,
     protein: 24,
     carbs: 0.2,
@@ -2948,6 +2960,7 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15271, crustaceans, shrimp, cooked
     calories: 99,
     protein: 24,
     carbs: 0.2,
@@ -2960,10 +2973,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 126,
-    protein: 18,
-    carbs: 4,
-    fat: 3.5,
+    // USDA SR Legacy 15165, mollusks, mussel, blue, cooked, moist heat
+    // SR Legacy has no smoked mussel entry; shops sell them smoked and tinned, so the row takes the cooked entry
+    calories: 172,
+    protein: 23.8,
+    carbs: 7.4,
+    fat: 4.5,
   },
   {
     name: 'clam meat',
@@ -2972,10 +2987,12 @@ export const importCoverageIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 74,
-    protein: 13,
-    carbs: 3,
-    fat: 1,
+    // USDA SR Legacy 15160, mollusks, clam, mixed species, canned, drained solids
+    // Shops sell clam meat tinned
+    calories: 142,
+    protein: 24.2,
+    carbs: 5.9,
+    fat: 1.6,
   },
 
   // ============================================
