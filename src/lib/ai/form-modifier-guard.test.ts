@@ -180,6 +180,21 @@ describe('guardFormMatch', () => {
     )
   })
 
+  // HON-1580: "lillkapsasegu" holds "lillkapsas", but a mix is not the frozen cauliflower
+  it('flags the winner when the form row is a mix: "brokoli-lillkapsasegu" for "lillkapsas"', () => {
+    const cauliflower = row('ing-cauliflower', 'cauliflower', 1, { matchedName: 'lillkapsas' })
+    const mix = [
+      row('ing-frozen-mix', 'frozen broccoli and cauliflower mix', 0.7, {
+        matchedName: 'külmutatud brokoli-lillkapsasegu',
+      }),
+    ]
+
+    expect(guardFormMatch(['frozen'], 'lillkapsas', [cauliflower], [mix])).toEqual({
+      action: 'flag',
+      alternatives: [cauliflower],
+    })
+  })
+
   it('keeps a bare spice, legume or carb row that may already be the form', () => {
     const cumin = row('ing-cumin', 'cumin', 1, { category: 'spice' })
     const chickpeas = row('ing-chickpeas', 'chickpeas', 1, { category: 'legume' })
@@ -329,9 +344,16 @@ describe('the form word lists', () => {
       'dried',
       'frozen',
       'ground',
+      'jahvatatud',
       'kondita',
+      'konserveeritud',
+      'kuivatatud',
+      'külmutatud',
+      'marineeritud',
       'pickled',
+      'purgi',
       'smoked',
+      'suitsutatud',
       'tinned',
     ])
   })

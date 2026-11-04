@@ -142,10 +142,22 @@ describe('stripModifiers', () => {
 })
 
 describe('normalizeIngredientName', () => {
-  it('drops an Estonian prep word but keeps a form word', () => {
+  it('drops an Estonian prep word', () => {
     expect(normalizeIngredientName('värske spinat')).toBe('spinat')
     expect(normalizeIngredientName('hakitud sibul')).toBe('sibul')
-    expect(normalizeIngredientName('külmutatud brokoli')).toBe('külmutatud brokoli')
+  })
+
+  // HON-1580: as "canned" and "ground" are; the form guard reads the line as written
+  it.each([
+    ['konserveeritud kikerherned', 'kikerherned'],
+    ['purgi kookospiim', 'kookospiim'],
+    ['külmutatud brokoli', 'brokoli'],
+    ['kuivatatud läätsed', 'läätsed'],
+    ['suitsutatud lõhe', 'lõhe'],
+    ['marineeritud ingver', 'ingver'],
+    ['jahvatatud kaneel', 'kaneel'],
+  ])('drops the Estonian form word in "%s"', (name, expected) => {
+    expect(normalizeIngredientName(name)).toBe(expected)
   })
 
   it('normalizes plurals', () => {
