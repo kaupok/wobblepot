@@ -1852,10 +1852,12 @@ export const comprehensiveIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 84,
-    protein: 18.3,
+    // USDA SR Legacy 15137, crustaceans, crab, alaska king, cooked, moist heat
+    // Shops sell king crab legs cooked and frozen
+    calories: 97,
+    protein: 19.4,
     carbs: 0,
-    fat: 0.6,
+    fat: 1.5,
     fiber: 0,
   },
   {
@@ -1865,6 +1867,8 @@ export const comprehensiveIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy has no sea urchin entry; the values are unchanged and their source is not cited
+    // Shops sell sea urchin roe raw
     calories: 120,
     protein: 13.4,
     carbs: 3.3,
@@ -1878,10 +1882,12 @@ export const comprehensiveIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 130,
-    protein: 26,
-    carbs: 1,
-    fat: 1.6,
+    // USDA SR Legacy 15177, mollusks, whelk, unspecified, raw
+    // SR Legacy has no raw conch entry; whelk is the nearest raw sea snail. Shops sell conch meat raw and frozen
+    calories: 137,
+    protein: 23.8,
+    carbs: 7.8,
+    fat: 0.4,
     fiber: 0,
   },
   {

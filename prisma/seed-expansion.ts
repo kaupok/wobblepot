@@ -561,10 +561,12 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15164, mollusks, mussel, blue, raw
+    // Shops sell mussels live
     calories: 86,
-    protein: 12,
-    carbs: 4,
-    fat: 2,
+    protein: 11.9,
+    carbs: 3.7,
+    fat: 2.2,
     fiber: 0,
   },
   {
@@ -574,9 +576,11 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 74,
-    protein: 13,
-    carbs: 3,
+    // USDA SR Legacy 15157, mollusks, clam, mixed species, raw
+    // Shops sell clams live
+    calories: 86,
+    protein: 14.7,
+    carbs: 3.6,
     fat: 1,
     fiber: 0,
   },
@@ -587,10 +591,12 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 88,
-    protein: 17,
-    carbs: 3,
-    fat: 0.8,
+    // USDA SR Legacy 15172, mollusks, scallop, mixed species, raw
+    // Shops sell scallops raw and frozen
+    calories: 69,
+    protein: 12.1,
+    carbs: 3.2,
+    fat: 0.5,
     fiber: 0,
   },
   {
@@ -600,8 +606,10 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15137, crustaceans, crab, alaska king, cooked, moist heat
+    // Shops sell crab meat cooked, tinned or chilled
     calories: 97,
-    protein: 19,
+    protein: 19.4,
     carbs: 0,
     fat: 1.5,
     fiber: 0,
@@ -613,6 +621,8 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15148, crustaceans, lobster, northern, cooked, moist heat
+    // Shops sell whole lobster cooked and frozen
     calories: 89,
     protein: 19,
     carbs: 0,
@@ -626,10 +636,12 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 99,
-    protein: 24,
-    carbs: 0.2,
-    fat: 0.3,
+    // USDA SR Legacy 15270, crustaceans, shrimp, raw
+    // Shops sell these raw and frozen
+    calories: 85,
+    protein: 20.1,
+    carbs: 0,
+    fat: 0.5,
     fiber: 0,
   },
   {
@@ -639,9 +651,11 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15175, mollusks, squid, mixed species, raw
+    // Shops sell squid raw and frozen
     calories: 92,
-    protein: 16,
-    carbs: 3,
+    protein: 15.6,
+    carbs: 3.1,
     fat: 1.4,
     fiber: 0,
   },
@@ -652,9 +666,11 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
+    // USDA SR Legacy 15166, mollusks, octopus, common, raw
+    // Shops sell octopus raw and frozen
     calories: 82,
-    protein: 15,
-    carbs: 2,
+    protein: 14.9,
+    carbs: 2.2,
     fat: 1,
     fiber: 0,
   },
@@ -665,10 +681,12 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 68,
-    protein: 7,
-    carbs: 4,
-    fat: 2,
+    // USDA SR Legacy 15171, mollusks, oyster, Pacific, raw
+    // Shops sell oysters live; the Pacific oyster is the farmed European species
+    calories: 81,
+    protein: 9.5,
+    carbs: 5,
+    fat: 2.3,
     fiber: 0,
   },
   {
@@ -678,10 +696,12 @@ export const newIngredients = [
     proteinType: 'fish',
     defaultUnit: 'g',
     allergens: ['shellfish'],
-    calories: 77,
-    protein: 16,
+    // USDA SR Legacy 15146, crustaceans, crayfish, mixed species, wild, cooked, moist heat
+    // Shops sell crayfish cooked in dill brine and frozen
+    calories: 82,
+    protein: 16.8,
     carbs: 0,
-    fat: 1,
+    fat: 1.2,
     fiber: 0,
   },
 
