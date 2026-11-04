@@ -11,6 +11,7 @@ import {
   hasForm,
   isOtherCutFillet,
   missingForms,
+  suffixCompoundNames,
 } from './form-modifier-guard'
 import type { FuzzyIngredientMatch } from './fuzzy-ingredient-match'
 
@@ -85,6 +86,32 @@ describe('compoundFormName', () => {
     expect(compoundFormName('smoked paprika')).toBeUndefined()
     expect(compoundFormName('suitsutatud')).toBeUndefined()
     expect(compoundFormName('marineeritud kurk')).toBeUndefined()
+  })
+})
+
+describe('suffixCompoundNames', () => {
+  it('joins an Estonian form stem after the food', () => {
+    expect(suffixCompoundNames('konserveeritud tuunikala')).toEqual(['tuunikalakonserv'])
+    expect(suffixCompoundNames('purgi tuunikala')).toEqual(['tuunikalakonserv'])
+    expect(suffixCompoundNames('lõhe filee')).toEqual(['lõhefilee'])
+  })
+
+  it('tries the food as written and as its plural stem', () => {
+    expect(suffixCompoundNames('konserveeritud sardiinid')).toEqual([
+      'sardiinidkonserv',
+      'sardiinikonserv',
+    ])
+  })
+
+  it('keeps the other words in place', () => {
+    expect(suffixCompoundNames('suitsutatud lõhe filee')).toEqual(['suitsutatud lõhefilee'])
+  })
+
+  it('has no compound without a suffix form word or a food', () => {
+    expect(suffixCompoundNames('tuunikala')).toEqual([])
+    expect(suffixCompoundNames('suitsutatud paprika')).toEqual([])
+    expect(suffixCompoundNames('konserveeritud')).toEqual([])
+    expect(suffixCompoundNames('filee')).toEqual([])
   })
 })
 

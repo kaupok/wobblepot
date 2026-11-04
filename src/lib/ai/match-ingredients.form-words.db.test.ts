@@ -42,6 +42,9 @@ describe('matchIngredients on a name with a form word', () => {
     ['konserveeritud kikerherned', 'chickpeas'],
     ['jahvatatud kaneel', 'cinnamon'],
     ['jahvatatud must pipar', 'black pepper'],
+    // HON-1601: the guard searches the Estonian suffix compound, "tuunikalakonserv"
+    ['konserveeritud tuunikala', 'tinned tuna'],
+    ['konserveeritud sardiinid', 'tinned sardines'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     await seedCatalogue()
 
@@ -164,18 +167,17 @@ const FORM_WORD_LINES: FormWordLine[] = [
   ['deboned', 'deboned chicken thighs', 'chicken thigh fillet', true],
   // "fillet" in the row name carries the boneless form
   ['fillet', 'boneless salmon', 'salmon fillet', true],
+  // The guard searches the suffix compound "lõhefilee" (HON-1601)
+  ['filee', 'lõhe filee', 'salmon fillet', true],
 ]
 
 // A word with no matcher effect yet: each line gives the same row and flag without
 // the word in FORM_WORDS, so it pins today's result; the guard unit test reads the
-// word. "filee" is not stripped before the search, so its line is unsure from a weak
-// score, not from the guard: "lõhe filee" scores low against "lõhefilee". A row is
-// singular, so only "fillet" reads it.
+// word. A row is singular, so only "fillet" reads it.
 const PINNED_LINES: FormWordLine[] = [
   ['fillets', 'chicken thigh fillets', 'chicken thigh fillet', true],
   // COOKING_MODIFIERS strips "kondita"; without that the line is unsure
   ['kondita', 'kondita seakarbonaad', 'pork chop', true],
-  ['filee', 'lõhe filee', 'salmon fillet', false],
 ]
 
 describe('matchIngredients on each form word', () => {
