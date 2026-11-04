@@ -75,6 +75,8 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'carom seeds': 'ajwain seeds', // DB has ajwain seeds
   'dried fenugreek leaves': 'kasuri methi', // DB has kasuri methi
   'methi leaves': 'kasuri methi', // DB has kasuri methi
+  'fresh fenugreek leaves': 'fenugreek leaves', // DB has fenugreek leaves
+  methi: 'fenugreek leaves', // DB has fenugreek leaves
   achar: 'Indian pickle', // DB has Indian pickle
 
   // Condiments - expand to DB names

@@ -201,3 +201,23 @@ describe('matchIngredients on each form word', () => {
     })
   })
 })
+
+// HON-1561: the plain leaf name is the fresh `fenugreek leaves` row, not the seed
+describe('matchIngredients on a fenugreek name', () => {
+  it.each([
+    ['fenugreek leaves', 'fenugreek leaves', false],
+    ['fresh fenugreek leaves', 'fenugreek leaves', false],
+    ['lambaläätse lehed', 'fenugreek leaves', false],
+    // Unsure before HON-1561 too: the alias row's words differ from the recipe's
+    ['dried fenugreek leaves', 'kasuri methi', true],
+    ['fenugreek seeds', 'fenugreek', false],
+  ])('matches "%s" to %s, low confidence %s', async (recipeName, rowName, low) => {
+    await seedCatalogue()
+
+    expect(await matchOne(recipeName)).toMatchObject({
+      type: 'matched',
+      ingredient: { name: rowName },
+      lowConfidence: low,
+    })
+  })
+})

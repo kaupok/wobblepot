@@ -1172,7 +1172,7 @@ export const comprehensiveIngredients = [
   },
 
   // ============================================
-  // INDIAN PANTRY (14)
+  // INDIAN PANTRY (15)
   // ============================================
   {
     name: 'curry leaves',
@@ -1186,6 +1186,20 @@ export const comprehensiveIngredients = [
     carbs: 18,
     fat: 1,
     fiber: 6.4,
+  },
+  // Fresh leaves; the dried leaf is kasuri methi, the seed is fenugreek.
+  // Source: NIN, Nutritive Value of Indian Foods (Gopalan et al.), "Fenugreek leaves", per 100 g
+  {
+    name: 'fenugreek leaves',
+    category: 'spice',
+    subcategory: 'herb',
+    defaultUnit: 'g',
+    allergens: [],
+    calories: 49,
+    protein: 4.4,
+    carbs: 6,
+    fat: 0.9,
+    fiber: 1.1,
   },
   {
     name: 'asafoetida',
