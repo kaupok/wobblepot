@@ -54,6 +54,7 @@ describe('defaultCookOutcome', () => {
       ['frozen peas', 'legume', 'legume-vegetable'],
       ['tofu', 'legume', 'soy'],
       ['bread', 'carb', 'bread'],
+      ['a tortilla', 'carb', 'flatbread'],
       ['a potato', 'carb', 'root'],
       ['a carb with no subcategory', 'carb', null],
       ['pumpkin', 'vegetable', null],
