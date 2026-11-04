@@ -1853,7 +1853,8 @@ export const comprehensiveIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15137, crustaceans, crab, alaska king, cooked, moist heat
-    // Shops sell king crab legs cooked and frozen
+    // Shops sell king crab legs cooked and frozen, in the shell
+    // Edible part: no source gives the meat share of a leg section (only of the whole crab), so the row keeps the meat values
     calories: 97,
     protein: 19.4,
     carbs: 0,
