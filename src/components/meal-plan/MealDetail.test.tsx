@@ -34,7 +34,8 @@ describe('MealDetail availability', () => {
   it('keeps the checkboxes but shows no status or missing styling on a staples-only pantry', () => {
     renderDetail({ pantryIngredients: staplesOnly })
 
-    expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+    // Every ingredient is a row with a checkbox, the staple garlic too (HON-1599).
+    expect(screen.getAllByRole('checkbox')).toHaveLength(4)
     expect(screen.queryByText(/to buy/)).not.toBeInTheDocument()
     expect(missingRows()).toHaveLength(0)
   })
@@ -415,7 +416,7 @@ describe('MealDetail ingredient rows (HON-932)', () => {
 
     // The name, not the checkbox: the row is the checkbox's label.
     screen.getByText('Potato').click()
-    expect(onToggleAvailability).toHaveBeenCalledExactlyOnceWith('potato', true)
+    expect(onToggleAvailability).toHaveBeenCalledExactlyOnceWith('potato', true, false)
   })
 
   it('puts the quantity before the name', () => {

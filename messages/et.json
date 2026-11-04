@@ -402,7 +402,7 @@
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
       "ingredientsTitle": "Koostisosad",
-      "staplesPrefix": "Põhitooted: {list}",
+      "stapleRow": "Põhitoode",
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
       "doneCooking": "Söök on valmis",

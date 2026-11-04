@@ -246,6 +246,24 @@ export async function updatePantryItem(
 }
 
 /**
+ * Changes a pantry item as `updatePantryItem` does, by the ingredient's id.
+ * The cook view knows only the ingredient: unticking a staple there marks it
+ * ran out instead of removing it, so it keeps its star (HON-1599).
+ */
+export async function updatePantryItemByIngredient(
+  household: Household,
+  ingredientId: string,
+  update: { quantity?: number | null; isStaple?: boolean; low?: boolean },
+): Promise<UpdatePantryItemOutcome> {
+  const pantryItem = await prisma.pantryItem.findFirst({
+    where: { householdId: household.id, ingredientId },
+    select: { id: true },
+  })
+  if (!pantryItem) return { status: 'not_found' }
+  return updatePantryItem(household, pantryItem.id, update)
+}
+
+/**
  * - `deleted`: the item is gone from the household's pantry
  * - `not_found`: the household's pantry has no such item. Another household's
  *   item reads the same, and is left alone.

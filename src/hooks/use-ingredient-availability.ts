@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
@@ -13,10 +13,37 @@ interface UseIngredientAvailabilityOptions {
 
 export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabilityOptions) {
   const t = useTranslations('pantry.errors')
+  const queryClient = useQueryClient()
   const [optimisticOverrides, setOptimisticOverrides] = useState<Map<string, boolean>>(new Map())
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ ingredientId, hasIt }: { ingredientId: string; hasIt: boolean }) => {
+    mutationFn: async ({
+      ingredientId,
+      hasIt,
+      isStaple,
+    }: {
+      ingredientId: string
+      hasIt: boolean
+      isStaple: boolean
+    }) => {
+      // A staple row is always in the pantry: unticking marks it ran out (0),
+      // which keeps its star and puts it on the shopping list as a restock
+      // line; ticking sets it back to have some (null) (HON-1599). A DELETE
+      // would drop the star, and the household would lose the staple.
+      if (isStaple) {
+        try {
+          await apiFetch<unknown>(`/api/pantry/by-ingredient/${ingredientId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: hasIt ? null : 0 }),
+          })
+          return
+        } catch (err) {
+          // The staple left the pantry after the view loaded: treat the row
+          // as a non-staple, so an untick is a no-op and a tick adds it back.
+          if (!(err instanceof ApiError) || err.status !== 404) throw err
+        }
+      }
       // Each direction tolerates the status that means "already that way": a
       // 409 when the item is already in the pantry, a 404 when it is already
       // gone. Either way the pantry now matches what the user asked for.
@@ -78,6 +105,8 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
       // Only refresh on success
       if (!error) {
         onRefresh()
+        // A ran-out staple adds a restock line, so a cached list is stale.
+        void queryClient.invalidateQueries({ queryKey: ['shopping-list'] })
       }
     },
   })
@@ -89,12 +118,12 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
   }
 
   const handleToggleAvailability = useCallback(
-    (ingredientId: string, hasIt: boolean) => {
+    (ingredientId: string, hasIt: boolean, isStaple = false) => {
       // Prevent double-clicks while already toggling this ingredient
       if (toggleMutation.isPending && toggleMutation.variables?.ingredientId === ingredientId)
         return
 
-      toggleMutation.mutate({ ingredientId, hasIt })
+      toggleMutation.mutate({ ingredientId, hasIt, isStaple })
     },
     [toggleMutation],
   )

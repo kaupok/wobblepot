@@ -51,7 +51,7 @@ describe('IngredientList quantities', () => {
         pantryIngredients={[{ ingredientId: 'olive-oil', isStaple: true }]}
       />,
     )
-    expect(screen.getByText(/Olive oil \(1\.2l\)/)).toBeInTheDocument()
+    expect(row('Olive oil')).toHaveTextContent('1.2l')
   })
 })
 
@@ -126,8 +126,8 @@ describe('IngredientList piece quantities', () => {
         pantryIngredients={[{ ingredientId: 'garlic', isStaple: true }]}
       />,
     )
-    // `getByText` folds the no-break space into a space; the raw text keeps it.
-    expect(screen.getByText(/Garlic \(2 pc\)/).textContent).toContain('Garlic (2 pc)')
+    // The raw text keeps the no-break space between the count and the label.
+    expect(row('Garlic').textContent).toContain('2\u00a0pc')
   })
 })
 
@@ -209,7 +209,7 @@ describe('IngredientList vegetables in pieces', () => {
     expect(row('Vegetable oil').textContent).toBe('11mlVegetable oil')
   })
 
-  it('puts the pieces and the grams in a staple line', () => {
+  it('puts the pieces and the grams in a staple row', () => {
     renderInLocale(
       <IngredientList
         components={[chicken, onion]}
@@ -217,7 +217,7 @@ describe('IngredientList vegetables in pieces', () => {
         pantryIngredients={[{ ingredientId: 'onion', isStaple: true }]}
       />,
     )
-    expect(screen.getByText(/Onion \(½ pc, 55g\)/)).toBeInTheDocument()
+    expect(row('Onion')).toHaveTextContent(/½\s+pc55gOnion/)
   })
 })
 

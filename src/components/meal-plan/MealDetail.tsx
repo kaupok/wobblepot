@@ -75,7 +75,7 @@ interface MealDetailProps {
   onServingsChange?: (servings: number | null) => Promise<boolean>
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
-  onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
+  onToggleAvailability?: (ingredientId: string, hasIt: boolean, isStaple?: boolean) => void
   /** Ingredient IDs currently being toggled (for pending indicator) */
   togglingIds?: Set<string>
   /** Optimistic availability overrides from in-flight toggles */
