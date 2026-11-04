@@ -280,7 +280,7 @@ export const baseIngredients = [
   {
     name: 'bread',
     category: 'carb',
-    subcategory: 'grain',
+    subcategory: 'bread',
     defaultUnit: 'g',
     allergens: ['gluten'],
     calories: 265,
@@ -354,7 +354,7 @@ export const baseIngredients = [
   {
     name: 'tortilla',
     category: 'carb',
-    subcategory: 'grain',
+    subcategory: 'flatbread',
     defaultUnit: 'piece',
     allergens: ['gluten'],
     calories: 312,
