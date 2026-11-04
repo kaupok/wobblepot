@@ -5,6 +5,7 @@ import {
   deletePantryItem,
   deletePantryItemByIngredient,
   updatePantryItem,
+  updatePantryItemByIngredient,
 } from '@/lib/pantry/pantry-items'
 import { prisma } from '@/lib/prisma'
 
@@ -298,6 +299,43 @@ describe('deletePantryItem', () => {
     await deletePantryItem(alder.id, alderOil)
 
     expect(await deletePantryItem(alder.id, alderOil)).toEqual({ status: 'not_found' })
+  })
+})
+
+describe('updatePantryItemByIngredient (HON-1599)', () => {
+  it('marks a staple ran out and back to have some, and keeps its star', async () => {
+    const { birch } = await world()
+
+    expect(await updatePantryItemByIngredient(birch, 'ing-oil', { quantity: 0 })).toMatchObject({
+      status: 'updated',
+      item: { quantity: 0, isStaple: true },
+    })
+    expect(await pantryOf(birch.id)).toEqual([
+      { ingredientId: 'ing-oil', quantity: 0, isStaple: true },
+    ])
+
+    await updatePantryItemByIngredient(birch, 'ing-oil', { quantity: null })
+    expect(await pantryOf(birch.id)).toEqual([
+      { ingredientId: 'ing-oil', quantity: null, isStaple: true },
+    ])
+  })
+
+  it("changes this household's item only", async () => {
+    const { alder, birch } = await world()
+
+    await updatePantryItemByIngredient(alder, 'ing-oil', { quantity: 0 })
+
+    expect(await pantryOf(birch.id)).toEqual([
+      { ingredientId: 'ing-oil', quantity: 200, isStaple: true },
+    ])
+  })
+
+  it('refuses an ingredient the pantry does not hold', async () => {
+    const { alder } = await world()
+
+    expect(await updatePantryItemByIngredient(alder, 'ing-salt', { quantity: 0 })).toEqual({
+      status: 'not_found',
+    })
   })
 })
 

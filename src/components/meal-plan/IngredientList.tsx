@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 
 import { Checkbox } from '@/components/ui/checkbox'
-import { Body, Heading, Li, Ul } from '@/components/ui/typography'
+import { Heading, Li, Ul } from '@/components/ui/typography'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import {
   formatPieceFraction,
@@ -52,8 +52,12 @@ interface IngredientListProps {
   /** Household servings, the members' portions summed (for display label reference) */
   householdServings?: number
   pantryIngredients?: PantryIngredient[]
-  /** If provided, renders checkboxes to toggle ingredient availability */
-  onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
+  /**
+   * If provided, renders checkboxes to toggle ingredient availability.
+   * `isStaple` marks a staple row, which the toggle sets ran out or have some
+   * instead of removing it (HON-1599).
+   */
+  onToggleAvailability?: (ingredientId: string, hasIt: boolean, isStaple?: boolean) => void
   /** Ingredient IDs currently being toggled (for pending indicator) */
   togglingIds?: Set<string>
   /** Optimistic availability overrides from in-flight toggles */
@@ -142,12 +146,17 @@ export function IngredientList({
   const locale = useLocale() as Locale
   const vaguePhrase = useVaguePhrase()
   const pieceLabel = useEnumLabel('Unit', 'piece')
-  // Build maps for availability and staple status
+  // Build maps for availability and staple status. A staple that ran out is
+  // still a staple: its row keeps the "Staple" line, so the mark comes from
+  // every pantry row, not from `stapleIds`, which leaves it out (HON-1599).
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
       return { availableIds: null as Set<string> | null, stapleIds: new Set<string>() }
     }
-    return getIngredientAvailabilitySets(pantryIngredients)
+    return {
+      availableIds: getIngredientAvailabilitySets(pantryIngredients).availableIds,
+      stapleIds: new Set(pantryIngredients.filter((p) => p.isStaple).map((p) => p.ingredientId)),
+    }
   }, [pantryIngredients])
 
   // The change behind each merged row, by the ingredient now in the row: a
@@ -164,39 +173,10 @@ export function IngredientList({
   const leftOut = changes.filter((c) => !c.stale && !c.replacement && c.original)
   const stale = changes.filter((c) => c.stale)
 
-  // Separate regular ingredients from staples. A changed ingredient is always
-  // a row, so its change and its Undo stay visible.
-  const { regularComponents, stapleComponents } = useMemo(() => {
-    const regular: MealComponent[] = []
-    const staples: MealComponent[] = []
-
-    for (const comp of components) {
-      if (stapleIds.has(comp.ingredientId) && !changeByIngredient.has(comp.ingredientId)) {
-        staples.push(comp)
-      } else {
-        regular.push(comp)
-      }
-    }
-
-    return { regularComponents: regular, stapleComponents: staples }
-  }, [components, stapleIds, changeByIngredient])
-
   const handleCheckedChange = (ingredientId: string, checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate' || !onToggleAvailability) return
-    onToggleAvailability(ingredientId, checked)
+    onToggleAvailability(ingredientId, checked, stapleIds.has(ingredientId))
   }
-
-  // Format staples line: "Staples: garlic (15g), olive oil (45g)" or "garlic (to taste)"
-  const staplesLine = useMemo(() => {
-    if (stapleComponents.length === 0) return null
-
-    const items = stapleComponents.map((comp) => {
-      const { amount, grams } = formatQuantity(comp, servings, locale, vaguePhrase, pieceLabel)
-      return `${comp.ingredient.name} (${grams ? `${amount}, ${grams}` : amount})`
-    })
-
-    return tDetail('staplesPrefix', { list: items.join(', ') })
-  }, [stapleComponents, servings, tDetail, locale, vaguePhrase, pieceLabel])
 
   return (
     <div className="flex flex-col gap-3">
@@ -225,9 +205,10 @@ export function IngredientList({
       </div>
       {/* Rows are read from a counter and tapped with a knuckle (HON-932):
           18px, at least 44px tall, quantity first in a fixed-width column so
-          the names line up, and the whole row is the checkbox's label. */}
+          the names line up, and the whole row is the checkbox's label. A
+          staple is a row like any other, in the recipe's order (HON-1599). */}
       <Ul variant="plain">
-        {regularComponents.map((comp) => {
+        {components.map((comp) => {
           // Use optimistic override if available, otherwise fall back to server state
           const serverHasIt = availableIds ? availableIds.has(comp.ingredientId) : true
           const hasIt = optimisticOverrides?.has(comp.ingredientId)
@@ -260,15 +241,20 @@ export function IngredientList({
           const name = (
             // A change reads as a muted line under the name, never a badge
             // beside it, so the name keeps its column and wraps inside it
-            // (HON-1370).
+            // (HON-1370). A staple says so on the same line, so the cook sees
+            // why it is not on the shopping list; a change wins (HON-1599).
             <span className="flex min-w-0 flex-col wrap-break-word">
               <span>{comp.ingredient.name}</span>
-              {change && (
+              {change ? (
                 <span className="text-muted-foreground text-base">
                   {change.original
                     ? tChanges('insteadOf', { name: change.original.name })
                     : tChanges('added')}
                 </span>
+              ) : (
+                stapleIds.has(comp.ingredientId) && (
+                  <span className="text-muted-foreground text-base">{tDetail('stapleRow')}</span>
+                )
               )}
             </span>
           )
@@ -325,7 +311,6 @@ export function IngredientList({
           />
         ))}
       </Ul>
-      {staplesLine && <Body variant="paragraph">{staplesLine}</Body>}
     </div>
   )
 }

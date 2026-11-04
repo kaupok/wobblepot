@@ -62,16 +62,66 @@ export const WithPantryAvailability: Story = {
       { ingredientId: 'salt', isStaple: true },
     ] satisfies PantryIngredient[],
   },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A staple is a row like any other, in the recipe’s order, with a muted "Staple" line under its name, so the cook sees why it is not on the shopping list (HON-1599).',
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    // The staples are ingredients the cook needs, so the line is in the
-    // ingredient rows' colour, not muted (HON-1026). The size stays `text-sm`,
-    // which is 16px in this scale (globals.css).
-    const staples = canvas.getByText(/^Staples:/)
-    await expect(getComputedStyle(staples).color).toBe(
-      getComputedStyle(canvas.getByText('Chicken thigh')).color,
-    )
-    await expect(getComputedStyle(staples).fontSize).toBe('16px')
+    const rows = canvas.getAllByRole('listitem')
+    // Every ingredient is a row; the staples keep the recipe's order.
+    await expect(rows).toHaveLength(componentsWithVagueSalt.length)
+    await expect(rows[3]).toHaveTextContent('Garlic')
+    await expect(canvas.queryByText(/Staples:/)).toBeNull()
+    const lines = canvas.getAllByText('Staple')
+    await expect(lines).toHaveLength(3)
+    for (const line of lines) await expect(line).toHaveClass('text-muted-foreground')
+    await expect(within(rows[3]!).getByText('Staple')).toBeVisible()
+  },
+}
+
+/**
+ * A staple that ran out (HON-1578) keeps its "Staple" line, unticked with the
+ * missing style. Ticking it sets it back to have some (HON-1599).
+ */
+export const RanOutStaple: Story = {
+  name: 'Ran-out staple',
+  args: {
+    pantryIngredients: [
+      { ingredientId: 'chicken-thigh', isStaple: false },
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: true, ranOut: true },
+    ] satisfies PantryIngredient[],
+    onToggleAvailability: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const oil = canvas.getByRole('checkbox', { name: /olive oil/i })
+    await expect(oil).not.toBeChecked()
+    const oilRow = canvas.getAllByRole('listitem').find((row) => row.contains(oil))!
+    await expect(within(oilRow).getByText('Staple')).toBeVisible()
+    await userEvent.click(oil)
+    await expect(args.onToggleAvailability).toHaveBeenCalledWith('olive-oil', true, true)
+  },
+}
+
+/** The "Staple" line in Estonian: "Põhitoode" (HON-1599). */
+export const StapleRowsEstonian: Story = {
+  name: 'Staple rows (Estonian)',
+  globals: { locale: 'et' },
+  args: {
+    pantryIngredients: [
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: true },
+    ] satisfies PantryIngredient[],
+    onToggleAvailability: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByText('Põhitoode')).toHaveLength(2)
   },
 }
 
@@ -102,7 +152,7 @@ export const WithCheckboxes: Story = {
 
     // A tap on the name, not the box, toggles it.
     await userEvent.click(canvas.getByText('Potato'))
-    await expect(args.onToggleAvailability).toHaveBeenCalledWith('potato', true)
+    await expect(args.onToggleAvailability).toHaveBeenCalledWith('potato', true, false)
   },
 }
 

@@ -292,7 +292,8 @@ export const StaplesOnlyPantry: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getAllByRole('checkbox')).toHaveLength(3)
+    // Every ingredient is a row with a checkbox, the staples too (HON-1599).
+    await expect(canvas.getAllByRole('checkbox')).toHaveLength(5)
     await expect(canvas.queryByText(/to buy|all at home/i)).toBeNull()
     await expect(missingRows(canvasElement)).toHaveLength(0)
   },

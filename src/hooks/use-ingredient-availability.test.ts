@@ -289,4 +289,59 @@ describe('useIngredientAvailability', () => {
       })
     })
   })
+
+  describe('a staple row (HON-1599)', () => {
+    it.each([
+      ['unticking marks it ran out', false, 0],
+      ['ticking sets it back to have some', true, null],
+    ])('%s with a PATCH by ingredient', async (_label, hasIt, quantity) => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      const { wrapper, queryClient } = createQueryWrapper()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
+        wrapper,
+      })
+
+      act(() => {
+        result.current.handleToggleAvailability('ing-oil', hasIt, true)
+      })
+
+      await waitFor(() => {
+        expect(mockOnRefresh).toHaveBeenCalledOnce()
+      })
+      expect(result.current.optimisticOverrides.get('ing-oil')).toBe(hasIt)
+      expect(mockFetch).toHaveBeenCalledOnce()
+      expect(mockFetch).toHaveBeenCalledWith('/api/pantry/by-ingredient/ing-oil', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity }),
+      })
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['shopping-list'] })
+    })
+
+    it('shows the toast and reverts the tick when the PATCH fails', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Failed to update pantry item' }),
+      })
+
+      const { toast } = await import('sonner')
+      const { wrapper } = createQueryWrapper()
+      const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
+        wrapper,
+      })
+
+      act(() => {
+        result.current.handleToggleAvailability('ing-oil', false, true)
+      })
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Failed to remove item')
+      })
+      expect(result.current.optimisticOverrides.has('ing-oil')).toBe(false)
+      expect(mockOnRefresh).not.toHaveBeenCalled()
+    })
+  })
 })

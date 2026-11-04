@@ -402,7 +402,7 @@
       "kidFriendly": "Kid-friendly",
       "timeMinutes": "{count} min",
       "ingredientsTitle": "Ingredients",
-      "staplesPrefix": "Staples: {list}",
+      "stapleRow": "Staple",
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
       "doneCooking": "Done cooking",
