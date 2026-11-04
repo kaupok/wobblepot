@@ -2891,7 +2891,8 @@ export const importCoverageIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15270, crustaceans, shrimp, raw
-    // Shops sell these raw and frozen
+    // Shops sell these raw and frozen, peeled or in the shell, and a recipe often weighs them
+    // peeled, so the row keeps the meat values and not the 13% shell refuse of 15270
     calories: 85,
     protein: 20.1,
     carbs: 0,
@@ -2905,7 +2906,8 @@ export const importCoverageIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15270, crustaceans, shrimp, raw
-    // Shops sell these raw and frozen
+    // Shops sell these raw and frozen, peeled or in the shell, and a recipe often weighs them
+    // peeled, so the row keeps the meat values and not the 13% shell refuse of 15270
     calories: 85,
     protein: 20.1,
     carbs: 0,
@@ -2919,7 +2921,8 @@ export const importCoverageIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15137, crustaceans, crab, alaska king, cooked, moist heat
-    // Shops sell crab legs cooked and frozen
+    // Shops sell crab legs cooked and frozen, in the shell
+    // Edible part: no source gives the meat share of a leg section (only of the whole crab), so the row keeps the meat values
     calories: 97,
     protein: 19.4,
     carbs: 0,
@@ -2933,7 +2936,8 @@ export const importCoverageIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15147, crustaceans, lobster, northern, raw
-    // Shops sell lobster tails raw and frozen
+    // Shops sell lobster tails raw and frozen, in the shell
+    // Edible part: no source gives the meat share of a shell-on tail, so the row keeps the meat values
     calories: 77,
     protein: 16.5,
     carbs: 0,

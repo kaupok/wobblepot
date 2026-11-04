@@ -36,7 +36,7 @@ import type {
 import {
   getShownCookServings,
   type SharedLeftover,
-  useLeftoverLunchDetailText,
+  useLeftoverShareText,
 } from './use-leftover-lunches'
 
 interface MealDetailProps {
@@ -200,8 +200,7 @@ export function MealDetail({
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
   const tSteps = useTranslations('meal-plan.steps')
-  const tCard = useTranslations('meal-plan.card')
-  const leftoverText = useLeftoverLunchDetailText()
+  const leftoverShare = useLeftoverShareText()
   // Effective servings: use explicit prop if provided, otherwise householdServings
   const effectiveServings = servings ?? householdServings
   const cookServings = getShownCookServings(
@@ -281,43 +280,43 @@ export function MealDetail({
 
           {/* The meal's facts in one row, in one form (HON-1025): Kid-friendly,
               the time, then Serves. The row always renders, because Serves is
-              always there, and Serves is last, so opening its field moves
-              nothing else. Kid-friendly is the cards' icon pill with the label
+              always there, and Serves is last but for the leftover lunches'
+              "+ 2 for Friday" parts (HON-1600), so opening its field moves
+              nothing before it. The parts sit outside the Serves control, so
+              Serves edits only the entry's own servings, and a completed
+              entry's badge shows those too, not the cooked total. Kid-friendly is the cards' icon pill with the label
               in a tooltip, and "My recipe" follows the title, as on the cards
               (HON-1023). The time is the cards' `surface` clock badge, at the
               cook view's `lg` size, with the cards' gap between badges
               (HON-951). `> 0`, not truthiness: `0 && …` renders a stray "0"
               (HON-711). */}
-          <div className="flex flex-col gap-2">
-            <div data-testid="cook-view-badges" className="flex flex-wrap items-center gap-1.5">
-              {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
-              {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-                <Badge variant="surface" size="lg">
-                  <Clock aria-hidden="true" />
-                  {tDetail('timeMinutes', { count: meal.timeMinutes })}
-                </Badge>
-              )}
-              {showServingControl ? (
-                <ServingControl
-                  servings={effectiveServings}
-                  householdServings={householdServings}
-                  onServingsChange={onServingsChange}
-                  disabled={hideAvailability}
-                />
-              ) : (
-                <Badge variant="surface" size="lg">
-                  {tServing('labelWithCount', { count: cookServings })}
-                </Badge>
-              )}
-            </div>
-            {leftovers.length > 0 && (
-              <Body variant="small" tone="muted">
-                {tDetail('cooksFor', {
-                  servings: tCard('servings', { count: cookServings }),
-                  leftovers: leftoverText(leftovers),
-                })}
-              </Body>
+          <div data-testid="cook-view-badges" className="flex flex-wrap items-center gap-1.5">
+            {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
+            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+              <Badge variant="surface" size="lg">
+                <Clock aria-hidden="true" />
+                {tDetail('timeMinutes', { count: meal.timeMinutes })}
+              </Badge>
             )}
+            {showServingControl ? (
+              <ServingControl
+                servings={effectiveServings}
+                householdServings={householdServings}
+                onServingsChange={onServingsChange}
+                disabled={hideAvailability}
+              />
+            ) : (
+              <Badge variant="surface" size="lg">
+                {tServing('labelWithCount', {
+                  count: leftovers.length > 0 ? effectiveServings : cookServings,
+                })}
+              </Badge>
+            )}
+            {leftovers.map((leftover) => (
+              <Body key={`${leftover.date}-${leftover.mealType}`} variant="small" tone="muted">
+                {leftoverShare(leftover)}
+              </Body>
+            ))}
           </div>
 
           {note}

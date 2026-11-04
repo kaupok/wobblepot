@@ -16,7 +16,7 @@ const SEED_FILES = [
 const seedSource = SEED_FILES.map((file) => readFileSync(file, 'utf8')).join('\n')
 
 const sql = readFileSync(
-  'prisma/migrations/20261104230000_sardine_anchovy_nutrition/migration.sql',
+  'prisma/migrations/20261105090000_sardine_anchovy_nutrition/migration.sql',
   'utf8',
 )
 

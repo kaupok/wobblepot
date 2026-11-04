@@ -558,12 +558,9 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15164, mollusks, mussel, blue, raw
-    // Shops sell mussels live
-    calories: 86,
-    protein: 11.9,
-    carbs: 3.7,
-    fat: 2.2,
-    fiber: 0,
+    // Shops sell mussels live, in the shell
+    // Edible part: FAO Fisheries Technical Paper 309, blue mussel, edible flesh (raw) of the live weight
+    ...asSold({ calories: 86, protein: 11.9, carbs: 3.7, fat: 2.2, fiber: 0 }, 0.24),
   },
   {
     name: 'clams',
@@ -573,12 +570,9 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15157, mollusks, clam, mixed species, raw
-    // Shops sell clams live
-    calories: 86,
-    protein: 14.7,
-    carbs: 3.6,
-    fat: 1,
-    fiber: 0,
+    // Shops sell clams live, in the shell
+    // Edible part: USDA SR Legacy 15157 weights, 1 lb with shell yields 68 g after shell removed
+    ...asSold({ calories: 86, protein: 14.7, carbs: 3.6, fat: 1, fiber: 0 }, 0.15),
   },
   {
     name: 'scallops',
@@ -618,12 +612,9 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15148, crustaceans, lobster, northern, cooked, moist heat
-    // Shops sell whole lobster cooked and frozen
-    calories: 89,
-    protein: 19,
-    carbs: 0,
-    fat: 0.9,
-    fiber: 0,
+    // Shops sell whole lobster cooked and frozen, in the shell
+    // Edible part: McCance and Widdowson CoFID 2021, 16-343 lobster, boiled, weighed with shell
+    ...asSold({ calories: 89, protein: 19, carbs: 0, fat: 0.9, fiber: 0 }, 0.36),
   },
   {
     name: 'prawns',
@@ -633,7 +624,8 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15270, crustaceans, shrimp, raw
-    // Shops sell these raw and frozen
+    // Shops sell these raw and frozen, peeled or in the shell, and a recipe often weighs them
+    // peeled, so the row keeps the meat values and not the 13% shell refuse of 15270
     calories: 85,
     protein: 20.1,
     carbs: 0,
@@ -678,12 +670,9 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15171, mollusks, oyster, Pacific, raw
-    // Shops sell oysters live; the Pacific oyster is the farmed European species
-    calories: 81,
-    protein: 9.5,
-    carbs: 5,
-    fat: 2.3,
-    fiber: 0,
+    // Shops sell oysters live, in the shell; the Pacific oyster is the farmed European species
+    // Edible part: FAO Fisheries Technical Paper 309, Pacific cupped oyster, edible flesh (Crassostrea)
+    ...asSold({ calories: 81, protein: 9.5, carbs: 5, fat: 2.3, fiber: 0 }, 0.1),
   },
   {
     name: 'crayfish',
@@ -693,12 +682,9 @@ export const newIngredients = [
     defaultUnit: 'g',
     allergens: ['shellfish'],
     // USDA SR Legacy 15146, crustaceans, crayfish, mixed species, wild, cooked, moist heat
-    // Shops sell crayfish cooked in dill brine and frozen
-    calories: 82,
-    protein: 16.8,
-    carbs: 0,
-    fat: 1.2,
-    fiber: 0,
+    // Shops sell crayfish whole, cooked in dill brine and frozen
+    // Edible part: Flick, "Purging, processing freshwater crawfish", Global Seafood Alliance 2008, meat yield 12-18% of live weight (midpoint)
+    ...asSold({ calories: 82, protein: 16.8, carbs: 0, fat: 1.2, fiber: 0 }, 0.15),
   },
 
   // ============================================
@@ -5621,7 +5607,7 @@ export const newMeals = [
     suitableFor: ['dinner'],
     primaryProteinType: 'fish',
     components: [
-      { ingredient: 'lobster', quantity: 200 },
+      { ingredient: 'lobster tail', quantity: 200 },
       { ingredient: 'butter', quantity: 50 },
       { ingredient: 'garlic', quantity: 10 },
       { ingredient: 'lemon', quantity: 0.5 },

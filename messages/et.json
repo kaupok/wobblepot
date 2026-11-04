@@ -245,7 +245,7 @@
       "myRecipe": "Minu retsept",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "leftoverFor": "{weekday, select, monday {jäägid esmaspäevaks} tuesday {jäägid teisipäevaks} wednesday {jäägid kolmapäevaks} thursday {jäägid neljapäevaks} friday {jäägid reedeks} saturday {jäägid laupäevaks} other {jäägid pühapäevaks}}",
-      "leftoverForDetail": "{servings} {mealType, select, breakfast {hommikusöögiks} lunch {lõunaks} other {õhtusöögiks}}: {day}",
+      "leftoverShare": "{weekday, select, monday {+ {servings} esmaspäevaks} tuesday {+ {servings} teisipäevaks} wednesday {+ {servings} kolmapäevaks} thursday {+ {servings} neljapäevaks} friday {+ {servings} reedeks} saturday {+ {servings} laupäevaks} other {+ {servings} pühapäevaks}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
       "cleared": "Eemaldatud: {name}",
@@ -401,7 +401,6 @@
     "detail": {
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
-      "cooksFor": "Koostisosad: {servings} · {leftovers}",
       "ingredientsTitle": "Koostisosad",
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",

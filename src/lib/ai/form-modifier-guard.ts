@@ -80,6 +80,10 @@ function wordsOf(name: string): string[] {
   return name.toLowerCase().trim().split(/\s+/)
 }
 
+function isMixCompound(word: string): boolean {
+  return word.includes('-') || word.endsWith('segu')
+}
+
 function formsOf(name: string): Set<string> {
   return new Set(wordsOf(name).flatMap((word) => FORM_OF_WORD[word] ?? []))
 }
@@ -242,13 +246,17 @@ export function guardFormMatch(
     .filter((word) => FORM_OF_WORD[word] === undefined)
     .map(singularize)
   const foodWords = forms.includes('boneless') ? normalizedWords : normalizedWords.slice(-1)
-  // An Estonian row joins the food into a compound: "paprika" is in "suitsupaprikapulber"
+  // An Estonian row joins the food into a compound: "paprika" is in "suitsupaprikapulber".
+  // A mix compound holds more than the food: "brokoli-lillkapsasegu" is not frozen
+  // cauliflower (HON-1580).
   const namesFood = (name: string) => {
     const rowWords = wordsOf(name).map(singularize)
     return foodWords.every((word) =>
       [word, estonianPluralStem(word)].some((food) =>
         rowWords.some(
-          (rowWord) => rowWord === food || (food.length >= 4 && rowWord.includes(food)),
+          (rowWord) =>
+            rowWord === food ||
+            (food.length >= 4 && rowWord.includes(food) && !isMixCompound(rowWord)),
         ),
       ),
     )
