@@ -83,8 +83,8 @@ describe('RecipeDetailModal', () => {
     useMemberPortions.mockImplementation((enabled) =>
       enabled
         ? [
-            { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: false },
-            { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+            { id: 'm1', name: 'Kaupo', multiplier: 1.5 },
+            { id: 'm2', name: 'Nora', multiplier: 0.5 },
           ]
         : undefined,
     )

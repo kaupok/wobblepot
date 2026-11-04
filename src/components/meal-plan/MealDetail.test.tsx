@@ -458,8 +458,8 @@ describe('MealDetail nutrition portions', () => {
         meal={withNutrition}
         householdServings={3}
         portions={[
-          { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: false },
-          { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+          { id: 'm1', name: 'Kaupo', multiplier: 1.5 },
+          { id: 'm2', name: 'Nora', multiplier: 0.5 },
         ]}
       />,
     )
@@ -472,8 +472,8 @@ describe('MealDetail nutrition portions', () => {
         meal={withNutrition}
         householdServings={2}
         portions={[
-          { id: 'm1', name: 'Kaupo', multiplier: 1, isSelf: true },
-          { id: 'm2', name: 'Mari', multiplier: 1, isSelf: false },
+          { id: 'm1', name: 'Kaupo', multiplier: 1 },
+          { id: 'm2', name: 'Mari', multiplier: 1 },
         ]}
       />,
     )

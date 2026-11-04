@@ -15,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view’s nutrition, per serving or for one member’s plate (HON-1475). The caption beside the calories opens a list of members; picking one multiplies the per-serving values by their portion (HON-1505). The view opens on the signed-in member’s portion when it is not 1×. With every member at 1×, or no members, the caption is plain text.',
+          'The cook view’s nutrition, per serving or for one member’s plate (HON-1475). The caption beside the calories opens a list of members; picking one multiplies the per-serving values by their portion (HON-1505). The view opens on “Per serving” for everyone (HON-1598). With every member at 1×, or no members, the caption is plain text.',
       },
     },
   },
@@ -34,9 +34,9 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const PORTIONS = [
-  { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: true },
-  { id: 'm2', name: 'Mari', multiplier: 1, isSelf: false },
-  { id: 'm3', name: 'Nora', multiplier: 0.5, isSelf: false },
+  { id: 'm1', name: 'Kaupo', multiplier: 1.5 },
+  { id: 'm2', name: 'Mari', multiplier: 1 },
+  { id: 'm3', name: 'Nora', multiplier: 0.5 },
 ]
 
 /**
@@ -50,14 +50,15 @@ async function pick(trigger: HTMLElement, name: string) {
   await waitFor(() => expect(document.body.style.pointerEvents).toBe(''))
 }
 
-/** Two adults and a toddler; the signed-in adult eats 1.5×, so the view opens on their portion. */
+/** Two adults and a toddler; one adult eats 1.5×, but the view opens on "Per serving". */
 export const Members: Story = {
   args: { portions: PORTIONS },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.queryByRole('radio')).not.toBeInTheDocument()
-    const trigger = canvas.getByRole('combobox', { name: 'Whose portion Kaupo, 1.5× portion' })
-    await expect(canvas.getByText('57g')).toBeVisible()
+    const trigger = canvas.getByRole('combobox', { name: 'Whose portion per serving' })
+    await expect(canvas.getByText('520 kcal')).toBeVisible()
+    await expect(canvas.getByText('38g')).toBeVisible()
 
     // The 44px touch floor on a phone, the default story viewport: the
     // trigger's `::after`, centred on the fine-print line.
@@ -80,6 +81,10 @@ export const Members: Story = {
     await pick(trigger, 'Nora 0.5×')
     await expect(canvas.getByText('19g')).toBeVisible()
     await expect(trigger).toHaveTextContent('Nora, 0.5× portion')
+
+    await pick(trigger, 'Kaupo 1.5×')
+    await expect(canvas.getByText('57g')).toBeVisible()
+    await expect(trigger).toHaveTextContent('Kaupo, 1.5× portion')
 
     await pick(trigger, 'Per serving')
     await expect(canvas.getByText('38g')).toBeVisible()
@@ -129,13 +134,14 @@ export const LongName: Story = {
     nutrition: { calories: 1040, protein: 76, carbs: 60, fat: 44 },
     components: [{ isVague: true }],
     portions: [
-      { id: 'm1', name: 'Alexandra Kõrv-Tammsaar', multiplier: 1.5, isSelf: true },
-      { id: 'm2', name: 'Nora', multiplier: 0.5, isSelf: false },
+      { id: 'm1', name: 'Alexandra Kõrv-Tammsaar', multiplier: 1.5 },
+      { id: 'm2', name: 'Nora', multiplier: 0.5 },
     ],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const trigger = canvas.getByRole('combobox', { name: /^Kelle portsjon/ })
+    await pick(trigger, 'Alexandra Kõrv-Tammsaar 1,5×')
     await expect(trigger).toHaveTextContent('Alexandra Kõrv-Tammsaar, 1,5× portsjon')
     const column = canvasElement.querySelector<HTMLElement>('.w-87\\.5')!.getBoundingClientRect()
     const info = canvas.getByRole('button', { name: 'Nende numbrite kohta' })
@@ -149,8 +155,8 @@ export const AllOneTimes: Story = {
   name: 'All at 1× (plain caption)',
   args: {
     portions: [
-      { id: 'm1', name: 'Kaupo', multiplier: 1, isSelf: true },
-      { id: 'm2', name: 'Mari', multiplier: 1, isSelf: false },
+      { id: 'm1', name: 'Kaupo', multiplier: 1 },
+      { id: 'm2', name: 'Mari', multiplier: 1 },
     ],
   },
   play: async ({ canvasElement }) => {

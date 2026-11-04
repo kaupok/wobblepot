@@ -16,9 +16,9 @@ import { PortionNutrition } from './PortionNutrition'
 // The trout dinner from the issue: 38 g protein per serving.
 const trout = { calories: 520, protein: 38, carbs: 30, fat: 22 }
 
-const kaupo: MemberPortion = { id: 'm1', name: 'Kaupo', multiplier: 1.5, isSelf: false }
-const mari: MemberPortion = { id: 'm2', name: 'Mari', multiplier: 1, isSelf: false }
-const nora: MemberPortion = { id: 'm3', name: 'Nora', multiplier: 0.5, isSelf: false }
+const kaupo: MemberPortion = { id: 'm1', name: 'Kaupo', multiplier: 1.5 }
+const mari: MemberPortion = { id: 'm2', name: 'Mari', multiplier: 1 }
+const nora: MemberPortion = { id: 'm3', name: 'Nora', multiplier: 0.5 }
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et' = 'en') {
   const messages = locale === 'et' ? etMessages : enMessages
@@ -63,11 +63,12 @@ describe('PortionNutrition', () => {
     )
   })
 
-  it('opens on "Per serving" when the signed-in member is not in the list', () => {
+  it('opens on "Per serving", with the 1× values, while a member is at 1.5×', () => {
     renderInLocale(<PortionNutrition nutrition={trout} portions={[kaupo, mari, nora]} />)
     expect(screen.getByRole('combobox')).toHaveTextContent('per serving')
     // The chevron after the caption says it opens.
     expect(screen.getByRole('combobox').querySelector('svg.lucide-chevron-down')).not.toBeNull()
+    expect(screen.getByText('520 kcal')).toBeInTheDocument()
     expect(screen.getByText('38g')).toBeInTheDocument()
   })
 
@@ -97,31 +98,17 @@ describe('PortionNutrition', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('per serving')
   })
 
-  it('multiplies the unrounded values, then rounds', () => {
+  it('multiplies the unrounded values, then rounds', async () => {
+    const user = userEvent.setup()
     // 10.4 g rounds to 10 g, but 10.4 × 1.5 = 15.6 g rounds to 16 g, not 15.
     renderInLocale(
       <PortionNutrition
         nutrition={{ calories: 300, protein: 10.4, carbs: 20, fat: 5 }}
-        portions={[{ ...kaupo, isSelf: true }, mari]}
+        portions={[kaupo, mari]}
       />,
     )
+    await pick(user, 'Kaupo 1.5×')
     expect(screen.getByText('16g')).toBeInTheDocument()
-  })
-
-  it("opens on the signed-in member's portion when it is 1.5×", () => {
-    renderInLocale(
-      <PortionNutrition nutrition={trout} portions={[{ ...kaupo, isSelf: true }, mari, nora]} />,
-    )
-    expect(screen.getByRole('combobox')).toHaveTextContent('Kaupo, 1.5× portion')
-    expect(screen.getByText('57g')).toBeInTheDocument()
-  })
-
-  it('opens on "Per serving" when the signed-in member is at 1×', () => {
-    renderInLocale(
-      <PortionNutrition nutrition={trout} portions={[kaupo, { ...mari, isSelf: true }, nora]} />,
-    )
-    expect(screen.getByRole('combobox')).toHaveTextContent('per serving')
-    expect(screen.getByText('38g')).toBeInTheDocument()
   })
 
   it('moves through the options with the keyboard', async () => {
@@ -144,13 +131,7 @@ describe('PortionNutrition', () => {
   it('shows plain, unfocusable text when every member is at 1×', async () => {
     const user = userEvent.setup()
     renderInLocale(
-      <PortionNutrition
-        nutrition={trout}
-        portions={[
-          { ...mari, isSelf: true },
-          { ...mari, id: 'm4', name: 'Jaan' },
-        ]}
-      />,
+      <PortionNutrition nutrition={trout} portions={[mari, { ...mari, id: 'm4', name: 'Jaan' }]} />,
     )
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.getByText('per serving')).toBeInTheDocument()
