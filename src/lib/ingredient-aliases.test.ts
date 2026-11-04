@@ -71,6 +71,8 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['carom seeds']).toBe('ajwain seeds')
     expect(INGREDIENT_ALIASES['dried fenugreek leaves']).toBe('kasuri methi')
     expect(INGREDIENT_ALIASES['methi leaves']).toBe('kasuri methi')
+    expect(INGREDIENT_ALIASES['fresh fenugreek leaves']).toBe('fenugreek leaves')
+    expect(INGREDIENT_ALIASES['methi']).toBe('fenugreek leaves')
     expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
   })
 

@@ -908,6 +908,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   { en: 'fajita seasoning', et: 'fajita vürtsisegu' },
   { en: 'fennel seeds', et: 'apteegitilli seemned' },
   { en: 'fenugreek', et: 'põld-lambalääts' },
+  { en: 'fenugreek leaves', et: 'lambaläätse lehed' },
   { en: 'fish seasoning', et: 'kalamaitseaine' },
   { en: 'fresh basil', et: 'värske basiilik' },
   { en: 'fresh chives', et: 'värske murulauk' },
