@@ -149,20 +149,25 @@ describe('MealCard with a leftover lunch (HON-1395)', () => {
   })
 })
 
-describe('MealDetail with a leftover lunch (HON-1395)', () => {
-  function renderDetail(props: Partial<Parameters<typeof MealDetail>[0]> = {}) {
-    return render(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
+describe('MealDetail with a leftover lunch (HON-1395, HON-1600)', () => {
+  function renderDetail(
+    props: Partial<Parameters<typeof MealDetail>[0]> = {},
+    locale: 'en' | 'et' = 'en',
+  ) {
+    const onServingsChange = vi.fn(async () => true)
+    render(
+      <NextIntlClientProvider locale={locale} messages={locale === 'et' ? etMessages : enMessages}>
         <MealDetail
           meal={meal}
           householdServings={3}
           servings={3}
           leftovers={[{ ...tuesdayLunch, servings: 2.5 }]}
-          onServingsChange={vi.fn(async () => true)}
+          onServingsChange={onServingsChange}
           {...props}
         />
       </NextIntlClientProvider>,
     )
+    return { onServingsChange }
   }
 
   function chickenRow() {
@@ -170,25 +175,57 @@ describe('MealDetail with a leftover lunch (HON-1395)', () => {
     return rows.find((row) => row.textContent?.includes('Chicken thigh'))
   }
 
-  it('scales the amounts by the total, and the control shows the own servings', () => {
+  it('scales the amounts by the total, and names the leftover share after the own servings', () => {
     renderDetail()
     expect(chickenRow()).toHaveTextContent('825g') // 150 g × 5.5
-    expect(screen.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeInTheDocument()
-    expect(
-      screen.getByText('Ingredients for 5.5 servings · 2.5 for lunch: Tuesday'),
-    ).toBeInTheDocument()
+    const badges = screen.getByTestId('cook-view-badges')
+    const control = within(badges).getByRole('button', { name: 'Serves 3. Click to edit.' })
+    const share = within(badges).getByText('+ 2.5 for Tuesday')
+    expect(control).not.toContainElement(share)
+    expect(screen.queryByText(/Ingredients for/)).not.toBeInTheDocument()
   })
 
-  it('shows a completed entry its stored total, read-only', () => {
+  it('opens no servings field on a tap on the leftover share', async () => {
+    const user = userEvent.setup()
+    renderDetail()
+    await user.click(screen.getByText('+ 2.5 for Tuesday'))
+    expect(screen.queryByRole('textbox', { name: 'Number of servings' })).not.toBeInTheDocument()
+  })
+
+  it('names each leftover lunch in date order', () => {
+    renderDetail({
+      leftovers: [
+        { ...tuesdayLunch, servings: 2.5 },
+        { date: '2026-10-16', mealType: 'lunch', servings: 2 },
+      ],
+    })
+    expect(chickenRow()).toHaveTextContent('1.1kg') // 150 g × 7.5
+    expect(screen.getByTestId('cook-view-badges')).toHaveTextContent(
+      /Serves 3.*\+ 2\.5 for Tuesday\+ 2 for Friday$/,
+    )
+  })
+
+  it('declines the weekday and writes a decimal comma in Estonian', () => {
+    renderDetail({ leftovers: [{ date: '2026-10-16', mealType: 'lunch', servings: 1.5 }] }, 'et')
+    expect(screen.getByText('+ 1,5 reedeks')).toBeInTheDocument()
+  })
+
+  it('shows a completed entry its own servings, read-only, then the leftover share', () => {
     renderDetail({ status: 'completed', cookedServings: 6 })
     expect(chickenRow()).toHaveTextContent('900g') // 150 g × 6
     expect(screen.queryByRole('button', { name: /^Serves/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Serves 6')).toBeInTheDocument()
+    expect(screen.getByText('Serves 3')).toBeInTheDocument()
+    expect(screen.getByText('+ 2.5 for Tuesday')).toBeInTheDocument()
   })
 
-  it('shows no leftover line without a leftover lunch', () => {
+  it('shows a completed entry with no leftover lunch its cooked total', () => {
+    renderDetail({ status: 'completed', cookedServings: 4, leftovers: [] })
+    expect(screen.getByText('Serves 4')).toBeInTheDocument()
+  })
+
+  it('shows no leftover share without a leftover lunch', () => {
     renderDetail({ leftovers: [] })
     expect(chickenRow()).toHaveTextContent('450g') // 150 g × 3
-    expect(screen.queryByText(/^Ingredients for/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^\+/)).not.toBeInTheDocument()
   })
 })
