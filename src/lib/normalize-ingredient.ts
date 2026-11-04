@@ -102,10 +102,12 @@ export const COOKING_MODIFIERS = new Set([
   'virgin',
 
   // Estonian prep words, so "värske spinat" normalizes as "fresh spinach" does and a
-  // bare row it finds stays sure (HON-1546). The form words "külmutatud" and
-  // "kuivatatud" stay, because the form guard reads them, and "sulatatud" stays,
-  // because "sulatatud juust" is processed cheese, not melted cheese. "kondita" goes,
-  // as "boneless" does, so "kondita seakarbonaad" finds `pork chop` (HON-1571).
+  // bare row it finds stays sure (HON-1546). The Estonian form words go too, as the
+  // English ones do, so "konserveeritud kikerherned" searches "kikerherned" (HON-1580).
+  // The form guard reads the forms from the line as written, not from this name.
+  // "sulatatud" stays, because "sulatatud juust" is processed cheese, not melted
+  // cheese. "kondita" goes, as "boneless" does, so "kondita seakarbonaad" finds
+  // `pork chop` (HON-1571).
   'värske',
   'hakitud',
   'riivitud',
@@ -116,6 +118,13 @@ export const COOKING_MODIFIERS = new Set([
   'röstitud',
   'praetud',
   'kondita',
+  'konserveeritud',
+  'purgi',
+  'külmutatud',
+  'kuivatatud',
+  'suitsutatud',
+  'marineeritud',
+  'jahvatatud',
 ])
 
 /**

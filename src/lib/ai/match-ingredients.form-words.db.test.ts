@@ -38,6 +38,10 @@ describe('matchIngredients on a name with a form word', () => {
     ['ground cumin', 'cumin'],
     ['dried cumin', 'cumin'],
     ['dried lentils', 'lentils'],
+    // HON-1580: an Estonian form word is stripped before the search, as the English one is
+    ['konserveeritud kikerherned', 'chickpeas'],
+    ['jahvatatud kaneel', 'cinnamon'],
+    ['jahvatatud must pipar', 'black pepper'],
   ])('matches "%s" to %s, sure', async (recipeName, rowName) => {
     await seedCatalogue()
 
@@ -45,6 +49,16 @@ describe('matchIngredients on a name with a form word', () => {
       type: 'matched',
       ingredient: { name: rowName },
       lowConfidence: false,
+    })
+  })
+
+  // "läätsed" also scores against "kasuri methi" and `french green lentils`, so it stays unsure
+  it('matches "kuivatatud läätsed" to lentils', async () => {
+    await seedCatalogue()
+
+    expect(await matchOne('kuivatatud läätsed')).toMatchObject({
+      type: 'matched',
+      ingredient: { name: 'lentils' },
     })
   })
 
@@ -138,6 +152,12 @@ const FORM_WORD_LINES: FormWordLine[] = [
   ['dried', 'dried tomatoes', 'tomato', false],
   ['smoked', 'smoked cheese', 'cheese', false],
   ['suitsutatud', 'suitsutatud lõhe', 'smoked salmon', true],
+  ['konserveeritud', 'konserveeritud ananass', 'pineapple', false],
+  ['purgi', 'purgi kookospiim', 'coconut milk', false],
+  ['külmutatud', 'külmutatud lillkapsas', 'cauliflower', false],
+  ['kuivatatud', 'kuivatatud sibul', 'onion', false],
+  ['marineeritud', 'marineeritud sibul', 'onion', false],
+  ['jahvatatud', 'jahvatatud kreeka pähklid', 'walnuts', false],
   ['pickled', 'pickled onions', 'onion', false],
   ['ground', 'ground walnuts', 'walnuts', false],
   ['boneless', 'boneless chicken thighs', 'chicken thigh fillet', true],
@@ -148,17 +168,10 @@ const FORM_WORD_LINES: FormWordLine[] = [
 
 // A word with no matcher effect yet: each line gives the same row and flag without
 // the word in FORM_WORDS, so it pins today's result; the guard unit test reads the
-// word. An Estonian form word is not stripped before the search, so its line is
-// unsure from a weak score, not from the guard; a line with no form row lands sure
-// on the exact row name: "lõhe filee" scores low against "lõhefilee". A row is
+// word. "filee" is not stripped before the search, so its line is unsure from a weak
+// score, not from the guard: "lõhe filee" scores low against "lõhefilee". A row is
 // singular, so only "fillet" reads it.
 const PINNED_LINES: FormWordLine[] = [
-  ['konserveeritud', 'konserveeritud tomatid', 'tinned plum tomatoes', true],
-  ['purgi', 'purgi kookospiim', 'coconut milk', false],
-  ['külmutatud', 'külmutatud herned', 'frozen peas', true],
-  ['kuivatatud', 'kuivatatud aprikoosid', 'dried apricots', true],
-  ['marineeritud', 'marineeritud ingver', 'pickled ginger', true],
-  ['jahvatatud', 'jahvatatud kaneel', 'cinnamon', false],
   ['fillets', 'chicken thigh fillets', 'chicken thigh fillet', true],
   // COOKING_MODIFIERS strips "kondita"; without that the line is unsure
   ['kondita', 'kondita seakarbonaad', 'pork chop', true],
