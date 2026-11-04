@@ -30,13 +30,13 @@ interface PortionNutritionProps {
  * The cook view's nutrition, per serving or for one member's plate (HON-1475).
  * The caption beside the calories opens a list of members, and picking one
  * multiplies the per-serving values by their portion (HON-1505). The view opens
- * on the signed-in member's portion when it is not 1×. With every member at 1×
- * each option would repeat "Per serving", so the caption is plain text.
+ * on "Per serving" for everyone, because a cook reads the meal first (HON-1598).
+ * With every member at 1× each option would repeat "Per serving", so the
+ * caption is plain text.
  */
 export function PortionNutrition({ nutrition, portions, size, components }: PortionNutritionProps) {
   const t = useTranslations('meal-plan.nutrition')
-  // The user's pick; until they make one, the default follows the members as they load.
-  const [choice, setChoice] = useState<string | null>(null)
+  const [choice, setChoice] = useState(PER_SERVING)
   const labelId = useId()
   const valueId = useId()
 
@@ -45,9 +45,7 @@ export function PortionNutrition({ nutrition, portions, size, components }: Port
     return <NutritionSummary nutrition={nutrition} size={size} components={components} />
   }
 
-  const own = portions.find((portion) => portion.isSelf && portion.multiplier !== 1)
-  const selectedId = choice ?? own?.id ?? PER_SERVING
-  const selected = portions.find((portion) => portion.id === selectedId)
+  const selected = portions.find((portion) => portion.id === choice)
   const shown: NutritionData = selected
     ? {
         calories: nutrition.calories * selected.multiplier,

@@ -9,8 +9,6 @@ import type { MealData } from './types'
 // The nutrition chips through the real members query and `MealDetail`
 // (HON-1475). The other modal tests mock the query, so these live apart.
 
-const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }))
-vi.mock('@/lib/auth-client', () => ({ authClient: { getSession } }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }))
@@ -45,8 +43,6 @@ const member = (id: string, userId: string | null, name: string, portionMultipli
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
-  getSession.mockReset()
-  getSession.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
   fetchMock = vi.fn((url: string) =>
     Promise.resolve(
       new Response(
@@ -76,7 +72,7 @@ afterEach(() => {
 const membersRequests = () => fetchMock.mock.calls.filter(([url]) => url === MEMBERS_URL)
 
 describe('MealDetailModal portion nutrition (HON-1475, HON-1505)', () => {
-  it("opens a planned meal on the signed-in member's 1.5× plate", async () => {
+  it('opens a planned meal on "Per serving" while a member is at 1.5× (HON-1598)', async () => {
     const { wrapper } = createQueryWrapper()
     render(
       <MealDetailModal
@@ -92,9 +88,10 @@ describe('MealDetailModal portion nutrition (HON-1475, HON-1505)', () => {
       { wrapper },
     )
     expect(
-      await screen.findByRole('combobox', { name: 'Whose portion Kaupo, 1.5× portion' }),
+      await screen.findByRole('combobox', { name: 'Whose portion per serving' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('57g')).toBeInTheDocument()
+    expect(screen.getByText('520 kcal')).toBeInTheDocument()
+    expect(screen.getByText('38g')).toBeInTheDocument()
   })
 
   it('asks for no members on the read-only landing deck', async () => {
@@ -114,7 +111,6 @@ describe('MealDetailModal portion nutrition (HON-1475, HON-1505)', () => {
     await waitFor(() => expect(screen.getByText('per serving')).toBeInTheDocument())
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(membersRequests()).toHaveLength(0)
-    expect(getSession).not.toHaveBeenCalled()
     expect(screen.queryByRole('combobox', { name: /^Whose portion/ })).not.toBeInTheDocument()
   })
 })
