@@ -6,6 +6,11 @@
  * Calls are sequential. For each case and run the baseline and the candidate
  * are called back to back, and which goes first alternates, so rate limits and
  * time-of-day drift do not favour either model.
+ *
+ * A case's runs are back to back too, and every call asks Anthropic to cache
+ * its prompt (HON-1606). A run sends the same request as the one before it,
+ * so runs 2 and on read the prompt from the 5-minute cache. The model sees the
+ * same input, so scores do not change; only the bill does.
  */
 
 import {
@@ -22,6 +27,13 @@ import type { Scores } from './scorers'
 import { errorScores, prepareCase, type PreparedCase } from './tasks'
 
 export type Role = 'baseline' | 'candidate'
+
+/**
+ * Call-level, so `@ai-sdk/anthropic` sends a top-level `cache_control` and the
+ * API caches the whole prompt, whatever shape the production builder gave it.
+ * Set here and not in `src/lib/ai`, so production requests stay the same.
+ */
+export const EVAL_PROMPT_CACHE = { cacheControl: { type: 'ephemeral' } } as const
 
 /** Injectable so tests pass a `MockLanguageModelV4`; the CLI passes `createAnthropic`. */
 export type ModelFactory = (modelId: string) => LanguageModel
@@ -89,7 +101,8 @@ export interface CheckOptions {
 }
 
 /**
- * One configuration, one call per case per run (HON-901). Records the same
+ * One configuration, one call per case per run (HON-901), a case's runs back
+ * to back so they share its cache entry. Records the same
  * `CallRecord` as a comparison, as the candidate in first position, so the
  * report and the run file need no second shape.
  */
@@ -102,8 +115,8 @@ export async function runCheck(options: CheckOptions): Promise<RunResult> {
   const calls: CallRecord[] = []
   let spendUsd = 0
 
-  for (let run = 1; run <= runs; run++) {
-    for (const { c, p } of prepared) {
+  for (const { c, p } of prepared) {
+    for (let run = 1; run <= runs; run++) {
       const record = await callOnce({
         c,
         p,
@@ -158,8 +171,8 @@ export async function runBenchmark(options: RunOptions): Promise<RunResult> {
   const calls: CallRecord[] = []
   let spendUsd = 0
 
-  for (let run = 1; run <= runs; run++) {
-    for (const [caseIndex, { c, p }] of prepared.entries()) {
+  for (const [caseIndex, { c, p }] of prepared.entries()) {
+    for (let run = 1; run <= runs; run++) {
       // Flips per case *and* per run: a single counter across both would give
       // every case the same first model in every run whenever the case count
       // is even, and a task with an odd count would lean one way every run.
@@ -232,6 +245,13 @@ async function callOnce(args: {
       : wrapLanguageModel({
           model: factoryModel,
           middleware: {
+            transformParams: async ({ params }) => ({
+              ...params,
+              providerOptions: {
+                ...params.providerOptions,
+                anthropic: { ...params.providerOptions?.anthropic, ...EVAL_PROMPT_CACHE },
+              },
+            }),
             wrapGenerate: ({ doGenerate }) => {
               attempts++
               return doGenerate()

@@ -66,7 +66,10 @@ export interface MockResponse {
   /** Raw text, e.g. deliberately truncated JSON. */
   text?: string
   finishReason?: 'stop' | 'length'
+  /** Uncached input tokens. */
   inputTokens?: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
   outputTokens?: number
   reasoningTokens?: number
 }
@@ -91,11 +94,13 @@ export function promptTextOf(options: LanguageModelV4CallOptions): string {
 function toResult(r: MockResponse): LanguageModelV4GenerateResult {
   const input = r.inputTokens ?? 1_000
   const output = r.outputTokens ?? 500
+  const cacheRead = r.cacheReadTokens ?? 0
+  const cacheWrite = r.cacheWriteTokens ?? 0
   return {
     content: [{ type: 'text', text: r.text ?? JSON.stringify(r.object) }],
     finishReason: { unified: r.finishReason ?? 'stop', raw: undefined },
     usage: {
-      inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
+      inputTokens: { total: input + cacheRead + cacheWrite, noCache: input, cacheRead, cacheWrite },
       outputTokens: {
         total: output,
         text: output - (r.reasoningTokens ?? 0),

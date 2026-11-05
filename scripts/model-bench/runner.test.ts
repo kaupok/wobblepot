@@ -2,6 +2,7 @@
 import { APICallError } from 'ai'
 import { describe, expect, it } from 'vitest'
 
+import { TASKS } from './case-schema'
 import { loadCases } from './load-cases'
 import { runBenchmark, runCheck } from './runner'
 import { errorScores } from './tasks'
@@ -27,7 +28,7 @@ describe('runBenchmark', () => {
       cases: reviewCases,
       baseline: BASELINE,
       candidate: CANDIDATE,
-      runs: 2,
+      runs: 3,
       maxUsd: 10,
       modelFactory: factory,
     })
@@ -37,23 +38,33 @@ describe('runBenchmark', () => {
       CANDIDATE,
       CANDIDATE,
       BASELINE,
+      BASELINE,
+      CANDIDATE,
       CANDIDATE,
       BASELINE,
       BASELINE,
       CANDIDATE,
+      CANDIDATE,
+      BASELINE,
     ])
+    // A case's runs are back to back, so they reach the API inside the
+    // 5-minute prompt cache (HON-1606).
     expect(result.calls.map((c) => [c.caseId, c.run, c.role, c.position])).toEqual([
       ['review/en-chicken-stir-fry', 1, 'baseline', 1],
       ['review/en-chicken-stir-fry', 1, 'candidate', 2],
-      ['review/et-kartulisalat', 1, 'candidate', 1],
-      ['review/et-kartulisalat', 1, 'baseline', 2],
       ['review/en-chicken-stir-fry', 2, 'candidate', 1],
       ['review/en-chicken-stir-fry', 2, 'baseline', 2],
+      ['review/en-chicken-stir-fry', 3, 'baseline', 1],
+      ['review/en-chicken-stir-fry', 3, 'candidate', 2],
+      ['review/et-kartulisalat', 1, 'candidate', 1],
+      ['review/et-kartulisalat', 1, 'baseline', 2],
       ['review/et-kartulisalat', 2, 'baseline', 1],
       ['review/et-kartulisalat', 2, 'candidate', 2],
+      ['review/et-kartulisalat', 3, 'candidate', 1],
+      ['review/et-kartulisalat', 3, 'baseline', 2],
     ])
     expect(result.partial).toBe(false)
-    expect(result.plannedCalls).toBe(8)
+    expect(result.plannedCalls).toBe(12)
   })
 
   it('gives every case each model first equally often, even with an odd case count', async () => {
@@ -123,6 +134,53 @@ describe('runBenchmark', () => {
     // $2 / $10 per MTok.
     expect(first!.costUsd).toBeCloseTo(0.004 + 0.01)
     expect(result.spendUsd).toBeCloseTo(2 * 0.014)
+  })
+
+  it('asks Anthropic to cache the prompt on every call', async () => {
+    const { factory, calls } = mockModelFactory(() => ({ object: { ingredients: [] } }))
+    await runBenchmark({
+      cases: reviewCases,
+      baseline: BASELINE,
+      candidate: CANDIDATE,
+      runs: 2,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(calls).toHaveLength(8)
+    for (const call of calls) {
+      expect(call.options.providerOptions).toEqual({
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+      })
+    }
+  })
+
+  it('prices cache reads and writes at their own rates', async () => {
+    const { factory } = mockModelFactory(() => ({
+      object: { ingredients: [] },
+      inputTokens: 500,
+      cacheReadTokens: 1_000,
+      cacheWriteTokens: 400,
+      outputTokens: 200,
+    }))
+    const result = await runCheck({
+      cases: reviewCases.slice(0, 1),
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(result.calls[0]!.usage).toMatchObject({
+      inputTokens: 500,
+      cacheReadTokens: 1_000,
+      cacheWriteTokens: 400,
+      outputTokens: 200,
+    })
+    // Sonnet 5.5 per MTok: $2 input, $0.20 cache read, $2.50 cache write, $10 output.
+    // 500 × 2 + 1,000 × 0.2 + 400 × 2.5 + 200 × 10 = 4,200 → $0.0042.
+    expect(result.calls[0]!.costUsd).toBeCloseTo(0.0042, 10)
+    expect(result.spendUsd).toBeCloseTo(0.0042, 10)
   })
 
   it('counts a truncated call as an error and still counts its tokens toward spend', async () => {
@@ -259,20 +317,43 @@ describe('runCheck', () => {
     const result = await runCheck({
       cases: reviewCases,
       modelFor: () => CANDIDATE,
-      runs: 2,
+      runs: 3,
       maxUsd: 10,
       modelFactory: factory,
     })
 
-    expect(result.plannedCalls).toBe(4)
-    expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill(CANDIDATE))
+    expect(result.plannedCalls).toBe(6)
+    expect(calls.map((c) => c.modelId)).toEqual(Array(6).fill(CANDIDATE))
+    // A case's runs are back to back, so runs 2 and 3 read run 1's cache entry.
     expect(result.calls.map((c) => [c.caseId, c.run, c.role, c.position])).toEqual([
       [reviewCases[0]!.id, 1, 'candidate', 1],
-      [reviewCases[1]!.id, 1, 'candidate', 1],
       [reviewCases[0]!.id, 2, 'candidate', 1],
+      [reviewCases[0]!.id, 3, 'candidate', 1],
+      [reviewCases[1]!.id, 1, 'candidate', 1],
       [reviewCases[1]!.id, 2, 'candidate', 1],
+      [reviewCases[1]!.id, 3, 'candidate', 1],
     ])
     expect(result.partial).toBe(false)
+  })
+
+  it('asks Anthropic to cache the prompt for every task', async () => {
+    // One case per task: every task's request passes through the same call.
+    const cases = TASKS.map((task) => loadCases([task])[0]!)
+    const { factory, calls } = mockModelFactory(() => ({ object: {} }))
+    await runCheck({
+      cases,
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(calls.length).toBeGreaterThanOrEqual(TASKS.length)
+    for (const call of calls) {
+      expect(call.options.providerOptions?.anthropic).toEqual({
+        cacheControl: { type: 'ephemeral' },
+      })
+    }
   })
 
   it('stops once measured spend passes --max-usd', async () => {
