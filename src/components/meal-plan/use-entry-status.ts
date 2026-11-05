@@ -71,6 +71,16 @@ export function useEntryStatus({
   const isPantryCharged = pantryDeducted || chargedHere
   // A side added since the main was charged still needs its own charge (HON-1610).
   const isSlotCharged = isPantryCharged && (chargedHere || sidesToCharge(sides).length === 0)
+  // A fridge main's sides still to charge (HON-1616): its Eaten asks about
+  // them in the deduction dialog, after the fridge items' own dialog.
+  const fridgeSides = useMemo(
+    () => (meal || chargedHere ? [] : sidesToCharge(sides)),
+    [meal, chargedHere, sides],
+  )
+  const fridgeSideComponents = useMemo(() => slotComponents([], 0, fridgeSides), [fridgeSides])
+  // The fridge items the household used up, kept while the sides' dialog is
+  // open; null while it is closed.
+  const [fridgeUsedUp, setFridgeUsedUp] = useState<string[] | null>(null)
   // What the deduction dialog would list: the pantry rows holding one of the
   // meal's ingredients, staples included (HON-1588). An empty list means a
   // confirm would change nothing in the pantry, as far as this page knows.
@@ -219,6 +229,12 @@ export function useEntryStatus({
       return
     }
 
+    // A fridge main with nothing to tick still asks about its sides.
+    if (newStatus === 'completed' && fridgeSides.length > 0) {
+      completeFridgeMeal([])
+      return
+    }
+
     // For other statuses, update directly
     statusMutation.mutate({ newStatus, source })
   }
@@ -255,6 +271,18 @@ export function useEntryStatus({
   // A fridge meal's completion, from its own dialog: no recipe to preview, so
   // the household names what it used up (HON-1277).
   function completeFridgeMeal(usedUpIngredientIds: string[], onDone?: () => void) {
+    // Sides to charge: their rows come next, and one request completes the
+    // slot. Rows that would change nothing skip the dialog, as on a recipe
+    // card (HON-1125).
+    if (fridgeSides.length > 0) {
+      onDone?.()
+      if (computeDeductions(fridgeSideComponents, 1, pantryItems).length > 0) {
+        setFridgeUsedUp(usedUpIngredientIds)
+      } else {
+        completeFridgeWithSides(usedUpIngredientIds)
+      }
+      return
+    }
     statusMutation.mutate(
       {
         newStatus: 'completed',
@@ -272,10 +300,43 @@ export function useEntryStatus({
     )
   }
 
+  // The sides' dialog's Confirm: the fridge items and the sides in one
+  // request, with `deductPantry` so the server charges the sides (HON-1616).
+  function completeFridgeWithSides(fridgeIds: string[], answer?: CookAnswer) {
+    const usedUpIngredientIds = [...new Set([...fridgeIds, ...(answer?.usedUpIngredientIds ?? [])])]
+    statusMutation.mutate(
+      {
+        newStatus: 'completed',
+        deductPantry: true,
+        // With no answer and no fridge item, the server's default decides.
+        ...((answer || usedUpIngredientIds.length > 0) && { usedUpIngredientIds }),
+        someLeftIngredientIds: answer?.someLeftIngredientIds,
+        lowIngredientIds: answer?.lowIngredientIds,
+      },
+      {
+        onSuccess: ({ pantryDeducted: charged }) => {
+          if (charged) setChargedHere(true)
+          setFridgeUsedUp(null)
+          onCompleted?.()
+        },
+      },
+    )
+  }
+
   return {
     status,
     isPantryCharged,
     completeFridgeMeal,
+    /** Props for the `PantryDeductionModal` a fridge main's sides open (HON-1616). */
+    fridgeSidesDialog: {
+      open: fridgeUsedUp !== null,
+      onOpenChange: (open: boolean) => {
+        if (!open) setFridgeUsedUp(null)
+      },
+      sideNames: fridgeSides.flatMap((side) => side.mealName ?? []).join(', '),
+      components: fridgeSideComponents,
+      onConfirm: (answer?: CookAnswer) => completeFridgeWithSides(fridgeUsedUp ?? [], answer),
+    },
     isUpdating: statusMutation.isPending,
     isDeductionModalOpen,
     setIsDeductionModalOpen,

@@ -9,6 +9,7 @@ import {
   toFridgeItemInput,
   useFridgeItemText,
 } from '@/components/meal-plan/fridge-meal/use-fridge-item-text'
+import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
 import { clearedSides, NO_SIDES } from '@/components/meal-plan/side-dishes'
 import type {
   FridgeMealItem,
@@ -86,6 +87,7 @@ export function PastFridgeRow({
     setIsDeductionModalOpen: setIsCompleteOpen,
     handleStatusChange,
     completeFridgeMeal,
+    fridgeSidesDialog,
   } = useEntryStatus({
     planId,
     entryId,
@@ -227,6 +229,17 @@ export function PastFridgeRow({
         onOpenChange={setIsCompleteOpen}
         items={items}
         onConfirm={(ids) => completeFridgeMeal(ids, () => setIsCompleteOpen(false))}
+        isLoading={isUpdating}
+        onCloseAutoFocus={focusRowOnClose}
+      />
+      <PantryDeductionModal
+        open={fridgeSidesDialog.open}
+        onOpenChange={fridgeSidesDialog.onOpenChange}
+        mealName={fridgeSidesDialog.sideNames}
+        components={fridgeSidesDialog.components}
+        householdServings={1}
+        pantryItems={pantryItems}
+        onConfirm={fridgeSidesDialog.onConfirm}
         isLoading={isUpdating}
         onCloseAutoFocus={focusRowOnClose}
       />

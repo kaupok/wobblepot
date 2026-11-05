@@ -282,8 +282,7 @@ async function completeSlot(
   }
   const sides = main.sides.map((side) => ({ ...side, mainEntry: { servingOverride } }))
   // Only a completion that asks to deduct charges a recipe dish: a fridge
-  // card's completion names its items only, so its sides stay uncharged
-  // until a dialog shows their rows.
+  // card with sides asks once its sides' dialog is confirmed (HON-1616).
   const charges = patch.deductPantry === true
   const recipeDishes = isFridge ? sides : [{ ...main, servingOverride }, ...sides]
 
