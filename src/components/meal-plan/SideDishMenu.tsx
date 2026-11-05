@@ -28,6 +28,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 
+import { ConflictBadges } from './ConflictBadge'
 import { MealDetailModal } from './MealDetailModal'
 import { MealSelectorModal } from './MealSelectorModal'
 import { ServingControl } from './ServingControl'
@@ -131,6 +132,8 @@ export function SideDishMenu({
           side: true,
           servingOverride: side.servingOverride,
           rating: side.rating,
+          // A side Cooked left unchecked was not made, so it comes back so.
+          ...(side.status === 'skipped' && { status: 'skipped' }),
         }),
       }),
     onSuccess: () => router.refresh(),
@@ -169,70 +172,75 @@ export function SideDishMenu({
 
   return (
     <>
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button ref={triggerRef} variant="quiet-link" size="inline">
-            {tFridge('withItems', { items: `${name} · ${formatInteger(side.servings, locale)}` })}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          onCloseAutoFocus={(event) => {
-            if (!removeRequestedRef.current) return
-            removeRequestedRef.current = false
-            event.preventDefault()
-            onRemoved()
-          }}
-        >
-          {isPlanned && (
-            <DropdownMenuItem onSelect={request('servings')}>
-              <Users aria-hidden="true" />
-              {t('servings')}
-            </DropdownMenuItem>
-          )}
-          {isPlanned && (
-            <DropdownMenuItem onSelect={request('swap')}>
-              <Repeat aria-hidden="true" />
-              {tCard('swap')}
-            </DropdownMenuItem>
-          )}
-          {side.meal && (
-            <DropdownMenuItem onSelect={request('steps')}>
-              <BookOpen aria-hidden="true" />
-              {t('steps')}
-            </DropdownMenuItem>
-          )}
-          {side.status === 'completed' && (
-            <>
-              <DropdownMenuCheckboxItem
-                checked={side.rating === 'up'}
-                onCheckedChange={() => rate('up')}
-              >
-                <ThumbsUp aria-hidden="true" />
-                {tRating('thumbsUp')}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={side.rating === 'down'}
-                onCheckedChange={() => rate('down')}
-              >
-                <ThumbsDown aria-hidden="true" />
-                {tRating('thumbsDown')}
-              </DropdownMenuCheckboxItem>
-            </>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => {
-              removeRequestedRef.current = true
-              removeMutation.mutate()
+      {/* A planned side's food-preference conflicts follow its line, as the
+          main's do in the card's badge row (HON-1126). */}
+      <div className="flex flex-wrap items-center gap-1">
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button ref={triggerRef} variant="quiet-link" size="inline">
+              {tFridge('withItems', { items: `${name} · ${formatInteger(side.servings, locale)}` })}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            onCloseAutoFocus={(event) => {
+              if (!removeRequestedRef.current) return
+              removeRequestedRef.current = false
+              event.preventDefault()
+              onRemoved()
             }}
-            disabled={removeMutation.isPending}
           >
-            <X aria-hidden="true" />
-            {t('remove')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {isPlanned && (
+              <DropdownMenuItem onSelect={request('servings')}>
+                <Users aria-hidden="true" />
+                {t('servings')}
+              </DropdownMenuItem>
+            )}
+            {isPlanned && (
+              <DropdownMenuItem onSelect={request('swap')}>
+                <Repeat aria-hidden="true" />
+                {tCard('swap')}
+              </DropdownMenuItem>
+            )}
+            {side.meal && (
+              <DropdownMenuItem onSelect={request('steps')}>
+                <BookOpen aria-hidden="true" />
+                {t('steps')}
+              </DropdownMenuItem>
+            )}
+            {side.status === 'completed' && (
+              <>
+                <DropdownMenuCheckboxItem
+                  checked={side.rating === 'up'}
+                  onCheckedChange={() => rate('up')}
+                >
+                  <ThumbsUp aria-hidden="true" />
+                  {tRating('thumbsUp')}
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={side.rating === 'down'}
+                  onCheckedChange={() => rate('down')}
+                >
+                  <ThumbsDown aria-hidden="true" />
+                  {tRating('thumbsDown')}
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                removeRequestedRef.current = true
+                removeMutation.mutate()
+              }}
+              disabled={removeMutation.isPending}
+            >
+              <X aria-hidden="true" />
+              {t('remove')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isPlanned && side.conflicts && <ConflictBadges conflicts={side.conflicts} />}
+      </div>
 
       {isPlanned && (
         <Dialog {...dialogProps('servings')}>

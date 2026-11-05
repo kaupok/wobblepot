@@ -26,7 +26,8 @@ async function ingredient(page: Page, name: string) {
   const created = await page.request.post('/api/ingredients', {
     data: {
       name,
-      category: 'dairy',
+      // Not a protein-typed category, which would need a protein type.
+      category: 'vegetable',
       defaultUnit: 'g',
       allergens: [],
       calories: 100,

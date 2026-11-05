@@ -102,3 +102,11 @@ export const Cooked: Story = {
     await userEvent.keyboard('{Escape}')
   },
 }
+
+/** A planned side that breaks a food preference: its badge follows the line (HON-1611). */
+export const WithConflict: Story = {
+  args: { side: { ...salad, conflicts: [{ kind: 'allergen', constraint: 'dairy' }] } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Contains: Dairy')).toBeVisible()
+  },
+}

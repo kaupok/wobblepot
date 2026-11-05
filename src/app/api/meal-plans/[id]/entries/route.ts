@@ -52,7 +52,8 @@ const createEntrySchema = z
     // leftover source rule passes what a source changed since can cause.
     restore: z.literal(true).optional(),
     // A side of the slot's main, from the planner's "Add side" and from Undo
-    // after a side's Remove (HON-1611). `mealId` names the side's recipe.
+    // after a side's Remove (HON-1611). `mealId` names the side's recipe, and
+    // `status: 'skipped'` brings back a side that was not made.
     side: z.literal(true).optional(),
     // Undo after Clear brings the main's sides back with it (HON-1610).
     sides: z
@@ -110,13 +111,13 @@ const createEntrySchema = z
         data.sides ||
         data.restore ||
         data.note ||
-        data.status ||
+        (data.status && data.status !== 'skipped') ||
         data.pantryDeducted)
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['side'],
-        message: 'A side takes mealId, servingOverride and rating only',
+        message: 'A side takes mealId, servingOverride, rating and status skipped only',
       })
     }
     if (data.status === 'completed' && (data.pick || data.pantryDeducted)) {
@@ -243,6 +244,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           mealId: fields.mealId,
           servingOverride: fields.servingOverride,
           rating: fields.rating,
+          skipped: fields.status === 'skipped',
         }),
       )
     } catch (error) {

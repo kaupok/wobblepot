@@ -308,6 +308,27 @@ describe('createSide', () => {
     expect(await readEntry(side.id)).toMatchObject({ servingOverride: 2, rating: 'up' })
   })
 
+  it('restores a side that was not made skipped under a cooked main, uncooked and uncharged', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed', cookedServings: 2.5, pantryDeductedAt: new Date() },
+    })
+
+    const side = await createSide(alder.id, 'plan-alder', {
+      ...DINNER,
+      mealId: 'meal-salad',
+      skipped: true,
+    })
+
+    expect(side.status).toBe('skipped')
+    expect(await readEntry(side.id)).toMatchObject({
+      status: 'skipped',
+      cookedServings: null,
+      pantryDeductedAt: null,
+    })
+  })
+
   it('adds a side to a fridge meal', async () => {
     const { alder } = await world()
     await prisma.mealPlanEntry.update({

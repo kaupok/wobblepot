@@ -82,6 +82,7 @@ describe('POST /api/meal-plans/[id]/entries with side: true', () => {
       mealId: 'salad',
       servingOverride: undefined,
       rating: undefined,
+      skipped: false,
     })
     expect(createEntry).not.toHaveBeenCalled()
   })
@@ -99,7 +100,24 @@ describe('POST /api/meal-plans/[id]/entries with side: true', () => {
     expect(mockCreateSide).toHaveBeenCalledWith(
       'household-123',
       'plan-123',
-      expect.objectContaining({ servingOverride: 2, rating: 'up' }),
+      expect.objectContaining({ servingOverride: 2, rating: 'up', skipped: false }),
+    )
+  })
+
+  it('brings a side that was not made back skipped', async () => {
+    mockCreateSide.mockResolvedValue({
+      id: 'side-3',
+      mainEntryId: 'main-1',
+      status: 'skipped',
+      servings: 3,
+    })
+
+    await post({ ...slot, mealId: 'salad', side: true, status: 'skipped' })
+
+    expect(mockCreateSide).toHaveBeenCalledWith(
+      'household-123',
+      'plan-123',
+      expect.objectContaining({ skipped: true }),
     )
   })
 

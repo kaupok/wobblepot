@@ -30,6 +30,11 @@ export interface NewSide {
   servingOverride?: number | null
   /** Undo after Remove brings the side's rating back (HON-1611). */
   rating?: 'up' | 'down' | null
+  /**
+   * Undo after Remove of a side that was not made (HON-1611): it comes back
+   * skipped, whatever its main's status, and is never cooked or charged.
+   */
+  skipped?: boolean
 }
 
 /**
@@ -100,8 +105,13 @@ export async function createSide(householdId: string, planId: string, input: New
         mealId: input.mealId,
         servingOverride,
         rating: input.rating ?? null,
-        status: completed ? MealPlanEntryStatus.completed : MealPlanEntryStatus.planned,
-        ...(completed && { cookedServings: servings, pantryDeductedAt: new Date() }),
+        status: input.skipped
+          ? MealPlanEntryStatus.skipped
+          : completed
+            ? MealPlanEntryStatus.completed
+            : MealPlanEntryStatus.planned,
+        ...(completed &&
+          !input.skipped && { cookedServings: servings, pantryDeductedAt: new Date() }),
       },
       select: { id: true, status: true },
     })

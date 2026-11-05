@@ -271,6 +271,18 @@ describe("A side's menu", () => {
   })
 })
 
+describe('A side’s conflicts', () => {
+  it('marks a planned side that breaks a preference, and not a cooked one', () => {
+    const conflicts = [{ kind: 'allergen' as const, constraint: 'dairy' }]
+    const { unmount } = renderCard({ sides: [side({ conflicts })] })
+    expect(screen.getByText('Contains: Dairy')).toBeInTheDocument()
+    unmount()
+
+    renderCard({ status: 'completed', sides: [side({ conflicts, status: 'completed' })] })
+    expect(screen.queryByText('Contains: Dairy')).toBeNull()
+  })
+})
+
 describe('Made in the Cooked dialog', () => {
   it('drops an unchecked side’s amounts at once and sends it as skipped', async () => {
     const user = userEvent.setup()
