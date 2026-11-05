@@ -38,6 +38,7 @@ function renderCard(
     <NextIntlClientProvider locale={locale} messages={locale === 'et' ? etMessages : enMessages}>
       <Wrapper>
         <FridgeMealCard
+          householdServings={3}
           entryId="entry-1"
           planId="plan-1"
           date="2026-10-21"
