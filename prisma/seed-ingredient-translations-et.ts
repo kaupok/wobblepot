@@ -12,7 +12,7 @@ export const ingredientTranslationsEt: IngredientTranslationEt[] = [
   // ============================================================
   // PROTEIN (245)
   // ============================================================
-  { en: 'anchovies', et: 'anšoovised' },
+  { en: 'fresh anchovies', et: 'värsked anšoovised' },
   { en: 'andouille sausage', et: 'andouille vorst' },
   { en: 'arctic char', et: 'paalia' },
   { en: 'arctic char fillet', et: 'paaliafilee' },
