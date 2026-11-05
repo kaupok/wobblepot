@@ -157,6 +157,28 @@ describe('Cooked on a main with sides', () => {
     expect(await pantry(alder.id)).toEqual({ 'ing-apple': 925, 'ing-beef': 750, 'ing-rice': 1000 })
   })
 
+  it('keeps a side skipped on its own skipped when the cooked main is reverted, and charges it never', async () => {
+    const alder = await slotWithTwoSides()
+    await updateEntry(alder.id, 'plan-alder', 'entry-side-salad', { status: 'skipped' })
+    await updateEntry(alder.id, 'plan-alder', 'entry-alder', {
+      status: 'completed',
+      deductPantry: true,
+    })
+
+    await updateEntry(alder.id, 'plan-alder', 'entry-alder', { status: 'planned' })
+
+    expect((await readEntry('entry-side-salad')).status).toBe('skipped')
+    expect((await readEntry('entry-side-slaw')).status).toBe('planned')
+
+    await updateEntry(alder.id, 'plan-alder', 'entry-alder', {
+      status: 'completed',
+      deductPantry: true,
+    })
+
+    // Apple stays at 1000 − (20 + 10) × 2.5: the salad's 50 × 2.5 is never charged.
+    expect((await pantry(alder.id))['ing-apple']).toBe(925)
+  })
+
   it('refuses a side completed with a serving count while its main is planned', async () => {
     const alder = await slotWithTwoSides()
 

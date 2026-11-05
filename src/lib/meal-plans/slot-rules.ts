@@ -179,8 +179,21 @@ async function setSlotStatus(
   status: 'planned' | 'skipped',
 ): Promise<UpdatedEntry> {
   return prisma.$transaction(async (tx) => {
+    const { status: from } = await tx.mealPlanEntry.findUniqueOrThrow({
+      where: { id: entryId },
+      select: { status: true },
+    })
     await writeStatus(tx, { id: entryId }, status)
-    await writeStatus(tx, { mainEntryId: entryId }, status)
+    // A side skipped on its own while its main was cooked was not made, so a
+    // revert of the main leaves it skipped, and the next Cooked does not
+    // charge it.
+    await writeStatus(
+      tx,
+      from === MealPlanEntryStatus.completed
+        ? { mainEntryId: entryId, AND: [{ status: { not: MealPlanEntryStatus.skipped } }] }
+        : { mainEntryId: entryId },
+      status,
+    )
     const main = await tx.mealPlanEntry.findUniqueOrThrow({
       where: { id: entryId },
       select: { id: true, status: true, mealId: true, rating: true },
