@@ -106,7 +106,10 @@ async function getKeptEntries(
  * `skipped` entries were never charged and are replaced.
  *
  * It deletes mains only, and the cascade takes their sides, so a slot goes as a
- * whole. A side of a kept main stays with it (HON-1609).
+ * whole. A side of a kept main stays with it (HON-1609). The cascade never takes
+ * a cooked side, because a completed side always has a completed main: Cooked
+ * on the main completes the slot, and a revert of the main reverts its sides
+ * (HON-1596, Q1).
  */
 async function deleteReplaceableEntries(
   tx: Prisma.TransactionClient,

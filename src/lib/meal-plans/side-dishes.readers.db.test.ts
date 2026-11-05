@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createEmptyPlan } from '@/lib/ai/generate-plan'
 import { readMealPlan } from '@/lib/api/v1/meal-plan'
 import { findPlanSlot } from '@/lib/mcp/tools/plan-slot'
+import { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
 import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { countPastMealsToMark } from '@/lib/meal-planning/past-meals'
@@ -188,6 +189,20 @@ describe('a slot with a main and a side (HON-1609)', () => {
     const list = await computeRollingWindowShoppingList(household.id, 7, TIMEZONE)
 
     expect(list.check.map((item) => [item.ingredientId, item.mealCount])).toEqual([['onion', 2]])
+  })
+
+  it('the preferences toast counts the slot once, as its one card marks it', async () => {
+    const household = await world()
+    // The stew main and the salad side both use the onion, so both break this.
+    await prisma.ingredient.update({ where: { id: 'onion' }, data: { allergens: ['nuts'] } })
+
+    const count = await countConflictingPlannedEntries(household, {
+      dietaryType: null,
+      allergensToAvoid: ['nuts'],
+      excludedIngredients: [],
+    })
+
+    expect(count).toBe(1)
   })
 
   it('countPastMealsToMark counts the slot once', async () => {
