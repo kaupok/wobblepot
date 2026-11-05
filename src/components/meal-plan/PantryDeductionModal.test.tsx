@@ -95,9 +95,8 @@ describe('PantryDeductionModal', () => {
       expect(within(group('Feta')).getByRole('radio', { name: 'Used up' })).toBeChecked()
     })
 
-    // The server subtracts from the live pantry, so a preset row sends its
-    // answer, never an amount: a restock while the dialog is open still counts.
-    // A row at "Some left" is named (HON-1582); one the sum runs out is not.
+    // The server subtracts from the live pantry, so a preset row is not named:
+    // a restock while the dialog is open still counts.
     it('leaves the preset rows to the server on Confirm and counts them', async () => {
       const user = userEvent.setup()
       const { onConfirm } = renderKnown()
@@ -106,7 +105,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: ['mince'],
+        someLeftIngredientIds: [],
         lowIngredientIds: [],
         usedUpCount: 1,
         someLeftCount: 1,
@@ -146,7 +145,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: ['mince', 'feta'],
+        someLeftIngredientIds: ['feta'],
         lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 2,

@@ -141,7 +141,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          someLeftIngredientIds: ['tahini', 'onion'],
+          someLeftIngredientIds: ['tahini'],
           lowIngredientIds: ['mince'],
         }),
       )
@@ -158,7 +158,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['tahini'],
-        someLeftIngredientIds: ['mince'],
+        someLeftIngredientIds: [],
         lowIngredientIds: ['onion'],
         usedUpCount: 2,
         someLeftCount: 1,

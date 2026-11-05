@@ -359,16 +359,8 @@ describe('MealCard status from the menu', () => {
       }),
     )
     await expectCookedPill()
-    // The known rows keep their preset "Some left" (HON-1583), and each is
-    // named so the server knows it was answered (HON-1582).
-    expect(patches).toEqual([
-      {
-        status: 'completed',
-        deductPantry: true,
-        usedUpIngredientIds: [],
-        someLeftIngredientIds: ['chicken-thigh', 'garlic'],
-      },
-    ])
+    // The known row keeps its preset "Some left" (HON-1583).
+    expect(patches).toEqual([{ status: 'completed', deductPantry: true, usedUpIngredientIds: [] }])
     await waitFor(() => expect(trigger()).toHaveFocus())
   })
 

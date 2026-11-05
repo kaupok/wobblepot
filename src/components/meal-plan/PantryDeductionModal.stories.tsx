@@ -226,7 +226,7 @@ export const RunningLowAndStaples: Story = {
 
     await expect(args.onConfirm).toHaveBeenCalledWith({
       usedUpIngredientIds: [],
-      someLeftIngredientIds: ['onion'],
+      someLeftIngredientIds: [],
       lowIngredientIds: ['mince', 'tahini'],
       usedUpCount: 0,
       someLeftCount: 1,
