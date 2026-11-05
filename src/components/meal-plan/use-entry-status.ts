@@ -22,8 +22,11 @@ interface UseEntryStatusOptions {
   pantryDeducted?: boolean
   /** The servings a completion charges the pantry for. */
   servings: number
-  /** The main's sides, which its completion charges too (HON-1610). */
-  sides?: PlanEntrySide[]
+  /**
+   * The main's sides, which its completion charges too (HON-1610). Required,
+   * so no caller completes a slot without previewing its sides.
+   */
+  sides: PlanEntrySide[]
   /**
    * The household's pantry. Required, not defaulted: a caller that left it out
    * would complete every meal with no deduction and no word about it.

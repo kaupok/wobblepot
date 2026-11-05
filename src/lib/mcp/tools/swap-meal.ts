@@ -5,11 +5,12 @@ import { z } from 'zod'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-planning/swap-entry'
 import { EntryUpdateError } from '@/lib/meal-plans/entries'
 import { findLastPlannedDate, findNextPlannedDate } from '@/lib/meal-plans/last-planned'
-import { assertMealNotInSlot } from '@/lib/meal-plans/slot-rules'
+import { assertMealNotInSlot, followMainStatus } from '@/lib/meal-plans/slot-rules'
 import { prisma } from '@/lib/prisma'
 
 import { assertMealFitsSlot } from './meal-fit'
@@ -172,6 +173,14 @@ export const swapMeal = defineTool({
     if (!swapped) {
       throw new ToolInputError(
         `The ${mealType} on ${date} was cooked while this ran, so it cannot be swapped. Nothing was changed.`,
+      )
+    }
+    // The swap moved the main's status; its sides follow (HON-1610).
+    if (!slot.mainEntryId && slot.sides.length > 0 && (isPast || slot.status === 'skipped')) {
+      await followMainStatus(
+        slot.id,
+        isPast ? 'completed' : 'planned',
+        sumPortions(household.members),
       )
     }
 

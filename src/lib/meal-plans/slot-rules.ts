@@ -7,7 +7,12 @@ import {
   ENTRY_CHANGES_FOR_DEDUCTION,
 } from '@/lib/meal-planning/entry-components'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
-import { cookServingsSelect, getCookServings, sumPortions } from '@/lib/meal-planning/servings'
+import {
+  cookServingsSelect,
+  getCookServings,
+  getEffectiveServings,
+  sumPortions,
+} from '@/lib/meal-planning/servings'
 import { COOK_OUTCOME_INGREDIENT_SELECT } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
@@ -85,6 +90,43 @@ export async function updateSlotStatus(
   if (status !== 'completed') return setSlotStatus(entryId, status)
   if (entry.status === MealPlanEntryStatus.completed) return null
   return completeSlot(householdId, planId, entryId, patch)
+}
+
+/**
+ * Moves a main's sides after a swap changed the main's status (HON-1610). A
+ * swap on a past day logs the main as eaten, so its planned sides are logged
+ * too, at their servings and with the pantry marker, as `createSide` logs a
+ * side of a cooked main (Q7). A swap out of skipped plans the main again, so
+ * its skipped sides are planned again, as a revert does.
+ */
+export async function followMainStatus(
+  mainEntryId: string,
+  status: 'completed' | 'planned',
+  householdServings: number,
+): Promise<void> {
+  if (status === 'planned') {
+    await prisma.mealPlanEntry.updateMany({
+      where: { mainEntryId, status: MealPlanEntryStatus.skipped },
+      data: { status: MealPlanEntryStatus.planned },
+    })
+    return
+  }
+  const sides = await prisma.mealPlanEntry.findMany({
+    where: { mainEntryId, status: MealPlanEntryStatus.planned },
+    select: { id: true, servingOverride: true, mainEntry: { select: { servingOverride: true } } },
+  })
+  await prisma.$transaction(
+    sides.map((side) =>
+      prisma.mealPlanEntry.updateMany({
+        where: { id: side.id, status: MealPlanEntryStatus.planned },
+        data: {
+          status: MealPlanEntryStatus.completed,
+          cookedServings: getEffectiveServings(side, householdServings),
+          pantryDeductedAt: new Date(),
+        },
+      }),
+    ),
+  )
 }
 
 /**

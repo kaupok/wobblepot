@@ -34,7 +34,7 @@ import { noteScatter } from './note-placement'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { ProteinBadge } from './ProteinBadge'
-import { clearedSides, slotComponents } from './side-dishes'
+import { clearedSides, NO_SIDES, slotComponents } from './side-dishes'
 import { SideDishLines } from './SideDishLines'
 import { StickyNote } from './StickyNote'
 import type {
@@ -55,9 +55,6 @@ import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './u
 import { useMealCardClick } from './use-meal-card-click'
 import { useNoteDrag } from './use-note-drag'
 import { usePickForMe } from './use-pick-for-me'
-
-/** No sides: one array, so the deduction memo keeps its identity. */
-const NO_SIDES: PlanEntrySide[] = []
 
 interface MealCardProps {
   entryId: string

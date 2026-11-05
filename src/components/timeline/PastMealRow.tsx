@@ -6,11 +6,13 @@ import { useId, useState } from 'react'
 
 import { MealRatingInline } from '@/components/meal-plan/MealRating'
 import { PantryDeductionModal } from '@/components/meal-plan/PantryDeductionModal'
+import { clearedSides, NO_SIDES, slotComponents } from '@/components/meal-plan/side-dishes'
 import type {
   EntryRating,
   MealData,
   MealStatus,
   PantryItemFull,
+  PlanEntrySide,
 } from '@/components/meal-plan/types'
 import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
 import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
@@ -42,6 +44,8 @@ interface PastMealRowProps {
   onFocused?: () => void
   /** Remove deleted the entry; the list moves focus to the empty slot that replaces it. */
   onCleared?: () => void
+  /** The slot's sides: Cooked charges them and Remove takes them with it (HON-1610). */
+  sides?: PlanEntrySide[]
 }
 
 /**
@@ -74,6 +78,7 @@ export function PastMealRow({
   autoFocus,
   onFocused,
   onCleared,
+  sides = NO_SIDES,
 }: PastMealRowProps) {
   const t = useTranslations('pastMeals.row')
   const mealTypeLabel = useEnumLabel('MealType', mealType)
@@ -95,6 +100,7 @@ export function PastMealRow({
     initialStatus,
     pantryDeducted,
     servings,
+    sides,
     pantryItems,
     source: 'past_meals',
   })
@@ -129,6 +135,7 @@ export function PastMealRow({
       rating,
       // The current state, so a charge made since the page loaded is kept.
       pantryDeducted: isPantryCharged,
+      sides: clearedSides(sides),
     })
   }
 
@@ -223,8 +230,8 @@ export function PastMealRow({
         open={isDeductionModalOpen}
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
-        components={meal.components}
-        householdServings={servings}
+        components={slotComponents(meal.components, servings, sides, isPantryCharged)}
+        householdServings={1}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

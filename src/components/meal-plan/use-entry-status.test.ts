@@ -55,6 +55,7 @@ function renderStatusHook(
         initialStatus: options.initialStatus ?? 'planned',
         pantryDeducted: options.pantryDeducted,
         servings: 4,
+        sides: [],
         pantryItems,
         source: 'past_meals',
         onCompleted: options.onCompleted,

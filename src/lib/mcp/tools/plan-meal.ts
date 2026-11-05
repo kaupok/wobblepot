@@ -77,6 +77,13 @@ export const planMeal = defineTool({
     const planId = await findOrCreateMealPlan(household.id)
     const lastPlannedOn = await findLastPlannedDate(household.id, mealId, date)
     const nextPlannedOn = await findNextPlannedDate(household.id, mealId, date)
+    // Read before the write: a refusal of a side names the meal.
+    const locale = resolveHouseholdLocale(household)
+    const named = await prisma.meal.findUniqueOrThrow({
+      where: { id: mealId },
+      select: { name: true, ...mealTranslationsInclude(locale) },
+    })
+    const mealName = translateMeal(named, locale).name
     let created: { id: string; status: string }
     if (role === 'side') {
       try {
@@ -88,17 +95,12 @@ export const planMeal = defineTool({
         })
       } catch (error) {
         if (!(error instanceof SideCreateError)) throw error
-        throw new ToolInputError(sideRefusal(error.reason, mealType, date))
+        throw new ToolInputError(sideRefusal(error.reason, mealType, date, mealName))
       }
     } else {
       created = await planMain(household.id, planId, date, mealType, mealId, isPast, servings)
     }
 
-    const locale = resolveHouseholdLocale(household)
-    const named = await prisma.meal.findUniqueOrThrow({
-      where: { id: mealId },
-      select: { name: true, ...mealTranslationsInclude(locale) },
-    })
     return {
       outcome: 'planned' as const,
       role,
@@ -106,21 +108,26 @@ export const planMeal = defineTool({
       status: created.status === 'completed' ? ('cooked' as const) : ('planned' as const),
       date,
       mealType,
-      meal: { id: mealId, name: translateMeal(named, locale).name },
+      meal: { id: mealId, name: mealName },
       lastPlannedOn,
       nextPlannedOn,
     }
   },
 })
 
-function sideRefusal(reason: SideCreateRefusal, mealType: string, date: string): string {
+function sideRefusal(
+  reason: SideCreateRefusal,
+  mealType: string,
+  date: string,
+  mealName: string,
+): string {
   switch (reason) {
     case 'noMain':
       return `The ${mealType} on ${date} has no meal to add a side to. Plan the main first with plan_meal. Nothing was changed.`
     case 'mainSkipped':
       return `This slot was skipped: the ${mealType} on ${date}. Set it back to planned with set_meal_status first. Nothing was changed.`
     case 'alreadyInSlot':
-      return `This meal is already in this slot: the ${mealType} on ${date}. Nothing was changed.`
+      return `${mealName} is already in this slot: the ${mealType} on ${date}. Nothing was changed.`
     case 'mealNotFound':
       return 'This meal was deleted while this ran. Use list_meals to find another. Nothing was changed.'
   }

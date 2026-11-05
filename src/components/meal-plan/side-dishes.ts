@@ -1,6 +1,9 @@
 import type { MealComponent, PlanEntrySide } from './types'
 import type { RestoredSide } from './use-clear-entry'
 
+/** No sides: one array, so a memo over the sides keeps its identity. */
+export const NO_SIDES: PlanEntrySide[] = []
+
 /**
  * The sides Cooked on their main charges (HON-1610): planned ones not charged
  * before. A skipped side was not made.

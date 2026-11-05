@@ -23,7 +23,7 @@ import { CARD_CLICK_IGNORE } from '../card-click'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from '../MealImageCard'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
-import { clearedSides } from '../side-dishes'
+import { clearedSides, NO_SIDES } from '../side-dishes'
 import { SideDishLines } from '../SideDishLines'
 import { StickyNote } from '../StickyNote'
 import type { FridgeMealItem, MealStatus, PantryItemFull, PlanEntrySide } from '../types'
@@ -81,7 +81,7 @@ export function FridgeMealCard({
   pantryItems,
   pantryDeducted = false,
   onCleared,
-  sides: sideDishes = [],
+  sides: sideDishes = NO_SIDES,
 }: FridgeMealCardProps) {
   const router = useRouter()
   const locale = useLocale()
@@ -117,6 +117,7 @@ export function FridgeMealCard({
     initialStatus,
     pantryDeducted,
     servings: 0,
+    sides: sideDishes,
     pantryItems,
     source: 'meal_card',
   })

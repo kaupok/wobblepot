@@ -9,7 +9,13 @@ import {
   toFridgeItemInput,
   useFridgeItemText,
 } from '@/components/meal-plan/fridge-meal/use-fridge-item-text'
-import type { FridgeMealItem, MealStatus, PantryItemFull } from '@/components/meal-plan/types'
+import { clearedSides, NO_SIDES } from '@/components/meal-plan/side-dishes'
+import type {
+  FridgeMealItem,
+  MealStatus,
+  PantryItemFull,
+  PlanEntrySide,
+} from '@/components/meal-plan/types'
 import { useClearEntry } from '@/components/meal-plan/use-clear-entry'
 import { useEntryStatus } from '@/components/meal-plan/use-entry-status'
 import { Button } from '@/components/ui/button'
@@ -37,6 +43,8 @@ interface PastFridgeRowProps {
   onFocused?: () => void
   /** Remove deleted the entry; the list moves focus to the empty slot that replaces it. */
   onCleared?: () => void
+  /** The slot's sides: Remove takes them with it, and Undo brings them back (HON-1610). */
+  sides?: PlanEntrySide[]
 }
 
 /**
@@ -62,6 +70,7 @@ export function PastFridgeRow({
   autoFocus,
   onFocused,
   onCleared,
+  sides = NO_SIDES,
 }: PastFridgeRowProps) {
   const t = useTranslations('pastMeals.row')
   const tFridge = useTranslations('meal-plan.fridge')
@@ -84,6 +93,7 @@ export function PastFridgeRow({
     initialStatus,
     pantryDeducted,
     servings: 0,
+    sides,
     pantryItems,
     source: 'past_meals',
   })
@@ -127,6 +137,7 @@ export function PastFridgeRow({
       noteX: note ? noteX : null,
       noteY: note ? noteY : null,
       pantryDeducted: isPantryCharged,
+      sides: clearedSides(sides),
     })
   }
 

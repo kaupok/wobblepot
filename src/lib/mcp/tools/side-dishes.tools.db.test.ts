@@ -168,7 +168,9 @@ describe('plan_meal role side', () => {
     })
     expect(await side({ date: day(4) })).toContain('Plan the main first')
 
-    expect(await side({ date: TOMORROW, mealId: 'stew' })).toContain('already in this slot')
+    expect(await side({ date: TOMORROW, mealId: 'stew' })).toContain(
+      'Glimmer stew is already in this slot',
+    )
 
     await prisma.mealPlanEntry.update({ where: { id: 'entry-main' }, data: { status: 'skipped' } })
     expect(await side({ date: TOMORROW })).toContain('This slot was skipped')
@@ -223,6 +225,42 @@ describe('the slot tools with entryId', () => {
     const swapped = await run(swapMeal, household, { ...SLOT, mealId: 'soup' })
     expect(swapped.keptSides).toEqual([{ id: 'slaw', name: 'Cabbage slaw' }])
     expect((await read(sideId))?.mainEntryId).toBe('entry-main')
+  })
+
+  it('swap_meal moves the sides with the main: logged on a past day, planned again out of skipped', async () => {
+    const household = await sidesWorld()
+    await prisma.meal.create({ data: { id: 'soup', name: 'Soup', suitableFor: ['dinner'] } })
+    await prisma.mealPlanEntry.create({
+      data: {
+        id: 'entry-past',
+        planId: 'plan-alder',
+        date: parseLocalDate(day(-2)),
+        mealType: 'dinner',
+        mealId: 'stew',
+      },
+    })
+    const past = { date: day(-2), mealType: 'dinner' }
+    const pastSide = await run(planMeal, household, { ...past, mealId: 'salad', role: 'side' })
+    expect(pastSide.status).toBe('planned')
+
+    await run(swapMeal, household, { ...past, mealId: 'soup' })
+
+    const logged = await read(pastSide.entryId)
+    // The fixture household's two adults: the main's override was reset by the swap.
+    expect(logged).toMatchObject({ status: 'completed', cookedServings: 2 })
+    expect(logged?.pantryDeductedAt).not.toBeNull()
+  })
+
+  it('swap_meal plans the sides again when it swaps a skipped main', async () => {
+    const { household, sideId } = await withSalad()
+    await run(setMealStatus, household, { ...SLOT, status: 'skipped' })
+    expect((await read(sideId))?.status).toBe('skipped')
+    await prisma.meal.create({ data: { id: 'soup', name: 'Soup', suitableFor: ['dinner'] } })
+
+    await run(swapMeal, household, { ...SLOT, mealId: 'soup' })
+
+    expect((await read('entry-main'))?.status).toBe('planned')
+    expect((await read(sideId))?.status).toBe('planned')
   })
 
   it('get_meal reads a side by its mealId, with and without entryId', async () => {
