@@ -122,7 +122,11 @@ describe('updateEntry: a cooked meal and "have some" rows', () => {
     const householdId = await world()
     await stock(householdId, { beetroot: null, cumin: null, pumpkin: null })
 
-    const result = await update(householdId, { ...complete, usedUpIngredientIds: ['beetroot'] })
+    const result = await update(householdId, {
+      ...complete,
+      usedUpIngredientIds: ['beetroot'],
+      someLeftIngredientIds: ['cumin', 'pumpkin'],
+    })
 
     expect(result).toMatchObject({ pantryDeducted: true })
     expect(await pantry(householdId)).toEqual({ beetroot: 0, cumin: null, pumpkin: null })
@@ -143,13 +147,36 @@ describe('updateEntry: a cooked meal and "have some" rows', () => {
     })
   })
 
-  it('keeps every "have some" row for an empty list', async () => {
+  it('keeps every "have some" row the cook names some left, fresh ones too', async () => {
     const householdId = await world()
     await stock(householdId, { beetroot: null, pumpkin: null })
 
-    await update(householdId, { ...complete, usedUpIngredientIds: [] })
+    await update(householdId, {
+      ...complete,
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: ['beetroot', 'pumpkin'],
+    })
 
     expect(await pantry(householdId)).toEqual({ beetroot: null, pumpkin: null })
+  })
+
+  // A row added after the Cooked dialog loaded is in no list (HON-1582).
+  it('gives a "have some" row in no list its default when the cook names others', async () => {
+    const householdId = await world()
+    await stock(householdId, { beetroot: null, cumin: null, pumpkin: null, quinoa: null })
+
+    await update(householdId, {
+      ...complete,
+      usedUpIngredientIds: ['beetroot'],
+      someLeftIngredientIds: ['cumin'],
+    })
+
+    expect(await pantry(householdId)).toEqual({
+      beetroot: 0,
+      cumin: null,
+      pumpkin: 0,
+      quinoa: null,
+    })
   })
 
   it('sets an overshot known row to 0 and keeps it', async () => {
@@ -174,7 +201,11 @@ describe('updateEntry: a cooked meal and "have some" rows', () => {
     const householdId = await world()
     await stock(householdId, { beetroot: null, quinoa: 1000 })
 
-    await update(householdId, { ...complete, usedUpIngredientIds: [] })
+    await update(householdId, {
+      ...complete,
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: ['beetroot'],
+    })
     await update(householdId, { status: 'planned' })
     await update(householdId, { ...complete, usedUpIngredientIds: ['beetroot'] })
 

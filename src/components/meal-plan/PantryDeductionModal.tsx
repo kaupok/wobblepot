@@ -274,11 +274,19 @@ function DeductionContent({
       usedUpIngredientIds: usedUp
         .filter((item) => !item.willBeRemoved)
         .map((item) => item.ingredientId),
-      // A row the sum runs out goes here so it reads "have some", and a low
-      // row so its mark clears. Any other row at "Some left" is in no list:
-      // the server leaves it as the sum says.
+      // A "have some" row at "Some left" goes here so it stays: the server
+      // gives a row in no list its default, so a row added after this dialog
+      // loaded still gets one (HON-1582). The default never touches a staple,
+      // so a staple goes here only when it is low. A known row goes here when the sum
+      // runs it out, so it reads "have some", or when it is low, so its mark
+      // clears. Any other known row is in no list, so the server subtracts
+      // from the live pantry and a row emptied since this dialog loaded reads
+      // "ran out".
       someLeftIngredientIds: someLeft
-        .filter((item) => item.willBeRemoved || item.low)
+        .filter(
+          (item) =>
+            (item.currentQuantity === null && !item.isStaple) || item.willBeRemoved || item.low,
+        )
         .map((item) => item.ingredientId),
       lowIngredientIds: low.map((item) => item.ingredientId),
       usedUpCount: usedUp.length,

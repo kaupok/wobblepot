@@ -284,6 +284,23 @@ describe('set_meal_status', () => {
     expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': null })
   })
 
+  // The server gives a row in no list its default (HON-1582), so the tool
+  // names a running-low "have some" row as low: some left would clear it.
+  it('keeps a running-low "have some" row and its mark when the household answers', async () => {
+    const household = await world()
+    await prisma.pantryItem.updateMany({
+      where: { ingredientId: 'ing-peas' },
+      data: { quantity: null, lowAt: new Date('2026-11-01T00:00:00Z') },
+    })
+
+    const result = await call(household, day(1), { status: 'cooked', usedUpIngredientIds: [] })
+
+    expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
+    expect(await pantry(household)).toEqual({ ...STOCKED, 'ing-peas': null })
+    const peas = await prisma.pantryItem.findFirstOrThrow({ where: { ingredientId: 'ing-peas' } })
+    expect(peas.lowAt).toBeInstanceOf(Date)
+  })
+
   it('refuses an empty slot', async () => {
     const household = await world()
 

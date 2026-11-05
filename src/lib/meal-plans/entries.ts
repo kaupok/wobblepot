@@ -77,8 +77,9 @@ export interface EntryPatch {
   rating?: 'up' | 'down' | null
   /**
    * The pantry items the household used up: a fridge meal's (HON-1277), or
-   * the "have some" rows a cooked recipe meal ran out (HON-1563). Absent on a
-   * recipe meal, each row takes `defaultCookOutcome`. On a recipe meal it can
+   * the "have some" rows a cooked recipe meal ran out (HON-1563). On a recipe
+   * meal, a row in none of the three lists takes `defaultCookOutcome`
+   * (HON-1582), so a caller names every row it asked about. It can
    * name a known-amount row too, which goes to `0` with no decrement
    * (HON-1583).
    */

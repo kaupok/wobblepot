@@ -220,7 +220,9 @@ describe('PantryDeductionModal', () => {
       expect(screen.getByText('Pumpkin').closest('li')).not.toHaveTextContent('→')
     })
 
-    it('sends the ids left at "Used up" on Confirm', async () => {
+    // Every answered row is in one list, so the server can give a row the
+    // dialog never showed its default (HON-1582).
+    it('sends the ids left at "Used up" and at "Some left" on Confirm', async () => {
       const user = userEvent.setup()
       const { onConfirm } = renderHaveSome()
 
@@ -228,7 +230,15 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot'],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: [
+          'cumin',
+          'smoked-paprika',
+          'tahini',
+          'quinoa',
+          'chickpeas',
+          'pumpkin-seeds',
+          'lemon',
+        ],
         lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
@@ -249,7 +259,15 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'sweet-potato', 'beetroot', 'tahini'],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: [
+          'carrot',
+          'cumin',
+          'smoked-paprika',
+          'quinoa',
+          'chickpeas',
+          'pumpkin-seeds',
+          'lemon',
+        ],
         lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
@@ -258,7 +276,7 @@ describe('PantryDeductionModal', () => {
       })
     })
 
-    it('sends an empty list when every row has some left', async () => {
+    it('sends every row as some left when every row has some left', async () => {
       const user = userEvent.setup()
       const cupboard = haveSomePantryItems.filter((item) =>
         ['cumin', 'tahini', 'quinoa'].includes(item.ingredientId),
@@ -269,7 +287,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: ['cumin', 'tahini', 'quinoa'],
         lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 3,
