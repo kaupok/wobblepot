@@ -4,6 +4,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import {
   applyEntryChanges,
+  changeSetKey,
   ENTRY_CHANGES_FOR_DEDUCTION,
 } from '@/lib/meal-planning/entry-components'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
@@ -73,12 +74,21 @@ export async function updateSlotStatus(
   }
   if (entry._count.sides === 0) return null
 
-  // A main with sides and more than a status change, such as "complete for
-  // N servings": the rest goes first, on the entry's own path, then the
-  // status moves the slot.
   const rest = Object.fromEntries(
     Object.entries(patch).filter(([key]) => !STATUS_KEYS.has(key as keyof EntryPatch)),
   )
+  // "Complete for N servings", or with a rating: written in the completion's
+  // own transaction, so a refusal writes nothing, as `updateEntry` does.
+  if (
+    status === 'completed' &&
+    entry.status !== MealPlanEntryStatus.completed &&
+    Object.keys(rest).every((key) => key === 'servingOverride' || key === 'rating')
+  ) {
+    return completeSlot(householdId, planId, entryId, patch)
+  }
+
+  // Any other extra key (a swap, a note) goes first, on the entry's own path,
+  // then the status moves the slot.
   if (Object.keys(rest).length > 0) {
     await updateEntry(householdId, planId, entryId, rest)
     const statusPatch = Object.fromEntries(
@@ -88,8 +98,7 @@ export async function updateSlotStatus(
   }
 
   if (status !== 'completed') return setSlotStatus(entryId, status)
-  if (entry.status === MealPlanEntryStatus.completed) return null
-  return completeSlot(householdId, planId, entryId, patch)
+  return null
 }
 
 /**
@@ -212,7 +221,9 @@ const dishSelect = {
  * The charge is one deduction per ingredient, summed across the dishes, so an
  * ingredient two dishes use is charged once (Q6). A fridge main charges its
  * used-up items as `completeFridgeEntry` does, and its sides by their recipes
- * when the request asks to deduct.
+ * when the request asks to deduct. A `servingOverride` or `rating` in the
+ * patch is written to the main in the same transaction, and the main and the
+ * sides that follow it are priced at the new count.
  */
 async function completeSlot(
   householdId: string,
@@ -247,11 +258,21 @@ async function completeSlot(
 
   const householdServings = sumPortions(main.plan.household.members)
   const isFridge = main.kind === 'fridge'
+  // What this request writes to the main besides its status.
+  const servingOverride =
+    'servingOverride' in patch ? (patch.servingOverride ?? null) : main.servingOverride
+  const mainData = {
+    ...('servingOverride' in patch && { servingOverride }),
+    // The tips are priced at the old count (HON-681).
+    ...(servingOverride !== main.servingOverride && { preparationTips: null }),
+    ...('rating' in patch && { rating: patch.rating ?? null }),
+  }
+  const sides = main.sides.map((side) => ({ ...side, mainEntry: { servingOverride } }))
   // Only a completion that asks to deduct charges a recipe dish: a fridge
   // card's completion names its items only, so its sides stay uncharged
   // until a dialog shows their rows.
   const charges = patch.deductPantry === true
-  const recipeDishes = isFridge ? main.sides : [main, ...main.sides]
+  const recipeDishes = isFridge ? sides : [{ ...main, servingOverride }, ...sides]
 
   const priced = recipeDishes.map((dish) => {
     const cookServings = getCookServings(dish, householdServings)
@@ -282,7 +303,7 @@ async function completeSlot(
   const pantryDeducted = await prisma.$transaction(async (tx) => {
     let fridgeCharged = false
     if (isFridge) {
-      const data = { status: MealPlanEntryStatus.completed }
+      const data = { status: MealPlanEntryStatus.completed, ...mainData }
       fridgeCharged = await chargeFridgeEntry(
         tx,
         householdId,
@@ -305,6 +326,7 @@ async function completeSlot(
           status: MealPlanEntryStatus.completed,
           ...(dish.kind === 'meal' && { cookedServings: cookServings }),
           ...(charged && { pantryDeductedAt: new Date() }),
+          ...(dish.id === main.id && mainData),
         },
       })
       if (
@@ -313,6 +335,18 @@ async function completeSlot(
         claimed.servingOverride !== dish.servingOverride
       ) {
         throw new EntryUpdateError('staleMeal')
+      }
+      // And the ingredient changes, which a change write locks this row for
+      // first (`claimPlannedEntry`, HON-1243): one committed since the read
+      // is visible here.
+      if (charged) {
+        const changesNow = await tx.mealPlanEntryComponent.findMany({
+          where: { entryId: dish.id },
+          select: { id: true },
+        })
+        if (changeSetKey(changesNow) !== changeSetKey(dish.changes)) {
+          throw new EntryUpdateError('staleMeal')
+        }
       }
     }
 
@@ -324,7 +358,7 @@ async function completeSlot(
     id: main.id,
     status: MealPlanEntryStatus.completed,
     mealId: main.mealId,
-    rating: main.rating,
+    rating: 'rating' in patch ? (patch.rating ?? null) : main.rating,
     pantryDeducted,
   }
 }

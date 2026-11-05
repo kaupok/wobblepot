@@ -182,12 +182,14 @@ describe('Cooked on a main with sides', () => {
       status: 'completed',
       deductPantry: true,
       servingOverride: 4,
+      rating: 'up',
     })
 
     expect(await readEntry('entry-alder')).toMatchObject({
       status: 'completed',
       servingOverride: 4,
       cookedServings: 4,
+      rating: 'up',
     })
     // A side with no override follows the main's own servings.
     expect(await readEntry('entry-side-salad')).toMatchObject({
