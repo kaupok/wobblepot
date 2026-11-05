@@ -2,8 +2,10 @@
 // Learn more about Prisma: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  // The one-main-per-slot index on `MealPlanEntry` is partial (HON-1608).
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -31,6 +33,14 @@ enum MealType {
   breakfast
   lunch
   dinner
+}
+
+/// A recipe's usual role in a slot (HON-1608). A hint only: placement decides
+/// the role, so any recipe can be planned as a main or a side. Suggestions
+/// offer only `main` recipes.
+enum MealCourse {
+  main
+  side
 }
 
 enum MealPlanEntryStatus {
@@ -695,6 +705,7 @@ model Meal {
   proteinTypeOverride ProteinType?
   suitableFor         MealType[]
   servings            Int          @default(4)
+  course              MealCourse   @default(main)
   householdId         String?
   deletedAt           DateTime?
   household           Household?   @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -866,6 +877,10 @@ model MealPlanEntry {
   /// steps follow the instruction and not only the ingredient list. Written by
   /// `replaceEntryChanges`, and cleared with the entry's last change.
   adjustmentNote   String?
+  /// Set on a side dish: the slot's main entry (HON-1608). Null on a main. A
+  /// side has its own servings, changes, status and rating, and is deleted
+  /// with its main.
+  mainEntryId      String?
 
   plan          MealPlan                 @relation(fields: [planId], references: [id], onDelete: Cascade)
   meal          Meal?                    @relation(fields: [mealId], references: [id])
@@ -875,8 +890,12 @@ model MealPlanEntry {
   items         MealPlanEntryItem[]      @relation("FridgeItems")
   /// Fridge-meal items that name this entry as their leftover source.
   leftoverItems MealPlanEntryItem[]      @relation("FridgeItemSource")
+  mainEntry     MealPlanEntry?           @relation("EntrySides", fields: [mainEntryId], references: [id], onDelete: Cascade)
+  sides         MealPlanEntry[]          @relation("EntrySides")
 
-  @@unique([planId, date, mealType])
+  /// One main per slot. Sides share the slot, so they are not counted.
+  @@unique([planId, date, mealType], where: raw("\"mainEntryId\" IS NULL"))
+  @@index([mainEntryId])
   @@index([mealId])
   @@index([date])
   @@map("meal_plan_entry")

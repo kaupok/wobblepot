@@ -93,6 +93,8 @@ export async function loadSlotCandidates(
     householdId: household.id,
     favoriteMealIds: favorites.map((f) => f.mealId),
     includeNetRating: true,
+    // A side recipe is never suggested as the slot's meal (HON-1608).
+    course: 'main',
   }
 
   const candidates = await getCandidates(filters)

@@ -112,6 +112,8 @@ export async function loadCandidatePools({
         dietaryType,
         householdId,
         favoriteMealIds,
+        // A side recipe is never planned as a slot's meal (HON-1608).
+        course: 'main',
       })
       candidatesByMealType.set(
         mealType,
@@ -131,6 +133,7 @@ export async function loadCandidatePools({
       primaryProteinType: 'fish',
       householdId,
       favoriteMealIds,
+      course: 'main',
     }),
     getCandidates({
       mealType: 'dinner',
@@ -140,6 +143,7 @@ export async function loadCandidatePools({
       primaryProteinType: 'legume',
       householdId,
       favoriteMealIds,
+      course: 'main',
     }),
   ])
 

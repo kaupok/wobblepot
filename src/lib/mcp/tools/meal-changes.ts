@@ -141,7 +141,7 @@ export async function writeChanges(
 export function mealIngredients(
   entry: Pick<
     AdjustContext,
-    'components' | 'servingOverride' | 'status' | 'cookedServings' | 'leftoverItems'
+    'components' | 'servingOverride' | 'mainEntry' | 'status' | 'cookedServings' | 'leftoverItems'
   >,
   household: Pick<McpHousehold, 'members'>,
   locale: string,

@@ -204,6 +204,13 @@ describe.each(['swap', 'add'] as const)('suggestForSlot in %s mode', (mode) => {
       )
     })
 
+    // HON-1608: a side recipe is never suggested as the slot's meal.
+    it('asks for main recipes only', async () => {
+      await suggest()
+
+      expect(mockGetCandidates).toHaveBeenCalledWith(expect.objectContaining({ course: 'main' }))
+    })
+
     it('lifts a liked meal and drops a disliked one past the jitter, and says why', async () => {
       mockGetCandidates.mockResolvedValue(
         tiedPool.map((c) => ({

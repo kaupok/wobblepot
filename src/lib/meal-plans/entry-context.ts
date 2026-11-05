@@ -52,7 +52,9 @@ export async function loadEntryForAi(
       plan: { householdId },
     },
     include: {
-      // The leftover lunches it feeds, for `getCookServings` (HON-1394).
+      // A side's main (HON-1608) and the leftover lunches it feeds (HON-1394),
+      // for `getCookServings`.
+      mainEntry: cookServingsSelect.mainEntry,
       leftoverItems: cookServingsSelect.leftoverItems,
       changes: {
         orderBy: { createdAt: 'asc' },

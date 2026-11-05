@@ -3,6 +3,7 @@ import {
   DietaryType,
   EntryRating,
   IngredientCategory,
+  MealCourse,
   MealType,
   ProteinType,
 } from '@/generated/prisma/enums'
@@ -55,6 +56,12 @@ export interface CandidateFilters {
    * one chosen meal passes the same filters (HON-1306).
    */
   mealId?: string
+  /**
+   * Only recipes of this course (HON-1608). The suggestion pools pass `main`, so
+   * AI fill does not plan a salad as a dinner. The check that the household's
+   * own pick fits a slot passes none: any recipe can be planned as a main.
+   */
+  course?: MealCourse
   /**
    * Attach each candidate's {@link CandidateMeal.netRating} from the household's own rated plan
    * entries. Opt-in: only the swap routes rank on it (HON-340), and plan generation should not
@@ -111,6 +118,7 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
       where: {
         suitableFor: { has: filters.mealType },
         ...(filters.mealId ? { id: filters.mealId } : {}),
+        ...(filters.course ? { course: filters.course } : {}),
         // Only non-deleted meals
         deletedAt: null,
         // Include system meals + household's custom meals if householdId provided
