@@ -18,7 +18,14 @@ const NUT_ALLERGY = {
   excludedIngredientIds: [],
 }
 
-const entry = (name: string, allergens: string[], changes: unknown[] = []) => ({
+const entry = (
+  name: string,
+  allergens: string[],
+  changes: unknown[] = [],
+  mainEntryId: string | null = null,
+) => ({
+  id: `entry-${name}`,
+  mainEntryId,
   changes,
   meal: {
     name,
@@ -58,6 +65,35 @@ describe('countConflictingPlannedEntries', () => {
       date: { gte: new Date(2026, 9, 10) },
       mealId: { not: null },
     })
+  })
+
+  it('counts a slot once when its main and its side both break the preferences (HON-1609)', async () => {
+    mockFindMany.mockResolvedValue([
+      entry('Cashews', ['nuts']),
+      entry('Walnut salad', ['nuts'], [], 'entry-Cashews'),
+      entry('Peanut noodles', ['nuts']),
+    ] as never)
+
+    const count = await countConflictingPlannedEntries(
+      { id: 'household-1', timezone: 'Europe/Tallinn' },
+      NUT_ALLERGY,
+    )
+
+    expect(count).toBe(2)
+  })
+
+  it('counts a slot whose side alone breaks the preferences (HON-1609)', async () => {
+    mockFindMany.mockResolvedValue([
+      entry('Rice', []),
+      entry('Walnut salad', ['nuts'], [], 'entry-Rice'),
+    ] as never)
+
+    const count = await countConflictingPlannedEntries(
+      { id: 'household-1', timezone: 'Europe/Tallinn' },
+      NUT_ALLERGY,
+    )
+
+    expect(count).toBe(1)
   })
 
   // The cards judge the entry's merged ingredients (HON-1243), so the count

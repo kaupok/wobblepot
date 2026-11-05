@@ -33,6 +33,8 @@ export async function countConflictingPlannedEntries(
       mealId: { not: null },
     },
     select: {
+      id: true,
+      mainEntryId: true,
       // The entry's own ingredient changes (HON-1243): the cards judge the
       // merged list (`loadPlanEntries`), so the count does too.
       changes: {
@@ -59,12 +61,18 @@ export async function countConflictingPlannedEntries(
       },
     },
   })
-  return entries.filter(
-    (entry) =>
-      entry.meal &&
-      findPreferenceConflicts(
-        { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
-        { ...preferences, excludedIngredientIds },
-      ).length > 0,
-  ).length
+  // Counted by slot, so a main and its side that both conflict count once (HON-1609).
+  const conflictingSlots = new Set(
+    entries
+      .filter(
+        (entry) =>
+          entry.meal &&
+          findPreferenceConflicts(
+            { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
+            { ...preferences, excludedIngredientIds },
+          ).length > 0,
+      )
+      .map((entry) => entry.mainEntryId ?? entry.id),
+  )
+  return conflictingSlots.size
 }

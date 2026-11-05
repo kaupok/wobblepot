@@ -29,6 +29,7 @@ export interface LeftoverSource {
  * first: the ones the source rule (`findLeftoverSourceProblem`) allows, so the
  * picker never offers a source the save refuses (HON-1396). A fridge meal is
  * not one, because it has no name to show, and a skipped entry is not cooked.
+ * Nor is a side dish: only a main gives leftovers (HON-1609).
  */
 export async function loadLeftoverSources(
   household: { id: string; locale: string | null },
@@ -54,6 +55,7 @@ export async function loadLeftoverSources(
       status: true,
       kind: true,
       mealId: true,
+      mainEntryId: true,
       meal: { select: { name: true, ...mealTranslationsInclude(household.locale) } },
     },
   })
@@ -88,13 +90,14 @@ function earliestSourceDate(targetDate: string): string {
  *
  * - `notFound`: no entry of this household's plan
  * - `notRecipe`: a fridge meal, a placeholder or a note-only card
+ * - `side`: a side dish, because only a main gives leftovers (HON-1609)
  * - `skipped`: the household will not cook it
  * - `notBefore`: not in an earlier slot than the fridge meal
  * - `tooOld`: more than `RECENT_MEALS_DAYS` before the fridge meal's day
  * - `servingsRequired`: still planned, and the item has no `servings`
  */
 export type LeftoverSourceProblem =
-  'notFound' | 'notRecipe' | 'skipped' | 'notBefore' | 'tooOld' | 'servingsRequired'
+  'notFound' | 'notRecipe' | 'side' | 'skipped' | 'notBefore' | 'tooOld' | 'servingsRequired'
 
 /**
  * The problems a change after the link can cause: a dinner skipped, made a
@@ -154,7 +157,15 @@ export async function findLeftoverSourceProblem(
 
   const sources = await prisma.mealPlanEntry.findMany({
     where: { id: { in: leftovers.map((item) => item.sourceEntryId) }, plan: { householdId } },
-    select: { id: true, date: true, mealType: true, status: true, kind: true, mealId: true },
+    select: {
+      id: true,
+      date: true,
+      mealType: true,
+      status: true,
+      kind: true,
+      mealId: true,
+      mainEntryId: true,
+    },
   })
   const byId = new Map(sources.map((source) => [source.id, source]))
   const earliestDate = earliestSourceDate(target.date)
@@ -173,6 +184,7 @@ interface SourceRow {
   status: MealPlanEntryStatus
   kind: string
   mealId: string | null
+  mainEntryId: string | null
 }
 
 function sourceProblem(
@@ -197,6 +209,7 @@ function slotProblem(
   earliestDate: string,
 ): Exclude<LeftoverSourceProblem, 'notFound' | 'servingsRequired'> | null {
   if (source.kind !== 'meal' || source.mealId === null) return 'notRecipe'
+  if (source.mainEntryId) return 'side'
   if (source.status === MealPlanEntryStatus.skipped) return 'skipped'
   const date = toDateString(source.date)
   const isBefore =

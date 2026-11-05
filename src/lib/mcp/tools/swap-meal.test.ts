@@ -189,6 +189,7 @@ describe('swap_meal', () => {
           plan: { householdId: 'household-a' },
           date: { gte: day, lt: nextDay },
           mealType: 'dinner',
+          mainEntryId: null,
         },
       }),
     )

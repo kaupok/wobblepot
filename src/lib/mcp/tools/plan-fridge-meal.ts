@@ -63,7 +63,8 @@ export const planFridgeMeal = defineTool({
 
     const day = parseLocalDate(date)
     const entry = await prisma.mealPlanEntry.findFirst({
-      where: { plan: { householdId: household.id }, date: day, mealType },
+      // The slot's main: a fridge change keeps its sides (HON-1609).
+      where: { plan: { householdId: household.id }, date: day, mealType, mainEntryId: null },
       select: { id: true, planId: true, status: true, mealId: true, note: true, kind: true },
     })
     if (entry?.status === 'completed') {
@@ -126,6 +127,7 @@ export const planFridgeMeal = defineTool({
     const nextDay = new Date(day)
     nextDay.setDate(nextDay.getDate() + 1)
     const { entries } = await loadPlanEntries(household, { startDate: day, endDate: nextDay })
+    // `loadPlanEntries` lists the slot's main only, with its sides nested.
     const written = entries.find((planned) => planned.mealType === mealType)
     return {
       outcome: isEmpty ? ('planned' as const) : ('replaced' as const),
@@ -145,6 +147,7 @@ const SOURCE_PROBLEM_MESSAGES: Record<LeftoverSourceProblem, string> = {
   notFound: 'no meal of this household has this entryId. Use get_meal_plan for it.',
   notRecipe:
     'leftovers come from a recipe meal (kind recipe in get_meal_plan), not a fridge meal or an empty slot.',
+  side: "that entry is a side dish, and only a slot's main meal gives leftovers. Use the main meal's entryId.",
   skipped: 'that meal is skipped, so there are no leftovers. Plan it again first.',
   notBefore: 'leftovers come from a meal in an earlier slot than this one.',
   tooOld: `leftovers come from a meal no more than ${RECENT_MEALS_DAYS} days before this one.`,

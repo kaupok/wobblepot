@@ -51,6 +51,19 @@ describe('aggregateComponents', () => {
     expect(needed.get('leek')).toMatchObject({ quantity: 30, mealCount: 1 })
   })
 
+  // HON-1609: a main and its side share the slot `mainEntryId ?? id`.
+  it('counts a main and its side that share an ingredient as one meal', () => {
+    const needed = aggregateComponents(
+      [
+        { date: MONDAY, servings: 4, components: [component('onion', 100)], slotId: 'main' },
+        { date: MONDAY, servings: 4, components: [component('onion', 20)], slotId: 'main' },
+        { date: TUESDAY, servings: 2, components: [component('onion', 50)], slotId: 'other' },
+      ],
+      'en',
+    )
+    expect(needed.get('onion')).toMatchObject({ quantity: 580, mealCount: 2 })
+  })
+
   it('marks an item vague, and two different phrases become "some"', () => {
     const same = aggregateComponents(
       [

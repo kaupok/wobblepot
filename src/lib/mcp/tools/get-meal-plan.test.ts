@@ -31,6 +31,7 @@ function entry(overrides: Partial<Entries[number]>): Entries[number] {
     cookServings: 2,
     leftoversFor: [],
     meal: { id: 'meal-1', name: 'Chicken soup' },
+    sides: [],
     ...overrides,
   } as Entries[number]
 }
@@ -105,6 +106,7 @@ describe('get_meal_plan', () => {
           leftoversFor: [{ date: '2026-10-13', mealType: 'lunch', servings: 2.5 }],
           isCooked: false,
           isSkipped: false,
+          sides: [],
         },
         {
           entryId: 'entry-2',
@@ -119,6 +121,7 @@ describe('get_meal_plan', () => {
           leftoversFor: [],
           isCooked: true,
           isSkipped: false,
+          sides: [],
         },
         {
           entryId: 'entry-3',
@@ -133,6 +136,7 @@ describe('get_meal_plan', () => {
           leftoversFor: [],
           isCooked: false,
           isSkipped: true,
+          sides: [],
         },
       ],
       extras: [],

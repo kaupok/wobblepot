@@ -117,6 +117,8 @@ describe('countPastMealsToMark', () => {
         date: { gte: new Date(2026, 2, 23), lt: new Date(2026, 2, 30) },
         status: 'planned',
         mealId: { not: null },
+        // One per slot: a side is marked with its main (HON-1609).
+        mainEntryId: null,
       },
     })
   })

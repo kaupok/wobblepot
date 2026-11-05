@@ -45,6 +45,32 @@ describe('daySlots otherSlots', () => {
     expect(daySlots(thursday, [placeholder], dinnerOnly).otherSlots).toEqual(['breakfast', 'lunch'])
   })
 
+  // HON-1609: `loadPlanEntries` nests a slot's sides under its main, so the day
+  // has one card for the slot.
+  it('gives a main with a side as one entry that fills its slot', () => {
+    const main = createPlanEntry({
+      id: 'main',
+      date: '2026-04-16',
+      mealType: 'dinner',
+      sides: [
+        {
+          entryId: 'side',
+          mealId: 'meal-salad',
+          mealName: 'Cucumber salad',
+          servings: 3,
+          cookServings: 3,
+          status: 'planned',
+          rating: null,
+        },
+      ],
+    })
+
+    const slots = daySlots(thursday, [main], dinnerOnly)
+
+    expect(slots.entries.map((entry) => entry.id)).toEqual(['main'])
+    expect(slots.emptySlots).toEqual([])
+  })
+
   it('is empty when every type has an entry', () => {
     const entries = (['breakfast', 'lunch', 'dinner'] as const).map((mealType) =>
       createPlanEntry({ id: mealType, mealType }),

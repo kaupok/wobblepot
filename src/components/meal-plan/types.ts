@@ -62,6 +62,17 @@ export type EntryRating = 'up' | 'down'
 
 export type MealStatus = 'planned' | 'completed' | 'skipped'
 
+/** A side dish as its main lists it (`PlanEntrySide` in `load-plan-entries.ts`). */
+export interface PlanEntrySide {
+  entryId: string
+  mealId: string | null
+  mealName: string | null
+  servings: number
+  cookServings: number
+  status: MealStatus
+  rating: EntryRating | null
+}
+
 export interface PlanEntry {
   id: string
   date: string
@@ -87,6 +98,11 @@ export interface PlanEntry {
   cookServings?: number
   /** The leftover lunches this entry feeds, in day order (HON-1394). Sent by `/api/entries` only. */
   leftoversFor?: LeftoverLunch[]
+  /**
+   * The slot's side dishes, served with this main (HON-1609). A side is never
+   * an entry of its own here. Sent by `/api/entries` only.
+   */
+  sides?: PlanEntrySide[]
   /**
    * Whether completing this entry has already charged the pantry. The server
    * charges an entry at most once, even across a revert (HON-651), so the UI

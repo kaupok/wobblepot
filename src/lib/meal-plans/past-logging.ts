@@ -46,6 +46,8 @@ export async function loadFrequentMeals(
       status: MealPlanEntryStatus.completed,
       kind: 'meal',
       mealId: { not: null },
+      // The log picker logs a main, so a side's cooks do not rank (HON-1609).
+      mainEntryId: null,
       // A deleted recipe cannot be logged (`createEntry` refuses it), so it
       // takes none of the places.
       meal: { deletedAt: null },
