@@ -128,7 +128,7 @@ describe('PantryDeductionModal', () => {
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
       const payload = onConfirm.mock.lastCall![0]
-      expect([...payload.someLeftIngredientIds].sort()).toEqual(['mince', 'onion'])
+      expect([...payload.someLeftIngredientIds].sort()).toEqual(['mince', 'onion', 'tahini'])
       expect(payload.lowIngredientIds).toEqual([])
     })
 
@@ -140,7 +140,10 @@ describe('PantryDeductionModal', () => {
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
       expect(onConfirm).toHaveBeenLastCalledWith(
-        expect.objectContaining({ someLeftIngredientIds: [], lowIngredientIds: ['mince'] }),
+        expect.objectContaining({
+          someLeftIngredientIds: ['tahini', 'onion'],
+          lowIngredientIds: ['mince'],
+        }),
       )
     })
 
@@ -155,7 +158,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['tahini'],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: ['mince'],
         lowIngredientIds: ['onion'],
         usedUpCount: 2,
         someLeftCount: 1,

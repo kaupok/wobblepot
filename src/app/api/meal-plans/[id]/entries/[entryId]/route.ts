@@ -36,7 +36,8 @@ const updateEntrySchema = z
     // A fridge meal (HON-1277): `fridgeItems` makes the entry one with these
     // items. `usedUpIngredientIds` names the pantry items a completion runs
     // out: a fridge meal's, or a recipe meal's "have some" rows (HON-1563),
-    // where leaving it out applies `defaultCookOutcome`, or its known-amount
+    // where a row in none of the three lists takes `defaultCookOutcome`
+    // (HON-1582), or its known-amount
     // rows. `someLeftIngredientIds` names the rows a recipe meal left some
     // of: a known-amount row keeps "have some" (HON-1583) and a running-low
     // row, staple or not, loses the mark (HON-1592); and `lowIngredientIds` the rows it left running

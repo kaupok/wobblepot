@@ -95,8 +95,9 @@ describe('PantryDeductionModal', () => {
       expect(within(group('Feta')).getByRole('radio', { name: 'Used up' })).toBeChecked()
     })
 
-    // The server subtracts from the live pantry, so a preset row is not named:
-    // a restock while the dialog is open still counts.
+    // The server subtracts from the live pantry, so a preset row sends its
+    // answer, never an amount: a restock while the dialog is open still counts.
+    // A row at "Some left" is named (HON-1582); one the sum runs out is not.
     it('leaves the preset rows to the server on Confirm and counts them', async () => {
       const user = userEvent.setup()
       const { onConfirm } = renderKnown()
@@ -105,7 +106,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: ['mince'],
         lowIngredientIds: [],
         usedUpCount: 1,
         someLeftCount: 1,
@@ -145,7 +146,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: ['feta'],
+        someLeftIngredientIds: ['mince', 'feta'],
         lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 2,
@@ -220,7 +221,9 @@ describe('PantryDeductionModal', () => {
       expect(screen.getByText('Pumpkin').closest('li')).not.toHaveTextContent('→')
     })
 
-    it('sends the ids left at "Used up" on Confirm', async () => {
+    // Every answered row is in one list, so the server can give a row the
+    // dialog never showed its default (HON-1582).
+    it('sends the ids left at "Used up" and at "Some left" on Confirm', async () => {
       const user = userEvent.setup()
       const { onConfirm } = renderHaveSome()
 
@@ -228,7 +231,15 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot'],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: [
+          'cumin',
+          'smoked-paprika',
+          'tahini',
+          'quinoa',
+          'chickpeas',
+          'pumpkin-seeds',
+          'lemon',
+        ],
         lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
@@ -249,7 +260,15 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: ['pumpkin', 'sweet-potato', 'beetroot', 'tahini'],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: [
+          'carrot',
+          'cumin',
+          'smoked-paprika',
+          'quinoa',
+          'chickpeas',
+          'pumpkin-seeds',
+          'lemon',
+        ],
         lowIngredientIds: [],
         usedUpCount: 4,
         someLeftCount: 7,
@@ -258,7 +277,7 @@ describe('PantryDeductionModal', () => {
       })
     })
 
-    it('sends an empty list when every row has some left', async () => {
+    it('sends every row as some left when every row has some left', async () => {
       const user = userEvent.setup()
       const cupboard = haveSomePantryItems.filter((item) =>
         ['cumin', 'tahini', 'quinoa'].includes(item.ingredientId),
@@ -269,7 +288,7 @@ describe('PantryDeductionModal', () => {
 
       expect(onConfirm).toHaveBeenCalledWith({
         usedUpIngredientIds: [],
-        someLeftIngredientIds: [],
+        someLeftIngredientIds: ['cumin', 'tahini', 'quinoa'],
         lowIngredientIds: [],
         usedUpCount: 0,
         someLeftCount: 3,

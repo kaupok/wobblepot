@@ -135,8 +135,11 @@ describe('set_meal_status cooked on a recipe meal', () => {
     })
   })
 
+  // The server gives a row in no list its default (HON-1582), so the tool
+  // names the "have some" rows it did not list as some left. A known amount
+  // and a staple stay out: the default never zeroes either.
   it('deducts with the household’s used-up ids on the second call', async () => {
-    vi.mocked(previewCookDeduction).mockResolvedValue([BEETROOT, CUMIN])
+    vi.mocked(previewCookDeduction).mockResolvedValue([BEETROOT, CUMIN, RICE, ONION])
 
     const result = await call({ status: 'cooked', usedUpIngredientIds: ['beetroot'] })
 
@@ -145,6 +148,7 @@ describe('set_meal_status cooked on a recipe meal', () => {
       status: 'completed',
       deductPantry: true,
       usedUpIngredientIds: ['beetroot'],
+      someLeftIngredientIds: ['cumin'],
     })
     expect(result).toMatchObject({ outcome: 'updated', pantryDeducted: true })
     expect(result).not.toHaveProperty('pantryCheck')
@@ -159,8 +163,23 @@ describe('set_meal_status cooked on a recipe meal', () => {
       status: 'completed',
       deductPantry: true,
       usedUpIngredientIds: [],
+      someLeftIngredientIds: ['beetroot', 'cumin'],
     })
     expect(result).toMatchObject({ outcome: 'updated' })
+  })
+
+  it('sends an unlisted running-low "have some" row as low, so it keeps its mark', async () => {
+    vi.mocked(previewCookDeduction).mockResolvedValue([BEETROOT, { ...CUMIN, low: true }])
+
+    await call({ status: 'cooked', usedUpIngredientIds: [] })
+
+    expect(updateEntry).toHaveBeenCalledWith('household-1', 'plan-1', 'entry-roast', {
+      status: 'completed',
+      deductPantry: true,
+      usedUpIngredientIds: [],
+      someLeftIngredientIds: ['beetroot'],
+      lowIngredientIds: ['cumin'],
+    })
   })
 
   it('deducts at once when every row has a known amount', async () => {

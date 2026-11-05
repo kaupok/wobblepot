@@ -21,7 +21,7 @@ export interface Deduction {
  * quantity is read first.
  */
 export interface CookOutcomeSets {
-  /** "Have some" rows (`quantity: null`) that go to `0`: the default when the cook sent no answer. */
+  /** "Have some" rows (`quantity: null`) that go to `0`: the default for a row in no list. */
   ranOut: ReadonlySet<string>
   /** Rows the cook named used up: `0`, whatever the quantity, with no decrement. */
   usedUp: ReadonlySet<string>
@@ -39,10 +39,11 @@ export interface CookOutcomeSets {
 }
 
 /**
- * Sort the meal's ingredients into `CookOutcomeSets`. With the cook's
- * `usedUpListed` sent, those ids are used up and every other null row keeps
- * its "have some"; without it, `defaultCookOutcome` picks the null rows the
- * meal ran out, and a known row only subtracts. An id in more than one list
+ * Sort the meal's ingredients into `CookOutcomeSets`. A row the cook named in
+ * a list follows that answer. A null row in no list, such as one added after
+ * the Cooked dialog loaded (HON-1582), takes `defaultCookOutcome`, which picks
+ * the null rows the meal ran out; a known row in no list only subtracts. So
+ * a caller that means "some left" names the row. An id in more than one list
  * takes the first of used up, running low, some left. An id that is not one
  * of `components` is never returned, so a completion cannot zero the rest of
  * the pantry.
@@ -53,11 +54,11 @@ export function ranOutIngredientIds(
     ingredient: { category: IngredientCategory; subcategory: string | null; defaultUnit: Unit }
   }[],
   deductions: readonly Deduction[],
-  usedUpListed: readonly string[] | undefined,
+  usedUpListed: readonly string[] | undefined = undefined,
   someLeftListed: readonly string[] | undefined = undefined,
   lowListed: readonly string[] | undefined = undefined,
 ): CookOutcomeSets {
-  const usedUpIds = usedUpListed === undefined ? undefined : new Set(usedUpListed)
+  const usedUpIds = new Set(usedUpListed)
   const someLeftIds = new Set(someLeftListed)
   const lowIds = new Set(lowListed)
   const ranOut = new Set<string>()
@@ -65,7 +66,7 @@ export function ranOutIngredientIds(
   const someLeft = new Set<string>()
   const low = new Set<string>()
   for (const { ingredientId, ingredient } of components) {
-    if (usedUpIds?.has(ingredientId)) {
+    if (usedUpIds.has(ingredientId)) {
       usedUp.add(ingredientId)
       continue
     }
@@ -73,9 +74,11 @@ export function ranOutIngredientIds(
       low.add(ingredientId)
       continue
     }
-    if (someLeftIds.has(ingredientId)) someLeft.add(ingredientId)
+    if (someLeftIds.has(ingredientId)) {
+      someLeft.add(ingredientId)
+      continue
+    }
     if (
-      !usedUpIds &&
       defaultCookOutcome({
         pantryQuantity: null,
         isStaple: false,

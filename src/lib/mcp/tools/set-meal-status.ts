@@ -153,14 +153,18 @@ export const setMealStatus = defineTool({
     // `[]` is an answer too: everything has some left. A low list answers only
     // the rows it names, so a "have some" row outside it is still asked: the
     // server's default could run it out, once and for good.
-    if (status === 'cooked' && !isFridge && usedUpIngredientIds === undefined) {
-      const pantryCheck = await previewCookDeduction(
-        household.id,
-        slot.planId,
-        slot.id,
-        resolveHouseholdLocale(household),
-      )
-      const low = new Set(lowIngredientIds)
+    const pantryCheck =
+      status === 'cooked' && !isFridge
+        ? await previewCookDeduction(
+            household.id,
+            slot.planId,
+            slot.id,
+            resolveHouseholdLocale(household),
+          )
+        : []
+    const usedUp = new Set(usedUpIngredientIds)
+    const low = new Set(lowIngredientIds)
+    if (usedUpIngredientIds === undefined) {
       const unanswered = (row: (typeof pantryCheck)[number]) =>
         lowIngredientIds === undefined
           ? row.pantryQuantity === null || row.isStaple
@@ -178,6 +182,27 @@ export const setMealStatus = defineTool({
       }
     }
 
+    // With the used-up ids sent, a "have some" row the call does not name
+    // stays as it is, as the tool description says. The server gives a row in
+    // no list its default (HON-1582), so name it: some left, or running low
+    // when it is low already, because some left would clear the mark
+    // (HON-1592). A staple stays out: the default never touches one.
+    const unlisted =
+      usedUpIngredientIds === undefined
+        ? []
+        : pantryCheck.filter(
+            (row) =>
+              row.pantryQuantity === null &&
+              !row.isStaple &&
+              !usedUp.has(row.ingredientId) &&
+              !low.has(row.ingredientId),
+          )
+    const someLeftIngredientIds = unlisted.filter((row) => !row.low).map((row) => row.ingredientId)
+    const lowIds = [
+      ...(lowIngredientIds ?? []),
+      ...unlisted.filter((row) => row.low).map((row) => row.ingredientId),
+    ]
+
     // The bodies the app sends: Confirm in the deduction dialog always
     // deducts (`completeWithDeduction`), with the household's used-up ids
     // when it answered the check; a fridge meal names what it used up
@@ -191,7 +216,8 @@ export const setMealStatus = defineTool({
               status: entryStatus,
               deductPantry: true,
               ...(usedUpIngredientIds && { usedUpIngredientIds }),
-              ...(lowIngredientIds && { lowIngredientIds }),
+              ...(someLeftIngredientIds.length > 0 && { someLeftIngredientIds }),
+              ...((lowIngredientIds || lowIds.length > 0) && { lowIngredientIds: lowIds }),
             }
 
     try {

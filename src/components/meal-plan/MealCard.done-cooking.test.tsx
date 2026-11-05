@@ -113,7 +113,12 @@ describe('MealCard Done cooking', () => {
       '/api/meal-plans/plan-1/entries/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ status: 'completed', deductPantry: true, usedUpIngredientIds: [] }),
+        body: JSON.stringify({
+          status: 'completed',
+          deductPantry: true,
+          usedUpIngredientIds: [],
+          someLeftIngredientIds: ['chicken-thigh', 'garlic'],
+        }),
       }),
     )
     expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {

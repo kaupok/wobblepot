@@ -119,7 +119,14 @@ export const HaveSomeRows: Story = {
     await expect(args.onConfirm).toHaveBeenCalledWith({
       // The feta is at its preset, so the server's subtraction decides it.
       usedUpIngredientIds: ['pumpkin', 'carrot', 'sweet-potato', 'beetroot', 'tahini'],
-      someLeftIngredientIds: [],
+      someLeftIngredientIds: [
+        'cumin',
+        'smoked-paprika',
+        'quinoa',
+        'chickpeas',
+        'pumpkin-seeds',
+        'lemon',
+      ],
       lowIngredientIds: [],
       usedUpCount: 6,
       someLeftCount: 6,
@@ -219,7 +226,7 @@ export const RunningLowAndStaples: Story = {
 
     await expect(args.onConfirm).toHaveBeenCalledWith({
       usedUpIngredientIds: [],
-      someLeftIngredientIds: [],
+      someLeftIngredientIds: ['onion'],
       lowIngredientIds: ['mince', 'tahini'],
       usedUpCount: 0,
       someLeftCount: 1,

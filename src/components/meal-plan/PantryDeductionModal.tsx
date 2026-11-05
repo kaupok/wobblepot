@@ -274,12 +274,11 @@ function DeductionContent({
       usedUpIngredientIds: usedUp
         .filter((item) => !item.willBeRemoved)
         .map((item) => item.ingredientId),
-      // A row the sum runs out goes here so it reads "have some", and a low
-      // row so its mark clears. Any other row at "Some left" is in no list:
-      // the server leaves it as the sum says.
-      someLeftIngredientIds: someLeft
-        .filter((item) => item.willBeRemoved || item.low)
-        .map((item) => item.ingredientId),
+      // Every row at "Some left" goes here: a row the sum runs out reads
+      // "have some", a low row's mark clears, and a "have some" row stays.
+      // The server gives a row in no list its default, so a row added after
+      // this dialog loaded still gets one (HON-1582).
+      someLeftIngredientIds: someLeft.map((item) => item.ingredientId),
       lowIngredientIds: low.map((item) => item.ingredientId),
       usedUpCount: usedUp.length,
       someLeftCount: someLeft.length,
