@@ -110,6 +110,8 @@ describe('plan_meal', () => {
 
     expect(result).toEqual({
       outcome: 'planned',
+      role: 'main',
+      entryId: expect.any(String),
       status: 'planned',
       date,
       mealType: 'dinner',

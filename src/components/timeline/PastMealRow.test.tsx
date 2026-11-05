@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { MealStatus, PantryItemFull } from '@/components/meal-plan/types'
-import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import type { MealStatus, PantryItemFull, PlanEntrySide } from '@/components/meal-plan/types'
+import { createMeal, createMealComponent, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
@@ -36,6 +36,7 @@ function renderRow(
     autoFocus?: boolean
     onFocused?: () => void
     onCleared?: () => void
+    sides?: PlanEntrySide[]
   } = {},
 ) {
   const { wrapper: Wrapper } = createQueryWrapper()
@@ -55,6 +56,20 @@ function renderRow(
       />
     </Wrapper>,
   )
+}
+
+// A side that uses the main's chicken, at its own 2 servings.
+const SALAD: PlanEntrySide = {
+  entryId: 'side-salad',
+  mealId: 'meal-salad',
+  mealName: 'Chicken salad',
+  servings: 2,
+  cookServings: 2,
+  status: 'planned',
+  rating: null,
+  servingOverride: 2,
+  pantryDeducted: false,
+  components: [createMealComponent({ ingredientId: 'chicken-thigh', quantityPerServing: 100 })],
 }
 
 const cooked = () => screen.getByRole('button', { name: 'Cooked' })
@@ -196,6 +211,17 @@ describe('PastMealRow', () => {
     expect(skipped()).toBeInTheDocument()
   })
 
+  it("sums a side's rows into the Cooked dialog (HON-1610)", async () => {
+    const user = userEvent.setup()
+    renderRow({ sides: [SALAD] })
+
+    await user.click(cooked())
+    const dialog = await screen.findByRole('dialog', { name: 'Mark as cooked' })
+    // 150 g × 4 for the main and 100 g × 2 for the salad: all 800 g.
+    expect(within(dialog).getAllByText('Chicken thigh')).toHaveLength(1)
+    expect(within(dialog).getByText('800g → Ran out')).toBeInTheDocument()
+  })
+
   describe('Remove (HON-1383)', () => {
     it('clears a planned row as Clear does, with the entry for Undo', async () => {
       const user = userEvent.setup()
@@ -246,6 +272,33 @@ describe('PastMealRow', () => {
       const [url, init] = fetchMock.mock.calls[3]!
       expect(url).toBe('/api/meal-plans/plan-1/entries')
       expect(JSON.parse(init.body)).toMatchObject({ status: 'planned', pantryDeducted: true })
+    })
+
+    // HON-1610: Remove deletes the slot's sides with the main, so Undo posts them back.
+    it('restores the sides with the main after Remove', async () => {
+      const user = userEvent.setup()
+      const onCleared = vi.fn()
+      renderRow({ onCleared, sides: [SALAD] })
+
+      respond(200, { success: true })
+      await user.click(screen.getByRole('button', { name: 'Remove' }))
+      await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1))
+
+      const [, options] = vi.mocked(toast).mock.calls[0]!
+      respond(200, { id: 'restored' })
+      ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toMatchObject({
+        sides: [
+          {
+            mealId: 'meal-salad',
+            servingOverride: 2,
+            status: 'planned',
+            rating: null,
+            pantryDeducted: false,
+          },
+        ],
+      })
     })
 
     it('offers Remove on a skipped row', () => {

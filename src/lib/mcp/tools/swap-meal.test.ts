@@ -31,6 +31,10 @@ vi.mock('@/lib/household/excluded-ingredients', () => ({
 vi.mock('@/lib/meal-planning/meal-allowed-for-slot', () => ({
   isMealAllowedForSlot: vi.fn(),
 }))
+// The duplicate-meal guard reads the slot's other dishes; these slots have none (HON-1610).
+vi.mock('@/lib/meal-plans/slot-rules', () => ({
+  assertMealNotInSlot: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('@/lib/meal-plans/last-planned', () => ({
   findLastPlannedDate: vi.fn(),
   findNextPlannedDate: vi.fn(),
@@ -124,6 +128,8 @@ function slot(overrides: Record<string, unknown> = {}) {
       timeMinutes: 30,
       primaryProteinType: 'fish',
     },
+    // A slot with no side dishes (HON-1610).
+    sides: [],
     ...overrides,
   }
 }
@@ -272,6 +278,7 @@ describe('swap_meal', () => {
         lastPlannedOn: null,
         nextPlannedOn: null,
         suggestions: [],
+        keptSides: [],
       })
       // The route test's "clears the rating when the meal is swapped" asserts
       // this exact data shape, and the guard that refuses a completed entry.

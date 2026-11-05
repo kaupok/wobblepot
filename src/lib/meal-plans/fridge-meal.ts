@@ -150,40 +150,54 @@ export async function completeFridgeEntry(
   data: Prisma.MealPlanEntryUncheckedUpdateManyInput,
   usedUpIngredientIds: string[],
 ): Promise<boolean> {
-  return prisma.$transaction(async (tx) => {
-    const items = await tx.mealPlanEntryItem.findMany({
-      where: { entryId, ingredientId: { in: usedUpIngredientIds } },
-      select: { ingredientId: true },
-    })
-    // The deduction's lock order, so a concurrent purchase cannot deadlock
-    // this (HON-632).
-    const ingredientIds = [...new Set(items.map((i) => i.ingredientId!))].sort(compareIngredientIds)
-    // Nothing to write keeps the one charge for a later completion.
-    const [claimed] =
-      ingredientIds.length === 0
-        ? []
-        : await tx.mealPlanEntry.updateManyAndReturn({
-            where: {
-              id: entryId,
-              kind: 'fridge',
-              status: { not: MealPlanEntryStatus.completed },
-              pantryDeductedAt: null,
-            },
-            data: { ...data, pantryDeductedAt: new Date() },
-          })
-    if (!claimed) {
-      await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data })
-      return false
-    }
+  return prisma.$transaction((tx) =>
+    chargeFridgeEntry(tx, householdId, entryId, data, usedUpIngredientIds),
+  )
+}
 
-    for (const ingredientId of ingredientIds) {
-      await tx.pantryItem.upsert({
-        where: { householdId_ingredientId: { householdId, ingredientId } },
-        create: { householdId, ingredientId, quantity: 0, isStaple: false },
-        // Ran out replaces running low (HON-1586).
-        update: { quantity: 0, lowAt: null },
-      })
-    }
-    return true
+/**
+ * `completeFridgeEntry` inside a caller's transaction, so a fridge main and
+ * its sides complete together (HON-1610).
+ */
+export async function chargeFridgeEntry(
+  tx: Prisma.TransactionClient,
+  householdId: string,
+  entryId: string,
+  data: Prisma.MealPlanEntryUncheckedUpdateManyInput,
+  usedUpIngredientIds: string[],
+): Promise<boolean> {
+  const items = await tx.mealPlanEntryItem.findMany({
+    where: { entryId, ingredientId: { in: usedUpIngredientIds } },
+    select: { ingredientId: true },
   })
+  // The deduction's lock order, so a concurrent purchase cannot deadlock
+  // this (HON-632).
+  const ingredientIds = [...new Set(items.map((i) => i.ingredientId!))].sort(compareIngredientIds)
+  // Nothing to write keeps the one charge for a later completion.
+  const [claimed] =
+    ingredientIds.length === 0
+      ? []
+      : await tx.mealPlanEntry.updateManyAndReturn({
+          where: {
+            id: entryId,
+            kind: 'fridge',
+            status: { not: MealPlanEntryStatus.completed },
+            pantryDeductedAt: null,
+          },
+          data: { ...data, pantryDeductedAt: new Date() },
+        })
+  if (!claimed) {
+    await tx.mealPlanEntry.updateMany({ where: { id: entryId }, data })
+    return false
+  }
+
+  for (const ingredientId of ingredientIds) {
+    await tx.pantryItem.upsert({
+      where: { householdId_ingredientId: { householdId, ingredientId } },
+      create: { householdId, ingredientId, quantity: 0, isStaple: false },
+      // Ran out replaces running low (HON-1586).
+      update: { quantity: 0, lowAt: null },
+    })
+  }
+  return true
 }

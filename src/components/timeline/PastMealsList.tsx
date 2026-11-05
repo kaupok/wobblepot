@@ -165,6 +165,8 @@ export function PastMealsList({
                   noteX: entry.noteX,
                   noteY: entry.noteY,
                   pantryDeducted: entry.pantryDeducted,
+                  // Cooked and Remove act on the slot, sides included (HON-1610).
+                  sides: entry.sides ?? [],
                   pantryItems,
                   autoFocus: isFocusSlot(day.date, mealType, 'row'),
                   onFocused: clearFocusSlot,

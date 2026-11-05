@@ -34,6 +34,8 @@ import { noteScatter } from './note-placement'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { PantryDeductionModal } from './PantryDeductionModal'
 import { ProteinBadge } from './ProteinBadge'
+import { clearedSides, NO_SIDES, slotComponents } from './side-dishes'
+import { SideDishLines } from './SideDishLines'
 import { StickyNote } from './StickyNote'
 import type {
   EntryChange,
@@ -43,6 +45,7 @@ import type {
   MealStatus,
   PantryIngredient,
   PantryItemFull,
+  PlanEntrySide,
   PreparationSteps,
 } from './types'
 import { useClearEntry } from './use-clear-entry'
@@ -94,6 +97,8 @@ interface MealCardProps {
   onCleared?: () => void
   /** "Pick for me" filled the cleared card; "Add meal" leaves with the refresh (HON-1248). */
   onPicked?: () => void
+  /** The slot's side dishes, read-only here (HON-1610). */
+  sides?: PlanEntrySide[]
 }
 
 export function MealCard({
@@ -122,6 +127,7 @@ export function MealCard({
   adjustmentNote = null,
   onCleared,
   onPicked,
+  sides = NO_SIDES,
 }: MealCardProps) {
   const router = useRouter()
   const tCard = useTranslations('meal-plan.card')
@@ -165,6 +171,7 @@ export function MealCard({
     initialStatus,
     pantryDeducted,
     servings: getShownCookServings(effectiveServings, sharedLeftovers(leftoversFor)),
+    sides,
     pantryItems,
     source: 'meal_card',
     // The server dropped the entry's cached tips on the way out of
@@ -323,6 +330,7 @@ export function MealCard({
       status,
       rating,
       pantryDeducted: isPantryCharged,
+      sides: clearedSides(sides),
     })
   }
 
@@ -597,30 +605,33 @@ export function MealCard({
                 mealImageTitleWidth(hasTrailingActions),
               )}
             >
-              <div ref={nameRef} className="relative flex min-h-8 w-fit items-center">
-                <Heading variant="section" as="h3">
-                  <button
-                    ref={mealNameButtonRef}
-                    type="button"
-                    data-slot="card-target"
-                    aria-labelledby={mealNameId}
-                    className="absolute inset-0 cursor-pointer outline-none"
-                    onClick={() => setIsDetailModalOpen(true)}
-                  />
-                  <span
-                    id={mealNameId}
-                    aria-hidden="true"
-                    className="underline-offset-2 group-hover/card:underline"
-                  >
-                    {meal.name}
-                  </span>
-                  {meal.isCustom && (
-                    <>
-                      {'\u00a0'}
-                      <MyRecipeIcon />
-                    </>
-                  )}
-                </Heading>
+              <div ref={nameRef}>
+                <div className="relative flex min-h-8 w-fit items-center">
+                  <Heading variant="section" as="h3">
+                    <button
+                      ref={mealNameButtonRef}
+                      type="button"
+                      data-slot="card-target"
+                      aria-labelledby={mealNameId}
+                      className="absolute inset-0 cursor-pointer outline-none"
+                      onClick={() => setIsDetailModalOpen(true)}
+                    />
+                    <span
+                      id={mealNameId}
+                      aria-hidden="true"
+                      className="underline-offset-2 group-hover/card:underline"
+                    >
+                      {meal.name}
+                    </span>
+                    {meal.isCustom && (
+                      <>
+                        {'\u00a0'}
+                        <MyRecipeIcon />
+                      </>
+                    )}
+                  </Heading>
+                </div>
+                <SideDishLines sides={sides} />
               </div>
               {meal.description && (
                 <div ref={descriptionRef} className={DESCRIPTION_CLAMP[descriptionLines]}>
@@ -749,8 +760,8 @@ export function MealCard({
         open={isDeductionModalOpen}
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
-        components={meal.components}
-        householdServings={shownServings}
+        components={slotComponents(meal.components, shownServings, sides, isPantryCharged)}
+        householdServings={1}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

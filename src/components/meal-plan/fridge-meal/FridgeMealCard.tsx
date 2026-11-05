@@ -23,8 +23,10 @@ import { CARD_CLICK_IGNORE } from '../card-click'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from '../MealImageCard'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
+import { clearedSides, NO_SIDES } from '../side-dishes'
+import { SideDishLines } from '../SideDishLines'
 import { StickyNote } from '../StickyNote'
-import type { FridgeMealItem, MealStatus, PantryItemFull } from '../types'
+import type { FridgeMealItem, MealStatus, PantryItemFull, PlanEntrySide } from '../types'
 import { useClearEntry } from '../use-clear-entry'
 import { useEntryStatus } from '../use-entry-status'
 import { FridgeCompleteDialog } from './FridgeCompleteDialog'
@@ -49,6 +51,8 @@ interface FridgeMealCardProps {
   pantryDeducted?: boolean
   /** Called once Clear has deleted the entry, so the page can focus the slot that replaces it. */
   onCleared?: () => void
+  /** The slot's side dishes, read-only here (HON-1610). */
+  sides?: PlanEntrySide[]
 }
 
 /** The items as a name: "Pasta, chickpeas", with the first letter in capitals. */
@@ -77,6 +81,7 @@ export function FridgeMealCard({
   pantryItems,
   pantryDeducted = false,
   onCleared,
+  sides: sideDishes = NO_SIDES,
 }: FridgeMealCardProps) {
   const router = useRouter()
   const locale = useLocale()
@@ -112,6 +117,7 @@ export function FridgeMealCard({
     initialStatus,
     pantryDeducted,
     servings: 0,
+    sides: sideDishes,
     pantryItems,
     source: 'meal_card',
   })
@@ -172,6 +178,7 @@ export function FridgeMealCard({
       noteX: note ? noteX : null,
       noteY: note ? noteY : null,
       pantryDeducted: isPantryCharged,
+      sides: clearedSides(sideDishes),
     })
   }
 
@@ -318,6 +325,7 @@ export function FridgeMealCard({
                   {t('withItems', { items: sides.map(itemText).join(', ') })}
                 </Body>
               )}
+              <SideDishLines sides={sideDishes} />
             </div>
             {/* Where a recipe card says what to buy: the reason to pick a
                 fridge meal, or that it was eaten. */}

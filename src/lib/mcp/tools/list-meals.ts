@@ -56,6 +56,9 @@ export const listMeals = defineTool({
         id: z.string(),
         name: z.string(),
         mealTypes: z.array(mealType),
+        course: z
+          .enum(['main', 'side'])
+          .describe('main: a meal on its own. side: a side dish, for plan_meal role side.'),
         proteinType: z.string().nullable(),
         isFavorite: z.boolean(),
         isOwnRecipe: z.boolean(),
@@ -87,6 +90,7 @@ export const listMeals = defineTool({
         id: meal.id,
         name: meal.name,
         mealTypes: meal.suitableFor,
+        course: meal.course,
         proteinType: meal.primaryProteinType,
         isFavorite: meal.isFavorite,
         isOwnRecipe: meal.isCustom,

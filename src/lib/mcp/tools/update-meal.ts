@@ -11,6 +11,7 @@ import { defineTool, type McpHousehold, ToolInputError, WRITE_ANNOTATIONS } from
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { type ComponentForProtein, distinctProteinTypes } from '@/lib/meal-planning/protein'
+import { setMealCourse } from '@/lib/meals/meal-course'
 
 import {
   checkOutput,
@@ -54,6 +55,7 @@ export const updateMeal = defineTool({
     kidFriendly: recipeFields.kidFriendly.unwrap().describe('True if children eat it happily.'),
     preparationNotes: recipeFields.preparationNotes,
     timeMinutes: recipeFields.timeMinutes,
+    course: recipeFields.course,
     // Absent keeps the stored choice, null goes back to automatic: the
     // `proteinTypeOverride` patch's own meaning.
     mainProtein: recipeFields.mainProtein
@@ -94,7 +96,7 @@ export const updateMeal = defineTool({
   }),
   run: async (
     household,
-    { mealId, ingredients, confirmedAmounts, mainProtein, ...fields },
+    { mealId, ingredients, confirmedAmounts, mainProtein, course, ...fields },
     caller,
   ) => {
     const refused = {
@@ -147,6 +149,8 @@ export const updateMeal = defineTool({
       }
       throw error
     }
+    // Left out keeps the stored course.
+    if (course) await setMealCourse(household.id, mealId, course)
     // After commit: a rolled-back edit must not have lost its image.
     await discardMealImage(update.discardedImageUrl, ROUTE)
     // An edit that cleared the image starts a new one, as the app's PATCH route

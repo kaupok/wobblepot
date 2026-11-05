@@ -33,6 +33,8 @@ function slot(overrides: Record<string, unknown> = {}) {
     status: 'completed',
     rating: null,
     meal: { id: 'meal-1', name: 'Fish tacos', timeMinutes: 30, primaryProteinType: 'fish' },
+    // A slot with no side dishes (HON-1610).
+    sides: [],
     ...overrides,
   }
 }

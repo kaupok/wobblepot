@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 
 import { chargePantry, ranOutIngredientIds } from './cook-deduction'
 import { completeFridgeEntry } from './fridge-meal'
+import { assertMealNotInSlot, updateSlotStatus } from './slot-rules'
 
 /**
  * Persistence and rules for meal plan entries, behind
@@ -43,6 +44,8 @@ import { completeFridgeEntry } from './fridge-meal'
  * - `staleMeal`: a completion whose meal or count moved underneath it; the
  *   claim was rolled back, so a retry is safe (409).
  * - `noNote`: a note place for an entry without a note (409, HON-975).
+ * - `mainNotCompleted`: a side completed before its main (409, HON-1610).
+ * - `alreadyInSlot`: a swap to a meal already in the slot (409, HON-1610).
  */
 export type EntryUpdateRefusal =
   | 'entryNotFound'
@@ -52,6 +55,8 @@ export type EntryUpdateRefusal =
   | 'completedServings'
   | 'staleMeal'
   | 'noNote'
+  | 'mainNotCompleted'
+  | 'alreadyInSlot'
 
 /**
  * A refusal from `updateEntry`. Thrown rather than returned because several
@@ -176,6 +181,9 @@ export async function updateEntry(
   entryId: string,
   patch: EntryPatch,
 ): Promise<UpdatedEntry> {
+  const slot = await updateSlotStatus(householdId, planId, entryId, patch)
+  if (slot) return slot
+
   // Include meal components for pantry deduction
   const entry = await prisma.mealPlanEntry.findFirst({
     where: {
@@ -315,6 +323,7 @@ export async function updateEntry(
     if (!meal) {
       throw new EntryUpdateError('mealNotFound')
     }
+    if (patch.mealId !== entry.mealId) await assertMealNotInSlot(entryId, patch.mealId)
 
     swapMealComponents = meal.components
     // The tips, override and rating describe the previous meal, so they are

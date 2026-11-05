@@ -22,16 +22,17 @@ import {
   unitOutput,
   writeChanges,
 } from './meal-changes'
-import { slotInput } from './plan-slot'
+import { entryIdInput, slotInput } from './plan-slot'
 
 export const adjustMeal = defineTool({
   name: 'adjust_meal',
   title: 'Change a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "less spicy", "make it for a toddler"). When the user names the ingredients to replace, add or leave out, use change_meal_ingredients instead: it needs no AI. Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal, and a name that fits several of its ingredients in ambiguous; ask the user which one they meant. When part of an instruction could not be applied, the steps do not follow it until a later call applies it in full. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, from an instruction in plain words ("no cream, use yoghurt", "less spicy", "make it for a toddler"). When the user names the ingredients to replace, add or leave out, use change_meal_ingredients instead: it needs no AI. Wobblepot\'s AI turns the instruction into ingredient changes, the same way the app\'s Adjust recipe does, and applies them at once: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again for the new ingredients. Only that one entry changes, never the recipe. A replacement Wobblepot cannot find in its ingredient list is not applied and is returned in unmatched; ask the user for another name and call again with an instruction that names it. An ingredient the meal does not have is returned in notInMeal, and a name that fits several of its ingredients in ambiguous; ask the user which one they meant. When part of an instruction could not be applied, the steps do not follow it until a later call applies it in full. A second call builds on the first. Only a planned meal can change: a cooked or skipped one is refused. Each call uses the household\'s AI allowance. Pass a side’s entryId to change that side dish.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
+    ...entryIdInput,
     instruction: z
       .string()
       .trim()
@@ -74,11 +75,11 @@ export const adjustMeal = defineTool({
       ),
     ingredients: ingredientsOutput,
   }),
-  run: async (household, { date, mealType, instruction }, caller) => {
+  run: async (household, { date, mealType, entryId, instruction }, caller) => {
     const locale = resolveHouseholdLocale(household)
     // Context, then the guards, in the adjust route's order: a refusal costs
     // no model call (HON-1244).
-    const { slot, context } = await loadChangeableEntry(household, date, mealType, locale)
+    const { slot, context } = await loadChangeableEntry(household, date, mealType, locale, entryId)
 
     const limit = await checkRateLimit(household.id, 'adjust-recipe')
     if (!limit.allowed) {

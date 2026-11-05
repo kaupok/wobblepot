@@ -80,6 +80,8 @@ function slot(overrides: Record<string, unknown> = {}) {
     cookedServings: null,
     leftoverItems: [],
     meal: { id: 'meal-pasta', name: 'Cream pasta', timeMinutes: 25, primaryProteinType: null },
+    // A slot with no side dishes (HON-1610).
+    sides: [],
     ...overrides,
   }
 }
@@ -254,6 +256,27 @@ describe('adjust_meal', () => {
       abortSignal: expect.any(AbortSignal),
     })
     expect(loadAdjustContext).toHaveBeenCalledWith('household-a', 'plan-a', 'entry-1', 'en')
+  })
+
+  // HON-1610: a side's entryId adjusts the side, not its main.
+  it('adjusts a side by its entryId', async () => {
+    const side = slot({ id: 'entry-side', meal: { ...slot().meal, id: 'meal-salad' } })
+    vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(slot({ sides: [side] }) as never)
+    // The context of the entry it was asked for, as the real load reads it.
+    vi.mocked(loadAdjustContext).mockImplementation(
+      async (_household, _plan, entryId) => ({ ...CONTEXT, id: entryId }) as never,
+    )
+
+    const result = await call({ entryId: 'entry-side' })
+
+    expect(result.isError).toBeFalsy()
+    expect(loadAdjustContext).toHaveBeenCalledWith('household-a', 'plan-a', 'entry-side', 'en')
+    expect(replaceEntryChanges).toHaveBeenCalledWith(
+      'household-a',
+      'plan-a',
+      'entry-side',
+      expect.anything(),
+    )
   })
 
   it('reports an unmatched replacement and leaves it out of the write', async () => {

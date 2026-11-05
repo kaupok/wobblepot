@@ -43,6 +43,17 @@ export interface NewEntry {
   servingOverride?: number | null
   rating?: 'up' | 'down' | null
   pantryDeducted?: boolean
+  /** Undo after Clear restores the main's sides with it, in one write (HON-1610). */
+  sides?: RestoredSide[]
+}
+
+/** A side as Clear removed it. */
+export interface RestoredSide {
+  mealId: string
+  servingOverride?: number | null
+  status?: 'planned' | 'skipped'
+  rating?: 'up' | 'down' | null
+  pantryDeducted?: boolean
 }
 
 /**
@@ -76,17 +87,22 @@ export async function createEntry(householdId: string, planId: string, input: Ne
   // The meal must be one this household may see — a system meal or one of its
   // own. Without the filter a foreign meal can be attached at creation time
   // instead of at swap time.
-  if (input.mealId) {
-    const meal = await prisma.meal.findFirst({
+  const mealIds = [
+    ...new Set([
+      ...(input.mealId ? [input.mealId] : []),
+      ...(input.sides ?? []).map((s) => s.mealId),
+    ]),
+  ]
+  if (mealIds.length > 0) {
+    const found = await prisma.meal.count({
       where: {
-        id: input.mealId,
+        id: { in: mealIds },
         deletedAt: null,
         OR: [{ householdId: null }, { householdId }],
       },
-      select: { id: true },
     })
 
-    if (!meal) {
+    if (found !== mealIds.length) {
       throw new EntryCreateError('mealNotFound')
     }
   }
@@ -119,6 +135,18 @@ export async function createEntry(householdId: string, planId: string, input: Ne
           // again (HON-1444). A log of a past meal sets it as well (HON-1391).
           // The flag can only stop a charge, never cause one.
           pantryDeductedAt: input.pantryDeducted ? new Date() : null,
+          ...(input.sides?.length && {
+            sides: {
+              create: input.sides.map((side) => ({
+                ...slot,
+                mealId: side.mealId,
+                status: side.status ?? 'planned',
+                servingOverride: side.servingOverride ?? null,
+                rating: side.rating ?? null,
+                pantryDeductedAt: side.pantryDeducted ? new Date() : null,
+              })),
+            },
+          }),
         },
       }),
     ])

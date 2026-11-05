@@ -26,7 +26,7 @@ import {
   writeChanges,
 } from './meal-changes'
 import { MEASURED_UNITS, type MeasuredUnit } from './measured-units'
-import { slotInput } from './plan-slot'
+import { entryIdInput, slotInput } from './plan-slot'
 
 const NAME_MAX = 100
 
@@ -55,10 +55,11 @@ export const changeMealIngredients = defineTool({
   name: 'change_meal_ingredients',
   title: 'Replace, add or leave out a planned meal’s ingredients',
   description:
-    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. First call get_meal with this date and mealType, because amounts are for the planned meal\'s servings, leftovers included. Copy ingredient names from it, and give amounts as it shows them. It does not change an amount: an ingredient that goes back to the recipe takes the recipe\'s amount, whatever amount you send, and applied shows that amount. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal (with a note: the tool does not change an amount), notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance.',
+    'Changes the ingredients of the meal planned for one day and meal type, when the user names them: "rice instead of potatoes and carrots", "add 400 g broccoli", "leave out the onion", "bring the carrots back". For an instruction in plain words ("less spicy", "make it for a toddler"), use adjust_meal. First call get_meal with this date and mealType, because amounts are for the planned meal\'s servings, leftovers included. Copy ingredient names from it, and give amounts as it shows them. It does not change an amount: an ingredient that goes back to the recipe takes the recipe\'s amount, whatever amount you send, and applied shows that amount. Only that one entry changes, never the recipe: the planner shows the meal with a Changed badge, the shopping list follows, and the steps are written again the next time the meal is opened. Nothing is written unless every change applies. On not_changed, the lists say why: unmatched (Wobblepot has no ingredient by that name; alternatives are the closest it has), notInMeal, ambiguous (the name fits several of the meal\'s ingredients), alreadyInMeal (with a note: the tool does not change an amount), notChanged (no change to restore). Ask the user about each listed name and call again with all the changes. On check_quantity, confirm the amount in check with the user and call again with it in check.unit. Only a planned meal can change: a cooked or skipped one is refused. It does not use the household\'s AI allowance. Pass a side’s entryId to change that side dish.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     ...slotInput,
+    ...entryIdInput,
     changes: z
       .array(
         z.discriminatedUnion('action', [
@@ -160,9 +161,9 @@ export const changeMealIngredients = defineTool({
       ),
     ingredients: ingredientsOutput,
   }),
-  run: async (household, { date, mealType, changes }) => {
+  run: async (household, { date, mealType, entryId, changes }) => {
     const locale = resolveHouseholdLocale(household)
-    const { slot, context } = await loadChangeableEntry(household, date, mealType, locale)
+    const { slot, context } = await loadChangeableEntry(household, date, mealType, locale, entryId)
     const servings = getCookServings(context, sumPortions(household.members))
 
     // Restore is the app's Undo: the live change is left out of the new set.

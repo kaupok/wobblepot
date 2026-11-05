@@ -41,6 +41,13 @@ export const recipeFields = {
     'How to make it, in the user’s words.',
   ),
   timeMinutes: mealFieldsSchema.shape.timeMinutes.describe('Total time to make it, in minutes.'),
+  // A hint for suggestions only: where a meal is planned decides its role (HON-1608).
+  course: z
+    .enum(['main', 'side'])
+    .optional()
+    .describe(
+      'main (default): a meal on its own. side: a side dish, such as a salad, served with a main; it is never suggested as a meal on its own. Add a side to a planned meal with plan_meal role side.',
+    ),
   // The household's chosen main protein (HON-1387); `update_meal` makes it
   // nullable, for back to automatic.
   mainProtein: proteinTypeOverrideSchema

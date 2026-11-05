@@ -247,6 +247,7 @@ describe('swap_meal on a slot from today on', () => {
       lastPlannedOn: day(-7),
       nextPlannedOn: null,
       suggestions: [],
+      keptSides: [],
     })
     // The app's swap: servings back on the household default, and the stew's
     // ingredient changes gone with it.

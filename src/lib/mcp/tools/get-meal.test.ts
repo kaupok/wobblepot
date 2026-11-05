@@ -45,6 +45,7 @@ const MEAL = {
   preparationNotes: 'Cook the rice. Fry the chicken.',
   timeMinutes: 30,
   kidFriendly: true,
+  course: 'main',
   servings: 4,
   suitableFor: ['dinner'],
   householdId: null,
@@ -107,6 +108,7 @@ describe('get_meal', () => {
         mealTypes: ['dinner'],
         timeMinutes: 30,
         kidFriendly: true,
+        course: 'main',
         servings: 2,
         recipeServings: 4,
         ingredients: [
@@ -271,6 +273,7 @@ describe('get_meal', () => {
       cookedServings: null,
       leftoverItems: [],
       meal: null,
+      sides: [],
     }
     const planned = (input: Record<string, unknown> = {}) =>
       runTool(
