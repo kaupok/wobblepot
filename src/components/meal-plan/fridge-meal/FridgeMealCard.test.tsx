@@ -52,6 +52,7 @@ function renderCard(
   render(
     <Wrapper>
       <FridgeMealCard
+        householdServings={3}
         entryId="entry-1"
         planId="plan-1"
         date="2026-10-21"
@@ -123,6 +124,7 @@ describe('FridgeMealCard', () => {
     const { wrapper: Wrapper } = createQueryWrapper()
     const card = (entryId: string, items: typeof fridgeItems) => (
       <FridgeMealCard
+        householdServings={3}
         entryId={entryId}
         planId="plan-1"
         date="2026-10-21"
@@ -286,10 +288,10 @@ describe('FridgeMealCard', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('offers Note, Eaten, Edit items and Clear on a planned fridge meal', async () => {
+  it('offers Note, Add side, Eaten, Edit items and Clear on a planned fridge meal', async () => {
     const { user } = renderCard()
 
-    expect(await menuItems(user)).toEqual(['Note', 'Eaten', 'Edit items', 'Clear'])
+    expect(await menuItems(user)).toEqual(['Note', 'Add side', 'Eaten', 'Edit items', 'Clear'])
   })
 
   it('reverts a completed fridge meal and offers no edit or clear on it', async () => {

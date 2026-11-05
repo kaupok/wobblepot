@@ -40,6 +40,7 @@ const meta = {
     status: 'planned',
     items: fridgeItems,
     pantryItems: fridgePantryItems,
+    householdServings: 3,
   },
 } satisfies Meta<typeof FridgeMealCard>
 
@@ -68,7 +69,51 @@ export const Planned: Story = {
     await expect(canvas.getByText('Leftovers')).toBeInTheDocument()
     await expect(canvas.getByText('Nothing to buy')).toBeInTheDocument()
     const menu = await openMenu(canvasElement)
+    await expect(itemNames(menu)).toEqual(['Note', 'Add side', 'Eaten', 'Edit items', 'Clear'])
+  },
+}
+
+/** A skipped fridge meal takes no side (HON-1617): the server refuses one. */
+export const Skipped: Story = {
+  args: { status: 'skipped' },
+  play: async ({ canvasElement }) => {
+    const menu = await openMenu(canvasElement)
     await expect(itemNames(menu)).toEqual(['Note', 'Eaten', 'Edit items', 'Clear'])
+  },
+}
+
+/**
+ * A fridge meal with a side (HON-1617): the side's line opens its menu, as on
+ * a recipe card, and "Add side" opens the side picker.
+ */
+export const WithSide: Story = {
+  args: {
+    sides: [
+      {
+        entryId: 'side-salad',
+        mealId: 'meal-salad',
+        mealName: 'Pepper salad',
+        servings: 3,
+        cookServings: 3,
+        status: 'planned',
+        rating: null,
+        servingOverride: null,
+        pantryDeducted: false,
+        components: [],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: '+ Pepper salad · 3' }))
+    const sideMenu = within(await within(document.body).findByRole('menu'))
+    await expect(itemNames(sideMenu)).toEqual(['Servings', 'Swap', 'Remove'])
+    await userEvent.keyboard('{Escape}')
+    const menu = await openMenu(canvasElement)
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Add side' }))
+    await expect(
+      await within(document.body).findByRole('dialog', { name: 'Add a side dish' }),
+    ).toBeInTheDocument()
   },
 }
 

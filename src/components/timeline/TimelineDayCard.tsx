@@ -141,6 +141,8 @@ export function TimelineDayCard({
                 noteX={entry.noteX}
                 noteY={entry.noteY}
                 pantryItems={pantryItems}
+                householdServings={householdServings}
+                pantryIngredients={pantryIngredients}
                 pantryDeducted={entry.pantryDeducted}
                 sides={entry.sides}
                 onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}

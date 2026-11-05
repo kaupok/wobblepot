@@ -71,6 +71,7 @@ function renderCard(props: { items?: typeof fridgeItems; sides?: PlanEntrySide[]
   render(
     <Wrapper>
       <FridgeMealCard
+        householdServings={3}
         entryId="entry-1"
         planId="plan-1"
         date="2026-10-21"

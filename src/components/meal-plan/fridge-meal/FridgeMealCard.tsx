@@ -1,6 +1,14 @@
 'use client'
 
-import { Check, MoreHorizontal, Pencil, StickyNote as StickyNoteIcon, Undo2, X } from 'lucide-react'
+import {
+  Check,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  StickyNote as StickyNoteIcon,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useId, useRef, useState } from 'react'
@@ -21,13 +29,21 @@ import { cn } from '@/lib/utils'
 
 import { CARD_CLICK_IGNORE } from '../card-click'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from '../MealImageCard'
+import { MealSelectorModal } from '../MealSelectorModal'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
 import { PantryDeductionModal } from '../PantryDeductionModal'
 import { clearedSides, NO_SIDES } from '../side-dishes'
 import { SideDishLines } from '../SideDishLines'
+import type { SideDishMenuContext } from '../SideDishMenu'
 import { StickyNote } from '../StickyNote'
-import type { FridgeMealItem, MealStatus, PantryItemFull, PlanEntrySide } from '../types'
+import type {
+  FridgeMealItem,
+  MealStatus,
+  PantryIngredient,
+  PantryItemFull,
+  PlanEntrySide,
+} from '../types'
 import { useClearEntry } from '../use-clear-entry'
 import { useEntryStatus } from '../use-entry-status'
 import { FridgeCompleteDialog } from './FridgeCompleteDialog'
@@ -54,6 +70,9 @@ interface FridgeMealCardProps {
   onCleared?: () => void
   /** The slot's side dishes, which Eaten charges (HON-1610, HON-1616). */
   sides?: PlanEntrySide[]
+  /** For the side picker and each side line's menu (HON-1617). */
+  householdServings: number
+  pantryIngredients?: PantryIngredient[]
 }
 
 /** The items as a name: "Pasta, chickpeas", with the first letter in capitals. */
@@ -83,6 +102,8 @@ export function FridgeMealCard({
   pantryDeducted = false,
   onCleared,
   sides: sideDishes = NO_SIDES,
+  householdServings,
+  pantryIngredients,
 }: FridgeMealCardProps) {
   const router = useRouter()
   const locale = useLocale()
@@ -96,6 +117,7 @@ export function FridgeMealCard({
   const [note, setNote] = useState<string | null>(initialNote)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const [isAddSideOpen, setIsAddSideOpen] = useState(false)
   // Both dialogs open with no `DialogTrigger`, so each hands focus back to the
   // control that opened it as it closes (docs/DESIGN.md → Focus management):
   // the ⋯ trigger, or the name for the picker opened from the card.
@@ -157,6 +179,18 @@ export function FridgeMealCard({
   const hasPantryItems = items.some((item) => item.ingredientId !== null)
   const isCompleted = status === 'completed'
   const isBusy = isUpdating || isClearing
+  // Each side line opens its menu, as on a recipe card (HON-1617). A fridge
+  // main has no meal id, so only the sides are taken.
+  const sideMenu: SideDishMenuContext = {
+    planId,
+    date,
+    mealType,
+    householdServings,
+    mainMealName: name,
+    takenMealIds: sideDishes.flatMap((side) => side.mealId ?? []),
+    pantryIngredients,
+    onRemoved: () => moreActionsTriggerRef.current?.focus(),
+  }
 
   function handleEaten() {
     if (isBusy) return
@@ -266,6 +300,13 @@ export function FridgeMealCard({
                         <StickyNoteIcon aria-hidden="true" />
                         {tCard('note')}
                       </DropdownMenuItem>
+                      {/* A skipped main takes no side (Q7): the server refuses it. */}
+                      {status !== 'skipped' && (
+                        <DropdownMenuItem disabled={isBusy} onSelect={() => setIsAddSideOpen(true)}>
+                          <Plus aria-hidden="true" />
+                          {tCard('addSide')}
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem disabled={isBusy} onSelect={handleEaten}>
                         <Check aria-hidden="true" />
                         {t('markEaten')}
@@ -327,7 +368,7 @@ export function FridgeMealCard({
                   {t('withItems', { items: sides.map(itemText).join(', ') })}
                 </Body>
               )}
-              <SideDishLines sides={sideDishes} />
+              <SideDishLines sides={sideDishes} menu={sideMenu} />
             </div>
             {/* Where a recipe card says what to buy: the reason to pick a
                 fridge meal, or that it was eaten. */}
@@ -386,6 +427,22 @@ export function FridgeMealCard({
         pantryItems={pantryItems}
         onSaved={() => router.refresh()}
         onCloseAutoFocus={focusPickerOpenerOnClose}
+      />
+      <MealSelectorModal
+        open={isAddSideOpen}
+        onOpenChange={setIsAddSideOpen}
+        planId={planId}
+        entryId={entryId}
+        mealType={mealType}
+        date={date}
+        householdServings={householdServings}
+        currentMealName={name}
+        onSwapComplete={() => router.refresh()}
+        onCloseAutoFocus={focusMoreActionsOnClose}
+        mode="side"
+        takenMealIds={sideMenu.takenMealIds}
+        initialView="library"
+        pantryIngredients={pantryIngredients}
       />
       <FridgeCompleteDialog
         open={isCompleteOpen}
