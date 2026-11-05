@@ -673,6 +673,28 @@ describe('buildCheckReport', () => {
     expect(gate(r, 'Max latency')!.threshold).toContain('≤ 36.0s (80% of `STEPS_AI_BUDGET_MS`)')
   })
 
+  it('shows mean cache-read and cache-write tokens in the operational table', () => {
+    // Run 1 writes the prompt to the cache; runs 2 and 3 read it (HON-1606).
+    const usage = (cacheReadTokens: number, cacheWriteTokens: number) => ({
+      usage: {
+        model: 'claude-sonnet-5-5',
+        inputTokens: 1_000,
+        cacheReadTokens,
+        cacheWriteTokens,
+        outputTokens: 500,
+        usageMissing: false,
+      },
+    })
+    const calls = [
+      call('tips', 'candidate', 1, { answered: 1, countsInRange: 1 }, usage(0, 900)),
+      call('tips', 'candidate', 2, { answered: 1, countsInRange: 1 }, usage(900, 0)),
+      call('tips', 'candidate', 3, { answered: 1, countsInRange: 1 }, usage(900, 0)),
+    ]
+    expect(renderCheckMarkdown(check(calls, ['tips']))).toMatch(
+      /\| Tokens \/ call \(input · output · reasoning · cache read · cache write\) \| 1000 · 500 · 100 · 600 · 300 \|/,
+    )
+  })
+
   it('fails a partial run even when every measured gate holds', () => {
     const r = check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips'], true)
     expect(r.gates.every((g) => g.status !== 'fail')).toBe(true)
