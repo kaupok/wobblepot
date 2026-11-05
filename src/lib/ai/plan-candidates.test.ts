@@ -187,4 +187,16 @@ describe('loadCandidatePools', () => {
       })
     }
   })
+
+  // HON-1608: AI fill and generate never plan a side recipe as a slot's meal.
+  it('asks every pool for main recipes only', async () => {
+    mockGetCandidates.mockResolvedValue([])
+
+    await loadCandidatePools({ ...baseOptions, slots: [dinnerSlot('2026-01-12')] })
+
+    expect(mockGetCandidates).toHaveBeenCalledTimes(3)
+    for (const [filters] of mockGetCandidates.mock.calls) {
+      expect(filters.course).toBe('main')
+    }
+  })
 })

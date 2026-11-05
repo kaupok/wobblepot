@@ -49,6 +49,7 @@ describe('getEffectiveServings', () => {
 describe('getCookServings', () => {
   const planned = (servings: (number | null)[], servingOverride: number | null = null) => ({
     servingOverride,
+    mainEntry: null,
     status: 'planned',
     cookedServings: null,
     leftoverItems: servings.map((s) => ({ servings: s })),
@@ -82,5 +83,40 @@ describe('getCookServings', () => {
 
   it('is the own servings for a completed entry with no stored count', () => {
     expect(getCookServings({ ...planned([2.5]), status: 'completed' }, 3)).toBe(3)
+  })
+})
+
+// HON-1608: the issue's numbers. Household 3, the main has an override of 4
+// and a 2-serving leftover lunch, so the main cooks 6.
+describe('getCookServings for a side dish', () => {
+  const main: { servingOverride: number | null } = { servingOverride: 4 }
+  const side = (servingOverride: number | null, mainEntry = main) => ({
+    servingOverride,
+    mainEntry,
+    status: 'planned',
+    cookedServings: null,
+    leftoverItems: [],
+  })
+
+  it('cooks the main for 6 with its lunch', () => {
+    expect(
+      getCookServings({ ...side(4, main), mainEntry: null, leftoverItems: [{ servings: 2 }] }, 3),
+    ).toBe(6)
+  })
+
+  it("follows the main's own servings, not its lunch: 4", () => {
+    expect(getCookServings(side(null), 3)).toBe(4)
+  })
+
+  it('uses its own override: 2', () => {
+    expect(getCookServings(side(2), 3)).toBe(2)
+  })
+
+  it('uses the household servings when the main has no override: 3', () => {
+    expect(getCookServings(side(null, { servingOverride: null }), 3)).toBe(3)
+  })
+
+  it('keeps its stored count once completed', () => {
+    expect(getCookServings({ ...side(null), status: 'completed', cookedServings: 5 }, 3)).toBe(5)
   })
 })

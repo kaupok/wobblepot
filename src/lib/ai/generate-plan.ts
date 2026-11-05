@@ -143,7 +143,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   const dates = getDatesBetween(startDate, endDate)
 
   // Completed entries survive regeneration, so their slots are not asked for. Leaving one in
-  // would also make createMany collide with the kept row on @@unique([planId, date, mealType]).
+  // would also make createMany collide with the kept row on the one-main-per-slot unique index.
   const kept = await getKeptEntries(householdId, startDate, endDate)
   const isReplaceable = (s: { date: Date; mealType: MealType }) =>
     !kept.slotKeys.has(slotKey(s.date, s.mealType))

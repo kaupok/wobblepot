@@ -60,8 +60,9 @@ export async function createEntry(householdId: string, planId: string, input: Ne
   }
 
   const slot = { planId, date: input.date, mealType: input.mealType }
+  // The slot's main only: a side shares the slot with it (HON-1608).
   const existingEntry = await prisma.mealPlanEntry.findFirst({
-    where: slot,
+    where: { ...slot, mainEntryId: null },
     select: { mealId: true, note: true, kind: true },
   })
 
@@ -99,7 +100,7 @@ export async function createEntry(householdId: string, planId: string, input: Ne
   const [, entry] = await prisma
     .$transaction([
       prisma.mealPlanEntry.deleteMany({
-        where: { ...slot, mealId: null, note: null, kind: 'meal' },
+        where: { ...slot, mainEntryId: null, mealId: null, note: null, kind: 'meal' },
       }),
       prisma.mealPlanEntry.create({
         data: {

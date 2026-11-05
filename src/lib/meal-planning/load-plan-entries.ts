@@ -93,6 +93,8 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           ...mealTranslationsInclude(locale),
         },
       },
+      // A side's main (HON-1608), whose servings it follows.
+      mainEntry: cookServingsSelect.mainEntry,
       // The leftover lunches this entry feeds (HON-1394), for its cook servings.
       leftoverItems: {
         where: cookServingsSelect.leftoverItems.where,

@@ -51,6 +51,10 @@ export function sumPortions(
  * needed quantity and the shopping quantity for the same ingredient in the
  * same week could disagree on screen (HON-614).
  *
+ * A side dish (HON-1608) with no override follows its main's own servings,
+ * not the main's leftover items: tonight's salad is made for the 3 who eat
+ * tonight, not for tomorrow's lunch too. `mainEntry` is null on a main.
+ *
  * `servingOverride` is validated `int().min(1).max(20)` on write, so 0 is
  * unreachable and `??` is the correct null-check.
  *
@@ -61,19 +65,24 @@ export function sumPortions(
  * `invalidateFutureEntrySteps` in `./preparation-steps-cache.ts` (HON-684).
  */
 export function getEffectiveServings(
-  entry: { servingOverride: number | null },
+  entry: {
+    servingOverride: number | null
+    mainEntry?: { servingOverride: number | null } | null
+  },
   householdServings: number,
 ): number {
-  return entry.servingOverride ?? householdServings
+  return entry.servingOverride ?? entry.mainEntry?.servingOverride ?? householdServings
 }
 
 /**
  * The fields `getCookServings` reads, for a Prisma `select` or `include`. The
  * leftover items it counts are those on an entry that is not skipped. Every
- * site spreads this, so all of them add the same lunches.
+ * site spreads this, so all of them add the same lunches. `mainEntry` gives a
+ * side its main's servings.
  */
 export const cookServingsSelect = {
   servingOverride: true,
+  mainEntry: { select: { servingOverride: true } },
   status: true,
   cookedServings: true,
   leftoverItems: {
@@ -100,6 +109,7 @@ export const cookServingsSelect = {
 export function getCookServings(
   entry: {
     servingOverride: number | null
+    mainEntry: { servingOverride: number | null } | null
     status: string
     cookedServings: number | null
     leftoverItems: readonly { servings: number | null }[]
