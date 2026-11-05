@@ -76,6 +76,11 @@ export interface PlanEntrySide {
   pantryDeducted: boolean
   /** What the side cooks, for the Cooked dialog's sum (HON-1610). */
   components: MealComponent[]
+  /** The side's recipe, for its own cook view (HON-1611). Sent by `/api/entries` only. */
+  meal?: MealData | null
+  preparationTips?: PreparationSteps | null
+  /** The preferences a planned side breaks (HON-1611). Sent by `/api/entries` only. */
+  conflicts?: PreferenceConflict[]
 }
 
 export interface PlanEntry {
@@ -216,6 +221,8 @@ export interface AlternativeMeal extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: string
   suitableFor?: MealType[]
+  /** A side dish recipe (HON-1608), from `/api/meals`; the "Add side" picker marks it. */
+  course?: 'main' | 'side'
   /** One of the household's own recipes, rather than a library meal (HON-948) */
   isCustom?: boolean
   /**

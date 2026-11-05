@@ -38,6 +38,8 @@ export interface MealData extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   suitableFor: MealType[]
+  /** The "Side" badge (HON-1611); absent reads as a main. */
+  course?: 'main' | 'side'
   servings: number
   isCustom: boolean
   isFavorite: boolean

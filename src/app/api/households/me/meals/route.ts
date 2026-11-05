@@ -11,7 +11,12 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
-import { mealFieldsSchema, proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
+import { setMealCourse } from '@/lib/meals/meal-course'
+import {
+  mealCourseSchema,
+  mealFieldsSchema,
+  proteinTypeOverrideSchema,
+} from '@/lib/meals/meal-fields-schema'
 
 const ROUTE = '/api/households/me/meals'
 
@@ -20,6 +25,7 @@ const ROUTE = '/api/households/me/meals'
 const createMealSchema = mealFieldsSchema.extend({
   components: mealComponentsSchema,
   proteinTypeOverride: proteinTypeOverrideSchema.optional(),
+  course: mealCourseSchema.optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -111,7 +117,10 @@ export async function POST(request: Request) {
     }
 
     const householdId = membership.household.id
-    const meal = await createHouseholdMeal(householdId, parsed.data)
+    const { course, ...fields } = parsed.data
+    const meal = await createHouseholdMeal(householdId, fields)
+    // "Side dish" on the recipe form (HON-1611); a new recipe is a main by default.
+    if (course) await setMealCourse(householdId, meal.id, course)
 
     // A saved recipe is one the household means to cook, so its image starts
     // now rather than on the first cook view (HON-1364). The claim is taken

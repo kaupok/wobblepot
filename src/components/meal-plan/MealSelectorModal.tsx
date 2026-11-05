@@ -76,8 +76,18 @@ interface MealSelectorModalProps {
    * draw the same distinction rather than reset unconditionally.
    */
   onSwapComplete: (selectedMealId: string) => void
-  /** 'swap' = replacing existing meal (suggestions based on current meal), 'add' = empty slot (suggestions based on slot context) */
-  mode: 'swap' | 'add'
+  /**
+   * 'swap' = replacing existing meal (suggestions based on current meal),
+   * 'add' = empty slot (suggestions based on slot context), 'side' = a side
+   * dish for the slot's main, `currentMealName` (HON-1611). 'side' needs
+   * `date`, lists the recipes with side dishes first, and adds the pick as a
+   * new entry rather than repointing `entryId`.
+   */
+  mode: 'swap' | 'add' | 'side'
+  /** 'side' mode: the meals already in the slot, the main's and the sides', listed but not selectable. */
+  takenMealIds?: readonly string[]
+  /** 'side' mode: the pick repoints the side `entryId` instead of adding one (the side's Swap). */
+  replaceSide?: boolean
   /** When provided, ingredient lists on cards are color-coded by pantry availability */
   pantryIngredients?: PantryIngredient[]
   /**
@@ -113,6 +123,8 @@ export function MealSelectorModal({
   pantryIngredients,
   onCloseAutoFocus,
   initialView,
+  takenMealIds,
+  replaceSide = false,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
   const locale = useLocale() as Locale
@@ -149,6 +161,7 @@ export function MealSelectorModal({
     hasLoadedList,
     isSearchMode,
     isMyRecipesBrowseMode,
+    isSideBrowseMode,
     isRateLimited,
     rateLimitResetAt,
   } = useMealAlternatives({
@@ -179,7 +192,41 @@ export function MealSelectorModal({
     [onOpenChange, reset],
   )
 
+  // "Add side" posts a new entry beside the main (HON-1611). A side of a
+  // cooked main is saved as eaten and leaves the pantry alone (Q7), so the
+  // toast says so.
+  async function handleSelectSide(mealId: string) {
+    setSelectingId(mealId)
+    const name = displayedMeals.find((meal) => meal.id === mealId)?.name ?? ''
+    try {
+      if (replaceSide) {
+        await apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mealId }),
+        })
+      } else {
+        const side = await apiFetch<{ status: string }>(`/api/meal-plans/${planId}/entries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, mealType, mealId, side: true }),
+        })
+        toast.success(
+          tSelector(side.status === 'completed' ? 'sideAddedEaten' : 'sideAdded', { name }),
+        )
+      }
+      onSwapComplete(mealId)
+      handleOpenChange(false)
+    } catch (err) {
+      logAssignFailure(err)
+      const taken = err instanceof ApiError && err.status === 409
+      setError(tSelector(taken ? 'sideAddRefused' : 'sideAddFailed'))
+      setSelectingId(null)
+    }
+  }
+
   async function handleSelect(mealId: string) {
+    if (mode === 'side') return handleSelectSide(mealId)
     setSelectingId(mealId)
 
     try {
@@ -302,17 +349,21 @@ export function MealSelectorModal({
     </>
   ) : mode === 'swap' ? (
     tSelector('swapTitle')
+  ) : mode === 'side' ? (
+    tSelector(replaceSide ? 'sideSwapTitle' : 'sideTitle')
   ) : (
     tSelector('addTitle')
   )
   const description =
-    mode === 'swap'
-      ? currentMealName
-        ? tSelector('swapDescription', { name: currentMealName })
-        : tSelector('swapDescriptionGeneric')
-      : slotTitle
-        ? null
-        : tSelector('addDescription')
+    mode === 'side'
+      ? tSelector('sideDescription', { name: currentMealName ?? '' })
+      : mode === 'swap'
+        ? currentMealName
+          ? tSelector('swapDescription', { name: currentMealName })
+          : tSelector('swapDescriptionGeneric')
+        : slotTitle
+          ? null
+          : tSelector('addDescription')
 
   const header = isMyRecipesBrowseMode
     ? total > 0
@@ -329,7 +380,13 @@ export function MealSelectorModal({
   // Each mode owns whether an empty list is worth explaining yet — search stays
   // silent until a response has actually arrived.
   let emptyState: React.ReactNode = null
-  if (isMyRecipesBrowseMode) {
+  if (isSideBrowseMode) {
+    emptyState = (
+      <Body variant="muted" className="text-center">
+        {tSelector('emptySide')}
+      </Body>
+    )
+  } else if (isMyRecipesBrowseMode) {
     emptyState = (
       <Body variant="muted" className="text-center">
         {tSelector.rich('emptyMyRecipes', {
@@ -346,16 +403,19 @@ export function MealSelectorModal({
       <Body variant="muted" className="text-center">
         {myRecipesOnly
           ? tSelector('emptySearchCustom', { query: searchQuery })
-          : tSelector.rich('emptySearch', {
-              query: searchQuery,
-              // The fact, then the next step: the same action as the sparkles
-              // button, so the search is still there on the way back (HON-944).
-              imagine: (chunks) => (
-                <Button variant="link" size="inline" onClick={() => setIsImagineMode(true)}>
-                  {chunks}
-                </Button>
-              ),
-            })}
+          : mode === 'side'
+            ? // The side picker has no Imagine: it adds a recipe that exists.
+              tSelector('emptySearchSide', { query: searchQuery })
+            : tSelector.rich('emptySearch', {
+                query: searchQuery,
+                // The fact, then the next step: the same action as the sparkles
+                // button, so the search is still there on the way back (HON-944).
+                imagine: (chunks) => (
+                  <Button variant="link" size="inline" onClick={() => setIsImagineMode(true)}>
+                    {chunks}
+                  </Button>
+                ),
+              })}
       </Body>
     ) : null
   } else {
@@ -434,6 +494,8 @@ export function MealSelectorModal({
                 total,
               })}
               onLoadMore={loadMore}
+              takenMealIds={mode === 'side' ? takenMealIds : undefined}
+              takenReason={tSelector('alreadyInMeal')}
             />
           </div>
         )}

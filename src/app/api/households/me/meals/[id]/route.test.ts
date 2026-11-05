@@ -53,6 +53,10 @@ vi.mock('@/lib/household-meals', async (importOriginal) => ({
   deleteHouseholdMeal: vi.fn(),
 }))
 
+vi.mock('@/lib/meals/meal-course', () => ({
+  setMealCourse: vi.fn(),
+}))
+
 vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/household-meals-read')>()),
   getHouseholdMeal: vi.fn(),
@@ -65,6 +69,7 @@ import { deleteHouseholdMeal, HouseholdMealError, updateHouseholdMeal } from '@/
 import { getHouseholdMeal } from '@/lib/household-meals-read'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { setMealCourse } from '@/lib/meals/meal-course'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)
@@ -361,6 +366,16 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     expect(mockUpdate).toHaveBeenNthCalledWith(2, 'household-123', 'meal-1', {
       proteinTypeOverride: null,
     })
+  })
+
+  it('sets the course the recipe form sends, and leaves it when absent', async () => {
+    mockUpdate.mockResolvedValue({ meal: updated, discardedImageUrl: null } as never)
+
+    await patch({ course: 'side', kidFriendly: true })
+    await patch({ kidFriendly: false })
+
+    expect(mockUpdate).toHaveBeenNthCalledWith(1, 'household-123', 'meal-1', { kidFriendly: true })
+    expect(vi.mocked(setMealCourse).mock.calls).toEqual([['household-123', 'meal-1', 'side']])
   })
 
   it('returns 400 with a code when no ingredient carries the chosen protein', async () => {

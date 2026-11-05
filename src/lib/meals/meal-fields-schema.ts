@@ -23,6 +23,13 @@ export const mealFieldsSchema = z.object({
 })
 
 /**
+ * Whether a recipe is a main or a side dish (HON-1608). The app's recipe form
+ * sets it with "Side dish" (HON-1611); `create_meal` has its own described
+ * copy for the model.
+ */
+export const mealCourseSchema = z.enum(['main', 'side'])
+
+/**
  * A household's chosen main protein (HON-1386): any protein type but `none`,
  * or null for automatic. Whether the recipe carries it is the lib's check
  * (`proteinTypeNotInRecipe`), because it needs the ingredients.

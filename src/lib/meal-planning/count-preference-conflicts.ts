@@ -12,8 +12,9 @@ import { prisma } from '@/lib/prisma'
 /**
  * How many of the household's planned meals, from its today onward, break
  * `preferences` (HON-1126). The preferences save reports it in its toast; the
- * cards mark the same meals through `loadPlanEntries`. Reads only, so the save
- * never changes the plan by itself.
+ * cards mark the same meals through `loadPlanEntries`. A slot counts once, so
+ * a main and a side that both conflict are one meal (HON-1611). Reads only,
+ * so the save never changes the plan by itself.
  */
 export async function countConflictingPlannedEntries(
   household: { id: string; timezone: string },
@@ -31,11 +32,10 @@ export async function countConflictingPlannedEntries(
       status: 'planned',
       date: { gte: today },
       mealId: { not: null },
-      // One per slot, its main, which is the card that marks a conflict. A
-      // side's conflicts show on no card yet (HON-1609).
-      mainEntryId: null,
     },
     select: {
+      id: true,
+      mainEntryId: true,
       // The entry's own ingredient changes (HON-1243): the cards judge the
       // merged list (`loadPlanEntries`), so the count does too.
       changes: {
@@ -62,12 +62,17 @@ export async function countConflictingPlannedEntries(
       },
     },
   })
-  return entries.filter(
-    (entry) =>
-      entry.meal &&
-      findPreferenceConflicts(
-        { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
-        { ...preferences, excludedIngredientIds },
-      ).length > 0,
-  ).length
+  const slots = new Set(
+    entries
+      .filter(
+        (entry) =>
+          entry.meal &&
+          findPreferenceConflicts(
+            { ...entry.meal, components: applyEntryChanges(entry.meal.components, entry.changes) },
+            { ...preferences, excludedIngredientIds },
+          ).length > 0,
+      )
+      .map((entry) => entry.mainEntryId ?? entry.id),
+  )
+  return slots.size
 }

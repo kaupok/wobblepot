@@ -1,7 +1,8 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { type EntryPatch, updateEntry } from '@/lib/meal-plans/entries'
+import { updateEntry } from '@/lib/meal-plans/entries'
+import type { EntryPatch } from '@/lib/meal-plans/entry-patch'
 import { prisma } from '@/lib/prisma'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { itemsById } from '@/lib/shopping/load-shopping-list.fixtures'

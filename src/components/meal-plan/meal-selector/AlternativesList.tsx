@@ -81,6 +81,12 @@ export interface AlternativesListProps {
   loadMoreLabel?: string
   loadingLabel?: string
   onLoadMore?: () => void
+  /**
+   * The meals already in the slot, listed but not selectable, each with
+   * `takenReason` in place of Select (HON-1611).
+   */
+  takenMealIds?: readonly string[]
+  takenReason?: string
 }
 
 /**
@@ -103,6 +109,8 @@ export function AlternativesList({
   loadMoreLabel,
   loadingLabel,
   onLoadMore,
+  takenMealIds,
+  takenReason,
 }: AlternativesListProps) {
   // The meal in the cook view. Kept after it closes, so the view can animate
   // out and hand focus back to the card's name, as on My recipes (HON-1338).
@@ -146,6 +154,7 @@ export function AlternativesList({
                 onSelect={onSelect}
                 isSelecting={selectingId === meal.id}
                 pantryIngredients={pantryIngredients}
+                unavailableReason={takenMealIds?.includes(meal.id) ? takenReason : undefined}
                 onOpen={() => {
                   setViewedMeal(meal)
                   setIsViewOpen(true)

@@ -10,6 +10,7 @@ import {
   pressEscape,
 } from '@/stories/a11y-helpers'
 import {
+  createMealComponent,
   createPantryItem,
   lemonGarlicChickenComponents,
   lemonGarlicChickenComponentsFull,
@@ -362,5 +363,49 @@ export const A11yInteractionPatterns: Story = {
     await pressEscape()
     await waitFor(() => expect(args.onOpenChange).toHaveBeenCalledWith(false))
     await awaitDialogClosed()
+  },
+}
+
+/**
+ * A main with two side dishes (HON-1611): "Made" lists each side, checked.
+ * Unchecking one drops its amounts from the rows at once, and Confirm sends
+ * it as skipped. The rows are summed across the dishes, so the dialog reads
+ * them at one serving.
+ */
+export const WithSideDishes: Story = {
+  args: {
+    householdServings: 1,
+    components: lemonGarlicChickenComponents.map((c) => ({
+      ...c,
+      quantityPerServing: c.quantityPerServing * 4,
+    })),
+    sides: [
+      { entryId: 'side-salad', mealName: 'Cucumber salad', grams: 100 },
+      { entryId: 'side-rice', mealName: 'Steamed rice', grams: 50 },
+    ].map(({ entryId, mealName, grams }) => ({
+      entryId,
+      mealId: `meal-${entryId}`,
+      mealName,
+      servings: 2,
+      cookServings: 2,
+      status: 'planned' as const,
+      rating: null,
+      servingOverride: null,
+      pantryDeducted: false,
+      components: [createMealComponent({ ingredientId: 'potato', quantityPerServing: grams })],
+    })),
+  },
+  play: async ({ args }) => {
+    const dialog = within(await within(document.body).findByRole('dialog'))
+    const made = within(dialog.getByRole('group', { name: 'Made' }))
+    await expect(made.getAllByRole('checkbox', { checked: true })).toHaveLength(2)
+    await userEvent.click(made.getByRole('checkbox', { name: 'Cucumber salad' }))
+    await expect(made.getByRole('checkbox', { name: 'Cucumber salad' })).not.toBeChecked()
+    await userEvent.click(dialog.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() =>
+      expect(args.onConfirm).toHaveBeenCalledWith(expect.anything(), {
+        skippedSideIds: ['side-salad'],
+      }),
+    )
   },
 }

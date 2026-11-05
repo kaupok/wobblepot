@@ -28,6 +28,7 @@ export const SHARED_FIXTURE_SPECS = [
   'past-meals.spec.ts',
   'recipe-cook-view.spec.ts',
   'shopping-to-pantry.spec.ts',
+  'side-dishes.spec.ts',
   'smoke.spec.ts',
 ] as const
 

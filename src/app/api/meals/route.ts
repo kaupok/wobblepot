@@ -15,6 +15,8 @@ const filterSchema = z.object({
   source: z.enum(['all', 'system', 'custom', 'favorites']).nullable(),
 })
 
+const MEAL_ORDERS = ['longestSinceCooked', 'sideFirst'] as const
+
 /**
  * GET /api/meals: one page of the meals the household can plan. The query
  * lives in `loadMeals`, which the MCP `list_meals` tool shares (HON-1151).
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
       kidFriendly: kidFriendlyParam === 'true' ? true : kidFriendlyParam === 'false' ? false : null,
       search: searchParams.get('search'),
       source: filters.data.source,
-      order: searchParams.get('order') === 'longestSinceCooked' ? 'longestSinceCooked' : null,
+      order: MEAL_ORDERS.find((order) => order === searchParams.get('order')) ?? null,
       limit:
         parseInt(searchParams.get('limit') || String(MEALS_DEFAULT_LIMIT), 10) ||
         MEALS_DEFAULT_LIMIT,

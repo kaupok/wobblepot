@@ -123,6 +123,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   )
   const [sourceUrl, setSourceUrl] = useState(meal?.sourceUrl ?? '')
   const [kidFriendly, setKidFriendly] = useState(meal?.kidFriendly ?? false)
+  const [sideDish, setSideDish] = useState(meal?.course === 'side')
   const [suitableFor, setSuitableFor] = useState<MealTypeValue[]>(
     (meal?.suitableFor as MealTypeValue[]) ?? ['dinner'],
   )
@@ -503,6 +504,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       servings: servingsNum,
       components: result.components,
       proteinTypeOverride: mainProtein.choice,
+      course: sideDish ? 'side' : 'main',
     })
   }
   const totalIngredientCount = isImportMode ? ingredientRows.length : components.length
@@ -527,6 +529,8 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     setSourceUrl,
     kidFriendly,
     setKidFriendly,
+    sideDish,
+    setSideDish,
     mainProtein,
     suitableFor,
     handleMealTypeToggle,

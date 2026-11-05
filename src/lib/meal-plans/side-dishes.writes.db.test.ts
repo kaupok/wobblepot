@@ -157,6 +157,25 @@ describe('Cooked on a main with sides', () => {
     expect(await pantry(alder.id)).toEqual({ 'ing-apple': 925, 'ing-beef': 750, 'ing-rice': 1000 })
   })
 
+  it('skips the sides the Cooked dialog left unchecked, in the same call, and charges them never', async () => {
+    const alder = await slotWithTwoSides()
+
+    await updateEntry(alder.id, 'plan-alder', 'entry-alder', {
+      status: 'completed',
+      deductPantry: true,
+      skippedSideIds: ['entry-side-salad'],
+    })
+
+    expect(await readEntry('entry-alder')).toMatchObject({ status: 'completed' })
+    expect(await readEntry('entry-side-slaw')).toMatchObject({ status: 'completed' })
+    expect(await readEntry('entry-side-salad')).toMatchObject({
+      status: 'skipped',
+      pantryDeductedAt: null,
+    })
+    // Apple: (20 + 10) × 2.5 = 75; the salad's rice is not charged.
+    expect(await pantry(alder.id)).toEqual({ 'ing-apple': 925, 'ing-beef': 750, 'ing-rice': 1000 })
+  })
+
   it('keeps a side skipped on its own skipped when the cooked main is reverted, and charges it never', async () => {
     const alder = await slotWithTwoSides()
     await updateEntry(alder.id, 'plan-alder', 'entry-side-salad', { status: 'skipped' })
@@ -273,6 +292,41 @@ describe('createSide', () => {
 
     expect(side).toMatchObject({ mainEntryId: 'entry-alder', status: 'planned', servings: 4 })
     expect(await readEntry(side.id)).toMatchObject({ servingOverride: null, cookedServings: null })
+  })
+
+  it('restores a removed side’s servings and rating, for Undo after Remove (HON-1611)', async () => {
+    const { alder } = await world()
+
+    const side = await createSide(alder.id, 'plan-alder', {
+      ...DINNER,
+      mealId: 'meal-salad',
+      servingOverride: 2,
+      rating: 'up',
+    })
+
+    expect(side).toMatchObject({ status: 'planned', servings: 2 })
+    expect(await readEntry(side.id)).toMatchObject({ servingOverride: 2, rating: 'up' })
+  })
+
+  it('restores a side that was not made skipped under a cooked main, uncooked and uncharged', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'entry-alder' },
+      data: { status: 'completed', cookedServings: 2.5, pantryDeductedAt: new Date() },
+    })
+
+    const side = await createSide(alder.id, 'plan-alder', {
+      ...DINNER,
+      mealId: 'meal-salad',
+      skipped: true,
+    })
+
+    expect(side.status).toBe('skipped')
+    expect(await readEntry(side.id)).toMatchObject({
+      status: 'skipped',
+      cookedServings: null,
+      pantryDeductedAt: null,
+    })
   })
 
   it('adds a side to a fridge meal', async () => {

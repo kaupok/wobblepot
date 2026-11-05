@@ -26,6 +26,11 @@ interface AlternativeCardProps {
   pantryIngredients?: PantryIngredient[]
   /** Opens the cook view for this meal over the picker (HON-1352). */
   onOpen: () => void
+  /**
+   * Why this meal cannot be picked, shown in place of Select: "Add side" lists
+   * the slot's own meals but refuses them (HON-1611). Absent is selectable.
+   */
+  unavailableReason?: string
 }
 
 /**
@@ -40,6 +45,7 @@ export function AlternativeCard({
   isSelecting,
   pantryIngredients,
   onOpen,
+  unavailableReason,
 }: AlternativeCardProps) {
   const t = useTranslations('meal-plan.alternative')
   const nameButtonRef = useRef<HTMLButtonElement>(null)
@@ -72,14 +78,18 @@ export function AlternativeCard({
         <CardFooter className="p-4 pt-0">
           {/* Three cards offer the same choice, so none is the primary: outline,
               and as wide as its label from `md` (HON-943). */}
-          <Button
-            variant="outline"
-            className="w-full md:w-auto md:self-start"
-            onClick={() => onSelect(meal.id)}
-            disabled={isSelecting}
-          >
-            {isSelecting ? t('selecting') : t('select')}
-          </Button>
+          {unavailableReason ? (
+            <Body variant="muted">{unavailableReason}</Body>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full md:w-auto md:self-start"
+              onClick={() => onSelect(meal.id)}
+              disabled={isSelecting}
+            >
+              {isSelecting ? t('selecting') : t('select')}
+            </Button>
+          )}
         </CardFooter>
       }
     >

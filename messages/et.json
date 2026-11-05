@@ -262,7 +262,8 @@
         "allergen": "Sisaldab: {allergen}",
         "diet": "Ei sobi: {diet}",
         "excluded": "Sisaldab välditavat koostisosa"
-      }
+      },
+      "addSide": "Lisa lisand"
     },
     "fridge": {
       "title": "Külmkapitoit",
@@ -396,7 +397,17 @@
         "imageTooLarge": "Iga foto peab olema kuni 5 MB",
         "imagineFailed": "Toiduideede koostamine ebaõnnestus. Palun proovi uuesti.",
         "assignFailed": "Toidu plaani lisamine ebaõnnestus"
-      }
+      },
+      "sideTitle": "Lisa lisand",
+      "sideSwapTitle": "Vaheta lisand",
+      "sideDescription": "Kõrvale: {name}",
+      "sideAdded": "Lisand lisatud: {name}",
+      "sideAddedEaten": "Lisand lisatud söödutena: {name}. Sahver ei muutunud.",
+      "sideAddRefused": "See retsept on juba selles toidukorras või toidukord muutus. Sulge ja proovi uuesti.",
+      "sideAddFailed": "Lisandit ei õnnestunud lisada. Proovi uuesti.",
+      "emptySide": "Sellele toidukorrale pole veel retsepte. Proovi otsida.",
+      "emptySearchSide": "Otsingule „{query}\" ei leitud retsepte. Proovi mõnda teist sõna.",
+      "alreadyInMeal": "Juba selles toidukorras"
     },
     "detail": {
       "kidFriendly": "Lastesõbralik",
@@ -409,7 +420,8 @@
       "cookedInWindow": "Tehtud {count, plural, one {# kord} other {# korda}} 4 nädala jooksul, viimati {date}",
       "lastCookedOn": "Viimati tehtud {date}",
       "moreActions": "Rohkem toiminguid: {name}",
-      "ariaDetailsFor": "„{mealName}\" üksikasjad"
+      "ariaDetailsFor": "„{mealName}\" üksikasjad",
+      "sideBadge": "Lisand"
     },
     "steps": {
       "equipment": "Vaja läheb",
@@ -627,7 +639,8 @@
       "someQuantity": "veidi",
       "lowQuantity": "natuke",
       "lowResult": "{quantity}, vähe järel",
-      "staple": "Põhitoode"
+      "staple": "Põhitoode",
+      "madeLegend": "Tehtud"
     },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"
@@ -681,6 +694,17 @@
         "lunchChanged": "Homne lõuna muutus vahepeal. Värskenda lehte ja proovi uuesti.",
         "failed": "Lõunat ei õnnestunud lisada. Palun proovi uuesti."
       }
+    },
+    "side": {
+      "servings": "Portsjonid",
+      "steps": "Sammud",
+      "remove": "Eemalda",
+      "removed": "Lisand eemaldatud: {name}",
+      "removeFailed": "Lisandit ei õnnestunud eemaldada. Proovi uuesti.",
+      "undoFailed": "Lisandit ei õnnestunud taastada. Lisa see uuesti valikuga „Lisa lisand\".",
+      "servingsTitle": "Lisandi portsjonid",
+      "servingsDescription": "Mitu portsjonit teha: {name}",
+      "servingsFailed": "Portsjoneid ei õnnestunud muuta. Proovi uuesti."
     }
   },
   "pastMeals": {
@@ -886,7 +910,9 @@
         "kidFriendlyLabel": "Lastesõbralik",
         "mainProteinLabel": "Peamine valguallikas",
         "mainProteinAutomatic": "{protein} (automaatne)",
-        "mainProteinHint": "Määrab retsepti kaardil näidatava valgu. Automaatne valib kõige valgurikkama koostisosa."
+        "mainProteinHint": "Määrab retsepti kaardil näidatava valgu. Automaatne valib kõige valgurikkama koostisosa.",
+        "sideDish": "Lisand",
+        "sideDishHint": "Salat, leib või köögivili, mida pakutakse pearoa kõrvale. Soovitustes ei planeerita seda eraldi toiduks."
       },
       "componentList": {
         "perServing": "{quantity} portsjoni kohta",

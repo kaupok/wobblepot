@@ -13,6 +13,7 @@ import {
   EntryCreateError,
   type EntryCreateRefusal,
 } from '@/lib/meal-plans/create-entry'
+import { createSide, SideCreateError, type SideCreateRefusal } from '@/lib/meal-plans/create-side'
 import { deleteEntriesInRange } from '@/lib/meal-plans/entries'
 import { fridgeItemsSchema } from '@/lib/meal-plans/fridge-items'
 import { FridgeItemNotFoundError } from '@/lib/meal-plans/fridge-meal'
@@ -50,6 +51,10 @@ const createEntrySchema = z
     // Undo after Clear (HON-1396): the entry's own items come back, so the
     // leftover source rule passes what a source changed since can cause.
     restore: z.literal(true).optional(),
+    // A side of the slot's main, from the planner's "Add side" and from Undo
+    // after a side's Remove (HON-1611). `mealId` names the side's recipe, and
+    // `status: 'skipped'` brings back a side that was not made.
+    side: z.literal(true).optional(),
     // Undo after Clear brings the main's sides back with it (HON-1610).
     sides: z
       .array(
@@ -98,6 +103,23 @@ const createEntrySchema = z
         message: 'sides come only with a restored main',
       })
     }
+    if (
+      data.side &&
+      (!data.mealId ||
+        data.pick ||
+        data.fridgeItems ||
+        data.sides ||
+        data.restore ||
+        data.note ||
+        (data.status && data.status !== 'skipped') ||
+        data.pantryDeducted)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['side'],
+        message: 'A side takes mealId, servingOverride, rating and status skipped only',
+      })
+    }
     if (data.status === 'completed' && (data.pick || data.pantryDeducted)) {
       ctx.addIssue({
         code: 'custom',
@@ -111,6 +133,14 @@ const createEntrySchema = z
 const REFUSALS: Record<EntryCreateRefusal, { status: number; error: string }> = {
   planNotFound: { status: 404, error: 'Plan not found or access denied' },
   slotTaken: { status: 409, error: 'Entry already exists for this date and meal type' },
+  mealNotFound: { status: 404, error: 'Meal not found' },
+}
+
+/** The answer to each refusal from `createSide`; the client tells them apart by `code`. */
+const SIDE_REFUSALS: Record<SideCreateRefusal, { status: number; error: string }> = {
+  noMain: { status: 409, error: 'The slot has no main to add a side to' },
+  mainSkipped: { status: 409, error: 'The slot is skipped' },
+  alreadyInSlot: { status: 409, error: 'The meal is already in this slot' },
   mealNotFound: { status: 404, error: 'Meal not found' },
 }
 
@@ -201,7 +231,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const { date, pick, restore, ...fields } = parsed.data
+  const { date, pick, restore, side, ...fields } = parsed.data
+
+  // `createSide` scopes the slot to the household's plan, so another
+  // household's plan reads as `noMain`.
+  if (side && fields.mealId) {
+    try {
+      return NextResponse.json(
+        await createSide(household.id, planId, {
+          date: parseLocalDate(date),
+          mealType: fields.mealType,
+          mealId: fields.mealId,
+          servingOverride: fields.servingOverride,
+          rating: fields.rating,
+          skipped: fields.status === 'skipped',
+        }),
+      )
+    } catch (error) {
+      if (error instanceof SideCreateError) {
+        const { status, error: message } = SIDE_REFUSALS[error.reason]
+        return NextResponse.json({ error: message, code: error.reason }, { status })
+      }
+      captureApiError(error, {
+        route: '/api/meal-plans/[id]/entries',
+        userId: session.user.id,
+        householdId: household.id,
+      })
+      return NextResponse.json({ error: 'Failed to create side' }, { status: 500 })
+    }
+  }
 
   // A log of a meal already eaten is for a past day only, in the household's
   // day (HON-1383). Today's meal is marked cooked from its card, which runs

@@ -34,6 +34,8 @@ const meta = {
     onMealTypeToggle: fn(),
     onTimeMinutesChange: fn(),
     onKidFriendlyChange: fn(),
+    sideDish: false,
+    onSideDishChange: fn(),
     mainProtein: singleProtein,
   },
 } satisfies Meta<typeof MealFormDetails>
@@ -181,5 +183,21 @@ export const PhoneEstonian: Story = {
       await expect(text.height).toBeLessThan(2 * parseFloat(getComputedStyle(label).lineHeight))
       await expect(text.right).toBeLessThanOrEqual(section.getBoundingClientRect().right)
     }
+  },
+}
+
+// HON-1611: "Side dish" sets the recipe's course; the planner's "Add side"
+// lists it first.
+export const SideDish: Story = {
+  args: { sideDish: true },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const checkbox = canvas.getByRole('checkbox', { name: 'Side dish' })
+    await expect(checkbox).toBeChecked()
+    await expect(checkbox).toHaveAccessibleDescription(
+      'A salad, bread or vegetable served with a main. Suggestions never plan it as a meal on its own.',
+    )
+    await userEvent.click(checkbox)
+    await waitFor(() => expect(args.onSideDishChange).toHaveBeenCalledWith(false))
   },
 }

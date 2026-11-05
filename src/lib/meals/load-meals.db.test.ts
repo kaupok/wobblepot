@@ -98,6 +98,7 @@ async function meal(
     imageUrl?: string
     imageHue?: number
     imagePromptVersion?: string
+    course?: 'main' | 'side'
     components?: Record<string, number>
   } = {},
 ) {
@@ -401,6 +402,31 @@ describe('loadMeals', () => {
 
       // "Soup" is the closer substring match, so it leads though Onion soup was never cooked.
       expect(names(result)).toEqual(['Soup', 'Onion soup'])
+    })
+  })
+
+  // HON-1611: the planner's "Add side" lists side dishes first.
+  describe('order sideFirst', () => {
+    it('lists the side dishes first, each part by name', async () => {
+      const { alder } = await world()
+      await meal('meal-slaw', 'Slaw', { course: 'side' })
+      await meal('meal-bread', 'Bread', { course: 'side' })
+
+      expect(names(await load(alder, { order: 'sideFirst' }))).toEqual([
+        'Bread',
+        'Slaw',
+        ...VISIBLE,
+      ])
+    })
+
+    it('lists them first in a translated list too', async () => {
+      const { alder } = await world()
+      await meal('meal-slaw', 'Slaw', { course: 'side' })
+
+      const result = await load(alder, { order: 'sideFirst' }, { locale: 'et' })
+
+      expect(names(result)[0]).toBe('Slaw')
+      expect(result.meals[0]).toMatchObject({ course: 'side' })
     })
   })
 

@@ -69,6 +69,10 @@ export interface PlanEntrySide {
   pantryDeducted: boolean
   /** What the side cooks, with its changes merged, for the Cooked dialog's sum (HON-1610). */
   components: PlanComponent[]
+  /** The side's cached tips, for its own cook view (HON-1611). */
+  preparationTips: ReturnType<typeof parseCachedPreparationSteps> | null
+  /** The preferences a planned side breaks, as the main's `conflicts` (HON-1611). */
+  conflicts: PreferenceConflict[]
 }
 
 /** A component in the shape the planner reads, its ingredient named in the household's locale. */
@@ -214,32 +218,75 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
     },
   })
 
-  const sidesByMain = new Map<string, PlanEntrySide[]>()
+  type PlanMeal = NonNullable<(typeof entries)[number]['meal']>
+  /**
+   * The card's and the cook view's meal, with the entry's changes merged into
+   * `components`. The locale's MealTranslation is coalesced over the
+   * canonical English fields, per field; for en the meal is unchanged.
+   */
+  const toClientMeal = (
+    meal: PlanMeal | null,
+    components: ReturnType<typeof applyEntryChanges<PlanIngredient>>,
+  ) => {
+    if (!meal) return null
+    const translatedMeal = translateMeal(meal, locale)
+    return {
+      id: meal.id,
+      name: translatedMeal.name,
+      description: translatedMeal.description ?? null,
+      kidFriendly: meal.kidFriendly,
+      timeMinutes: meal.timeMinutes,
+      preparationNotes: translatedMeal.preparationNotes ?? null,
+      primaryProteinType: meal.primaryProteinType,
+      // The meal detail modal's hero illustration (HON-737). A global
+      // meal is drawn by the operator batch, never lazily on open.
+      isCustom: meal.householdId !== null,
+      // Card and hero tint (HON-744); null when the image has no colour.
+      // A stale prompt version reads as no image, so it is redrawn (HON-753).
+      ...presentMealImage(meal),
+      nutrition: computeMealNutrition(components),
+      components: components.map((comp) => toClientComponent(comp)),
+    }
+  }
+
+  // The side's `meal` is the shape the main's is, for the side's cook view.
+  const sidesByMain = new Map<
+    string,
+    (PlanEntrySide & { meal: ReturnType<typeof toClientMeal> })[]
+  >()
   for (const side of entries) {
     if (!side.mainEntryId) continue
     const sides = sidesByMain.get(side.mainEntryId) ?? []
+    const components = applyEntryChanges(side.meal?.components ?? [], side.changes)
+    const cookServings = getCookServings(side, householdServings)
     sides.push({
       entryId: side.id,
       mealId: side.mealId,
       mealName: side.meal ? translateMeal(side.meal, locale).name : null,
       servings: getEffectiveServings(side, householdServings),
-      cookServings: getCookServings(side, householdServings),
+      cookServings,
       status: side.status,
       rating: side.rating,
       servingOverride: side.servingOverride,
       pantryDeducted: side.pantryDeductedAt !== null,
-      components: applyEntryChanges(side.meal?.components ?? [], side.changes).map((comp) =>
-        toClientComponent(comp),
-      ),
+      components: components.map((comp) => toClientComponent(comp)),
+      meal: toClientMeal(side.meal, components),
+      preparationTips: side.preparationTips
+        ? parseCachedPreparationSteps(side.preparationTips, {
+            servings: cookServings,
+            legacyServings: side.servingOverride ?? household._count.members,
+          })
+        : null,
+      conflicts:
+        side.meal && side.status === 'planned' && conflictPreferences
+          ? findPreferenceConflicts({ ...side.meal, components }, conflictPreferences)
+          : [],
     })
     sidesByMain.set(side.mainEntryId, sides)
   }
 
   const formattedEntries = entries.flatMap((entry) => {
     if (entry.mainEntryId) return []
-    // Coalesce the locale's MealTranslation over the canonical English fields
-    // (per-field fallback). For en this returns the meal unchanged.
-    const translatedMeal = entry.meal ? translateMeal(entry.meal, locale) : null
     // What this entry cooks: the meal's components with the entry's changes
     // merged. Nutrition, the conflicts, the availability the client computes
     // and every quantity shown read this list, never the bare meal.
@@ -337,26 +384,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           quantityPerServing: change.quantityPerServing,
           stale: stale.has(change.id),
         })),
-        meal:
-          entry.meal && translatedMeal
-            ? {
-                id: entry.meal.id,
-                name: translatedMeal.name,
-                description: translatedMeal.description ?? null,
-                kidFriendly: entry.meal.kidFriendly,
-                timeMinutes: entry.meal.timeMinutes,
-                preparationNotes: translatedMeal.preparationNotes ?? null,
-                primaryProteinType: entry.meal.primaryProteinType,
-                // The meal detail modal's hero illustration (HON-737). A global
-                // meal is drawn by the operator batch, never lazily on open.
-                isCustom: entry.meal.householdId !== null,
-                // Card and hero tint (HON-744); null when the image has no colour.
-                // A stale prompt version reads as no image, so it is redrawn (HON-753).
-                ...presentMealImage(entry.meal),
-                nutrition: computeMealNutrition(components),
-                components: components.map((comp) => toClientComponent(comp)),
-              }
-            : null,
+        meal: toClientMeal(entry.meal, components),
         sides: sidesByMain.get(entry.id) ?? [],
       },
     ]

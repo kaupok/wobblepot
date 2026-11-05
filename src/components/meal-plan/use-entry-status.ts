@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { type Source, track } from '@/lib/analytics'
 import { apiFetch } from '@/lib/api'
 
-import { computeDeductions, type CookAnswer } from './PantryDeductionModal'
+import { computeDeductions, type CookAnswer, type SidesMade } from './PantryDeductionModal'
 import { sidesToCharge, slotComponents } from './side-dishes'
 import type { MealData, MealStatus, PantryItemFull, PlanEntrySide } from './types'
 
@@ -105,6 +105,7 @@ export function useEntryStatus({
       usedUpIngredientIds,
       someLeftIngredientIds,
       lowIngredientIds,
+      skippedSideIds,
     }: {
       newStatus: MealStatus
       deductPantry?: boolean
@@ -122,6 +123,8 @@ export function useEntryStatus({
       someLeftIngredientIds?: string[]
       /** The rows the dialog says are running low (HON-1588). Sent only when not empty. */
       lowIngredientIds?: string[]
+      /** The sides the dialog's "Made" left unchecked (HON-1611). Sent only when not empty. */
+      skippedSideIds?: string[]
       /** The dialog's rows at each choice, and its staple rows, for the completion event. */
       usedUpCount?: number
       someLeftCount?: number
@@ -140,6 +143,7 @@ export function useEntryStatus({
             ...(usedUpIngredientIds ? { usedUpIngredientIds } : {}),
             ...(someLeftIngredientIds?.length ? { someLeftIngredientIds } : {}),
             ...(lowIngredientIds?.length ? { lowIngredientIds } : {}),
+            ...(skippedSideIds?.length ? { skippedSideIds } : {}),
           }),
         },
       )
@@ -218,8 +222,10 @@ export function useEntryStatus({
       // only say "No pantry items will be affected" (HON-1125). It still asks
       // the server to deduct, as the confirm would have: the page's pantry can
       // be older than the database (another member's shop, a cached Back), and
-      // the server deducts what really matches.
-      if (!hasDeductions) {
+      // the server deducts what really matches. A slot with a side to charge
+      // opens the dialog anyway, so the cook can uncheck a side not made
+      // (HON-1611).
+      if (!hasDeductions && sidesToCharge(sides).length === 0) {
         completeWithDeduction()
         return
       }
@@ -242,12 +248,13 @@ export function useEntryStatus({
   // The dialog's Confirm, and a completion with nothing to preview. With no
   // answer the server decides the "have some" rows by `defaultCookOutcome`
   // and subtracts the known ones.
-  function completeWithDeduction(answer?: CookAnswer) {
+  function completeWithDeduction(answer?: CookAnswer, made?: SidesMade) {
     statusMutation.mutate(
       {
         newStatus: 'completed',
         deductPantry: true,
         source: completionSourceRef.current,
+        skippedSideIds: made?.skippedSideIds,
         ...(answer && {
           usedUpIngredientIds: answer.usedUpIngredientIds,
           someLeftIngredientIds: answer.someLeftIngredientIds,
