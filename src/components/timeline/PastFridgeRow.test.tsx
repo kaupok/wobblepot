@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { FridgeMealItem, MealStatus } from '@/components/meal-plan/types'
+import type { FridgeMealItem, MealStatus, PlanEntrySide } from '@/components/meal-plan/types'
+import { createIngredient, createMealComponent } from '@/stories/fixtures'
 import { fridgeItems, fridgePantryItems } from '@/stories/fridge-fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -42,6 +43,7 @@ function renderRow(
     items?: FridgeMealItem[]
     pantryDeducted?: boolean
     onCleared?: () => void
+    sides?: PlanEntrySide[]
   } = {},
 ) {
   const { wrapper: Wrapper } = createQueryWrapper()
@@ -60,6 +62,31 @@ function renderRow(
     </Wrapper>,
   )
   return userEvent.setup()
+}
+
+// A pepper salad for 3, on the pantry's paprika (HON-1616).
+const salad: PlanEntrySide = {
+  entryId: 'side-salad',
+  mealId: 'meal-salad',
+  mealName: 'Pepper salad',
+  servings: 3,
+  cookServings: 3,
+  status: 'planned',
+  rating: null,
+  servingOverride: null,
+  pantryDeducted: false,
+  components: [
+    createMealComponent({
+      ingredientId: 'paprika',
+      quantityPerServing: 1,
+      ingredient: createIngredient({
+        id: 'paprika',
+        name: 'Paprika',
+        category: 'vegetable',
+        defaultUnit: 'g',
+      }),
+    }),
+  ],
 }
 
 const cooked = () => screen.getByRole('button', { name: 'Cooked' })
@@ -107,6 +134,30 @@ describe('PastFridgeRow', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Undo: Wolt' })).toHaveFocus())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ status: 'completed' })
+  })
+
+  it("asks about a side's pantry rows after the items, and completes the slot in one request", async () => {
+    const user = renderRow({ sides: [salad] })
+
+    await user.click(cooked())
+    await screen.findByRole('dialog', { name: 'Did you use anything up?' })
+    await user.click(screen.getByRole('checkbox', { name: 'Used it all: Cucumber' }))
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    const group = await screen.findByRole('radiogroup', { name: 'What is left: Paprika' })
+    await user.click(within(group).getByRole('radio', { name: 'Running low' }))
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    respond(200, { pantryDeducted: true })
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Undo: / })).toHaveFocus())
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+      status: 'completed',
+      deductPantry: true,
+      usedUpIngredientIds: ['cucumber'],
+      lowIngredientIds: ['paprika'],
+    })
   })
 
   it('shows Cooked and Undo, with no Remove, once cooked', () => {

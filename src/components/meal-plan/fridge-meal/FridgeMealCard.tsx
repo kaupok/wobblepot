@@ -23,6 +23,7 @@ import { CARD_CLICK_IGNORE } from '../card-click'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from '../MealImageCard'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
+import { PantryDeductionModal } from '../PantryDeductionModal'
 import { clearedSides, NO_SIDES } from '../side-dishes'
 import { SideDishLines } from '../SideDishLines'
 import { StickyNote } from '../StickyNote'
@@ -51,7 +52,7 @@ interface FridgeMealCardProps {
   pantryDeducted?: boolean
   /** Called once Clear has deleted the entry, so the page can focus the slot that replaces it. */
   onCleared?: () => void
-  /** The slot's side dishes, read-only here (HON-1610). */
+  /** The slot's side dishes, which Eaten charges (HON-1610, HON-1616). */
   sides?: PlanEntrySide[]
 }
 
@@ -110,6 +111,7 @@ export function FridgeMealCard({
     setIsDeductionModalOpen: setIsCompleteOpen,
     handleStatusChange,
     completeFridgeMeal,
+    fridgeSidesDialog,
   } = useEntryStatus({
     planId,
     entryId,
@@ -390,6 +392,17 @@ export function FridgeMealCard({
         onOpenChange={setIsCompleteOpen}
         items={items}
         onConfirm={(ids) => completeFridgeMeal(ids, () => setIsCompleteOpen(false))}
+        isLoading={isUpdating}
+        onCloseAutoFocus={focusMoreActionsOnClose}
+      />
+      <PantryDeductionModal
+        open={fridgeSidesDialog.open}
+        onOpenChange={fridgeSidesDialog.onOpenChange}
+        mealName={fridgeSidesDialog.sideNames}
+        components={fridgeSidesDialog.components}
+        householdServings={1}
+        pantryItems={pantryItems}
+        onConfirm={fridgeSidesDialog.onConfirm}
         isLoading={isUpdating}
         onCloseAutoFocus={focusMoreActionsOnClose}
       />

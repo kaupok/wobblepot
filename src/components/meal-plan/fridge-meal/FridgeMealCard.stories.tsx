@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { createIngredient, createMealComponent } from '@/stories/fixtures'
 import {
   fridgeItems,
   fridgePantryItems,
@@ -151,6 +152,51 @@ export const CompleteWithDialog: Story = {
     await userEvent.click(dialog.getByRole('button', { name: 'Done' }))
     await waitFor(() => expect(canvas.getByRole('button', { name: MORE_ACTIONS })).toHaveFocus())
     await expect(canvas.getByText('Eaten', { exact: true })).toBeInTheDocument()
+  },
+}
+
+/**
+ * A fridge meal with a pepper salad on the side (HON-1616): after the "Used it
+ * all" dialog, "Eaten" asks about the salad's pantry rows, as Cooked does.
+ */
+export const EatenWithSide: Story = {
+  args: {
+    sides: [
+      {
+        entryId: 'side-salad',
+        mealId: 'meal-salad',
+        mealName: 'Pepper salad',
+        servings: 3,
+        cookServings: 3,
+        status: 'planned',
+        rating: null,
+        servingOverride: null,
+        pantryDeducted: false,
+        components: [
+          createMealComponent({
+            ingredientId: 'paprika',
+            quantityPerServing: 1,
+            ingredient: createIngredient({
+              id: 'paprika',
+              name: 'Paprika',
+              category: 'vegetable',
+              defaultUnit: 'g',
+            }),
+          }),
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const menu = await openMenu(canvasElement)
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Eaten' }))
+    const body = within(document.body)
+    const dialog = within(await body.findByRole('dialog', { name: 'Did you use anything up?' }))
+    await userEvent.click(dialog.getByRole('button', { name: 'Done' }))
+    const sides = within(await body.findByRole('dialog', { name: 'Mark as cooked' }))
+    await expect(
+      sides.getByRole('radiogroup', { name: 'What is left: Paprika' }),
+    ).toBeInTheDocument()
   },
 }
 
