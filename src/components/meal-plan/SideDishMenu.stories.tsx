@@ -84,7 +84,10 @@ export const ServingsDialog: Story = {
     await userEvent.click(line)
     await userEvent.click(await body.findByRole('menuitem', { name: 'Servings' }))
     const dialog = within(await body.findByRole('dialog', { name: 'Side dish servings' }))
-    await expect(dialog.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeVisible()
+    // The dialog fades in.
+    await waitFor(() =>
+      expect(dialog.getByRole('button', { name: 'Serves 3. Click to edit.' })).toBeVisible(),
+    )
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() => expect(line).toHaveFocus())
