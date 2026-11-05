@@ -486,7 +486,7 @@ export const newIngredients = [
     ...asSold({ calories: 100, protein: 20.5, carbs: 0, fat: 1.3, fiber: 0 }, 0.54),
   },
   {
-    name: 'anchovies',
+    name: 'fresh anchovies',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',

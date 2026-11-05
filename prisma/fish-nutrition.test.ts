@@ -30,7 +30,7 @@ const ingredients = [
 // Raw edible values × 0.62 (FAO 309): Ciqual 26065 sardine, raw; USDA SR Legacy 15001 anchovy, raw
 const AS_SOLD = {
   sardines: { calories: 99.2, protein: 12.1, carbs: 0, fat: 5.7, fiber: 0 },
-  anchovies: { calories: 81.2, protein: 12.6, carbs: 0, fat: 3, fiber: 0 },
+  'fresh anchovies': { calories: 81.2, protein: 12.6, carbs: 0, fat: 3, fiber: 0 },
 }
 
 // Canned in oil, drained (USDA SR Legacy 15088 and 15002); this issue left them as they were
@@ -38,6 +38,9 @@ const TINNED = {
   'tinned sardines': { calories: 208, protein: 24.6, carbs: 0, fat: 11.5 },
   'tinned anchovies': { calories: 210, protein: 29, carbs: 0, fat: 10 },
 }
+
+// Later renames of a migrated row: the migration above is frozen (HON-1603)
+const RENAMED: Record<string, string> = { anchovies: 'fresh anchovies' }
 
 /** The seed object literal for a global row, as written in the seed files. */
 function rowSource(name: string): string {
@@ -73,7 +76,7 @@ describe('fresh sardine and anchovy nutrition (HON-1487)', () => {
       })),
     )
     for (const { name, values } of migrated) {
-      const row = ingredients.find((i) => i.name === name)
+      const row = ingredients.find((i) => i.name === (RENAMED[name] ?? name))
       expect(row, name).toBeDefined()
       expect([row!.calories, row!.protein, row!.carbs, row!.fat, row!.fiber ?? 0], name).toEqual(
         values,

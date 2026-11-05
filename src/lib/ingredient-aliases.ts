@@ -311,6 +311,16 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
 
   // Tins
   'canned anchovies': 'tinned anchovies',
+  // A recipe's anchovies are the tinned or jarred fillets; the whole fish is
+  // `fresh anchovies` (HON-1603)
+  anchovies: 'tinned anchovies',
+  anchovy: 'tinned anchovies',
+  'anchovy fillet': 'tinned anchovies',
+  'anchovy fillets': 'tinned anchovies',
+  'anchovies in oil': 'tinned anchovies',
+  'salted anchovies': 'tinned anchovies',
+  anšoovised: 'tinned anchovies',
+  anšoovisefileed: 'tinned anchovies',
   'canned mackerel': 'tinned mackerel',
   'canned salmon': 'tinned salmon',
   'canned sardines': 'tinned sardines',

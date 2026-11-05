@@ -109,7 +109,6 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
     en: ['fish'],
     et: ['kala'],
     members: [
-      'anchovies',
       'arctic char',
       'arctic char fillet',
       'barramundi',
@@ -125,6 +124,7 @@ export const INGREDIENT_GROUPS: readonly IngredientGroup[] = [
       'fish sauce thai',
       'flounder',
       'flounder fillet',
+      'fresh anchovies',
       'gravlax',
       'grouper',
       'grouper fillet',

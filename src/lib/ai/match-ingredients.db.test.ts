@@ -45,7 +45,6 @@ describe('matchIngredients on a plural catalogue name', () => {
   it.each([
     ['bay leaf', 'ing-bay-leaves', 'bay leaves'],
     ['pea', 'ing-peas', 'peas'],
-    ['anchovy', 'ing-anchovies', 'anchovies'],
     ['clam', 'ing-clams', 'clams'],
     ['date', 'ing-dates', 'dates'],
     ['vine leaf', 'ing-vine-leaves', 'vine leaves'],

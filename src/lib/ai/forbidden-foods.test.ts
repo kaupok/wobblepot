@@ -327,6 +327,8 @@ describe('British and American names of a row renamed in HON-1099', () => {
     [{ allergens: ['shellfish'] }, 'cooked prawns'],
     [{ allergens: ['fish'] }, 'canned anchovies'],
     [{ allergens: ['fish'] }, 'tinned anchovies'],
+    [{ allergens: ['fish'] }, 'fresh anchovies'],
+    [{ allergens: ['fish'] }, 'anchovy fillets'],
     [{ allergens: ['fish'] }, 'canned sardines'],
     [{ allergens: ['fish'] }, 'tinned sardines'],
     [{ dietaryType: 'vegetarian' }, 'ham steak'],
