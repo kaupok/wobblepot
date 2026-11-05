@@ -36,8 +36,9 @@ export class SetFridgeItemsError extends Error {
  * The item rows for `items`, in order, after checking each source belongs to
  * the household. An ingredient is global or the household's own. A source
  * entry is in the household's plan, because another household's entry would
- * leak its meal name. The source rule (`findLeftoverSourceProblem`) runs in the
- * callers, the entry routes and the MCP, because each words its own refusal.
+ * leak its meal name, and is a slot's main, because only a main gives
+ * leftovers (HON-1609). The source rule (`findLeftoverSourceProblem`) runs in
+ * the callers, the entry routes and the MCP, because each words its own refusal.
  */
 export async function toItemRows(householdId: string, items: FridgeItemInput[]) {
   const ingredientIds = new Set(items.flatMap((i) => ('ingredientId' in i ? [i.ingredientId] : [])))
@@ -60,6 +61,7 @@ export async function toItemRows(householdId: string, items: FridgeItemInput[]) 
           where: {
             id: { in: [...sourceEntryIds] },
             plan: { householdId },
+            mainEntryId: null,
           },
         }),
   ])

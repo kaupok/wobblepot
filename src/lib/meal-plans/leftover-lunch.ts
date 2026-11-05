@@ -48,10 +48,19 @@ export async function addLeftoverLunch(
 ): Promise<{ outcome: 'planned' | 'added'; date: string }> {
   const dinner = await prisma.mealPlanEntry.findFirst({
     where: { id: dinnerEntryId, planId, plan: { householdId: household.id } },
-    select: { date: true, mealType: true, status: true, kind: true, mealId: true },
+    select: {
+      date: true,
+      mealType: true,
+      status: true,
+      kind: true,
+      mealId: true,
+      mainEntryId: true,
+    },
   })
   if (!dinner) throw new LeftoverLunchError('dinnerNotFound')
+  // Only a main gives leftovers, so a side dish is not a dinner here (HON-1609).
   if (
+    dinner.mainEntryId ||
     dinner.mealType !== MealType.dinner ||
     dinner.status !== MealPlanEntryStatus.planned ||
     dinner.kind !== 'meal' ||
@@ -67,7 +76,12 @@ export async function addLeftoverLunch(
   // entry, whatever its type (HON-1518).
 
   const lunch = await prisma.mealPlanEntry.findFirst({
-    where: { plan: { householdId: household.id }, date: lunchDay, mealType: MealType.lunch },
+    where: {
+      plan: { householdId: household.id },
+      date: lunchDay,
+      mealType: MealType.lunch,
+      mainEntryId: null,
+    },
     select: {
       id: true,
       planId: true,

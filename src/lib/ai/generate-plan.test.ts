@@ -925,6 +925,8 @@ describe('generateMealPlan', () => {
           planId: 'plan-1',
           date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
           status: { not: 'completed' },
+          // Mains only; the cascade takes their sides (HON-1609).
+          mainEntryId: null,
         },
       })
       expect(mockMealPlanEntryCreateMany).toHaveBeenCalled()
@@ -1083,6 +1085,7 @@ describe('generateMealPlan', () => {
           plan: { householdId: 'household-1' },
           status: 'completed',
           date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
+          mainEntryId: null,
         },
         select: { date: true, mealType: true, mealId: true },
       })
@@ -1196,6 +1199,8 @@ describe('generateMealPlan', () => {
           planId: 'plan-1',
           date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
           status: { not: 'completed' },
+          // Mains only; the cascade takes their sides (HON-1609).
+          mainEntryId: null,
         },
       })
       expect(result.id).toBe('plan-1')
@@ -1251,6 +1256,7 @@ describe('createEmptyPlan', () => {
         planId: 'plan-1',
         date: { gte: date('2026-01-12'), lt: date('2026-01-19') },
         status: { not: 'completed' },
+        mainEntryId: null,
       },
     })
   })

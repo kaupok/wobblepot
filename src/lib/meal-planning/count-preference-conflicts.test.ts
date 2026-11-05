@@ -57,6 +57,7 @@ describe('countConflictingPlannedEntries', () => {
       status: 'planned',
       date: { gte: new Date(2026, 9, 10) },
       mealId: { not: null },
+      mainEntryId: null,
     })
   })
 

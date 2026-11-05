@@ -38,7 +38,8 @@ type EntryWithMeal = Prisma.MealPlanEntryGetPayload<{ include: typeof ENTRY_INCL
 function entriesInRange(startDate: Date, endDate: Date) {
   return {
     entries: {
-      where: { date: { gte: startDate, lt: endDate } },
+      // Mains only, one per slot; sides are read with their main (HON-1609).
+      where: { date: { gte: startDate, lt: endDate }, mainEntryId: null },
       include: ENTRY_INCLUDE,
       orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
     },
@@ -87,6 +88,8 @@ async function getKeptEntries(
       plan: { householdId },
       status: 'completed',
       date: { gte: startDate, lt: endDate },
+      // A slot is kept by its main; a side's meal is not a kept dinner (HON-1609).
+      mainEntryId: null,
     },
     select: { date: true, mealType: true, mealId: true },
   })
@@ -101,6 +104,12 @@ async function getKeptEntries(
  * record of a meal the pantry was already charged for, and reverting a completion does not
  * restock, so deleting it would leave a deduction nothing explains (HON-650). `planned` and
  * `skipped` entries were never charged and are replaced.
+ *
+ * It deletes mains only, and the cascade takes their sides, so a slot goes as a
+ * whole. A side of a kept main stays with it (HON-1609). The cascade never takes
+ * a cooked side, because a completed side always has a completed main: Cooked
+ * on the main completes the slot, and a revert of the main reverts its sides
+ * (HON-1596, Q1).
  */
 async function deleteReplaceableEntries(
   tx: Prisma.TransactionClient,
@@ -113,6 +122,7 @@ async function deleteReplaceableEntries(
       planId,
       date: { gte: startDate, lt: endDate },
       status: { not: 'completed' },
+      mainEntryId: null,
     },
   })
 }

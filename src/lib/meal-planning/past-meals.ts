@@ -65,6 +65,8 @@ export async function countPastMealsToMark(household: {
       date: { gte: startDate, lt: endDate },
       status: 'planned',
       mealId: { not: null },
+      // One per slot: a side is marked with its main (HON-1609).
+      mainEntryId: null,
     },
   })
 }

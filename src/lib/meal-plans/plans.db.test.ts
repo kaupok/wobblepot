@@ -118,6 +118,7 @@ describe('loadMealPlan', () => {
               },
             ],
           },
+          sides: [],
         },
         {
           id: 'entry-breakfast',
@@ -126,9 +127,56 @@ describe('loadMealPlan', () => {
           status: 'planned',
           servingOverride: null,
           meal: null,
+          sides: [],
         },
       ],
     })
+  })
+
+  it("returns one entry for a slot with sides, each side under the main's sides (HON-1609)", async () => {
+    const { alder } = await world()
+    // Two sides: one follows the main's 4 servings, one has its own 2.
+    for (const [id, servingOverride] of [
+      ['entry-side-a', null],
+      ['entry-side-b', 2],
+    ] as const) {
+      await prisma.mealPlanEntry.create({
+        data: {
+          id,
+          planId: 'plan-alder',
+          date: new Date('2026-10-14T00:00:00Z'),
+          mealType: 'dinner',
+          mealId: 'meal-stew',
+          mainEntryId: 'entry-dinner',
+          servingOverride,
+          ...(id === 'entry-side-b' && { status: 'skipped' as const }),
+        },
+      })
+    }
+
+    const plan = await loadMealPlan(alder.id, 'plan-alder', 'et')
+
+    expect(plan.entries.map((entry) => entry.id)).toEqual(['entry-dinner', 'entry-breakfast'])
+    expect(plan.entries[0]!.sides).toEqual([
+      {
+        entryId: 'entry-side-a',
+        mealId: 'meal-stew',
+        mealName: 'Veisehautis',
+        servings: 4,
+        cookServings: 4,
+        status: 'planned',
+        rating: null,
+      },
+      {
+        entryId: 'entry-side-b',
+        mealId: 'meal-stew',
+        mealName: 'Veisehautis',
+        servings: 2,
+        cookServings: 2,
+        status: 'skipped',
+        rating: null,
+      },
+    ])
   })
 
   it('types each entry with every meal type, not dinner only', async () => {

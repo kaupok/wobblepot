@@ -31,6 +31,9 @@ export async function countConflictingPlannedEntries(
       status: 'planned',
       date: { gte: today },
       mealId: { not: null },
+      // One per slot, its main, which is the card that marks a conflict. A
+      // side's conflicts show on no card yet (HON-1609).
+      mainEntryId: null,
     },
     select: {
       // The entry's own ingredient changes (HON-1243): the cards judge the

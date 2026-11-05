@@ -54,6 +54,9 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     where: { id: planId },
     include: {
       entries: {
+        // Mains only: a slot is filled by its main, and a side's meal is not a
+        // dinner to keep apart from (HON-1609).
+        where: { mainEntryId: null },
         include: {
           meal: {
             include: {
@@ -235,6 +238,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
       entries: {
         where: {
           date: { gte: startDate, lt: endDate },
+          mainEntryId: null,
         },
         include: {
           meal: {

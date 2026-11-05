@@ -152,6 +152,23 @@ export const mealPlanOutputSchema = z.object({
         ),
       isCooked: z.boolean(),
       isSkipped: z.boolean(),
+      sides: z
+        .array(
+          z.object({
+            entryId: z.string(),
+            mealId: z.string().nullable(),
+            mealName: z.string().nullable(),
+            servings: z
+              .number()
+              .describe("The side's own servings: the main's, or the side's override."),
+            cookServings: z.number().describe('The servings the side is cooked and bought for.'),
+            status: z.enum(['planned', 'completed', 'skipped']),
+            rating: z.enum(['up', 'down']).nullable(),
+          }),
+        )
+        .describe(
+          "The side dishes served with this meal, in the same slot. Empty when it has none. A side's entryId is never a leftover source.",
+        ),
     }),
   ),
   extras: z
@@ -208,6 +225,7 @@ export async function readMealPlan(
       leftoversFor: entry.leftoversFor,
       isCooked: entry.status === 'completed',
       isSkipped: entry.status === 'skipped',
+      sides: entry.sides,
     })),
     extras: extras.map(toDayExtraOutput),
   }

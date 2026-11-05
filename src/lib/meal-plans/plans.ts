@@ -8,6 +8,12 @@ import {
 } from '@/lib/i18n/content'
 import { toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import {
+  cookServingsSelect,
+  getCookServings,
+  getEffectiveServings,
+  sumPortions,
+} from '@/lib/meal-planning/servings'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -33,15 +39,32 @@ export class MealPlanReadError extends Error {
 
 /**
  * A plan with its entries in date order, each meal translated into `locale`
- * with its nutrition and components. Throws `MealPlanReadError` for a plan
- * that does not exist or is not the household's.
+ * with its nutrition and components. One entry per slot, its main, with the
+ * slot's side dishes under `sides` (HON-1609). Throws `MealPlanReadError` for
+ * a plan that does not exist or is not the household's.
  */
 export async function loadMealPlan(householdId: string, planId: string, locale: string) {
   const plan = await prisma.mealPlan.findUnique({
     where: { id: planId },
     include: {
+      // The servings a side without an override follows, as `loadPlanEntries` reads them.
+      household: {
+        select: { members: { select: { preferences: { select: { portionMultiplier: true } } } } },
+      },
       entries: {
+        where: { mainEntryId: null },
         include: {
+          sides: {
+            // A cuid, so the order the sides were added in.
+            orderBy: { id: 'asc' },
+            select: {
+              id: true,
+              mealId: true,
+              rating: true,
+              ...cookServingsSelect,
+              meal: { select: { name: true, ...mealTranslationsInclude(locale) } },
+            },
+          },
           meal: {
             include: {
               components: {
@@ -67,6 +90,8 @@ export async function loadMealPlan(householdId: string, planId: string, locale: 
   if (plan.householdId !== householdId) {
     throw new MealPlanReadError('otherHousehold')
   }
+
+  const householdServings = sumPortions(plan.household.members)
 
   return {
     id: plan.id,
@@ -108,6 +133,15 @@ export async function loadMealPlan(householdId: string, planId: string, locale: 
             }
           })()
         : null,
+      sides: entry.sides.map((side) => ({
+        entryId: side.id,
+        mealId: side.mealId,
+        mealName: side.meal ? translateMeal(side.meal, locale).name : null,
+        servings: getEffectiveServings(side, householdServings),
+        cookServings: getCookServings(side, householdServings),
+        status: side.status,
+        rating: side.rating,
+      })),
     })),
   }
 }

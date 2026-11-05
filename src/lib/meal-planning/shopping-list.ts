@@ -152,6 +152,12 @@ export interface AggregationEntry {
   date: Date
   servings: number
   components: readonly AggregationComponent[]
+  /**
+   * The slot the entry is cooked in, `mainEntryId ?? id`, so a main and its
+   * side that share an ingredient count as one meal (HON-1609). Without it,
+   * each entry is its own meal.
+   */
+  slotId?: string
 }
 
 /** A meal component as the aggregation reads it. */
@@ -166,7 +172,7 @@ export type AggregationComponent = {
 /**
  * Sum each ingredient's quantity across the entries, before any pantry
  * deduction: `quantityPerServing × servings` per component, the number of
- * meals that use it, and the earliest day it is needed. A vague component
+ * meals (slots) that use it, and the earliest day it is needed. A vague component
  * marks the whole item vague; two different vague phrases become "some".
  *
  * Pure, so the shopping list, the rolling window and the public sample weeks
@@ -177,16 +183,23 @@ export function aggregateComponents(
   locale: Locale,
 ): Map<string, NeededIngredient> {
   const needed = new Map<string, NeededIngredient>()
+  // The slots counted in each ingredient's `mealCount`.
+  const countedSlots = new Map<string, Set<unknown>>()
 
   for (const entry of entries) {
+    const slot = entry.slotId ?? entry
     for (const component of entry.components) {
       const ingredientId = component.ingredientId
       const qty = component.quantityPerServing * entry.servings
       const existing = needed.get(ingredientId)
+      const slots = countedSlots.get(ingredientId)
 
-      if (existing) {
+      if (existing && slots) {
         existing.quantity += qty
-        existing.mealCount += 1
+        if (!slots.has(slot)) {
+          slots.add(slot)
+          existing.mealCount += 1
+        }
         // Track earliest date this ingredient is needed
         if (entry.date < existing.earliestNeededDate) {
           existing.earliestNeededDate = entry.date
@@ -206,6 +219,7 @@ export function aggregateComponents(
           }
         }
       } else {
+        countedSlots.set(ingredientId, new Set([slot]))
         needed.set(ingredientId, {
           ingredient: translateIngredient(component.ingredient, locale),
           quantity: qty,
@@ -280,6 +294,8 @@ export async function computeShoppingList(
       },
     },
     select: {
+      id: true,
+      mainEntryId: true,
       date: true,
       ...cookServingsSelect,
       changes: shoppingChangesArgs(locale),
@@ -312,6 +328,7 @@ export async function computeShoppingList(
               date: entry.date,
               servings: getCookServings(entry, householdServings),
               components: applyEntryChanges(entry.meal.components, entry.changes),
+              slotId: entry.mainEntryId ?? entry.id,
             },
           ]
         : [],
@@ -391,6 +408,8 @@ export async function computeRollingWindowShoppingList(
         date: inWindow,
       },
       select: {
+        id: true,
+        mainEntryId: true,
         date: true,
         ...cookServingsSelect,
         changes: shoppingChangesArgs(locale),
@@ -455,6 +474,7 @@ export async function computeRollingWindowShoppingList(
                 date: entry.date,
                 servings: getCookServings(entry, householdServings),
                 components: applyEntryChanges(entry.meal.components, entry.changes),
+                slotId: entry.mainEntryId ?? entry.id,
               },
             ]
           : [],

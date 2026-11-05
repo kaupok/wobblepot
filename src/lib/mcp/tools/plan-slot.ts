@@ -50,6 +50,8 @@ export async function findPlanSlot(household: McpHousehold, date: string, mealTy
       plan: { householdId: household.id },
       date: { gte: day, lt: nextDay },
       mealType,
+      // The slot's main, never one of its sides (HON-1609).
+      mainEntryId: null,
     },
     select: {
       id: true,
