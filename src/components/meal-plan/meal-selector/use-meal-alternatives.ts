@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
-import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import type { MealCourse, MealType, ProteinType } from '@/generated/prisma/enums'
 import { rateLimitResetAt } from '@/lib/ai/error-codes'
 import { ApiError, apiFetch } from '@/lib/api'
 
@@ -20,6 +20,7 @@ interface LibraryMeal extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   suitableFor: MealType[]
+  course: MealCourse
   isCustom: boolean
   components: MealComponent[]
   nutrition: NutritionData
@@ -49,6 +50,7 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,
     suitableFor: meal.suitableFor,
+    course: meal.course,
     isCustom: meal.isCustom,
     lastCookedOn: meal.lastCookedOn,
     nextPlannedOn: meal.nextPlannedOn,
@@ -75,8 +77,12 @@ export interface UseMealAlternativesOptions {
   planId: string
   entryId: string
   mealType: MealType
-  /** 'swap' regenerates alternatives for the current meal; 'add' suggests for an empty slot. */
-  mode: 'swap' | 'add'
+  /**
+   * 'swap' regenerates alternatives for the current meal; 'add' suggests for
+   * an empty slot; 'side' lists the recipes with side dishes first, since the
+   * suggestions are for mains only (HON-1611).
+   */
+  mode: 'swap' | 'add' | 'side'
   /** Debounced search term. Non-empty switches the modal into search mode. */
   search: string
   myRecipesOnly: boolean
@@ -107,6 +113,8 @@ export interface UseMealAlternativesResult {
   hasLoadedList: boolean
   isSearchMode: boolean
   isMyRecipesBrowseMode: boolean
+  /** 'side' mode with no search: the side-first list of every recipe (HON-1611). */
+  isSideBrowseMode: boolean
   /**
    * True when the suggestions request was refused by the shared
    * `meal-suggestions` rate limit (429). Both `/regenerate` and `/suggestions`
@@ -140,7 +148,8 @@ export function useMealAlternatives({
 }: UseMealAlternativesOptions): UseMealAlternativesResult {
   const trimmedSearch = search.trim()
   const isSearchMode = trimmedSearch.length > 0
-  const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode
+  const isSideBrowseMode = mode === 'side' && !isSearchMode
+  const isMyRecipesBrowseMode = myRecipesOnly && !isSearchMode && !isSideBrowseMode
 
   // AI suggestions — fetched once per modal session with no search active; `reset()`
   // drops them on close so the next open draws a fresh top 3.
@@ -162,7 +171,7 @@ export function useMealAlternatives({
       }>(suggestionsEndpoint, { method: 'POST' })
       return data.alternatives || data.suggestions || []
     },
-    enabled: open && !isSearchMode && !isMyRecipesBrowseMode,
+    enabled: open && !isSearchMode && !isMyRecipesBrowseMode && !isSideBrowseMode,
     staleTime: Infinity,
     // Retrying a 429 only asks the limiter again for an answer it just gave.
     retry: (failureCount, error) => !isRateLimitError(error) && failureCount < 2,
@@ -201,7 +210,29 @@ export function useMealAlternatives({
     enabled: open && isMyRecipesBrowseMode,
   })
 
-  const activeQuery = isMyRecipesBrowseMode ? myRecipesQuery : isSearchMode ? searchQuery : null
+  const sideRecipesQuery = useInfiniteQuery({
+    queryKey: ['side-recipes', mealType, myRecipesOnly],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams()
+      params.set('mealType', mealType)
+      if (myRecipesOnly) params.set('source', 'custom')
+      params.set('order', 'sideFirst')
+      params.set('limit', String(PAGE_SIZE))
+      params.set('offset', String(pageParam))
+      return apiFetch<MealsSearchResponse>(`/api/meals?${params.toString()}`)
+    },
+    getNextPageParam: nextOffset,
+    enabled: open && isSideBrowseMode,
+  })
+
+  const activeQuery = isSideBrowseMode
+    ? sideRecipesQuery
+    : isMyRecipesBrowseMode
+      ? myRecipesQuery
+      : isSearchMode
+        ? searchQuery
+        : null
 
   const pages = activeQuery?.data?.pages
   const displayedMeals = activeQuery
@@ -217,6 +248,7 @@ export function useMealAlternatives({
   const reset = useCallback(() => {
     queryClient.removeQueries({ queryKey: ['meal-search'] })
     queryClient.removeQueries({ queryKey: ['my-recipes'] })
+    queryClient.removeQueries({ queryKey: ['side-recipes'] })
     queryClient.removeQueries({
       queryKey: ['meal-suggestions', planId, entryId, mode],
       exact: true,
@@ -236,6 +268,7 @@ export function useMealAlternatives({
     hasLoadedList: !!pages,
     isSearchMode,
     isMyRecipesBrowseMode,
+    isSideBrowseMode,
     isRateLimited,
     rateLimitResetAt:
       isRateLimited && suggestionsError instanceof ApiError

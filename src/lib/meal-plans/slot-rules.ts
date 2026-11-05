@@ -18,7 +18,8 @@ import { COOK_OUTCOME_INGREDIENT_SELECT } from '@/lib/pantry/cook-outcome'
 import { prisma } from '@/lib/prisma'
 
 import { chargePantry, type Deduction, ranOutIngredientIds } from './cook-deduction'
-import { type EntryPatch, EntryUpdateError, type UpdatedEntry, updateEntry } from './entries'
+import { EntryUpdateError, type UpdatedEntry, updateEntry } from './entries'
+import type { EntryPatch } from './entry-patch'
 import { chargeFridgeEntry } from './fridge-meal'
 
 /**
@@ -41,6 +42,7 @@ const STATUS_KEYS = new Set<keyof EntryPatch>([
   'usedUpIngredientIds',
   'someLeftIngredientIds',
   'lowIngredientIds',
+  'skippedSideIds',
 ])
 
 export async function updateSlotStatus(
@@ -236,7 +238,9 @@ const dishSelect = {
  * used-up items as `completeFridgeEntry` does, and its sides by their recipes
  * when the request asks to deduct. A `servingOverride` or `rating` in the
  * patch is written to the main in the same transaction, and the main and the
- * sides that follow it are priced at the new count.
+ * sides that follow it are priced at the new count. The sides the patch
+ * names in `skippedSideIds` were not made, so they are skipped in the same
+ * transaction and not priced (HON-1611).
  */
 async function completeSlot(
   householdId: string,
@@ -261,7 +265,10 @@ async function completeSlot(
       // A side the household skipped was not made, so it is neither
       // completed nor charged.
       sides: {
-        where: { status: MealPlanEntryStatus.planned },
+        where: {
+          status: MealPlanEntryStatus.planned,
+          id: { notIn: patch.skippedSideIds ?? [] },
+        },
         orderBy: { id: 'asc' },
         select: dishSelect,
       },
@@ -314,6 +321,16 @@ async function completeSlot(
   )
 
   const pantryDeducted = await prisma.$transaction(async (tx) => {
+    if (patch.skippedSideIds?.length) {
+      await tx.mealPlanEntry.updateMany({
+        where: {
+          id: { in: patch.skippedSideIds },
+          mainEntryId: main.id,
+          status: MealPlanEntryStatus.planned,
+        },
+        data: { status: MealPlanEntryStatus.skipped },
+      })
+    }
     let fridgeCharged = false
     if (isFridge) {
       const data = { status: MealPlanEntryStatus.completed, ...mainData }

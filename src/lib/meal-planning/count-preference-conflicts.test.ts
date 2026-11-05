@@ -18,7 +18,14 @@ const NUT_ALLERGY = {
   excludedIngredientIds: [],
 }
 
-const entry = (name: string, allergens: string[], changes: unknown[] = []) => ({
+const entry = (
+  name: string,
+  allergens: string[],
+  changes: unknown[] = [],
+  mainEntryId: string | null = null,
+) => ({
+  id: name,
+  mainEntryId,
   changes,
   meal: {
     name,
@@ -57,8 +64,25 @@ describe('countConflictingPlannedEntries', () => {
       status: 'planned',
       date: { gte: new Date(2026, 9, 10) },
       mealId: { not: null },
-      mainEntryId: null,
     })
+  })
+
+  // A side's conflicts show on its line under the main (HON-1611), and the
+  // slot is one meal, so a main and a side that both conflict count once.
+  it('counts a slot once, whether its main, its side or both conflict', async () => {
+    mockFindMany.mockResolvedValue([
+      entry('Cashew curry', ['nuts']),
+      entry('Peanut slaw', ['nuts'], [], 'Cashew curry'),
+      entry('Rice', []),
+      entry('Walnut salad', ['nuts'], [], 'Rice'),
+    ] as never)
+
+    const count = await countConflictingPlannedEntries(
+      { id: 'household-1', timezone: 'Europe/Tallinn' },
+      NUT_ALLERGY,
+    )
+
+    expect(count).toBe(2)
   })
 
   // The cards judge the entry's merged ingredients (HON-1243), so the count

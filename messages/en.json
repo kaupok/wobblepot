@@ -262,7 +262,8 @@
         "allergen": "Contains: {allergen}",
         "diet": "Not suitable: {diet}",
         "excluded": "Has an avoided ingredient"
-      }
+      },
+      "addSide": "Add side"
     },
     "fridge": {
       "title": "Fridge meal",
@@ -396,7 +397,17 @@
         "imageTooLarge": "Each image must be 5 MB or less",
         "imagineFailed": "Failed to generate meal ideas. Please try again.",
         "assignFailed": "Failed to assign meal to plan"
-      }
+      },
+      "sideTitle": "Add a side dish",
+      "sideSwapTitle": "Swap the side dish",
+      "sideDescription": "Served with: {name}",
+      "sideAdded": "Side added: {name}",
+      "sideAddedEaten": "Side added as eaten: {name}. Your pantry did not change.",
+      "sideAddRefused": "This recipe is already in this meal, or the meal changed. Close and try again.",
+      "sideAddFailed": "Could not add the side dish. Try again.",
+      "emptySide": "No recipes for this meal yet. Try searching.",
+      "emptySearchSide": "No recipes found matching \"{query}\". Try another word.",
+      "alreadyInMeal": "Already in this meal"
     },
     "detail": {
       "kidFriendly": "Kid-friendly",
@@ -409,7 +420,8 @@
       "cookedInWindow": "Cooked {count, plural, one {# time} other {# times}} in 4 weeks, last on {date}",
       "lastCookedOn": "Last cooked on {date}",
       "moreActions": "More actions: {name}",
-      "ariaDetailsFor": "Details for {mealName}"
+      "ariaDetailsFor": "Details for {mealName}",
+      "sideBadge": "Side"
     },
     "steps": {
       "equipment": "You'll need",
@@ -627,7 +639,8 @@
       "someQuantity": "some",
       "lowQuantity": "a little",
       "lowResult": "{quantity}, running low",
-      "staple": "Staple"
+      "staple": "Staple",
+      "madeLegend": "Made"
     },
     "day": {
       "noMealsPlanned": "No meals planned"
@@ -681,6 +694,17 @@
         "lunchChanged": "Tomorrow's lunch changed meanwhile. Refresh the page and try again.",
         "failed": "Couldn't add the lunch. Please try again."
       }
+    },
+    "side": {
+      "servings": "Servings",
+      "steps": "Steps",
+      "remove": "Remove",
+      "removed": "Side removed: {name}",
+      "removeFailed": "Could not remove the side dish. Try again.",
+      "undoFailed": "Could not restore the side dish. Add it again with \"Add side\".",
+      "servingsTitle": "Side dish servings",
+      "servingsDescription": "Servings to cook: {name}",
+      "servingsFailed": "Could not change the servings. Try again."
     }
   },
   "pastMeals": {
@@ -886,7 +910,9 @@
         "kidFriendlyLabel": "Kid-friendly",
         "mainProteinLabel": "Main protein",
         "mainProteinAutomatic": "{protein} (automatic)",
-        "mainProteinHint": "Sets the protein badge on the recipe. Automatic uses the ingredient with the most protein."
+        "mainProteinHint": "Sets the protein badge on the recipe. Automatic uses the ingredient with the most protein.",
+        "sideDish": "Side dish",
+        "sideDishHint": "A salad, bread or vegetable served with a main. Suggestions never plan it as a meal on its own."
       },
       "componentList": {
         "perServing": "{quantity} per serving",

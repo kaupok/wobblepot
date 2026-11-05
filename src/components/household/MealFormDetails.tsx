@@ -98,6 +98,9 @@ interface MealFormDetailsProps {
   onTimeMinutesChange: (value: string) => void
   kidFriendly: boolean
   onKidFriendlyChange: (checked: boolean) => void
+  /** "Side dish" (HON-1611): sets the recipe's course to `side`. */
+  sideDish: boolean
+  onSideDishChange: (checked: boolean) => void
   mainProtein: MainProteinState
   disabled: boolean
 }
@@ -109,6 +112,8 @@ export function MealFormDetails({
   onTimeMinutesChange,
   kidFriendly,
   onKidFriendlyChange,
+  sideDish,
+  onSideDishChange,
   mainProtein,
   disabled,
 }: MealFormDetailsProps) {
@@ -158,6 +163,24 @@ export function MealFormDetails({
         <Label htmlFor="kidFriendly" className="font-normal">
           {t('kidFriendlyLabel')}
         </Label>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="sideDish"
+            checked={sideDish}
+            onCheckedChange={(checked) => onSideDishChange(checked === true)}
+            disabled={disabled}
+            aria-describedby="sideDish-hint"
+          />
+          <Label htmlFor="sideDish" className="font-normal">
+            {t('sideDish')}
+          </Label>
+        </div>
+        <Body variant="muted" id="sideDish-hint">
+          {t('sideDishHint')}
+        </Body>
       </div>
 
       {mainProtein.visible && <MainProteinSelect mainProtein={mainProtein} disabled={disabled} />}

@@ -34,6 +34,8 @@ export interface MealCardBaseData extends MealImageFields {
   suitableFor?: MealType[]
   /** One of the household's own recipes; marked with `MyRecipeIcon` (HON-948, HON-973) */
   isCustom?: boolean
+  /** A side dish recipe gets a "Side" badge (HON-1611). */
+  course?: 'main' | 'side'
   components: MealComponent[]
   nutrition: NutritionData
 }
@@ -145,6 +147,7 @@ export function MealCardBase({
       <MealBadgeRow>
         {mealTypes === 'show' &&
           meal.suitableFor?.map((type) => <MealTypeBadge key={type} mealType={type} />)}
+        {meal.course === 'side' && <Badge variant="surface">{tDetail('sideBadge')}</Badge>}
         {meal.kidFriendly && <KidFriendlyBadge compact />}
         <ProteinBadge proteinType={meal.primaryProteinType} />
         {/* `> 0`, not truthiness: `0 && …` renders a stray "0", and a zero-minute

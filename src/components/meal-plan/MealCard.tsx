@@ -36,6 +36,7 @@ import { PantryDeductionModal } from './PantryDeductionModal'
 import { ProteinBadge } from './ProteinBadge'
 import { clearedSides, NO_SIDES, slotComponents } from './side-dishes'
 import { SideDishLines } from './SideDishLines'
+import type { SideDishMenuContext } from './SideDishMenu'
 import { StickyNote } from './StickyNote'
 import type {
   EntryChange,
@@ -97,7 +98,7 @@ interface MealCardProps {
   onCleared?: () => void
   /** "Pick for me" filled the cleared card; "Add meal" leaves with the refresh (HON-1248). */
   onPicked?: () => void
-  /** The slot's side dishes, read-only here (HON-1610). */
+  /** The slot's side dishes, each line opening its menu (HON-1610, HON-1611). */
   sides?: PlanEntrySide[]
 }
 
@@ -357,9 +358,12 @@ export function MealCard({
     addMealButtonRef.current?.focus()
   }
 
+  function focusMoreActions() {
+    moreActionsTriggerRef.current?.focus()
+  }
   function focusMoreActionsOnClose(event: Event) {
     event.preventDefault()
-    moreActionsTriggerRef.current?.focus()
+    focusMoreActions()
   }
 
   // The textarea unmounts when the editor closes, which drops focus to the
@@ -406,6 +410,23 @@ export function MealCard({
     isNoteEditing,
     onOpen: () => setIsDetailModalOpen(true),
   })
+
+  // "Add side" and each side's menu (HON-1611). The slot's own meals are
+  // listed in the picker but refused (Q8).
+  const sideDishes: (SideDishMenuContext & { entryId: string }) | undefined =
+    meal && !isReadOnly
+      ? {
+          planId,
+          entryId,
+          date,
+          mealType,
+          householdServings,
+          mainMealName: meal.name,
+          takenMealIds: [meal.id, ...sides.flatMap((side) => side.mealId ?? [])],
+          pantryIngredients,
+          onRemoved: focusMoreActions,
+        }
+      : undefined
 
   // The menu sits at the right end of the first row, over the image's empty
   // tint (HON-1562), and the title wraps before the image (HON-749).
@@ -564,6 +585,7 @@ export function MealCard({
                       setIsRegenerateModalOpen(true)
                     }}
                     onClear={handleClear}
+                    sideDishes={sideDishes}
                     cookForLunch={
                       leftoverLunch && { option: leftoverLunch, planId, entryId, householdServings }
                     }
@@ -631,7 +653,7 @@ export function MealCard({
                     )}
                   </Heading>
                 </div>
-                <SideDishLines sides={sides} />
+                <SideDishLines sides={sides} menu={sideDishes} />
               </div>
               {meal.description && (
                 <div ref={descriptionRef} className={DESCRIPTION_CLAMP[descriptionLines]}>
@@ -760,7 +782,8 @@ export function MealCard({
         open={isDeductionModalOpen}
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
-        components={slotComponents(meal.components, shownServings, sides, isPantryCharged)}
+        components={slotComponents(meal.components, shownServings, NO_SIDES, isPantryCharged)}
+        sides={sides}
         householdServings={1}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}

@@ -46,6 +46,10 @@ vi.mock('@/lib/household-meals', async (importOriginal) => ({
   createHouseholdMeal: vi.fn(),
 }))
 
+vi.mock('@/lib/meals/meal-course', () => ({
+  setMealCourse: vi.fn(),
+}))
+
 vi.mock('@/lib/household-meals-read', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/household-meals-read')>()),
   listHouseholdMeals: vi.fn(),
@@ -57,6 +61,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { createHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
 import { listHouseholdMeals } from '@/lib/household-meals-read'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
+import { setMealCourse } from '@/lib/meals/meal-course'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockClaimImage = vi.mocked(claimSavedMealImage)
@@ -380,6 +385,19 @@ describe('POST /api/households/me/meals', () => {
       'household-123',
       expect.objectContaining({ proteinTypeOverride: 'beef' }),
     )
+  })
+
+  it('sets a side dish course on the new recipe, and none for a main', async () => {
+    mockCreate.mockResolvedValue({ id: 'meal-new' } as never)
+
+    await post({ ...validBody, course: 'side' })
+    await post(validBody)
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      'household-123',
+      expect.not.objectContaining({ course: 'side' }),
+    )
+    expect(vi.mocked(setMealCourse).mock.calls).toEqual([['household-123', 'meal-new', 'side']])
   })
 
   it('rejects none as a chosen main protein', async () => {

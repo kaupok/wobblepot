@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 
 import { SideDishLines } from './SideDishLines'
 import type { PlanEntrySide } from './types'
@@ -27,7 +27,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The side dishes under a main card's name (HON-1610): one muted line per side, `+ {name} · {servings}`, the fridge card's `withItems` form. Read-only until the planner can add a side (HON-1611).",
+          "The side dishes under a main card's name (HON-1610): one muted line per side, `+ {name} · {servings}`, the fridge card's `withItems` form. With `menu`, each line opens the side's menu (`SideDishMenu`, HON-1611); without it the lines are text.",
       },
     },
   },
@@ -69,5 +69,32 @@ export const NoSides: Story = {
   args: { sides: [] },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.textContent).toBe('')
+  },
+}
+
+/** On an editable card: each line is the trigger of the side's menu (HON-1611). */
+export const WithMenu: Story = {
+  args: {
+    sides: [side({ mealName: 'Cucumber salad' })],
+    menu: {
+      planId: 'plan-1',
+      date: '2026-10-12',
+      mealType: 'dinner',
+      householdServings: 3,
+      mainMealName: 'Lemon-garlic roast chicken',
+      takenMealIds: ['meal-1', 'meal-salad'],
+      onRemoved: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const line = within(canvasElement).getByRole('button', {
+      name: '+ Cucumber salad · 3',
+    })
+    await expect(line).toHaveTextContent('+ Cucumber salad · 3')
+    await userEvent.click(line)
+    const servings = await within(document.body).findByRole('menuitem', { name: 'Servings' })
+    // The menu fades in.
+    await waitFor(() => expect(servings).toBeVisible())
+    await userEvent.keyboard('{Escape}')
   },
 }

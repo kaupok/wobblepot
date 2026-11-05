@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteEntriesInRange,
   deleteEntry,
-  type EntryPatch,
   EntryUpdateError,
   type EntryUpdateRefusal,
   updateEntry,
 } from '@/lib/meal-plans/entries'
 import { entry, type IngredientId, readEntry, world } from '@/lib/meal-plans/entries.fixtures'
+import type { EntryPatch } from '@/lib/meal-plans/entry-patch'
 import { prisma } from '@/lib/prisma'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:

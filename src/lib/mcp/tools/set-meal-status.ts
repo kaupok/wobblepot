@@ -5,12 +5,8 @@ import { z } from 'zod'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { previewCookDeduction } from '@/lib/meal-plans/cook-preview'
-import {
-  type EntryPatch,
-  EntryUpdateError,
-  type EntryUpdateRefusal,
-  updateEntry,
-} from '@/lib/meal-plans/entries'
+import { EntryUpdateError, type EntryUpdateRefusal, updateEntry } from '@/lib/meal-plans/entries'
+import type { EntryPatch } from '@/lib/meal-plans/entry-patch'
 
 import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 

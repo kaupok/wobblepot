@@ -11,7 +11,8 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
-import { proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
+import { setMealCourse } from '@/lib/meals/meal-course'
+import { mealCourseSchema, proteinTypeOverrideSchema } from '@/lib/meals/meal-fields-schema'
 
 const ROUTE = '/api/households/me/meals/[id]'
 
@@ -35,6 +36,7 @@ const updateMealSchema = z.object({
   servings: z.number().int().positive().max(50).optional(),
   components: mealComponentsSchema.optional(),
   proteinTypeOverride: proteinTypeOverrideSchema.optional(),
+  course: mealCourseSchema.optional(),
 })
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -113,11 +115,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const householdId = membership.household.id
+    const { course, ...patch } = parsed.data
     const { meal, discardedImageUrl, imageInvalidated } = await updateHouseholdMeal(
       householdId,
       id,
-      parsed.data,
+      patch,
     )
+    // "Side dish" on the recipe form (HON-1611); absent keeps the stored course.
+    if (course) await setMealCourse(householdId, id, course)
 
     // After commit: a rolled-back edit must not have lost its image.
     await discardMealImage(discardedImageUrl, ROUTE)

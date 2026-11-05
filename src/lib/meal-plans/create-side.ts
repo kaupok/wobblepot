@@ -28,6 +28,8 @@ export interface NewSide {
   mealId: string
   /** Null or absent: the side follows the main's own servings (Q2). */
   servingOverride?: number | null
+  /** Undo after Remove brings the side's rating back (HON-1611). */
+  rating?: 'up' | 'down' | null
 }
 
 /**
@@ -97,6 +99,7 @@ export async function createSide(householdId: string, planId: string, input: New
         mainEntryId: main.id,
         mealId: input.mealId,
         servingOverride,
+        rating: input.rating ?? null,
         status: completed ? MealPlanEntryStatus.completed : MealPlanEntryStatus.planned,
         ...(completed && { cookedServings: servings, pantryDeductedAt: new Date() }),
       },

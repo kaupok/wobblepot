@@ -4,11 +4,13 @@ import {
   Check,
   MoreHorizontal,
   NotebookPen,
+  Plus,
   Refrigerator,
   SkipForward,
   Undo2,
   X,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { type RefObject, useId, useRef, useState } from 'react'
 
@@ -27,6 +29,8 @@ import { Body } from '@/components/ui/typography'
 import { type AddMealChoice, MEAL_ROUTES } from './AddMealMenu'
 import { CookForLunchDialog } from './CookForLunchDialog'
 import type { LeftoverLunchOption } from './leftover-lunch-option'
+import { MealSelectorModal } from './MealSelectorModal'
+import type { SideDishMenuContext } from './SideDishMenu'
 import type { MealStatus } from './types'
 
 interface MealCardMenuProps {
@@ -47,6 +51,8 @@ interface MealCardMenuProps {
   /** A Swap route: a selector view, or `pick`, which places the top swap with no dialog. */
   onSwap: (choice: AddMealChoice) => void
   onClear: () => void
+  /** "Add side" (HON-1611): the picker for a side dish of this main; absent hides it. */
+  sideDishes?: SideDishMenuContext & { entryId: string }
   /** "Cook for tomorrow's lunch too" on a planned recipe dinner (HON-1396); absent hides it. */
   cookForLunch?: {
     option: LeftoverLunchOption
@@ -78,8 +84,10 @@ export function MealCardMenu({
   onStatusChange,
   onSwap,
   onClear,
+  sideDishes,
   cookForLunch,
 }: MealCardMenuProps) {
+  const router = useRouter()
   const tCard = useTranslations('meal-plan.card')
   const tLunch = useTranslations('meal-plan.cookForLunch')
   // Set when Note is chosen, read once as the menu closes.
@@ -88,6 +96,7 @@ export function MealCardMenu({
   // The dialog lives here, not in the menu content, which unmounts as the
   // menu closes.
   const [isCookForLunchOpen, setIsCookForLunchOpen] = useState(false)
+  const [isAddSideOpen, setIsAddSideOpen] = useState(false)
   const leftoverLunch = cookForLunch?.option
 
   // A completed entry records what was cooked and what the pantry was charged
@@ -134,6 +143,13 @@ export function MealCardMenu({
             <NotebookPen aria-hidden="true" />
             {tCard('note')}
           </DropdownMenuItem>
+          {/* A skipped main takes no side (Q7): the server refuses it. */}
+          {sideDishes && status !== 'skipped' && (
+            <DropdownMenuItem onSelect={() => setIsAddSideOpen(true)}>
+              <Plus aria-hidden="true" />
+              {tCard('addSide')}
+            </DropdownMenuItem>
+          )}
           {/* Tonight's "not tonight", and a meal cooked without the cook view,
             take one pick here (HON-1125). */}
           {status === 'planned' && (
@@ -220,6 +236,28 @@ export function MealCardMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      {sideDishes && (
+        <MealSelectorModal
+          open={isAddSideOpen}
+          onOpenChange={setIsAddSideOpen}
+          planId={sideDishes.planId}
+          entryId={sideDishes.entryId}
+          mealType={sideDishes.mealType}
+          date={sideDishes.date}
+          householdServings={sideDishes.householdServings}
+          currentMealName={mealName}
+          onSwapComplete={() => router.refresh()}
+          // Opened from state, so focus goes back to the ⋯ trigger.
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            triggerRef.current?.focus()
+          }}
+          mode="side"
+          takenMealIds={sideDishes.takenMealIds}
+          initialView="library"
+          pantryIngredients={sideDishes.pantryIngredients}
+        />
+      )}
       {cookForLunch && (
         <CookForLunchDialog
           open={isCookForLunchOpen}

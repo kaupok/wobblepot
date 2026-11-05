@@ -227,6 +227,21 @@ describe('useMealForm', () => {
       expect(onSuccess).toHaveBeenCalled()
     })
 
+    // HON-1611: "Side dish" saves the recipe's course.
+    it('saves a side dish as course side, and a recipe without it as main', async () => {
+      const { result } = renderForm({ ...validMeal, id: 'meal-42', course: 'side' })
+      expect(result.current.sideDish).toBe(true)
+
+      await submit(result)
+      act(() => result.current.setSideDish(false))
+      await submit(result)
+
+      expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).course)).toEqual([
+        'side',
+        'main',
+      ])
+    })
+
     describe('save failures', () => {
       // The routes' `error` prose is English; the form must render catalog
       // copy and only log the server string (HON-844). Every mocked `error`

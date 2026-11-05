@@ -191,7 +191,8 @@ export const WithConflicts: Story = {
 
 /**
  * A main with two side dishes (HON-1610): one line per side under the name,
- * each with its own servings. The description takes the lines left.
+ * each with its own servings. The description takes the lines left. Each line
+ * opens the side's menu, and the ⋯ menu has "Add side" (HON-1611).
  */
 export const WithSideDishes: Story = {
   args: {
@@ -216,6 +217,15 @@ export const WithSideDishes: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('+ Cucumber salad · 4')).toBeVisible()
     await expect(canvas.getByText('+ Steamed rice · 2')).toBeVisible()
+    const body = within(document.body)
+    await userEvent.click(canvas.getByRole('button', { name: '+ Steamed rice · 2' }))
+    const remove = await body.findByRole('menuitem', { name: 'Remove' })
+    await waitFor(() => expect(remove).toBeVisible())
+    await userEvent.keyboard('{Escape}')
+    await openMoreActions(canvasElement)
+    const addSide = await body.findByRole('menuitem', { name: 'Add side' })
+    await waitFor(() => expect(addSide).toBeVisible())
+    await userEvent.keyboard('{Escape}')
   },
 }
 
@@ -1042,6 +1052,7 @@ export const Planned: Story = {
         .map((item) => item.textContent),
     ).toEqual([
       'Note',
+      'Add side',
       'Cooked',
       'Skipped',
       'Choose a recipe',

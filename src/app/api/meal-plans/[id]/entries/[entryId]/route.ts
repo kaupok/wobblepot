@@ -47,6 +47,8 @@ const updateEntrySchema = z
     usedUpIngredientIds: z.array(z.string().min(1)).max(30).optional(),
     someLeftIngredientIds: z.array(z.string().min(1)).max(30).optional(),
     lowIngredientIds: z.array(z.string().min(1)).max(30).optional(),
+    // The sides the Cooked dialog's "Made" left unchecked (HON-1611).
+    skippedSideIds: z.array(z.string().min(1)).max(20).optional(),
   })
   // The note's place is one point: both axes or neither, both set or both
   // null (HON-975). A place beside a cleared note contradicts it, because
@@ -76,6 +78,13 @@ const updateEntrySchema = z
         code: 'custom',
         path: ['lowIngredientIds'],
         message: 'lowIngredientIds needs status completed and no mealId',
+      })
+    }
+    if (data.skippedSideIds && (data.status !== 'completed' || data.mealId)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['skippedSideIds'],
+        message: 'skippedSideIds needs status completed and no mealId',
       })
     }
     if ('noteX' in data !== 'noteY' in data || (data.noteX === null) !== (data.noteY === null)) {

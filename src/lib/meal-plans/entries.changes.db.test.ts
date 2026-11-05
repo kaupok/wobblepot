@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { type EntryPatch, EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
+import { EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
 import { addEntryChange } from '@/lib/meal-plans/entry-changes'
+import type { EntryPatch } from '@/lib/meal-plans/entry-patch'
 import { prisma } from '@/lib/prisma'
 
 // `updateEntry` with an entry's own ingredient changes (HON-1243): the

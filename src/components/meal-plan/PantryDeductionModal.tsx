@@ -2,9 +2,10 @@
 
 import { Star } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ChoiceChips } from '@/components/ui/choice-chips'
 import {
   Dialog,
@@ -19,22 +20,31 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 import { type DisplayUnit, displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defaultCookOutcome } from '@/lib/pantry/cook-outcome'
 
-import type { MealComponent, PantryDeductionItem, PantryItemFull } from './types'
+import { sidesToCharge, slotComponents } from './side-dishes'
+import type { MealComponent, PantryDeductionItem, PantryItemFull, PlanEntrySide } from './types'
 
 interface PantryDeductionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   mealName: string
+  /** The main's own rows; the sides' rows come from `sides`. */
   components: MealComponent[]
   householdServings: number
   pantryItems: PantryItemFull[]
   /**
+   * The main's sides (HON-1611). Each one Cooked charges is listed under
+   * "Made", checked; unchecking one drops its rows from the sum at once.
+   * Its components are scaled to the side's own servings, so pass sides only
+   * with `householdServings` 1 and `components` already scaled.
+   */
+  sides?: readonly PlanEntrySide[]
+  /**
    * With the cook's answer when the dialog shows a row, and with none when it
    * shows none, so the server's default decides. The server reads a sent list
    * as the answer for every null row, so a row added after the page loaded is
-   * kept as "Some left".
+   * kept as "Some left". `made` comes only when the dialog lists a side.
    */
-  onConfirm: (answer?: CookAnswer) => void
+  onConfirm: (answer?: CookAnswer, made?: SidesMade) => void
   isLoading?: boolean
   /**
    * The dialog opens from state, with no `DialogTrigger` for Radix to return
@@ -68,7 +78,14 @@ export interface CookAnswer {
   stapleRows: number
 }
 
+/** The sides the cook unchecked under "Made", which the completion skips (HON-1611). */
+export interface SidesMade {
+  skippedSideIds: string[]
+}
+
 type HaveSomeChoice = 'usedUp' | 'runningLow' | 'someLeft'
+
+const NO_SIDES: readonly PlanEntrySide[] = []
 
 /**
  * The pantry rows a cooked meal touches, one per ingredient, in the order the
@@ -166,15 +183,11 @@ export function PantryDeductionModal({
   components,
   householdServings,
   pantryItems,
+  sides = NO_SIDES,
   onConfirm,
   isLoading = false,
   onCloseAutoFocus,
 }: PantryDeductionModalProps) {
-  const deductions = useMemo(
-    () => computeDeductions(components, householdServings, pantryItems),
-    [components, householdServings, pantryItems],
-  )
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
@@ -183,7 +196,10 @@ export function PantryDeductionModal({
             dialog mounted. */}
         <DeductionContent
           mealName={mealName}
-          deductions={deductions}
+          components={components}
+          householdServings={householdServings}
+          pantryItems={pantryItems}
+          sides={sides}
           onCancel={() => onOpenChange(false)}
           onConfirm={onConfirm}
           isLoading={isLoading}
@@ -195,15 +211,21 @@ export function PantryDeductionModal({
 
 function DeductionContent({
   mealName,
-  deductions,
+  components,
+  householdServings,
+  pantryItems,
+  sides,
   onCancel,
   onConfirm,
   isLoading,
 }: {
   mealName: string
-  deductions: PantryDeductionItem[]
+  components: MealComponent[]
+  householdServings: number
+  pantryItems: PantryItemFull[]
+  sides: readonly PlanEntrySide[]
   onCancel: () => void
-  onConfirm: (answer?: CookAnswer) => void
+  onConfirm: (answer?: CookAnswer, made?: SidesMade) => void
   isLoading: boolean
 }) {
   const t = useTranslations('meal-plan.deduction')
@@ -212,6 +234,26 @@ function DeductionContent({
   // Only the rows the cook changed; the rest read their default, so a row
   // that appears while the dialog is open (a refreshed pantry) gets one too.
   const [choices, setChoices] = useState<Record<string, HaveSomeChoice>>({})
+  // The sides unchecked under "Made": not made, so their rows leave the sum.
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set())
+  const madeSides = useMemo(() => sidesToCharge(sides), [sides])
+  const madeLegendId = useId()
+  const deductions = useMemo(
+    () =>
+      computeDeductions(
+        [
+          ...components,
+          ...slotComponents(
+            [],
+            0,
+            madeSides.filter((side) => !skipped.has(side.entryId)),
+          ),
+        ],
+        householdServings,
+        pantryItems,
+      ),
+    [components, madeSides, skipped, householdServings, pantryItems],
+  )
 
   const formatQuantity: FormatQuantityFn = (quantity, unit) => {
     if (quantity === null) return t('someQuantity')
@@ -262,15 +304,29 @@ function DeductionContent({
     { value: 'someLeft', label: t('someLeft') },
   ]
 
+  function confirm(answer?: CookAnswer) {
+    if (madeSides.length === 0) {
+      // No answer is no argument, so the caller's default reads as before.
+      if (answer) onConfirm(answer)
+      else onConfirm()
+      return
+    }
+    onConfirm(answer, {
+      skippedSideIds: madeSides
+        .filter((side) => skipped.has(side.entryId))
+        .map((side) => side.entryId),
+    })
+  }
+
   function handleConfirm() {
     if (deductions.length === 0) {
-      onConfirm()
+      confirm()
       return
     }
     const usedUp = deductions.filter((item) => choiceOf(item) === 'usedUp')
     const someLeft = deductions.filter((item) => choiceOf(item) === 'someLeft')
     const low = deductions.filter((item) => choiceOf(item) === 'runningLow')
-    onConfirm({
+    confirm({
       usedUpIngredientIds: usedUp
         .filter((item) => !item.willBeRemoved)
         .map((item) => item.ingredientId),
@@ -306,6 +362,35 @@ function DeductionContent({
           {hasDeductions ? t('willDeduct', { mealName }) : t('noDeduction', { mealName })}
         </DialogDescription>
       </DialogHeader>
+
+      {madeSides.length > 0 && (
+        <div role="group" aria-labelledby={madeLegendId}>
+          <Body id={madeLegendId} variant="small">
+            {t('madeLegend')}
+          </Body>
+          <ul className="mt-1">
+            {madeSides.map((side) => (
+              <li key={side.entryId}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                  <Checkbox
+                    checked={!skipped.has(side.entryId)}
+                    onCheckedChange={(checked) =>
+                      setSkipped((prev) => {
+                        const next = new Set(prev)
+                        if (checked === true) next.delete(side.entryId)
+                        else next.add(side.entryId)
+                        return next
+                      })
+                    }
+                    disabled={isLoading}
+                  />
+                  {side.mealName}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {hasDeductions && (
         <div className="max-h-80 overflow-y-auto">

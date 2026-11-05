@@ -96,6 +96,8 @@ export interface MealFormData {
   }[]
   /** The household's chosen main protein; null or absent is automatic (HON-1386). */
   proteinTypeOverride?: ProteinType | null
+  /** "Side dish" on the form (HON-1611); absent reads as a main. */
+  course?: 'main' | 'side'
   // Enhanced prefilled ingredients (for recipe import with match states)
   prefilledIngredients?: PrefilledIngredient[]
   // Original recipe text (for import mode - allows user to reference while editing)

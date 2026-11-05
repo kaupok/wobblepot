@@ -230,7 +230,8 @@ export function PastMealRow({
         open={isDeductionModalOpen}
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
-        components={slotComponents(meal.components, servings, sides, isPantryCharged)}
+        components={slotComponents(meal.components, servings, NO_SIDES, isPantryCharged)}
+        sides={sides}
         householdServings={1}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}

@@ -293,6 +293,7 @@ describe('MealCard status from the menu', () => {
       'planned',
       [
         'Note',
+        'Add side',
         'Cooked',
         'Skipped',
         'Choose a recipe',
@@ -302,7 +303,7 @@ describe('MealCard status from the menu', () => {
         'Clear',
       ],
     ],
-    ['completed', ['Note', 'Not cooked yet']],
+    ['completed', ['Note', 'Add side', 'Not cooked yet']],
     [
       'skipped',
       [
