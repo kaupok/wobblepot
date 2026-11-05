@@ -69,8 +69,6 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['tamarind paste']).toBe('tamarind puree')
     expect(INGREDIENT_ALIASES['tamarind']).toBe('tamarind puree')
     expect(INGREDIENT_ALIASES['carom seeds']).toBe('ajwain seeds')
-    expect(INGREDIENT_ALIASES['dried fenugreek leaves']).toBe('kasuri methi')
-    expect(INGREDIENT_ALIASES['methi leaves']).toBe('kasuri methi')
     expect(INGREDIENT_ALIASES['fresh fenugreek leaves']).toBe('fenugreek leaves')
     expect(INGREDIENT_ALIASES['methi']).toBe('fenugreek leaves')
     expect(INGREDIENT_ALIASES['achar']).toBe('Indian pickle')
@@ -177,6 +175,8 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(INGREDIENT_SYNONYMS['rutabaga']).toBe('swede')
     expect(INGREDIENT_SYNONYMS['capsicum']).toBe('bell pepper')
     expect(INGREDIENT_SYNONYMS['garbanzo beans']).toBe('chickpeas')
+    expect(INGREDIENT_SYNONYMS['dried fenugreek leaves']).toBe('kasuri methi')
+    expect(INGREDIENT_SYNONYMS['methi leaves']).toBe('fenugreek leaves')
   })
 
   // HON-1083: a pasted American recipe still matches the renamed seeded row.

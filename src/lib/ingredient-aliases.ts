@@ -73,8 +73,6 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   atta: 'chapati flour', // DB has chapati flour
   tamarind: 'tamarind puree', // DB has tamarind puree
   'carom seeds': 'ajwain seeds', // DB has ajwain seeds
-  'dried fenugreek leaves': 'kasuri methi', // DB has kasuri methi
-  'methi leaves': 'kasuri methi', // DB has kasuri methi
   'fresh fenugreek leaves': 'fenugreek leaves', // DB has fenugreek leaves
   methi: 'fenugreek leaves', // DB has fenugreek leaves
   achar: 'Indian pickle', // DB has Indian pickle
@@ -389,6 +387,10 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'thigh fillet': 'chicken thigh fillet',
   kintsufilee: 'chicken thigh fillet',
   kanakintsufilee: 'chicken thigh fillet',
+
+  // Fenugreek leaves under their Hindi and dried names, so the match is sure (HON-1602)
+  'dried fenugreek leaves': 'kasuri methi',
+  'methi leaves': 'fenugreek leaves',
 
   // Estonian shop names and pack names (HON-1545, HON-1548, HON-1553)
   ...SHOP_INGREDIENT_SYNONYMS,

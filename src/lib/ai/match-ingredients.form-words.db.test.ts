@@ -223,8 +223,11 @@ describe('matchIngredients on a fenugreek name', () => {
     ['fenugreek leaves', 'fenugreek leaves', false],
     ['fresh fenugreek leaves', 'fenugreek leaves', false],
     ['lambaläätse lehed', 'fenugreek leaves', false],
-    // Unsure before HON-1561 too: the alias row's words differ from the recipe's
-    ['dried fenugreek leaves', 'kasuri methi', true],
+    ['methi', 'fenugreek leaves', false],
+    // HON-1602: synonyms, so the noun check does not flag the differing words
+    ['methi leaves', 'fenugreek leaves', false],
+    ['dried fenugreek leaves', 'kasuri methi', false],
+    ['kasuri methi', 'kasuri methi', false],
     ['fenugreek seeds', 'fenugreek', false],
   ])('matches "%s" to %s, low confidence %s', async (recipeName, rowName, low) => {
     await seedCatalogue()
