@@ -47,8 +47,9 @@ export async function loadChangeableEntry(
   date: string,
   mealType: SlotMealType,
   locale: string,
+  entryId?: string,
 ) {
-  const slot = await findPlanSlot(household, date, mealType)
+  const slot = await findPlanSlot(household, date, mealType, entryId)
   if (!slot.mealId) {
     throw new ToolInputError(
       `The ${mealType} on ${date} has no meal, so there are no ingredients to change. Use swap_meal to plan one. Nothing was changed.`,

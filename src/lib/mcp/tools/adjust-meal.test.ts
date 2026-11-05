@@ -80,6 +80,8 @@ function slot(overrides: Record<string, unknown> = {}) {
     cookedServings: null,
     leftoverItems: [],
     meal: { id: 'meal-pasta', name: 'Cream pasta', timeMinutes: 25, primaryProteinType: null },
+    // A slot with no side dishes (HON-1610).
+    sides: [],
     ...overrides,
   }
 }

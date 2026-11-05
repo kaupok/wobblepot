@@ -38,8 +38,13 @@ export interface PantryCheckRow {
  * one row per pantry item, in component order. A staple is listed with
  * default `someLeft`, except a starter staple (salt, black pepper, water) and
  * a vague component ("to taste"), which are left out (HON-1588). Empty when the
- * completion would charge nothing: a fridge meal, an entry already completed,
- * or one charged before a revert (`pantryDeductedAt`, HON-651).
+ * completion would charge nothing: a fridge meal with no sides, an entry
+ * already completed, or one charged before a revert (`pantryDeductedAt`,
+ * HON-651).
+ *
+ * A main with sides previews the slot, as its completion charges it
+ * (HON-1610): one row per ingredient, `used` summed across the main and each
+ * side not completed or charged yet.
  */
 export async function previewCookDeduction(
   householdId: string,
@@ -53,12 +58,35 @@ export async function previewCookDeduction(
     measuredByVolume: true,
     ...ingredientTranslationsInclude(locale),
   }
+  const dishSelect = {
+    kind: true,
+    ...cookServingsSelect,
+    pantryDeductedAt: true,
+    meal: {
+      select: {
+        components: {
+          select: {
+            ingredientId: true,
+            quantityPerServing: true,
+            isVague: true,
+            ingredient: { select: ingredientSelect },
+          },
+        },
+      },
+    },
+    changes: {
+      ...ENTRY_CHANGES_FOR_DEDUCTION,
+      select: {
+        ...ENTRY_CHANGES_FOR_DEDUCTION.select,
+        replacementIngredient: { select: ingredientSelect },
+      },
+    },
+  } as const
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, planId, plan: { householdId } },
     select: {
-      kind: true,
-      ...cookServingsSelect,
-      pantryDeductedAt: true,
+      ...dishSelect,
+      sides: { orderBy: { id: 'asc' }, select: dishSelect },
       plan: {
         select: {
           household: {
@@ -68,38 +96,33 @@ export async function previewCookDeduction(
           },
         },
       },
-      meal: {
-        select: {
-          components: {
-            select: {
-              ingredientId: true,
-              quantityPerServing: true,
-              isVague: true,
-              ingredient: { select: ingredientSelect },
-            },
-          },
-        },
-      },
-      changes: {
-        ...ENTRY_CHANGES_FOR_DEDUCTION,
-        select: {
-          ...ENTRY_CHANGES_FOR_DEDUCTION.select,
-          replacementIngredient: { select: ingredientSelect },
-        },
-      },
     },
   })
-  if (
-    !entry ||
-    entry.kind !== 'meal' ||
-    entry.status === 'completed' ||
-    entry.pantryDeductedAt !== null
-  ) {
-    return []
-  }
+  if (!entry || entry.status === 'completed') return []
 
-  const components = applyEntryChanges(entry.meal?.components ?? [], entry.changes)
-  const servings = getCookServings(entry, sumPortions(entry.plan.household.members))
+  const householdServings = sumPortions(entry.plan.household.members)
+  // Each ingredient once, in the order the dishes list it, with what every
+  // dish uses of it summed.
+  // A fridge main has no recipe of its own; a side the household skipped was
+  // not made.
+  const dishes = [
+    ...(entry.kind === 'meal' ? [entry] : []),
+    ...entry.sides.filter((side) => side.status === 'planned'),
+  ]
+    .filter((dish) => dish.pantryDeductedAt === null)
+    .map((dish) => ({
+      servings: getCookServings(dish, householdServings),
+      components: applyEntryChanges(dish.meal?.components ?? [], dish.changes),
+    }))
+  const usedById = new Map<string, number>()
+  const components: (typeof dishes)[number]['components'] = []
+  for (const { servings, components: dishComponents } of dishes) {
+    for (const component of dishComponents) {
+      const used = usedById.get(component.ingredientId)
+      if (used === undefined) components.push(component)
+      usedById.set(component.ingredientId, (used ?? 0) + component.quantityPerServing * servings)
+    }
+  }
 
   if (components.length === 0) return []
 
@@ -112,15 +135,15 @@ export async function previewCookDeduction(
   })
   const pantryRow = new Map(pantryRows.map((row) => [row.ingredientId, row]))
 
-  // One row per component: a meal lists an ingredient once (`MealComponent`
-  // is unique on it), and `applyEntryChanges` drops a change that would list
-  // it twice.
+  // One row per ingredient: a meal lists an ingredient once (`MealComponent`
+  // is unique on it), `applyEntryChanges` drops a change that would list it
+  // twice, and the loop above merges the dishes.
   const rows: PantryCheckRow[] = []
-  for (const { ingredientId, ingredient, quantityPerServing, isVague } of components) {
+  for (const { ingredientId, ingredient, isVague } of components) {
     const row = pantryRow.get(ingredientId)
     if (!row) continue
     if (row.isStaple && (isVague || isStarterStaple(ingredient.name))) continue
-    const used = quantityPerServing * servings
+    const used = usedById.get(ingredientId)!
     rows.push({
       ingredientId,
       name: translateIngredient(ingredient, locale).name,

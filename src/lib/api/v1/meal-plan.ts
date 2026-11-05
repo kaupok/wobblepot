@@ -225,7 +225,19 @@ export async function readMealPlan(
       leftoversFor: entry.leftoversFor,
       isCooked: entry.status === 'completed',
       isSkipped: entry.status === 'skipped',
-      sides: entry.sides,
+      // The fields the schema names: the planner's components and Undo
+      // fields stay out of the API (HON-1610).
+      sides: entry.sides.map(
+        ({ entryId, mealId, mealName, servings, cookServings, status, rating }) => ({
+          entryId,
+          mealId,
+          mealName,
+          servings,
+          cookServings,
+          status,
+          rating,
+        }),
+      ),
     })),
     extras: extras.map(toDayExtraOutput),
   }

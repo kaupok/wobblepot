@@ -190,6 +190,36 @@ export const WithConflicts: Story = {
 }
 
 /**
+ * A main with two side dishes (HON-1610): one line per side under the name,
+ * each with its own servings. The description takes the lines left.
+ */
+export const WithSideDishes: Story = {
+  args: {
+    ...PlannedWithImage.args,
+    sides: [
+      { mealName: 'Cucumber salad', servings: 4 },
+      { mealName: 'Steamed rice', servings: 2 },
+    ].map(({ mealName, servings }) => ({
+      entryId: `side-${mealName}`,
+      mealId: `meal-${mealName}`,
+      mealName,
+      servings,
+      cookServings: servings,
+      status: 'planned' as const,
+      rating: null,
+      servingOverride: null,
+      pantryDeducted: false,
+      components: [],
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('+ Cucumber salad · 4')).toBeVisible()
+    await expect(canvas.getByText('+ Steamed rice · 2')).toBeVisible()
+  },
+}
+
+/**
  * The entry has its own ingredient changes (HON-1243): the card says so, and
  * the cook view lists them above the steps. `meal.components` arrives merged,
  * so the garlic is gone from it.

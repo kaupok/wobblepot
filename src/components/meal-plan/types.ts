@@ -71,6 +71,11 @@ export interface PlanEntrySide {
   cookServings: number
   status: MealStatus
   rating: EntryRating | null
+  /** The stored override, which Undo after Clear posts back. */
+  servingOverride: number | null
+  pantryDeducted: boolean
+  /** What the side cooks, for the Cooked dialog's sum (HON-1610). */
+  components: MealComponent[]
 }
 
 export interface PlanEntry {

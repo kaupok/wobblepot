@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { prisma } from '@/lib/prisma'
 
-import { findPlanSlot, slotInput } from './plan-slot'
+import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 
 const ratingSchema = z.enum(['up', 'down']).nullable()
 
@@ -13,10 +13,11 @@ export const rateMeal = defineTool({
   name: 'rate_meal',
   title: 'Rate a cooked meal',
   description:
-    'Records what the household thought of a meal they cooked, by day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app, so only a meal marked as cooked can be rated: mark it cooked with set_meal_status first. Ratings move the meal up or down in later swap suggestions.',
+    'Records what the household thought of a meal they cooked, by day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app, so only a meal marked as cooked can be rated: mark it cooked with set_meal_status first. Ratings move the meal up or down in later swap suggestions. Pass a side’s entryId to rate that side dish.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ...slotInput,
+    ...entryIdInput,
     rating: ratingSchema.describe('up, down, or null to clear.'),
   }),
   outputSchema: z.object({
@@ -25,8 +26,8 @@ export const rateMeal = defineTool({
     meal: z.object({ id: z.string(), name: z.string() }),
     rating: ratingSchema,
   }),
-  run: async (household, { date, mealType, rating }) => {
-    const slot = await findPlanSlot(household, date, mealType)
+  run: async (household, { date, mealType, entryId, rating }) => {
+    const slot = await findPlanSlot(household, date, mealType, entryId)
     if (!slot.mealId) {
       throw new ToolInputError(
         `No meal is planned for ${mealType} on ${date}, so there is nothing to rate. Nothing was changed.`,

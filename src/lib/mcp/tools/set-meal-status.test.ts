@@ -34,6 +34,7 @@ const RECIPE_SLOT = {
   mealId: 'meal-roast',
   mealName: 'Roast',
   status: 'planned',
+  sides: [],
 }
 const FRIDGE_SLOT = { ...RECIPE_SLOT, kind: 'fridge', mealId: null, mealName: null }
 

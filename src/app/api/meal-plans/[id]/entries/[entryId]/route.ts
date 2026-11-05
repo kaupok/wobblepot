@@ -99,6 +99,8 @@ const REFUSALS: Record<EntryUpdateRefusal, { status: number; error: string }> = 
   completedServings: { status: 409, error: 'Cannot change servings on a completed meal' },
   staleMeal: { status: 409, error: 'The meal changed while completing. Try again.' },
   noNote: { status: 409, error: 'Entry has no note' },
+  mainNotCompleted: { status: 409, error: 'Mark the main cooked first' },
+  alreadyInSlot: { status: 409, error: 'This meal is already in the slot. Remove the side first.' },
 }
 
 export async function DELETE(

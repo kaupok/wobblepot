@@ -81,6 +81,8 @@ export function slot(overrides: Record<string, unknown> = {}) {
     cookedServings: null,
     leftoverItems: [],
     meal: { id: 'meal-trout', name: 'Trout', timeMinutes: 30, primaryProteinType: null },
+    // A slot with no side dishes (HON-1610).
+    sides: [],
     ...overrides,
   }
 }

@@ -10,7 +10,8 @@ import { type Source, track } from '@/lib/analytics'
 import { apiFetch } from '@/lib/api'
 
 import { computeDeductions, type CookAnswer } from './PantryDeductionModal'
-import type { MealData, MealStatus, PantryItemFull } from './types'
+import { sidesToCharge, slotComponents } from './side-dishes'
+import type { MealData, MealStatus, PantryItemFull, PlanEntrySide } from './types'
 
 interface UseEntryStatusOptions {
   planId: string
@@ -21,6 +22,8 @@ interface UseEntryStatusOptions {
   pantryDeducted?: boolean
   /** The servings a completion charges the pantry for. */
   servings: number
+  /** The main's sides, which its completion charges too (HON-1610). */
+  sides?: PlanEntrySide[]
   /**
    * The household's pantry. Required, not defaulted: a caller that left it out
    * would complete every meal with no deduction and no word about it.
@@ -49,6 +52,7 @@ export function useEntryStatus({
   initialStatus,
   pantryDeducted = false,
   servings,
+  sides,
   pantryItems,
   source: defaultSource,
   onLeaveCompleted,
@@ -62,12 +66,20 @@ export function useEntryStatus({
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
   const isPantryCharged = pantryDeducted || chargedHere
+  // A side added since the main was charged still needs its own charge (HON-1610).
+  const isSlotCharged = isPantryCharged && (chargedHere || sidesToCharge(sides).length === 0)
   // What the deduction dialog would list: the pantry rows holding one of the
   // meal's ingredients, staples included (HON-1588). An empty list means a
   // confirm would change nothing in the pantry, as far as this page knows.
   const hasDeductions = useMemo(
-    () => !!meal && computeDeductions(meal.components, servings, pantryItems).length > 0,
-    [meal, servings, pantryItems],
+    () =>
+      !!meal &&
+      computeDeductions(
+        slotComponents(meal.components, servings, sides, isPantryCharged),
+        1,
+        pantryItems,
+      ).length > 0,
+    [meal, servings, sides, isPantryCharged, pantryItems],
   )
   // Where a completion started, read when the deduction is confirmed: the
   // caller's own control, or "Done cooking" in the cook view.
@@ -184,7 +196,7 @@ export function useEntryStatus({
       // and nothing clears the marker (HON-651). Previewing a deduction here
       // would ask the user to confirm a change that never happens, so an
       // already-charged entry completes directly.
-      if (isPantryCharged) {
+      if (isSlotCharged) {
         statusMutation.mutate({ newStatus, source }, { onSuccess: () => onCompleted?.() })
         return
       }

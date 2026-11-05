@@ -40,6 +40,7 @@ const ENTRIES = [
     cookServings: 4.5,
     leftoversFor: [{ date: '2026-10-14', mealType: 'dinner', servings: 2.5 }],
     meal: { id: 'meal-1', name: 'Chicken soup' },
+    sides: [],
   },
   {
     id: 'entry-2',
@@ -52,6 +53,7 @@ const ENTRIES = [
     cookServings: 3,
     leftoversFor: [],
     meal: { id: 'meal-2', name: 'Pancakes' },
+    sides: [],
   },
   {
     id: 'entry-3',
@@ -80,6 +82,7 @@ const ENTRIES = [
     cookServings: 2,
     leftoversFor: [],
     meal: null,
+    sides: [],
   },
 ] as unknown as Entries
 
@@ -152,6 +155,7 @@ describe('GET /api/v1/meal-plan (HON-1220)', () => {
           leftoversFor: [{ date: '2026-10-14', mealType: 'dinner', servings: 2.5 }],
           isCooked: false,
           isSkipped: false,
+          sides: [],
         },
         {
           entryId: 'entry-2',
@@ -166,6 +170,7 @@ describe('GET /api/v1/meal-plan (HON-1220)', () => {
           leftoversFor: [],
           isCooked: false,
           isSkipped: true,
+          sides: [],
         },
         {
           entryId: 'entry-3',
@@ -184,6 +189,7 @@ describe('GET /api/v1/meal-plan (HON-1220)', () => {
           leftoversFor: [],
           isCooked: false,
           isSkipped: false,
+          sides: [],
         },
       ],
       extras: [

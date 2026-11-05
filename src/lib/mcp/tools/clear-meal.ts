@@ -8,7 +8,7 @@ import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { deleteEntry } from '@/lib/meal-plans/entries'
 
-import { findPlanSlot, slotInput } from './plan-slot'
+import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 
 /**
  * Takes a meal off the plan (HON-1329): what Clear on a planner card does
@@ -19,11 +19,11 @@ export const clearMeal = defineTool({
   name: 'clear_meal',
   title: 'Clear a planned meal',
   description:
-    'Takes a planned meal off the plan, by day and meal type, and leaves the slot empty. Its ingredients leave the shopping list. The entry’s note, servings and ingredient changes go with it, so confirm with the user before you call this. A cooked meal cannot be cleared. To put a different meal in the slot, use swap_meal instead.',
+    'Takes a planned meal off the plan, by day and meal type, and leaves the slot empty. Its ingredients leave the shopping list. The entry’s note, servings and ingredient changes go with it, so confirm with the user before you call this. A cooked meal cannot be cleared. To put a different meal in the slot, use swap_meal instead. Clearing the main clears the whole slot, its side dishes too, and removedSides lists them. Pass a side’s entryId to remove only that side.',
   // Destructive: nothing restores the entry's note, servings, rating or
   // ingredient changes.
   annotations: { ...WRITE_ANNOTATIONS, destructiveHint: true, idempotentHint: false },
-  inputSchema: z.object(slotInput),
+  inputSchema: z.object({ ...slotInput, ...entryIdInput }),
   outputSchema: z.object({
     outcome: z.literal('cleared'),
     date: z.iso.date(),
@@ -42,9 +42,14 @@ export const clearMeal = defineTool({
       .describe(
         'The fridge meal’s items, to plan again with plan_fridge_meal. Empty for a recipe meal.',
       ),
+    removedSides: z
+      .array(z.object({ id: z.string(), name: z.string() }))
+      .describe(
+        'The side dishes cleared with the main, to add again with plan_meal role side. Empty when the call removed one side or the slot had none.',
+      ),
   }),
-  run: async (household, { date, mealType }) => {
-    const slot = await findPlanSlot(household, date, mealType)
+  run: async (household, { date, mealType, entryId }) => {
+    const slot = await findPlanSlot(household, date, mealType, entryId)
     const isFridge = slot.kind === 'fridge'
     if (!isFridge && !slot.mealId) {
       throw new ToolInputError(
@@ -84,6 +89,10 @@ export const clearMeal = defineTool({
       kind: isFridge ? ('fridge' as const) : ('recipe' as const),
       meal: isFridge || !slot.mealId ? null : { id: slot.mealId, name: slot.mealName! },
       items,
+      // The delete cascades to the sides (HON-1610).
+      removedSides: slot.sides.flatMap((side) =>
+        side.mealId ? [{ id: side.mealId, name: side.mealName! }] : [],
+      ),
     }
   },
 })

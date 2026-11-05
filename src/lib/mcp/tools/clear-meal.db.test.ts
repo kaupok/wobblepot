@@ -138,6 +138,7 @@ describe('clear_meal', () => {
       kind: 'recipe',
       meal: { id: 'stew', name: 'Glimmer stew' },
       items: [],
+      removedSides: [],
     })
     expect(clearMeal.outputSchema.safeParse(result).success).toBe(true)
     expect(await dinnerOn(household, day(1))).toEqual([])
@@ -172,6 +173,7 @@ describe('clear_meal', () => {
         { name: 'Glimmer stew', source: 'leftover', sourceEntryId: 'entry-cooked', servings: null },
         { name: 'Meatballs', source: 'text', sourceEntryId: null, servings: null },
       ],
+      removedSides: [],
     })
     expect(clearMeal.outputSchema.safeParse(result).success).toBe(true)
     expect(await dinnerOn(household, day(3))).toEqual([])

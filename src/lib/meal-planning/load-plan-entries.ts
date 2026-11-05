@@ -1,6 +1,12 @@
 import 'server-only'
 
-import type { EntryRating, MealPlanEntryStatus } from '@/generated/prisma/enums'
+import type {
+  EntryRating,
+  IngredientCategory,
+  MealPlanEntryStatus,
+  PieceDisplay,
+  Unit,
+} from '@/generated/prisma/enums'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import {
   ingredientTranslationsInclude,
@@ -58,6 +64,28 @@ export interface PlanEntrySide {
   cookServings: number
   status: MealPlanEntryStatus
   rating: EntryRating | null
+  /** The stored override, which Undo after Clear posts back (HON-1610). */
+  servingOverride: number | null
+  pantryDeducted: boolean
+  /** What the side cooks, with its changes merged, for the Cooked dialog's sum (HON-1610). */
+  components: PlanComponent[]
+}
+
+/** A component in the shape the planner reads, its ingredient named in the household's locale. */
+export interface PlanComponent {
+  ingredientId: string
+  quantityPerServing: number
+  isVague: boolean
+  originalPhrase: string | null
+  ingredient: {
+    id: string
+    name: string
+    category: IngredientCategory
+    defaultUnit: Unit
+    measuredByVolume: boolean
+    pieceDisplay: PieceDisplay
+    gramsPerPiece: number | null
+  }
 }
 
 /**
@@ -162,6 +190,30 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       }
     : null
 
+  type PlanIngredient = NonNullable<
+    (typeof entries)[number]['meal']
+  >['components'][number]['ingredient']
+  const toClientComponent = (
+    comp: ReturnType<typeof applyEntryChanges<PlanIngredient>>[number],
+  ): PlanComponent => ({
+    ingredientId: comp.ingredientId,
+    quantityPerServing: comp.quantityPerServing,
+    isVague: comp.isVague,
+    originalPhrase: comp.originalPhrase,
+    ingredient: {
+      id: comp.ingredient.id,
+      // Localize ingredient names too, so the timeline meal-detail
+      // doesn't mix an et title/description with en ingredients
+      // (HON-547 review). en is a no-op via isDefaultLocale.
+      name: translateIngredient(comp.ingredient, locale).name,
+      category: comp.ingredient.category,
+      defaultUnit: comp.ingredient.defaultUnit,
+      measuredByVolume: comp.ingredient.measuredByVolume,
+      pieceDisplay: comp.ingredient.pieceDisplay,
+      gramsPerPiece: comp.ingredient.gramsPerPiece,
+    },
+  })
+
   const sidesByMain = new Map<string, PlanEntrySide[]>()
   for (const side of entries) {
     if (!side.mainEntryId) continue
@@ -174,6 +226,11 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       cookServings: getCookServings(side, householdServings),
       status: side.status,
       rating: side.rating,
+      servingOverride: side.servingOverride,
+      pantryDeducted: side.pantryDeductedAt !== null,
+      components: applyEntryChanges(side.meal?.components ?? [], side.changes).map((comp) =>
+        toClientComponent(comp),
+      ),
     })
     sidesByMain.set(side.mainEntryId, sides)
   }
@@ -297,24 +354,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
                 // A stale prompt version reads as no image, so it is redrawn (HON-753).
                 ...presentMealImage(entry.meal),
                 nutrition: computeMealNutrition(components),
-                components: components.map((comp) => ({
-                  ingredientId: comp.ingredientId,
-                  quantityPerServing: comp.quantityPerServing,
-                  isVague: comp.isVague,
-                  originalPhrase: comp.originalPhrase,
-                  ingredient: {
-                    id: comp.ingredient.id,
-                    // Localize ingredient names too, so the timeline meal-detail
-                    // doesn't mix an et title/description with en ingredients
-                    // (HON-547 review). en is a no-op via isDefaultLocale.
-                    name: translateIngredient(comp.ingredient, locale).name,
-                    category: comp.ingredient.category,
-                    defaultUnit: comp.ingredient.defaultUnit,
-                    measuredByVolume: comp.ingredient.measuredByVolume,
-                    pieceDisplay: comp.ingredient.pieceDisplay,
-                    gramsPerPiece: comp.ingredient.gramsPerPiece,
-                  },
-                })),
+                components: components.map((comp) => toClientComponent(comp)),
               }
             : null,
         sides: sidesByMain.get(entry.id) ?? [],

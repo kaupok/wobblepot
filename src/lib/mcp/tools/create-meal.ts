@@ -8,6 +8,7 @@ import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 import { claimSavedMealImage, drawSavedMealImage } from '@/lib/meal-images/start'
 import { distinctProteinTypes } from '@/lib/meal-planning/protein'
+import { setMealCourse } from '@/lib/meals/meal-course'
 
 import {
   checkOutput,
@@ -107,6 +108,8 @@ export const createMeal = defineTool({
       }
       throw error
     }
+
+    if (input.course) await setMealCourse(household.id, meal.id, input.course)
 
     // Start the image now, as the app's create route does (HON-1364), so the
     // recipe has one on My recipes before its cook view opens. The tool answers

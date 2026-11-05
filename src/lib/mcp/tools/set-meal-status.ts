@@ -12,7 +12,7 @@ import {
   updateEntry,
 } from '@/lib/meal-plans/entries'
 
-import { findPlanSlot, slotInput } from './plan-slot'
+import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 
 const statusSchema = z.enum(['cooked', 'skipped', 'planned'])
 
@@ -37,6 +37,9 @@ const REFUSALS: Record<EntryUpdateRefusal, string> = {
   completedServings: STALE,
   staleMeal: STALE,
   noNote: STALE,
+  mainNotCompleted:
+    'A side is cooked with its main. Mark the main meal cooked first, without entryId. Nothing was changed.',
+  alreadyInSlot: STALE,
 }
 
 /**
@@ -55,12 +58,13 @@ export const setMealStatus = defineTool({
   name: 'set_meal_status',
   title: 'Mark a meal cooked or skipped',
   description:
-    'Marks a planned meal cooked, skipped, or planned again, by day and meal type, as the Cooked and Skipped buttons in the app do. Cooking a recipe meal takes its ingredients out of the pantry, once per meal. When the pantry holds some of the meal’s ingredients with no amount, the first cooked call writes nothing and returns outcome needsPantryCheck with pantryCheck: each item, how much the meal used, and a default of usedUp or someLeft. Ask the household one short question ("Pumpkin, carrots and sweet potato look used up; the jars and spices have some left. Right?"), then call again with usedUpIngredientIds: the ids now used up; those go to ran out, the rest stay. Pass [] when everything has some left. Pass defaultUsedUpIngredientIds unchanged when you cannot ask. For a fridge meal, pass usedUpIngredientIds the same way: the ingredientIds (from get_pantry) of its pantry items the household used up; those go to zero. Setting a cooked meal back to planned does not put its ingredients back in the pantry. After cooked, you can ask the user how it was and call rate_meal. A pantryCheck row with isStaple is a staple this meal used, with no amount tracked: it stays unless the household says it is used up or running low. Put the ids of items that are nearly gone in lowIngredientIds: they go on the shopping list now, with no amount, and stay available to planned meals.',
+    'Marks a planned meal cooked, skipped, or planned again, by day and meal type, as the Cooked and Skipped buttons in the app do. Cooking a recipe meal takes its ingredients out of the pantry, once per meal. When the pantry holds some of the meal’s ingredients with no amount, the first cooked call writes nothing and returns outcome needsPantryCheck with pantryCheck: each item, how much the meal used, and a default of usedUp or someLeft. Ask the household one short question ("Pumpkin, carrots and sweet potato look used up; the jars and spices have some left. Right?"), then call again with usedUpIngredientIds: the ids now used up; those go to ran out, the rest stay. Pass [] when everything has some left. Pass defaultUsedUpIngredientIds unchanged when you cannot ask. For a fridge meal, pass usedUpIngredientIds the same way: the ingredientIds (from get_pantry) of its pantry items the household used up; those go to zero. Setting a cooked meal back to planned does not put its ingredients back in the pantry. After cooked, you can ask the user how it was and call rate_meal. A pantryCheck row with isStaple is a staple this meal used, with no amount tracked: it stays unless the household says it is used up or running low. Put the ids of items that are nearly gone in lowIngredientIds: they go on the shopping list now, with no amount, and stay available to planned meals. A slot with side dishes moves as one: cooked, skipped or planned on the main does the same to its sides, and the pantry check sums what the main and its sides use. With a side’s entryId, a side can be skipped or set back to planned on its own, but it is cooked only once its main is cooked.',
   // Idempotent: the same call twice leaves the same status, and the pantry is
   // charged at most once per entry (`pantryDeductedAt`, HON-651).
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ...slotInput,
+    ...entryIdInput,
     status: statusSchema.describe(
       'cooked: the household made it. skipped: they did not. planned: undo either.',
     ),
@@ -120,9 +124,14 @@ export const setMealStatus = defineTool({
       .optional()
       .describe('needsPantryCheck only: the ids whose default is usedUp.'),
   }),
-  run: async (household, { date, mealType, status, usedUpIngredientIds, lowIngredientIds }) => {
-    const slot = await findPlanSlot(household, date, mealType)
+  run: async (
+    household,
+    { date, mealType, entryId, status, usedUpIngredientIds, lowIngredientIds },
+  ) => {
+    const slot = await findPlanSlot(household, date, mealType, entryId)
     const isFridge = slot.kind === 'fridge'
+    // A fridge main's recipe sides are charged like a recipe meal (HON-1610).
+    const chargesRecipe = !isFridge || slot.sides.length > 0
     if (!isFridge && !slot.mealId) {
       throw new ToolInputError(
         `No meal is planned for ${mealType} on ${date}, so there is nothing to mark. Nothing was changed.`,
@@ -133,7 +142,7 @@ export const setMealStatus = defineTool({
         'usedUpIngredientIds is only for marking a meal cooked. Nothing was changed.',
       )
     }
-    if (lowIngredientIds?.length && (status !== 'cooked' || isFridge)) {
+    if (lowIngredientIds?.length && (status !== 'cooked' || !chargesRecipe)) {
       throw new ToolInputError(
         'lowIngredientIds is only for marking a recipe meal cooked. Nothing was changed.',
       )
@@ -154,7 +163,7 @@ export const setMealStatus = defineTool({
     // the rows it names, so a "have some" row outside it is still asked: the
     // server's default could run it out, once and for good.
     const pantryCheck =
-      status === 'cooked' && !isFridge
+      status === 'cooked' && chargesRecipe
         ? await previewCookDeduction(
             household.id,
             slot.planId,
@@ -210,7 +219,7 @@ export const setMealStatus = defineTool({
     const patch: EntryPatch =
       status !== 'cooked'
         ? { status: entryStatus, deductPantry: false }
-        : isFridge
+        : !chargesRecipe
           ? { status: entryStatus, usedUpIngredientIds }
           : {
               status: entryStatus,

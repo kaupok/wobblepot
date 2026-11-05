@@ -22,6 +22,21 @@ export const slotInput = {
 
 export type SlotMealType = z.output<typeof slotInput.mealType>
 
+/**
+ * The optional entry input the slot tools share (HON-1610): a side's
+ * `entryId` from get_meal_plan picks that side, and no `entryId` picks the
+ * main.
+ */
+export const entryIdInput = {
+  entryId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Optional. A side's entryId from get_meal_plan's sides, to act on that side. Omit it to act on the slot's main meal.",
+    ),
+}
+
 /** How far ahead `plan_meal` and `add_extra` may write, in days after today. */
 export const MAX_DAYS_AHEAD = 28
 
@@ -38,14 +53,42 @@ export function writableDays(timezone: string): { today: string; lastDay: string
  * in the household's locale. Scoped to the household's own plan, so another
  * household's entry is never found. Throws {@link ToolInputError} when the
  * slot has no entry.
+ *
+ * Without `entryId` the entry is the slot's main, and `sides` lists its sides.
+ * With it, the entry is that one: the main, or one of its sides
+ * (`mainEntryId` set, `sides` empty). Any other entry is refused (HON-1610).
  */
-export async function findPlanSlot(household: McpHousehold, date: string, mealType: SlotMealType) {
+export async function findPlanSlot(
+  household: McpHousehold,
+  date: string,
+  mealType: SlotMealType,
+  entryId?: string,
+) {
   const locale = resolveHouseholdLocale(household)
   const day = parseLocalDate(date)
   const nextDay = new Date(day)
   nextDay.setDate(nextDay.getDate() + 1)
 
-  const entry = await prisma.mealPlanEntry.findFirst({
+  const select = {
+    id: true,
+    planId: true,
+    mealType: true,
+    kind: true,
+    mealId: true,
+    rating: true,
+    // `servingOverride`, `status` and the leftover lunches (HON-1394).
+    ...cookServingsSelect,
+    meal: {
+      select: {
+        id: true,
+        name: true,
+        timeMinutes: true,
+        primaryProteinType: true,
+        ...mealTranslationsInclude(locale),
+      },
+    },
+  } as const
+  const main = await prisma.mealPlanEntry.findFirst({
     where: {
       plan: { householdId: household.id },
       date: { gte: day, lt: nextDay },
@@ -54,34 +97,31 @@ export async function findPlanSlot(household: McpHousehold, date: string, mealTy
       mainEntryId: null,
     },
     select: {
-      id: true,
-      planId: true,
-      mealType: true,
-      kind: true,
-      mealId: true,
-      rating: true,
-      // `servingOverride`, `status` and the leftover lunches (HON-1394).
-      ...cookServingsSelect,
-      meal: {
-        select: {
-          id: true,
-          name: true,
-          timeMinutes: true,
-          primaryProteinType: true,
-          ...mealTranslationsInclude(locale),
-        },
-      },
+      ...select,
+      sides: { orderBy: { id: 'asc' }, select },
     },
   })
 
-  if (!entry) {
+  if (!main) {
     throw new ToolInputError(
       `Nothing is planned for ${mealType} on ${date}. Use get_meal_plan to see which days and meals have an entry. Nothing was changed.`,
     )
   }
 
-  return {
+  const named = <T extends { meal: Parameters<typeof translateMeal>[0] | null }>(entry: T) => ({
     ...entry,
     mealName: entry.meal ? translateMeal(entry.meal, locale).name : null,
+  })
+  const sides = main.sides.map(named)
+
+  if (entryId === undefined || entryId === main.id) {
+    return { ...named(main), mainEntryId: null, sides }
   }
+  const side = sides.find((s) => s.id === entryId)
+  if (!side) {
+    throw new ToolInputError(
+      `${entryId} is not the ${mealType} on ${date} or one of its sides. Use the entryId get_meal_plan returned for that slot. Nothing was changed.`,
+    )
+  }
+  return { ...side, mainEntryId: main.id, sides: [] as typeof sides }
 }

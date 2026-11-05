@@ -27,6 +27,17 @@ export interface ClearedMealEntry {
   status: 'planned' | 'skipped'
   rating: EntryRating | null
   pantryDeducted: boolean
+  /** The main's sides: Clear removes them with it, and Undo restores them in the same call (HON-1610). */
+  sides?: RestoredSide[]
+}
+
+/** A side as Undo posts it back (`RestoredSide` in `create-entry.ts`). */
+export interface RestoredSide {
+  mealId: string
+  servingOverride: number | null
+  status: 'planned' | 'skipped'
+  rating: EntryRating | null
+  pantryDeducted: boolean
 }
 
 /**
@@ -44,6 +55,7 @@ export interface ClearedFridgeMeal {
   noteX: number | null
   noteY: number | null
   pantryDeducted: boolean
+  sides?: RestoredSide[]
 }
 
 export type ClearedEntry = ClearedMealEntry | ClearedFridgeMeal

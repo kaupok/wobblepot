@@ -6,7 +6,7 @@ import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { EntryUpdateError, updateEntry } from '@/lib/meal-plans/entries'
 
-import { findPlanSlot, slotInput } from './plan-slot'
+import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 
 const COOKED =
   'This meal is already cooked, and the pantry was charged for its servings then, so they cannot change. Nothing was changed.'
@@ -21,10 +21,11 @@ export const setMealServings = defineTool({
   name: 'set_meal_servings',
   title: 'Change a meal’s servings',
   description:
-    'Sets how many servings a planned recipe meal is cooked for, by day and meal type, or pass servings: null to go back to the household default (get_household gives it). The recipe amounts and the shopping list follow the new count. A fridge meal has no recipe to scale, and a cooked meal cannot change, because the pantry was charged for its servings.',
+    'Sets how many servings a planned recipe meal is cooked for, by day and meal type, or pass servings: null to go back to the household default (get_household gives it). The recipe amounts and the shopping list follow the new count. A fridge meal has no recipe to scale, and a cooked meal cannot change, because the pantry was charged for its servings. Pass a side’s entryId to set that side dish’s servings; a side with servings null follows its main’s servings.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ...slotInput,
+    ...entryIdInput,
     // The limits of the PATCH route's `servingOverride`.
     servings: z
       .number()
@@ -43,8 +44,8 @@ export const setMealServings = defineTool({
       .describe('The servings the meal is now cooked for, as get_meal_plan reports them.'),
     isDefault: z.boolean().describe('True when the meal follows the household default.'),
   }),
-  run: async (household, { date, mealType, servings }) => {
-    const slot = await findPlanSlot(household, date, mealType)
+  run: async (household, { date, mealType, entryId, servings }) => {
+    const slot = await findPlanSlot(household, date, mealType, entryId)
     if (slot.kind === 'fridge') {
       throw new ToolInputError(
         `The ${mealType} on ${date} is a fridge meal, which has no recipe to scale. Nothing was changed.`,
@@ -77,7 +78,10 @@ export const setMealServings = defineTool({
       mealType,
       meal: { id: slot.mealId, name: slot.mealName! },
       // The same rule `readMealPlan` reports `servings` by.
-      servings: getEffectiveServings({ servingOverride: servings }, sumPortions(household.members)),
+      servings: getEffectiveServings(
+        { servingOverride: servings, mainEntry: slot.mainEntry },
+        sumPortions(household.members),
+      ),
       isDefault: servings === null,
     }
   },

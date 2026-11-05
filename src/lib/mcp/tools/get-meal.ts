@@ -18,7 +18,7 @@ import { getCookServings, sumPortions } from '@/lib/meal-planning/servings'
 import { visibleMealWhere } from '@/lib/meals/load-meals'
 import { prisma } from '@/lib/prisma'
 
-import { findPlanSlot, slotInput } from './plan-slot'
+import { entryIdInput, findPlanSlot, slotInput } from './plan-slot'
 import { MAIN_PROTEIN_HELP, mainProteinOf, mainProteinOutput } from './recipe-input'
 
 const mealType = z.enum(['breakfast', 'lunch', 'dinner'])
@@ -27,7 +27,7 @@ export const getMeal = defineTool({
   name: 'get_meal',
   title: 'Get meal',
   description:
-    "Returns one meal: its ingredients scaled to a number of servings, preparation notes when the recipe has them, and nutrition. nutritionPerServing is a 1× portion, and nutritionPerMember gives each member's own plate, so use it when the user asks about a person. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it. For a planned meal, also pass the entry's date and mealType from get_meal_plan: the household may have changed that entry's ingredients (an ingredient replaced, left out or added), and the answer then lists what they will cook, at the entry's servings.",
+    "Returns one meal: its ingredients scaled to a number of servings, preparation notes when the recipe has them, and nutrition. nutritionPerServing is a 1× portion, and nutritionPerMember gives each member's own plate, so use it when the user asks about a person. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it. For a planned meal, also pass the entry's date and mealType from get_meal_plan: the household may have changed that entry's ingredients (an ingredient replaced, left out or added), and the answer then lists what they will cook, at the entry's servings. A side dish's mealId with its slot's date and mealType reads that side; pass the side's entryId when the same slot could be ambiguous. course says whether the recipe is a main or a side dish.",
   inputSchema: z.object({
     mealId: z.string().min(1).max(100).describe('The id from get_meal_plan or list_meals.'),
     servings: z
@@ -45,6 +45,9 @@ export const getMeal = defineTool({
     mealType: slotInput.mealType
       .optional()
       .describe('For a planned meal: the meal of that day. Pass it with date.'),
+    entryId: entryIdInput.entryId.describe(
+      "Optional, with date and mealType: a side's entryId from get_meal_plan, to read that side.",
+    ),
   }),
   outputSchema: z.object({
     meal: z.object({
@@ -54,6 +57,9 @@ export const getMeal = defineTool({
       mealTypes: z.array(mealType),
       timeMinutes: z.number().nullable(),
       kidFriendly: z.boolean().describe('True if children eat it happily.'),
+      course: z
+        .enum(['main', 'side'])
+        .describe('main: a meal on its own. side: a side dish served with a main.'),
       servings: z.number().describe('The servings the ingredient amounts are for.'),
       recipeServings: z
         .number()
@@ -96,10 +102,10 @@ export const getMeal = defineTool({
       ),
     }),
   }),
-  run: async (household, { mealId, servings: requestedServings, date, mealType }) => {
+  run: async (household, { mealId, servings: requestedServings, date, mealType, entryId }) => {
     const locale = resolveHouseholdLocale(household)
     const [entry, members] = await Promise.all([
-      findPlannedEntry(household, mealId, date, mealType),
+      findPlannedEntry(household, mealId, date, mealType, entryId),
       listMembersForAssistant(household.id),
     ])
     const meal = await prisma.meal.findFirst({
@@ -121,6 +127,7 @@ export const getMeal = defineTool({
         preparationNotes: true,
         timeMinutes: true,
         kidFriendly: true,
+        course: true,
         servings: true,
         suitableFor: true,
         householdId: true,
@@ -170,6 +177,7 @@ export const getMeal = defineTool({
         mealTypes: meal.suitableFor,
         timeMinutes: meal.timeMinutes,
         kidFriendly: meal.kidFriendly,
+        course: meal.course,
         servings,
         recipeServings: meal.servings,
         ingredients: components.map((component) => {
@@ -229,19 +237,28 @@ function mcpIngredientArgs(locale: string) {
 /**
  * The household's entry for the slot, when the caller named one. It must hold
  * this meal: an assistant that mixed up two days would otherwise read one
- * meal's recipe with another entry's changes.
+ * meal's recipe with another entry's changes. Without `entryId`, a side of
+ * the slot that holds the meal counts too (HON-1610).
  */
 async function findPlannedEntry(
   household: McpHousehold,
   mealId: string,
   date: string | undefined,
   mealType: z.output<typeof slotInput.mealType> | undefined,
+  entryId: string | undefined,
 ) {
-  if (date === undefined && mealType === undefined) return null
+  if (date === undefined && mealType === undefined) {
+    if (entryId !== undefined) throw new ToolInputError('Pass entryId with date and mealType.')
+    return null
+  }
   if (date === undefined || mealType === undefined) {
     throw new ToolInputError('Pass date and mealType together, or neither.')
   }
-  const slot = await findPlanSlot(household, date, mealType)
+  let slot = await findPlanSlot(household, date, mealType, entryId)
+  const side = entryId === undefined && slot.sides.find((s) => s.mealId === mealId)
+  if (slot.mealId !== mealId && side) {
+    slot = await findPlanSlot(household, date, mealType, side.id)
+  }
   if (slot.mealId !== mealId) {
     throw new ToolInputError(
       `The ${mealType} on ${date} is not this meal. Use the mealId get_meal_plan returned for that entry.`,

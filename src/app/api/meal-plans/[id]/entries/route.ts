@@ -50,6 +50,19 @@ const createEntrySchema = z
     // Undo after Clear (HON-1396): the entry's own items come back, so the
     // leftover source rule passes what a source changed since can cause.
     restore: z.literal(true).optional(),
+    // Undo after Clear brings the main's sides back with it (HON-1610).
+    sides: z
+      .array(
+        z.object({
+          mealId: z.string(),
+          servingOverride: z.number().int().min(1).max(20).nullable().optional(),
+          status: z.enum(['planned', 'skipped']).optional(),
+          rating: z.enum(['up', 'down']).nullable().optional(),
+          pantryDeducted: z.boolean().optional(),
+        }),
+      )
+      .max(20)
+      .optional(),
   })
   // The note's place is one point, set together, and only beside a note
   // (HON-975).
@@ -76,6 +89,13 @@ const createEntrySchema = z
         code: 'custom',
         path: ['fridgeItems'],
         message: 'fridgeItems excludes mealId and pick',
+      })
+    }
+    if (data.sides && (!data.restore || !(data.mealId || data.fridgeItems))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['sides'],
+        message: 'sides come only with a restored main',
       })
     }
     if (data.status === 'completed' && (data.pick || data.pantryDeducted)) {
