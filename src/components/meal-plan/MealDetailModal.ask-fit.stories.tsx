@@ -28,6 +28,16 @@ const meta = {
   component: MealDetailModal,
   parameters: { layout: 'fullscreen' },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  // A phone's overlay scrollbars take no width. The CI harness draws classic
+  // ones (vitest.config.ts, HON-690), which took 30px from the field there.
+  decorators: [
+    (Story) => (
+      <>
+        <style>{'* { scrollbar-width: none; }'}</style>
+        <Story />
+      </>
+    ),
+  ],
   args: {
     meal: createMeal(),
     householdServings: 4,
@@ -51,25 +61,8 @@ const body = () => within(document.body)
 const NARROWEST_FIELD = 151
 
 /**
- * The width the harness's classic scrollbars take from the field: the `html`
- * gutter (globals.css, HON-690) and each scrolling ancestor's bar. A phone's
- * overlay scrollbars take none, so the fit check adds this back. It is 0 where
- * the harness has overlay scrollbars too.
- */
-function classicScrollbarWidth(field: HTMLElement) {
-  let width = window.innerWidth - document.documentElement.clientWidth
-  for (let el = field.parentElement; el; el = el.parentElement) {
-    const style = getComputedStyle(el)
-    if (style.overflowY !== 'auto' && style.overflowY !== 'scroll') continue
-    const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)
-    width += el.offsetWidth - el.clientWidth - borders
-  }
-  return width
-}
-
-/**
  * The field's placeholder shows in full: its text, in the field's font, is no
- * wider than the field's content box on a phone, nor than `NARROWEST_FIELD`.
+ * wider than the field's content box, nor than `NARROWEST_FIELD`.
  * `scrollWidth` does not see a placeholder, so this measures it on a canvas.
  */
 async function expectPlaceholderFits(field: HTMLInputElement, placeholder: string) {
@@ -81,7 +74,7 @@ async function expectPlaceholderFits(field: HTMLInputElement, placeholder: strin
   ctx.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing
   const inner = field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
   await expect(ctx.measureText(placeholder).width).toBeLessThanOrEqual(
-    Math.min(inner + classicScrollbarWidth(field), NARROWEST_FIELD),
+    Math.min(inner, NARROWEST_FIELD),
   )
 }
 
