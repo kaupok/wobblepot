@@ -51,8 +51,25 @@ const body = () => within(document.body)
 const NARROWEST_FIELD = 151
 
 /**
+ * The width the harness's classic scrollbars take from the field: the `html`
+ * gutter (globals.css, HON-690) and each scrolling ancestor's bar. A phone's
+ * overlay scrollbars take none, so the fit check adds this back. It is 0 where
+ * the harness has overlay scrollbars too.
+ */
+function classicScrollbarWidth(field: HTMLElement) {
+  let width = window.innerWidth - document.documentElement.clientWidth
+  for (let el = field.parentElement; el; el = el.parentElement) {
+    const style = getComputedStyle(el)
+    if (style.overflowY !== 'auto' && style.overflowY !== 'scroll') continue
+    const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)
+    width += el.offsetWidth - el.clientWidth - borders
+  }
+  return width
+}
+
+/**
  * The field's placeholder shows in full: its text, in the field's font, is no
- * wider than the field's content box, nor than `NARROWEST_FIELD`.
+ * wider than the field's content box on a phone, nor than `NARROWEST_FIELD`.
  * `scrollWidth` does not see a placeholder, so this measures it on a canvas.
  */
 async function expectPlaceholderFits(field: HTMLInputElement, placeholder: string) {
@@ -63,26 +80,9 @@ async function expectPlaceholderFits(field: HTMLInputElement, placeholder: strin
   ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
   ctx.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing
   const inner = field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-  // TEMP DIAGNOSTIC (HON-1633): remove before merge.
-  const chain: string[] = [
-    `font=${ctx.font} measured=${ctx.measureText(placeholder).width} inner=${inner} vw=${window.innerWidth}`,
-  ]
-  for (let el: Element | null = field; el && chain.length < 14; el = el.parentElement) {
-    const s = getComputedStyle(el)
-    chain.push(
-      `${el.tagName} w=${el.getBoundingClientRect().width} pl=${s.paddingLeft} pr=${s.paddingRight} ml=${s.marginLeft} gap=${s.columnGap} cls=${el.getAttribute('class')}`,
-    )
-    for (const sib of Array.from(el.parentElement?.children ?? [])) {
-      if (sib !== el)
-        chain.push(
-          `  sib ${sib.tagName} w=${sib.getBoundingClientRect().width} cls=${sib.getAttribute('class')}`,
-        )
-    }
-  }
-  await expect(
-    ctx.measureText(placeholder).width,
-    `ASKFIT_DIAG\n${chain.join('\n')}`,
-  ).toBeLessThanOrEqual(Math.min(inner, NARROWEST_FIELD))
+  await expect(ctx.measureText(placeholder).width).toBeLessThanOrEqual(
+    Math.min(inner + classicScrollbarWidth(field), NARROWEST_FIELD),
+  )
 }
 
 /** Open a row's panel with "Ask your own question", then check its field. */
