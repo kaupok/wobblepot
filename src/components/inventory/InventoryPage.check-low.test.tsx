@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
+import { pressedStock, stockPart } from './PantrySection.fixtures'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -51,22 +52,14 @@ describe('InventoryPage check and running low', () => {
         ],
       },
     })
-    expect(screen.getByRole('button', { name: 'Running low: Carrot' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    expect(pressedStock('Carrot')).toHaveAccessibleName('Low')
 
     await user.click(screen.getByRole('button', { name: 'Add to list: Carrot' }))
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Have it: Carrot' })).not.toBeChecked(),
-    )
+    await waitFor(() => expect(pressedStock('Carrot')).toHaveAccessibleName('Ran out'))
+    expect(stockPart('Carrot', 'Low')).toHaveAttribute('aria-checked', 'false')
 
-    await user.click(screen.getByRole('switch', { name: 'Have it: Carrot' }))
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Running low: Carrot' })).toHaveAttribute(
-        'aria-pressed',
-        'false',
-      ),
-    )
+    await user.click(stockPart('Carrot', 'Have it'))
+    await waitFor(() => expect(pressedStock('Carrot')).toHaveAccessibleName('Have it'))
+    expect(stockPart('Carrot', 'Low')).toHaveAttribute('aria-checked', 'false')
   })
 })

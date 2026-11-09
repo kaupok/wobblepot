@@ -23,7 +23,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The placeholder `/shopping` shows for each pantry row while the list loads. Same contract as `ShoppingItemSkeleton` — the play function measures it against the live row — but against `PantrySection`\'s `PantryItemRow`, which is what the screen renders. (`components/pantry/PantryItem.tsx` reads like the counterpart and is not one: it has no callsite outside its own story and test.) A pantry row has no `min-h-touch` floor: its height comes from the name and "needed in window" caption stacked over its two `icon-sm` buttons.',
+          'The placeholder `/shopping` shows for each pantry row while the list loads. Same contract as `ShoppingItemSkeleton` — the play function measures it against the live row — but against `PantrySection`\'s `PantryItemRow`, which is what the screen renders. (`components/pantry/PantryItem.tsx` reads like the counterpart and is not one: it has no callsite outside its own story and test.) A pantry row has no `min-h-touch` floor: its height comes from the name, the "needed in window" caption and the stock control beside its two `icon-sm` buttons, over the stock control on its own line. The live rows here have no amount button, as a staple does not.',
       },
     },
   },
@@ -64,10 +64,20 @@ export const AgainstLiveRow: Story = {
           })}
           onToggleStaple={noop}
           onRemove={noop}
+          onHaveIt={noop}
+          onRanOut={noop}
+          onSetLow={noop}
         />
       </RowGroup>
       <RowGroup data-testid="pantry-row">
-        <PantryItemRow item={createPantryItemData()} onToggleStaple={noop} onRemove={noop} />
+        <PantryItemRow
+          item={createPantryItemData()}
+          onToggleStaple={noop}
+          onRemove={noop}
+          onHaveIt={noop}
+          onRanOut={noop}
+          onSetLow={noop}
+        />
       </RowGroup>
     </div>
   ),

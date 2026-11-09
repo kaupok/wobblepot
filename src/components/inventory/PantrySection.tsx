@@ -22,7 +22,8 @@ const HAVE_IT_KEY = ['pantry', 'have-it'] as const
 const RAN_OUT_KEY = ['pantry', 'ran-out'] as const
 const AMOUNT_KEY = ['pantry', 'amount'] as const
 
-const onHandSelector = (id: string) => `[data-on-hand="${id}"]`
+// The stock control's pressed part: Radix moves `data-state="on"` with it.
+const stockSelector = (id: string) => `[data-stock="${id}"] [data-state="on"]`
 const removeSelector = (id: string) => `[data-remove="${id}"]`
 const amountSelector = (id: string) => `[data-amount="${id}"]`
 // The add search is the section's only input.
@@ -53,7 +54,7 @@ interface PantrySectionProps {
   /** The toast's Undo put a removed row back, so the shopping list reverts. */
   onPantryItemRestored?: (ingredientId: string) => void
   /**
-   * A row's quantity changed on the server (the switch, an amount). The
+   * A row's quantity changed on the server (the stock control, an amount). The
    * shopping list buys a row at 0 and skips one at null, so the parent
    * re-reads it.
    */
@@ -78,9 +79,9 @@ export function PantrySection({
   const onHand = items.filter((item) => !item.isStaple && item.quantity !== 0)
   const ranOut = items.filter((item) => !item.isStaple && item.quantity === 0)
 
-  // The switch, Remove and Undo each unmount or mount the row in focus, so focus
-  // would fall to `<body>` (docs/DESIGN.md → Focus management). The mutation
-  // names the control to focus once the change has rendered.
+  // The stock control, Remove and Undo each unmount or mount the row in focus,
+  // so focus would fall to `<body>` (docs/DESIGN.md → Focus management). The
+  // mutation names the control to focus once the change has rendered.
   const sectionRef = useRef<HTMLElement>(null)
   const focusAfterRender = useRef<string | null>(null)
   useEffect(() => {
@@ -89,6 +90,17 @@ export function PantrySection({
     focusAfterRender.current = null
     sectionRef.current?.querySelector<HTMLElement>(selector)?.focus()
   })
+  // A row that moves to another section remounts its stock control, so focus
+  // follows it to the part now pressed: a second press undoes a slip.
+  const followStock = (id: string) => {
+    focusAfterRender.current = stockSelector(id)
+  }
+  // A failed change moves the row back, so focus follows it only if it is
+  // still in the row's control.
+  const followStockIfFocused = (id: string) => {
+    const control = sectionRef.current?.querySelector(`[data-stock="${id}"]`)
+    if (control?.contains(document.activeElement)) followStock(id)
+  }
 
   // The list is the parent's state rather than a query, so the optimistic
   // updates write through `onItemsChange` and roll back the same way.
@@ -123,14 +135,14 @@ export function PantrySection({
     },
   })
 
-  // Switch-off sets the quantity to 0. An ordinary row moves to Ran out; a
+  // Ran out sets the quantity to 0. An ordinary row moves to Ran out; a
   // staple stays in Staples, because staples are always stocked. Either way
-  // the row's switch keeps focus, so a second press undoes a slip. The undo
-  // sends back the quantity the row had, so a counted row keeps its count
-  // rather than dropping to null, "have some". Kept for this visit only:
-  // after a reload switch-on sends null. Switch-on takes its entry out when
+  // the row's stock control keeps focus, so a second press undoes a slip.
+  // Have it sends back the quantity the row had, so a counted row keeps its
+  // count rather than dropping to null, "have some". Kept for this visit
+  // only: after a reload Have it sends null. Have it takes its entry out when
   // pressed, not when its request lands, because requests queue behind each
-  // other and a newer switch-off may have written the entry since.
+  // other and a newer Ran out may have written the entry since.
   const quantityBeforeRanOut = useRef(new Map<string, number | null>())
   const ranOutMutation = useMutation({
     mutationKey: RAN_OUT_KEY,
@@ -147,23 +159,17 @@ export function PantrySection({
       ),
     onMutate: ({ id, quantity }) => {
       quantityBeforeRanOut.current.set(id, quantity)
-      // An ordinary row moves to Ran out, so focus follows its switch there:
-      // a second press undoes a slip.
-      focusAfterRender.current = onHandSelector(id)
+      followStock(id)
       // Ran out replaces running low, as the server clears it (HON-1586).
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, quantity: 0, low: false } : item)),
       )
     },
     onSuccess: () => onPantryQuantityChanged?.(),
-    // A failed switch-off leaves its entry: the row is back above 0, so no
-    // switch-on reads it before the next switch-off writes it again.
+    // A failed Ran out leaves its entry: the row is back above 0, so no
+    // Have it reads it before the next Ran out writes it again.
     onError: (_error, { id, quantity, low }) => {
-      // An ordinary row moves back to On hand and its switch remounts, so follow it.
-      const onHand = sectionRef.current?.querySelector(onHandSelector(id))
-      if (onHand && onHand === document.activeElement) {
-        focusAfterRender.current = onHandSelector(id)
-      }
+      followStockIfFocused(id)
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, quantity, low } : item)),
       )
@@ -171,10 +177,10 @@ export function PantrySection({
     },
   })
 
-  // Switch-on sets the quantity to null, "have some", or back to the count
-  // switch-off took from the row this visit. A staple stays where it is; an
-  // ordinary row moves back to On hand. Either way focus goes to the row's
-  // own switch, so a second press undoes a slip (HON-1535).
+  // Have it from Ran out sets the quantity to null, "have some", or back to
+  // the count Ran out took from the row this visit. A staple stays where it
+  // is; an ordinary row moves back to On hand. Either way focus goes to the
+  // row's own stock control, so a second press undoes a slip (HON-1535).
   const haveItMutation = useMutation({
     mutationKey: HAVE_IT_KEY,
     scope: QUANTITY_SCOPE,
@@ -190,19 +196,15 @@ export function PantrySection({
         tPantry('errors.updateFailed'),
       ),
     onMutate: ({ id, quantity }) => {
-      focusAfterRender.current = onHandSelector(id)
+      followStock(id)
       onItemsChange((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, { id, quantity }) => {
-      // The row goes back to 0, so the next switch-on restores the same count,
-      // unless a newer switch-off has written one since.
+      // The row goes back to 0, so the next Have it restores the same count,
+      // unless a newer Ran out has written one since.
       if (!quantityBeforeRanOut.current.has(id)) quantityBeforeRanOut.current.set(id, quantity)
-      // An ordinary row moves back to Ran out and its switch remounts, so follow it.
-      const onHand = sectionRef.current?.querySelector(onHandSelector(id))
-      if (onHand && onHand === document.activeElement) {
-        focusAfterRender.current = onHandSelector(id)
-      }
+      followStockIfFocused(id)
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, quantity: 0, low: false } : item)),
       )
@@ -212,7 +214,8 @@ export function PantrySection({
 
   // An On hand row's amount (HON-1402): `null` is "have some", above 0 an
   // amount the shopping list subtracts. A 0 is ran out: the row moves, so
-  // focus goes to its switch, which then restores the amount it had.
+  // focus goes to its stock control, whose Have it then restores the amount
+  // it had.
   const amountMutation = useMutation({
     mutationKey: AMOUNT_KEY,
     scope: QUANTITY_SCOPE,
@@ -229,7 +232,7 @@ export function PantrySection({
     onMutate: ({ item, quantity }) => {
       if (quantity === 0) {
         quantityBeforeRanOut.current.set(item.id, item.quantity)
-        focusAfterRender.current = onHandSelector(item.id)
+        followStock(item.id)
       }
       // A 0 is ran out, which replaces running low; an amount keeps it (HON-1586).
       onItemsChange((prev) =>
@@ -243,8 +246,8 @@ export function PantrySection({
       // A 0 that failed brings the row back to On hand, where its amount
       // button returns, so follow the row to the control the household used.
       // Any other amount leaves the row in place, so focus stays where it is.
-      const onHand = sectionRef.current?.querySelector(onHandSelector(item.id))
-      if (quantity === 0 && onHand && onHand === document.activeElement) {
+      const control = sectionRef.current?.querySelector(`[data-stock="${item.id}"]`)
+      if (quantity === 0 && control?.contains(document.activeElement)) {
         focusAfterRender.current = amountSelector(item.id)
       }
       // Only a 0 cleared low, so only a 0 puts it back: a Running low tap
@@ -355,7 +358,10 @@ export function PantrySection({
 
   const handleRanOut = (item: PantryItemData) => ranOutMutation.mutate(item)
 
-  const handleSetLow = usePantryLow(onItemsChange, onPantryQuantityChanged)
+  const handleSetLow = usePantryLow(onItemsChange, onPantryQuantityChanged, {
+    onMove: followStock,
+    onMoveBack: followStockIfFocused,
+  })
 
   const handleSetAmount = (item: PantryItemData, quantity: number | null) =>
     amountMutation.mutate({ item, quantity })
@@ -434,6 +440,7 @@ export function PantrySection({
                 onRemove={handleRemove}
                 onRanOut={handleRanOut}
                 onHaveIt={handleHaveIt}
+                onSetLow={handleSetLow}
                 isToggling={togglingIds.includes(item.id)}
               />
             ))}

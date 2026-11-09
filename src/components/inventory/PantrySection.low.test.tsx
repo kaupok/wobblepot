@@ -1,15 +1,22 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { groupOf, makeItem, renderSection, renderStateful } from './PantrySection.fixtures'
+import {
+  groupOf,
+  makeItem,
+  pressedStock,
+  renderSection,
+  renderStateful,
+  stockPart,
+} from './PantrySection.fixtures'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
-// A row whose switch is on carries a Running low toggle (HON-1587); ran out
-// replaces low, so a row at 0 has none (HON-1586).
-describe('PantrySection running low', () => {
+// The stock control's Low part (HON-1587, HON-1624). Ran out replaces low, so
+// a row at 0 has Ran out pressed, not Low (HON-1586).
+describe('PantrySection low', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.clearAllMocks()
@@ -42,30 +49,34 @@ describe('PantrySection running low', () => {
     isStaple: true,
     quantity: 0,
   })
-  const lowToggle = (name: string) => screen.getByRole('button', { name: `Running low: ${name}` })
+  const okFetch = () => {
+    // A new response per call, because a body reads once.
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
 
-  it('renders the toggle unpressed on a null row, pressed on a low row, on a staple, and not on a ran-out row', () => {
+  it('presses Have it on a null row, Low on a low row, Have it on a staple, and Ran out on a ran-out row', () => {
     renderSection([eggs, salt, bread, onion, avocado])
 
-    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'false')
-    expect(lowToggle('Onion')).toHaveAttribute('aria-pressed', 'true')
-    expect(lowToggle('Salt')).toHaveAttribute('aria-pressed', 'false')
-    expect(lowToggle('Bread')).toHaveTextContent('Running low')
-    expect(screen.queryByRole('button', { name: 'Running low: Avocado' })).not.toBeInTheDocument()
+    expect(pressedStock('Bread')).toHaveAccessibleName('Have it')
+    expect(pressedStock('Onion')).toHaveAccessibleName('Low')
+    expect(pressedStock('Salt')).toHaveAccessibleName('Have it')
+    expect(stockPart('Bread', 'Low')).toHaveTextContent('Low')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Ran out')
     // A staple at 0 stays under Staples, and ran out replaces low there too.
-    expect(screen.queryByRole('button', { name: 'Running low: Eggs' })).not.toBeInTheDocument()
+    expect(pressedStock('Eggs')).toHaveAccessibleName('Ran out')
     // A low row stays in its group.
     expect(groupOf('Onion')).toBe('On hand 2')
   })
 
-  it('sends low true on a tap and low false on a second tap', async () => {
-    const fetchMock = vi.fn(async () => Response.json({ ok: true }))
-    vi.stubGlobal('fetch', fetchMock)
+  it('sends low true on Low and low false on Have it', async () => {
+    const fetchMock = okFetch()
     const onPantryQuantityChanged = vi.fn()
     renderStateful([bread], onPantryQuantityChanged)
 
-    fireEvent.click(lowToggle('Bread'))
-    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(stockPart('Bread', 'Low'))
+    expect(pressedStock('Bread')).toHaveAccessibleName('Low')
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     expect(fetchMock).toHaveBeenLastCalledWith('/api/pantry/pantry-bread', {
       method: 'PATCH',
@@ -73,8 +84,8 @@ describe('PantrySection running low', () => {
       body: '{"low":true}',
     })
 
-    fireEvent.click(lowToggle('Bread'))
-    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(stockPart('Bread', 'Have it'))
+    expect(pressedStock('Bread')).toHaveAccessibleName('Have it')
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     expect(fetchMock).toHaveBeenLastCalledWith('/api/pantry/pantry-bread', {
       method: 'PATCH',
@@ -86,17 +97,68 @@ describe('PantrySection running low', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('unpresses the toggle and toasts on a failed request', async () => {
+  it('sends low false on Have it on a low row, and keeps the row in On hand', async () => {
+    const fetchMock = okFetch()
+    renderStateful([bread, onion])
+
+    fireEvent.click(stockPart('Onion', 'Have it'))
+
+    expect(pressedStock('Onion')).toHaveAccessibleName('Have it')
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-onion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"low":false}',
+    })
+    expect(groupOf('Onion')).toBe('On hand 2')
+  })
+
+  it('presses Have it again and toasts on a failed Low', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
     renderStateful([bread])
 
-    fireEvent.click(lowToggle('Bread'))
+    fireEvent.click(stockPart('Bread', 'Low'))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'false')
+    expect(pressedStock('Bread')).toHaveAccessibleName('Have it')
   })
 
-  it('keeps low cleared when a failed low clear lands after the row was switched off', async () => {
+  it('sends one low true request on Low on a row at 0, moves it to On hand and focuses Low', async () => {
+    const fetchMock = okFetch()
+    renderStateful([bread, avocado])
+    const control = stockPart('Avocado', 'Low')
+    control.focus()
+
+    fireEvent.click(control)
+
+    await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 2'))
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Low')
+    expect(stockPart('Avocado', 'Low')).toHaveFocus()
+    await act(async () => {})
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-avocado', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"low":true}',
+    })
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('puts a row back in Ran out and toasts when Low on a row at 0 fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
+    renderStateful([bread, avocado])
+    const control = stockPart('Avocado', 'Low')
+    control.focus()
+
+    fireEvent.click(control)
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(groupOf('Avocado')).toBe('Ran out 1')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Ran out')
+    expect(stockPart('Avocado', 'Ran out')).toHaveFocus()
+  })
+
+  it('keeps low cleared when a failed low clear lands after the row ran out', async () => {
     let failLow: (() => void) | null = null
     vi.stubGlobal(
       'fetch',
@@ -110,19 +172,19 @@ describe('PantrySection running low', () => {
     )
     renderStateful([bread, onion])
 
-    fireEvent.click(lowToggle('Onion'))
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Onion' }))
-    // The switch-off waits in the queue behind the low clear, which fails last.
+    fireEvent.click(stockPart('Onion', 'Have it'))
+    fireEvent.click(stockPart('Onion', 'Ran out'))
+    // Ran out waits in the queue behind the low clear, which fails last.
     await waitFor(() => expect(failLow).not.toBeNull())
     failLow!()
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Onion' }))
+    fireEvent.click(stockPart('Onion', 'Have it'))
     await waitFor(() => expect(groupOf('Onion')).toBe('On hand 2'))
-    expect(lowToggle('Onion')).toHaveAttribute('aria-pressed', 'false')
+    expect(pressedStock('Onion')).toHaveAccessibleName('Have it')
   })
 
-  it('keeps a Running low tap queued behind an amount that fails', async () => {
+  it('keeps a Low press queued behind an amount that fails', async () => {
     const user = userEvent.setup()
     let failAmount: (() => void) | null = null
     vi.stubGlobal(
@@ -141,53 +203,69 @@ describe('PantrySection running low', () => {
     await user.type(screen.getByRole('textbox', { name: 'How much do you have?' }), '200')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(failAmount).not.toBeNull())
-    fireEvent.click(lowToggle('Bread'))
+    fireEvent.click(stockPart('Bread', 'Low'))
     failAmount!()
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    expect(lowToggle('Bread')).toHaveAttribute('aria-pressed', 'true')
+    expect(pressedStock('Bread')).toHaveAccessibleName('Low')
   })
 
-  it('sends quantity 0 when a low row is switched off, and renders it in Ran out with no toggle', async () => {
-    const fetchMock = vi.fn(async () => Response.json({ ok: true }))
-    vi.stubGlobal('fetch', fetchMock)
+  it('sends quantity 0 on Ran out on a low row, and renders it in Ran out with Ran out pressed', async () => {
+    const fetchMock = okFetch()
     renderStateful([bread, onion])
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Onion' }))
+    fireEvent.click(stockPart('Onion', 'Ran out'))
 
     await waitFor(() => expect(groupOf('Onion')).toBe('Ran out 1'))
-    expect(screen.queryByRole('button', { name: 'Running low: Onion' })).not.toBeInTheDocument()
+    expect(pressedStock('Onion')).toHaveAccessibleName('Ran out')
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-onion', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: '{"quantity":0}',
     })
 
-    // Ran out cleared low, so switching it back on shows the toggle unpressed.
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Onion' }))
+    // Ran out cleared low, so Have it brings the row back with Have it pressed.
+    fireEvent.click(stockPart('Onion', 'Have it'))
     await waitFor(() => expect(groupOf('Onion')).toBe('On hand 2'))
-    expect(lowToggle('Onion')).toHaveAttribute('aria-pressed', 'false')
+    expect(pressedStock('Onion')).toHaveAccessibleName('Have it')
   })
 
-  it('is reached by Tab, flips with Space and Enter, and keeps focus after the response', async () => {
+  it('is reached by Tab, moves with the arrow keys, presses with Space and Enter, and keeps focus after the response', async () => {
     const user = userEvent.setup()
-    const fetchMock = vi.fn(async () => Response.json({ ok: true }))
-    vi.stubGlobal('fetch', fetchMock)
+    const fetchMock = okFetch()
     renderStateful([salt])
 
-    // The star, then the toggle under the name, then the switch.
-    screen.getByRole('button', { name: 'Remove from staples' }).focus()
+    // The first line (star, Remove), then the stock control under the name, in
+    // reading order: Tab from Remove lands on the pressed part.
+    screen.getByRole('button', { name: 'Remove Salt' }).focus()
     await user.tab()
-    expect(lowToggle('Salt')).toHaveFocus()
+    expect(stockPart('Salt', 'Have it')).toHaveFocus()
+
+    await user.keyboard('{ArrowRight}')
+    expect(stockPart('Salt', 'Low')).toHaveFocus()
+    // An arrow moves focus only; it sends nothing.
+    expect(fetchMock).not.toHaveBeenCalled()
 
     await user.keyboard(' ')
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    expect(lowToggle('Salt')).toHaveAttribute('aria-pressed', 'true')
-    expect(lowToggle('Salt')).toHaveFocus()
+    expect(pressedStock('Salt')).toHaveAccessibleName('Low')
+    expect(stockPart('Salt', 'Low')).toHaveFocus()
 
+    await user.keyboard('{ArrowLeft}')
+    expect(stockPart('Salt', 'Have it')).toHaveFocus()
     await user.keyboard('{Enter}')
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    expect(lowToggle('Salt')).toHaveAttribute('aria-pressed', 'false')
-    expect(lowToggle('Salt')).toHaveFocus()
+    expect(pressedStock('Salt')).toHaveAccessibleName('Have it')
+    expect(stockPart('Salt', 'Have it')).toHaveFocus()
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/pantry/pantry-salt',
+      expect.objectContaining({ body: '{"low":true}' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/pantry/pantry-salt',
+      expect.objectContaining({ body: '{"low":false}' }),
+    )
   })
 })

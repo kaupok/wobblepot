@@ -2,13 +2,21 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { groupOf, makeItem, renderSection, renderStateful } from './PantrySection.fixtures'
+import {
+  groupOf,
+  makeItem,
+  pressedStock,
+  renderSection,
+  renderStateful,
+  stockOf,
+  stockPart,
+} from './PantrySection.fixtures'
 
 // `toast` is callable (the Undo toast) and carries `error` / `success`.
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
 // A row at 0 has run out (HON-1288): it leaves On hand for its own group, and
-// its switch going on sets the quantity back to null, "have some" (HON-1535).
+// its Have it sets the quantity back to null, "have some" (HON-1535, HON-1624).
 describe('PantrySection ran out', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -53,10 +61,13 @@ describe('PantrySection ran out', () => {
     renderSection([bread, makeItem({ quantity: 2 })])
 
     expect(screen.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
-    for (const control of screen.getAllByRole('switch')) expect(control).toBeChecked()
+    for (const pressed of screen.getAllByRole('radio', { checked: true })) {
+      expect(pressed).toHaveAccessibleName('Have it')
+    }
+    expect(screen.getAllByRole('radio', { checked: true })).toHaveLength(2)
   })
 
-  it('gives every row one switch, on above 0 and off at 0, and no Ran out or Have it button', () => {
+  it('gives every row one stock control, Have it above 0 and Ran out at 0, and no Ran out or Have it button', () => {
     const butter = makeItem({ quantity: 2 })
     const oil = makeItem({
       id: 'pantry-oil',
@@ -65,32 +76,72 @@ describe('PantrySection ran out', () => {
     })
     renderSection([salt, oil, bread, butter, avocado])
 
-    expect(screen.getAllByRole('switch').map((s) => s.getAttribute('aria-label'))).toEqual([
-      'Have it: Salt',
-      'Have it: Olive oil',
-      'Have it: Bread',
-      'Have it: Butter',
-      'Have it: Avocado',
+    expect(screen.getAllByRole('radiogroup').map((g) => g.getAttribute('aria-label'))).toEqual([
+      'Stock: Salt',
+      'Stock: Olive oil',
+      'Stock: Bread',
+      'Stock: Butter',
+      'Stock: Avocado',
     ])
-    expect(screen.getByRole('switch', { name: 'Have it: Salt' })).not.toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Have it: Olive oil' })).toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Have it: Bread' })).toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Have it: Butter' })).toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Have it: Avocado' })).not.toBeChecked()
+    expect(pressedStock('Salt')).toHaveAccessibleName('Ran out')
+    expect(pressedStock('Olive oil')).toHaveAccessibleName('Have it')
+    expect(pressedStock('Bread')).toHaveAccessibleName('Have it')
+    expect(pressedStock('Butter')).toHaveAccessibleName('Have it')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Ran out')
     expect(screen.queryByRole('button', { name: /^(Ran out|Have it)/ })).not.toBeInTheDocument()
   })
 
-  it('names the state beside the switch once per row, never both words', () => {
+  it('gives each row one stock control of three parts and no switch', () => {
     renderSection([salt, bread, avocado])
 
-    const row = (name: string) => screen.getByText(name).closest('.p-3') as HTMLElement
-    // A staple at 0 lost its own "Ran out" caption: the state word says it.
-    expect(within(row('Salt')).getAllByText('Ran out')).toHaveLength(1)
-    expect(within(row('Salt')).queryByText('Have it')).not.toBeInTheDocument()
-    expect(within(row('Avocado')).getAllByText('Ran out')).toHaveLength(1)
-    expect(within(row('Avocado')).queryByText('Have it')).not.toBeInTheDocument()
-    expect(within(row('Bread')).getAllByText('Have it')).toHaveLength(1)
-    expect(within(row('Bread')).queryByText('Ran out')).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    for (const name of ['Salt', 'Bread', 'Avocado']) {
+      const row = screen.getByText(name).closest('.p-3') as HTMLElement
+      expect(within(row).getAllByRole('radiogroup')).toHaveLength(1)
+      expect(
+        within(stockOf(name))
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual(['Have it', 'Low', 'Ran out'])
+      expect(within(stockOf(name)).getAllByRole('radio', { checked: true })).toHaveLength(1)
+    }
+    // A row at 0 has Ran out pressed, a staple at 0 too.
+    expect(stockPart('Avocado', 'Ran out')).toHaveAttribute('aria-checked', 'true')
+    expect(stockPart('Salt', 'Ran out')).toHaveAttribute('aria-checked', 'true')
+    expect(stockPart('Bread', 'Ran out')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('names the item in the group and marks the pressed part checked for a screen reader', () => {
+    renderSection([bread])
+
+    const group = screen.getByRole('radiogroup', { name: /Bread/ })
+    expect(group).toHaveAccessibleName('Stock: Bread')
+    expect(within(group).getByRole('radio', { name: 'Have it' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    expect(within(group).getByRole('radio', { name: 'Low' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+    expect(within(group).getByRole('radio', { name: 'Ran out' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+  })
+
+  it('sends nothing on a press of the part already pressed', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderStateful([bread, avocado])
+
+    fireEvent.click(stockPart('Bread', 'Have it'))
+    fireEvent.click(stockPart('Avocado', 'Ran out'))
+    await act(async () => {})
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(pressedStock('Bread')).toHaveAccessibleName('Have it')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Ran out')
   })
 
   it('sends quantity null and moves the row to On hand', async () => {
@@ -99,7 +150,7 @@ describe('PantrySection ran out', () => {
     const onPantryQuantityChanged = vi.fn()
     renderStateful([bread, avocado], onPantryQuantityChanged)
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Avocado' }))
+    fireEvent.click(stockPart('Avocado', 'Have it'))
 
     await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 2'))
     // The shopping list beside it re-reads, because a null row is not bought.
@@ -118,33 +169,33 @@ describe('PantrySection ran out', () => {
     const onPantryQuantityChanged = vi.fn()
     renderStateful([bread, avocado], onPantryQuantityChanged)
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Avocado' }))
+    fireEvent.click(stockPart('Avocado', 'Have it'))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(onPantryQuantityChanged).not.toHaveBeenCalled()
     expect(groupOf('Avocado')).toBe('Ran out 1')
-    expect(screen.getByRole('switch', { name: 'Have it: Avocado' })).not.toBeChecked()
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Ran out')
   })
 
-  it("focuses the moved row's own switch in On hand, not <body>", async () => {
+  it("focuses the moved row's own Have it in On hand, not <body>", async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })))
     renderStateful([bread, avocado, lime])
-    const control = screen.getByRole('switch', { name: 'Have it: Avocado' })
+    const control = stockPart('Avocado', 'Have it')
     control.focus()
 
     fireEvent.click(control)
 
-    // jsdom, like a browser, moves focus to <body> when the focused switch
+    // jsdom, like a browser, moves focus to <body> when the focused part
     // unmounts with its row, so this fails without the refocus.
     await waitFor(() => expect(groupOf('Avocado')).toBe('On hand 2'))
-    const moved = screen.getByRole('switch', { name: 'Have it: Avocado' })
-    expect(moved).toBeChecked()
+    const moved = stockPart('Avocado', 'Have it')
+    expect(moved).toHaveAttribute('aria-checked', 'true')
     expect(moved).toHaveFocus()
     expect(document.body).not.toHaveFocus()
   })
 })
 
-// Switch-off sets a row to 0 from the pantry tab (HON-1399): an ordinary row
+// Ran out sets a row to 0 from the pantry tab (HON-1399, HON-1624): an ordinary row
 // moves to Ran out, a staple stays in Staples and goes on the shopping list.
 describe('PantrySection marking a row ran out', () => {
   afterEach(() => {
@@ -164,19 +215,19 @@ describe('PantrySection marking a row ran out', () => {
     isStaple: true,
   })
 
-  it('switch-off sends quantity 0, moves an On hand row to Ran out and keeps focus on its switch', async () => {
+  it('Ran out sends quantity 0, moves an On hand row to Ran out and keeps focus on its Ran out part', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
     const onPantryQuantityChanged = vi.fn()
     renderStateful([eggs, bread], onPantryQuantityChanged)
-    const control = screen.getByRole('switch', { name: 'Have it: Bread' })
+    const control = stockPart('Bread', 'Ran out')
     control.focus()
 
     fireEvent.click(control)
 
     await waitFor(() => expect(groupOf('Bread')).toBe('Ran out 1'))
-    const moved = screen.getByRole('switch', { name: 'Have it: Bread' })
-    expect(moved).not.toBeChecked()
+    const moved = stockPart('Bread', 'Ran out')
+    expect(moved).toHaveAttribute('aria-checked', 'true')
     expect(moved).toHaveFocus()
     expect(screen.queryByRole('heading', { name: /^On hand/ })).not.toBeInTheDocument()
     // The shopping list beside it re-reads.
@@ -189,44 +240,36 @@ describe('PantrySection marking a row ran out', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('keeps a staple in Staples on switch-off, says "Ran out" and keeps focus on its switch', async () => {
+  it('keeps a staple in Staples on Ran out, presses Ran out and keeps focus on it', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })))
     const onPantryQuantityChanged = vi.fn()
     renderStateful([eggs, bread], onPantryQuantityChanged)
-    const control = screen.getByRole('switch', { name: 'Have it: Eggs' })
+    const control = stockPart('Eggs', 'Ran out')
     control.focus()
 
     fireEvent.click(control)
 
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Have it: Eggs' })).not.toBeChecked(),
-    )
-    expect(screen.getByRole('switch', { name: 'Have it: Eggs' })).toHaveFocus()
+    await waitFor(() => expect(pressedStock('Eggs')).toHaveAccessibleName('Ran out'))
+    expect(stockPart('Eggs', 'Ran out')).toHaveFocus()
     expect(groupOf('Eggs')).toBe('Staples (always stocked) 1')
     expect(screen.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
-    const row = screen.getByText('Eggs').closest('.p-3') as HTMLElement
-    expect(within(row).getAllByText('Ran out')).toHaveLength(1)
-    expect(within(row).queryByText('Have it')).not.toBeInTheDocument()
     await waitFor(() => expect(onPantryQuantityChanged).toHaveBeenCalledTimes(1))
   })
 
-  it('switch-on on a staple at 0 sends null, keeps it in Staples and keeps focus on its switch', async () => {
+  it('Have it on a staple at 0 sends null, keeps it in Staples and keeps focus on its Have it', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
     const onPantryQuantityChanged = vi.fn()
     renderStateful([{ ...eggs, quantity: 0 }, bread], onPantryQuantityChanged)
-    const control = screen.getByRole('switch', { name: 'Have it: Eggs' })
+    const control = stockPart('Eggs', 'Have it')
     control.focus()
 
     fireEvent.click(control)
 
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Have it: Eggs' })).toBeChecked())
-    expect(screen.getByRole('switch', { name: 'Have it: Eggs' })).toHaveFocus()
+    await waitFor(() => expect(pressedStock('Eggs')).toHaveAccessibleName('Have it'))
+    expect(stockPart('Eggs', 'Have it')).toHaveFocus()
     expect(document.body).not.toHaveFocus()
     expect(groupOf('Eggs')).toBe('Staples (always stocked) 1')
-    const row = screen.getByText('Eggs').closest('.p-3') as HTMLElement
-    expect(within(row).getAllByText('Have it')).toHaveLength(1)
-    expect(within(row).queryByText('Ran out')).not.toBeInTheDocument()
     await waitFor(() => expect(onPantryQuantityChanged).toHaveBeenCalledTimes(1))
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-eggs', {
       method: 'PATCH',
@@ -235,48 +278,46 @@ describe('PantrySection marking a row ran out', () => {
     })
   })
 
-  it('puts the row back, keeps focus on its switch and toasts on a failed switch-off', async () => {
+  it('puts the row back, focuses its Have it and toasts on a failed Ran out', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
     const onPantryQuantityChanged = vi.fn()
     renderStateful([eggs, bread], onPantryQuantityChanged)
-    const control = screen.getByRole('switch', { name: 'Have it: Bread' })
+    const control = stockPart('Bread', 'Ran out')
     control.focus()
 
     fireEvent.click(control)
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(groupOf('Bread')).toBe('On hand 1')
-    const back = screen.getByRole('switch', { name: 'Have it: Bread' })
-    expect(back).toBeChecked()
+    const back = stockPart('Bread', 'Have it')
+    expect(back).toHaveAttribute('aria-checked', 'true')
     expect(back).toHaveFocus()
     expect(onPantryQuantityChanged).not.toHaveBeenCalled()
   })
 
-  it('puts a staple back at 0 and keeps focus on its switch when switch-on fails', async () => {
+  it('puts a staple back at 0 and focuses its Ran out when Have it fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
     renderStateful([{ ...eggs, quantity: 0 }])
-    const control = screen.getByRole('switch', { name: 'Have it: Eggs' })
+    const control = stockPart('Eggs', 'Have it')
     control.focus()
 
     fireEvent.click(control)
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    const back = screen.getByRole('switch', { name: 'Have it: Eggs' })
-    expect(back).not.toBeChecked()
+    const back = stockPart('Eggs', 'Ran out')
+    expect(back).toHaveAttribute('aria-checked', 'true')
     expect(back).toHaveFocus()
-    const row = screen.getByText('Eggs').closest('.p-3') as HTMLElement
-    expect(within(row).getByText('Ran out')).toBeInTheDocument()
   })
 
-  it('switch-on after switch-off sends back the count the row had, not null', async () => {
+  it('Have it after Ran out sends back the count the row had, not null', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
     const butter = makeItem({ quantity: 2 })
     renderStateful([butter])
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
+    fireEvent.click(stockPart('Butter', 'Ran out'))
     await waitFor(() => expect(groupOf('Butter')).toBe('Ran out 1'))
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
+    fireEvent.click(stockPart('Butter', 'Have it'))
 
     await waitFor(() => expect(groupOf('Butter')).toBe('On hand 1'))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
@@ -287,7 +328,7 @@ describe('PantrySection marking a row ran out', () => {
     })
   })
 
-  it('sends switch-on only after the switch-off it undoes has landed', async () => {
+  it('sends Have it only after the Ran out it undoes has landed', async () => {
     let landRanOut: (response: Response) => void = () => {}
     const fetchMock = vi
       .fn()
@@ -296,9 +337,9 @@ describe('PantrySection marking a row ran out', () => {
     vi.stubGlobal('fetch', fetchMock)
     renderStateful([bread])
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Bread' }))
+    fireEvent.click(stockPart('Bread', 'Ran out'))
     // The row moves at once, before the request answers.
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Bread' }))
+    fireEvent.click(stockPart('Bread', 'Have it'))
     expect(groupOf('Bread')).toBe('On hand 1')
     await act(async () => {})
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -312,7 +353,7 @@ describe('PantrySection marking a row ran out', () => {
     ])
   })
 
-  it('keeps the count a newer switch-off saved while an older switch-on was queued', async () => {
+  it('keeps the count a newer Ran out saved while an older Have it was queued', async () => {
     let landFirst: (response: Response) => void = () => {}
     const fetchMock = vi
       .fn()
@@ -322,14 +363,14 @@ describe('PantrySection marking a row ran out', () => {
     renderStateful([makeItem({ quantity: 2 })])
 
     // Three taps inside the first request's time: they queue behind it.
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
+    fireEvent.click(stockPart('Butter', 'Ran out'))
+    fireEvent.click(stockPart('Butter', 'Have it'))
+    fireEvent.click(stockPart('Butter', 'Ran out'))
     await act(async () => landFirst(Response.json({ ok: true })))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
     await act(async () => {})
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Have it: Butter' }))
+    fireEvent.click(stockPart('Butter', 'Have it'))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
     expect(fetchMock.mock.calls.map(([, init]) => init.body)).toEqual([

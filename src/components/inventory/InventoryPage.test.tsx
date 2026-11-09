@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
+import { pressedStock, stockPart } from './PantrySection.fixtures'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 const routerPush = vi.fn()
@@ -474,7 +475,7 @@ describe('InventoryPage view', () => {
       windowDays: 7,
     })
 
-    await user.click(screen.getByRole('switch', { name: 'Have it: Avocado' }))
+    await user.click(stockPart('Avocado', 'Have it'))
 
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
     expect(fetch).toHaveBeenCalledWith(
@@ -508,7 +509,7 @@ describe('InventoryPage view', () => {
       emptyStateVariant: 'nothing-needed',
       windowDays: 7,
     })
-    expect(screen.getByRole('switch', { name: 'Have it: Milk' })).toBeChecked()
+    expect(pressedStock('Milk')).toHaveAccessibleName('Have it')
 
     await user.type(
       screen.getByRole('combobox', { name: 'Add custom item to shopping list' }),
@@ -516,6 +517,6 @@ describe('InventoryPage view', () => {
     )
 
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('switch', { name: 'Have it: Milk' })).not.toBeChecked()
+    expect(pressedStock('Milk')).toHaveAccessibleName('Ran out')
   })
 })

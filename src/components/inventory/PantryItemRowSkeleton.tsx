@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton'
  * Mirrors the row's box for the reason `ShoppingItemSkeleton` does — same
  * `p-3`, same content lines, the border left to the `RowGroup` around it — and
  * mirrors the variant this route actually serves: the one carrying the "needed
- * in window" caption, at 72px.
+ * in window" caption, then the stock control on its own line, with no amount
+ * button (a staple has none), at 112px.
  *
  * Which variant to mirror is a bet, not a fact. `src/app/shopping/page.tsx`
  * always fetches `/api/pantry?days=7|14`, but the caption is per row: it needs
@@ -26,29 +27,26 @@ import { Skeleton } from '@/components/ui/skeleton'
  */
 export function PantryItemRowSkeleton() {
   return (
-    <div className="flex items-center justify-between p-3">
-      <div className="flex items-center gap-3">
-        {/* Staple star toggle — `Button size="icon-sm"`, so `size-8`. */}
-        <Skeleton aria-hidden className="size-8 shrink-0" />
-        {/* The name's `leading-7` line box over the caption's `text-xs` one:
-            28 + 20 = 48 (the HON-686 `text-xs` line height), which is what
-            carries the row past its buttons. */}
-        <div className="flex flex-col">
-          <div className="flex h-7 items-center">
-            <Skeleton className="h-5 w-28" />
-          </div>
-          <div className="flex h-5 items-center">
-            <Skeleton aria-hidden className="h-4 w-20" />
-          </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
+      {/* Staple star toggle — `Button size="icon-sm"`, so `size-8`. */}
+      <Skeleton aria-hidden className="size-8 shrink-0" />
+      {/* The name's `leading-7` line box over the caption's `text-xs` one:
+          28 + 20 = 48 (the HON-686 `text-xs` line height), which is what
+          carries the first line past its buttons. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-7 items-center">
+          <Skeleton className="h-5 w-28" />
+        </div>
+        <div className="flex h-5 items-center">
+          <Skeleton aria-hidden className="h-4 w-20" />
         </div>
       </div>
-      <div className="flex items-center gap-1">
-        {/* The state word's 51px (`min-w-12.75`) caption, then the switch's 18px
-            track: both shorter than the 48px name column. */}
-        <Skeleton aria-hidden className="h-4 w-12.75" />
-        <Skeleton aria-hidden className="h-4.5 w-8 shrink-0" />
-        {/* Remove button, same `icon-sm` size. */}
-        <Skeleton aria-hidden className="size-8 shrink-0" />
+      {/* Remove button, same `icon-sm` size. */}
+      <Skeleton aria-hidden className="size-8 shrink-0" />
+      {/* The stock control's 32px `sm-touch` parts on their own line, lined up
+          with the name past the star. */}
+      <div className="basis-full pl-11">
+        <Skeleton aria-hidden className="h-8 w-52" />
       </div>
     </div>
   )

@@ -2,7 +2,14 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { groupOf, makeItem, renderSection, renderStateful } from './PantrySection.fixtures'
+import {
+  groupOf,
+  makeItem,
+  pressedStock,
+  renderSection,
+  renderStateful,
+  stockPart,
+} from './PantrySection.fixtures'
 
 // `toast` is callable (the Undo toast) and carries `error` / `success`.
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
@@ -121,25 +128,26 @@ describe('PantrySection amount', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   }
 
-  it('saves 0 as ran out, moves the row and focuses its switch', async () => {
+  it('saves 0 as ran out, moves the row and focuses its Ran out part', async () => {
     const fetchMock = okFetch()
     renderStateful([trout, makeItem({ quantity: 2 })])
 
     enterAmount('Trout', '0')
 
     await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
-    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).not.toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Have it: Trout' })).toHaveFocus()
+    expect(pressedStock('Trout')).toHaveAccessibleName('Ran out')
+    expect(stockPart('Trout', 'Ran out')).toHaveFocus()
     expect(document.body).not.toHaveFocus()
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(0))
   })
 
-  it('brings the amount back when switch-on follows a 0', async () => {
+  it('brings the amount back when Have it follows a 0', async () => {
     const fetchMock = okFetch()
     renderStateful([{ ...trout, quantity: 1800 }])
 
     enterAmount('Trout', '0')
-    fireEvent.click(await screen.findByRole('switch', { name: 'Have it: Trout' }))
+    await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
+    fireEvent.click(stockPart('Trout', 'Have it'))
 
     expect(
       await screen.findByRole('button', { name: 'Amount: Trout, 1800\u00a0g' }),
@@ -232,7 +240,7 @@ describe('PantrySection amount', () => {
     expect(screen.getByRole('button', { name: 'Amount: Trout, 1800\u00a0g' })).toHaveFocus()
   })
 
-  it('keeps focus on the switch when a failed amount above 0 leaves the row in place', async () => {
+  it('keeps focus on the stock control when a failed amount above 0 leaves the row in place', async () => {
     let fail: (response: Response) => void = () => {}
     vi.stubGlobal(
       'fetch',
@@ -241,7 +249,7 @@ describe('PantrySection amount', () => {
     renderStateful([trout])
 
     enterAmount('Trout', '1800')
-    const control = screen.getByRole('switch', { name: 'Have it: Trout' })
+    const control = stockPart('Trout', 'Have it')
     control.focus()
     await act(async () => fail(new Response(null, { status: 500 })))
 

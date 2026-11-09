@@ -34,15 +34,16 @@ test.describe('Pantry running low', { tag: '@smoke' }, () => {
       page.waitForResponse(
         (r) => r.url().includes('/api/pantry/') && r.request().method() === 'PATCH',
       )
-    const lowToggle = page.getByRole('button', { name: `Running low: ${staple.name}` })
+    const stock = page.getByRole('radiogroup', { name: `Stock: ${staple.name}` })
+    const low = stock.getByRole('radio', { name: 'Low' })
 
     try {
       await page.goto('/pantry')
-      await expect(lowToggle).toHaveAttribute('aria-pressed', 'false')
-      const [patch] = await Promise.all([pantryPatch(), lowToggle.click()])
+      await expect(low).toHaveAttribute('aria-checked', 'false')
+      const [patch] = await Promise.all([pantryPatch(), low.click()])
       expect(patch.request().postDataJSON()).toEqual({ low: true })
-      await expect(lowToggle).toHaveAttribute('aria-pressed', 'true')
-      await expect(lowToggle).toBeFocused()
+      await expect(low).toHaveAttribute('aria-checked', 'true')
+      await expect(low).toBeFocused()
 
       await page.goto('/shopping')
       const checkbox = page.getByRole('checkbox', { name: `Mark ${staple.name} as purchased` })
@@ -60,8 +61,11 @@ test.describe('Pantry running low', { tag: '@smoke' }, () => {
         (await pantryRows(page.request)).find((row) => row.ingredient.id === staple.id),
       ).toMatchObject({ quantity: null })
       await page.goto('/pantry')
-      await expect(page.getByRole('switch', { name: `Have it: ${staple.name}` })).toBeChecked()
-      await expect(lowToggle).toHaveAttribute('aria-pressed', 'false')
+      await expect(stock.getByRole('radio', { name: 'Have it' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await expect(low).toHaveAttribute('aria-checked', 'false')
     } finally {
       await page.request.delete(`/api/pantry/by-ingredient/${staple.id}`).catch(() => {})
     }
