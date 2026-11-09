@@ -170,8 +170,12 @@ export function PantrySection({
     // Have it reads it before the next Ran out writes it again.
     onError: (_error, { id, quantity, low }) => {
       followStockIfFocused(id)
+      // A row no longer at 0 took a Low or Have it queued behind this request,
+      // and that one lands on the server: keep its low.
       onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity, low } : item)),
+        prev.map((item) =>
+          item.id === id ? { ...item, quantity, low: item.quantity === 0 ? low : item.low } : item,
+        ),
       )
       toast.error(tPantry('errors.updateFailed'))
     },

@@ -210,6 +210,30 @@ describe('PantrySection low', () => {
     expect(pressedStock('Bread')).toHaveAccessibleName('Low')
   })
 
+  it('keeps a Low press queued behind a Ran out that fails', async () => {
+    let failRanOut: (() => void) | null = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        init.body === '{"quantity":0}'
+          ? new Promise<Response>((resolve) => {
+              failRanOut = () => resolve(new Response(null, { status: 500 }))
+            })
+          : Promise.resolve(Response.json({ ok: true })),
+      ),
+    )
+    renderStateful([bread])
+
+    fireEvent.click(stockPart('Bread', 'Ran out'))
+    await waitFor(() => expect(failRanOut).not.toBeNull())
+    fireEvent.click(stockPart('Bread', 'Low'))
+    failRanOut!()
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(pressedStock('Bread')).toHaveAccessibleName('Low')
+    expect(groupOf('Bread')).toBe('On hand 1')
+  })
+
   it('sends quantity 0 on Ran out on a low row, and renders it in Ran out with Ran out pressed', async () => {
     const fetchMock = okFetch()
     renderStateful([bread, onion])
