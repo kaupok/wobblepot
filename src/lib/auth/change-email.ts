@@ -13,7 +13,7 @@ import { clearReminderConfirmation } from '@/lib/weekly-reminder'
  * address changes only when the link sent to the new address is opened.
  * `/change-email` signs a token `{ email: old, updateTo: new, requestType }`
  * and sends it through `emailVerification.sendVerificationEmail`, and
- * `/verify-email` then sets the new address through `updateUserByEmail`,
+ * `/verify-email` then sets the new address through `updateUser`,
  * which runs `databaseHooks.user.update`. Both steps read the token here.
  */
 
@@ -57,6 +57,27 @@ interface HookContext {
   query?: Record<string, unknown> | null
 }
 
+/** The change token's new address, when this update applies a confirmed email change. */
+function confirmedChange(email: unknown, ctx: HookContext | null | undefined): string | null {
+  if (typeof email !== 'string' || ctx?.path !== VERIFY_EMAIL_PATH) return null
+  const change = readChangeEmailToken(ctx.query?.token)
+  if (!change || change.updateTo.toLowerCase() !== email.toLowerCase()) return null
+  return change.email
+}
+
+/**
+ * `databaseHooks.user.update.before`. A confirmed email change marks the new
+ * address verified, because the link went only to that address. Better Auth
+ * 1.7.16 keeps the earlier state instead, so a user who never opened the
+ * sign-up link would be asked to verify an address they just proved.
+ */
+export function beforeAccountEmailChange(
+  data: { email?: unknown },
+  ctx: HookContext | null | undefined,
+): { data: { emailVerified: true } } | undefined {
+  return confirmedChange(data.email, ctx) === null ? undefined : { data: { emailVerified: true } }
+}
+
 /**
  * `databaseHooks.user.update.after`. When the update is a confirmed email
  * change, forget the weekly-reminder confirmation (it proves the old address)
@@ -71,9 +92,9 @@ export async function afterAccountEmailChange(
   user: { id: string; email: string } | null | undefined,
   ctx: HookContext | null | undefined,
 ): Promise<void> {
-  if (!user || ctx?.path !== VERIFY_EMAIL_PATH) return
-  const change = readChangeEmailToken(ctx.query?.token)
-  if (!change || change.updateTo.toLowerCase() !== user.email.toLowerCase()) return
+  if (!user) return
+  const oldEmail = confirmedChange(user.email, ctx)
+  if (oldEmail === null) return
 
   try {
     await clearReminderConfirmation(user.id)
@@ -82,7 +103,7 @@ export async function afterAccountEmailChange(
     console.error('Failed to clear the reminder confirmation after an email change:', error)
   }
 
-  await sendEmailChangedNotice({ userId: user.id, oldEmail: change.email, newEmail: user.email })
+  await sendEmailChangedNotice({ userId: user.id, oldEmail, newEmail: user.email })
 }
 
 /** The notice to the old address. Logs and returns on any failure, like `sendResetPassword`. */

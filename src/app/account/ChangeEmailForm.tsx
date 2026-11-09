@@ -142,8 +142,6 @@ export function ChangeEmailForm({ email, landing }: ChangeEmailFormProps) {
         return t('changed', { email })
       case 'expired':
         return t('expired')
-      case 'invalid':
-        return t('linkInvalid')
       case 'wrongAccount':
         return t('wrongAccount')
     }

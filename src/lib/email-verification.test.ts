@@ -71,7 +71,8 @@ describe('parseChangeEmailLanding (HON-1137)', () => {
 
   it('reads an expired link and a used link as expired', () => {
     expect(parseChangeEmailLanding({ emailChanged: '1', error: 'TOKEN_EXPIRED' })).toBe('expired')
-    // A used link: no user has the token's old address any more.
+    // A used link: the token's user no longer has its old address.
+    expect(parseChangeEmailLanding({ emailChanged: '1', error: 'INVALID_TOKEN' })).toBe('expired')
     expect(parseChangeEmailLanding({ emailChanged: '1', error: 'USER_NOT_FOUND' })).toBe('expired')
   })
 
@@ -82,8 +83,10 @@ describe('parseChangeEmailLanding (HON-1137)', () => {
     )
   })
 
-  it('reads a broken token as invalid, in any case', () => {
-    expect(parseChangeEmailLanding({ emailChanged: '1', error: 'invalid_token' })).toBe('invalid')
+  it('matches the code in any case', () => {
+    expect(parseChangeEmailLanding({ emailChanged: '1', error: 'invalid_user' })).toBe(
+      'wrongAccount',
+    )
   })
 
   it('leaves the verification params alone', () => {

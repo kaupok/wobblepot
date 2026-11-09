@@ -1971,7 +1971,6 @@
       "sendFailed": "Linki ei saadetud. Proovi uuesti.",
       "changed": "Sinu e-posti aadress on nüüd {email}.",
       "expired": "See link on aegunud või juba kasutatud. Sisesta uus aadress uuesti, et saada uus link.",
-      "linkInvalid": "See link ei tööta. Sisesta uus aadress uuesti, et saada uus link.",
       "wrongAccount": "See link on teise konto jaoks. Logi välja ja ava link uuesti."
     },
     "yourDataHeading": "Sinu andmed",
