@@ -9,13 +9,13 @@ import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { AvailabilityIndicator, AvailabilityStatus } from './AvailabilityIndicator'
 
-function renderIndicator(
+function indicatorElement(
   locale: 'en' | 'et',
   missingCount: number,
   Component: typeof AvailabilityIndicator = AvailabilityIndicator,
 ) {
   const messages = locale === 'et' ? etMessages : enMessages
-  render(
+  return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <Component
         availability={{
@@ -24,8 +24,20 @@ function renderIndicator(
           missingIngredients: Array.from({ length: missingCount }, (_, i) => `ingredient-${i}`),
         }}
       />
-    </NextIntlClientProvider>,
+    </NextIntlClientProvider>
   )
+}
+
+function statusElement(locale: 'en' | 'et', missingCount: number) {
+  return indicatorElement(locale, missingCount, AvailabilityStatus)
+}
+
+function renderIndicator(
+  locale: 'en' | 'et',
+  missingCount: number,
+  Component: typeof AvailabilityIndicator = AvailabilityIndicator,
+) {
+  return render(indicatorElement(locale, missingCount, Component))
 }
 
 describe('AvailabilityIndicator', () => {
@@ -62,11 +74,23 @@ describe('AvailabilityStatus', () => {
     expect(status.closest('[data-slot="badge"]')).toBeNull()
   })
 
-  it.each([
-    ['en', 'all at home'],
-    ['et', 'kõik olemas'],
-  ] as const)('says everything is at home in the success tone (%s)', (locale, text) => {
-    renderIndicator(locale, 0, AvailabilityStatus)
-    expect(screen.getByText(text)).toHaveClass('text-success')
+  // HON-1620: with everything at home the ticked rows say it, so the line
+  // shows only the heading.
+  it.each(['en', 'et'] as const)('shows nothing when everything is at home (%s)', (locale) => {
+    const { container } = renderIndicator(locale, 0, AvailabilityStatus)
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByText('all at home')).toBeNull()
+    expect(screen.queryByText('kõik olemas')).toBeNull()
+  })
+
+  it('appears when an ingredient goes missing and disappears when it is back', () => {
+    const { container, rerender } = renderIndicator('en', 0, AvailabilityStatus)
+    expect(container).toBeEmptyDOMElement()
+
+    rerender(statusElement('en', 1))
+    expect(screen.getByText('1 to buy')).toBeInTheDocument()
+
+    rerender(statusElement('en', 0))
+    expect(container).toBeEmptyDOMElement()
   })
 })

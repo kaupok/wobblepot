@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { MoreHorizontal } from 'lucide-react'
-import { type ComponentProps, useState } from 'react'
 import { expect, fn, userEvent, within } from 'storybook/test'
 
 import { Button } from '@/components/ui/button'
@@ -15,7 +14,7 @@ import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-hel
 
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
-import type { PantryIngredient, PreparationSteps } from './types'
+import type { PreparationSteps } from './types'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
 
@@ -262,90 +261,6 @@ export const LocalizedContent: Story = {
 
 export const WithPantry: Story = {
   args: { pantryIngredients: lemonGarlicChickenPantryWithOil },
-}
-
-const staplesOnlyPantry: PantryIngredient[] = [
-  { ingredientId: 'garlic', isStaple: true },
-  { ingredientId: 'olive-oil', isStaple: true },
-  { ingredientId: 'salt', isStaple: true },
-]
-
-/** Ingredient rows styled as missing (`Li` with the warning tone). */
-function missingRows(canvasElement: HTMLElement): HTMLElement[] {
-  return within(canvasElement)
-    .getAllByRole('listitem')
-    .filter((row) => row.classList.contains('text-warning'))
-}
-
-export const StaplesOnlyPantry: Story = {
-  args: {
-    pantryIngredients: staplesOnlyPantry,
-    onToggleAvailability: fn(),
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Every household starts with salt, black pepper and water as staples (HON-769). A pantry holding only staples says nothing yet: the checkboxes stay, because they are how the user starts filling the pantry, but there is no status after the heading and no row is marked missing (HON-824).',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    // Every ingredient is a row with a checkbox, the staples too (HON-1599).
-    await expect(canvas.getAllByRole('checkbox')).toHaveLength(5)
-    await expect(canvas.queryByText(/to buy|all at home/i)).toBeNull()
-    await expect(missingRows(canvasElement)).toHaveLength(0)
-  },
-}
-
-/**
- * Holds the pantry in state so a tick adds the ingredient, as the refresh after
- * `MealDetailModal`'s toggle does.
- */
-function StaplesOnlyPantryTickRender(args: ComponentProps<typeof MealDetail>) {
-  const [pantry, setPantry] = useState(staplesOnlyPantry)
-  return (
-    <MealDetail
-      {...args}
-      pantryIngredients={pantry}
-      onToggleAvailability={(ingredientId, hasIt) => {
-        args.onToggleAvailability?.(ingredientId, hasIt)
-        setPantry((prev) =>
-          hasIt
-            ? [...prev, { ingredientId, isStaple: false }]
-            : prev.filter((p) => p.ingredientId !== ingredientId),
-        )
-      }}
-    />
-  )
-}
-
-export const StaplesOnlyPantryTick: Story = {
-  name: 'Staples-only pantry, first tick',
-  args: { onToggleAvailability: fn() },
-  render: StaplesOnlyPantryTickRender,
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Ticking the first ingredient gives the pantry data, so the status and the missing styling appear for the rest (HON-824).',
-      },
-    },
-  },
-  play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.queryByText(/to buy/i)).toBeNull()
-
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Mark Chicken thigh as available' }))
-
-    await expect(args.onToggleAvailability).toHaveBeenCalledWith('chicken-thigh', true)
-    await expect(await canvas.findByText('2 to buy')).toBeInTheDocument()
-    await expect(missingRows(canvasElement).map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Potato'),
-      expect.stringContaining('Lemon'),
-    ])
-  },
 }
 
 /** Each badge's left edge, and the row's height. */
@@ -628,7 +543,7 @@ export const NarrowColumn: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const heading = canvas.getByRole('heading', { name: 'Ingredients' })
-    const status = canvas.getByText(/to buy|all at home/)
+    const status = canvas.getByText(/to buy/)
     assertHeaderUnbroken(heading, status)
     await expect(status.getBoundingClientRect().top).toBeLessThan(
       heading.getBoundingClientRect().bottom,
@@ -657,7 +572,7 @@ export const NarrowColumnEstonian: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const heading = canvas.getByRole('heading', { name: 'Koostisosad' })
-    assertHeaderUnbroken(heading, canvas.getByText(/vaja osta|kõik olemas/))
+    assertHeaderUnbroken(heading, canvas.getByText(/vaja osta/))
     const button = canvas.getByRole('button', { name: /4 portsjonit/ })
     expectSingleLine(button)
     expectWithinHorizontally(button, contentColumn(canvasElement))

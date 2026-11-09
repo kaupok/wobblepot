@@ -17,7 +17,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients to buy". The cook view uses the text form, `AvailabilityStatus` (HON-1025). `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
+          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients to buy". The cook view uses the text form, `AvailabilityStatus` (HON-1025), which shows only the count to buy and nothing when all is at home (HON-1620). `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
       },
     },
   },
@@ -131,6 +131,7 @@ export const CookViewText: Story = {
   },
 }
 
+/** With everything at home the text form renders nothing (HON-1620). */
 export const CookViewTextReady: Story = {
   ...CookViewText,
   name: 'Cook view text form, all at home',
@@ -138,6 +139,7 @@ export const CookViewTextReady: Story = {
     availability: { isReady: true, missingCount: 0, missingIngredients: [] },
   },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText('all at home')).toHaveClass('text-success')
+    const heading = within(canvasElement).getByRole('heading', { name: 'Ingredients' })
+    await expect(heading.parentElement!.children).toHaveLength(1)
   },
 }

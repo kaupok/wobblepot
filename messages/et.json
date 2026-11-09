@@ -512,7 +512,6 @@
       "haveAll": "Kõik olemas",
       "toBuy": "{count, plural, one {Vaja osta # koostisosa} other {Vaja osta # koostisosa}}",
       "toBuyShort": "{count, plural, one {# vaja osta} other {# vaja osta}}",
-      "haveAllShort": "kõik olemas",
       "ariaToggle": "Märgi „{name}\" kui {state}",
       "stateAvailable": "olemas",
       "stateUnavailable": "puudu"

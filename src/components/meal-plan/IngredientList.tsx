@@ -182,8 +182,9 @@ export function IngredientList({
     <div className="flex flex-col gap-3">
       {/* A section of the cook view, at the Title level (docs/DESIGN.md →
           "Cook view", HON-932), then the pantry's verdict as text on its
-          baseline: "Ingredients 1 to buy" (HON-1025). Serves is in the badge
-          row above, with the meal's other facts. */}
+          baseline: "Ingredients 1 to buy" (HON-1025), and nothing when all
+          is at home (HON-1620). Serves is in the badge row above, with the
+          meal's other facts. */}
       {/* The list's action ends its title row (HON-1357): the heading and
           the status share a baseline inside their own group, the row centres
           the button on that group, and on a wrap `ml-auto` holds the button

@@ -250,6 +250,29 @@ export const AddOnHeadingLine: Story = {
   },
 }
 
+/**
+ * Everything at home: no status after the heading (HON-1620), and "Add" still
+ * ends the line at its right edge.
+ */
+export const AddOnHeadingLineAllAtHome: Story = {
+  args: {
+    changes: [],
+    changeControls: controls(),
+    availability: { isReady: true, missingCount: 0, missingIngredients: [] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const button = canvas.getByRole('button', { name: 'Add an ingredient' })
+    const heading = canvas.getByRole('heading', { name: 'Ingredients' })
+    await expect(heading.parentElement!.children).toHaveLength(1)
+    const line = heading.parentElement!.parentElement!
+    await expect(button.parentElement).toBe(line)
+    await expect(Math.round(button.getBoundingClientRect().right)).toBe(
+      Math.round(line.getBoundingClientRect().right),
+    )
+  },
+}
+
 /** A cooked or skipped entry: the changes stay visible, with no menu, Undo or "Add an ingredient". */
 export const ReadOnly: Story = {
   args: {

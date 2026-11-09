@@ -512,7 +512,6 @@
       "haveAll": "Have all ingredients",
       "toBuy": "{count, plural, one {# ingredient to buy} other {# ingredients to buy}}",
       "toBuyShort": "{count, plural, one {# to buy} other {# to buy}}",
-      "haveAllShort": "all at home",
       "ariaToggle": "Mark {name} as {state}",
       "stateAvailable": "available",
       "stateUnavailable": "not available"
