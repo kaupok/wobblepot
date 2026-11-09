@@ -13,8 +13,9 @@ const config: KnipConfig = {
     'scripts/audit-ingredients/*.ts',
     // `scripts/e2e-local-seed.sh`
     'scripts/print-seed-test-user-defaults.ts',
-    // the `check` command in each `scripts/steering-eval/*.json`
-    'scripts/steering-eval/checks.ts',
+    // the `check` command in each rule file beside it. The glob does not name
+    // the folder, because that eval's run tree must hold no file that names it.
+    'scripts/*/checks.ts',
     // the `next-intl/server` alias in `vitest.config.ts` (unit-db project)
     'src/test/next-intl-server-shim.ts',
   ],
