@@ -510,7 +510,7 @@ export const NoteWithServingOverridePhoneEstonian: Story = {
   globals: { locale: 'et' },
 }
 
-/** A dinner that feeds Tuesday's lunch shows the total and the lunch part (HON-1395). */
+/** A dinner that feeds Tuesday's lunch shows its own servings and the lunch share (HON-1395, HON-1621). */
 export const WithLeftoverLunch: Story = {
   args: {
     ...PlannedWithImage.args,
@@ -519,7 +519,7 @@ export const WithLeftoverLunch: Story = {
     leftoversFor: [{ date: '2026-10-13', mealType: MealType.lunch, servings: 2.5 }],
   },
   play: async ({ canvasElement }) => {
-    const line = within(canvasElement).getByText('5.5 servings · leftovers for Tuesday')
+    const line = within(canvasElement).getByText('3 servings + 2.5 for Tuesday')
     await expect(line).toBeVisible()
   },
 }

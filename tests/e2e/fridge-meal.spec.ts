@@ -250,7 +250,7 @@ test("a fridge meal takes a planned dinner's leftovers, and the dinner cooks for
       exact: true,
     })
     const dinner = page.locator('[data-slot="card"]').filter({ has: dinnerMenu })
-    await expect(dinner).toContainText(/servings · leftovers for \w+day/)
+    await expect(dinner).toContainText(/\d+ servings? \+ [\d.]+ for \w+day/)
 
     // The smoke household does not plan lunch, and the action still plans it.
     const mealHeadings = page.getByRole('heading', { name: meal!.name })

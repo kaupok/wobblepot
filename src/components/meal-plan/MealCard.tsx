@@ -52,7 +52,7 @@ import type {
 import { useClearEntry } from './use-clear-entry'
 import { DESCRIPTION_CLAMP, useDescriptionLines } from './use-description-lines'
 import { useEntryStatus } from './use-entry-status'
-import { getShownCookServings, sharedLeftovers, useLeftoverLunchText } from './use-leftover-lunches'
+import { getShownCookServings, sharedLeftovers, useLeftoverShareText } from './use-leftover-lunches'
 import { useMealCardClick } from './use-meal-card-click'
 import { useNoteDrag } from './use-note-drag'
 import { usePickForMe } from './use-pick-for-me'
@@ -145,8 +145,9 @@ export function MealCard({
 
   const effectiveServings = servingOverride ?? householdServings
   const hasServingOverride = servingOverride !== null && servingOverride !== householdServings
-  // A dinner is cooked, charged and shown for its leftover lunches (HON-1395).
-  const leftoverText = useLeftoverLunchText()
+  // A dinner is cooked and charged for its leftover lunches (HON-1395), and
+  // shows each lunch's share after its own servings, as the cook view does.
+  const leftoverShare = useLeftoverShareText()
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
   // The meal name opens the cook view, and is where focus comes back to once
@@ -184,6 +185,11 @@ export function MealCard({
   const cookedServings =
     status === 'completed' && initialStatus === 'completed' ? cookServings : undefined
   const shownServings = getShownCookServings(effectiveServings, leftovers, cookedServings)
+  // "3 servings + 3 for Wednesday": the same words as the cook view (HON-1621).
+  const servingsText =
+    leftovers.length > 0
+      ? [tCard('servings', { count: effectiveServings }), ...leftovers.map(leftoverShare)].join(' ')
+      : tCard('servings', { count: shownServings })
 
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
@@ -679,10 +685,7 @@ export function MealCard({
               {(hasServingOverride || leftovers.length > 0) && (
                 // One line: cut short, not wrapped.
                 <Badge variant="secondary" className="max-w-full">
-                  <span className="truncate">
-                    {tCard('servings', { count: shownServings })}
-                    {leftovers.length > 0 && ` · ${leftoverText(leftovers)}`}
-                  </span>
+                  <span className="truncate">{servingsText}</span>
                 </Badge>
               )}
               {/* The status in words, so it reads without the thumbs or the
