@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { MealImageCard } from './MealImageCard'
 
 const URL = 'https://store.public.blob.vercel-storage.com/meals/meal-1.png'
 

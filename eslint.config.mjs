@@ -75,6 +75,8 @@ const config = defineConfig([
     '.temp/**',
     // Gitignored Playwright MCP captures (.gitignore:83), so CI never lints them.
     '.playwright-mcp/**',
+    // Gitignored dev-only samples (.gitignore:61), so CI never lints them.
+    '.ai-samples/**',
   ]),
 
   // TypeScript-specific rules
