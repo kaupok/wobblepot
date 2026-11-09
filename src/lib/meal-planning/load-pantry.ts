@@ -133,6 +133,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
           existing.quantity += qty
           // If any component is vague, mark the whole item as vague
           if (component.isVague) {
+            // eslint-disable-next-line max-depth -- the vague-phrase merge predates the max-depth cap (HON-1622); not refactored here
             if (!existing.isVague) {
               // First vague component encountered
               existing.isVague = true

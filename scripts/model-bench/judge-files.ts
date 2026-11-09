@@ -42,12 +42,6 @@ export interface JudgeItem {
   prompt: string
 }
 
-/** `<stem>.judge-pairs.json`: what the judging session reads. */
-export interface JudgePairsFile {
-  verdictsFile: string
-  items: JudgeItem[]
-}
-
 export interface JudgeKeyPair {
   caseId: string
   task: JudgedTask

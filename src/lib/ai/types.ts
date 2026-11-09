@@ -200,18 +200,6 @@ export class MealPlanValidationError extends Error {
 }
 
 /**
- * Error thrown when a meal plan already exists for the given week.
- */
-export class MealPlanExistsError extends Error {
-  constructor(householdId: string, startDate: Date) {
-    super(
-      `A meal plan already exists for household ${householdId} starting ${startDate.toISOString()}`,
-    )
-    this.name = 'MealPlanExistsError'
-  }
-}
-
-/**
  * Error thrown when there are insufficient candidates for required protein slots.
  */
 export class InsufficientCandidatesError extends Error {

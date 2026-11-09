@@ -94,6 +94,15 @@ const config = defineConfig([
     },
   },
 
+  // Nesting cap (HON-1622). 5 is the deepest block nesting in `src/**` once
+  // one outlier is waived (src/lib/meal-planning/load-pantry.ts, at 6), so the
+  // rule stops new code going deeper without a refactor in the same PR.
+  // Lower it only after the code it would flag is refactored.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: { 'max-depth': ['error', 5] },
+  },
+
   // One import order, so no diff reorders imports by hand. ESLint, not a
   // Prettier plugin: Prettier's rationale calls sorting imports a transform
   // that side effects make unsafe. Side-effect imports (`import './globals.css'`)

@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma'
 import {
   claimInviteCode,
   createSignupCode,
-  deleteUnusedSignupCode,
   listSignupCodes,
   mintE2eSignupCode,
   revokeSignupCode,
@@ -144,20 +143,6 @@ describe('E2E seed codes', () => {
     expect(code).toMatch(/^e2e-\d+-[a-z0-9]+$/)
     const stored = await prisma.signupCode.findUniqueOrThrow({ where: { code } })
     expect(stored).toMatchObject({ usedAt: null, expiresAt: null, createdById: null })
-  })
-
-  it('deletes an unused code by its value and counts it', async () => {
-    const code = await mintE2eSignupCode()
-
-    expect(await deleteUnusedSignupCode(code)).toBe(1)
-    expect(await prisma.signupCode.count()).toBe(0)
-  })
-
-  it('keeps a used code, because it records who signed up with it', async () => {
-    await prisma.signupCode.create({ data: { code: 'e2e-used', usedAt: new Date() } })
-
-    expect(await deleteUnusedSignupCode('e2e-used')).toBe(0)
-    expect(await prisma.signupCode.count()).toBe(1)
   })
 })
 

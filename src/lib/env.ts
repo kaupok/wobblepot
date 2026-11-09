@@ -326,16 +326,6 @@ export const serverEnv = new Proxy(
 )
 
 /**
- * Type for client environment variables
- */
-export type ClientEnv = typeof clientEnv
-
-/**
- * Type for server environment variables
- */
-export type ServerEnv = z.infer<typeof serverEnvSchema>
-
-/**
  * Gets the base URL for client-side code (browser)
  *
  * Priority:

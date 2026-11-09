@@ -274,6 +274,13 @@ jobs:
       - name: Check file size
         run: pnpm file-size:check
 
+      # Dead-code gate (HON-1622): knip fails on an unused file, export, type
+      # or dependency. Config and the reason for each exception are in
+      # knip.config.ts. A local scan of the import graph, so it sits in the
+      # cheap static job.
+      - name: Check for unused code
+        run: pnpm knip
+
       # The step above reads the caps from the PR's own allowlist, so it cannot
       # see a PR that raises a cap or lists a new file. This compares the
       # allowlist with the base, and accepts a new entry only as a git rename of
