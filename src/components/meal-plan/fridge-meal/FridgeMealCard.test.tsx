@@ -91,7 +91,8 @@ describe('FridgeMealCard', () => {
     expect(
       screen.getByText('+ Cauliflower and broccoli mix, Cucumber, store meatballs'),
     ).toBeInTheDocument()
-    expect(screen.getByText('Leftovers')).toBeInTheDocument()
+    // Eaten takes the bottom row; the card no longer says where the food comes from.
+    expect(screen.queryByText('Leftovers')).not.toBeInTheDocument()
     expect(screen.queryByText('From the fridge')).not.toBeInTheDocument()
     expect(screen.getByText('Eaten')).toBeInTheDocument()
     expect(screen.queryByText('How was it?')).not.toBeInTheDocument()
@@ -177,10 +178,13 @@ describe('FridgeMealCard', () => {
     expect(screen.getByRole('heading', { name: 'Store meatballs' })).toBeInTheDocument()
   })
 
-  it('says a planned fridge meal needs nothing bought', () => {
+  // A fridge meal buys nothing, so the row a recipe card spends on shopping
+  // says where the food comes from (HON-1618).
+  it('says a planned fridge meal is leftovers, not that it needs nothing bought', () => {
     renderCard()
 
-    expect(screen.getByText('Nothing to buy')).toBeInTheDocument()
+    expect(screen.getByText('Leftovers')).toBeInTheDocument()
+    expect(screen.queryByText('Nothing to buy')).not.toBeInTheDocument()
   })
 
   // The fixed fridge tint, so the card is not the plain card an empty slot looks like.
@@ -239,7 +243,7 @@ describe('FridgeMealCard', () => {
   it('opens the items from a click on the card', async () => {
     const { user } = renderCard()
 
-    await user.click(screen.getByText('Nothing to buy'))
+    await user.click(screen.getByText('Leftovers'))
 
     expect(await screen.findByRole('dialog', { name: 'Fridge meal' })).toBeInTheDocument()
   })
@@ -250,7 +254,7 @@ describe('FridgeMealCard', () => {
     const { user } = renderCard()
     const nameButton = screen.getByRole('button', { name: /^Mash \+ / })
 
-    await user.click(screen.getByText('Nothing to buy'))
+    await user.click(screen.getByText('Leftovers'))
     await screen.findByRole('dialog', { name: 'Fridge meal' })
     await user.keyboard('{Escape}')
 

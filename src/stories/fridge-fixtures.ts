@@ -104,6 +104,7 @@ export const plannedLeftoverItem: FridgeMealItem = {
   sourceDate: MASH_DATE,
   servings: 2.5,
   sourceMealType: 'dinner',
+  sourceProteinType: 'poultry',
   sourceState: 'planned',
 }
 

@@ -170,6 +170,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
                   imageUrl: true,
                   imageStatus: true,
                   imageHue: true,
+                  primaryProteinType: true,
                   ...mealTranslationsInclude(locale),
                 },
               },
@@ -336,6 +337,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
           // Undo send it back.
           servings: item.servings,
           sourceMealType: item.sourceEntry?.mealType ?? null,
+          sourceProteinType: item.sourceEntry?.meal?.primaryProteinType ?? null,
           // Cooked leftovers exist whatever the entry became since; a skipped
           // source, or one that is no longer a recipe meal, will not make any.
           sourceState: !item.sourceEntry

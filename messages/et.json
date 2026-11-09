@@ -270,7 +270,6 @@
       "fromFridge": "Külmkapist",
       "leftovers": "Jäägid",
       "withItems": "+ {items}",
-      "nothingToBuy": "Kõik olemas",
       "cardName": "{title}: {items}",
       "pickerDescription": "Lisa, mis kodus olemas on. Ostunimekirja ei lähe midagi.",
       "chosenHeading": "Selles toidus",

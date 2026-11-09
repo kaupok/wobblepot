@@ -28,6 +28,7 @@ async function world() {
       imageUrl: 'https://example.com/mash.png',
       imageStatus: 'ready',
       imageHue: 40,
+      primaryProteinType: 'dairy',
       translations: { create: { locale: 'et', name: 'Kartulipuder' } },
     },
   })
@@ -85,6 +86,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         image: null,
         servings: null,
         sourceMealType: null,
+        sourceProteinType: null,
         sourceState: null,
       },
       {
@@ -97,6 +99,8 @@ describe('loadPlanEntries with a fridge meal', () => {
         image: { imageUrl: 'https://example.com/mash.png', imageStatus: 'ready', imageHue: 40 },
         servings: null,
         sourceMealType: 'dinner',
+        // The leftovers' meal's protein, for the card's top badge row (HON-1618).
+        sourceProteinType: 'dairy',
         sourceState: 'completed',
       },
       {
@@ -108,6 +112,7 @@ describe('loadPlanEntries with a fridge meal', () => {
         image: null,
         servings: null,
         sourceMealType: null,
+        sourceProteinType: null,
         sourceState: null,
       },
     ])

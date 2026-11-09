@@ -163,6 +163,7 @@ describe('get_meal_plan', () => {
               image: null,
               servings: null,
               sourceMealType: null,
+              sourceProteinType: null,
               sourceState: null,
             },
             {
@@ -175,6 +176,7 @@ describe('get_meal_plan', () => {
               image: null,
               servings: 2.5,
               sourceMealType: 'dinner',
+              sourceProteinType: null,
               sourceState: 'completed',
             },
             {
@@ -187,6 +189,7 @@ describe('get_meal_plan', () => {
               image: null,
               servings: null,
               sourceMealType: 'dinner',
+              sourceProteinType: null,
               sourceState: 'gone',
             },
             {
@@ -199,6 +202,7 @@ describe('get_meal_plan', () => {
               image: null,
               servings: null,
               sourceMealType: null,
+              sourceProteinType: null,
               sourceState: null,
             },
           ],

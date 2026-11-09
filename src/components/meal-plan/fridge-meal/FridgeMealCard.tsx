@@ -33,6 +33,7 @@ import { MealSelectorModal } from '../MealSelectorModal'
 import { MealTypeBadge } from '../MealTypeBadge'
 import { NoteEditor } from '../NoteEditor'
 import { PantryDeductionModal } from '../PantryDeductionModal'
+import { ProteinBadge } from '../ProteinBadge'
 import { clearedSides, NO_SIDES } from '../side-dishes'
 import { SideDishLines } from '../SideDishLines'
 import type { SideDishMenuContext } from '../SideDishMenu'
@@ -158,6 +159,15 @@ export function FridgeMealCard({
   // A leftover the assistant planned says which day's meal feeds it
   // (HON-1395), each day once (HON-1574).
   const sourceLines = [...new Set(leftovers.flatMap((item) => leftoverSourceText(item) ?? []))]
+  // The leftovers' proteins, each once, so the card reads as the meal it comes
+  // from (HON-1618).
+  const proteins = [
+    ...new Set(
+      leftovers.flatMap((item) =>
+        item.sourceProteinType && item.sourceProteinType !== 'none' ? item.sourceProteinType : [],
+      ),
+    ),
+  ]
   // The leftovers' meal was skipped or changed, so they will not exist. Only
   // while this meal is still to eat: the household must plan something else.
   const isLeftoverGone =
@@ -268,9 +278,9 @@ export function FridgeMealCard({
                 )}
               >
                 <MealTypeBadge mealType={mealType} />
-                <Badge variant="surface">
-                  {leftovers.length > 0 ? t('leftovers') : t('fromFridge')}
-                </Badge>
+                {proteins.map((protein) => (
+                  <ProteinBadge key={protein} proteinType={protein} />
+                ))}
               </div>
               {/* The actions sit on the title row behind one ⋯ menu, as on a
                   recipe card (docs/DESIGN.md → Composition rules). */}
@@ -370,8 +380,8 @@ export function FridgeMealCard({
               )}
               <SideDishLines sides={sideDishes} menu={sideMenu} />
             </div>
-            {/* Where a recipe card says what to buy: the reason to pick a
-                fridge meal, or that it was eaten. */}
+            {/* Where a recipe card says what to buy: where the food comes
+                from, or that it was eaten. A fridge meal buys nothing. */}
             <div
               className={cn(
                 'flex min-h-6.5 min-w-0 flex-wrap items-center gap-1',
@@ -381,7 +391,9 @@ export function FridgeMealCard({
               {isCompleted ? (
                 <Badge variant="surface">{t('eaten')}</Badge>
               ) : (
-                <Badge variant="surface-success">{t('nothingToBuy')}</Badge>
+                <Badge variant="surface">
+                  {leftovers.length > 0 ? t('leftovers') : t('fromFridge')}
+                </Badge>
               )}
             </div>
           </CardHeader>
