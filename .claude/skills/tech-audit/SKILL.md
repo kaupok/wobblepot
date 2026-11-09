@@ -23,7 +23,7 @@ Perform a comprehensive codebase health audit across fifteen focus areas and pro
 
 ### 1. Parse arguments
 
-Check if `--focus <area>` was passed. If so, run only that section plus section 17 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work). Otherwise run all sections in order.
+Check if `--focus <area>` was passed. If so, run only that section plus sections 17 and 18 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work; confirm always runs). Otherwise run all sections in order.
 
 ---
 
@@ -67,9 +67,15 @@ Record findings: lint error and warning count, TODO/FIXME/HACK count.
 
 ### 5. Test coverage
 
-CI gates coverage with `pnpm coverage:ratchet` (docs/DEPLOYMENT.md). Run `pnpm test:coverage 2>&1 || true` and read the summary. Then use Glob to list `.ts` and `.tsx` files under `src/` (excluding tests, type declarations and generated files) with no `.test.ts(x)` sibling.
+CI gates coverage with `pnpm coverage:ratchet` (docs/DEPLOYMENT.md). It takes the base ref as its argument and compares the `coverage.thresholds` in `vitest.config.ts` with that ref's copy, so it needs no coverage run first:
 
-Record findings: coverage percentages, list of untested files.
+```bash
+git fetch origin main && pnpm coverage:ratchet origin/main
+```
+
+Then run `pnpm test:coverage 2>&1 || true` and read the summary. Name an untested file only from that summary (a file at or near 0% lines). Do not match test files by name: most files are covered by a test with another name.
+
+Record findings: ratchet result, coverage percentages against the thresholds, files the summary shows as untested.
 
 ### 6. Security
 
@@ -92,10 +98,10 @@ Check auth protection on route pages:
 
 The public routes are `PUBLIC_ROUTES` in `src/proxy.ts`, which `src/proxy.test.ts` keeps current. Skip their pages, except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Also skip redirect-only pages whose body is just `redirect()` (`src/app/meal-plan`). `src/app/pantry` renders the pantry, so it is checked.
 
-For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session`, or `load-inventory` (`src/app/shopping/load-inventory.ts`, the session check for `/shopping` and `/pantry`). List the pages with none, then drop the public ones:
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session`, `load-inventory` (`src/app/shopping/load-inventory.ts`, the session check for `/shopping` and `/pantry`), `requireAccountMember` (`src/app/account/account-member.ts`, each `/account` page) or `requireHouseholdMember` (`src/app/household/household-member.ts`, each `/household` page). List the pages with none, then drop the public ones:
 
 ```bash
-find src/app -name 'page.tsx' | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
+find src/app -name 'page.tsx' | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory|requireAccountMember|requireHouseholdMember'
 ```
 
 Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
@@ -304,23 +310,50 @@ Use `mcp__linear-server__list_issues` with `team: "Wobblebot"`, `limit: 100`, `f
 
 **Do not filter by `label: "Tech"`.** Accessibility, bug, and test-coverage proposals routinely duplicate issues that carry the `Bug` label or no label at all; a Tech-only fetch hides them and the audit re-proposes tracked work. Use the returned `labels` field to note which label the existing issue carries when classifying.
 
+**When the Linear MCP tools are not loaded in the fork,** read the same issues through the Linear GraphQL API, read-only, as `scripts/worktree-claude.sh` does: `LINEAR_API_KEY` from `.env`, sent bare in the `Authorization` header (no `Bearer`). Send queries only, never a mutation:
+
+```bash
+LINEAR_API_KEY=$(grep -E '^LINEAR_API_KEY=' .env | cut -d= -f2- | tr -d '"')
+curl -s --max-time 30 -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query":"{ issues(first: 250, filter: { team: { key: { eq: \"HON\" } }, state: { type: { in: [\"backlog\", \"unstarted\", \"started\"] } } }) { nodes { identifier title description state { name } labels { nodes { name } } } } }"}'
+```
+
+If that fails too (no key, an error, no `data`), tag each proposal **Not cross-referenced** and say so at the top of the report.
+
 Classify each would-be proposal against returned titles/descriptions:
 
 - **New** — no existing coverage
 - **Duplicate of HON-XX** — already tracked
 - **Update HON-XX** — tracked but description is stale
 
+### 18. Confirm findings
+
+**Goal:** Report only findings that hold. The sections above sample files and grep for text, so a finding can be wrong or point at the wrong place.
+
+For every finding that goes in the report, open the cited `file:line` and read the code around it:
+
+- **Holds** — keep it.
+- **Wrong file or line** — correct the citation, then keep it.
+- **Wrong** (the code does not do what the finding says) — drop it.
+- **By design** (CLAUDE.md, docs/PROJECT_SPEC.md or docs/AGENT_HISTORY.md says so) — drop it.
+
+Put each dropped finding under **Rejected** with one line of reason.
+
+For each section that sampled files (9 API consistency, 12 Data fetching, 13 React patterns, 15 Prisma efficiency, and any other that read a subset), count the files it read and the files it skipped. These go under **Not audited**.
+
 ---
 
 ## Output Format
 
-After running all applicable sections, compile the report:
+After running all applicable sections, section 18 included, compile the report:
 
 ```
 ## Tech Audit Report
 
 **Date:** [current date]
 **Scope:** [All areas / Focus: <area>]
+[Only if section 17 fell through: **Backlog not cross-referenced:** the Linear MCP tools and the GraphQL API both failed; every proposal is tagged Not cross-referenced.]
 
 ### Summary
 
@@ -372,6 +405,17 @@ Items to watch but not urgent (minor pattern deviations, informational).
 
 ...
 
+### Not audited
+
+| Section | Files read | Files skipped | Skipped (paths, or how they were chosen) |
+|---------|------------|---------------|------------------------------------------|
+| API Consistency | [n] | [n] | [...] |
+
+### Rejected
+
+1. [Area] [Finding] - `file:line` - [Wrong / By design: one line of reason, naming the doc for by-design]
+2. ...
+
 ### Proposed Linear Issues
 For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, per CLAUDE.md → Writing for Agents. All new issues include the **Tech** label.
 
@@ -388,6 +432,9 @@ For significant findings, propose Linear issues. Each proposal is tagged with it
 
 #### 3. [Title] — Duplicate of HON-XX
 [Optional comment to add to the existing issue]
+
+#### 4. [Title] — Not cross-referenced
+[The same paste-ready block as a New proposal; the caller checks Linear before filing]
 ```
 
 ### Triage criteria
