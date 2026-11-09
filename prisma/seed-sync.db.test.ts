@@ -259,6 +259,42 @@ describe('drift', () => {
 })
 
 describe('what the seed leaves alone', () => {
+  it("keeps an existing ingredient's nutrition and a meal's components", async () => {
+    await seedAll(prisma)
+    const storedCarrot = await globalIngredient('carrot')
+    await prisma.ingredient.update({ where: { id: storedCarrot.id }, data: { calories: 99 } })
+    const meal = await globalMeal('Seedtest Carrot Rice')
+    await prisma.mealComponent.updateMany({
+      where: { mealId: meal.id, ingredientId: storedCarrot.id },
+      data: { quantityPerServing: 200 },
+    })
+
+    const { client, writes } = countingClient()
+    await seedAll(client)
+
+    expect(writes()).toEqual([])
+    expect((await globalIngredient('carrot')).calories).toBe(99)
+    const component = await prisma.mealComponent.findFirstOrThrow({
+      where: { mealId: meal.id, ingredientId: storedCarrot.id },
+    })
+    expect(component.quantityPerServing).toBe(200)
+  })
+
+  it('never writes a household meal with a global name', async () => {
+    await seedIngredients(prisma, INGREDIENTS)
+    const alder = await prisma.household.create({ data: { id: 'alder', name: 'Alder' } })
+    const own = await prisma.meal.create({
+      data: { name: 'Seedtest Carrot Rice', householdId: alder.id, timeMinutes: 90 },
+    })
+
+    await seedMeals(prisma, MEALS)
+
+    const after = await prisma.meal.findUniqueOrThrow({ where: { id: own.id } })
+    expect(after.timeMinutes).toBe(90)
+    expect(after.updatedAt).toEqual(own.updatedAt)
+    expect((await globalMeal('Seedtest Carrot Rice')).timeMinutes).toBe(25)
+  })
+
   it('keeps a stored gramsPerPiece when the seed entry has no gramsPerPiece key', async () => {
     await seedIngredients(prisma, INGREDIENTS)
     const storedRice = await globalIngredient('rice')
