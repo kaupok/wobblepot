@@ -73,13 +73,6 @@ export async function pressEscape(): Promise<void> {
   await userEvent.keyboard('{Escape}')
 }
 
-/** Presses Tab `count` times. */
-export async function pressTab(count = 1): Promise<void> {
-  for (let i = 0; i < count; i++) {
-    await userEvent.keyboard('{Tab}')
-  }
-}
-
 /**
  * Focuses the trigger and activates it to open a dialog. We can't rely on
  * `.focus()` or mouse-click-induced focus in the test-runner env, so we use

@@ -174,9 +174,6 @@ export interface Footprint {
   frameHeight: number
 }
 
-/** The bounding box's width as a fraction of the frame width. */
-export const footprintWidth = (fp: Footprint): number => (fp.right - fp.left + 1) / fp.frameWidth
-
 /** The rim's width as a fraction of the frame width: what the targets are set in. */
 export const rimWidth = (fp: Footprint): number => (fp.rimRight - fp.rimLeft + 1) / fp.frameWidth
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { captureApiError } from '@/lib/errors'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
-import { deleteUnusedSignupCode, mintE2eSignupCode } from '@/lib/signup-codes'
+import { mintE2eSignupCode } from '@/lib/signup-codes'
 
 /**
  * Test-only seed endpoint for E2E tests. Mints a single-use invite code
@@ -32,26 +32,5 @@ export async function POST() {
   } catch (error) {
     captureApiError(error, { route: '/api/e2e-seed' })
     return NextResponse.json({ error: 'Failed to seed invite code' }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: Request) {
-  if (!RATE_LIMIT_BYPASS_ACTIVE) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
-  try {
-    const url = new URL(request.url)
-    const code = url.searchParams.get('code')
-    if (!code) {
-      return NextResponse.json({ error: 'Missing ?code=<value>' }, { status: 400 })
-    }
-
-    // Only unused codes go, as in the admin DELETE: see `deleteUnusedSignupCode`.
-    const deleted = await deleteUnusedSignupCode(code)
-    return NextResponse.json({ ok: true, deleted })
-  } catch (error) {
-    captureApiError(error, { route: '/api/e2e-seed' })
-    return NextResponse.json({ error: 'Failed to delete invite code' }, { status: 500 })
   }
 }

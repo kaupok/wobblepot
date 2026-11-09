@@ -11,7 +11,6 @@
  */
 const TYPED_ERROR_FINGERPRINTS: Record<string, string> = {
   MealPlanValidationError: 'MealPlanValidation',
-  MealPlanExistsError: 'MealPlanExists',
   InsufficientCandidatesError: 'InsufficientCandidates',
   NoEmptySlotsError: 'NoEmptySlots',
   AiCostCapExceededError: 'AiCostCapExceeded',

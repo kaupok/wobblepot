@@ -338,13 +338,3 @@ export async function mintE2eSignupCode(): Promise<string> {
   await prisma.signupCode.create({ data: { code } })
   return code
 }
-
-/**
- * Deletes the code with this value if it is unused, and returns how many rows
- * went. A claimed code is an audit record even in test, so a helper that
- * targets a real attribution row stays a no-op.
- */
-export async function deleteUnusedSignupCode(code: string): Promise<number> {
-  const { count } = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
-  return count
-}

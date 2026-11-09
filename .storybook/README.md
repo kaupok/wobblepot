@@ -260,7 +260,7 @@ Use the shared helpers in `src/stories/a11y-helpers.ts`:
 - `assertTabStaysInDialog(count = 10)` — tabbing doesn't escape the dialog
 - `awaitDialogClosed(timeoutMs = 2000)` — waits for dialog to fully unmount. Our Radix Dialog has a 200ms fade-out animation; during that time the dialog stays in the DOM with `data-state="closed"` and FocusScope hasn't cleaned up yet. Awaiting unmount is a proxy for "close sequence completed" and catches real regressions (a dialog that never closes, or whose focus trap outlives unmount).
 - `openViaTrigger(trigger)` — Tab to the trigger and activate with Enter. Keyboard navigation is more reliable than `.focus()` or `.click()` in the headless test runner.
-- `pressEscape()` / `pressTab(count = 1)` — `userEvent` wrappers.
+- `pressEscape()` — a `userEvent` wrapper.
 
 ### The pattern
 

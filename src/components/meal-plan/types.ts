@@ -206,15 +206,6 @@ export interface EntryChange {
   stale: boolean
 }
 
-export interface MealPlan {
-  id: string
-  /** Computed from week context; not stored in DB */
-  startDate?: string
-  /** Computed from week context; not stored in DB */
-  endDate?: string
-  entries: PlanEntry[]
-}
-
 export interface AlternativeMeal extends MealImageFields {
   id: string
   name: string
@@ -245,20 +236,6 @@ export interface AlternativeMeal extends MealImageFields {
    */
   lastCookedOn?: string | null
   nextPlannedOn?: string | null
-}
-
-export interface WeekContext {
-  type: 'last' | 'current' | 'next'
-  daysCount: number
-  isPartialWeek: boolean
-  /** Start date of the week range (YYYY-MM-DD) for generation */
-  startDate?: string
-  /** End date of the week range (YYYY-MM-DD, exclusive) for generation */
-  endDate?: string
-}
-
-export interface MealPlanWithContext extends MealPlan {
-  weekContext: WeekContext
 }
 
 export interface MealAvailability {
@@ -322,23 +299,6 @@ export interface ExpectedMealTypes {
   weekendMealTypes: MealType[]
 }
 
-export interface EmptySlot {
-  date: string
-  mealType: MealType
-}
-
-export type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
-export type Allergen =
-  'gluten' | 'dairy' | 'eggs' | 'nuts' | 'peanuts' | 'soy' | 'fish' | 'shellfish' | 'sesame'
-
-export interface HouseholdPreferencesData {
-  dietaryType: DietaryType | null
-  allergensToAvoid: Allergen[]
-  restrictions: string[]
-  weekdayMealTypes: MealType[]
-  weekendMealTypes: MealType[]
-}
-
 /**
  * A snack, a drink or another item on a day, outside its meals (HON-1309):
  * a catalogue ingredient with an optional amount, or free text.
@@ -368,9 +328,4 @@ export interface TimelineDay {
   /** Meal types the day does not expect and has no entry for (HON-1518). */
   otherSlots: MealType[]
   extras: DayExtraView[]
-}
-
-export interface TimelineData {
-  days: TimelineDay[]
-  planId: string // needed for mutations
 }

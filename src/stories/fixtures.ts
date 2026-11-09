@@ -64,9 +64,6 @@ export function createSession(overrides: Partial<Session> = {}): Session {
   }
 }
 
-/** Default authenticated session — canonical user for nav stories. */
-export const sessionFixture: Session = createSession()
-
 /**
  * Canonical ingredient catalog used across meal-plan stories. Keyed by id so
  * factories can look up the matching ingredient sub-object when you pass just

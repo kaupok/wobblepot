@@ -12,11 +12,7 @@ import {
 import { logAiSample } from './sampling'
 import { type AiUsageStats, toAiUsageStats, withUsageOnFailure } from './usage'
 
-export {
-  ReviewedIngredientsSchema,
-  type ReviewIngredient,
-  type ReviewedIngredients,
-} from './review-request'
+export { type ReviewedIngredients, type ReviewIngredient } from './review-request'
 
 /**
  * Sanity-check the AI's per-serving quantities for an imagined meal.
