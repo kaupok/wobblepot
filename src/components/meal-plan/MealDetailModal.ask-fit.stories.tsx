@@ -63,9 +63,26 @@ async function expectPlaceholderFits(field: HTMLInputElement, placeholder: strin
   ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
   ctx.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing
   const inner = field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-  await expect(ctx.measureText(placeholder).width).toBeLessThanOrEqual(
-    Math.min(inner, NARROWEST_FIELD),
-  )
+  // TEMP DIAGNOSTIC (HON-1633): remove before merge.
+  const chain: string[] = [
+    `font=${ctx.font} measured=${ctx.measureText(placeholder).width} inner=${inner} vw=${window.innerWidth}`,
+  ]
+  for (let el: Element | null = field; el && chain.length < 14; el = el.parentElement) {
+    const s = getComputedStyle(el)
+    chain.push(
+      `${el.tagName} w=${el.getBoundingClientRect().width} pl=${s.paddingLeft} pr=${s.paddingRight} ml=${s.marginLeft} gap=${s.columnGap} cls=${el.getAttribute('class')}`,
+    )
+    for (const sib of Array.from(el.parentElement?.children ?? [])) {
+      if (sib !== el)
+        chain.push(
+          `  sib ${sib.tagName} w=${sib.getBoundingClientRect().width} cls=${sib.getAttribute('class')}`,
+        )
+    }
+  }
+  await expect(
+    ctx.measureText(placeholder).width,
+    `ASKFIT_DIAG\n${chain.join('\n')}`,
+  ).toBeLessThanOrEqual(Math.min(inner, NARROWEST_FIELD))
 }
 
 /** Open a row's panel with "Ask your own question", then check its field. */
