@@ -6,6 +6,7 @@ import {
   type E2eSupportRefusal,
   expirePurge,
   findPendingResetToken,
+  findUserId,
   readHouseholdState,
   readUserState,
 } from '@/lib/auth/e2e-support'
@@ -75,6 +76,15 @@ describe('findPendingResetToken', () => {
 
   it('refuses an unknown address', async () => {
     expect(await refusalOf(findPendingResetToken('none@example.com', NOW))).toBe('userNotFound')
+  })
+})
+
+describe('findUserId', () => {
+  it('returns the id of the user with the email, and refuses an unknown address', async () => {
+    await user('ann')
+
+    expect(await findUserId('ann@example.com')).toBe('ann')
+    expect(await refusalOf(findUserId('none@example.com'))).toBe('userNotFound')
   })
 })
 

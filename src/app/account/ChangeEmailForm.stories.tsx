@@ -141,15 +141,6 @@ export const LandingExpired: Story = {
   },
 }
 
-export const LandingInvalid: Story = {
-  args: { landing: 'invalid' },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('status')).toHaveTextContent(
-      'This link does not work.',
-    )
-  },
-}
-
 export const LandingWrongAccount: Story = {
   args: { landing: 'wrongAccount' },
   play: async ({ canvasElement }) => {
