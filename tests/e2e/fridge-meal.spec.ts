@@ -134,7 +134,8 @@ test('a fridge meal is planned on a card, survives a reload, and runs out what w
     const items = [cucumberName, paprikaName, 'store meatballs']
     const name = `E${items.join(', ').slice(1)}`
     await expect(card.getByRole('heading', { name })).toBeVisible()
-    await expect(card.getByText('Nothing to buy')).toBeVisible()
+    // No leftovers, so the bottom row says the food is from the fridge (HON-1618).
+    await expect(card.getByText('From the fridge')).toBeVisible()
 
     await page.reload()
     await expect(card.getByRole('heading', { name })).toBeVisible()

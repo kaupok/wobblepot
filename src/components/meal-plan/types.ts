@@ -1,4 +1,4 @@
-import type { MealImageStatus, MealType, PieceDisplay } from '@/generated/prisma/enums'
+import type { MealImageStatus, MealType, PieceDisplay, ProteinType } from '@/generated/prisma/enums'
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
@@ -165,6 +165,8 @@ export interface FridgeMealItem {
   servings: number | null
   /** The source meal's slot. Sent by `/api/entries` only; null unless `sourceEntryId` is set. */
   sourceMealType?: MealType | null
+  /** The source meal's protein. Sent by `/api/entries` only; null unless `sourceEntryId` is set. */
+  sourceProteinType?: ProteinType | null
   /** Whether the source is still to cook (HON-1395). Sent by `/api/entries` only. */
   sourceState?: FridgeSourceState | null
 }

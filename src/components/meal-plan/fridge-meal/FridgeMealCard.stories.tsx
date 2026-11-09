@@ -67,7 +67,7 @@ export const Planned: Story = {
       canvas.getByText('+ Cauliflower and broccoli mix, Cucumber, store meatballs'),
     ).toBeInTheDocument()
     await expect(canvas.getByText('Leftovers')).toBeInTheDocument()
-    await expect(canvas.getByText('Nothing to buy')).toBeInTheDocument()
+    await expect(canvas.queryByText('Nothing to buy')).toBeNull()
     const menu = await openMenu(canvasElement)
     await expect(itemNames(menu)).toEqual(['Note', 'Add side', 'Eaten', 'Edit items', 'Clear'])
   },
@@ -178,7 +178,10 @@ export const WithNote: Story = {
 export const Eaten: Story = {
   args: { status: 'completed', note: 'Heat the mash first' },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByText('How was it?')).toBeNull()
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Eaten')).toBeVisible()
+    await expect(canvas.queryByText('Leftovers')).toBeNull()
+    await expect(canvas.queryByText('How was it?')).toBeNull()
     const menu = await openMenu(canvasElement)
     await expect(itemNames(menu)).toEqual(['Not eaten yet'])
   },
@@ -257,7 +260,9 @@ export const EditItems: Story = {
 
 /**
  * Tomorrow's lunch from tonight's dinner, still to cook (HON-1395): the
- * dinner is the name, and a line under it says which day it comes from.
+ * dinner is the name, and a line under it says which day it comes from. The
+ * dinner's protein sits beside the slot, and "Leftovers" at the bottom
+ * (HON-1618).
  */
 export const LeftoverFromPlannedDinner: Story = {
   args: { mealType: 'lunch', items: [plannedLeftoverItem, fridgeItems[2]!] },
@@ -266,6 +271,30 @@ export const LeftoverFromPlannedDinner: Story = {
     await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent(/^Roast chicken$/)
     await expect(canvas.getByText('Leftovers from Tuesday')).toBeVisible()
     await expect(canvas.getByText('+ Cucumber')).toBeVisible()
+    await expect(canvas.getByText('Poultry')).toBeVisible()
+    await expect(canvas.getByText('Leftovers')).toBeVisible()
+  },
+}
+
+/** Leftovers from two meals: each meal's protein shows, each once (HON-1618). */
+export const LeftoversWithTwoProteins: Story = {
+  args: {
+    mealType: 'lunch',
+    items: [
+      plannedLeftoverItem,
+      {
+        ...plannedLeftoverItem,
+        id: 'item-trout',
+        sourceEntryId: 'entry-trout',
+        name: 'Baked trout',
+        sourceProteinType: 'fish',
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Poultry')).toBeVisible()
+    await expect(canvas.getByText('Fish')).toBeVisible()
   },
 }
 

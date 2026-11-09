@@ -84,11 +84,6 @@ describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
     expect(screen.getAllByText('Leftovers from Tuesday')).toHaveLength(1)
   })
 
-  it('says "Kõik olemas" in Estonian, as it needs nothing bought', () => {
-    renderCard([fridgeItems[0]!], { locale: 'et' })
-    expect(screen.getByText('Kõik olemas')).toBeInTheDocument()
-  })
-
   it('keeps the long leftover text in the card name the ⋯ menu reads', () => {
     renderCard([plannedLeftoverItem])
     expect(
@@ -118,5 +113,57 @@ describe('FridgeMealCard leftover from a planned dinner (HON-1395)', () => {
     renderCard(fridgeItems)
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Mash$/)
     expect(screen.queryByText(/servings/)).not.toBeInTheDocument()
+  })
+})
+
+describe('FridgeMealCard badges (HON-1618)', () => {
+  const fish: FridgeMealItem = {
+    ...plannedLeftoverItem,
+    id: 'item-trout',
+    sourceEntryId: 'entry-trout',
+    name: 'Baked trout',
+    sourceProteinType: 'fish',
+  }
+  // The badges on the card, in order: the slot, the proteins, then the bottom row.
+  const badges = () =>
+    [...document.querySelectorAll('[data-slot="badge"]')].map((badge) => badge.textContent)
+
+  it('shows a fish dinner\'s protein on top, and "Leftovers" at the bottom', () => {
+    renderCard([fish])
+    expect(badges()).toEqual(['Lunch', 'Fish', 'Leftovers'])
+  })
+
+  it('shows no protein badge for a source meal with no protein', () => {
+    renderCard([
+      { ...fish, sourceProteinType: 'none' },
+      { ...fish, id: 'item-2', sourceEntryId: 'entry-2', sourceProteinType: null },
+    ])
+    expect(badges()).toEqual(['Lunch', 'Leftovers'])
+  })
+
+  it('shows a protein once when two source meals share it', () => {
+    renderCard([fish, { ...fish, id: 'item-2', sourceEntryId: 'entry-2', name: 'Salmon' }])
+    expect(badges()).toEqual(['Lunch', 'Fish', 'Leftovers'])
+  })
+
+  it('shows each protein when two source meals differ', () => {
+    renderCard([fish, plannedLeftoverItem])
+    expect(badges()).toEqual(['Lunch', 'Fish', 'Poultry', 'Leftovers'])
+  })
+
+  it('shows only the slot on top of a plain fridge meal, and "From the fridge" at the bottom', () => {
+    renderCard(fridgeItems.slice(1))
+    expect(badges()).toEqual(['Lunch', 'From the fridge'])
+  })
+
+  it('shows "Eaten" at the bottom once eaten, and not where the food comes from', () => {
+    renderCard([fish], { status: 'completed' })
+    expect(badges()).toEqual(['Lunch', 'Fish', 'Eaten'])
+  })
+
+  it('says "Jäägid" in Estonian, and never "Kõik olemas"', () => {
+    renderCard([fish], { locale: 'et' })
+    expect(screen.getByText('Jäägid')).toBeInTheDocument()
+    expect(screen.queryByText('Kõik olemas')).not.toBeInTheDocument()
   })
 })
