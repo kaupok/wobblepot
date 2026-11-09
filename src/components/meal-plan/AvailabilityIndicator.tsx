@@ -84,21 +84,16 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
 
 /**
  * The same verdict as plain text, for the cook view's Ingredients line
- * (HON-1025): "1 to buy" or "all at home" after the heading. A pill there had
- * the shape of the meal's own badges, so it read as a fact about the meal, not
- * the state of the list. The warning tone matches the missing rows below it,
- * and the words name the state, so colour is not the only cue.
+ * (HON-1025): "1 to buy" after the heading. A pill there had the shape of the
+ * meal's own badges, so it read as a fact about the meal, not the state of the
+ * list. The warning tone matches the missing rows below it, and the words name
+ * the state, so colour is not the only cue. With everything at home it shows
+ * nothing (HON-1620): the ticked rows below already say so.
  */
 export function AvailabilityStatus({ availability }: AvailabilityIndicatorProps) {
   const t = useTranslations('meal-plan.availability')
 
-  if (availability.isReady) {
-    return (
-      <Body variant="small" tone="success" className="whitespace-nowrap">
-        {t('haveAllShort')}
-      </Body>
-    )
-  }
+  if (availability.isReady) return null
 
   return (
     <Body variant="small" tone="warning" className="whitespace-nowrap">

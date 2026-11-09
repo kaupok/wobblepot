@@ -171,8 +171,19 @@ export const AllAtHome: Story = {
       isStaple: false,
     })),
   },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Everything at home: the heading stands alone, because the ticked rows already say so (HON-1620).',
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText('all at home')).toHaveClass('text-success')
+    const canvas = within(canvasElement)
+    const heading = canvas.getByRole('heading', { name: 'Ingredients' })
+    await expect(heading.parentElement!.children).toHaveLength(1)
+    await expect(canvas.queryByText('all at home')).toBeNull()
   },
 }
 
