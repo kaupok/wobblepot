@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-// The real next-intl provider, so the "Staple" line comes from each catalog.
+// The real next-intl provider, so a removed catalog key cannot come back unseen.
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -13,8 +13,8 @@ import etMessages from '../../../messages/et.json'
 import { IngredientList } from './IngredientList'
 import type { PantryIngredient } from './types'
 
-// A staple is a row like any other, in the recipe's order, with a muted
-// "Staple" line under its name (HON-1599).
+// A staple is a row like any other, in the recipe's order (HON-1599), with
+// no line of its own under its name (HON-1619).
 
 function component(id: string, name: string) {
   return createMealComponent({
@@ -69,42 +69,41 @@ describe('IngredientList staple rows', () => {
 
     expect(rows()).toHaveLength(11)
     expect(rows().map((item) => item.textContent?.replace(/^20g/, ''))).toEqual([
-      'OnionStaple',
+      'Onion',
       'Chicken',
-      'GarlicStaple',
-      'SaltStaple',
+      'Garlic',
+      'Salt',
       'Rice',
-      'Olive oilStaple',
-      'EggStaple',
+      'Olive oil',
+      'Egg',
       'Lemon',
-      'Black pepperStaple',
-      'Greek yoghurtStaple',
+      'Black pepper',
+      'Greek yoghurt',
       'Parsley',
     ])
     expect(screen.queryByText(/Staples:/)).toBeNull()
   })
 
-  it('marks each staple row with a muted "Staple" line', () => {
+  it('shows a staple row with only its amount and name, no "Staple" line', () => {
     renderInLocale(
       <IngredientList components={components} servings={2} pantryIngredients={pantry} />,
     )
 
-    const lines = screen.getAllByText('Staple')
-    expect(lines).toHaveLength(7)
-    for (const line of lines) expect(line).toHaveClass('text-muted-foreground')
-    for (const name of stapleNames) expect(within(row(name)).getByText('Staple')).toBeVisible()
+    expect(screen.queryByText('Staple')).toBeNull()
+    for (const name of stapleNames) expect(row(name)).toHaveTextContent(/^20g/)
+    expect(row('Olive oil').textContent).toBe('20gOlive oil')
   })
 
-  it('says "Põhitoode" in Estonian', () => {
+  it('shows no "Põhitoode" line in Estonian', () => {
     renderInLocale(
       <IngredientList components={components} servings={2} pantryIngredients={pantry} />,
       'et',
     )
 
-    expect(screen.getAllByText('Põhitoode')).toHaveLength(7)
+    expect(screen.queryByText('Põhitoode')).toBeNull()
   })
 
-  it('ticks an in-stock staple and unticks a ran-out one, both marked Staple', () => {
+  it('ticks an in-stock staple and unticks a ran-out one', () => {
     renderInLocale(
       <IngredientList
         components={[component('salt', 'Salt'), component('oil', 'Olive oil')]}
@@ -119,7 +118,6 @@ describe('IngredientList staple rows', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Mark Salt as not available' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Mark Olive oil as available' })).not.toBeChecked()
-    expect(within(row('Olive oil')).getByText('Staple')).toBeVisible()
   })
 
   it('tells the toggle which rows are staples', async () => {
@@ -159,7 +157,6 @@ describe('IngredientList staple rows', () => {
 
     expect(rows()).toHaveLength(11)
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
-    expect(screen.getAllByText('Staple')).toHaveLength(7)
   })
 
   it('offers Replace and Leave out on a staple row', async () => {
@@ -184,7 +181,7 @@ describe('IngredientList staple rows', () => {
     expect(items.map((item) => item.textContent)).toEqual(['Replace', 'Leave out'])
   })
 
-  it('shows the change line, not "Staple", on a replacement that is a staple', () => {
+  it('shows the change line on a replacement that is a staple', () => {
     renderInLocale(
       <IngredientList
         components={[component('oil', 'Olive oil')]}

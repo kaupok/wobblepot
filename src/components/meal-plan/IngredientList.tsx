@@ -147,8 +147,9 @@ export function IngredientList({
   const vaguePhrase = useVaguePhrase()
   const pieceLabel = useEnumLabel('Unit', 'piece')
   // Build maps for availability and staple status. A staple that ran out is
-  // still a staple: its row keeps the "Staple" line, so the mark comes from
-  // every pantry row, not from `stapleIds`, which leaves it out (HON-1599).
+  // still a staple: its toggle still passes `isStaple`, so the mark comes from
+  // every pantry row, not from the helper's `stapleIds`, which leaves it out
+  // (HON-1599).
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
       return { availableIds: null as Set<string> | null, stapleIds: new Set<string>() }
@@ -241,20 +242,16 @@ export function IngredientList({
           const name = (
             // A change reads as a muted line under the name, never a badge
             // beside it, so the name keeps its column and wraps inside it
-            // (HON-1370). A staple says so on the same line, so the cook sees
-            // why it is not on the shopping list; a change wins (HON-1599).
+            // (HON-1370). A staple has no line of its own, so its row is as
+            // tall as the rows around it (HON-1619).
             <span className="flex min-w-0 flex-col wrap-break-word">
               <span>{comp.ingredient.name}</span>
-              {change ? (
+              {change && (
                 <span className="text-muted-foreground text-base">
                   {change.original
                     ? tChanges('insteadOf', { name: change.original.name })
                     : tChanges('added')}
                 </span>
-              ) : (
-                stapleIds.has(comp.ingredientId) && (
-                  <span className="text-muted-foreground text-base">{tDetail('stapleRow')}</span>
-                )
               )}
             </span>
           )

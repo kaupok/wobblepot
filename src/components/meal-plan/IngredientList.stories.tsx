@@ -66,7 +66,7 @@ export const WithPantryAvailability: Story = {
     docs: {
       description: {
         story:
-          'A staple is a row like any other, in the recipe’s order, with a muted "Staple" line under its name, so the cook sees why it is not on the shopping list (HON-1599).',
+          'A staple is a row like any other, in the recipe’s order (HON-1599), with no line of its own under its name (HON-1619).',
       },
     },
   },
@@ -77,16 +77,13 @@ export const WithPantryAvailability: Story = {
     await expect(rows).toHaveLength(componentsWithVagueSalt.length)
     await expect(rows[3]).toHaveTextContent('Garlic')
     await expect(canvas.queryByText(/Staples:/)).toBeNull()
-    const lines = canvas.getAllByText('Staple')
-    await expect(lines).toHaveLength(3)
-    for (const line of lines) await expect(line).toHaveClass('text-muted-foreground')
-    await expect(within(rows[3]!).getByText('Staple')).toBeVisible()
+    await expect(canvas.queryByText('Staple')).toBeNull()
   },
 }
 
 /**
- * A staple that ran out (HON-1578) keeps its "Staple" line, unticked with the
- * missing style. Ticking it sets it back to have some (HON-1599).
+ * A staple that ran out (HON-1578) shows unticked with the missing style.
+ * Ticking it sets it back to have some (HON-1599).
  */
 export const RanOutStaple: Story = {
   name: 'Ran-out staple',
@@ -102,26 +99,8 @@ export const RanOutStaple: Story = {
     const canvas = within(canvasElement)
     const oil = canvas.getByRole('checkbox', { name: /olive oil/i })
     await expect(oil).not.toBeChecked()
-    const oilRow = canvas.getAllByRole('listitem').find((row) => row.contains(oil))!
-    await expect(within(oilRow).getByText('Staple')).toBeVisible()
     await userEvent.click(oil)
     await expect(args.onToggleAvailability).toHaveBeenCalledWith('olive-oil', true, true)
-  },
-}
-
-/** The "Staple" line in Estonian: "Põhitoode" (HON-1599). */
-export const StapleRowsEstonian: Story = {
-  name: 'Staple rows (Estonian)',
-  globals: { locale: 'et' },
-  args: {
-    pantryIngredients: [
-      { ingredientId: 'garlic', isStaple: true },
-      { ingredientId: 'olive-oil', isStaple: true },
-    ] satisfies PantryIngredient[],
-    onToggleAvailability: fn(),
-  },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getAllByText('Põhitoode')).toHaveLength(2)
   },
 }
 
