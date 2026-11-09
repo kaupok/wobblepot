@@ -140,7 +140,7 @@ const WEEKDAYS = [
 
 /**
  * The weekday as an ICU `select` key, for a message that declines the day's
- * name ("jäägid esmaspäevaks"), which a formatted name cannot do.
+ * name ("+ 2 esmaspäevaks"), which a formatted name cannot do.
  */
 export function weekdayKey(date: Date): (typeof WEEKDAYS)[number] {
   return WEEKDAYS[date.getDay()]!
