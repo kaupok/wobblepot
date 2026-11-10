@@ -483,7 +483,7 @@ export const dairyShoppingItems: ShoppingItemData[] = [
 ]
 
 /**
- * Canonical urgency-bucketed items covering all four `UrgencyBucket` values.
+ * Canonical urgency-bucketed items covering every `UrgencyBucket` value.
  * Use when exercising `UrgencyGroup` stories.
  */
 export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> = {
@@ -544,6 +544,18 @@ export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> =
       neededByDate: '2026-04-25',
       neededByRelative: 'next week',
       neededByAbsolute: 'Saturday, April 25',
+    }),
+  ],
+  // A staple marked ran out that no planned meal needs: no date (HON-1647).
+  staples: [
+    createShoppingItem({
+      ingredientId: 'red-lentils',
+      name: 'Red lentils',
+      displayQuantity: '',
+      neededByDate: null,
+      neededByRelative: null,
+      neededByAbsolute: null,
+      restock: true,
     }),
   ],
 }
@@ -1170,8 +1182,8 @@ export interface UrgentShoppingItemData {
   ingredientId: string
   name: string
   displayQuantity: string
-  neededByDate: string
-  neededByRelative: string
+  neededByDate: string | null
+  neededByRelative: string | null
   purchased: boolean
   urgency: UrgencyBucket
   restock?: boolean

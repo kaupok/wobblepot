@@ -18,9 +18,10 @@ export interface ShoppingItemData {
    */
   pantryDisplayQuantity?: string
   purchased: boolean
-  neededByDate: string
-  neededByRelative: string
-  neededByAbsolute: string
+  /** Null for a staple to restock that no planned meal needs (HON-1647): the row shows no due label. */
+  neededByDate: string | null
+  neededByRelative: string | null
+  neededByAbsolute: string | null
   isVague?: boolean
   /**
    * Needed today (or overdue) in the household's timezone, computed by the API
@@ -121,7 +122,7 @@ export function ShoppingItem({
           )}
         </div>
       </div>
-      {showDue && (
+      {showDue && item.neededByRelative !== null && (
         <Tooltip>
           <TooltipTrigger asChild>
             <span
@@ -138,7 +139,7 @@ export function ShoppingItem({
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            {tShopping('neededByTooltip', { date: item.neededByAbsolute })}
+            {tShopping('neededByTooltip', { date: item.neededByAbsolute ?? '' })}
           </TooltipContent>
         </Tooltip>
       )}

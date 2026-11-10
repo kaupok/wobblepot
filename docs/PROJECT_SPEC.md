@@ -78,7 +78,7 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 | **Staple**          | Pantry item the household always keeps at home; on the shopping list only when marked ran out (`0`) or running low.                                                                                                                       |
 | **Running low**     | Pantry mark (`lowAt`) for a row with a little left, next to have some (`null` or an amount) and ran out (`0`). Still at home for planned meals; on the shopping list when a planned meal needs it or it is a staple (HON-1586, HON-1595). |
 | **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).                                                                                                                                            |
-| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`).                                                                                                                                      |
+| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later, then staples: a staple to restock that no planned meal needs, with no date (`getUrgencyBucket`, `meal-planning/dates`, HON-1647).                                                |
 
 ### Quantity Units
 

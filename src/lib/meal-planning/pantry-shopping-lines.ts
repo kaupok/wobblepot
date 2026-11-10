@@ -35,7 +35,8 @@ export function shoppingIngredientArgs(locale: Locale) {
  *   A staple at 0 (HON-1398) is a restock line. When a meal or extra needs
  *   it, the line has the planned amount and the need's first date (HON-1584),
  *   so the shopper can judge it against their next shop. When nothing does,
- *   it has no amount (`shoppingQuantity` 0) and is needed today.
+ *   it has no amount (`shoppingQuantity` 0) and no date (HON-1647), so it
+ *   groups under Staples and not under Today.
  * - A bare herb (HON-1558): nothing, when a fresh or dried row of it
  *   (`INGREDIENT_FORM_COVERS`) is in the pantry and has not run out, whatever
  *   the bare row holds. The form row's amount is not deducted, because fresh
@@ -46,8 +47,8 @@ export function shoppingIngredientArgs(locale: Locale) {
  * - Running low (HON-1586, `lowAt` set): at home as above, and also one line
  *   with `low` when a planned meal needs it or it is a staple. It has the
  *   shortfall when an amount falls short, else no amount (`shoppingQuantity`
- *   0). Dated by the first planned need, or today for a staple nothing
- *   planned needs. A low non-staple that nothing planned needs adds no line
+ *   0). Dated by the first planned need; a staple nothing planned needs has
+ *   no date. A low non-staple that nothing planned needs adds no line
  *   (HON-1595): a non-staple is bought for a planned meal only.
  *
  * A need is at home when its row is a staple not at 0, is covered by another
@@ -60,14 +61,11 @@ export function shoppingIngredientArgs(locale: Locale) {
  * is enough, and the second meal is the one at risk. A row marked low or ran
  * out stays in the check (HON-1638), so the check row shows what the pantry
  * row says (`stock`), and the need is on the list too.
- *
- * @param today - Start of today in the household's timezone
  */
 export async function pantryShoppingLines(
   needed: ReadonlyMap<string, NeededIngredient>,
   householdId: string,
   locale: Locale,
-  today: Date,
 ): Promise<{ lines: ShoppingListItem[]; check: PantryCheckItem[] }> {
   // The ingredient is for a ran-out or low row that no planned meal needs.
   const pantryItems = await prisma.pantryItem.findMany({
@@ -197,7 +195,7 @@ export async function pantryShoppingLines(
       pantryQuantity: pantry.quantity,
       shoppingQuantity: 0,
       mealCount: 0,
-      earliestNeededDate: coveredNeed?.earliestNeededDate ?? today,
+      earliestNeededDate: coveredNeed?.earliestNeededDate ?? null,
       isVague: false,
       originalPhrase: null,
       ...(restock && { restock: true }),

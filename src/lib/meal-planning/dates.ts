@@ -112,17 +112,23 @@ export function getDatesBetween(startDate: Date, endDate: Date): Date[] {
   return dates
 }
 
-export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later'
+/**
+ * `staples` holds a staple to restock that no planned meal needs (HON-1647):
+ * it has no date, so it sits under the dated buckets.
+ */
+export type UrgencyBucket = 'today' | 'tomorrow' | 'this-week' | 'later' | 'staples'
 
 /**
  * Determine the urgency bucket for a given date string.
  * Used for grouping shopping list items by urgency.
  *
- * @param dateString - The date in YYYY-MM-DD format
+ * @param dateString - The date in YYYY-MM-DD format, or null for an undated staple
  * @param referenceDate - The date to compare against (defaults to today)
- * @returns The urgency bucket: 'today', 'tomorrow', 'this-week', or 'later'
+ * @returns The urgency bucket: 'today', 'tomorrow', 'this-week', 'later', or 'staples'
  */
-export function getUrgencyBucket(dateString: string, referenceDate?: Date): UrgencyBucket {
+export function getUrgencyBucket(dateString: string | null, referenceDate?: Date): UrgencyBucket {
+  if (dateString === null) return 'staples'
+
   const today = referenceDate ?? new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -147,4 +153,15 @@ export function getUrgencyBucket(dateString: string, referenceDate?: Date): Urge
   }
 
   return 'later'
+}
+
+/**
+ * Order two `YYYY-MM-DD` needed-by dates, earliest first, with an undated
+ * staple (null, HON-1647) last. ISO dates order by code unit.
+ */
+export function compareNeededBy(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a < b ? -1 : 1
 }

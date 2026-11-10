@@ -30,7 +30,7 @@ const inactiveStateA11y = {
   config: { rules: [{ id: 'color-contrast', enabled: false }] },
 }
 
-const URGENCY_BUCKETS = ['today', 'tomorrow', 'this-week', 'later'] as const
+const URGENCY_BUCKETS = ['today', 'tomorrow', 'this-week', 'later', 'staples'] as const
 
 const CATEGORY_GROUPS = [
   { category: 'protein', items: proteinShoppingItems },

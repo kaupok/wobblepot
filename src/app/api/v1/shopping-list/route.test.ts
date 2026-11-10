@@ -13,6 +13,7 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 
+import { shoppingListOutputSchema } from '@/lib/api/v1/shopping-list'
 import { getHouseholdMembership } from '@/lib/household'
 import { runTool } from '@/lib/mcp/context'
 import { getShoppingList } from '@/lib/mcp/tools/get-shopping-list'
@@ -98,6 +99,37 @@ describe('GET /api/v1/shopping-list (HON-1220)', () => {
       check: [],
     })
     expect(loadShoppingList).toHaveBeenCalledWith(household, { days: 14 })
+  })
+
+  it('validates a staple no planned meal needs with neededBy null (HON-1647)', async () => {
+    vi.mocked(loadShoppingList).mockResolvedValue({
+      ...LIST,
+      groups: [
+        {
+          category: 'legume',
+          categoryLabel: 'Legumes',
+          items: [
+            {
+              ingredientId: 'ing-lentils',
+              name: 'Red lentils',
+              quantity: 0,
+              unit: 'g',
+              displayUnit: 'g',
+              displayQuantity: '',
+              neededByDate: null,
+              purchased: false,
+              restock: true,
+              low: false,
+            },
+          ],
+        },
+      ],
+    } as unknown as ShoppingListResult)
+
+    const body = await (await get()).json()
+
+    expect(body.items.map((item: { neededBy: unknown }) => item.neededBy)).toEqual([null])
+    expect(shoppingListOutputSchema.safeParse(body).success).toBe(true)
   })
 
   it('defaults to 7 days', async () => {
