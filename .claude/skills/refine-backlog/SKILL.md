@@ -1,7 +1,7 @@
 ---
 name: refine-backlog
 description: Refine draft or labeled issues into actionable backlog items with proper relationships
-argument-hint: '[--auto-drafts | --tech | --label <name> | --issue HON-XX]'
+argument-hint: '[--auto-drafts (runs /judge first) | --tech | --label <name> | --issue HON-XX]'
 context: inherit
 ---
 
@@ -51,7 +51,7 @@ After the user answers, lock the answers and work out the new frontier. An answe
 Determine the refinement scope:
 
 - **No arguments**: Find `[DRAFT]` issues (default behavior)
-- **`--auto-drafts`**: Find `[AUTO DRAFT]` issues — review findings filed by `/auto-implement` 6.8. These are already written to the "Writing for Agents" bar, so refinement is usually a judgment pass rather than a rewrite: confirm the finding is real and still current, adjust priority, then clear the prefix. Clearing `[AUTO DRAFT]` is what readmits the issue to unattended selection (`/auto-implement` 1.5), so do not clear it on an issue you would not want an agent to pick up on its own.
+- **`--auto-drafts`**: Find `[AUTO DRAFT]` issues — review findings filed by `/auto-implement` 6.8. These are already written to the "Writing for Agents" bar, so refinement is usually a judgment pass rather than a rewrite: confirm the finding is real and still current, adjust priority, then clear the prefix. Clearing `[AUTO DRAFT]` is what readmits the issue to unattended selection (`/auto-implement` 1.5), so do not clear it on an issue you would not want an agent to pick up on its own. The judge runs first on each issue with no verdict (Step 3).
 - **`--tech`**: Shortcut for `--label Tech` — find issues with the "Tech" label (typically created by `/tech-audit`)
 - **`--label <name>`**: Find issues with the specified label
 - **`--issue HON-XX`**: Refine a single specific issue
@@ -94,6 +94,14 @@ mcp__linear-server__list_issues({
 
 Keep only results whose title actually starts with `[AUTO DRAFT]`. Full-text search matches on terms rather than the literal bracketed string, so do not assume this query returns auto-drafts alone — the filter is cheap and does not depend on knowing the exact matching rule.
 
+**Then run the judge on issues with no verdict.** An issue with no label that starts with `Judge:` has none. When at least one has none:
+
+1. Print one line: `Sending <N> issues to /judge, about one minute each.` The session is quiet while it runs.
+2. Read `.claude/skills/judge/SKILL.md` and follow it with no arguments; it selects exactly those issues. Do not use the Skill tool: the judge sets `disable-model-invocation`, so the tool refuses it. Never pass `--rejudge`, because a verdict stays.
+3. When it ends, continue with Step 4. When it fails or cannot run, say so in one line and continue; Step 6 handles an issue with no verdict.
+
+Draft mode, `--tech` and `--label` never run the judge, because it reads only `[AUTO DRAFT]` issues.
+
 **Label mode (`--tech` or `--label <name>`):**
 
 ```typescript
@@ -108,7 +116,7 @@ For Tech issues, focus refinement on: splitting large issues into smaller implem
 
 **Single issue mode (`--issue HON-XX`):**
 
-Skip the list step and go directly to Phase 2 with the specified issue.
+Skip the list step and go directly to Phase 2 with the specified issue. When its title starts with `[AUTO DRAFT]` and it has no `Judge:` label, first run the judge as above, with `HON-XX` as the argument.
 
 ### Step 4: Present summary
 
@@ -117,6 +125,8 @@ Show user:
 - Number of issues found and the filter used (draft / label / single)
 - Brief list with titles, priority, and current state
 - Ask which to refine first (or offer to go through all), with a recommended order
+
+In auto-draft mode, show each verdict next to its title (`Decide — real`, `Hold — options open`), from the `Judge:` label or the judge's report. Recommend Decide and Send back first and Hold last, because a Decide is a short yes and a Hold needs thought.
 
 ### Step 4b: Cluster-level triage (when 5+ issues touch the same system)
 
@@ -149,7 +159,7 @@ Display:
 - Current relationships (blockedBy, blocks, relatedTo)
 - Priority if set
 
-**In `--auto-drafts` mode, read the judge's verdict.** `list_comments` on the issue and find the newest comment whose first line starts with `## Judge:` (written by `/judge`, `.claude/skills/judge/SKILL.md`). Show it in full, then use its outcome as the recommended answer of the first Step 7 round:
+**On an `[AUTO DRAFT]` issue (`--auto-drafts`, or `--issue`), read the judge's verdict.** `list_comments` on the issue and find the newest comment whose first line starts with `## Judge:` (written by `/judge`, `.claude/skills/judge/SKILL.md`). Show it in full, then use its outcome as the recommended answer of the first Step 7 round:
 
 - `Decide — real`: keep the issue and clear the prefix.
 - `Decide — won't fix`: cancel it, with the cited decision as the reason.
