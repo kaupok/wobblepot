@@ -17,8 +17,9 @@ const slotSchema = z.object({
  * GET /api/entries/recent?date=YYYY-MM-DD&mealType=lunch
  *
  * The recipe meals a fridge meal in this slot can take leftovers from, planned
- * or cooked, which the fridge-meal picker offers (HON-1277, HON-1396). The rule
- * lives in `loadLeftoverSources`. `defaultServings` is the household's own
+ * or cooked, which the fridge-meal picker offers (HON-1277, HON-1396): lunches
+ * and dinners only, though the save still takes a breakfast (HON-1524). The
+ * rule lives in `loadLeftoverSources`. `defaultServings` is the household's own
  * servings, where a planned source's servings control starts.
  */
 export async function GET(request: Request) {

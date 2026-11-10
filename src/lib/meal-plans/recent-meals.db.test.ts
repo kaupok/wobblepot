@@ -68,13 +68,6 @@ describe('loadLeftoverSources', () => {
 
     expect(await loadLeftoverSources(alder, LUNCH_22ND)).toEqual([
       {
-        entryId: 'breakfast',
-        mealName: 'Soup',
-        date: '2026-10-22',
-        mealType: 'breakfast',
-        sourceState: 'completed',
-      },
-      {
         entryId: 'tonight',
         mealName: 'Mash',
         date: '2026-10-21',
@@ -109,17 +102,57 @@ describe('loadLeftoverSources', () => {
     expect(ids).toEqual(['cooked', 'three-days', 'four-days'])
   })
 
+  // Nobody cooks a breakfast to eat it again (HON-1524).
+  it('lists no breakfast, planned or cooked, and keeps the dinners newest first', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.deleteMany({ where: { planId: 'plan-alder' } })
+    const entry = (
+      id: string,
+      date: string,
+      mealType: 'breakfast' | 'dinner',
+      status: 'planned' | 'completed',
+    ) =>
+      prisma.mealPlanEntry.create({
+        data: {
+          id,
+          planId: 'plan-alder',
+          date: parseLocalDate(date),
+          mealType,
+          mealId: 'meal-mash',
+          status,
+        },
+      })
+    await entry('thu-breakfast', '2026-10-22', 'breakfast', 'planned')
+    await entry('wed-breakfast', '2026-10-21', 'breakfast', 'completed')
+    await entry('wed-dinner', '2026-10-21', 'dinner', 'completed')
+    await entry('tue-dinner', '2026-10-20', 'dinner', 'planned')
+
+    const ids = (await loadLeftoverSources(alder, LUNCH_22ND)).map((m) => m.entryId)
+
+    expect(ids).toEqual(['wed-dinner', 'tue-dinner'])
+  })
+
+  it('lists a lunch before the slot', async () => {
+    const { alder } = await world()
+
+    const sources = await loadLeftoverSources(alder, { date: '2026-10-22', mealType: 'dinner' })
+
+    expect(sources[0]).toEqual({
+      entryId: 'the-lunch',
+      mealName: 'Mash',
+      date: '2026-10-22',
+      mealType: 'lunch',
+      sourceState: 'planned',
+    })
+    expect(sources.map((m) => m.entryId)).not.toContain('breakfast')
+  })
+
   it("names the meal in the household's language", async () => {
     const { alder } = await world()
 
     const meals = await loadLeftoverSources({ ...alder, locale: 'et' }, LUNCH_22ND)
 
-    expect(meals.map((m) => m.mealName)).toEqual([
-      'Soup',
-      'Kartulipuder',
-      'Kartulipuder',
-      'Kartulipuder',
-    ])
+    expect(meals.map((m) => m.mealName)).toEqual(['Kartulipuder', 'Kartulipuder', 'Kartulipuder'])
   })
 })
 
@@ -147,6 +180,34 @@ describe('findLeftoverProblemForEntry', () => {
       await findLeftoverProblemForEntry('other-household', 'the-lunch', [
         { sourceEntryId: 'after' },
       ]),
+    ).toBeNull()
+  })
+})
+
+// The picker lists no breakfast, but the save still takes one (HON-1524): the
+// MCP `plan_fridge_meal` and the entry routes run this rule.
+describe('findLeftoverSourceProblem with a breakfast source', () => {
+  it('passes a new breakfast source', async () => {
+    const { alder } = await world()
+
+    expect(
+      await findLeftoverSourceProblem(alder.id, LUNCH_22ND, [{ sourceEntryId: 'breakfast' }]),
+    ).toBeNull()
+  })
+
+  it('passes a breakfast item the fridge meal already stores', async () => {
+    const { alder } = await world()
+    await prisma.mealPlanEntry.update({
+      where: { id: 'the-lunch' },
+      data: {
+        kind: 'fridge',
+        mealId: null,
+        items: { create: { position: 0, sourceEntryId: 'breakfast' } },
+      },
+    })
+
+    expect(
+      await findLeftoverProblemForEntry(alder.id, 'the-lunch', [{ sourceEntryId: 'breakfast' }]),
     ).toBeNull()
   })
 })
