@@ -66,7 +66,7 @@ export const UrgentItems: Story = {
 }
 
 // A staple the household marked ran out sits in Today (HON-1398), with the
-// "Ran out" tag in place of an amount.
+// "Ran out" note in place of an amount.
 export const WithRanOutStaple: Story = {
   args: {
     bucket: 'today',

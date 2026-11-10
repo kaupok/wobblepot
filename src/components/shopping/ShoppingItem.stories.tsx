@@ -56,7 +56,7 @@ export const Unchecked: Story = {
 }
 
 // A staple the household marked ran out that nothing planned needs
-// (HON-1398): the "Ran out" tag stands in for the amount.
+// (HON-1398): the "Ran out" note stands in for the amount.
 export const RanOut: Story = {
   args: {
     item: createShoppingItem({
@@ -76,7 +76,8 @@ export const RanOut: Story = {
   },
 }
 
-// A ran-out staple a planned meal also needs: the amount and the tag.
+// A ran-out staple a planned meal also needs: muted "300g · Ran out", as
+// the meal plan shows it, not a badge (HON-1642).
 export const RanOutWithAmount: Story = {
   args: {
     item: createShoppingItem({
@@ -89,13 +90,13 @@ export const RanOutWithAmount: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('300g')).toBeInTheDocument()
-    await expect(canvas.getByText('Ran out')).toBeInTheDocument()
+    await expect(canvas.getByText('300g · Ran out')).toBeInTheDocument()
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
   },
 }
 
 // A pantry row the household marked running low (HON-1587), with no
-// planned shortfall: the "Running low" tag stands in for the amount.
+// planned shortfall: the "Running low" note stands in for the amount.
 export const RunningLow: Story = {
   args: {
     item: createShoppingItem({
@@ -114,7 +115,7 @@ export const RunningLow: Story = {
   },
 }
 
-// A low row a planned meal also needs: the shortfall and the tag.
+// A low row a planned meal also needs: muted "200 g · Running low".
 export const RunningLowWithAmount: Story = {
   args: {
     item: createShoppingItem({
@@ -127,8 +128,8 @@ export const RunningLowWithAmount: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('200 g')).toBeInTheDocument()
-    await expect(canvas.getByText('Running low')).toBeInTheDocument()
+    await expect(canvas.getByText('200 g · Running low')).toBeInTheDocument()
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
   },
 }
 
