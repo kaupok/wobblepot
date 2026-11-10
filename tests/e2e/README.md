@@ -21,13 +21,14 @@ velocity, running them on every push is a four-to-five-figure annual
 bill. They are also excluded from staging-smoke (HON-560): every current
 `@ai` spec creates its own account via `/api/e2e-seed`, which only exists
 where the rate-limit bypass is active (CI/test/dev) — preview and staging
-404 it by design. `@ai` specs run via `pnpm test:e2e:local --ai`.
+404 it by design. `@ai` specs run on demand via `pnpm test:e2e:local --ai`.
 
-Out of CI does not mean unrun: that command is a **manual step on the
-production-promotion checklist** ([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md)
-§ Production Deployment Process, step 3), because these specs are meal-plan
-generation's only coverage. HON-667 settled that shape — no Anthropic mock in
-E2E, no scheduled `@ai` run.
+A developer runs them while changing meal-plan generation, swap or pantry
+deduction. No checklist step runs them, including the production deploy
+([`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md) § Production Deployment
+Process), so meal-plan generation has **no automated end-to-end gate**
+(HON-1640). HON-667 settled the rest of the shape — no Anthropic mock in E2E,
+no scheduled `@ai` run.
 
 ## Running locally
 

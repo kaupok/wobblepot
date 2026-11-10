@@ -96,10 +96,12 @@ definitions. Summary for deployment decisions:
    a green staging-smoke run on `main`, and fails before any migration
    otherwise.
 
-The `@ai` specs are in no tier: they call Claude for real, so they run as a
-**manual pre-promotion step** (`pnpm test:e2e:local --ai`, step 3 below), not
-on a schedule and not against a mock. That step is meal-plan generation's only
-coverage.
+The `@ai` specs are in no tier: they call Claude for real, so no tier and no
+deploy step runs them, and they never run against a mock. A developer runs them
+on demand with `pnpm test:e2e:local --ai`, for example while changing meal-plan
+generation, swap or pantry deduction. Meal-plan generation has **no automated
+end-to-end gate**; for now the maker's household, which plans its meals on
+production, is the check (HON-1640).
 
 ## Production Deployment Process
 
@@ -117,10 +119,9 @@ A human starts each production deploy. One workflow, `deploy-production.yml`, th
    - Test all affected functionality
    - Check for any migration issues
 
-3. **Confirm the pre-promotion test gates**
+3. **Confirm staging smoke is green**
    - The [staging-smoke workflow](https://github.com/kaupok/wobblepot/actions/workflows/staging-smoke.yml) runs after each staging deploy
    - Production ships only a commit with a green staging-smoke run; step 4 checks this and refuses any other commit
-   - **Run the `@ai` specs by hand on the commit being promoted:** `pnpm test:e2e:local --ai`. No CI tier runs them — they call Claude for real, and per-push runs would cost four to five figures a year (see [`tests/e2e/README.md`](../tests/e2e/README.md) → "Why the `@ai` split"). They are meal-plan generation's **only** coverage, so skipping this step promotes the core AI flow untested (HON-667)
 
 4. **Deploy to production** (when ready):
 

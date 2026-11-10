@@ -105,7 +105,7 @@ Three templates are localized: `src/lib/emails/reset-password.ts` and `src/lib/e
 - `scripts/check-admin-untranslated.test.ts` (`pnpm test`; `pnpm i18n:admin-check` prints the hits): fails on an import, re-export or dynamic import from `next-intl`, `next-intl/*` or `@/lib/i18n/enum-label` (`CATALOG_MODULES`), in `src/app/admin/`, `src/app/api/admin/` or `src/lib/admin-links.ts` (tests and stories are not scanned), and on a key named `admin` at any depth in `messages/en.json` or `messages/et.json`, with the file and line. See [Decided principles](#decided-principles) → Admin pages are English-only.
 - `src/lib/i18n/plurals.test.tsx`: plural rendering through the real next-intl.
 - `tests/e2e/i18n-smoke.spec.ts` (`@i18n`, every PR): Estonian chrome signed out, and the onboarding locale round-trip.
-- `tests/e2e/i18n-full-flow.spec.ts` (`@i18n @ai`, run by hand with `pnpm test:e2e:local`; it makes real Claude calls): an Estonian household from sign-up through plan, meal detail, shopping, pantry and imagine. It asserts the pantry rows on screen without a reload, and searches the meal selector and the pantry inline add by Estonian names.
+- `tests/e2e/i18n-full-flow.spec.ts` (`@i18n @ai`, run on demand with `pnpm test:e2e:local`; it makes real Claude calls): an Estonian household from sign-up through plan, meal detail, shopping, pantry and imagine. It asserts the pantry rows on screen without a reload, and searches the meal selector and the pantry inline add by Estonian names.
 
 ## Reviewing AI output quality
 
