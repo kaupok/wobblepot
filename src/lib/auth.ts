@@ -8,7 +8,11 @@ import { hashPassword } from 'better-auth/crypto'
 import { jwt } from 'better-auth/plugins'
 
 import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
-import { afterAccountEmailChange, readChangeEmailToken } from '@/lib/auth/change-email'
+import {
+  afterAccountEmailChange,
+  beforeAccountEmailChange,
+  readChangeEmailToken,
+} from '@/lib/auth/change-email'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
@@ -597,6 +601,8 @@ export const auth = betterAuth({
         },
       },
       update: {
+        /** A confirmed email change marks the new address verified. */
+        before: async (data, ctx) => beforeAccountEmailChange(data, ctx),
         /** A confirmed email change clears the reminder confirmation and tells the old address (HON-1137). */
         after: (user, ctx) => afterAccountEmailChange(user, ctx),
       },

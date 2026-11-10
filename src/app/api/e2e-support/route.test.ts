@@ -28,6 +28,7 @@ vi.mock('@/lib/errors', () => ({
 vi.mock('@/lib/auth/e2e-support', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/auth/e2e-support')>()),
   findPendingResetToken: vi.fn(),
+  findUserId: vi.fn(),
   assertEmailUnverified: vi.fn(),
   readUserState: vi.fn(),
   readHouseholdState: vi.fn(),
@@ -39,12 +40,14 @@ import {
   E2eSupportError,
   expirePurge,
   findPendingResetToken,
+  findUserId,
   readHouseholdState,
   readUserState,
 } from '@/lib/auth/e2e-support'
 import { captureApiError } from '@/lib/errors'
 
 const mockFindResetToken = vi.mocked(findPendingResetToken)
+const mockFindUserId = vi.mocked(findUserId)
 const mockAssertUnverified = vi.mocked(assertEmailUnverified)
 const mockReadUserState = vi.mocked(readUserState)
 const mockReadHouseholdState = vi.mocked(readHouseholdState)
@@ -262,7 +265,10 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
 })
 
 describe('GET /api/e2e-support?action=change-email-link (HON-1137)', () => {
-  beforeEach(() => setBypass(true))
+  beforeEach(() => {
+    setBypass(true)
+    mockFindUserId.mockResolvedValue('user-1')
+  })
 
   it("returns Better Auth's verify-email path with a change token", async () => {
     const { GET } = await import('./route')
@@ -282,7 +288,9 @@ describe('GET /api/e2e-support?action=change-email-link (HON-1137)', () => {
       email: 'old@example.com',
       updateTo: 'new@example.com',
       requestType: 'change-email-verification',
+      userId: 'user-1',
     })
+    expect(mockFindUserId).toHaveBeenCalledWith('old@example.com')
     expect(payload!.exp! - payload!.iat!).toBe(60 * 60 * 24)
   })
 
@@ -299,6 +307,16 @@ describe('GET /api/e2e-support?action=change-email-link (HON-1137)', () => {
 
     const { verifyJWT } = await import('better-auth/crypto')
     expect(await verifyJWT(token, TEST_SECRET)).toBeNull()
+  })
+
+  it('refuses an unknown address with 404', async () => {
+    mockFindUserId.mockRejectedValue(new E2eSupportError('userNotFound'))
+    const { GET } = await import('./route')
+
+    const res = await GET(
+      new Request(url('?action=change-email-link&email=none@example.com&newEmail=new@example.com')),
+    )
+    expect(res.status).toBe(404)
   })
 
   it.each([

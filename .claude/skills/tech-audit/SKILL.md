@@ -23,7 +23,7 @@ Perform a comprehensive codebase health audit across fifteen focus areas and pro
 
 ### 1. Parse arguments
 
-Check if `--focus <area>` was passed. If so, run only that section plus section 17 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work). Otherwise run all sections in order.
+Check if `--focus <area>` was passed. If so, run only that section plus sections 17 and 18 (backlog cross-reference always runs, otherwise focused reruns re-propose tracked work; confirm always runs). Otherwise run all sections in order.
 
 ---
 
@@ -31,14 +31,10 @@ Check if `--focus <area>` was passed. If so, run only that section plus section 
 
 ### 2. Dependencies
 
-**Goal:** Identify outdated, vulnerable, or improperly pinned dependencies.
+**Goal:** Identify outdated or improperly pinned dependencies. CI gates dependency advisories and lockfile pins (docs/DEPLOYMENT.md → Lockfile gates), so advisories are not audited here.
 
 ```bash
-# Check for outdated packages
 pnpm outdated 2>&1 || true
-
-# Check for known vulnerabilities
-pnpm audit 2>&1 || true
 ```
 
 Also scan `package.json` for version ranges (`^` or `~` prefixes) — project convention requires exact versions.
@@ -47,7 +43,7 @@ Also scan `package.json` for version ranges (`^` or `~` prefixes) — project co
 grep -E '"\^|"~' package.json || echo "No version ranges found (good)"
 ```
 
-Record findings: outdated count, vulnerability count, pinning violations.
+Record findings: outdated count, pinning violations.
 
 ### 3. Type safety
 
@@ -71,9 +67,15 @@ Record findings: lint error and warning count, TODO/FIXME/HACK count.
 
 ### 5. Test coverage
 
-CI gates coverage with `pnpm coverage:ratchet` (docs/DEPLOYMENT.md). Run `pnpm test:coverage 2>&1 || true` and read the summary. Then use Glob to list `.ts` and `.tsx` files under `src/` (excluding tests, type declarations and generated files) with no `.test.ts(x)` sibling.
+CI gates coverage with `pnpm coverage:ratchet` (docs/DEPLOYMENT.md). It takes the base ref as its argument and compares the `coverage.thresholds` in `vitest.config.ts` with that ref's copy, so it needs no coverage run first:
 
-Record findings: coverage percentages, list of untested files.
+```bash
+git fetch origin main && pnpm coverage:ratchet origin/main
+```
+
+Then run `pnpm test:coverage 2>&1 || true` and read the summary. Name an untested file only from that summary (a file at or near 0% lines). Do not match test files by name: most files are covered by a test with another name.
+
+Record findings: ratchet result, coverage percentages against the thresholds, files the summary shows as untested.
 
 ### 6. Security
 
@@ -96,10 +98,10 @@ Check auth protection on route pages:
 
 The public routes are `PUBLIC_ROUTES` in `src/proxy.ts`, which `src/proxy.test.ts` keeps current. Skip their pages, except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Also skip redirect-only pages whose body is just `redirect()` (`src/app/meal-plan`). `src/app/pantry` renders the pantry, so it is checked.
 
-For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session`, or `load-inventory` (`src/app/shopping/load-inventory.ts`, the session check for `/shopping` and `/pantry`). List the pages with none, then drop the public ones:
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session`, `load-inventory` (`src/app/shopping/load-inventory.ts`, the session check for `/shopping` and `/pantry`), `requireAccountMember` (`src/app/account/account-member.ts`, each `/account` page) or `requireHouseholdMember` (`src/app/household/household-member.ts`, each `/household` page). List the pages with none, then drop the public ones:
 
 ```bash
-find src/app -name 'page.tsx' | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
+find src/app -name 'page.tsx' | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory|requireAccountMember|requireHouseholdMember'
 ```
 
 Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
@@ -138,20 +140,7 @@ Check for raw HTML heading/paragraph elements instead of Typography components:
 grep -rn '<h[1-4]\b\|<p\b' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'node_modules\|\.test\.' || echo "No raw HTML typography found"
 ```
 
-Check for relative imports (should use `@/` prefix):
-
-```bash
-grep -rn "from '\.\./\|from '\.\/" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v '\.test\.\|node_modules' || echo "No relative imports found"
-```
-
-Check for non-sentence-case UI text in common patterns:
-
-```bash
-# Button text with multiple capitalized words (potential Title Case violations)
-grep -rn '<Button' src/ --exclude-dir=generated --include='*.tsx' | grep -oE '>([A-Z][a-z]+ ){2,}' || echo "No obvious title case violations"
-```
-
-Record findings: raw HTML elements, relative imports, casing issues.
+Record findings: raw HTML elements.
 
 ---
 
@@ -200,13 +189,9 @@ Record findings: pages missing loading.tsx (especially async ones), pages missin
 
 ### 11. File complexity
 
-CI runs `pnpm file-size:check` (5,000 tokens per code file, CLAUDE.md → Code Standards). Run it and read its output. Then look for deep nesting, which no check measures:
+CI runs `pnpm file-size:check` (5,000 tokens per code file, CLAUDE.md → Code Standards). Run it and read its output. `pnpm lint` (section 4) caps block nesting in `src/**` with `max-depth` (`eslint.config.mjs`), so nesting is not audited here.
 
-```bash
-grep -rn '          ' src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -v 'node_modules\|\.test\.\|\.css' | head -20
-```
-
-Record findings: files over or near the cap, deeply nested code.
+Record findings: files over or near the cap.
 
 ### 12. Data fetching patterns
 
@@ -273,9 +258,6 @@ Record findings: effects missing cleanup, suppressed hook warnings, clickable di
 # Images without alt text (next/image requires alt, but check for raw <img>)
 grep -rn '<img' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'alt=' | grep -v '\.test\.' || echo "No images without alt found"
 
-# Icon-only buttons without accessible names
-grep -rn '<Button' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'aria-label\|sr-only\|>[A-Za-z]' || echo "No icon-only buttons without labels found"
-
 # Missing form labels
 grep -rn '<input\|<select\|<textarea' src/ --exclude-dir=generated --include='*.tsx' | grep -v 'aria-label\|id=.*\|\.test\.' | head -20
 ```
@@ -294,7 +276,7 @@ grep -rn 'tabIndex=["{][1-9]' src/ --exclude-dir=generated --include='*.tsx' || 
 grep -rn '>click here<\|>here<\|>read more<' src/ --exclude-dir=generated --include='*.tsx' -i || echo "No generic link text found"
 ```
 
-Record findings: images without alt, unlabeled buttons, missing form labels, tabIndex issues.
+Record findings: images without alt, missing form labels, tabIndex issues.
 
 ### 15. Prisma efficiency
 
@@ -310,41 +292,15 @@ Read files with Prisma queries and check for:
 - **N+1 patterns:** A `findMany` followed by individual queries in a loop (should use `include` or a single query)
 - **Missing `select`:** Queries that fetch entire records when only a few fields are needed (especially in list/index routes)
 - **Missing `include`:** Queries that fetch a record, then separately query related data that could be included
-- **Unbounded queries:** `findMany` without `take`/`limit` that could return thousands of rows
-
-```bash
-# findMany without take/limit
-grep -rn 'findMany' src/ --exclude-dir=generated --include='*.ts' | grep -v 'take\|limit\|\.test\.' || echo "No unbounded findMany found"
-```
+- **Unbounded queries:** `findMany` without `take`/`limit` that could return thousands of rows. Read the whole call: Prisma arguments span lines, so `take` is often lines below `findMany`.
 
 Record findings: N+1 risks, missing select optimization, unbounded queries.
 
 ### 16. Dead code
 
-**Goal:** Identify exported symbols that are never imported elsewhere.
+CI runs `pnpm knip` (`knip.config.ts`), which fails on an unused file, export, type or dependency. Run it and read its output. A finding on `main` means the gate was bypassed; report it as **Address Soon**.
 
-Check for potentially unused exports:
-
-```bash
-# List all named exports from src/lib/ and src/components/
-grep -rn '^export ' src/lib/ src/components/ --include='*.ts' --include='*.tsx' | grep -v '\.test\.\|node_modules\|export type\|export interface' | head -40
-```
-
-For each exported function/component/constant, search for imports:
-
-Pick the 10 most suspicious exports (utilities, helpers, constants) and grep for their usage across the codebase. Flag any that have zero imports outside their own file.
-
-Also check for unused local files:
-
-```bash
-# Files that might be orphaned (not imported anywhere)
-# Check a few specific patterns
-grep -rn "from '@/lib/" src/ --exclude-dir=generated --include='*.ts' --include='*.tsx' | grep -oE "'@/lib/[^']+'" | sort -u
-```
-
-Compare the list of files in `src/lib/` against what's actually imported.
-
-Record findings: unused exports, orphaned files.
+Record findings: knip's output.
 
 ### 17. Backlog cross-reference
 
@@ -354,23 +310,50 @@ Use `mcp__linear-server__list_issues` with `team: "Wobblebot"`, `limit: 100`, `f
 
 **Do not filter by `label: "Tech"`.** Accessibility, bug, and test-coverage proposals routinely duplicate issues that carry the `Bug` label or no label at all; a Tech-only fetch hides them and the audit re-proposes tracked work. Use the returned `labels` field to note which label the existing issue carries when classifying.
 
+**When the Linear MCP tools are not loaded in the fork,** read the same issues through the Linear GraphQL API, read-only, as `scripts/worktree-claude.sh` does: `LINEAR_API_KEY` from `.env`, sent bare in the `Authorization` header (no `Bearer`). Send queries only, never a mutation:
+
+```bash
+LINEAR_API_KEY=$(grep -E '^LINEAR_API_KEY=' .env | cut -d= -f2- | tr -d '"')
+curl -s --max-time 30 -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query":"{ issues(first: 250, filter: { team: { key: { eq: \"HON\" } }, state: { type: { in: [\"backlog\", \"unstarted\", \"started\"] } } }) { nodes { identifier title description state { name } labels { nodes { name } } } } }"}'
+```
+
+If that fails too (no key, an error, no `data`), tag each proposal **Not cross-referenced** and say so at the top of the report.
+
 Classify each would-be proposal against returned titles/descriptions:
 
 - **New** — no existing coverage
 - **Duplicate of HON-XX** — already tracked
 - **Update HON-XX** — tracked but description is stale
 
+### 18. Confirm findings
+
+**Goal:** Report only findings that hold. The sections above sample files and grep for text, so a finding can be wrong or point at the wrong place.
+
+For every finding that goes in the report, open the cited `file:line` and read the code around it:
+
+- **Holds** — keep it.
+- **Wrong file or line** — correct the citation, then keep it.
+- **Wrong** (the code does not do what the finding says) — drop it.
+- **By design** (CLAUDE.md, docs/PROJECT_SPEC.md or docs/AGENT_HISTORY.md says so) — drop it.
+
+Put each dropped finding under **Rejected** with one line of reason.
+
+For each section that sampled files (9 API consistency, 12 Data fetching, 13 React patterns, 15 Prisma efficiency, and any other that read a subset), count the files it read and the files it skipped. These go under **Not audited**.
+
 ---
 
 ## Output Format
 
-After running all applicable sections, compile the report:
+After running all applicable sections, section 18 included, compile the report:
 
 ```
 ## Tech Audit Report
 
 **Date:** [current date]
 **Scope:** [All areas / Focus: <area>]
+[Only if section 17 fell through: **Backlog not cross-referenced:** the Linear MCP tools and the GraphQL API both failed; every proposal is tagged Not cross-referenced.]
 
 ### Summary
 
@@ -390,7 +373,7 @@ After running all applicable sections, compile the report:
 | React Patterns | [pass/warn/fail] | [brief summary] |
 | Accessibility | [pass/warn/fail] | [brief summary] |
 | Prisma Efficiency | [pass/warn/fail] | [brief summary] |
-| Dead Code | [pass/warn/fail] | [brief summary] |
+| Dead Code | [pass/fail] | [`pnpm knip` result] |
 
 ### Triage
 
@@ -422,6 +405,17 @@ Items to watch but not urgent (minor pattern deviations, informational).
 
 ...
 
+### Not audited
+
+| Section | Files read | Files skipped | Skipped (paths, or how they were chosen) |
+|---------|------------|---------------|------------------------------------------|
+| API Consistency | [n] | [n] | [...] |
+
+### Rejected
+
+1. [Area] [Finding] - `file:line` - [Wrong / By design: one line of reason, naming the doc for by-design]
+2. ...
+
 ### Proposed Linear Issues
 For significant findings, propose Linear issues. Each proposal is tagged with its section-17 status. This skill runs as a fork and cannot create issues — every **New** proposal must be a paste-ready block the caller can create verbatim, per CLAUDE.md → Writing for Agents. All new issues include the **Tech** label.
 
@@ -438,13 +432,16 @@ For significant findings, propose Linear issues. Each proposal is tagged with it
 
 #### 3. [Title] — Duplicate of HON-XX
 [Optional comment to add to the existing issue]
+
+#### 4. [Title] — Not cross-referenced
+[The same paste-ready block as a New proposal; the caller checks Linear before filing]
 ```
 
 ### Triage criteria
 
 - **Address Now**: Security vulnerabilities, type errors, failing tests, broken builds, auth gaps, accessibility blockers (missing alt text, no keyboard access), N+1 queries on hot paths, missing error boundaries on critical routes
-- **Address Soon**: Outdated dependencies with available patches, missing test coverage for critical paths, code quality issues (console.log, TODO/FIXME), pattern violations, API inconsistencies, files over the file-size cap, missing loading states, sequential fetches that should be parallel
-- **Monitor**: Minor outdated deps without security impact, informational coverage gaps, style preferences, files near the file-size cap, minor React pattern concerns, unused exports in internal utilities
+- **Address Soon**: Outdated dependencies with available patches, missing test coverage for critical paths, code quality issues (console.log, TODO/FIXME), pattern violations, API inconsistencies, files over the file-size cap, `pnpm knip` findings, missing loading states, sequential fetches that should be parallel
+- **Monitor**: Minor outdated deps without security impact, informational coverage gaps, style preferences, files near the file-size cap, minor React pattern concerns
 
 ## Completion
 

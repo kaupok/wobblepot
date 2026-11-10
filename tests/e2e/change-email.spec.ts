@@ -44,6 +44,8 @@ test.describe('Email change', () => {
     await expect(page.getByLabel('Email', { exact: true })).toHaveValue(newEmail)
     await expect(page).toHaveURL('/account')
     expect(expectUserExists(await fetchUserState(newEmail), newEmail).emailVerified).toBe(true)
+    // The link proved the new address, so the page does not ask to verify it.
+    await expect(page.getByText('Your email address is not verified yet.')).toBeHidden()
     expect(await fetchUserState(email)).toEqual({ exists: false })
 
     await signOut(page)

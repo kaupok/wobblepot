@@ -282,8 +282,6 @@ export async function findHouseholdPlan(householdId: string, planId: string) {
   return plan
 }
 
-export type PlanShoppingListResult = Awaited<ReturnType<typeof loadPlanShoppingList>>
-
 /**
  * One plan's shopping list, in the shape `GET /api/meal-plans/[id]/shopping-list`
  * returns (HON-1208). Meals before the household's today are left out. Names,

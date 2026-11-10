@@ -368,9 +368,8 @@ Where each environment's seed actually runs (and therefore where the
 - **Staging** — `maybe-migrate.sh` skips `main`, so seeding happens in the
   `Deploy DB migrations [staging]` GitHub workflow instead. Its seed step
   sets `SEED_TEST_USERS=1` and passes the four credential secrets
-  (HON-560). The step only runs when `prisma/seed*.ts` / `schema.prisma`
-  changed in the push — `workflow_dispatch` the migration workflow to
-  re-seed on demand.
+  (HON-560). The step runs on every push to `main`, and a
+  `workflow_dispatch` of the migration workflow runs it again on demand.
 
 Missing env vars don't error — `seedTestUsers()` silently no-ops, and the
 fixture sign-in spec then fails on the remote tier (it fails loudly rather

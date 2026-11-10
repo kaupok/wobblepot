@@ -7,7 +7,11 @@ import { resolveEmailLocale } from '@/lib/emails/locale'
 import { isEmailConfigured, resend } from '@/lib/resend'
 import { clearReminderConfirmation } from '@/lib/weekly-reminder'
 
-import { afterAccountEmailChange, readChangeEmailToken } from './change-email'
+import {
+  afterAccountEmailChange,
+  beforeAccountEmailChange,
+  readChangeEmailToken,
+} from './change-email'
 
 vi.mock('@/lib/weekly-reminder', () => ({
   clearReminderConfirmation: vi.fn(),
@@ -69,6 +73,40 @@ describe('readChangeEmailToken', () => {
     expect(readChangeEmailToken('not-a-token')).toBeNull()
     expect(readChangeEmailToken('a.%%%.c')).toBeNull()
     expect(readChangeEmailToken(undefined)).toBeNull()
+  })
+})
+
+describe('beforeAccountEmailChange', () => {
+  it('marks the new address verified when the change link is opened', async () => {
+    const token = await changeToken('old@example.com', 'new@example.com')
+
+    expect(
+      beforeAccountEmailChange(
+        { email: 'new@example.com' },
+        { path: '/verify-email', query: { token } },
+      ),
+    ).toEqual({ data: { emailVerified: true } })
+  })
+
+  it('changes nothing for a name update, a sign-up verification or another address', async () => {
+    const signUp = await createEmailVerificationToken(SECRET, 'new@example.com', undefined, TTL)
+    const other = await changeToken('old@example.com', 'other@example.com')
+
+    expect(
+      beforeAccountEmailChange({ name: 'Ada' } as never, { path: '/update-user', query: null }),
+    ).toBeUndefined()
+    expect(
+      beforeAccountEmailChange(
+        { email: 'new@example.com' },
+        { path: '/verify-email', query: { token: signUp } },
+      ),
+    ).toBeUndefined()
+    expect(
+      beforeAccountEmailChange(
+        { email: 'new@example.com' },
+        { path: '/verify-email', query: { token: other } },
+      ),
+    ).toBeUndefined()
   })
 })
 
@@ -143,8 +181,8 @@ describe('afterAccountEmailChange', () => {
   })
 })
 
-// The hook relies on Better Auth 1.7.7 internals: `/verify-email` applies the
-// change through `updateUserByEmail`, which runs `databaseHooks.user.update`
+// The hooks rely on Better Auth 1.7.18 internals: `/verify-email` applies the
+// change through `updateUser`, which runs `databaseHooks.user.update`
 // with the endpoint context (`path`, `query.token`). This drives the real flow
 // on an in-memory database, so an upgrade that changes it fails here.
 describe('Better Auth change-email flow', () => {
@@ -166,7 +204,14 @@ describe('Better Auth change-email flow', () => {
         },
       },
       user: { changeEmail: { enabled: true } },
-      databaseHooks: { user: { update: { after: (u, ctx) => afterAccountEmailChange(u, ctx) } } },
+      databaseHooks: {
+        user: {
+          update: {
+            before: async (data, ctx) => beforeAccountEmailChange(data, ctx),
+            after: (u, ctx) => afterAccountEmailChange(u, ctx),
+          },
+        },
+      },
     })
     return { auth, db }
   }
@@ -224,17 +269,36 @@ describe('Better Auth change-email flow', () => {
 
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe('/account?emailChanged=1')
+    // This user never opened the sign-up link: `beforeAccountEmailChange`
+    // marks the new address verified, which Better Auth 1.7.16 no longer does.
     expect(db.user).toMatchObject([{ email: 'new@example.com', emailVerified: true }])
     const userId = db.user[0]!.id as string
     expect(clearReminderConfirmation).toHaveBeenCalledWith(userId)
     expect(sentMails().map((mail) => mail.to)).toEqual(['old@example.com'])
 
-    // A used link: no user has the token's old address any more, signed in or
-    // out. `parseChangeEmailLanding` reads the code as expired.
+    // A used link: the token's user no longer has its old address, signed in
+    // or out. `parseChangeEmailLanding` reads the code as expired.
     const again = await auth.handler(new Request(links[0]!.url, { headers }))
-    expect(again.headers.get('location')).toBe('/account?emailChanged=1&error=USER_NOT_FOUND')
+    expect(again.headers.get('location')).toBe('/account?emailChanged=1&error=INVALID_TOKEN')
     const signedOut = await auth.handler(new Request(links[0]!.url))
-    expect(signedOut.headers.get('location')).toBe('/account?emailChanged=1&error=USER_NOT_FOUND')
+    expect(signedOut.headers.get('location')).toBe('/account?emailChanged=1&error=INVALID_TOKEN')
     expect(clearReminderConfirmation).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a verified user verified at the new address', async () => {
+    const links: { to: string; url: string; token: string }[] = []
+    const { auth, db } = testAuth(links)
+    const headers = await signUp(auth, 'old@example.com')
+    db.user[0]!.emailVerified = true
+
+    await auth.api.changeEmail({
+      body: { newEmail: 'new@example.com', callbackURL: '/account?emailChanged=1' },
+      headers,
+    })
+    expect(links.map((link) => link.to)).toEqual(['new@example.com'])
+    await auth.handler(new Request(links[0]!.url, { headers }))
+
+    expect(db.user).toMatchObject([{ email: 'new@example.com', emailVerified: true }])
+    expect(clearReminderConfirmation).toHaveBeenCalledWith(db.user[0]!.id)
   })
 })

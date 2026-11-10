@@ -14,12 +14,7 @@ import { IMAGINE_MODEL } from './models'
 import { logAiSample } from './sampling'
 import { type AiUsageStats, toAiUsageStats, withUsageOnFailure } from './usage'
 
-export {
-  ImaginedMealsSchema,
-  type HouseholdContext,
-  type ImaginedIngredient,
-  type ImaginedMeal,
-} from './imagine-request'
+export { ImaginedMealsSchema, type HouseholdContext, type ImaginedMeal } from './imagine-request'
 
 /** How many suggestions imagine asks for, and the most it returns. */
 const MEAL_COUNT = 3

@@ -15,9 +15,8 @@ export const LIBRARY_STEPS_VERSION = 2 // 2: British English steps (HON-1098)
  * the (translated) name, servings, time, the (translated) ingredient lines and
  * the locale. A stored row whose `inputHash` matches was written from these
  * same inputs and is fresh; anything else is stale. Keyed on the inputs rather
- * than `Meal.updatedAt`, because the seed bumps `updatedAt` on every deploy
- * without changing the meal, and because a component or translation edit
- * changes the prompt without touching the meal row at all.
+ * than `Meal.updatedAt`, because a component or translation edit changes the
+ * prompt without touching the meal row at all.
  */
 export function stepsInputHash(input: StepsRequestInput): string {
   const hash = createHash('sha256')

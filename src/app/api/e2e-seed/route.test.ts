@@ -13,7 +13,6 @@ const setBypass = (active: boolean) => {
 
 vi.mock('@/lib/signup-codes', () => ({
   mintE2eSignupCode: vi.fn(),
-  deleteUnusedSignupCode: vi.fn(),
 }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
@@ -60,54 +59,5 @@ describe('POST /api/e2e-seed — production gate', () => {
 
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ error: 'Failed to seed invite code' })
-  })
-})
-
-describe('DELETE /api/e2e-seed — production gate', () => {
-  it('returns 404 when RATE_LIMIT_BYPASS_ACTIVE is false', async () => {
-    setBypass(false)
-    const { DELETE } = await import('./route')
-    const { deleteUnusedSignupCode } = await signupCodes()
-
-    const res = await DELETE(new Request('http://x/?code=abc', { method: 'DELETE' }))
-
-    expect(res.status).toBe(404)
-    expect(deleteUnusedSignupCode).not.toHaveBeenCalled()
-  })
-
-  it('returns 400 when no code query param is provided', async () => {
-    setBypass(true)
-    const { DELETE } = await import('./route')
-    const { deleteUnusedSignupCode } = await signupCodes()
-
-    const res = await DELETE(new Request('http://x/', { method: 'DELETE' }))
-
-    expect(res.status).toBe(400)
-    expect(deleteUnusedSignupCode).not.toHaveBeenCalled()
-  })
-
-  it('removes the code and reports how many rows went', async () => {
-    setBypass(true)
-    const { DELETE } = await import('./route')
-    const { deleteUnusedSignupCode } = await signupCodes()
-    vi.mocked(deleteUnusedSignupCode).mockResolvedValue(1)
-
-    const res = await DELETE(new Request('http://x/?code=abc', { method: 'DELETE' }))
-
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true, deleted: 1 })
-    expect(deleteUnusedSignupCode).toHaveBeenCalledWith('abc')
-  })
-
-  it('returns 500 with an error when the delete throws', async () => {
-    setBypass(true)
-    const { DELETE } = await import('./route')
-    const { deleteUnusedSignupCode } = await signupCodes()
-    vi.mocked(deleteUnusedSignupCode).mockRejectedValue(new Error('db down'))
-
-    const res = await DELETE(new Request('http://x/?code=abc', { method: 'DELETE' }))
-
-    expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({ error: 'Failed to delete invite code' })
   })
 })

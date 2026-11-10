@@ -40,9 +40,3 @@ export async function seedInviteCode(): Promise<string> {
   const json = (await res.json()) as { code: string }
   return json.code
 }
-
-export async function deleteInviteCode(code: string): Promise<void> {
-  await fetch(`${e2eBaseURL()}/api/e2e-seed?code=${encodeURIComponent(code)}`, {
-    method: 'DELETE',
-  })
-}

@@ -28,6 +28,16 @@ const meta = {
   component: MealDetailModal,
   parameters: { layout: 'fullscreen' },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  // A phone's overlay scrollbars take no width. The CI harness draws classic
+  // ones (vitest.config.ts, HON-690), which took 30px from the field there.
+  decorators: [
+    (Story) => (
+      <>
+        <style>{'* { scrollbar-width: none; }'}</style>
+        <Story />
+      </>
+    ),
+  ],
   args: {
     meal: createMeal(),
     householdServings: 4,

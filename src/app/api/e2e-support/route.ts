@@ -8,6 +8,7 @@ import {
   type E2eSupportRefusal,
   expirePurge,
   findPendingResetToken,
+  findUserId,
   readHouseholdState,
   readUserState,
 } from '@/lib/auth/e2e-support'
@@ -133,12 +134,14 @@ async function verifyEmailLink(email: string, expired: boolean) {
 
 async function changeEmailLink(email: string, newEmail: string, expired: boolean) {
   const { secret } = await auth.$context
+  // Better Auth 1.7.16 refuses a change token that does not name its user.
+  const userId = await findUserId(email)
   const token = await createEmailVerificationToken(
     secret,
     email,
     newEmail,
     expired ? -60 : EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
-    { requestType: CHANGE_EMAIL_REQUEST_TYPE },
+    { requestType: CHANGE_EMAIL_REQUEST_TYPE, userId },
   )
 
   return NextResponse.json({

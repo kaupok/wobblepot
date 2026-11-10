@@ -28,8 +28,6 @@ export const vesselSchema = z.object({
   // limit and cut the JSON off (2 of 52 images on one run).
 })
 
-export type VesselFindings = z.infer<typeof vesselSchema>
-
 /** What the fit needs from the model: which vessel, and how wide it is in life. */
 export interface VesselEstimate {
   vessel: Vessel

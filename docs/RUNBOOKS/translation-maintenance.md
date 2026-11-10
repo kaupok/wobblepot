@@ -58,7 +58,7 @@ Unique on `("ingredientId", locale)`: one translation per ingredient per locale.
 
 Unique on `("mealId", locale)`.
 
-`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3898`, `:3903`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
+`preparationNotes` looks editable and is not. The seed writes `null` into it on every new row and rewrites any row where it is not `null` (`seedMealTranslationsEt` in `prisma/seed-sync.ts`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
 
 > **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay — that ingredient silently falls back to English for every household on it — and the destination either already has a translation, so the write is rejected on the unique key, or does not, so you have moved Estonian text under another language's label. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
 
@@ -182,16 +182,16 @@ Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prism
 
 **A SQL edit alone does not survive the next production deploy.** This is the single most important constraint in this runbook.
 
-`prisma/seed.ts` upserts every seeded translation from checked-in data files, and both upserts carry a live `update` branch — not `create`-only:
+`pnpm db:seed` compares every seeded translation with the checked-in data files and rewrites each row that differs, not only the missing ones (`prisma/seed-sync.ts`):
 
-- `prisma/seed.ts:3954` — `ingredientTranslation.upsert(... update: { name: et })`
-- `prisma/seed.ts:3885` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
+- `seedIngredientTranslationsEt` rewrites an `ingredient_translation` row whose `name` differs.
+- `seedMealTranslationsEt` rewrites a `meal_translation` row whose `name`, `description` or `preparationNotes` (seeded as `null`) differs.
 
-`.github/workflows/deploy-db-migrations-production.yml:81` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process runs that workflow as the `migrate` job of every production release: `deploy-production.yml` calls it before its `deploy` job, and the code does not ship when it fails. So the seed runs on every release. The sequence is:
+`.github/workflows/deploy-db-migrations-production.yml` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process runs that workflow as the `migrate` job of every production release: `deploy-production.yml` calls it before its `deploy` job, and the code does not ship when it fails. So the seed runs on every release. The sequence is:
 
 1. You fix `kikerhernes` → `kikerherned` with a scoped `UPDATE`. Users see the correct word immediately.
 2. Someone ships an unrelated feature three weeks later.
-3. The release's `migrate` job runs `pnpm db:seed`, the upsert's `update` branch rewrites the row from `prisma/seed-ingredient-translations-et.ts`, and the typo is back.
+3. The release's `migrate` job runs `pnpm db:seed`, which finds the row differs from `prisma/seed-ingredient-translations-et.ts` and rewrites it, and the typo is back.
 4. The change log still says it was fixed. Nothing reports the regression.
 
 ### So: mirror every production edit into the seed data
@@ -211,8 +211,8 @@ Until that PR merges, the fix is live but provisional. That is the trade this wo
 
 Translations are re-asserted in full. The base rows are not:
 
-- **An existing ingredient** gets only `gramsPerPiece` refreshed (`seedIngredients` in `prisma/seed.ts`). Its category, nutrition and allergens keep whatever the row first got.
-- **An existing meal** gets its description, time, `kidFriendly`, `suitableFor` and protein type refreshed (`seedMeals`). Its name and components are never touched.
+- **An existing ingredient** gets only `gramsPerPiece` (when its seed entry has the key), `measuredByVolume` and `pieceDisplay` re-asserted (`seedIngredients` in `prisma/seed-sync.ts`). Its category, nutrition and allergens keep whatever the row first got.
+- **An existing meal** gets its description, time, `kidFriendly`, `suitableFor` and protein type re-asserted (`seedMeals`). Its name and components are never touched. A changed description also clears the meal's image.
 - **Both are looked up by exact English name** among the global rows. A row whose name is no longer in the seed data is left alone, not deleted.
 
 ## Renaming a seeded ingredient or meal
@@ -239,7 +239,7 @@ So rename the row in place, in **one PR**:
 4. **Other references.** Grep `src/`, `scripts/`, `tests/` and `prisma/seed*.ts` for the old name. `src/lib/ingredient-aliases.ts` is the usual hit. Add the old name to `INGREDIENT_SYNONYMS` there, pointing at the new one: the matcher then still resolves text that uses it, and the ingredient search still finds the row by it and shows it in brackets (HON-1100). Move any `INGREDIENT_ALIASES` entry that targets the old name to the new name, and rename the member in `INGREDIENT_GROUPS` (`src/lib/household/ingredient-groups.ts`), which matches rows by exact name (HON-1343). Leave the old name in applied migrations: they are immutable, and the rename migration runs after them.
 5. **Check.** `pnpm db:validate` passes. To rehearse the deploy order, run `pnpm test:e2e:local`: it branches from staging, which still has the old row, then migrates and seeds.
 
-This works because every environment applies migrations before it seeds. `prisma migrate deploy` runs ahead of `pnpm db:seed` in `deploy-db-migrations-production.yml` and `deploy-db-migrations-staging.yml`, and in CI's E2E job, so by the time the seed looks for the new name the row already carries it. Staging re-seeds only when `prisma/seed*.ts` or the schema changed, which a rename PR always does.
+This works because every environment applies migrations before it seeds. `prisma migrate deploy` runs ahead of `pnpm db:seed` in `deploy-db-migrations-production.yml` and `deploy-db-migrations-staging.yml`, and in CI's E2E job, so by the time the seed looks for the new name the row already carries it. Staging re-seeds on every push to `main`.
 
 **If the new name already exists as a global row**, this is a merge, not a rename. For an ingredient the `UPDATE` fails on `ingredient_global_name_key`; for a meal nothing stops it, because meal names carry no unique index, and you get two global meals with one name. Check before writing the migration. A merge repoints every foreign key to the surviving id (for an ingredient: `meal_component`, `pantry_item` and `custom_shopping_item`, the first two with a unique key to collide on) and deletes the old row. Plan it as its own issue.
 

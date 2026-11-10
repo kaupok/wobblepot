@@ -120,8 +120,6 @@ export const SAMPLE_WEEKS = [
   },
 ] as const satisfies readonly SampleWeek[]
 
-export type SampleWeekSlug = (typeof SAMPLE_WEEKS)[number]['slug']
-
 /** The week at `slug`, or undefined for any other segment. */
 export function findSampleWeek(slug: string): SampleWeek | undefined {
   return SAMPLE_WEEKS.find((week) => week.slug === slug)

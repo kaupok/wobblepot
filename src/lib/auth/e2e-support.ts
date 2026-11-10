@@ -59,6 +59,13 @@ export async function findPendingResetToken(
   }
 }
 
+/** The id of the user with this email. */
+export async function findUserId(email: string): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+  if (!user) throw new E2eSupportError('userNotFound')
+  return user.id
+}
+
 /** Passes only for an account whose email still needs verifying. */
 export async function assertEmailUnverified(email: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email }, select: { emailVerified: true } })

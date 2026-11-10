@@ -284,6 +284,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: pnpm file-size:check --base "$BASE_SHA"
 
+      # Dead-code gate (HON-1622): knip fails on an unused file, export, type
+      # or dependency. Config and the reason for each exception are in
+      # knip.config.ts. A local scan of the import graph, so it sits in the
+      # cheap static job.
+      - name: Check for unused code
+        run: pnpm knip
+
       # Coverage ratchet (HON-1192): the unit job fails a run under the
       # thresholds in vitest.config.ts, but it reads the PR's own thresholds,
       # so it cannot see a PR that lowers one. This compares them with the

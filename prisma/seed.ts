@@ -6,17 +6,19 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { hashPassword } from 'better-auth/crypto'
 
 import { PrismaClient } from '../src/generated/prisma/client'
-import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
-import { MEAL_IMAGE_CLEARED } from '../src/lib/meal-images/invalidation'
 import { seedDefaultStaples } from '../src/lib/meal-planning/default-staples'
 import { asSold } from './as-sold-nutrition'
-import { isMeasuredByVolume } from './measured-by-volume'
-import { pieceDisplayFor } from './piece-display'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { newIngredients, newMeals } from './seed-expansion'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
-import { type MealTranslationEt, mealTranslationsEt } from './seed-meal-translations-et'
+import { mealTranslationsEt } from './seed-meal-translations-et'
+import {
+  seedIngredients,
+  seedIngredientTranslationsEt,
+  seedMeals,
+  seedMealTranslationsEt,
+} from './seed-sync'
 import { seedTargetLine } from './seed-target'
 import { SEED_TEST_USER_DEFAULTS } from './seed-test-user-defaults'
 import type { IngredientInput } from './seed-types'
@@ -1888,56 +1890,6 @@ const ingredients: IngredientInput[] = [
   ...importCoverageIngredients,
 ]
 
-async function seedIngredients() {
-  console.log('Seeding ingredients...')
-
-  // Seed targets the global pool (householdId: null). We can't use upsert with
-  // a single-column unique anymore — the `Ingredient.name` column has a partial
-  // unique index per household scope (see migration 20260423120000_i18n_foundation),
-  // which Prisma can't model. Manual find-then-create/update keeps the seed idempotent.
-  for (const ingredient of ingredients) {
-    const existing = await prisma.ingredient.findFirst({
-      where: { name: ingredient.name, householdId: null },
-      select: { id: true },
-    })
-
-    if (existing) {
-      await prisma.ingredient.update({
-        where: { id: existing.id },
-        data: {
-          // Update gramsPerPiece if it's defined in the seed data
-          gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
-          // Always re-derived, so a re-seed corrects a drifted row
-          measuredByVolume: isMeasuredByVolume(ingredient),
-          pieceDisplay: pieceDisplayFor(ingredient),
-        },
-      })
-    } else {
-      await prisma.ingredient.create({
-        data: {
-          name: ingredient.name,
-          category: ingredient.category,
-          subcategory: ingredient.subcategory,
-          proteinType: ingredient.proteinType ?? null,
-          defaultUnit: ingredient.defaultUnit,
-          allergens: ingredient.allergens,
-          calories: ingredient.calories,
-          protein: ingredient.protein,
-          carbs: ingredient.carbs,
-          fat: ingredient.fat,
-          fiber: ingredient.fiber,
-          gramsPerPiece: ingredient.gramsPerPiece ?? null,
-          densityGPerMl: ingredient.densityGPerMl ?? null,
-          measuredByVolume: isMeasuredByVolume(ingredient),
-          pieceDisplay: pieceDisplayFor(ingredient),
-        },
-      })
-    }
-  }
-
-  console.log(`Seeded ${ingredients.length} ingredients`)
-}
-
 // Meal data with components (ingredients + quantities per serving)
 // Components reference ingredients by name, quantities are per 1 serving
 export const baseMeals = [
@@ -3636,217 +3588,6 @@ export const baseMeals = [
 type MealInput = (typeof baseMeals)[number]
 const meals = [...baseMeals, ...(newMeals as unknown as MealInput[])]
 
-async function seedMeals() {
-  console.log('Seeding meals...')
-
-  // Map names to IDs from the global pool only, so a household row that shares a
-  // global name can never be linked into a global meal.
-  const dbIngredients = await prisma.ingredient.findMany({ where: { householdId: null } })
-  const ingredientMap = new Map(dbIngredients.map((i) => [i.name, i.id]))
-
-  let seededCount = 0
-  let skippedCount = 0
-
-  for (const meal of meals) {
-    // Check if all ingredients exist
-    const missingIngredients = meal.components
-      .map((c) => c.ingredient)
-      .filter((name) => !ingredientMap.has(name))
-
-    if (missingIngredients.length > 0) {
-      console.warn(
-        `Skipping "${meal.name}" - missing ingredients: ${missingIngredients.join(', ')}`,
-      )
-      skippedCount++
-      continue
-    }
-
-    // Check if meal already exists
-    const existingMeal = await prisma.meal.findFirst({
-      where: { name: meal.name, householdId: null },
-    })
-
-    if (existingMeal) {
-      // Update existing meal
-      await prisma.meal.update({
-        where: { id: existingMeal.id },
-        data: {
-          description: meal.description,
-          timeMinutes: meal.timeMinutes,
-          kidFriendly: meal.kidFriendly,
-          suitableFor: meal.suitableFor as Parameters<
-            typeof prisma.meal.update
-          >[0]['data']['suitableFor'],
-          primaryProteinType: meal.primaryProteinType as Parameters<
-            typeof prisma.meal.update
-          >[0]['data']['primaryProteinType'],
-          // The description feeds the meal image prompt, and this runs on
-          // every production migration deploy, so a seed edit to it would
-          // otherwise leave an illustration of the old dish (HON-734). The
-          // blob itself is left orphaned — harmless, and the seed has no
-          // Blob credentials to delete it with.
-          ...(existingMeal.description !== meal.description ? MEAL_IMAGE_CLEARED : {}),
-        },
-      })
-      seededCount++
-    } else {
-      // Create new meal with components
-      await prisma.meal.create({
-        data: {
-          name: meal.name,
-          description: meal.description,
-          timeMinutes: meal.timeMinutes,
-          kidFriendly: meal.kidFriendly,
-          suitableFor: meal.suitableFor as Parameters<
-            typeof prisma.meal.create
-          >[0]['data']['suitableFor'],
-          primaryProteinType: meal.primaryProteinType as Parameters<
-            typeof prisma.meal.create
-          >[0]['data']['primaryProteinType'],
-          householdId: null, // Global meal, not household-specific
-          components: {
-            create: meal.components.map((c) => ({
-              ingredientId: ingredientMap.get(c.ingredient)!,
-              quantityPerServing: c.quantity,
-            })),
-          },
-        },
-      })
-      seededCount++
-    }
-  }
-
-  console.log(`Seeded ${seededCount} meals (${skippedCount} skipped)`)
-}
-
-async function seedMealTranslationsEt() {
-  console.log('Seeding meal translations (et)...')
-
-  // Index translations by their English meal name. Meal names are matched
-  // EXACTLY (not normalized like ingredient keys): the name is the seed's
-  // identity for a meal, and two meals such as "Shepherd's Pie" (beef, in
-  // seed.ts) and "Lamb Shepherd's Pie" (lamb, in seed-expansion.ts) must never
-  // share a key. Until HON-1046 the lamb one differed from the beef one only
-  // by punctuation; `pnpm db:validate` now rejects names that share a slug. A
-  // duplicate enName is therefore a hard error.
-  const byName = new Map<string, MealTranslationEt['et']>()
-  for (const entry of mealTranslationsEt) {
-    if (byName.has(entry.enName)) {
-      throw new Error(`Duplicate et meal translation entry for "${entry.enName}"`)
-    }
-    byName.set(entry.enName, entry.et)
-  }
-
-  // Reconcile against the LIVE global meal set rather than iterating the
-  // translation array: every seeded global Meal must end up with an `et` row,
-  // so a missing translation is a hard failure. This is the guard that would
-  // have caught the apostrophe/spacing drift behind HON-546 — a seeded meal
-  // silently rendering its English name to `et` households — before it shipped.
-  // Mirrors seedIngredientTranslationsEt's "every row" enforcement.
-  const globals = await prisma.meal.findMany({
-    where: { householdId: null },
-    select: { id: true, name: true },
-  })
-
-  const missing: string[] = []
-  let seededCount = 0
-
-  for (const meal of globals) {
-    const et = byName.get(meal.name)
-    if (!et) {
-      missing.push(meal.name)
-      continue
-    }
-
-    await prisma.mealTranslation.upsert({
-      where: { mealId_locale: { mealId: meal.id, locale: 'et' } },
-      create: {
-        mealId: meal.id,
-        locale: 'et',
-        name: et.name,
-        description: et.description,
-        // preparationNotes is intentionally null for every seeded meal: seeded
-        // meals carry no English prep notes either, and the meal-detail prep
-        // section is driven by the AI preparation-tips feature (HON-523). The
-        // field is reserved for user-authored notes, which keep their
-        // creator-time locale per the HON-499 content principle.
-        // (HON-546 item 4 — confirmed intentional, nothing to translate.)
-        preparationNotes: null,
-      },
-      update: {
-        name: et.name,
-        description: et.description,
-        preparationNotes: null,
-      },
-    })
-
-    seededCount++
-  }
-
-  if (missing.length > 0) {
-    const preview = missing.slice(0, 20).join(', ')
-    const suffix = missing.length > 20 ? `, …(+${missing.length - 20} more)` : ''
-    throw new Error(
-      `Missing et translation for ${missing.length} seeded meal(s): ${preview}${suffix}`,
-    )
-  }
-
-  console.log(`Seeded ${seededCount} meal translations (et)`)
-}
-
-async function seedIngredientTranslationsEt() {
-  console.log('Seeding ingredient translations (et)...')
-
-  // Build a normalized English-name → Estonian lookup. Keying on the normalized
-  // name (not the raw string) guards against the apostrophe/spacing drift that
-  // silently dropped meal rows in HON-507. See normalizeIngredientKey.
-  const byKey = new Map<string, string>()
-  for (const entry of ingredientTranslationsEt) {
-    const key = normalizeIngredientKey(entry.en)
-    if (byKey.has(key)) {
-      throw new Error(`Duplicate et ingredient translation entry for "${entry.en}"`)
-    }
-    byKey.set(key, entry.et)
-  }
-
-  // Reconcile against the LIVE global ingredient set rather than iterating the
-  // translation array: every seeded global Ingredient must end up with an `et`
-  // row, so a missing translation is a hard failure (proves the "every row" AC).
-  const globals = await prisma.ingredient.findMany({
-    where: { householdId: null },
-    select: { id: true, name: true },
-  })
-
-  const missing: string[] = []
-  let seededCount = 0
-
-  for (const ingredient of globals) {
-    const et = byKey.get(normalizeIngredientKey(ingredient.name))
-    if (!et) {
-      missing.push(ingredient.name)
-      continue
-    }
-
-    await prisma.ingredientTranslation.upsert({
-      where: { ingredientId_locale: { ingredientId: ingredient.id, locale: 'et' } },
-      create: { ingredientId: ingredient.id, locale: 'et', name: et },
-      update: { name: et },
-    })
-
-    seededCount++
-  }
-
-  if (missing.length > 0) {
-    const preview = missing.slice(0, 20).join(', ')
-    const suffix = missing.length > 20 ? `, …(+${missing.length - 20} more)` : ''
-    throw new Error(
-      `Missing et translation for ${missing.length} global ingredient(s): ${preview}${suffix}`,
-    )
-  }
-
-  console.log(`Seeded ${seededCount} ingredient translations (et)`)
-}
-
 // ============================================
 // E2E TEST USER SEEDING
 // ============================================
@@ -4017,10 +3758,10 @@ async function seedTestUsers() {
 }
 
 async function main() {
-  await seedIngredients()
-  await seedMeals()
-  await seedMealTranslationsEt()
-  await seedIngredientTranslationsEt()
+  await seedIngredients(prisma, ingredients)
+  await seedMeals(prisma, meals)
+  await seedMealTranslationsEt(prisma, mealTranslationsEt)
+  await seedIngredientTranslationsEt(prisma, ingredientTranslationsEt)
   await seedTestUsers()
 }
 

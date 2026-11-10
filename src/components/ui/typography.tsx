@@ -5,21 +5,7 @@ import { cn } from '@/lib/utils'
 
 // Variant type exports for type reusability
 export type HeadingVariant = 'hero' | 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'
-export type HeadingFace = 'default' | 'brand'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
-export type BodyVariant =
-  | 'default'
-  | 'lead'
-  | 'large'
-  | 'small'
-  | 'paragraph'
-  | 'muted'
-  | 'caption'
-  | 'fine-print'
-  | 'figure'
-  | 'figure-small'
-  | 'step'
-  | 'step-small'
 export type ListVariant = 'default' | 'plain' | 'steps'
 export type BodyTone = 'default' | 'muted' | 'destructive' | 'success' | 'warning' | 'info'
 

@@ -242,16 +242,6 @@ export async function signOut(page: Page): Promise<void> {
 }
 
 /**
- * Waits for a dialog to be visible and animation to complete
- * Radix dialogs transition to data-state="open" when fully visible
- */
-export async function waitForDialog(page: Page): Promise<void> {
-  const dialog = page.getByRole('dialog')
-  await expect(dialog).toBeVisible()
-  await expect(dialog).toHaveAttribute('data-state', 'open')
-}
-
-/**
  * Complete sign up and onboarding flow
  * Returns the user credentials
  */

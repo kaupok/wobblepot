@@ -185,7 +185,9 @@ with `NEXT_PUBLIC_APP_ENV=production` from a dev machine.
 
 Templates live in [`src/lib/emails/`](../src/lib/emails/) and render in the
 recipient's household locale, with their copy in the `emails` namespace of
-`messages/{en,et}.json`. `breach-notification.ts` is English-only by design. How
+`messages/{en,et}.json`. `breach-notification.ts` localizes its fixed copy; the
+operator writes `summary`, `impact` and `remediation` once per locale (see
+[RUNBOOKS/breach-notification.md](./RUNBOOKS/breach-notification.md)). How
 the locale is resolved and how a missing key degrades:
 [LOCALIZATION.md → Transactional email](./LOCALIZATION.md#transactional-email).
 
