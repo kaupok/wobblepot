@@ -14,11 +14,15 @@ import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
  * Bucket → `dates.urgency` key. Exported so the clipboard export in
  * `ShoppingSection` reuses it rather than re-declaring the mapping.
  */
-export const URGENCY_KEYS: Record<UrgencyBucket, 'today' | 'tomorrow' | 'thisWeek' | 'later'> = {
+export const URGENCY_KEYS: Record<
+  UrgencyBucket,
+  'today' | 'tomorrow' | 'thisWeek' | 'later' | 'staples'
+> = {
   today: 'today',
   tomorrow: 'tomorrow',
   'this-week': 'thisWeek',
   later: 'later',
+  staples: 'staples',
 }
 
 interface UrgencyGroupProps {

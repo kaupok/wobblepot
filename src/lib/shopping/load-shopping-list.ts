@@ -4,13 +4,20 @@ import { getTranslations } from 'next-intl/server'
 
 import {
   calendarDaysBetween,
+  type DatesTranslator,
   formatAbsoluteDate,
   formatRelativeDate,
 } from '@/lib/i18n/format-dates'
 import { formatShoppingLineQuantity } from '@/lib/i18n/format-piece-quantity'
 import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import type { Locale } from '@/lib/i18n/locales'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import {
+  compareNeededBy,
+  getTodayInTimezone,
+  parseLocalDate,
+  toDateString,
+} from '@/lib/meal-planning/dates'
 import {
   computeRollingWindowShoppingList,
   computeShoppingList,
@@ -157,17 +164,7 @@ export async function loadShoppingList(
             ),
         mealCount: item.mealCount,
         purchased,
-        neededByDate: toDateString(item.earliestNeededDate),
-        neededByRelative: formatRelativeDate(item.earliestNeededDate, locale, tDates, {
-          referenceDate: todayInTz,
-          timeZone: household.timezone,
-        }),
-        neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate, locale, {
-          timeZone: household.timezone,
-        }),
-        // Same reference day as `neededByRelative`, so the warning colour and
-        // the "Today" label cannot disagree (HON-762). Overdue counts as today.
-        dueToday: calendarDaysBetween(todayInTz, item.earliestNeededDate, household.timezone) <= 0,
+        ...neededByFields(item.earliestNeededDate, locale, tDates, todayInTz, household.timezone),
         // Same condition as `formatShoppingQuantity`: true only when
         // `displayQuantity` is the phrase, not a formatted amount (HON-783).
         isVague: item.isVague && !!item.originalPhrase,
@@ -181,7 +178,7 @@ export async function loadShoppingList(
         return a.purchased ? 1 : -1
       }
       // Within same purchase status, sort by date (earliest first)
-      return a.neededByDate.localeCompare(b.neededByDate)
+      return compareNeededBy(a.neededByDate, b.neededByDate)
     })
 
     return {
@@ -360,16 +357,7 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
             ),
         mealCount: item.mealCount,
         purchased,
-        neededByDate: toDateString(item.earliestNeededDate),
-        neededByRelative: formatRelativeDate(item.earliestNeededDate, locale, tDates, {
-          referenceDate: todayInTz,
-          timeZone: household.timezone,
-        }),
-        neededByAbsolute: formatAbsoluteDate(item.earliestNeededDate, locale, {
-          timeZone: household.timezone,
-        }),
-        // Same reference day as `neededByRelative` (HON-762).
-        dueToday: calendarDaysBetween(todayInTz, item.earliestNeededDate, household.timezone) <= 0,
+        ...neededByFields(item.earliestNeededDate, locale, tDates, todayInTz, household.timezone),
         isVague: item.isVague,
       }
     })
@@ -379,7 +367,7 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
       if (a.purchased !== b.purchased) {
         return a.purchased ? 1 : -1
       }
-      return a.neededByDate.localeCompare(b.neededByDate)
+      return compareNeededBy(a.neededByDate, b.neededByDate)
     })
 
     return {
@@ -398,5 +386,39 @@ export async function loadPlanShoppingList(household: ShoppingListHousehold, pla
       purchasedItems,
       remainingItems: totalItems - purchasedItems,
     },
+  }
+}
+
+interface NeededByFields {
+  neededByDate: string | null
+  neededByRelative: string | null
+  neededByAbsolute: string | null
+  dueToday: boolean
+}
+
+/**
+ * A line's needed-by fields. A staple no planned meal needs has no date
+ * (HON-1647), so it has no label and is not due today.
+ */
+function neededByFields(
+  date: Date | null,
+  locale: Locale,
+  tDates: DatesTranslator,
+  todayInTz: Date,
+  timeZone: string,
+): NeededByFields {
+  if (date === null) {
+    return { neededByDate: null, neededByRelative: null, neededByAbsolute: null, dueToday: false }
+  }
+  return {
+    neededByDate: toDateString(date),
+    neededByRelative: formatRelativeDate(date, locale, tDates, {
+      referenceDate: todayInTz,
+      timeZone,
+    }),
+    neededByAbsolute: formatAbsoluteDate(date, locale, { timeZone }),
+    // Same reference day as `neededByRelative`, so the warning colour and the
+    // "Today" label cannot disagree (HON-762). Overdue counts as today.
+    dueToday: calendarDaysBetween(todayInTz, date, timeZone) <= 0,
   }
 }

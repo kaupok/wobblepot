@@ -259,9 +259,10 @@ export const TodayOnly: Story = {
   },
 }
 
-// A staple the household marked ran out (HON-1398): with no amount "Ran out"
-// stands alone; with a planned need it follows the amount, as muted text, not
-// a badge (HON-1638).
+// A staple the household marked ran out (HON-1398): with no planned need it
+// has no amount and no date, so "Ran out" stands alone under Staples
+// (HON-1647); with a planned need it follows the amount in its day, as muted
+// text, not a badge (HON-1638).
 export const RanOutStaples: Story = {
   args: {
     items: [
@@ -269,6 +270,9 @@ export const RanOutStaples: Story = {
         ingredientId: 'greek-yoghurt',
         name: 'Greek yoghurt',
         displayQuantity: '',
+        neededByDate: null,
+        neededByRelative: null,
+        urgency: 'staples',
         restock: true,
       }),
       createUrgentShoppingItem({
@@ -280,7 +284,7 @@ export const RanOutStaples: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    await expectDayGroups(canvasElement, ['Today'])
+    await expectDayGroups(canvasElement, ['Today', 'Staples'])
     const canvas = within(canvasElement)
     await expect(canvas.getByText('Ran out')).toBeVisible()
     await expect(canvas.getByText('6 pc · Ran out')).toBeVisible()
@@ -351,6 +355,32 @@ export const AllDone: Story = {
     await expect(
       within(canvasElement).getByText('Nothing on the list for today or tomorrow'),
     ).toBeVisible()
+  },
+}
+
+/**
+ * Only a staple to restock that no planned meal needs (HON-1647): the panel
+ * lists it under Staples rather than the empty line, and links to the list.
+ */
+export const StaplesOnly: Story = {
+  args: {
+    items: [
+      createUrgentShoppingItem({
+        ingredientId: 'red-lentils',
+        name: 'Red lentils',
+        displayQuantity: '',
+        neededByDate: null,
+        neededByRelative: null,
+        urgency: 'staples',
+        restock: true,
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('list', { name: 'Staples' })).toBeVisible()
+    await expect(canvas.queryByText('Nothing on the list for today or tomorrow')).toBeNull()
+    await expectContinuationRow(canvasElement, 'View full list')
   },
 }
 

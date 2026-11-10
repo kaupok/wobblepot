@@ -31,8 +31,9 @@ interface ShoppingItem {
   ingredientId: string
   name: string
   displayQuantity: string
-  neededByDate: string
-  neededByRelative: string
+  /** Null for a staple to restock that no planned meal needs (HON-1647). */
+  neededByDate: string | null
+  neededByRelative: string | null
   purchased: boolean
   urgency: UrgencyBucket
   restock?: boolean

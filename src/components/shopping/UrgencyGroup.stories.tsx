@@ -164,7 +164,7 @@ export const Mixed: Story = {
     a11y: inactiveStateA11y,
     docs: {
       description: {
-        story: 'All four urgency buckets stacked — used for visual review of the full ordering.',
+        story: 'Every urgency bucket stacked — used for visual review of the full ordering.',
       },
     },
   },
@@ -178,6 +178,7 @@ export const Mixed: Story = {
         onToggleItem={fn()}
       />
       <UrgencyGroup bucket="later" items={shoppingItemsByUrgency.later} onToggleItem={fn()} />
+      <UrgencyGroup bucket="staples" items={shoppingItemsByUrgency.staples} onToggleItem={fn()} />
     </div>
   ),
 }

@@ -82,7 +82,7 @@ describe('a staple marked ran out, in the rolling-window list', () => {
     expect(Object.keys(items).sort()).toEqual(['ing-beans', 'ing-eggs', 'ing-yoghurt'])
   })
 
-  it('gives a staple nothing planned needs one line with no amount', async () => {
+  it('gives a staple nothing planned needs one line with no amount and no date (HON-1647)', async () => {
     const { alder } = await world()
 
     const list = await loadShoppingList(alder, { days: 7 })
@@ -95,8 +95,10 @@ describe('a staple marked ran out, in the rolling-window list', () => {
       mealCount: 0,
       restock: true,
       purchased: false,
-      neededByDate: '2026-10-15',
-      dueToday: true,
+      neededByDate: null,
+      neededByRelative: null,
+      neededByAbsolute: null,
+      dueToday: false,
     })
     // In its own category: yoghurt under Dairy.
     expect(
@@ -190,7 +192,7 @@ describe('a staple marked ran out, in the per-plan list', () => {
       displayQuantity: '',
       mealCount: 0,
       restock: true,
-      neededByDate: '2026-10-15',
+      neededByDate: null,
     })
   })
 })
@@ -240,7 +242,8 @@ describe('a starred frozen bag beside the fresh vegetable', () => {
       name: 'frozen green beans',
       quantity: 0,
       restock: true,
-      dueToday: true,
+      neededByDate: null,
+      dueToday: false,
     })
   })
 })

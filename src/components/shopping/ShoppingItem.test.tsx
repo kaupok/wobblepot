@@ -103,6 +103,17 @@ describe('ShoppingItem', () => {
     expect(screen.getByText('500g')).toBeInTheDocument()
   })
 
+  it('shows no due label and no tooltip for a staple with no date (HON-1647)', () => {
+    const { container } = render(
+      <ShoppingItem
+        item={{ ...ranOutItem, neededByDate: null, neededByRelative: null, neededByAbsolute: null }}
+        onToggle={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Greek yoghurt')).toBeInTheDocument()
+    expect(container.querySelector('[data-slot="tooltip-trigger"]')).toBeNull()
+  })
+
   it('renders checkbox with correct aria-label for unpurchased item', () => {
     render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
     expect(

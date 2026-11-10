@@ -15,8 +15,9 @@ interface ShoppingItem {
   ingredientId: string
   name: string
   displayQuantity: string
-  neededByDate: string
-  neededByRelative: string
+  /** Null for a staple to restock that no planned meal needs (HON-1647). */
+  neededByDate: string | null
+  neededByRelative: string | null
   purchased: boolean
   urgency: UrgencyBucket
   /** A staple the household marked ran out (HON-1398); it can have no amount. */
@@ -55,6 +56,13 @@ const NO_CHECK: PantryCheckRow[] = []
 
 // The two days the panel covers, in the order they are listed.
 const URGENT_DAYS = ['today', 'tomorrow'] as const
+// The panel's groups: the two days, then the staples to restock that no
+// planned meal needs, which have no date (HON-1647).
+const PANEL_GROUPS = [...URGENT_DAYS, 'staples'] as const
+type PanelGroup = (typeof PANEL_GROUPS)[number]
+
+const isPanelGroup = (urgency: UrgencyBucket): urgency is PanelGroup =>
+  (PANEL_GROUPS as readonly UrgencyBucket[]).includes(urgency)
 
 // The shopping list Today loads (`src/app/page.tsx`, `days: 7`).
 const WINDOW_DAYS = 7
@@ -64,20 +72,24 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
  * What lies past the panel's cut, for the row that closes it (HON-928):
  * `count` is the unpurchased items due after tomorrow, and `days` runs from
  * the household's today through the latest day any unpurchased item is
- * needed, inclusive, capped at the 7-day window. Counted from `todayDate`
+ * needed, inclusive, capped at the 7-day window. An undated staple (HON-1647)
+ * is in neither: the panel lists it. Counted from `todayDate`
  * rather than `new Date()`, which is the server's or browser's day (HON-762).
  */
 export function getLaterItemsSummary(
   items: Pick<ShoppingItem, 'neededByDate' | 'purchased' | 'urgency'>[],
   todayDate: string,
 ): { count: number; days: number } {
-  const unpurchased = items.filter((item) => !item.purchased)
-  const count = unpurchased.filter(
+  const dated = items.filter(
+    (item): item is typeof item & { neededByDate: string } =>
+      !item.purchased && item.neededByDate !== null,
+  )
+  const count = dated.filter(
     (item) => item.urgency !== 'today' && item.urgency !== 'tomorrow',
   ).length
   // ISO dates compare as strings. Starting from today keeps `days` at least 1
   // when every item is overdue.
-  const latest = unpurchased.reduce(
+  const latest = dated.reduce(
     (max, item) => (item.neededByDate > max ? item.neededByDate : max),
     todayDate,
   )
@@ -103,14 +115,13 @@ export function UrgentShopping({
   const labelId = useId()
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
-  // Filter to only today and tomorrow items, sorted by urgency (today first)
+  // Filter to the panel's groups, sorted by group (today first, staples last)
   const urgentItems = useMemo(() => {
     return items
-      .filter((item) => item.urgency === 'today' || item.urgency === 'tomorrow')
+      .filter((item): item is ShoppingItem & { urgency: PanelGroup } => isPanelGroup(item.urgency))
       .sort((a, b) => {
-        // Today items come first
-        if (a.urgency === 'today' && b.urgency !== 'today') return -1
-        if (a.urgency !== 'today' && b.urgency === 'today') return 1
+        const byGroup = PANEL_GROUPS.indexOf(a.urgency) - PANEL_GROUPS.indexOf(b.urgency)
+        if (byGroup !== 0) return byGroup
         // Within same urgency, sort by name. Collate in the app locale: a bare
         // `localeCompare` resolves the runtime's default locale, which is
         // `en-US` on the server and the browser's language on the client —
@@ -143,13 +154,15 @@ export function UrgentShopping({
   // over the next 5 days" under the empty line, and "View full list" when
   // nothing is due past tomorrow: the full list is the only place to check
   // items off, so the panel links there while anything is on it, custom items
-  // included.
+  // included. `hasUrgent` is today's and tomorrow's lines, which the phone
+  // form counts; `hasRows` adds the undated staples the full panel lists.
   const later = getLaterItemsSummary(items, todayDate)
-  const hasUrgent = unpurchasedItems.length > 0
+  const hasUrgent = unpurchasedItems.some((item) => item.urgency !== 'staples')
+  const hasRows = unpurchasedItems.length > 0
   const continuationLabel =
     later.count > 0
-      ? tToday(hasUrgent ? 'moreForDays' : 'toBuyForDays', later)
-      : hasUrgent || openCustomItemCount > 0
+      ? tToday(hasRows ? 'moreForDays' : 'toBuyForDays', later)
+      : hasRows || openCustomItemCount > 0
         ? tToday('viewFullList')
         : null
   // The list's last line, so it looks like one: muted text at the items' size,
@@ -172,9 +185,9 @@ export function UrgentShopping({
     </div>
   )
 
-  // Nothing to buy today or tomorrow: a plain card with the empty line rather
-  // than the note.
-  const isEmpty = !hasUrgent
+  // Nothing to buy today or tomorrow, and no staple to restock: a plain card
+  // with the empty line rather than the note.
+  const isEmpty = !hasRows
 
   // The phone form has no item list, so the "Need 2 for today, 1 for
   // tomorrow" line is the whole message; the full panel says the same through
@@ -208,14 +221,13 @@ export function UrgentShopping({
   // would have no heading of its own above it, and would read in the outline as
   // part of the meal day (`h2`) beside it. The list is named by the label
   // instead.
-  const groups = URGENT_DAYS.map((urgency) => ({
+  const groups = PANEL_GROUPS.map((urgency) => ({
     urgency,
     items: unpurchasedItems.filter((item) => item.urgency === urgency),
   })).filter((group) => group.items.length > 0)
 
   const toBuyContent = (
     <div className="flex flex-col gap-4">
-      {!hasUrgent && emptyLine}
       {groups.map((group) => (
         <div key={group.urgency} className="flex flex-col gap-2">
           <Heading variant="caption" as="p" id={`${labelId}-${group.urgency}`}>

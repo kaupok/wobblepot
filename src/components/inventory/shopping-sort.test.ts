@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 
-vi.mock('@/lib/meal-planning/dates', () => ({
+vi.mock('@/lib/meal-planning/dates', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-planning/dates')>()),
   // Bucket by a marker embedded in the date string so tests stay date-independent.
-  getUrgencyBucket: (date: string) => date.split('|')[1] ?? 'later',
+  getUrgencyBucket: (date: string | null) =>
+    date === null ? 'staples' : (date.split('|')[1] ?? 'later'),
 }))
 
 import {
@@ -19,7 +21,10 @@ import {
 
 function item(
   name: string,
-  { neededByDate = '2026-02-18|later', purchased = false } = {},
+  {
+    neededByDate = '2026-02-18|later' as string | null,
+    purchased = false,
+  }: { neededByDate?: string | null; purchased?: boolean } = {},
 ): ShoppingItemData {
   return {
     ingredientId: name.toLowerCase(),
@@ -77,18 +82,15 @@ describe('buildUrgencyGroups', () => {
     expect(groups[0]!.items.map((i) => i.name)).toEqual(['Today thing'])
   })
 
-  it('puts a ran-out staple, needed today, in Today', () => {
+  it('puts an undated staple in a Staples group after the dated ones (HON-1647)', () => {
     const groups = buildUrgencyGroups([
+      { ...item('Red lentils', { neededByDate: null }), displayQuantity: '', restock: true },
       item('Later thing', { neededByDate: '2026-03-01|later' }),
-      {
-        ...item('Greek yoghurt', { neededByDate: '2026-02-16|today' }),
-        displayQuantity: '',
-        restock: true,
-      },
+      item('Today thing', { neededByDate: '2026-02-16|today' }),
     ])
 
-    expect(groups.map((g) => g.bucket)).toEqual(['today', 'later'])
-    expect(groups[0]!.items.map((i) => i.name)).toEqual(['Greek yoghurt'])
+    expect(groups.map((g) => g.bucket)).toEqual(['today', 'later', 'staples'])
+    expect(groups[2]!.items.map((i) => i.name)).toEqual(['Red lentils'])
   })
 
   it('sorts by needed-by date within a bucket', () => {

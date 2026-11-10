@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import { act } from 'react'
+import { act, type ComponentProps } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 
@@ -20,7 +20,9 @@ vi.mock('@/components/inventory/PantryCheckList', () => ({ PantryCheckList: () =
 
 const TODAY = '2026-09-22'
 
-function item(name: string, urgency: UrgencyBucket = 'today', neededByDate = TODAY) {
+type Row = ComponentProps<typeof UrgentShopping>['items'][number]
+
+function item(name: string, urgency: UrgencyBucket = 'today', neededByDate = TODAY): Row {
   return {
     ingredientId: name.toLowerCase(),
     name,
@@ -29,6 +31,17 @@ function item(name: string, urgency: UrgencyBucket = 'today', neededByDate = TOD
     neededByRelative: urgency === 'today' ? 'Today' : 'Tomorrow',
     purchased: false,
     urgency,
+  }
+}
+
+/** A staple marked ran out that no planned meal needs: no date (HON-1647). */
+function staple(name: string): Row {
+  return {
+    ...item(name, 'staples'),
+    displayQuantity: '',
+    neededByDate: null,
+    neededByRelative: null,
+    restock: true,
   }
 }
 
@@ -202,6 +215,65 @@ describe('UrgentShopping', () => {
       expect(screen.getByText('Nothing on the list for today or tomorrow')).toBeInTheDocument()
       expect(screen.queryByText(/all set/i)).not.toBeInTheDocument()
       expect(container.querySelector('svg')).toBeNull()
+    })
+  })
+
+  describe('a staple that no planned meal needs (HON-1647)', () => {
+    function renderPanel(input: Row[], compact = false) {
+      return render(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <UrgentShopping items={input} todayDate={TODAY} compact={compact} />
+        </NextIntlClientProvider>,
+      )
+    }
+
+    it('lists an undated staple alone under "Staples", not the empty line', () => {
+      renderPanel([staple('Red lentils')])
+
+      expect(
+        within(screen.getByRole('list', { name: 'Staples' }))
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual(['Red lentilsRan out'])
+      expect(screen.queryByText('Nothing on the list for today or tomorrow')).toBeNull()
+      expect(screen.getByRole('link')).toHaveAccessibleName('View full list')
+    })
+
+    it('reads "Plus 1 more" under a listed staple, not the empty-panel wording', () => {
+      renderPanel([staple('Red lentils'), item('Rice', 'this-week', '2026-09-24')])
+
+      expect(screen.getByRole('link')).toHaveAccessibleName('Plus 1 more for the next 3 days')
+    })
+
+    it('lists the Staples group after Today', () => {
+      renderPanel([staple('Red lentils'), item('Apple')])
+
+      expect(
+        screen.getAllByRole('list').map((list) => list.getAttribute('aria-labelledby')),
+      ).toEqual([expect.stringMatching(/-today$/), expect.stringMatching(/-staples$/)])
+    })
+
+    it('reads "View full list", not "Plus 1 more", beside one Today item', () => {
+      renderPanel([item('Apple'), staple('Red lentils')])
+
+      expect(screen.getByRole('link')).toHaveAccessibleName('View full list')
+    })
+
+    it('counts no undated staple past the cut, and keeps the days at 1', () => {
+      expect(getLaterItemsSummary([item('Apple'), staple('Red lentils')], TODAY)).toEqual({
+        count: 0,
+        days: 1,
+      })
+    })
+
+    it('leaves the staple out of the phone summary', () => {
+      renderPanel([item('Apple'), staple('Red lentils')], true)
+
+      expect(screen.getByText('Need 1 for today')).toBeInTheDocument()
+    })
+
+    it('renders no phone form for undated staples alone', () => {
+      expect(renderPanel([staple('Red lentils')], true).container).toBeEmptyDOMElement()
     })
   })
 

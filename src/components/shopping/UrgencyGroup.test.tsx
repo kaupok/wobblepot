@@ -46,6 +46,29 @@ describe('UrgencyGroup', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Later 2' })).toBeInTheDocument()
   })
 
+  it('heads the undated staples "Staples" (HON-1647)', () => {
+    render(
+      <UrgencyGroup
+        bucket="staples"
+        items={[
+          {
+            ingredientId: 'ing-lentils',
+            name: 'Red lentils',
+            displayQuantity: '',
+            purchased: false,
+            neededByDate: null,
+            neededByRelative: null,
+            neededByAbsolute: null,
+            restock: true,
+          },
+        ]}
+        onToggleItem={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('heading', { level: 3, name: 'Staples 1' })).toBeInTheDocument()
+    expect(screen.getByText('Red lentils')).toBeInTheDocument()
+  })
+
   it('shows purchase progress when some items are purchased', () => {
     render(<UrgencyGroup bucket="today" items={items} onToggleItem={vi.fn()} />)
     expect(screen.getByText('1/2')).toBeInTheDocument()

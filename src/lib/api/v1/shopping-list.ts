@@ -27,7 +27,12 @@ export const shoppingListOutputSchema = z.object({
       unit: z.string(),
       displayQuantity: z.string(),
       category: z.string(),
-      neededBy: z.iso.date(),
+      neededBy: z.iso
+        .date()
+        .nullable()
+        .describe(
+          'The first day a planned meal needs it, or null for a staple to restock that no planned meal needs.',
+        ),
       purchased: z.boolean(),
       restock: z
         .boolean()

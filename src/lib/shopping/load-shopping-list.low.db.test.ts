@@ -89,7 +89,7 @@ describe('a row marked running low', () => {
       mealCount: 0,
       low: true,
       purchased: false,
-      neededByDate: '2026-10-15',
+      neededByDate: null,
     })
   })
 
@@ -104,7 +104,12 @@ describe('a row marked running low', () => {
       low: true,
       purchased: false,
     })
-    expect(items['ing-rice']).toMatchObject({ displayQuantity: '', low: true, purchased: false })
+    expect(items['ing-rice']).toMatchObject({
+      displayQuantity: '',
+      low: true,
+      purchased: false,
+      neededByDate: null,
+    })
     expect(items['ing-tahini']).toBeUndefined()
   })
 })

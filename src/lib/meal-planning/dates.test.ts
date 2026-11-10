@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  compareNeededBy,
   getStartOfTodayInTimezone,
   getTodayInTimezone,
   getUrgencyBucket,
@@ -159,7 +160,21 @@ describe('dates utilities', () => {
     })
   })
 
+  describe('compareNeededBy', () => {
+    it('orders dates earliest first, with an undated staple last (HON-1647)', () => {
+      expect(['2026-01-21', null, '2026-01-20'].sort(compareNeededBy)).toEqual([
+        '2026-01-20',
+        '2026-01-21',
+        null,
+      ])
+    })
+  })
+
   describe('getUrgencyBucket', () => {
+    it('returns "staples" for a staple with no date (HON-1647)', () => {
+      expect(getUrgencyBucket(null, new Date('2026-01-20'))).toBe('staples')
+    })
+
     it('returns "today" for same day', () => {
       const reference = new Date('2026-01-20') // Tuesday
       expect(getUrgencyBucket('2026-01-20', reference)).toBe('today')

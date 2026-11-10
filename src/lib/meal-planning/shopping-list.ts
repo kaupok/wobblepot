@@ -49,7 +49,8 @@ export interface ShoppingListItem {
   pantryQuantity: number | null // What's in pantry (null = have some)
   shoppingQuantity: number // What to buy (0 = don't need)
   mealCount: number // Number of meals using this ingredient
-  earliestNeededDate: Date // Earliest date this ingredient is needed
+  /** Earliest date a planned need has it; null for a staple nothing planned needs (HON-1647). */
+  earliestNeededDate: Date | null
   isVague: boolean // True if any component contributing to this item was vague
   originalPhrase: string | null // The vague phrase if isVague is true
   /** A staple the household marked ran out (HON-1398). With `shoppingQuantity` 0, the line has no amount. */
@@ -137,8 +138,11 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
     result.push({
       category,
       categoryLabel: categoryConfig[category].label,
+      // An undated staple (HON-1647) sorts after the dated lines.
       items: categoryItems.sort(
-        (a, b) => a.earliestNeededDate.getTime() - b.earliestNeededDate.getTime(),
+        (a, b) =>
+          (a.earliestNeededDate?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+          (b.earliestNeededDate?.getTime() ?? Number.MAX_SAFE_INTEGER),
       ),
     })
   }
@@ -342,7 +346,7 @@ export async function computeShoppingList(
   )
 
   // 4. Deduct the pantry (staples, ran-out items) from the need
-  const { lines } = await pantryShoppingLines(needed, householdId, locale, startOfToday)
+  const { lines } = await pantryShoppingLines(needed, householdId, locale)
 
   // 5. Group by category
   return groupByCategory(lines)
@@ -491,7 +495,7 @@ export async function computeRollingWindowShoppingList(
   )
 
   // 4. Deduct the pantry (staples, ran-out items) from the need
-  const { lines, check } = await pantryShoppingLines(needed, householdId, locale, startOfToday)
+  const { lines, check } = await pantryShoppingLines(needed, householdId, locale)
 
   // Calculate actual end date for display (last day of window, inclusive)
   const displayEndDate = new Date(startOfToday)
