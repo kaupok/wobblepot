@@ -12,7 +12,10 @@ const meta = {
     variant: { control: 'select', options: ['default', 'outline'] },
     tone: { control: 'select', options: ['default', 'success', 'destructive', 'primary'] },
     shape: { control: 'select', options: ['default', 'circle'] },
-    size: { control: 'select', options: ['default', 'sm', 'sm-touch', 'lg', 'chip', 'badge'] },
+    size: {
+      control: 'select',
+      options: ['default', 'sm', 'sm-touch', 'xs-touch', 'lg', 'chip', 'badge'],
+    },
     indicator: { control: 'boolean' },
     pressed: { control: 'boolean' },
     disabled: { control: 'boolean' },
@@ -154,6 +157,29 @@ export const SmallTouch: Story = {
     await expect(toggle.getBoundingClientRect().height).toBe(32)
     await expect(getComputedStyle(toggle, '::after').top).toBe('-6px')
     await expect(getComputedStyle(toggle, '::after').bottom).toBe('-6px')
+  },
+}
+
+/**
+ * `xs-touch`: the compact 28px toggle for a 3-part control in a narrow column
+ * (the pantry stock control, HON-1637). Its `::after` reaches 8px above and
+ * below, so the target is 44px tall.
+ */
+export const XsTouch: Story = {
+  args: {
+    size: 'xs-touch',
+    indicator: true,
+    pressed: true,
+    'aria-label': 'Low',
+    children: 'Low',
+  },
+  play: async ({ canvasElement }) => {
+    const toggle = within(canvasElement).getByRole('button')
+    await expect(toggle.getBoundingClientRect().height).toBe(28)
+    await expect(getComputedStyle(toggle, '::after').top).toBe('-8px')
+    await expect(getComputedStyle(toggle, '::after').bottom).toBe('-8px')
+    const check = toggle.querySelector('[data-slot="toggle-indicator"]')
+    await expect(check?.getBoundingClientRect().height).toBe(14)
   },
 }
 

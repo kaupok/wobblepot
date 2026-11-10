@@ -101,7 +101,7 @@ export const LowEstonianPhone: Story = {
     docs: {
       description: {
         story:
-          'Estonian on a phone: Olemas · Vähe · Otsas on one line under the name, and "Lisa kogus" on the right, before Remove. A long name on a row with only Remove on the right (a staple, a Ran out row) wraps on at most two lines. Each part is a 32px box whose `::after` reaches 6px above and below it, so the target is 44px.',
+          'Estonian on a phone: Olemas · Vähe · Otsas on one line under the name, and "Lisa kogus" on the right, before Remove. A long name on a row with only Remove on the right (a staple, a Ran out row) wraps on at most two lines. Each part is a 28px `xs-touch` box whose `::after` reaches 8px above and below it, so the target is 44px.',
       },
     },
   },
@@ -109,10 +109,10 @@ export const LowEstonianPhone: Story = {
     const canvas = within(canvasElement)
     const low = part(canvas, 'Varu: Onion', 'Vähe')
     await expect(low).toHaveAttribute('aria-checked', 'true')
-    await expect(low.getBoundingClientRect().height).toBe(32)
+    await expect(low.getBoundingClientRect().height).toBe(28)
     const target = getComputedStyle(low, '::after')
-    await expect(target.top).toBe('-6px')
-    await expect(target.bottom).toBe('-6px')
+    await expect(target.top).toBe('-8px')
+    await expect(target.bottom).toBe('-8px')
     const group = canvas.getByRole('radiogroup', { name: 'Varu: Onion' })
     const tops = within(group)
       .getAllByRole('radio')

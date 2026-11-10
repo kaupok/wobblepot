@@ -146,7 +146,7 @@ export const Amounts: Story = {
     docs: {
       description: {
         story:
-          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits on the right, before Remove; the stock control has its own line under the name. The control is 32px with a 44px target, as the stock control\'s parts are, and the row does not overflow.',
+          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits on the right, before Remove; the stock control has its own line under the name. The control is 32px with a 44px target, and the row does not overflow.',
       },
     },
   },

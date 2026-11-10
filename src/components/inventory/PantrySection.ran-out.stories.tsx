@@ -126,7 +126,7 @@ export const StapleRanOut: Story = {
     docs: {
       description: {
         story:
-          'A staple at 0 stays under Staples, with Ran out pressed. Have it sets it back to "have some" and focus moves to the pressed Have it, so a second press undoes a slip. Each part is a 32px box whose `::after` reaches 6px above and below it, so the target is 44px on a phone.',
+          'A staple at 0 stays under Staples, with Ran out pressed. Have it sets it back to "have some" and focus moves to the pressed Have it, so a second press undoes a slip. Each part is a 28px `xs-touch` box whose `::after` reaches 8px above and below it, so the target is 44px on a phone.',
       },
     },
   },
@@ -139,7 +139,7 @@ export const StapleRanOut: Story = {
     await expect(canvas.queryByRole('heading', { name: /^Ran out/ })).not.toBeInTheDocument()
     await expect(part(canvas, 'Stock: Eggs', 'Ran out')).toHaveAttribute('aria-checked', 'true')
     const haveIt = part(canvas, 'Stock: Eggs', 'Have it')
-    await expect(Math.round(haveIt.getBoundingClientRect().height)).toBe(32)
+    await expect(Math.round(haveIt.getBoundingClientRect().height)).toBe(28)
     // English on a phone: the three parts fit one line.
     const tops = within(canvas.getByRole('radiogroup', { name: 'Stock: Eggs' }))
       .getAllByRole('radio')
@@ -147,8 +147,8 @@ export const StapleRanOut: Story = {
     await expect(new Set(tops).size).toBe(1)
     const after = getComputedStyle(haveIt, '::after')
     await expect(after.position).toBe('absolute')
-    await expect(after.top).toBe('-6px')
-    await expect(after.bottom).toBe('-6px')
+    await expect(after.top).toBe('-8px')
+    await expect(after.bottom).toBe('-8px')
 
     await userEvent.click(haveIt)
 
