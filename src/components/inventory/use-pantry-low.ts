@@ -66,12 +66,19 @@ export function usePantryLow(
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, { item, low }) => {
-      // Low from Ran out goes back to Ran out. Otherwise ran out replaces low:
+      // Low from Ran out goes back to Ran out, while the row still holds the
+      // "have some" this request wrote. A row with a count took an amount
+      // queued behind this request, and that one lands on the server, so the
+      // row keeps it and only loses the low. Otherwise ran out replaces low:
       // a row marked ran out since then keeps low false.
       if (low && item.quantity === 0) {
         followRow?.onMoveBack(item.id)
         onItemsChange((prev) =>
-          prev.map((row) => (row.id === item.id ? { ...row, quantity: 0, low: false } : row)),
+          prev.map((row) =>
+            row.id === item.id
+              ? { ...row, low: false, ...(row.quantity === null && { quantity: 0 }) }
+              : row,
+          ),
         )
       } else {
         onItemsChange((prev) =>

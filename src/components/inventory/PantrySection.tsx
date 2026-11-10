@@ -209,8 +209,16 @@ export function PantrySection({
       // unless a newer Ran out has written one since.
       if (!quantityBeforeRanOut.current.has(id)) quantityBeforeRanOut.current.set(id, quantity)
       followStockIfFocused(id)
+      // A row now low took a Low queued behind this request. The server
+      // applies it to the row at 0 as "have some" and low, so the row stays.
       onItemsChange((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity: 0, low: false } : item)),
+        prev.map((item) =>
+          item.id === id
+            ? item.low
+              ? { ...item, quantity: null }
+              : { ...item, quantity: 0, low: false }
+            : item,
+        ),
       )
       toast.error(tPantry('errors.updateFailed'))
     },

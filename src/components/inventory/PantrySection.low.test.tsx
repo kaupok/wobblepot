@@ -234,6 +234,61 @@ describe('PantrySection low', () => {
     expect(groupOf('Bread')).toBe('On hand 1')
   })
 
+  it('keeps an amount queued behind a Low from Ran out that fails', async () => {
+    let failLow: (() => void) | null = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        init.body === '{"low":true}'
+          ? new Promise<Response>((resolve) => {
+              failLow = () => resolve(new Response(null, { status: 500 }))
+            })
+          : Promise.resolve(Response.json({ ok: true })),
+      ),
+    )
+    renderStateful([avocado])
+
+    fireEvent.click(stockPart('Avocado', 'Low'))
+    await waitFor(() => expect(failLow).not.toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Add amount: Avocado' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'How much do you have?' }), {
+      target: { value: '3' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    failLow!()
+
+    // The server stores quantity 3 and low false, so the row stays On hand.
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(groupOf('Avocado')).toBe('On hand 1')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Have it')
+    expect(screen.getByRole('button', { name: /^Amount: Avocado, 3/ })).toBeInTheDocument()
+  })
+
+  it('keeps a Low queued behind a Have it from Ran out that fails', async () => {
+    let failHaveIt: (() => void) | null = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) =>
+        init.body === '{"quantity":null}'
+          ? new Promise<Response>((resolve) => {
+              failHaveIt = () => resolve(new Response(null, { status: 500 }))
+            })
+          : Promise.resolve(Response.json({ ok: true })),
+      ),
+    )
+    renderStateful([avocado])
+
+    fireEvent.click(stockPart('Avocado', 'Have it'))
+    await waitFor(() => expect(failHaveIt).not.toBeNull())
+    fireEvent.click(stockPart('Avocado', 'Low'))
+    failHaveIt!()
+
+    // The server applies the Low to the row at 0 as "have some" and low.
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(groupOf('Avocado')).toBe('On hand 1')
+    expect(pressedStock('Avocado')).toHaveAccessibleName('Low')
+  })
+
   it('sends quantity 0 on Ran out on a low row, and renders it in Ran out with Ran out pressed', async () => {
     const fetchMock = okFetch()
     renderStateful([bread, onion])
