@@ -163,7 +163,7 @@ ${preparationNotes.trim()}
 >>>
 
 How to use the notes:
-- Notes with a full method: the steps follow it. Keep its order, techniques, times, temperatures and equipment, and rephrase it into clear steps. Do not replace it with a generic method.
+- Notes with a full method: the steps follow it. Keep its order, techniques, times, temperatures and equipment, and rephrase it into clear steps. Do not replace it with a generic method. Every temperature and time in the method appears in a step, with its number and unit, a stovetop or sear temperature too. Never write "high heat", "hot oven" or "until done" in place of a number the notes give.
 - Notes with part of a method: follow what is there, and fill the gaps from the ingredient list.
 - Notes with no method: write the steps from the ingredient list, and use the notes as context only. A serving idea can become the last step or the tip. Do not make a step out of a note that is not a method.
 - The ingredient list wins over the notes. Where a step in the notes names an ingredient the list does not have, leave that ingredient out of the step and keep the rest of it.

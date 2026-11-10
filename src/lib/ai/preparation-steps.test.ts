@@ -147,7 +147,7 @@ describe('buildStepsFromNotesPrompt', () => {
     const result = buildStepsFromNotesPrompt(notesInput())
 
     expect(result).toContain(
-      '- Notes with a full method: the steps follow it. Keep its order, techniques, times, temperatures and equipment, and rephrase it into clear steps. Do not replace it with a generic method.',
+      '- Notes with a full method: the steps follow it. Keep its order, techniques, times, temperatures and equipment, and rephrase it into clear steps. Do not replace it with a generic method. Every temperature and time in the method appears in a step, with its number and unit, a stovetop or sear temperature too. Never write "high heat", "hot oven" or "until done" in place of a number the notes give.',
     )
     expect(result).toContain(
       '- Notes with part of a method: follow what is there, and fill the gaps from the ingredient list.',
