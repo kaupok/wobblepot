@@ -39,6 +39,9 @@ export function readApiKey({ env, envFile }: Pick<LinearDeps, 'env' | 'envFile'>
   throw new Error(`LINEAR_API_KEY is not set. ${KEY_HELP}`)
 }
 
+/** An ID Linear does not know; `cite` skips it, so `finalize` drops the citation. */
+export class NotFoundError extends Error {}
+
 type Query = (query: string, variables?: Record<string, unknown>) => Promise<unknown>
 
 export function linearClient(deps: LinearDeps): Query {
@@ -56,6 +59,7 @@ export function linearClient(deps: LinearDeps): Query {
       errors?: { message?: string }[]
     } | null
     const error = body?.errors?.[0]?.message ?? (response.ok ? null : `HTTP ${response.status}`)
+    if (error?.startsWith('Entity not found')) throw new NotFoundError(error)
     if (error !== null || !body?.data) {
       throw new Error(`Linear API error: ${error ?? 'no data'}. Check LINEAR_API_KEY. ${KEY_HELP}`)
     }
@@ -130,8 +134,11 @@ export async function listOne(query: Query, id: string): Promise<ListedIssue[]> 
 }
 
 async function getIssue(query: Query, id: string): Promise<IssueNode> {
-  const data = (await query(ISSUE_QUERY, { id })) as { issue: IssueNode | null }
-  if (!data.issue) throw new Error(`${id} not found in Linear`)
+  const notFound = new NotFoundError(`${id} not found in Linear`)
+  const data = (await query(ISSUE_QUERY, { id }).catch((error: unknown) => {
+    throw error instanceof NotFoundError ? notFound : error
+  })) as { issue: IssueNode | null }
+  if (!data.issue) throw notFound
   return data.issue
 }
 

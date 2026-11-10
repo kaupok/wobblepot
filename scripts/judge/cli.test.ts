@@ -101,6 +101,12 @@ function fakeLinear(issues: FakeIssue[], draftPages: FakeIssue[][] = [issues]) {
     bodies.push(body)
     const { query, variables } = body
     const issue = issues.find((i) => i.identifier === variables.id) ?? null
+    if (variables.id !== undefined && !issue) {
+      // What the live API returns for an unknown ID (checked 2026-11-10).
+      return new Response(
+        JSON.stringify({ data: null, errors: [{ message: 'Entity not found: Issue' }] }),
+      )
+    }
     let data: unknown
     if (query.startsWith('query AutoDrafts')) {
       const n = variables.after === null ? 0 : Number(variables.after)
@@ -246,6 +252,45 @@ describe('judge cli: Linear commands', () => {
     ])) as { heading: string; dropped: unknown[] }
     expect(result.dropped).toEqual([])
     expect(result.heading).toBe("## Judge: Decide — won't fix")
+  })
+
+  it('cite: skips an unknown cited ID, so finalize drops only that citation', async () => {
+    const { deps } = fakeLinear([
+      fakeIssue('HON-900', 'Backlog', { description: 'We keep the double tap on purpose here.' }),
+    ])
+    const verdict = fixture('cite-unknown.json', {
+      issue: 'HON-1456',
+      move: 'decide',
+      outcome: 'wont_fix',
+      citations: [
+        { source: 'HON-900 description', quote: 'We keep the double tap on purpose here.' },
+        { source: 'HON-99999 comment', quote: 'an invented precedent from nowhere' },
+      ],
+      reasoning: 'Recorded decision.',
+    })
+    const dir = path.join(tmp, 'linear-unknown')
+    expect(await run(['cite', '--verdict', verdict, '--linear-dir', dir], deps)).toEqual({
+      written: ['HON-900'],
+      skipped: [{ id: 'HON-99999', reason: 'not found in Linear' }],
+    })
+    const result = (await run([
+      'finalize',
+      '--verdict',
+      verdict,
+      '--ref',
+      'HEAD',
+      '--linear-dir',
+      dir,
+    ])) as { heading: string; dropped: { reason: string }[] }
+    expect(result.heading).toBe("## Judge: Decide — won't fix")
+    expect(result.dropped.map((d) => d.reason)).toEqual(['HON-99999 was not fetched'])
+  })
+
+  it('issue: an unknown ID fails with not found, not a key error', async () => {
+    const { deps } = fakeLinear([])
+    await expect(
+      run(['issue', '--id', 'HON-99999', '--out', path.join(tmp, 'none.json')], deps),
+    ).rejects.toThrow('HON-99999 not found in Linear')
   })
 
   it.each([

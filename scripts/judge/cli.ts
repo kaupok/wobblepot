@@ -10,6 +10,7 @@ import {
   type LinearDeps,
   listAutoDrafts,
   listOne,
+  NotFoundError,
 } from './linear'
 import {
   citationTarget,
@@ -118,7 +119,12 @@ export async function run(args: string[], deps: LinearDeps = defaultDeps): Promi
       const written: string[] = []
       const skipped: { id: string; reason: string }[] = []
       for (const id of ids) {
-        const text = await fetchCitedText(query, id, beforeIso)
+        const text = await fetchCitedText(query, id, beforeIso).catch((error: unknown) => {
+          if (!(error instanceof NotFoundError)) throw error
+          skipped.push({ id, reason: 'not found in Linear' })
+          return undefined
+        })
+        if (text === undefined) continue
         if (text === null) {
           skipped.push({ id, reason: `created after ${before}` })
           continue
