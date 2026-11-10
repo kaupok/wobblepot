@@ -4,12 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 
-vi.mock('@/lib/meal-planning/dates', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/meal-planning/dates')>()),
-  // Bucket by a marker embedded in the date string so tests stay date-independent.
-  getUrgencyBucket: (date: string | null) =>
-    date === null ? 'staples' : (date.split('|')[1] ?? 'later'),
-}))
+vi.mock('@/lib/meal-planning/dates', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/meal-planning/dates')>()
+  return {
+    ...actual,
+    // Bucket by a marker embedded in the date string so tests stay date-independent.
+    // Null goes to the real function, so the staples rule is the source's (HON-1647).
+    getUrgencyBucket: (date: string | null) =>
+      date === null ? actual.getUrgencyBucket(null) : (date.split('|')[1] ?? 'later'),
+  }
+})
 
 import {
   buildAlphabeticalItems,
