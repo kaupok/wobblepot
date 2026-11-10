@@ -13,7 +13,7 @@ import { gramsOf } from '@/lib/meal-images/prompt'
 import { resolveProteinType } from '@/lib/meal-planning/protein'
 import { prisma } from '@/lib/prisma'
 
-export { HouseholdMealError, type HouseholdMealRefusal } from '@/lib/household-meal-error'
+export { HouseholdMealError } from '@/lib/household-meal-error'
 export type { HouseholdMealComponentInput } from '@/lib/household-meal-ingredients'
 
 /**

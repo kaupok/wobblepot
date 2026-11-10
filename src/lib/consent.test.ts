@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   CURRENT_TERMS_VERSION,
   decisionToGranted,
-  grantedToDecision,
   parseConsentDecision,
   POLICY_LAST_UPDATED,
   POLICY_LAST_UPDATED_DISPLAY,
@@ -53,12 +52,10 @@ describe('POLICY_LAST_UPDATED', () => {
   })
 })
 
-describe('decisionToGranted / grantedToDecision', () => {
-  it('maps null ↔ undecided, all ↔ true, essential ↔ false', () => {
+describe('decisionToGranted', () => {
+  it('maps null to undecided, all to true, essential to false', () => {
     expect(decisionToGranted(null)).toBe(null)
     expect(decisionToGranted('all')).toBe(true)
     expect(decisionToGranted('essential')).toBe(false)
-    expect(grantedToDecision(true)).toBe('all')
-    expect(grantedToDecision(false)).toBe('essential')
   })
 })

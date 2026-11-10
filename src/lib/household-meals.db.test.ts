@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Allergen, ProteinType } from '@/generated/prisma/enums'
+import type { HouseholdMealRefusal } from '@/lib/household-meal-error'
 import {
   createHouseholdMeal,
   deleteHouseholdMeal,
   type HouseholdMealCreateInput,
   HouseholdMealError,
   type HouseholdMealPatch,
-  type HouseholdMealRefusal,
   updateHouseholdMeal,
 } from '@/lib/household-meals'
 import {

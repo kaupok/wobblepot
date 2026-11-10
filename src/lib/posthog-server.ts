@@ -106,14 +106,3 @@ export function getPosthogMcpServer(): PostHog | null {
   globalForPosthog.posthogMcp ??= createServerClient(config.key, config.host)
   return globalForPosthog.posthogMcp
 }
-
-export async function shutdownPosthog(): Promise<void> {
-  if (globalForPosthog.posthog) {
-    await globalForPosthog.posthog.shutdown()
-    globalForPosthog.posthog = undefined
-  }
-  if (globalForPosthog.posthogMcp) {
-    await globalForPosthog.posthogMcp.shutdown()
-    globalForPosthog.posthogMcp = undefined
-  }
-}

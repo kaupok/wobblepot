@@ -7,7 +7,6 @@ import {
   dropListedExtras,
   dropServingware,
   type JudgeV2Findings,
-  visibleIngredients,
 } from './judge'
 import type { MealImageComponent, MealImageMeal } from './prompt'
 
@@ -76,20 +75,22 @@ const findings = (over: Partial<JudgeV2Findings> = {}): JudgeV2Findings => ({
   ...over,
 })
 
-describe('visibleIngredients', () => {
-  it('never asks the judge about ingredients that vanish once cooked', () => {
-    expect(visibleIngredients(lambStew)).toEqual(['lamb shank', 'potato', 'carrot', 'onion'])
+describe('the "(may not be visible)" mark', () => {
+  const marked = (meal: Pick<MealImageMeal, 'components'>) =>
+    buildJudgeV2Prompt({ name: 'Test', description: null, ...meal })
+      .split('\n')
+      .filter((line) => line.endsWith(' (may not be visible)'))
+      .map((line) => line.slice(2, line.indexOf(':')))
+
+  it('marks the ingredients that vanish once cooked', () => {
+    expect(marked(lambStew)).toEqual(['beef stock', 'thyme'])
     expect(
-      visibleIngredients({
-        components: [g('bell pepper', 60), g('black pepper', 1), ml('olive oil', 15)],
-      }),
-    ).toEqual(['bell pepper'])
+      marked({ components: [g('bell pepper', 60), g('black pepper', 1), ml('olive oil', 15)] }),
+    ).toEqual(['black pepper', 'olive oil'])
   })
 
   it('does not hide sausage behind sage', () => {
-    expect(visibleIngredients({ components: [g('italian sausage', 100), g('sage', 2)] })).toEqual([
-      'italian sausage',
-    ])
+    expect(marked({ components: [g('italian sausage', 100), g('sage', 2)] })).toEqual(['sage'])
   })
 })
 

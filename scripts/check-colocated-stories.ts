@@ -75,7 +75,7 @@ export const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     path: 'src/components/header.tsx',
-    why: 'The server half of the header: it awaits getSession() and getHasHousehold() (both import Prisma transitively, so it cannot mount in Storybook) and renders HeaderChrome, which owns every bit of markup and has the story (header-chrome.stories.tsx). header.test.tsx covers the session wiring.',
+    why: 'The server half of the header: it awaits getSession() and getCachedMembership() (both import Prisma transitively, so it cannot mount in Storybook) and renders HeaderChrome, which owns every bit of markup and has the story (header-chrome.stories.tsx). header.test.tsx covers the session wiring.',
   },
   {
     path: 'src/components/timeline/EmptySlotController.tsx',

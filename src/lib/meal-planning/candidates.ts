@@ -11,12 +11,6 @@ import { findPreferenceConflicts } from '@/lib/meal-planning/preference-conflict
 import { prisma } from '@/lib/prisma'
 
 /**
- * @deprecated No longer used. Time filtering has been removed from meal plan generation.
- * All meals are now eligible for planning regardless of prep time.
- */
-export const MAX_TIME_MINUTES = 60
-
-/**
  * Map dietary type to protein types that should be excluded.
  * These are hard filters - meals with these protein types will never appear.
  * When dietaryType is null (no preference), no protein types are excluded.

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ingredientsByWeight, type MealImageMeal } from './prompt'
+import type { MealImageMeal } from './prompt'
 
 /**
  * Vision judge for generated meal illustrations (HON-733 "judge V2", chosen by
@@ -19,11 +19,6 @@ const INVISIBLE_WHEN_COOKED =
 /** `pepper` alone is the spice; `bell pepper` is a vegetable. */
 const isInvisible = (name: string): boolean =>
   /^(black |white )?pepper$/i.test(name) || INVISIBLE_WHEN_COOKED.test(name)
-
-/** The ingredients a viewer should be able to point at in the finished dish. */
-export function visibleIngredients(meal: Pick<MealImageMeal, 'components'>): string[] {
-  return ingredientsByWeight(meal).filter((name) => !isInvisible(name))
-}
 
 export const judgeV2Schema = z.object({
   extraIngredients: z

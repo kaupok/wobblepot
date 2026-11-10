@@ -249,29 +249,6 @@ export function getVagueCategory(
   return 'default'
 }
 
-/**
- * Check if a phrase is a recognized vague phrase.
- */
-export function isVaguePhrase(phrase: string): boolean {
-  const normalized = phrase.toLowerCase().trim()
-  return VAGUE_PHRASES.some((vp) => normalized === vp || normalized.includes(vp))
-}
-
-/**
- * Extract the vague phrase from text if present.
- */
-export function extractVaguePhrase(text: string): string | null {
-  const normalized = text.toLowerCase().trim()
-
-  for (const phrase of VAGUE_PHRASES) {
-    if (normalized === phrase || normalized.includes(phrase)) {
-      return phrase
-    }
-  }
-
-  return null
-}
-
 export interface VagueQuantityResult {
   quantity: number
   isVague: true

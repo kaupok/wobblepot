@@ -4,10 +4,8 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 
 import {
   checkGuardrail,
-  extractVaguePhrase,
   getVagueCategory,
   getVagueDefault,
-  isVaguePhrase,
   VAGUE_PHRASES,
 } from './vague-quantities'
 
@@ -19,47 +17,6 @@ describe('VAGUE_PHRASES', () => {
     expect(VAGUE_PHRASES).toContain('for garnish')
     expect(VAGUE_PHRASES).toContain('optional')
     expect(VAGUE_PHRASES).toContain('as needed')
-  })
-})
-
-describe('isVaguePhrase', () => {
-  it('returns true for exact vague phrases', () => {
-    expect(isVaguePhrase('to taste')).toBe(true)
-    expect(isVaguePhrase('a pinch')).toBe(true)
-    expect(isVaguePhrase('for garnish')).toBe(true)
-  })
-
-  it('returns true for phrases containing vague words', () => {
-    expect(isVaguePhrase('salt to taste')).toBe(true)
-    expect(isVaguePhrase('add a pinch of salt')).toBe(true)
-  })
-
-  it('is case insensitive', () => {
-    expect(isVaguePhrase('TO TASTE')).toBe(true)
-    expect(isVaguePhrase('A Pinch')).toBe(true)
-  })
-
-  it('returns false for non-vague phrases', () => {
-    expect(isVaguePhrase('1 teaspoon')).toBe(false)
-    expect(isVaguePhrase('200g')).toBe(false)
-    expect(isVaguePhrase('2 cups')).toBe(false)
-  })
-})
-
-describe('extractVaguePhrase', () => {
-  it('extracts exact vague phrases', () => {
-    expect(extractVaguePhrase('to taste')).toBe('to taste')
-    expect(extractVaguePhrase('a pinch')).toBe('a pinch')
-  })
-
-  it('extracts vague phrases from longer text', () => {
-    expect(extractVaguePhrase('salt to taste')).toBe('to taste')
-    expect(extractVaguePhrase('add a pinch of pepper')).toBe('a pinch')
-  })
-
-  it('returns null for non-vague phrases', () => {
-    expect(extractVaguePhrase('1 teaspoon')).toBeNull()
-    expect(extractVaguePhrase('200 grams')).toBeNull()
   })
 })
 

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   applyIngredientAlias,
   findSynonym,
-  hasIngredientAlias,
   INGREDIENT_ALIASES,
   INGREDIENT_SYNONYMS,
   synonymKey,
@@ -254,7 +253,6 @@ describe('INGREDIENT_SYNONYMS', () => {
     ['phyllo', 'filo pastry'],
   ])('resolves the spelling "%s" to %s', (pasted, pool) => {
     expect(applyIngredientAlias(pasted)).toBe(pool)
-    expect(hasIngredientAlias(pasted)).toBe(true)
     expect(findSynonym(pasted)).toBe(pool)
   })
 
@@ -279,12 +277,12 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('cream')).toBe('double cream')
     expect(applyIngredientAlias('minced pork')).toBe('pork mince')
     expect(applyIngredientAlias('coriander leaves')).toBe('fresh coriander')
-    expect(hasIngredientAlias('fresh coriander')).toBe(false)
+    expect(applyIngredientAlias('fresh coriander')).toBe('fresh coriander')
   })
 
   it('does not send the British name of a renamed row to another row', () => {
     for (const name of ['courgette', 'aubergine', 'rocket', 'passata']) {
-      expect(hasIngredientAlias(name)).toBe(false)
+      expect(applyIngredientAlias(name)).toBe(name)
     }
     expect(applyIngredientAlias('mince')).toBe('beef mince')
     expect(applyIngredientAlias('red pepper flakes')).toBe('chilli flakes')
@@ -345,10 +343,8 @@ describe('applyIngredientAlias', () => {
   it('resolves another English name to the pool name', () => {
     expect(applyIngredientAlias('All-Purpose Flour')).toBe('plain flour')
     expect(applyIngredientAlias('powdered sugar')).toBe('icing sugar')
-    expect(hasIngredientAlias('all-purpose flour')).toBe(true)
     // The British name is the pool name now, so it passes through unchanged.
     expect(applyIngredientAlias('plain flour')).toBe('plain flour')
-    expect(hasIngredientAlias('plain flour')).toBe(false)
   })
 
   it('expands Japanese pantry aliases', () => {
@@ -376,39 +372,5 @@ describe('applyIngredientAlias', () => {
 
   it('handles multi-word aliases', () => {
     expect(applyIngredientAlias('cooking oil')).toBe('vegetable oil')
-  })
-})
-
-describe('hasIngredientAlias', () => {
-  it('returns true for known aliases', () => {
-    expect(hasIngredientAlias('pepper')).toBe(true)
-    expect(hasIngredientAlias('rice')).toBe(true)
-    expect(hasIngredientAlias('chicken')).toBe(true)
-    expect(hasIngredientAlias('cooking oil')).toBe(true)
-  })
-
-  it('returns false for unknown ingredients', () => {
-    expect(hasIngredientAlias('quinoa')).toBe(false)
-    expect(hasIngredientAlias('tofu')).toBe(false)
-    expect(hasIngredientAlias('black pepper')).toBe(false) // This is the expanded form, not an alias
-  })
-
-  it('returns true for new baking/condiment aliases', () => {
-    expect(hasIngredientAlias('flour')).toBe(true)
-    expect(hasIngredientAlias('sugar')).toBe(true)
-    expect(hasIngredientAlias('vinegar')).toBe(true)
-    expect(hasIngredientAlias('miso')).toBe(true)
-  })
-
-  it('returns false for ingredients that should match directly', () => {
-    // These ingredients exist in the DB directly, so no alias needed
-    expect(hasIngredientAlias('onion')).toBe(false)
-    expect(hasIngredientAlias('milk')).toBe(false)
-    expect(hasIngredientAlias('butter')).toBe(false)
-  })
-
-  it('handles case insensitively', () => {
-    expect(hasIngredientAlias('PEPPER')).toBe(true)
-    expect(hasIngredientAlias('Rice')).toBe(true)
   })
 })

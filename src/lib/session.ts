@@ -37,12 +37,3 @@ export const getCachedMembership = cache(async (userId: string) =>
     select: { householdId: true, household: { select: { locale: true, timezone: true } } },
   }),
 )
-
-export const getHasHousehold = cache(
-  async (userId: string): Promise<boolean> => (await getCachedMembership(userId)) !== null,
-)
-
-export const getHouseholdIdForUser = cache(
-  async (userId: string): Promise<string | null> =>
-    (await getCachedMembership(userId))?.householdId ?? null,
-)

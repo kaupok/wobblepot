@@ -101,8 +101,6 @@ export interface LoadMealsFilters {
   offset?: number
 }
 
-export type LoadMealsResult = Awaited<ReturnType<typeof loadMeals>>
-
 /**
  * One page of the meals a household can plan, in the shape `GET /api/meals`
  * returns. The route and the MCP `list_meals` tool (HON-1151) both read

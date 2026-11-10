@@ -16,10 +16,6 @@ export function markPostHogLoaded(): void {
   loaded = true
 }
 
-export function isPostHogLoaded(): boolean {
-  return loaded
-}
-
 /**
  * The initialised PostHog client, or `null` when this document never ran
  * `posthog.init`. Checks the flag before the dynamic import, so a user who

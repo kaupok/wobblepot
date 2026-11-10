@@ -34,7 +34,7 @@ vi.mock('@/lib/auth/export', async (importOriginal) => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { exportUserData, type UserDataExport } from '@/lib/auth/export'
+import { exportUserData } from '@/lib/auth/export'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -58,7 +58,7 @@ const payload = {
     connectedApps: [],
   },
   households: [],
-} as unknown as UserDataExport
+} as unknown as Awaited<ReturnType<typeof exportUserData>>
 
 function authedAs(userId: string) {
   mockGetSession.mockResolvedValue({

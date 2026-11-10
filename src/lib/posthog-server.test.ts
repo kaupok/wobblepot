@@ -119,20 +119,6 @@ describe('posthog-server', () => {
     expect(constructorSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('shutdownPosthog awaits shutdown and clears the cache', async () => {
-    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
-    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
-
-    const { getPosthogServer, shutdownPosthog } = await import('@/lib/posthog-server')
-    getPosthogServer()
-    await shutdownPosthog()
-
-    expect(shutdownSpy).toHaveBeenCalledTimes(1)
-
-    getPosthogServer()
-    expect(constructorSpy).toHaveBeenCalledTimes(2)
-  })
-
   it('registers a one-time SIGTERM handler that calls shutdown(2000) on Vercel Node', async () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
     process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'

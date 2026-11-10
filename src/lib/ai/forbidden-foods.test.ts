@@ -7,8 +7,6 @@ import { describe, expect, it } from 'vitest'
 import { Allergen, DietaryType } from '@/generated/prisma/enums'
 
 import {
-  COVERED_ALLERGENS,
-  COVERED_DIETS,
   findUnexcusedKeyword,
   findViolations,
   partitionMeals,
@@ -36,8 +34,14 @@ function violates(household: { allergens?: string[]; dietaryType?: string }, ing
 
 describe('coverage', () => {
   it('has a keyword list for every Allergen and DietaryType in the schema', () => {
-    expect([...COVERED_ALLERGENS].sort()).toEqual(Object.values(Allergen).sort())
-    expect([...COVERED_DIETS].sort()).toEqual(Object.values(DietaryType).sort())
+    for (const allergen of Object.values(Allergen)) {
+      const rules = rulesForHousehold({ allergens: [allergen], dietaryType: null })
+      expect(rules.map((r) => r.constraint)).toEqual([allergen])
+    }
+    for (const diet of Object.values(DietaryType)) {
+      const rules = rulesForHousehold({ allergens: [], dietaryType: diet })
+      expect(rules.map((r) => r.constraint)).toEqual([diet])
+    }
   })
 
   it('makes no rule for a household without allergens or diet', () => {

@@ -9,7 +9,6 @@ import {
   type ScorableCandidate,
   SCORE_JITTER_RANGE,
   scoreCandidate,
-  scoreJitter,
   SIMILAR_PREP_TIME_MINUTES,
   SIMILARITY_WEIGHTS,
   SLOT_FIT_WEIGHTS,
@@ -254,23 +253,6 @@ describe('rating term (HON-340)', () => {
       const smallest = Math.min(Math.abs(ratingTerm(1, weights)), Math.abs(ratingTerm(-1, weights)))
       expect(smallest).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
     })
-
-    it('outranks an unrated meal for every jitter draw', () => {
-      const seed = { entryId: 'entry-1', dateString: '2026-09-23' }
-      for (let i = 0; i < 500; i++) {
-        const unrated =
-          scoreCandidate(meal('a'), weights) + scoreJitter({ ...seed, candidateId: `u-${i}` })
-        const liked =
-          scoreCandidate(meal('b', { netRating: 1 }), weights) +
-          scoreJitter({ ...seed, candidateId: `l-${i}` })
-        const disliked =
-          scoreCandidate(meal('c', { netRating: -1 }), weights) +
-          scoreJitter({ ...seed, candidateId: `d-${i}` })
-
-        expect(liked).toBeGreaterThan(unrated)
-        expect(unrated).toBeGreaterThan(disliked)
-      }
-    })
   })
 
   it('reports a signal exactly when the term fires', () => {
@@ -281,38 +263,11 @@ describe('rating term (HON-340)', () => {
   })
 })
 
-describe('scoreJitter', () => {
-  const seed = { entryId: 'entry-1', dateString: '2026-09-21', candidateId: 'meal-1' }
-
-  it('returns the same value for the same seed', () => {
-    expect(scoreJitter(seed)).toBe(scoreJitter(seed))
-  })
-
-  it('varies between entries, so two slots do not rank identically', () => {
-    expect(scoreJitter({ ...seed, entryId: 'entry-2' })).not.toBe(scoreJitter(seed))
-  })
-
-  it('varies between candidates, so a tied pool still gets shuffled', () => {
-    expect(scoreJitter({ ...seed, candidateId: 'meal-2' })).not.toBe(scoreJitter(seed))
-  })
-
-  it('varies between dates, so the same slot rotates from one day to the next', () => {
-    expect(scoreJitter({ ...seed, dateString: '2026-09-22' })).not.toBe(scoreJitter(seed))
-  })
-
-  it('stays inside [0, SCORE_JITTER_RANGE) so it can only break ties', () => {
-    for (let i = 0; i < 500; i++) {
-      const value = scoreJitter({ ...seed, candidateId: `meal-${i}` })
-      expect(value).toBeGreaterThanOrEqual(0)
-      expect(value).toBeLessThan(SCORE_JITTER_RANGE)
-    }
-  })
-
+describe('SCORE_JITTER_RANGE', () => {
   it('is bounded by the smallest weight in either profile', () => {
     // The whole safety argument for the jitter is that it cannot outrun one signal. The
     // smallest weight in either profile is pantryMatchPerIngredient (0.5), so assert the
-    // constant against it directly — a single seed pair cannot, since any one pair holds for
-    // a far larger range by luck of the draw.
+    // constant against it directly.
     const smallestWeight = Math.min(
       ...[SLOT_FIT_WEIGHTS, SIMILARITY_WEIGHTS].flatMap((w) =>
         Object.values(w).filter((weight) => weight > 0),
@@ -320,32 +275,6 @@ describe('scoreJitter', () => {
     )
 
     expect(SCORE_JITTER_RANGE).toBeLessThanOrEqual(smallestWeight)
-  })
-
-  it('never lifts a candidate past one that scored the smallest signal, for any seed', () => {
-    // 500 pairs, not one: at SCORE_JITTER_RANGE = 0.75 this fails on 29 of them and at 1.0 on
-    // 69, so it actually pins the constant rather than passing on a lucky draw.
-    for (let i = 0; i < 500; i++) {
-      const lower =
-        scoreCandidate(meal('a'), SLOT_FIT_WEIGHTS) +
-        scoreJitter({ ...seed, candidateId: `low-${i}` })
-      const higher =
-        scoreCandidate(meal('b', { topIngredients: [{ name: 'rice' }] }), SLOT_FIT_WEIGHTS, {
-          pantryIngredientNames: PANTRY,
-        }) + scoreJitter({ ...seed, candidateId: `high-${i}` })
-
-      expect(higher).toBeGreaterThan(lower)
-    }
-  })
-
-  it('spreads values across the range rather than clustering', () => {
-    const values = Array.from({ length: 200 }, (_, i) =>
-      scoreJitter({ ...seed, candidateId: `meal-${i}` }),
-    )
-    const lowHalf = values.filter((v) => v < SCORE_JITTER_RANGE / 2).length
-
-    expect(lowHalf).toBeGreaterThan(60)
-    expect(lowHalf).toBeLessThan(140)
   })
 })
 

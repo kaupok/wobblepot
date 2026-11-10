@@ -10,7 +10,7 @@ vi.mock('@/lib/meals/load-meals', () => ({
 }))
 
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
-import { loadMeals, type LoadMealsResult } from '@/lib/meals/load-meals'
+import { loadMeals } from '@/lib/meals/load-meals'
 import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 
 import { listMeals } from './list-meals'
@@ -47,7 +47,7 @@ const RESULT = {
       nextPlannedOn: null,
     },
   ],
-} as unknown as LoadMealsResult
+} as unknown as Awaited<ReturnType<typeof loadMeals>>
 
 function call(input: Record<string, unknown> = {}) {
   return runTool(listMeals, ctx, listMeals.inputSchema.parse(input))

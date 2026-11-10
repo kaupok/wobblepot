@@ -116,14 +116,6 @@ export function translateIngredient<T extends { name: string }>(
   return { ...ingredient, name: translation.name }
 }
 
-export function translateIngredients<T extends { name: string }>(
-  ingredients: WithIngredientTranslations<T>[],
-  locale: string | null | undefined,
-): T[] {
-  if (!needsTranslation(locale)) return ingredients
-  return ingredients.map((i) => translateIngredient(i, locale))
-}
-
 /**
  * Coalesce a translation onto a meal. Per-field fallback: an Estonian
  * translation that omits `description` will fall back to the English
@@ -141,13 +133,6 @@ export function translateMeal<
     description: translation.description ?? meal.description ?? null,
     preparationNotes: translation.preparationNotes ?? meal.preparationNotes ?? null,
   }
-}
-
-export function translateMeals<
-  T extends { name: string; description?: string | null; preparationNotes?: string | null },
->(meals: WithMealTranslations<T>[], locale: string | null | undefined): T[] {
-  if (!needsTranslation(locale)) return meals
-  return meals.map((m) => translateMeal(m, locale))
 }
 
 export { isDefaultLocale }

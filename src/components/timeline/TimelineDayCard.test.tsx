@@ -35,7 +35,6 @@ vi.mock('next-intl/server', () => ({
 
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
-  getHasHousehold: vi.fn(),
 }))
 
 vi.mock('@/components/header-actions', () => ({
