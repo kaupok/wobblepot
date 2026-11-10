@@ -12,8 +12,8 @@ import { signUpWithHousehold } from './utils/test-helpers'
  * test is HON-512, under the HON-545 quality epic).
  *
  * Tagged `@ai`: it drives real Claude calls (plan generate + imagine), so it is
- * excluded from the per-push tier-1 run (`--grep-invert=@ai`) for cost — it is a
- * local / on-demand gate. NOT `@smoke`: sign-up needs the test-only
+ * excluded from the per-push tier-1 run (`--grep-invert=@ai`) for cost — it runs
+ * locally on demand, and no deploy step runs it. NOT `@smoke`: sign-up needs the test-only
  * `/api/e2e-seed` invite endpoint (ci/test/dev only), so it cannot run against
  * the shared preview/staging environments the smoke tiers target.
  *
