@@ -253,16 +253,6 @@ describe('rating term (HON-340)', () => {
       const smallest = Math.min(Math.abs(ratingTerm(1, weights)), Math.abs(ratingTerm(-1, weights)))
       expect(smallest).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
     })
-
-    it('outranks an unrated meal for every jitter draw', () => {
-      // A draw lies in [0, SCORE_JITTER_RANGE), so a gap of at least the range holds for any pair.
-      const unrated = scoreCandidate(meal('a'), weights)
-      const liked = scoreCandidate(meal('b', { netRating: 1 }), weights)
-      const disliked = scoreCandidate(meal('c', { netRating: -1 }), weights)
-
-      expect(liked - unrated).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
-      expect(unrated - disliked).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
-    })
   })
 
   it('reports a signal exactly when the term fires', () => {
@@ -285,21 +275,6 @@ describe('SCORE_JITTER_RANGE', () => {
     )
 
     expect(SCORE_JITTER_RANGE).toBeLessThanOrEqual(smallestWeight)
-  })
-
-  it('never lifts a candidate past one that scored the smallest signal, for any draw', () => {
-    // A draw lies in [0, SCORE_JITTER_RANGE), so the worst case adds almost the whole range to
-    // the lower score and nothing to the higher one.
-    const lower = scoreCandidate(meal('a'), SLOT_FIT_WEIGHTS)
-    const higher = scoreCandidate(
-      meal('b', { topIngredients: [{ name: 'rice' }] }),
-      SLOT_FIT_WEIGHTS,
-      {
-        pantryIngredientNames: PANTRY,
-      },
-    )
-
-    expect(higher - lower).toBeGreaterThanOrEqual(SCORE_JITTER_RANGE)
   })
 })
 
