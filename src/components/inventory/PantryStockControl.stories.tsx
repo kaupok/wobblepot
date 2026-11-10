@@ -48,6 +48,28 @@ export const Low: Story = {
   args: { stock: 'low' },
 }
 
+/**
+ * The `xs-touch` size (HON-1637): each part is 28px at 390px and at 1280px,
+ * and its `::after` reaches 8px above and below it, so the target is 44px.
+ */
+export const CompactSize: Story = {
+  args: { stock: 'low' },
+  play: async ({ canvasElement }) => {
+    const group = within(canvasElement).getByRole('radiogroup', { name: 'Stock: Garlic' })
+    for (const radio of within(group).getAllByRole('radio')) {
+      await expect(radio.getBoundingClientRect().height).toBe(28)
+      const target = getComputedStyle(radio, '::after')
+      await expect(target.top).toBe('-8px')
+      await expect(target.bottom).toBe('-8px')
+    }
+  },
+}
+
+export const CompactSizeDesktop: Story = {
+  ...CompactSize,
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+}
+
 export const RanOut: Story = {
   args: { stock: 'ranOut' },
 }

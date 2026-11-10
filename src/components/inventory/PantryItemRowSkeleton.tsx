@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  * `p-3`, same content lines, the border left to the `RowGroup` around it — and
  * mirrors the variant this route actually serves: the one carrying the "needed
  * in window" caption, then the stock control on its own line, with no amount
- * button (a staple has none), at 112px.
+ * button (a staple has none), at 108px.
  *
  * Which variant to mirror is a bet, not a fact. `src/app/shopping/page.tsx`
  * always fetches `/api/pantry?days=7|14`, but the caption is per row: it needs
@@ -43,10 +43,10 @@ export function PantryItemRowSkeleton() {
       </div>
       {/* Remove button, same `icon-sm` size. */}
       <Skeleton aria-hidden className="size-8 shrink-0" />
-      {/* The stock control's 32px `sm-touch` parts on their own line, lined up
+      {/* The stock control's 28px `xs-touch` parts on their own line, lined up
           with the name past the star. */}
       <div className="basis-full pl-11">
-        <Skeleton aria-hidden className="h-8 w-52" />
+        <Skeleton aria-hidden className="h-7 w-48" />
       </div>
     </div>
   )

@@ -153,8 +153,8 @@ export function PantryItemRow({
         </div>
         {hasStock && (
           // Under the name and caption, lined up with the name past the star
-          // (32px and the 12px gap). `gap-y-2` keeps each part's 44px target
-          // clear of the buttons above.
+          // (32px and the 12px gap). `gap-y-2` matches the 8px reach of each
+          // part's 44px target, so it stays clear of the buttons above.
           <div className="basis-full pl-11">
             <PantryStockControl
               pantryItemId={item.id}

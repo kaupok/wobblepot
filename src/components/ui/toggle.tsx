@@ -24,7 +24,9 @@ import { cn } from '@/lib/utils'
 // 36px default: `default` is the 44px touch target below `md`, `sm` is the 32px
 // inline size (`Button`'s `sm` / `icon-sm`) for row-level actions. `chip` is
 // `Button`'s default size, padding included, for a toggle with a text label.
-// `badge` is a 20px toggle inside a badge, with a 32px target.
+// `sm-touch` and `xs-touch` are 32px and 28px boxes with a 44px target, for a
+// card row a phone must reach. `badge` is a 20px toggle inside a badge, with a
+// 32px target.
 //
 // `indicator` mounts a `Check` before the label that shows only while pressed,
 // so the state is not carried by the fill alone (docs/DESIGN.md → Color). It is
@@ -58,6 +60,12 @@ const toggleVariants = cva(
         // row's Running low, HON-1587): `Button`'s `sm-touch`, a 32px box whose
         // `::after` reaches 6px above and below it for a 44px target.
         'sm-touch': 'relative h-8 min-w-8 px-3 after:absolute after:inset-x-0 after:-inset-y-1.5',
+        // A compact `sm-touch` for a 3-part control in a narrow column (the
+        // pantry stock control on the pantry row, HON-1637): a 28px box,
+        // `text-xs` and a 14px check, whose `::after` reaches 8px above and
+        // below it for a 44px target, only vertically.
+        'xs-touch':
+          "relative h-7 min-w-7 px-2 text-xs after:absolute after:inset-x-0 after:-inset-y-2 [&_svg:not([class*='size-'])]:size-3.5",
         lg: 'h-12 min-w-12 px-2.5 md:h-11 md:min-w-11',
         chip: 'h-touch px-4 data-[state=on]:has-[>svg]:px-3 md:h-10',
         // A thumb inside a `split` `Badge` (the planner card's Cooked badge,

@@ -61,3 +61,44 @@ export const DefaultSize: Story = {
 export const NoIndicator: Story = {
   args: { indicator: false, tone: 'default' },
 }
+
+/**
+ * `xs-touch` with the pantry stock control's Estonian labels (HON-1637): a 28px
+ * group whose parts each have a 44px target, from an `::after` that reaches 8px
+ * above and below. The pressed part shows the check and the fill.
+ */
+export const XsTouch: Story = {
+  args: { size: 'xs-touch', defaultValue: 'low', 'aria-label': 'Varu' },
+  globals: { locale: 'et' },
+  render: (args) => (
+    <ToggleGroup {...args}>
+      <ToggleGroupItem value="haveIt">Olemas</ToggleGroupItem>
+      <ToggleGroupItem value="low">Vähe</ToggleGroupItem>
+      <ToggleGroupItem value="ranOut">Otsas</ToggleGroupItem>
+    </ToggleGroup>
+  ),
+  play: async ({ canvasElement }) => {
+    const group = within(canvasElement).getByRole('radiogroup', { name: 'Varu' })
+    await expect(group.getBoundingClientRect().height).toBe(28)
+    for (const radio of within(group).getAllByRole('radio')) {
+      await expect(radio.getBoundingClientRect().height).toBe(28)
+      const target = getComputedStyle(radio, '::after')
+      await expect(target.top).toBe('-8px')
+      await expect(target.bottom).toBe('-8px')
+    }
+    const low = within(group).getByRole('radio', { name: 'Vähe' })
+    await expect(low).toHaveAttribute('aria-checked', 'true')
+    const check = low.querySelector('[data-slot="toggle-indicator"]')
+    if (!check) throw new Error('expected a check in the pressed part')
+    await expect(getComputedStyle(check).display).not.toBe('none')
+    await expect(check.getBoundingClientRect().height).toBe(14)
+    // The fill: the pressed part's background differs from a part at rest.
+    const olemas = within(group).getByRole('radio', { name: 'Olemas' })
+    await expect(getComputedStyle(low).backgroundColor).not.toBe(
+      getComputedStyle(olemas).backgroundColor,
+    )
+    const restCheck = olemas.querySelector('[data-slot="toggle-indicator"]')
+    if (!restCheck) throw new Error('expected a check in each part')
+    await expect(getComputedStyle(restCheck).display).toBe('none')
+  },
+}

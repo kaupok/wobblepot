@@ -33,7 +33,7 @@ export function PantryStockControl({
       type="single"
       variant="outline"
       tone="primary"
-      size="sm-touch"
+      size="xs-touch"
       indicator
       value={stock}
       // A press on the pressed part would empty a single group: the state
