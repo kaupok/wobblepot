@@ -1,4 +1,10 @@
 import { DietaryType, MealType, ProteinType } from '@/generated/prisma/enums'
+import {
+  getHourInTimezone,
+  getTodayInTimezone,
+  parseLocalDate,
+  toDateString,
+} from '@/lib/meal-planning/dates'
 
 /**
  * A meal slot representing a specific date and meal type combination.
@@ -79,6 +85,35 @@ export function computeMealSlots(
   }
 
   return slots
+}
+
+/**
+ * The hour (household time) from which a meal on today is over. Generate and
+ * Fill days leave a slot that is over untouched (HON-1523).
+ */
+export const MEAL_OVER_HOUR: Record<MealType, number> = {
+  breakfast: 11,
+  lunch: 15,
+  dinner: 21,
+}
+
+/**
+ * Whether a slot is over: it is on today in the household's timezone and the
+ * household's clock has reached its meal's hour. Only today has slots that are over.
+ */
+export function isSlotOver(slot: MealSlot, timezone: string, now: Date = new Date()): boolean {
+  if (toDateString(slot.date) !== getTodayInTimezone(timezone, now)) return false
+  return getHourInTimezone(timezone, now) >= MEAL_OVER_HOUR[slot.mealType]
+}
+
+/**
+ * Today's slots that are over, for every meal type, configured or not.
+ */
+export function getOverSlots(timezone: string, now: Date = new Date()): MealSlot[] {
+  const today = parseLocalDate(getTodayInTimezone(timezone, now))
+  return Object.values(MealType)
+    .map((mealType) => ({ date: today, mealType }))
+    .filter((slot) => isSlotOver(slot, timezone, now))
 }
 
 /**

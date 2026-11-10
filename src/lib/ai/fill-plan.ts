@@ -5,7 +5,7 @@ import { serverEnv } from '@/lib/env'
 import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
-import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
+import { computeMealSlots, computeRequiredSlots, isSlotOver } from '@/lib/meal-planning/slots'
 import { writeFilledSlots } from '@/lib/meal-plans/fill-entries'
 import { prisma } from '@/lib/prisma'
 
@@ -47,6 +47,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     weekendMealTypes,
     onAiUsage,
     aiBudgetMs,
+    timezone,
+    now = new Date(),
   } = options
 
   // Fetch existing plan with entries
@@ -91,9 +93,11 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   // Compute all expected slots
   const allSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
 
-  // Find empty slots (expected minus filled)
+  // Find empty slots (expected minus filled). A slot on today that is over is
+  // left untouched, note and all (HON-1523).
   const emptySlots = allSlots.filter(
-    (slot) => !filledSlotKeys.has(slotKey(slot.date, slot.mealType)),
+    (slot) =>
+      !filledSlotKeys.has(slotKey(slot.date, slot.mealType)) && !isSlotOver(slot, timezone, now),
   )
 
   // Track null-mealId entries only for slots we'll attempt to fill.

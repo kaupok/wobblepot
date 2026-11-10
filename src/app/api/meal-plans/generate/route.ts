@@ -197,6 +197,7 @@ async function handlePOST(request: Request) {
         locale,
         weekdayMealTypes,
         weekendMealTypes,
+        timezone: household.timezone,
         onAiUsage: (usage) =>
           recordAiUsage({ householdId: household.id, feature: 'plan_fill_empty', ...usage }),
       })
@@ -306,6 +307,7 @@ async function handlePOST(request: Request) {
       locale,
       weekdayMealTypes,
       weekendMealTypes,
+      timezone: household.timezone,
       onAiUsage: (usage) =>
         recordAiUsage({ householdId: household.id, feature: 'plan_generate', ...usage }),
     })

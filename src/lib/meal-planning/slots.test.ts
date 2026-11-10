@@ -5,6 +5,8 @@ import type { MealType } from '@/generated/prisma/enums'
 import {
   computeMealSlots,
   computeRequiredSlots,
+  getOverSlots,
+  isSlotOver,
   pickDay,
   shouldEnforceBalanceConstraints,
 } from './slots'
@@ -432,5 +434,58 @@ describe('computeRequiredSlots', () => {
         proteinType: 'legume',
       })
     })
+  })
+})
+
+describe('isSlotOver', () => {
+  // Tallinn is UTC+2 in January, so 08:59Z is 10:59 household time.
+  const TZ = 'Europe/Tallinn'
+  const today = new Date(2026, 0, 12)
+  const at = (utc: string) => new Date(`2026-01-12T${utc}:00Z`)
+
+  it.each([
+    ['breakfast', '08:59', false],
+    ['breakfast', '09:00', true],
+    ['lunch', '12:59', false],
+    ['lunch', '13:00', true],
+    ['dinner', '18:59', false],
+    ['dinner', '19:00', true],
+  ] as const)('%s at %s UTC (Tallinn +2) is over: %s', (mealType, utc, expected) => {
+    expect(isSlotOver({ date: today, mealType }, TZ, at(utc))).toBe(expected)
+  })
+
+  it('never marks a slot on a later day as over', () => {
+    const tomorrow = new Date(2026, 0, 13)
+    expect(isSlotOver({ date: tomorrow, mealType: 'breakfast' }, TZ, at('21:00'))).toBe(false)
+  })
+
+  it('reads the date and hour in the household timezone, not the server one', () => {
+    // 22:30Z on 12 January is 11:30 on 13 January in Auckland (UTC+13).
+    const now = new Date('2026-01-12T22:30:00Z')
+    const auckland = 'Pacific/Auckland'
+    expect(isSlotOver({ date: new Date(2026, 0, 12), mealType: 'dinner' }, auckland, now)).toBe(
+      false,
+    )
+    expect(isSlotOver({ date: new Date(2026, 0, 13), mealType: 'breakfast' }, auckland, now)).toBe(
+      true,
+    )
+    expect(isSlotOver({ date: new Date(2026, 0, 13), mealType: 'lunch' }, auckland, now)).toBe(
+      false,
+    )
+  })
+})
+
+describe('getOverSlots', () => {
+  it("returns today's breakfast and lunch at 20:16 household time", () => {
+    // 18:16Z is 20:16 in Tallinn.
+    const slots = getOverSlots('Europe/Tallinn', new Date('2026-01-12T18:16:00Z'))
+    expect(slots).toEqual([
+      { date: new Date(2026, 0, 12), mealType: 'breakfast' },
+      { date: new Date(2026, 0, 12), mealType: 'lunch' },
+    ])
+  })
+
+  it('returns nothing before 11:00', () => {
+    expect(getOverSlots('Europe/Tallinn', new Date('2026-01-12T08:59:00Z'))).toEqual([])
   })
 })

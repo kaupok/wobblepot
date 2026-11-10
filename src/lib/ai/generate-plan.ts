@@ -7,7 +7,12 @@ import { serverEnv } from '@/lib/env'
 import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
-import { computeMealSlots, computeRequiredSlots } from '@/lib/meal-planning/slots'
+import {
+  computeMealSlots,
+  computeRequiredSlots,
+  getOverSlots,
+  type MealSlot,
+} from '@/lib/meal-planning/slots'
 import { prisma } from '@/lib/prisma'
 
 import { PLANNING_MODEL } from './models'
@@ -110,12 +115,16 @@ async function getKeptEntries(
  * a cooked side, because a completed side always has a completed main: Cooked
  * on the main completes the slot, and a revert of the main reverts its sides
  * (HON-1596, Q1).
+ *
+ * The entries in `keepSlots` stay whatever their status: a slot that is over is left
+ * untouched (HON-1523).
  */
 async function deleteReplaceableEntries(
   tx: Prisma.TransactionClient,
   planId: string,
   startDate: Date,
   endDate: Date,
+  keepSlots: MealSlot[] = [],
 ) {
   await tx.mealPlanEntry.deleteMany({
     where: {
@@ -123,6 +132,9 @@ async function deleteReplaceableEntries(
       date: { gte: startDate, lt: endDate },
       status: { not: 'completed' },
       mainEntryId: null,
+      ...(keepSlots.length > 0 && {
+        NOT: { OR: keepSlots.map(({ date, mealType }) => ({ date, mealType })) },
+      }),
     },
   })
 }
@@ -147,6 +159,8 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
     weekendMealTypes = ['dinner'] as MealType[],
     onAiUsage,
     aiBudgetMs,
+    timezone,
+    now = new Date(),
   } = options
 
   // Get dates for entries from the flexible date range (endDate is exclusive)
@@ -155,17 +169,20 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
   // Completed entries survive regeneration, so their slots are not asked for. Leaving one in
   // would also make createMany collide with the kept row on the one-main-per-slot unique index.
   const kept = await getKeptEntries(householdId, startDate, endDate)
+  // A slot on today that is over is left untouched, as a completed one is (HON-1523).
+  const overSlots = getOverSlots(timezone, now)
+  const overKeys = new Set(overSlots.map((s) => slotKey(s.date, s.mealType)))
   const isReplaceable = (s: { date: Date; mealType: MealType }) =>
-    !kept.slotKeys.has(slotKey(s.date, s.mealType))
+    !kept.slotKeys.has(slotKey(s.date, s.mealType)) && !overKeys.has(slotKey(s.date, s.mealType))
 
   // Expand dates into meal slots based on meal type preferences
   const configuredSlots = computeMealSlots(dates, weekdayMealTypes, weekendMealTypes)
   const allSlots = configuredSlots.filter(isReplaceable)
 
-  // Every slot in the range was already cooked: nothing to generate, so skip the AI call.
-  // Clearing the range still applies, which is exactly what createEmptyPlan does.
+  // Every slot in the range was already cooked or is over: nothing to generate, so skip the
+  // AI call. Clearing the range still applies, which is exactly what createEmptyPlan does.
   if (configuredSlots.length > 0 && allSlots.length === 0) {
-    return createEmptyPlan({ householdId, startDate, endDate })
+    return createEmptyPlan({ householdId, startDate, endDate, keepSlots: overSlots })
   }
 
   // Compute required protein slots over the replaceable dinner dates only, as fill-plan does.
@@ -279,7 +296,7 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
       })
     }
 
-    await deleteReplaceableEntries(tx, plan.id, startDate, endDate)
+    await deleteReplaceableEntries(tx, plan.id, startDate, endDate, overSlots)
 
     // Create new entries. A slot completed after getKeptEntries ran would collide here and
     // roll the transaction back — a failed regeneration, not a lost completion.
@@ -306,12 +323,13 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
 /**
  * Clear a date range of its plannable entries.
- * Completed entries in the range are kept and returned; everything else is deleted.
+ * Completed entries in the range are kept and returned, and so are the entries in `keepSlots`;
+ * everything else is deleted.
  */
 export async function createEmptyPlan(
   options: CreateEmptyPlanOptions,
 ): Promise<GeneratePlanResult> {
-  const { householdId, startDate, endDate } = options
+  const { householdId, startDate, endDate, keepSlots } = options
 
   // Find or create single household plan, clear entries for this date range
   const mealPlan = await prisma.$transaction(async (tx) => {
@@ -325,7 +343,7 @@ export async function createEmptyPlan(
       })
     }
 
-    await deleteReplaceableEntries(tx, plan.id, startDate, endDate)
+    await deleteReplaceableEntries(tx, plan.id, startDate, endDate, keepSlots)
 
     return tx.mealPlan.findUniqueOrThrow({
       where: { id: plan.id },
