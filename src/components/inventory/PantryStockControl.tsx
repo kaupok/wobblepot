@@ -18,8 +18,10 @@ interface PantryStockControlProps {
 /**
  * The pantry row's stock state, Have it · Low · Ran out, as one control
  * (HON-1624). It replaced the Have it / Ran out switch and the Running low
- * toggle, which read as two settings for one state. The pressed part is filled
- * and carries a check, so the state does not rest on the fill alone.
+ * toggle, which read as two settings for one state. The pressed part carries a
+ * check, so the state does not rest on the fill alone. Have it is most rows'
+ * state, so its fill is the quiet neutral one; Low and Ran out take the warning
+ * tint, so the rows that need attention stand out (HON-1641).
  */
 export function PantryStockControl({
   pantryItemId,
@@ -32,7 +34,6 @@ export function PantryStockControl({
     <ToggleGroup
       type="single"
       variant="outline"
-      tone="primary"
       size="xs-touch"
       indicator
       value={stock}
@@ -44,9 +45,15 @@ export function PantryStockControl({
       data-stock={pantryItemId}
       aria-label={tPantry('ariaStock', { name })}
     >
-      <ToggleGroupItem value="haveIt">{tPantry('haveIt')}</ToggleGroupItem>
-      <ToggleGroupItem value="low">{tPantry('low')}</ToggleGroupItem>
-      <ToggleGroupItem value="ranOut">{tPantry('ranOut')}</ToggleGroupItem>
+      <ToggleGroupItem value="haveIt" tone="default">
+        {tPantry('haveIt')}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="low" tone="warning">
+        {tPantry('low')}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="ranOut" tone="warning">
+        {tPantry('ranOut')}
+      </ToggleGroupItem>
     </ToggleGroup>
   )
 }

@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'A row of `Toggle` parts with one outline, a segmented control. It takes `Toggle`\'s `variant`, `tone`, `size` and `indicator` and hands them to each part. `type="single"` makes the group a `radiogroup` and gives each part `role="radio"` with `aria-checked`, and the arrow keys move between the parts.',
+          'A row of `Toggle` parts with one outline, a segmented control. It takes `Toggle`\'s `variant`, `tone`, `size` and `indicator` and hands them to each part; a part\'s own `tone` overrides the group\'s. `type="single"` makes the group a `radiogroup` and gives each part `role="radio"` with `aria-checked`, and the arrow keys move between the parts.',
       },
     },
   },
@@ -101,4 +101,64 @@ export const XsTouch: Story = {
     if (!restCheck) throw new Error('expected a check in each part')
     await expect(getComputedStyle(restCheck).display).toBe('none')
   },
+}
+
+/**
+ * A part's own `tone` overrides the group's (HON-1641): the pantry stock
+ * control keeps its normal state, Have it, on the quiet `default` tone, and
+ * tints Low and Ran out with `warning`, so the rows that need attention stand
+ * out. Each group presses a different part.
+ */
+export const PerPartTones: Story = {
+  render: () => (
+    <div className="flex flex-col gap-3">
+      {(['haveIt', 'low', 'ranOut'] as const).map((value) => (
+        <ToggleGroup
+          key={value}
+          type="single"
+          variant="outline"
+          size="xs-touch"
+          indicator
+          defaultValue={value}
+          aria-label={`Stock ${value}`}
+        >
+          <ToggleGroupItem value="haveIt" tone="default">
+            Have it
+          </ToggleGroupItem>
+          <ToggleGroupItem value="low" tone="warning">
+            Low
+          </ToggleGroupItem>
+          <ToggleGroupItem value="ranOut" tone="warning">
+            Ran out
+          </ToggleGroupItem>
+        </ToggleGroup>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const haveIt = within(canvas.getByRole('radiogroup', { name: 'Stock haveIt' })).getByRole(
+      'radio',
+      { name: 'Have it' },
+    )
+    await expect(haveIt).toHaveClass('data-[state=on]:bg-accent')
+    await expect(haveIt).not.toHaveClass('data-[state=on]:bg-primary')
+    const low = within(canvas.getByRole('radiogroup', { name: 'Stock low' })).getByRole('radio', {
+      name: 'Low',
+    })
+    await expect(low).toHaveClass(
+      'data-[state=on]:bg-warning-muted',
+      'data-[state=on]:text-warning',
+    )
+    // The part's tone, not the group's: a pressed Low and a pressed Have it differ.
+    await expect(getComputedStyle(low).backgroundColor).not.toBe(
+      getComputedStyle(haveIt).backgroundColor,
+    )
+  },
+}
+
+/** `PerPartTones` in the dark theme, so the a11y run measures the tints there too. */
+export const PerPartTonesDark: Story = {
+  ...PerPartTones,
+  globals: { theme: 'dark' },
 }
