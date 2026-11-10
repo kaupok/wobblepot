@@ -4,14 +4,15 @@ import { useMutation } from '@tanstack/react-query'
 import { Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import { type PantryStock, PantryStockControl } from '@/components/inventory/PantryStockControl'
+import { QUANTITY_SCOPE } from '@/components/inventory/use-pantry-low'
 import { Heading } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 
-/** A "have some" need that two or more meals use, as `loadShoppingList` returns it in `check`. */
+/** A need with no amount that two or more meals use, as `loadShoppingList` returns it in `check`. */
 export interface PantryCheckRow {
   ingredientId: string
   name: string
@@ -23,26 +24,35 @@ export interface PantryCheckRow {
   /** `neededByDate` as the household reads it ("tomorrow"), formatted on the server. */
   neededByRelative: string
   /**
-   * The pantry rows that keep the need at home, its own row first: for a herb,
-   * also each other form that covers it. Add to list writes all of them.
+   * The need's pantry rows, its own row first: for a herb, also each other
+   * form that covers it. The stock control writes all of them.
    */
   pantryRows: PantryRow[]
   isStaple: boolean
+  /** What the rows say (HON-1638): ran out when all are at 0, low when any is low. */
+  stock: PantryStock
 }
 
-interface PantryRow {
+export interface PantryRow {
   id: string
   quantity: number | null
+  low: boolean
 }
 
-/** A press: the need, and the rows its request writes. */
-interface RowChange {
+/** A press: the need, the part pressed, and the rows its requests write. */
+interface StockChange {
   ingredientId: string
+  stock: PantryStock
   rows: PantryRow[]
 }
 
 interface PantryCheckListProps {
   items: PantryCheckRow[]
+  /**
+   * The id of a title that names the list. Without one, the list shows its
+   * own Caption.
+   */
+  labelledBy?: string
   /**
    * The rows a request wrote, as each lands, a partly failed one included: `/shopping`'s pantry column
    * holds its own copy of the rows, and the refresh does not reset it.
@@ -50,119 +60,109 @@ interface PantryCheckListProps {
   onQuantitiesChanged?: (rows: PantryRow[]) => void
 }
 
-// Quantity requests run in order, as on the pantry page, so a quick Add and
-// Undo cannot land the wrong way round.
-const QUANTITY_SCOPE = { id: 'pantry-quantity' }
+/** Each part's request body, as the pantry row's control sends it. */
+const STOCK_BODY: Record<PantryStock, { quantity?: number | null; low?: boolean }> = {
+  haveIt: { quantity: null, low: false },
+  low: { low: true },
+  ranOut: { quantity: 0 },
+}
 
 /**
- * The check above To buy (HON-1585): the "have some" needs that two or more
- * meals use, with the week's amount, so the shopper can say which will not
- * last. Add to list sets the item's pantry rows to 0 (ran out), so after the
- * refresh it is on To buy with the week's amount. A row left alone writes
- * nothing: it counts as enough.
- *
- * An added row leaves the server's list, but it stays here as "Added" with an
- * Undo, until a reload, so a slip is undone in place and focus stays on the
- * row. Shown on every load, with no dismiss. Nothing renders when the check
- * is empty.
+ * The row after a part's request lands, as the server writes it: Low on a row
+ * at 0 sets it to "have some" (null), and 0 clears running low (HON-1586).
  */
-export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListProps) {
+function writtenRow(row: PantryRow, stock: PantryStock): PantryRow {
+  if (stock === 'haveIt') return { id: row.id, quantity: null, low: false }
+  if (stock === 'ranOut') return { id: row.id, quantity: 0, low: false }
+  return { id: row.id, quantity: row.quantity === 0 ? null : row.quantity, low: true }
+}
+
+/**
+ * The check (HON-1585): the needs with no amount that two or more meals use,
+ * with the week's amount, so the shopper can say which will not last. Each
+ * row has the pantry row's stock control (HON-1638): Low or Ran out puts the
+ * item on the list, and the row stays here with that part pressed. A row left
+ * alone writes nothing: it counts as enough.
+ *
+ * Shown on every load, with no dismiss. Nothing renders when the check is
+ * empty.
+ */
+export function PantryCheckList({ items, labelledBy, onQuantitiesChanged }: PantryCheckListProps) {
   const t = useTranslations('today.check')
   const tPantry = useTranslations('pantry')
   const locale = useLocale()
-  const labelId = useId()
+  const ownLabelId = useId()
+  const labelId = labelledBy ?? ownLabelId
   const router = useRouter()
 
-  // Ingredient id → its pantry rows as they were before Add to list, which
-  // Undo sends back. A row in this map shows as added.
-  const [added, setAdded] = useState(() => new Map<string, PantryRow[]>())
-  // Ingredient ids the shopper pressed Add to list or Undo on, kept until a
-  // reload: an Undo pressed before the Add's refresh lands leaves the row out
-  // of `added`, and the refresh must not drop it then.
-  const [touched, setTouched] = useState(() => new Set<string>())
-
-  // The rows on screen: the server's, plus each touched row it has dropped
-  // since. Updated during render when the prop changes, with no effect.
-  const [shown, setShown] = useState(items)
+  // Ingredient id → the part pressed, until the server's `stock` agrees. The
+  // part changes on the press, not in `onMutate`, which waits for an earlier
+  // request in the scope.
+  const [pressed, setPressed] = useState(() => new Map<string, PantryStock>())
+  // Updated during render when the prop changes, with no effect: a press the
+  // refreshed list now shows needs no override.
   const [seenItems, setSeenItems] = useState(items)
   if (items !== seenItems) {
-    const listed = new Set(items.map((item) => item.ingredientId))
-    const kept = shown.filter(
-      (item) => !listed.has(item.ingredientId) && touched.has(item.ingredientId),
-    )
     setSeenItems(items)
-    setShown([...items, ...kept])
+    const serverStock = new Map(items.map((item) => [item.ingredientId, item.stock]))
+    const kept = new Map(
+      [...pressed].filter(([ingredientId, stock]) => serverStock.get(ingredientId) !== stock),
+    )
+    if (kept.size !== pressed.size) setPressed(kept)
   }
-
-  const markAdded = (ingredientId: string, before: PantryRow[]) =>
-    setAdded((prev) => new Map(prev).set(ingredientId, before))
-  const markUndone = (ingredientId: string) =>
-    setAdded((prev) => {
-      const next = new Map(prev)
-      next.delete(ingredientId)
-      return next
-    })
 
   // One request per row: a herb stays at home while any form of it is left.
   // Each request is settled before any error is thrown, so the rows that
   // landed reach the pantry column even when another failed.
-  const patchQuantities = async (rows: PantryRow[]) => {
-    const results = await Promise.allSettled(
-      rows.map(({ id, quantity }) =>
-        apiFetch(
-          `/api/pantry/${id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity }),
-          },
-          tPantry('errors.updateFailed'),
-        ),
-      ),
-    )
-    const written = rows.filter((_, i) => results[i]?.status === 'fulfilled')
-    if (written.length > 0) onQuantitiesChanged?.(written)
-    const failed = results.find((result) => result.status === 'rejected')
-    if (failed) throw failed.reason
-  }
-
-  // The row changes on the press, not in `onMutate`, which waits for an
-  // earlier request in the scope.
-  const addMutation = useMutation({
+  const mutation = useMutation({
     scope: QUANTITY_SCOPE,
-    mutationFn: ({ rows }: RowChange) =>
-      patchQuantities(rows.map(({ id }) => ({ id, quantity: 0 }))),
+    mutationFn: async ({ stock, rows }: StockChange) => {
+      const results = await Promise.allSettled(
+        rows.map(({ id }) =>
+          apiFetch(
+            `/api/pantry/${id}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(STOCK_BODY[stock]),
+            },
+            tPantry('errors.updateFailed'),
+          ),
+        ),
+      )
+      const written = rows
+        .filter((_, i) => results[i]?.status === 'fulfilled')
+        .map((row) => writtenRow(row, stock))
+      if (written.length > 0) onQuantitiesChanged?.(written)
+      const failed = results.find((result) => result.status === 'rejected')
+      if (failed) throw failed.reason
+    },
     // On an error too: with two herb rows, one request can land and the
     // other fail, and the screen must show what the pantry now holds.
     onSettled: () => router.refresh(),
-    onError: (_error, { ingredientId }) => {
-      markUndone(ingredientId)
+    // The part goes back to the server's, unless a later press replaced it.
+    onError: (_error, { ingredientId, stock }) => {
+      setPressed((prev) => {
+        if (prev.get(ingredientId) !== stock) return prev
+        const next = new Map(prev)
+        next.delete(ingredientId)
+        return next
+      })
       toast.error(tPantry('errors.updateFailed'))
     },
   })
 
-  // Undo: each row's quantity before the add, "have some" for a check row.
-  const undoMutation = useMutation({
-    scope: QUANTITY_SCOPE,
-    mutationFn: ({ rows }: RowChange) => patchQuantities(rows),
-    onSettled: () => router.refresh(),
-    onError: (_error, { ingredientId, rows }) => {
-      markAdded(ingredientId, rows)
-      toast.error(tPantry('errors.updateFailed'))
-    },
-  })
-
-  const handleAdd = (item: PantryCheckRow) => {
-    setTouched((prev) => new Set(prev).add(item.ingredientId))
-    markAdded(item.ingredientId, item.pantryRows)
-    addMutation.mutate({ ingredientId: item.ingredientId, rows: item.pantryRows })
-  }
-  const handleUndo = (item: PantryCheckRow) => {
-    markUndone(item.ingredientId)
-    undoMutation.mutate({
-      ingredientId: item.ingredientId,
-      rows: added.get(item.ingredientId) ?? item.pantryRows,
-    })
+  // Have it or Low leaves a row at 0 alone while another row keeps the need
+  // at home: the household marked that form ran out, and a press here says
+  // nothing about it. With every row at 0, all of them are written.
+  const handleStockChange = (item: PantryCheckRow, stock: PantryStock) => {
+    const allOut = item.pantryRows.every((row) => row.quantity === 0)
+    const rows =
+      stock === 'ranOut' || allOut
+        ? item.pantryRows
+        : item.pantryRows.filter((row) => row.quantity !== 0)
+    setPressed((prev) => new Map(prev).set(item.ingredientId, stock))
+    mutation.mutate({ ingredientId: item.ingredientId, stock, rows })
   }
 
   // First needed first, then by name in the app locale: a bare
@@ -170,125 +170,81 @@ export function PantryCheckList({ items, onQuantitiesChanged }: PantryCheckListP
   // compare as strings.
   const sorted = useMemo(
     () =>
-      [...shown].sort((a, b) =>
+      [...items].sort((a, b) =>
         a.neededByDate === b.neededByDate
           ? a.name.localeCompare(b.name, locale)
           : a.neededByDate < b.neededByDate
             ? -1
             : 1,
       ),
-    [shown, locale],
+    [items, locale],
   )
 
   if (sorted.length === 0) return null
 
-  // The panel's day-group pattern: a Caption, not a heading, naming the list.
+  const list = (
+    <ul aria-labelledby={labelId} className="flex flex-col gap-4">
+      {sorted.map((item) => (
+        <PantryCheckListRow
+          key={item.ingredientId}
+          item={item}
+          stock={pressed.get(item.ingredientId) ?? item.stock}
+          onStockChange={(stock) => handleStockChange(item, stock)}
+        />
+      ))}
+    </ul>
+  )
+  if (labelledBy) return list
+
+  // The day-group pattern: a Caption, not a heading, naming the list.
   return (
     <div className="flex flex-col gap-2">
       <Heading variant="caption" as="p" id={labelId}>
         {t('heading')}
       </Heading>
-      <ul aria-labelledby={labelId} className="flex flex-col gap-2">
-        {sorted.map((item) => (
-          <PantryCheckListRow
-            key={item.ingredientId}
-            item={item}
-            isAdded={added.has(item.ingredientId)}
-            onAdd={() => handleAdd(item)}
-            onUndo={() => handleUndo(item)}
-          />
-        ))}
-      </ul>
+      {list}
     </div>
   )
 }
 
 interface PantryCheckListRowProps {
   item: PantryCheckRow
-  isAdded: boolean
-  onAdd: () => void
-  onUndo: () => void
+  stock: PantryStock
+  onStockChange: (stock: PantryStock) => void
 }
 
-function PantryCheckListRow({ item, isAdded, onAdd, onUndo }: PantryCheckListRowProps) {
+function PantryCheckListRow({ item, stock, onStockChange }: PantryCheckListRowProps) {
   const t = useTranslations('today.check')
   const tToday = useTranslations('today')
-  const addRef = useRef<HTMLButtonElement>(null)
-  const undoRef = useRef<HTMLButtonElement>(null)
-  const actedRef = useRef(false)
 
-  // Add to list gives way to Undo, and Undo to Add to list, so the pressed
-  // control unmounts and focus would fall to the page body (docs/DESIGN.md →
-  // Focus management). Exactly one is mounted, so it is the target whichever
-  // way the row moved, a revert after a failed request included.
-  useEffect(() => {
-    if (!actedRef.current) return
-    if (document.activeElement && document.activeElement !== document.body) return
-    ;(undoRef.current ?? addRef.current)?.focus()
-  }, [isAdded])
-
-  const act = (action: () => void) => {
-    actedRef.current = true
-    action()
-  }
-
-  // Separators, not prepositions, so Estonian needs no declension. An added
-  // row leads with "Added", so the line says what the Undo beside it undoes.
-  const meta = [
-    isAdded && t('added'),
-    item.displayQuantity,
-    t('meals', { count: item.mealCount }),
-    item.neededByRelative,
-  ]
+  // Separators, not prepositions, so Estonian needs no declension.
+  const meta = [item.displayQuantity, t('meals', { count: item.mealCount }), item.neededByRelative]
     .filter(Boolean)
     .join(' · ')
 
-  // Two lines: the name with its one action, as a title row (DESIGN.md →
-  // "Actions sit on the title row"), and the meta under both at full width,
-  // so the 320px Today panel does not wrap it around the button.
+  // Three lines: the name, the meta, and the stock control, because the 272px
+  // panel content has no room for the control beside the name. The control
+  // stays mounted through a press, so focus stays on it.
   return (
-    <li className="flex flex-col gap-0.5 text-sm">
-      <span className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          {/* The pantry page's staple star, so the row reads as a staple. */}
-          {item.isStaple && (
-            <Star
-              role="img"
-              aria-label={tToday('staple')}
-              className="fill-warning text-warning size-3.5 shrink-0"
-            />
-          )}
-          <span className="truncate">{item.name}</span>
-        </span>
-        {/* Keyed: the two sit in the same place, and React would otherwise
-            reuse one's node for the other, focus and all. */}
-        {isAdded ? (
-          <Button
-            key="undo"
-            ref={undoRef}
-            variant="quiet"
-            size="sm-touch"
-            className="shrink-0"
-            aria-label={t('undoLabel', { name: item.name })}
-            onClick={() => act(onUndo)}
-          >
-            {t('undo')}
-          </Button>
-        ) : (
-          <Button
-            key="add"
-            ref={addRef}
-            variant="outline"
-            size="sm-touch"
-            className="shrink-0"
-            aria-label={t('addLabel', { name: item.name })}
-            onClick={() => act(onAdd)}
-          >
-            {t('add')}
-          </Button>
+    <li className="flex flex-col items-start gap-1 text-sm">
+      <span className="flex items-start gap-1.5">
+        {/* The pantry page's staple star, so the row reads as a staple. */}
+        {item.isStaple && (
+          <Star
+            role="img"
+            aria-label={tToday('staple')}
+            className="fill-warning text-warning mt-0.5 size-3.5 shrink-0"
+          />
         )}
+        <span className="break-words">{item.name}</span>
       </span>
       <span className="text-muted-foreground">{meta}</span>
+      <PantryStockControl
+        pantryItemId={item.pantryRows[0]?.id ?? item.ingredientId}
+        name={item.name}
+        stock={stock}
+        onStockChange={onStockChange}
+      />
     </li>
   )
 }

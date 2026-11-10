@@ -260,8 +260,9 @@ describe('pantryShoppingLines — check (HON-1584)', () => {
         totalQuantity: 1160,
         mealCount: 4,
         earliestNeededDate: DAY_3,
-        pantryRows: [{ id: 'pantry-carrot', quantity: null }],
+        pantryRows: [{ id: 'pantry-carrot', quantity: null, low: false }],
         isStaple: false,
+        stock: 'haveIt',
       },
       {
         ingredientId: 'ing-garlic',
@@ -269,8 +270,9 @@ describe('pantryShoppingLines — check (HON-1584)', () => {
         totalQuantity: 30,
         mealCount: 3,
         earliestNeededDate: TODAY,
-        pantryRows: [{ id: 'pantry-garlic', quantity: null }],
+        pantryRows: [{ id: 'pantry-garlic', quantity: null, low: false }],
         isStaple: true,
+        stock: 'haveIt',
       },
       {
         ingredientId: 'ing-frozen-berries',
@@ -278,8 +280,9 @@ describe('pantryShoppingLines — check (HON-1584)', () => {
         totalQuantity: 400,
         mealCount: 2,
         earliestNeededDate: TODAY,
-        pantryRows: [{ id: 'pantry-frozen-berries', quantity: null }],
+        pantryRows: [{ id: 'pantry-frozen-berries', quantity: null, low: false }],
         isStaple: true,
+        stock: 'haveIt',
       },
       {
         ingredientId: 'ing-basil',
@@ -287,8 +290,9 @@ describe('pantryShoppingLines — check (HON-1584)', () => {
         totalQuantity: 20,
         mealCount: 2,
         earliestNeededDate: TODAY,
-        pantryRows: [{ id: 'pantry-fresh-basil', quantity: null }],
+        pantryRows: [{ id: 'pantry-fresh-basil', quantity: null, low: false }],
         isStaple: false,
+        stock: 'haveIt',
       },
     ])
   })
@@ -314,6 +318,63 @@ describe('pantryShoppingLines — check (HON-1584)', () => {
     ])
     const { check } = await pantryShoppingLines(needed, 'household-1', 'en', TODAY)
     expect(check).toEqual([])
+  })
+})
+
+describe('pantryShoppingLines — a marked row stays in the check (HON-1638)', () => {
+  const checked = async (needed: Map<string, NeededIngredient>) =>
+    (await pantryShoppingLines(needed, 'household-1', 'en', TODAY)).check.map((item) => [
+      item.ingredient.name,
+      item.stock,
+      item.pantryRows.map((row) => row.id),
+    ])
+
+  it('keeps a ran-out row that 2 meals use, as ran out, and lists the full amount', async () => {
+    pantry(['carrot', 0])
+    const needed = new Map([need('carrot', 500, { category: 'vegetable', mealCount: 2 })])
+    expect(await checked(needed)).toEqual([['carrot', 'ranOut', ['pantry-carrot']]])
+    expect(await listed(needed)).toEqual([['carrot', 500]])
+  })
+
+  it('keeps a ran-out staple that 2 meals use, as ran out', async () => {
+    pantry(['garlic', 0, true])
+    const needed = new Map([need('garlic', 30, { category: 'vegetable', mealCount: 2 })])
+    expect(await checked(needed)).toEqual([['garlic', 'ranOut', ['pantry-garlic']]])
+  })
+
+  it('keeps a herb whose own row and fresh row are both at 0, as ran out, with both rows', async () => {
+    pantry(['basil', 0], ['fresh basil', 0])
+    const needed = new Map([
+      need('basil', 20, { category: 'spice', subcategory: 'herb', mealCount: 2 }),
+    ])
+    expect(await checked(needed)).toEqual([
+      ['basil', 'ranOut', ['pantry-basil', 'pantry-fresh-basil']],
+    ])
+  })
+
+  it('reads a herb as low when one row is low and the other at 0', async () => {
+    pantry(['basil', null, false, 'low'], ['fresh basil', 0])
+    const needed = new Map([
+      need('basil', 20, { category: 'spice', subcategory: 'herb', mealCount: 2 }),
+    ])
+    expect(await checked(needed)).toEqual([
+      ['basil', 'low', ['pantry-basil', 'pantry-fresh-basil']],
+    ])
+  })
+
+  it('still leaves out a ran-out row that one meal uses, and a ran-out cupboard item', async () => {
+    pantry(['carrot', 0], ['olive oil', 0])
+    const needed = new Map([
+      need('carrot', 500, { category: 'vegetable', mealCount: 1 }),
+      need('olive oil', 500, { category: 'fat', mealCount: 3 }),
+    ])
+    expect(await checked(needed)).toEqual([])
+  })
+
+  it('leaves out a need with no pantry row', async () => {
+    pantry()
+    const needed = new Map([need('carrot', 500, { category: 'vegetable', mealCount: 3 })])
+    expect(await checked(needed)).toEqual([])
   })
 })
 
@@ -391,11 +452,15 @@ describe('pantryShoppingLines — running low (HON-1586)', () => {
     expect(await lowLines(needs(['carrot', 200]))).toEqual([['carrot', 0, TODAY, true]])
   })
 
-  it('leaves a low row that 3 meals use out of the check', async () => {
+  it('keeps a low row that 3 meals use in the check, as low (HON-1638)', async () => {
     pantry(['carrot', null, false, 'low'])
     const needed = new Map([need('carrot', 900, { category: 'vegetable', mealCount: 3 })])
-    const { check } = await pantryShoppingLines(needed, 'household-1', 'en', TODAY)
-    expect(check).toEqual([])
+    const { check, lines } = await pantryShoppingLines(needed, 'household-1', 'en', TODAY)
+    expect(check.map((item) => [item.ingredient.name, item.stock, item.pantryRows])).toEqual([
+      ['carrot', 'low', [{ id: 'pantry-carrot', quantity: null, low: true }]],
+    ])
+    // On the list too, with low.
+    expect(lines.map((line) => [line.ingredient.name, line.low])).toEqual([['carrot', true]])
   })
 
   it('dates a low fresh-basil row by the basil need it covers', async () => {

@@ -25,7 +25,7 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 import type { Locale } from '@/lib/i18n/locales'
 
 import { GroupHeading } from './GroupHeading'
-import { PantryCheckList, type PantryCheckRow } from './PantryCheckList'
+import { PantryCheckList, type PantryCheckRow, type PantryRow } from './PantryCheckList'
 import { buildClipboardSectionsFor } from './shopping-clipboard-sections'
 import {
   buildAlphabeticalItems,
@@ -73,10 +73,10 @@ interface ShoppingSectionProps {
   onExternalPantryChangesProcessed?: (listStale: boolean) => void
   /** "Add item" marked a staple ran out (HON-1400), by its pantry item id. */
   onStapleRanOut?: (pantryItemId: string) => void
-  /** The "have some" needs to check before a shop (HON-1585). */
+  /** The needs to check before a shop (HON-1585). */
   check?: PantryCheckRow[]
-  /** The check's Add to list or Undo wrote these pantry rows, by pantry item id. */
-  onPantryQuantitiesChanged?: (rows: { id: string; quantity: number | null }[]) => void
+  /** The check's stock control wrote these pantry rows, by pantry item id. */
+  onPantryQuantitiesChanged?: (rows: PantryRow[]) => void
 }
 
 /** One empty list for every render, so `PantryCheckList` does not see a new prop on a default. */

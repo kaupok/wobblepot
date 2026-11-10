@@ -1,9 +1,18 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_SHOPPING_DATA, renderPage } from './InventoryPage.fixtures'
-import { pressedStock, stockPart } from './PantrySection.fixtures'
+import type { StockLabel } from './PantrySection.fixtures'
+
+// The check row and the pantry row carry the same control, so each is read
+// inside its column.
+const stockIn = (column: 'pantry-column' | 'shopping-column', name: string) =>
+  within(screen.getByTestId(column)).getByRole('radiogroup', { name: `Stock: ${name}` })
+const pressedIn = (column: 'pantry-column' | 'shopping-column', name: string) =>
+  within(stockIn(column, name)).getByRole('radio', { checked: true })
+const checkPart = (name: string, label: StockLabel) =>
+  within(stockIn('shopping-column', name)).getByRole('radio', { name: label })
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -18,10 +27,11 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-// The check's Add to list sets the row to 0, ran out, which replaces running
-// low (HON-1586): the pantry column clears low as the server does (HON-1587).
+// The check's stock control writes the pantry row (HON-1638): the pantry
+// column shows the new state without a reload, as the server holds it. Ran out
+// clears running low (HON-1586).
 describe('InventoryPage check and running low', () => {
-  it('clears low on a row the check sets to 0', async () => {
+  it('shows each part the check presses in the pantry column', async () => {
     const user = userEvent.setup()
     renderPage({
       view: 'shopping',
@@ -46,20 +56,27 @@ describe('InventoryPage check and running low', () => {
             mealCount: 4,
             neededByDate: '2026-02-18',
             neededByRelative: 'Wed',
-            pantryRows: [{ id: 'pantry-carrot', quantity: null }],
+            pantryRows: [{ id: 'pantry-carrot', quantity: null, low: true }],
             isStaple: false,
+            stock: 'low',
           },
         ],
       },
     })
-    expect(pressedStock('Carrot')).toHaveAccessibleName('Low')
+    expect(pressedIn('pantry-column', 'Carrot')).toHaveAccessibleName('Low')
+    expect(pressedIn('shopping-column', 'Carrot')).toHaveAccessibleName('Low')
 
-    await user.click(screen.getByRole('button', { name: 'Add to list: Carrot' }))
-    await waitFor(() => expect(pressedStock('Carrot')).toHaveAccessibleName('Ran out'))
-    expect(stockPart('Carrot', 'Low')).toHaveAttribute('aria-checked', 'false')
+    await user.click(checkPart('Carrot', 'Ran out'))
+    await waitFor(() =>
+      expect(pressedIn('pantry-column', 'Carrot')).toHaveAccessibleName('Ran out'),
+    )
 
-    await user.click(stockPart('Carrot', 'Have it'))
-    await waitFor(() => expect(pressedStock('Carrot')).toHaveAccessibleName('Have it'))
-    expect(stockPart('Carrot', 'Low')).toHaveAttribute('aria-checked', 'false')
+    await user.click(checkPart('Carrot', 'Have it'))
+    await waitFor(() =>
+      expect(pressedIn('pantry-column', 'Carrot')).toHaveAccessibleName('Have it'),
+    )
+
+    await user.click(checkPart('Carrot', 'Low'))
+    await waitFor(() => expect(pressedIn('pantry-column', 'Carrot')).toHaveAccessibleName('Low'))
   })
 })

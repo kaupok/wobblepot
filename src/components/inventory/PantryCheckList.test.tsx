@@ -24,8 +24,9 @@ const carrot: PantryCheckRow = {
   mealCount: 4,
   neededByDate: '2026-11-03',
   neededByRelative: 'Tuesday',
-  pantryRows: [{ id: 'pantry-carrot', quantity: null }],
+  pantryRows: [{ id: 'pantry-carrot', quantity: null, low: false }],
   isStaple: false,
+  stock: 'haveIt',
 }
 const garlic: PantryCheckRow = {
   ingredientId: 'ing-garlic',
@@ -34,8 +35,9 @@ const garlic: PantryCheckRow = {
   mealCount: 3,
   neededByDate: '2026-11-02',
   neededByRelative: 'tomorrow',
-  pantryRows: [{ id: 'pantry-garlic', quantity: null }],
+  pantryRows: [{ id: 'pantry-garlic', quantity: null, low: false }],
   isStaple: true,
+  stock: 'haveIt',
 }
 // Kept at home by its own row and by the fresh basil row (HON-1558).
 const basil: PantryCheckRow = {
@@ -46,10 +48,11 @@ const basil: PantryCheckRow = {
   neededByDate: '2026-11-03',
   neededByRelative: 'Tuesday',
   pantryRows: [
-    { id: 'pantry-basil', quantity: null },
-    { id: 'pantry-fresh-basil', quantity: null },
+    { id: 'pantry-basil', quantity: null, low: false },
+    { id: 'pantry-fresh-basil', quantity: null, low: false },
   ],
   isStaple: false,
+  stock: 'haveIt',
 }
 
 const onQuantitiesChanged = vi.fn()
@@ -87,6 +90,12 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+/** The stock control's part on the item's row. */
+const part = (name: string, label: string) =>
+  within(screen.getByRole('radiogroup', { name: `Stock: ${name}` })).getByRole('radio', {
+    name: label,
+  })
+
 describe('PantryCheckList', () => {
   it('lists the items by first needed date, then name, with amount, meal count and date', () => {
     renderList([carrot, garlic, basil])
@@ -97,17 +106,45 @@ describe('PantryCheckList', () => {
         .getAllByRole('listitem')
         .map((li) => li.textContent),
     ).toEqual([
-      'GarlicAdd to list30 g · 3 meals · tomorrow',
-      'BasilAdd to list20 g · 2 meals · Tuesday',
-      'CarrotAdd to list~20 pcs · 4 meals · Tuesday',
+      'Garlic30 g · 3 meals · tomorrowHave itLowRan out',
+      'Basil20 g · 2 meals · TuesdayHave itLowRan out',
+      'Carrot~20 pcs · 4 meals · TuesdayHave itLowRan out',
     ])
+  })
+
+  it('shows the name, the meta line and the stock control as three lines, the name not truncated', () => {
+    renderList([carrot])
+
+    const row = screen.getByRole('listitem')
+    const lines = [...row.children]
+    expect(lines.map((line) => line.textContent)).toEqual([
+      'Carrot',
+      '~20 pcs · 4 meals · Tuesday',
+      'Have itLowRan out',
+    ])
+    expect(screen.getByText('Carrot')).not.toHaveClass('truncate')
+  })
+
+  it('takes its name from a title outside it, and then shows no Caption of its own', () => {
+    const { wrapper: QueryWrapper } = createQueryWrapper()
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <QueryWrapper>
+          <div id="title">Card title</div>
+          <PantryCheckList items={[carrot]} labelledBy="title" />
+        </QueryWrapper>
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByRole('list', { name: 'Card title' })).toBeInTheDocument()
+    expect(screen.queryByText('Enough at home?')).not.toBeInTheDocument()
   })
 
   it('marks a staple with the star, and only a staple', () => {
     renderList([carrot, garlic])
 
     expect(screen.getAllByRole('img', { name: 'Staple' })).toHaveLength(1)
-    const garlicRow = screen.getByRole('button', { name: 'Add to list: Garlic' }).closest('li')!
+    const garlicRow = screen.getByRole('radiogroup', { name: 'Stock: Garlic' }).closest('li')!
     expect(within(garlicRow).getByRole('img', { name: 'Staple' })).toBeInTheDocument()
   })
 
@@ -118,9 +155,8 @@ describe('PantryCheckList', () => {
     )
 
     expect(screen.getByRole('list', { name: 'Kas kodus jätkub?' })).toHaveTextContent(
-      'porgandLisa nimekirja~20 tk · 4 toitu · homme',
+      'porgand~20 tk · 4 toitu · hommeOlemasVäheOtsas',
     )
-    expect(screen.getByRole('button', { name: 'Lisa nimekirja: porgand' })).toBeInTheDocument()
   })
 
   it('renders nothing when the check is empty', () => {
@@ -130,10 +166,31 @@ describe('PantryCheckList', () => {
     expect(screen.queryByText('Enough at home?')).not.toBeInTheDocument()
   })
 
-  it('sets every pantry row to 0 on Add to list, then refreshes', async () => {
+  it('presses the part the server stock says', () => {
+    renderList([{ ...carrot, stock: 'low' }, { ...garlic, stock: 'ranOut' }, basil])
+
+    expect(part('Carrot', 'Low')).toHaveAttribute('aria-checked', 'true')
+    expect(part('Garlic', 'Ran out')).toHaveAttribute('aria-checked', 'true')
+    expect(part('Basil', 'Have it')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('writes every pantry row of a herb on Low, presses it at once, then refreshes', async () => {
     renderList([basil])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
+    await userEvent.click(part('Basil', 'Low'))
+
+    expect(part('Basil', 'Low')).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(patches()).toEqual([
+      ['/api/pantry/pantry-basil', { low: true }],
+      ['/api/pantry/pantry-fresh-basil', { low: true }],
+    ])
+  })
+
+  it('sets every row to 0 on Ran out', async () => {
+    renderList([basil])
+
+    await userEvent.click(part('Basil', 'Ran out'))
 
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
     expect(patches()).toEqual([
@@ -142,43 +199,98 @@ describe('PantryCheckList', () => {
     ])
   })
 
-  it('keeps an added row the server dropped as Added, and Undo writes "have some" back', async () => {
-    const { rerenderWith } = renderList([basil, carrot])
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
-    // The refresh: basil is no longer "have some", so it leaves the check.
-    rerenderWith([carrot])
-
-    const basilRow = screen.getByRole('button', { name: 'Undo: Basil' }).closest('li')!
-    expect(basilRow).toHaveTextContent('BasilUndoAdded · 20 g · 2 meals · Tuesday')
-    fetchMock.mockClear()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Undo: Basil' }))
-
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
-    expect(patches()).toEqual([
-      ['/api/pantry/pantry-basil', { quantity: null }],
-      ['/api/pantry/pantry-fresh-basil', { quantity: null }],
+  it('sets the row back to "have some" on Have it after Ran out', async () => {
+    renderList([
+      {
+        ...carrot,
+        pantryRows: [{ id: 'pantry-carrot', quantity: 0, low: false }],
+        stock: 'ranOut',
+      },
     ])
-    expect(screen.getByRole('button', { name: 'Add to list: Basil' })).toBeInTheDocument()
+
+    await userEvent.click(part('Carrot', 'Have it'))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(patches()).toEqual([['/api/pantry/pantry-carrot', { quantity: null, low: false }]])
   })
 
-  it('reports the rows each request wrote, for the pantry column', async () => {
-    renderList([basil])
+  it('leaves a herb row at 0 alone on Low while the other row keeps the need at home', async () => {
+    renderList([
+      {
+        ...basil,
+        pantryRows: [
+          { id: 'pantry-basil', quantity: null, low: false },
+          { id: 'pantry-fresh-basil', quantity: 0, low: false },
+        ],
+      },
+    ])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
+    await userEvent.click(part('Basil', 'Low'))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(patches()).toEqual([['/api/pantry/pantry-basil', { low: true }]])
+  })
+
+  it('writes both herb rows on Have it when both are at 0', async () => {
+    renderList([
+      {
+        ...basil,
+        pantryRows: [
+          { id: 'pantry-basil', quantity: 0, low: false },
+          { id: 'pantry-fresh-basil', quantity: 0, low: false },
+        ],
+        stock: 'ranOut',
+      },
+    ])
+
+    await userEvent.click(part('Basil', 'Have it'))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(patches()).toEqual([
+      ['/api/pantry/pantry-basil', { quantity: null, low: false }],
+      ['/api/pantry/pantry-fresh-basil', { quantity: null, low: false }],
+    ])
+  })
+
+  it('keeps the pressed part through the refresh, and follows the server after it', async () => {
+    const { rerenderWith } = renderList([carrot])
+
+    await userEvent.click(part('Carrot', 'Low'))
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    // The refresh: the server now says low.
+    rerenderWith([{ ...carrot, stock: 'low' }])
+    expect(part('Carrot', 'Low')).toHaveAttribute('aria-checked', 'true')
+
+    // A later change elsewhere: the row shows what the server says.
+    rerenderWith([{ ...carrot, stock: 'ranOut' }])
+    expect(part('Carrot', 'Ran out')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('reports the rows each request wrote, as the server holds them, for the pantry column', async () => {
+    renderList([
+      {
+        ...basil,
+        pantryRows: [
+          { id: 'pantry-basil', quantity: 0, low: false },
+          { id: 'pantry-fresh-basil', quantity: 0, low: false },
+        ],
+        stock: 'ranOut',
+      },
+    ])
+
+    await userEvent.click(part('Basil', 'Low'))
+    // Low on a row at 0 makes it "have some" (null), as the server does.
     await waitFor(() =>
       expect(onQuantitiesChanged).toHaveBeenCalledWith([
-        { id: 'pantry-basil', quantity: 0 },
-        { id: 'pantry-fresh-basil', quantity: 0 },
+        { id: 'pantry-basil', quantity: null, low: true },
+        { id: 'pantry-fresh-basil', quantity: null, low: true },
       ]),
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Undo: Basil' }))
+    await userEvent.click(part('Basil', 'Ran out'))
     await waitFor(() =>
       expect(onQuantitiesChanged).toHaveBeenLastCalledWith([
-        { id: 'pantry-basil', quantity: null },
-        { id: 'pantry-fresh-basil', quantity: null },
+        { id: 'pantry-basil', quantity: 0, low: false },
+        { id: 'pantry-fresh-basil', quantity: 0, low: false },
       ]),
     )
   })
@@ -191,44 +303,31 @@ describe('PantryCheckList', () => {
     )
     renderList([basil])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
+    await userEvent.click(part('Basil', 'Ran out'))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(onQuantitiesChanged).toHaveBeenCalledTimes(1)
-    expect(onQuantitiesChanged).toHaveBeenCalledWith([{ id: 'pantry-basil', quantity: 0 }])
+    expect(onQuantitiesChanged).toHaveBeenCalledWith([
+      { id: 'pantry-basil', quantity: 0, low: false },
+    ])
   })
 
-  it('keeps the row when Undo is pressed before the Add refresh lands', async () => {
-    const { rerenderWith } = renderList([basil, carrot])
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Basil' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Undo: Basil' }))
-    // The Add's refresh: the server holds basil at 0, so the check drops it.
-    rerenderWith([carrot])
-
-    expect(screen.getByRole('button', { name: 'Add to list: Basil' })).toHaveFocus()
-  })
-
-  it('moves focus to Undo after Add to list, and back after Undo', async () => {
+  it('keeps focus on the pressed part', async () => {
     renderList([carrot])
 
-    await userEvent.tab()
-    expect(screen.getByRole('button', { name: 'Add to list: Carrot' })).toHaveFocus()
-    await userEvent.keyboard('{Enter}')
-    expect(screen.getByRole('button', { name: 'Undo: Carrot' })).toHaveFocus()
+    await userEvent.click(part('Carrot', 'Low'))
 
-    await userEvent.keyboard('{Enter}')
-    expect(screen.getByRole('button', { name: 'Add to list: Carrot' })).toHaveFocus()
+    expect(part('Carrot', 'Low')).toHaveFocus()
   })
 
-  it('puts the row back and says so when the request fails', async () => {
+  it('puts the part back and says so when the request fails', async () => {
     fetchMock.mockImplementation(async () => new Response('{}', { status: 500 }))
     renderList([carrot])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add to list: Carrot' }))
+    await userEvent.click(part('Carrot', 'Ran out'))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    expect(screen.getByRole('button', { name: 'Add to list: Carrot' })).toBeInTheDocument()
+    expect(part('Carrot', 'Have it')).toHaveAttribute('aria-checked', 'true')
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 })

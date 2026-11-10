@@ -170,11 +170,6 @@
     "staple": "Staple",
     "check": {
       "heading": "Enough at home?",
-      "add": "Add to list",
-      "addLabel": "Add to list: {name}",
-      "added": "Added",
-      "undo": "Undo",
-      "undoLabel": "Undo: {name}",
       "meals": "{count, plural, one {# meal} other {# meals}}"
     },
     "summaryToday": "{count} for today",

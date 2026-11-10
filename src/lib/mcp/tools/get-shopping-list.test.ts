@@ -80,8 +80,9 @@ const LIST = {
       mealCount: 2,
       neededByDate: '2026-10-13',
       neededByRelative: 'Tomorrow',
-      pantryRows: [{ id: 'pantry-pepper', quantity: null }],
+      pantryRows: [{ id: 'pantry-pepper', quantity: null, low: false }],
       isStaple: false,
+      stock: 'haveIt',
     },
   ],
 } as unknown as ShoppingListResult
@@ -157,6 +158,7 @@ describe('get_shopping_list', () => {
           mealCount: 2,
           neededBy: '2026-10-13',
           isStaple: false,
+          stock: 'haveIt',
         },
       ],
     })
@@ -194,6 +196,32 @@ describe('get_shopping_list', () => {
       items: [{ ingredientId: 'ing-onion', quantity: 0, displayQuantity: '', low: true }],
     })
     expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it('keeps an item marked low or ran out in check, with its stock (HON-1638)', async () => {
+    const pepper = LIST.check[0]!
+    vi.mocked(loadShoppingList).mockResolvedValue({
+      ...LIST,
+      check: [
+        { ...pepper, stock: 'low' },
+        { ...pepper, ingredientId: 'ing-leek', name: 'Leek', stock: 'ranOut' },
+      ],
+    } as unknown as ShoppingListResult)
+
+    const result = await call()
+
+    expect(result.structuredContent).toMatchObject({
+      check: [
+        { ingredientId: 'ing-pepper', stock: 'low' },
+        { ingredientId: 'ing-leek', stock: 'ranOut' },
+      ],
+    })
+    expect(getShoppingList.outputSchema.safeParse(result.structuredContent).success).toBe(true)
+  })
+
+  it('says in its description what each stock means and that a marked item is on items too', () => {
+    expect(getShoppingList.description).toContain('haveIt (has some), low (running low) or ranOut')
+    expect(getShoppingList.description).toContain('A low or ranOut item is on items too')
   })
 
   it('reads 14 days when asked', async () => {

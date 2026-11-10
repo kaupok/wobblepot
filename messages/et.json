@@ -170,11 +170,6 @@
     "staple": "Põhitoode",
     "check": {
       "heading": "Kas kodus jätkub?",
-      "add": "Lisa nimekirja",
-      "addLabel": "Lisa nimekirja: {name}",
-      "added": "Lisatud",
-      "undo": "Võta tagasi",
-      "undoLabel": "Võta tagasi: {name}",
       "meals": "{count, plural, one {# toit} other {# toitu}}"
     },
     "summaryToday": "{count} tänaseks",

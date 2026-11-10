@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useId, useMemo, useState } from 'react'
 
 import { PantryCheckList, type PantryCheckRow } from '@/components/inventory/PantryCheckList'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
@@ -44,9 +43,9 @@ interface UrgentShoppingProps {
    */
   compact?: boolean
   /**
-   * The "have some" needs to check before a shop, for the full panel's Check
-   * section (HON-1585): the whole window's, not only today's and tomorrow's.
-   * The phone form does not read them.
+   * The needs to check before a shop, for the full panel's "Enough at home?"
+   * card above the list (HON-1585, HON-1638): the whole window's, not only
+   * today's and tomorrow's. The phone form does not read them.
    */
   check?: PantryCheckRow[]
 }
@@ -173,9 +172,9 @@ export function UrgentShopping({
     </div>
   )
 
-  // Nothing to buy today or tomorrow, and nothing to check: a plain card with
-  // the empty line rather than the note.
-  const isEmpty = !hasUrgent && check.length === 0
+  // Nothing to buy today or tomorrow: a plain card with the empty line rather
+  // than the note.
+  const isEmpty = !hasUrgent
 
   // The phone form has no item list, so the "Need 2 for today, 1 for
   // tomorrow" line is the whole message; the full panel says the same through
@@ -229,14 +228,16 @@ export function UrgentShopping({
                 className="flex items-center justify-between gap-2 text-sm"
               >
                 <span className="min-w-0 truncate">{item.name}</span>
-                <span className="flex shrink-0 items-center gap-2">
-                  {item.displayQuantity && (
-                    <span className="text-muted-foreground">{item.displayQuantity}</span>
-                  )}
-                  {(item.restock || item.ranOut) && (
-                    <Badge variant="warning">{tShopping('ranOut')}</Badge>
-                  )}
-                  {item.low && <Badge variant="warning">{tShopping('runningLow')}</Badge>}
+                {/* The status is muted text after the amount, not a badge, so
+                    the note reads as a list (HON-1638). */}
+                <span className="text-muted-foreground shrink-0">
+                  {[
+                    item.displayQuantity,
+                    (item.restock || item.ranOut) && tShopping('ranOut'),
+                    item.low && tShopping('runningLow'),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </li>
             ))}
@@ -278,29 +279,36 @@ export function UrgentShopping({
     </div>
   )
 
-  // One tree whether or not the panel is empty, so the check stays mounted
-  // when its last item is added and the refresh empties `check`: its Added
-  // row, Undo and focus stay until a reload.
+  // Two cards: the check first, so the shopper settles what is at home before
+  // reading what to buy (HON-1585), and as its own card, so the review step
+  // does not read as part of the list (HON-1638).
   return (
-    // The note surface (globals.css → `[data-surface='note']`): the list is
-    // the note on the fridge door, a pale yellow sheet rather than a card.
-    <Card data-surface={isEmpty ? undefined : 'note'}>
-      <CardHeader>{titleRow}</CardHeader>
-      <CardContent>
-        {/* The check first, so the shopper settles what is at home before
-            reading what to buy (HON-1585). */}
-        <div className="flex flex-col gap-4">
-          <PantryCheckList items={check} />
+    <>
+      {check.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle id={`${labelId}-check`}>{tToday('check.heading')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PantryCheckList items={check} labelledBy={`${labelId}-check`} />
+          </CardContent>
+        </Card>
+      )}
+      {/* The note surface (globals.css → `[data-surface='note']`): the list is
+          the note on the fridge door, a pale yellow sheet rather than a card. */}
+      <Card data-surface={isEmpty ? undefined : 'note'}>
+        <CardHeader>{titleRow}</CardHeader>
+        <CardContent>
           {isEmpty ? (
-            <>
+            <div className="flex flex-col gap-4">
               {emptyLine}
               {continuationRow}
-            </>
+            </div>
           ) : (
             toBuyContent
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </>
   )
 }

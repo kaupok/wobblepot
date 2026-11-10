@@ -52,7 +52,8 @@ export const shoppingListOutputSchema = z.object({
     }),
   ),
   // The "have some" items two or more planned meals use (HON-1584). They are
-  // not on `items`: the list assumes the pantry has enough.
+  // not on `items`: the list assumes the pantry has enough. An item the
+  // household marked low or ran out stays here and is on `items` too.
   check: z.array(
     z.object({
       ingredientId: z.string(),
@@ -63,6 +64,9 @@ export const shoppingListOutputSchema = z.object({
       mealCount: z.number(),
       neededBy: z.iso.date().describe('The first day a planned meal needs it.'),
       isStaple: z.boolean(),
+      stock: z
+        .enum(['haveIt', 'low', 'ranOut'])
+        .describe('What the pantry says: have some, running low, or ran out (on `items` too).'),
     }),
   ),
 })
@@ -103,6 +107,7 @@ export async function readShoppingList(
       mealCount: item.mealCount,
       neededBy: item.neededByDate,
       isStaple: item.isStaple,
+      stock: item.stock,
     })),
   }
 }
