@@ -90,6 +90,10 @@ export interface GeneratePlanOptions {
    * it (HON-796).
    */
   aiBudgetMs?: number
+  /** Household IANA timezone; a slot on today that is over is left untouched (HON-1523). */
+  timezone: string
+  /** The instant to read the household's clock at. Defaults to now; tests pass it. */
+  now?: Date
 }
 
 /**
@@ -101,6 +105,8 @@ export interface CreateEmptyPlanOptions {
   startDate: Date
   /** End date of the range (exclusive) */
   endDate: Date
+  /** Slots whose entries stay whatever their status (the slots that are over, HON-1523). */
+  keepSlots?: MealSlot[]
 }
 
 /**
@@ -123,6 +129,10 @@ export interface FillEmptySlotsOptions {
   weekendMealTypes: MealType[]
   /** Optional callback fired with token usage after the AI call returns. */
   onAiUsage?: (usage: AiUsageStats) => void
+  /** Household IANA timezone; a slot on today that is over is left untouched (HON-1523). */
+  timezone: string
+  /** The instant to read the household's clock at. Defaults to now; tests pass it. */
+  now?: Date
   /**
    * Wall-clock budget for the AI call in milliseconds, owned by the calling
    * route. Omit to leave the call unbounded.

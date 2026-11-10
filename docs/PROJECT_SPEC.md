@@ -164,6 +164,7 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 - **Empty required pool**: 422 with code `insufficient_candidates`, naming the protein type in `message`. Nothing is written
 - **Range too long**: 400 when the range exceeds `MAX_DAYS` (`src/app/api/meal-plans/generate/route.ts`)
 - **Regenerate a range**: Deletes the range's `planned` and `skipped` entries and writes new ones. `completed` entries are kept and their slots are not regenerated, because the pantry was already charged for them (HON-650, `src/lib/ai/generate-plan.ts`)
+- **A slot on today that is over**: from 11:00 for breakfast, 15:00 for lunch and 21:00 for dinner, in the household's timezone. Generate and Fill days leave it untouched: they delete nothing in it and write nothing to it. The fish and legume dinners are placed over the dinner dates that are left. Only today has slots that are over, and a planned meal in one stays on the shopping list until Skip (HON-1523, `MEAL_OVER_HOUR` in `src/lib/meal-planning/slots.ts`)
 - **Error codes**: every error body from the generate route carries a `code` (`src/lib/ai/error-codes.ts`); the client renders copy keyed on it
 
 ### Dates

@@ -53,7 +53,8 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/slots', () => ({
+vi.mock('@/lib/meal-planning/slots', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-planning/slots')>()),
   computeRequiredSlots: vi.fn(),
   computeMealSlots: vi.fn(),
 }))
@@ -160,6 +161,9 @@ const defaultOptions = {
   excludedIngredientIds: [],
   restrictions: [],
   locale: 'en',
+  timezone: 'Europe/Tallinn',
+  // 07:00 in Tallinn on the first day of the range, so no slot is over yet (HON-1523).
+  now: new Date('2026-01-12T05:00:00Z'),
 }
 
 // Helper to create default meal slots for a week (Mon-Sun, dinner only)

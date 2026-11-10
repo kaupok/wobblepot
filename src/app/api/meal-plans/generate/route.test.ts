@@ -254,6 +254,8 @@ describe('POST /api/meal-plans/generate', () => {
         // HON-694: without a budget the AI call is unbounded and the platform,
         // not the 504 below, decides when a slow generation ends.
         aiBudgetMs: expect.any(Number),
+        // HON-1523: the household's clock decides which slots on today are over.
+        timezone: 'Europe/Tallinn',
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')
@@ -351,6 +353,7 @@ describe('POST /api/meal-plans/generate', () => {
         endDate: expect.any(Date),
         // HON-694: same budget applies on the fill-empty path.
         aiBudgetMs: expect.any(Number),
+        timezone: 'Europe/Tallinn',
       }),
     )
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'plan-generation')

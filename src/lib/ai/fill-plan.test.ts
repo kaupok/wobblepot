@@ -50,7 +50,8 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
   getCandidates: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/slots', () => ({
+vi.mock('@/lib/meal-planning/slots', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-planning/slots')>()),
   computeRequiredSlots: vi.fn(),
   computeMealSlots: vi.fn(),
 }))

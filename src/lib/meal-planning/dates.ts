@@ -144,6 +144,20 @@ export function getTodayInTimezone(timezone: string, now: Date = new Date()): st
 }
 
 /**
+ * Get the current hour (0-23) in the specified timezone.
+ *
+ * @param now - the instant to read the hour of; tests pass it
+ */
+export function getHourInTimezone(timezone: string, now: Date = new Date()): number {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: 'numeric',
+    hourCycle: 'h23',
+  })
+  return Number(formatter.format(now))
+}
+
+/**
  * Get dates from a start date through the end of that week (Sunday).
  * Used for partial week planning when user signs up mid-week.
  */

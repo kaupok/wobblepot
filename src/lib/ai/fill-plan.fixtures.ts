@@ -56,6 +56,9 @@ export const fillOptions = {
   excludedIngredientIds: [],
   restrictions: [],
   locale: 'en',
+  timezone: 'Europe/Tallinn',
+  // 07:00 in Tallinn on the first day of the range, so no slot is over yet (HON-1523).
+  now: new Date('2026-01-12T05:00:00Z'),
   weekdayMealTypes: ['dinner' as const],
   weekendMealTypes: ['dinner' as const],
 }
