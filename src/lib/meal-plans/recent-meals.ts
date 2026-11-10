@@ -25,11 +25,16 @@ export interface LeftoverSource {
 }
 
 /**
- * The recipe meals a fridge meal at `target` can take leftovers from, newest
- * first: the ones the source rule (`findLeftoverSourceProblem`) allows, so the
- * picker never offers a source the save refuses (HON-1396). A fridge meal is
+ * The recipe meals the fridge-meal picker offers as leftovers for `target`,
+ * newest first. Each passes the source rule (`findLeftoverSourceProblem`), so
+ * the picker never offers a source the save refuses (HON-1396). A fridge meal is
  * not one, because it has no name to show, and a skipped entry is not cooked.
  * Nor is a side dish: only a main gives leftovers (HON-1609).
+ *
+ * The list is narrower than the rule on purpose: it holds only lunches and
+ * dinners, because nobody cooks a breakfast to eat it again (HON-1524). The
+ * save still takes a breakfast, so `plan_fridge_meal` can link one the user
+ * names and a saved breakfast link stays valid.
  */
 export async function loadLeftoverSources(
   household: { id: string; locale: string | null },
@@ -46,6 +51,7 @@ export async function loadLeftoverSources(
       status: { in: [MealPlanEntryStatus.planned, MealPlanEntryStatus.completed] },
       kind: 'meal',
       mealId: { not: null },
+      mealType: { in: [MealType.lunch, MealType.dinner] },
     },
     orderBy: [{ date: 'desc' }, { mealType: 'desc' }],
     select: {
@@ -125,8 +131,8 @@ const MEAL_TYPE_ORDER = Object.values(MealType)
  *
  * A planned source needs `servings`, because the dinner is bought for them
  * (`getCookServings`); a completed one may omit them. The MCP `plan_fridge_meal`
- * and the app's entry routes run this, and the picker lists what it allows
- * (`loadLeftoverSources`).
+ * and the app's entry routes run this. The picker lists only part of what it
+ * allows: no breakfast (`loadLeftoverSources`).
  *
  * For the same reason, an item `target.entryId` already stores, with the same
  * source and servings, passes unchanged. Its source can have changed since it
