@@ -41,8 +41,11 @@ Sibling files, read when they apply and before acting:
 
 ## Mechanical checks
 
-`pnpm judge` (`scripts/judge/cli.ts`) does every step that must not depend on a model. Each command reads JSON files and prints JSON:
+`pnpm judge` (`scripts/judge/cli.ts`) does every step that must not depend on a model. Each command reads JSON files and prints JSON. `list`, `issue` and `cite` read Linear through its API with `LINEAR_API_KEY` (env or `.env`), queries only:
 
+- `pnpm judge list --out <file> [--id <ID>]`: every open `[AUTO DRAFT]` issue of the team, all pages, or the one `--id`, as `[{ id, title, labels }]`.
+- `pnpm judge issue --id <ID> --out <file>`: one issue as `{ title, description, labels }`.
+- `pnpm judge cite --verdict <file> --linear-dir <dir> [--before <ISO date>]`: writes `<dir>/<CITED-ID>.txt` for each Linear citation and `duplicateOf`, not the judged issue: `Status:` line, description, every comment with its date.
 - `pnpm judge select --issues <file> [--rejudge]`: keeps titles that start with `[AUTO DRAFT]` and drops issues with a `Judge:` label unless `--rejudge`.
 - `pnpm judge gate --issue <file>`: the first hard gate the issue hits, or `null`.
 - `pnpm judge finalize --verdict <file> [--ref <sha>] [--linear-dir <dir>]`: checks each citation, turns a Decide with no verified quote into Hold, and renders the comment and the label.
@@ -59,27 +62,28 @@ A fresh shell loses the variable, so use the printed path in later commands.
 
 ## Step 1: Select issues
 
-All issues:
+All issues (the script drops `Done`, `Canceled` and `Duplicate`):
 
+```bash
+pnpm --silent judge list --out "$SCRATCH/issues.json"
 ```
-mcp__linear-server__list_issues({ team: "Wobblebot", query: "[AUTO DRAFT]", includeArchived: false, limit: 100 })
-```
 
-Drop each result whose status is `Done`, `Canceled` or `Duplicate`. With `HON-XX`, `get_issue` that one issue instead.
-
-Write the list as `[{ "id", "title", "labels" }]` to `$SCRATCH/issues.json`, then:
+With `HON-XX`, add `--id HON-XX` to list that one issue instead. Then:
 
 ```bash
 pnpm --silent judge select --issues "$SCRATCH/issues.json" [--rejudge]
 ```
 
+A `LINEAR_API_KEY` error → stop and print it; do not fall back to copying issues by hand.
+
 Judge only `selected`. Print each `skipped` line, so the user sees why an issue got no verdict. No issue selected → print `[judge] Nothing to judge` and stop.
 
 ## Step 2: Gate check
 
-For each selected issue, before any model call: `get_issue({ id, includeRelations: true })`, write `{ "title", "description", "labels" }` to `$SCRATCH/<ID>/issue.json`, and run:
+For each selected issue, before any model call:
 
 ```bash
+mkdir -p "$SCRATCH/<ID>" && pnpm --silent judge issue --id <ID> --out "$SCRATCH/<ID>/issue.json"
 pnpm --silent judge gate --issue "$SCRATCH/<ID>/issue.json"
 ```
 
@@ -123,9 +127,10 @@ The subagent writes `$SCRATCH/<ID>/verdict.json` and replies with one line. Do n
 
 ## Step 5: Verify citations and render
 
-For each Linear citation in the verdict (a `source` that starts with an issue ID), and for `duplicateOf`, fetch the cited issue yourself: `get_issue` and `list_comments`. Write `Status: <status>` as the first line, then its description, then each comment body with its date, verbatim, to `$SCRATCH/<ID>/linear/<CITED-ID>.txt`. Copy every comment, `## Judge:` ones included: the script removes earlier verdicts itself, because a verdict no human confirmed is never precedent. The subagent never supplies this text, so it cannot vouch for its own quote.
+The script fetches each issue the verdict cites (a `source` that starts with an issue ID) and `duplicateOf`, with every comment, `## Judge:` ones included: `finalize` removes earlier verdicts itself, because a verdict no human confirmed is never precedent. The subagent never supplies this text, so it cannot vouch for its own quote. Do not write or edit these files by hand.
 
 ```bash
+pnpm --silent judge cite --verdict "$SCRATCH/<ID>/verdict.json" --linear-dir "$SCRATCH/<ID>/linear"
 pnpm --silent judge finalize --verdict "$SCRATCH/<ID>/verdict.json" --linear-dir "$SCRATCH/<ID>/linear"
 ```
 

@@ -8,7 +8,7 @@ import path from 'node:path'
  *
  * The subagent that wrote the verdict never supplies the text a quote is
  * checked against: code and docs come from git at `--ref`, and Linear text
- * comes from files the main session fetched itself. A judge that invents a
+ * comes from files `pnpm judge cite` fetched from the Linear API. A judge that invents a
  * precedent is worse than no judge, so a Decide with no verified quote is held.
  */
 
@@ -118,6 +118,17 @@ export function citationTarget(source: string): { kind: 'linear' | 'file'; id: s
 }
 
 const normalise = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+/**
+ * Reduces a Linear mention to its label. The subagent reads the MCP form
+ * (`<issue id="…" label="HON-1603" href="…" />`) and `pnpm judge cite` writes the
+ * GraphQL form (`[HON-1603](https://linear.app/…)`), so a quote holding a
+ * mention would match neither without this (HON-1635).
+ */
+export const reduceMentions = (text: string) =>
+  text
+    .replace(/<[a-z-]+\b[^<>]*?\blabel="([^"]*)"[^<>]*\/>/g, '$1')
+    .replace(/\[([^\]]+)\]\(https:\/\/linear\.app\/[^)\s]*\)/g, '$1')
 const words = (text: string) => text.trim().split(/\s+/).length
 
 // A quote from a doc or an issue must carry a rule, not one common word. A code
@@ -156,9 +167,11 @@ export function checkCitation(citation: Citation, readers: Readers): string | nu
       ? `${target.id} was not fetched`
       : `${target.id} does not exist at the judged commit`
   }
-  return normalise(text).includes(normalise(citation.quote))
-    ? null
-    : `quote not found in ${target.id}`
+  const [source, quote] =
+    target.kind === 'linear'
+      ? [reduceMentions(text), reduceMentions(citation.quote)]
+      : [text, citation.quote]
+  return normalise(source).includes(normalise(quote)) ? null : `quote not found in ${target.id}`
 }
 
 export interface Finalized {
@@ -225,7 +238,7 @@ function renderComment(verdict: Verdict, heading: string, dropped: Finalized['dr
   return lines.join('\n')
 }
 
-// The main session writes the issue's status as the first line of its Linear file.
+// `pnpm judge cite` writes the issue's status as the first line of its Linear file.
 const CLOSED_STATUS = /^Status: (?:Done|Canceled|Duplicate)\b/
 
 /**

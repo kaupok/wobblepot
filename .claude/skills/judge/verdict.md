@@ -24,7 +24,7 @@ Read from `SKILL.md` → step 4. `pnpm judge finalize` validates the JSON and re
 
 - `outcome` only with `decide`. `sendBackReason` only with `send_back`; `duplicateOf` only with `duplicate`, and then a citation from `duplicateOf` is required, or the script holds the verdict. `holdReason` only with `hold`.
 - `source` starts with a repository path or an issue ID, because the script reads the source from its first token. A doc cites a heading path (`docs/DESIGN.md → Copy → Sentence case`), not a line number, because doc lines drift. Code may cite `path:line`.
-- `quote` is copied, not paraphrased. Whitespace may differ; nothing else may. A citation of the judged issue itself is dropped.
+- `quote` is copied, not paraphrased. Whitespace may differ; nothing else may. A Linear mention may stay in the form you read it (`<issue … label="HON-1603" … />`): `pnpm judge cite` fetches the API form, and the script compares both by their label. A citation of the judged issue itself is dropped.
 - A quote from a doc (`.md`) or an issue has at least 5 words, so it carries a rule. A code quote may be one short line.
 - A Decide needs a verified quote from a doc or an issue: code shows behaviour, not a decision. A `stale` or `misread` Send back needs a verified quote of any kind, usually the current code.
 - The script adds `no_verifiable_precedent` itself. A subagent never writes it.
