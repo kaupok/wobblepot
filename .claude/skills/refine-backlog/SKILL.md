@@ -166,6 +166,8 @@ Display:
 - `Send back — <reason>`: cancel it as stale or misread, or mark it a duplicate of the named issue.
 - `Hold — <reason>`: no recommendation. Ask as for any other auto-draft, and name the reason.
 
+With no `## Judge:` comment, give no recommended answer and ask as for any other auto-draft.
+
 A reply under the verdict that overrules it wins over the verdict. When the user disagrees with a verdict in this session, ask whether to add the `Judge overruled` label and reply under the verdict with the right answer and one line of why, so `/judge --fold` can record it.
 
 ### Step 7: Collaborative refinement
