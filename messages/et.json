@@ -1777,7 +1777,8 @@
       "inUse": "{name} on veel kasutusel, seega ei saa seda kustutada: {uses}. Eemalda see enne sealt.",
       "uses": {
         "meals": "{count, plural, one {# retsept} other {# retsepti}}",
-        "deletedMealsInPlan": "{count, plural, one {# kustutatud retsept, mis on veel söögiplaanis} other {# kustutatud retsepti, mis on veel söögiplaanis}}",
+        "deletedMealsInPlan": "{count, plural, one {# kustutatud retsept söögiplaanis} other {# kustutatud retsepti söögiplaanis}}",
+        "deletedMealsRestorable": "{count, plural, one {# kustutatud retsept, mille saad veel taastada jaotisest „Hiljuti kustutatud\"} other {# kustutatud retsepti, mille saad veel taastada jaotisest „Hiljuti kustutatud\"}}",
         "pantry": "sahvris",
         "shoppingList": "{count, plural, one {# ostunimekirja rida} other {# ostunimekirja rida}}",
         "mealPlan": "{count, plural, one {# söögiplaani kirje} other {# söögiplaani kirjet}}",

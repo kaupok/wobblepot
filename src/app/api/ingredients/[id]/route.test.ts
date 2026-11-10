@@ -75,7 +75,15 @@ const saved = {
   fat: 0.5,
   fiber: null,
 } satisfies HouseholdIngredient
-const uses = { meals: 2, deletedMealsInPlan: 0, pantry: 0, shoppingList: 1, mealPlan: 0, extras: 0 }
+const uses = {
+  meals: 2,
+  deletedMealsInPlan: 0,
+  deletedMealsRestorable: 0,
+  pantry: 0,
+  shoppingList: 1,
+  mealPlan: 0,
+  extras: 0,
+}
 
 const patch = (body: unknown) =>
   PATCH(

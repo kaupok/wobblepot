@@ -66,6 +66,7 @@ describe('DeleteIngredientDialog', () => {
           uses: {
             meals: 2,
             deletedMealsInPlan: 0,
+            deletedMealsRestorable: 0,
             pantry: 1,
             shoppingList: 0,
             mealPlan: 1,
@@ -98,6 +99,7 @@ describe('DeleteIngredientDialog', () => {
           uses: {
             meals: 0,
             deletedMealsInPlan: 1,
+            deletedMealsRestorable: 0,
             pantry: 0,
             shoppingList: 0,
             mealPlan: 0,
@@ -114,10 +116,41 @@ describe('DeleteIngredientDialog', () => {
 
     expect(
       await screen.findByText(
-        'lovage is still in use, so you cannot delete it: 1 deleted recipe still in your meal plan. Remove it from those first.',
+        'lovage is still in use, so you cannot delete it: 1 deleted recipe used in your meal plan. Remove it from those first.',
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/1 recipe\b/)).not.toBeInTheDocument()
+  })
+
+  it('names deleted recipes the household can still restore', async () => {
+    fetchSpy.mockResolvedValue(
+      json(
+        {
+          error: 'Ingredient in use',
+          code: 'in_use',
+          uses: {
+            meals: 0,
+            deletedMealsInPlan: 0,
+            deletedMealsRestorable: 2,
+            pantry: 0,
+            shoppingList: 0,
+            mealPlan: 0,
+            extras: 0,
+          },
+        },
+        409,
+      ),
+    )
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(
+      await screen.findByText(
+        'lovage is still in use, so you cannot delete it: 2 deleted recipes you can still restore from Recently deleted. Remove it from those first.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('says the delete failed and logs the body on an in_use body with no uses', async () => {

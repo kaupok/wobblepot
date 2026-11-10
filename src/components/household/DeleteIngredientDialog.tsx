@@ -27,6 +27,7 @@ interface DeleteIngredientDialogProps {
 const USE_KEYS = [
   'meals',
   'deletedMealsInPlan',
+  'deletedMealsRestorable',
   'pantry',
   'shoppingList',
   'mealPlan',
@@ -38,6 +39,7 @@ const inUseBodySchema = z.object({
   uses: z.object({
     meals: z.number(),
     deletedMealsInPlan: z.number(),
+    deletedMealsRestorable: z.number(),
     pantry: z.number(),
     shoppingList: z.number(),
     mealPlan: z.number(),
