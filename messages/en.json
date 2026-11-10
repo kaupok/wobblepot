@@ -1777,7 +1777,8 @@
       "inUse": "{name} is still in use, so you cannot delete it: {uses}. Remove it from those first.",
       "uses": {
         "meals": "{count, plural, one {# recipe} other {# recipes}}",
-        "deletedMealsInPlan": "{count, plural, one {# deleted recipe still in your meal plan} other {# deleted recipes still in your meal plan}}",
+        "deletedMealsInPlan": "{count, plural, one {# deleted recipe used in your meal plan} other {# deleted recipes used in your meal plan}}",
+        "deletedMealsRestorable": "{count, plural, one {# deleted recipe you can still restore from Recently deleted} other {# deleted recipes you can still restore from Recently deleted}}",
         "pantry": "the pantry",
         "shoppingList": "{count, plural, one {# shopping list item} other {# shopping list items}}",
         "mealPlan": "{count, plural, one {# meal plan entry} other {# meal plan entries}}",

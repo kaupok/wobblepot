@@ -114,6 +114,7 @@ export const DeleteAUsedRow: Story = {
               uses: {
                 meals: 1,
                 deletedMealsInPlan: 0,
+                deletedMealsRestorable: 0,
                 pantry: 0,
                 shoppingList: 0,
                 mealPlan: 0,

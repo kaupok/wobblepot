@@ -64,10 +64,27 @@ function deletedMealComponents(id: string, inPlan: boolean): Prisma.MealComponen
   return { ingredientId: id, meal: { deletedAt: { not: null }, planEntries } }
 }
 
-function toUses({ _count: c }: UsesCount, deletedMealsInPlan: number): IngredientUses {
+/**
+ * The row's components on recipes deleted inside the restore window that no
+ * plan entry uses (HON-1449). A restore brings each back, so the row must stay.
+ * A recipe a plan entry uses is counted by `deletedMealComponents` instead.
+ */
+function restorableMealComponents(id: string, now: Date): Prisma.MealComponentWhereInput {
+  return {
+    ingredientId: id,
+    meal: { deletedAt: { gte: restoreWindowStart(now) }, planEntries: { none: {} } },
+  }
+}
+
+function toUses(
+  { _count: c }: UsesCount,
+  deletedMealsInPlan: number,
+  deletedMealsRestorable: number,
+): IngredientUses {
   return {
     meals: c.components,
     deletedMealsInPlan,
+    deletedMealsRestorable,
     pantry: c.pantryItems,
     shoppingList: c.customShoppingItems,
     mealPlan: c.fridgeMealItems + c.replacedInEntries + c.usedInEntryChanges,
@@ -125,14 +142,12 @@ export async function updateHouseholdIngredient(
   if (input.defaultUnit !== current.defaultUnit) {
     // A recipe deleted inside the restore window still locks the unit,
     // because a restore brings its quantities back in the old unit.
-    const [deletedMealsInPlan, restorableMeals] = await Promise.all([
+    const [deletedMealsInPlan, deletedMealsRestorable] = await Promise.all([
       prisma.mealComponent.count({ where: deletedMealComponents(id, true) }),
-      prisma.mealComponent.count({
-        where: { ingredientId: id, meal: { deletedAt: { gte: restoreWindowStart(new Date()) } } },
-      }),
+      prisma.mealComponent.count({ where: restorableMealComponents(id, new Date()) }),
     ])
-    const uses = toUses(current, deletedMealsInPlan)
-    if (isInUse(uses) || restorableMeals > 0) return { status: 'unit_locked', uses }
+    const uses = toUses(current, deletedMealsInPlan, deletedMealsRestorable)
+    if (isInUse(uses)) return { status: 'unit_locked', uses }
   }
 
   const ingredient = await prisma.$transaction(async (tx) => {
@@ -192,11 +207,12 @@ export type DeleteIngredientResult =
  * transaction, and several relations cascade, so a use is never deleted with
  * the row.
  *
- * A deleted recipe that no meal plan entry uses loses its component with the
- * row, so it cannot hold the row forever (HON-1325). Its protein is resolved
- * again, so a restore brings back no protein it lost. One a plan entry still
- * uses refuses the delete, because the entry's shopping list and nutrition
- * read its components.
+ * A deleted recipe past the restore window that no meal plan entry uses loses
+ * its component with the row, so it cannot hold the row forever (HON-1325).
+ * Its protein is resolved again. One inside the window refuses the delete,
+ * because a restore would bring it back without the row (HON-1449). One a plan
+ * entry uses, past or planned, refuses it too, because the entry's shopping
+ * list and nutrition read its components.
  */
 export async function deleteHouseholdIngredient(
   householdId: string,
@@ -212,9 +228,13 @@ export async function deleteHouseholdIngredient(
     const deletedMealsInPlan = await tx.mealComponent.count({
       where: deletedMealComponents(id, true),
     })
-    const uses = toUses(row, deletedMealsInPlan)
+    const deletedMealsRestorable = await tx.mealComponent.count({
+      where: restorableMealComponents(id, new Date()),
+    })
+    const uses = toUses(row, deletedMealsInPlan, deletedMealsRestorable)
     if (isInUse(uses)) return { status: 'in_use', uses }
 
+    // Only recipes past the restore window are left here.
     const orphaned = deletedMealComponents(id, false)
     const mealIds = (
       await tx.mealComponent.findMany({ where: orphaned, select: { mealId: true } })

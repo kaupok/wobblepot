@@ -48,6 +48,7 @@ export const InUse: Story = {
               uses: {
                 meals: 2,
                 deletedMealsInPlan: 0,
+                deletedMealsRestorable: 0,
                 pantry: 1,
                 shoppingList: 1,
                 mealPlan: 3,
@@ -87,7 +88,7 @@ export const InUseEstonian: Story = {
   },
 }
 
-/** A deleted recipe a meal plan entry still uses (HON-1325): named apart, never as "1 recipe". */
+/** A deleted recipe a meal plan entry uses, past or planned (HON-1325): named apart, never as "1 recipe". */
 export const InUseByDeletedRecipe: Story = {
   parameters: {
     msw: {
@@ -100,6 +101,7 @@ export const InUseByDeletedRecipe: Story = {
               uses: {
                 meals: 0,
                 deletedMealsInPlan: 1,
+                deletedMealsRestorable: 0,
                 pantry: 0,
                 shoppingList: 0,
                 mealPlan: 0,
@@ -118,7 +120,45 @@ export const InUseByDeletedRecipe: Story = {
 
     await expect(
       await body.findByText(
-        'lovage is still in use, so you cannot delete it: 1 deleted recipe still in your meal plan. Remove it from those first.',
+        'lovage is still in use, so you cannot delete it: 1 deleted recipe used in your meal plan. Remove it from those first.',
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+/** A recipe deleted inside the restore window (HON-1449): a restore would bring it back without the row. */
+export const InUseByRestorableRecipe: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.delete('/api/ingredients/:id', () =>
+          HttpResponse.json(
+            {
+              error: 'Ingredient in use',
+              code: 'in_use',
+              uses: {
+                meals: 0,
+                deletedMealsInPlan: 0,
+                deletedMealsRestorable: 1,
+                pantry: 0,
+                shoppingList: 0,
+                mealPlan: 0,
+                extras: 0,
+              },
+            },
+            { status: 409 },
+          ),
+        ),
+      ],
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: 'Delete' }))
+
+    await expect(
+      await body.findByText(
+        'lovage is still in use, so you cannot delete it: 1 deleted recipe you can still restore from Recently deleted. Remove it from those first.',
       ),
     ).toBeInTheDocument()
   },

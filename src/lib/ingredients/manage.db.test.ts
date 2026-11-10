@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { restoreHouseholdMeal } from '@/lib/deleted-household-meals'
 import { createHouseholdMeal, deleteHouseholdMeal } from '@/lib/household-meals'
 import { createHouseholdIngredient, type NewIngredientInput } from '@/lib/ingredients/create'
 import {
@@ -61,6 +62,12 @@ async function planEntryFor(householdId: string, mealId: string) {
   await prisma.mealPlanEntry.create({
     data: { planId: plan.id, mealId, date: new Date('2026-10-20'), mealType: 'dinner' },
   })
+}
+
+/** Deletes the meal on a set day, so a test can place it inside or past the restore window. */
+async function deleteMealOn(householdId: string, mealId: string, deletedAt: Date) {
+  await deleteHouseholdMeal(householdId, mealId)
+  await prisma.meal.update({ where: { id: mealId }, data: { deletedAt } })
 }
 
 describe('listHouseholdIngredients', () => {
@@ -249,7 +256,15 @@ describe('updateHouseholdIngredient', () => {
 
     expect(result).toEqual({
       status: 'unit_locked',
-      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: {
+        meals: 1,
+        deletedMealsInPlan: 0,
+        deletedMealsRestorable: 0,
+        pantry: 0,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
     })
   })
 
@@ -265,7 +280,18 @@ describe('updateHouseholdIngredient', () => {
       gramsPerPiece: 20,
     })
 
-    expect(result).toMatchObject({ status: 'unit_locked' })
+    expect(result).toEqual({
+      status: 'unit_locked',
+      uses: {
+        meals: 0,
+        deletedMealsInPlan: 0,
+        deletedMealsRestorable: 1,
+        pantry: 0,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
+    })
   })
 
   it('allows a unit change once a deleted recipe is past the restore window', async () => {
@@ -383,6 +409,15 @@ describe('updateHouseholdIngredient', () => {
 })
 
 describe('deleteHouseholdIngredient', () => {
+  // Today is 2026-11-10, so the 30-day restore window starts 2026-10-11 at noon.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-10T12:00:00Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('deletes a row nothing uses', async () => {
     const { alder } = await world()
     const row = await createHouseholdIngredient(alder, 'en', lovage)
@@ -399,16 +434,49 @@ describe('deleteHouseholdIngredient', () => {
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
       status: 'in_use',
-      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 1, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: {
+        meals: 1,
+        deletedMealsInPlan: 0,
+        deletedMealsRestorable: 0,
+        pantry: 1,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
     })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
   })
 
-  it('deletes a row only a deleted recipe with no plan entry uses, with its component', async () => {
+  it('refuses a row a recipe deleted today uses, so a restore brings it back whole', async () => {
     const { alder } = await world()
     const row = await createHouseholdIngredient(alder, 'en', lovage)
     const meal = await mealWith(alder, row.id)
-    await deleteHouseholdMeal(alder, meal.id)
+    await deleteMealOn(alder, meal.id, new Date('2026-11-10T09:00:00Z'))
+
+    expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
+      status: 'in_use',
+      uses: {
+        meals: 0,
+        deletedMealsInPlan: 0,
+        deletedMealsRestorable: 1,
+        pantry: 0,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
+    })
+    expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
+
+    expect(await restoreHouseholdMeal(alder, meal.id)).toEqual({ id: meal.id, name: 'Lovage soup' })
+    const components = await prisma.mealComponent.findMany({ where: { mealId: meal.id } })
+    expect(components.map((component) => component.ingredientId)).toEqual([row.id])
+  })
+
+  it('deletes a row only a recipe deleted 31 days ago with no plan entry uses, with its component', async () => {
+    const { alder } = await world()
+    const row = await createHouseholdIngredient(alder, 'en', lovage)
+    const meal = await mealWith(alder, row.id)
+    await deleteMealOn(alder, meal.id, new Date('2026-10-10T12:00:00Z'))
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({ status: 'deleted' })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).toBeNull()
@@ -417,7 +485,7 @@ describe('deleteHouseholdIngredient', () => {
 
   it("clears a deleted recipe's protein and chosen main protein with the component", async () => {
     const { alder, minceRow, meal } = await beefAndBeans()
-    await deleteHouseholdMeal(alder, meal.id)
+    await deleteMealOn(alder, meal.id, new Date('2026-10-10T12:00:00Z'))
 
     expect(await deleteHouseholdIngredient(alder, minceRow.id)).toEqual({ status: 'deleted' })
 
@@ -426,16 +494,25 @@ describe('deleteHouseholdIngredient', () => {
     expect(saved.primaryProteinType).toBe('legume')
   })
 
-  it('refuses a row a deleted recipe in the meal plan uses, counted apart from recipes', async () => {
+  it('refuses a row a deleted recipe with a past plan entry uses, counted once', async () => {
     const { alder } = await world()
     const row = await createHouseholdIngredient(alder, 'en', lovage)
     const meal = await mealWith(alder, row.id)
+    // The entry is on 2026-10-20, three weeks before today.
     await planEntryFor(alder, meal.id)
-    await deleteHouseholdMeal(alder, meal.id)
+    await deleteMealOn(alder, meal.id, new Date('2026-11-01T12:00:00Z'))
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
       status: 'in_use',
-      uses: { meals: 0, deletedMealsInPlan: 1, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: {
+        meals: 0,
+        deletedMealsInPlan: 1,
+        deletedMealsRestorable: 0,
+        pantry: 0,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
     })
     expect(await prisma.ingredient.findUnique({ where: { id: row.id } })).not.toBeNull()
     expect(await prisma.mealComponent.count({ where: { mealId: meal.id } })).toBe(1)
@@ -446,11 +523,19 @@ describe('deleteHouseholdIngredient', () => {
     const row = await createHouseholdIngredient(alder, 'en', lovage)
     await mealWith(alder, row.id)
     const gone = await mealWith(alder, row.id, 'Lovage pie')
-    await deleteHouseholdMeal(alder, gone.id)
+    await deleteMealOn(alder, gone.id, new Date('2026-10-10T12:00:00Z'))
 
     expect(await deleteHouseholdIngredient(alder, row.id)).toEqual({
       status: 'in_use',
-      uses: { meals: 1, deletedMealsInPlan: 0, pantry: 0, shoppingList: 0, mealPlan: 0, extras: 0 },
+      uses: {
+        meals: 1,
+        deletedMealsInPlan: 0,
+        deletedMealsRestorable: 0,
+        pantry: 0,
+        shoppingList: 0,
+        mealPlan: 0,
+        extras: 0,
+      },
     })
     expect(await prisma.mealComponent.count({ where: { mealId: gone.id } })).toBe(1)
   })
