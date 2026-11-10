@@ -116,10 +116,6 @@ function answerEverySlotAsked() {
   }) as never)
 }
 
-function deletedWhere() {
-  return (mockEntryDeleteMany.mock.calls[0]![0] as { where: Record<string, unknown> }).where
-}
-
 beforeEach(() => {
   vi.clearAllMocks()
   mockEntryFindMany.mockResolvedValue([])
@@ -141,7 +137,8 @@ beforeEach(() => {
 })
 
 describe('generateMealPlan on a day with slots that are over (HON-1523)', () => {
-  it("at 20:16 generates today's dinner only, and leaves breakfast and lunch alone", async () => {
+  // The rows a Generate keeps are read back in `generate-plan.over.db.test.ts`.
+  it("at 20:16 generates today's dinner only", async () => {
     answerEverySlotAsked()
 
     await generateMealPlan(options({ now: tallinn('20:16') }))
@@ -150,12 +147,6 @@ describe('generateMealPlan on a day with slots that are over (HON-1523)', () => 
       data: Array<{ date: Date; mealType: string }>
     }
     expect(created.data.map((e) => e.mealType)).toEqual(['dinner'])
-    expect(deletedWhere().NOT).toEqual({
-      OR: [
-        { date: MONDAY, mealType: 'breakfast' },
-        { date: MONDAY, mealType: 'lunch' },
-      ],
-    })
   })
 
   it.each([
@@ -173,22 +164,11 @@ describe('generateMealPlan on a day with slots that are over (HON-1523)', () => 
     expect(created.data.map((e) => e.mealType)).toEqual(expected)
   })
 
-  it('makes no AI call at 21:00 and deletes nothing in the slots that are over', async () => {
+  it('makes no AI call at 21:00', async () => {
     await generateMealPlan(options({ now: tallinn('21:00') }))
 
     expect(mockGenerateObject).not.toHaveBeenCalled()
     expect(mockEntryCreateMany).not.toHaveBeenCalled()
-    expect(deletedWhere()).toMatchObject({
-      planId: 'plan-1',
-      status: { not: 'completed' },
-      NOT: {
-        OR: [
-          { date: MONDAY, mealType: 'breakfast' },
-          { date: MONDAY, mealType: 'lunch' },
-          { date: MONDAY, mealType: 'dinner' },
-        ],
-      },
-    })
   })
 
   it('places the fish and legume dinners over the dinner dates that are left', async () => {

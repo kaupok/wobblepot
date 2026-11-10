@@ -79,22 +79,30 @@ function formatPlanResult(
 }
 
 /**
- * The `completed` entries in [startDate, endDate). Regeneration keeps these entries, so their
- * slots must not be offered to the generator (HON-650), and their dinners must not be planned
- * again beside them (HON-1393).
+ * The `completed` entries in [startDate, endDate), and any entry in `overSlots`. Regeneration
+ * keeps these entries, so their slots must not be offered to the generator (HON-650, HON-1523),
+ * and their dinners must not be planned again beside them (HON-1393).
  */
 async function getKeptEntries(
   householdId: string,
   startDate: Date,
   endDate: Date,
+  overSlots: MealSlot[],
 ): Promise<{ slotKeys: Set<string>; dinnerIds: string[] }> {
   const kept = await prisma.mealPlanEntry.findMany({
     where: {
       plan: { householdId },
-      status: 'completed',
       date: { gte: startDate, lt: endDate },
       // A slot is kept by its main; a side's meal is not a kept dinner (HON-1609).
       mainEntryId: null,
+      ...(overSlots.length > 0
+        ? {
+            OR: [
+              { status: 'completed' as const },
+              ...overSlots.map(({ date, mealType }) => ({ date, mealType })),
+            ],
+          }
+        : { status: 'completed' as const }),
     },
     select: { date: true, mealType: true, mealId: true },
   })
@@ -168,9 +176,10 @@ export async function generateMealPlan(options: GeneratePlanOptions): Promise<Ge
 
   // Completed entries survive regeneration, so their slots are not asked for. Leaving one in
   // would also make createMany collide with the kept row on the one-main-per-slot unique index.
-  const kept = await getKeptEntries(householdId, startDate, endDate)
-  // A slot on today that is over is left untouched, as a completed one is (HON-1523).
+  // A slot on today that is over is left untouched, as a completed one is (HON-1523). An over
+  // slot with no entry is not in `kept`, so it is left out by its key too.
   const overSlots = getOverSlots(timezone, now)
+  const kept = await getKeptEntries(householdId, startDate, endDate, overSlots)
   const overKeys = new Set(overSlots.map((s) => slotKey(s.date, s.mealType)))
   const isReplaceable = (s: { date: Date; mealType: MealType }) =>
     !kept.slotKeys.has(slotKey(s.date, s.mealType)) && !overKeys.has(slotKey(s.date, s.mealType))
