@@ -68,6 +68,16 @@ describe('Toggle', () => {
     })
   })
 
+  describe('warning tone', () => {
+    it('tints the pressed state with warning and leaves the rest state alone', () => {
+      render(<Toggle aria-label="Low" tone="warning" />)
+      const toggle = screen.getByRole('button')
+      expect(toggle).toHaveClass('data-[state=on]:bg-warning-muted', 'data-[state=on]:text-warning')
+      expect(toggle).not.toHaveClass('text-muted-foreground')
+      expect(toggle).not.toHaveClass('data-[state=on]:bg-primary')
+    })
+  })
+
   describe('primary tone', () => {
     it('fills the pressed state like a chosen ChoiceChips chip', () => {
       render(<Toggle aria-label="Gluten" tone="primary" />)

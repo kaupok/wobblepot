@@ -29,7 +29,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The Low part of each pantry row\'s stock control, Have it · Low · Ran out (HON-1624, HON-1587). It sits on its own line under the name; the amount button sits on the right, before Remove. Pressed, it shows a check and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. Low on a row in Ran out sets it to "have some" and low in one request, and the row moves back to On hand. The other states are in Feature/Inventory/PantrySection.',
+          'The Low part of each pantry row\'s stock control, Have it · Low · Ran out (HON-1624, HON-1587). It sits on its own line under the name; the amount button sits on the right, before Remove. Pressed, it shows a check on the warning fill and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. Low on a row in Ran out sets it to "have some" and low in one request, and the row moves back to On hand. The other states are in Feature/Inventory/PantrySection.',
       },
     },
   },
@@ -84,6 +84,16 @@ export const LowStapleAndOnHand: Story = {
     await expect(part(canvas, 'Stock: Salt', 'Low')).toHaveAttribute('aria-checked', 'false')
     await expect(part(canvas, 'Stock: Avocado', 'Ran out')).toHaveAttribute('aria-checked', 'true')
     await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 4' })).toBeInTheDocument()
+    // The normal state stays quiet and the rows that need attention stand out
+    // (HON-1641): a pressed Have it takes the neutral fill, a pressed Low or
+    // Ran out the warning one, and none the primary fill.
+    const haveIt = getComputedStyle(part(canvas, 'Stock: Salt', 'Have it'))
+    const low = getComputedStyle(part(canvas, 'Stock: Onion', 'Low'))
+    const ranOutPart = getComputedStyle(part(canvas, 'Stock: Avocado', 'Ran out'))
+    await expect(low.backgroundColor).not.toBe(haveIt.backgroundColor)
+    await expect(ranOutPart.backgroundColor).toBe(low.backgroundColor)
+    await expect(ranOutPart.color).toBe(low.color)
+    await expect(low.color).not.toBe(haveIt.color)
   },
 }
 

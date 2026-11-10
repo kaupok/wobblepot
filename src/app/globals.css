@@ -646,6 +646,15 @@
   :is([data-meal-surface], [data-surface='note']) [data-slot='badge'][data-variant^='surface'] {
     border-color: transparent;
   }
+
+  /* A pressed `default`-tone part of a `ToggleGroup` on the note sheet: the
+     stock control's Have it (HON-1641). On the tint `--accent` is the chip,
+     a stronger yellow than the warning fill of a pressed Low beside it, so
+     the normal state would be the loudest part of the row. The part keeps
+     the sheet's colour and its check carries the state. */
+  [data-surface='note'] [data-slot='toggle-group-item'][data-tone='default'][data-state='on'] {
+    --accent: var(--card);
+  }
 }
 
 @layer base {

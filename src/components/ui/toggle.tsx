@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils'
 //   `text-muted-foreground` at rest — the colour is the pressed cue, so it should
 //   not be spent before the press. `data-[state=on]` sorts after `hover:` in
 //   Tailwind 4, so a pressed toggle keeps its tint under the pointer.
+//   `warning` tints a pressed part with the warning colour and leaves the rest
+//   state alone, for the parts of a pick-one row that need attention beside a
+//   quiet normal state (the pantry stock control's Low and Ran out, HON-1641).
 //   `primary` fills a pressed toggle the way `ChoiceChips` fills its chosen chip,
 //   for a row of on/off chips beside a pick-one row (the household allergens,
 //   HON-962).
@@ -46,6 +49,7 @@ const toggleVariants = cva(
           'text-muted-foreground hover:text-foreground data-[state=on]:bg-success-muted data-[state=on]:text-success',
         destructive:
           'text-muted-foreground hover:text-foreground data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive',
+        warning: 'data-[state=on]:bg-warning-muted data-[state=on]:text-warning',
         primary:
           'data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90',
       },
