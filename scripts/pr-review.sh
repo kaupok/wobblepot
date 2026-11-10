@@ -388,8 +388,10 @@ A test that cannot fail passes CI on day one and never catches a regression. For
 - **Tautological**: the expected value is recomputed the way the code computes it (`expect(total(items)).toBe(items.reduce(...))`), a constant is asserted equal to itself, or a snapshot is derived by the same logic. Fix: take the expected value from a literal, a worked example, or the issue's acceptance criteria.
 - **Implementation-coupled**: it mocks an internal collaborator of the unit under test, asserts call counts or call order where the behaviour is observable through the interface, or verifies through a side channel (a direct Prisma query) when the public interface can show the result. Fix: assert on what the interface returns or renders. Mocking a network boundary (MSW, `apiFetch`) or a paid service is not a finding.
 - **Unable to go red**: the assertion would pass if the implementation were deleted (`expect(result).toBeDefined()` on a function that always returns an object, `not.toThrow()` with no other assertion). Fix: assert the specific value or state the change produces.
+- **Restates a constant**: the expected value is a literal the source holds, and no branch sits between the input and the output (`expect(MAX_ATTACHED_IMAGES).toBe(3)`, a table entry read back, a fixed line of a template). Fix: delete the test; a table gets one test of its lookup function, and a rule over the whole table when there is one.
+- **Repeats a branch**: it takes the same path through the source as another test in the same file, with only a different literal (a second key through the same map lookup, a loop over the allow-list the source checks against). Fix: delete it, or change it to reach a branch, a boundary or a locale rule that no other test reaches.
 
-Anchor the finding on the assertion and name which of the three it is. If no test file changed, this check has nothing to do.
+Anchor the finding on the assertion and name which of the five it is. If no test file changed, this check has nothing to do.
 TEST_PROMPT
 fi
 

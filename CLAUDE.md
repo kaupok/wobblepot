@@ -99,7 +99,7 @@ Validated with Zod in `src/lib/env.ts`. Client: `clientEnv` (`NEXT_PUBLIC_*` onl
 
 Vitest with Testing Library, colocated, through accessibility queries. Detail: docs/TESTING.md.
 
-- **A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface; assert a specific value, not `toBeDefined()`.
+- **A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface; assert a specific value, not `toBeDefined()`; do not restate a source constant or repeat a branch another test covers.
 - `.test.tsx` runs in jsdom, `.test.ts` in node. A `.test.ts` that needs a DOM starts with `// @vitest-environment jsdom`.
 - A test of a query is a `*.db.test.ts` with no `vi.mock`, run by `pnpm test:db` on PGlite. A route test mocks only its `src/lib` module.
 - **Definition of done:** update the E2E specs your change makes stale, and drive each changed screen on `pnpm review:local` with a `Driven:` line in the PR (docs/TESTING.md → E2E drift, Driven screens).

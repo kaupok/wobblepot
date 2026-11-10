@@ -6,7 +6,12 @@ How to write and run unit, database, route and E2E tests. CLAUDE.md → Testing 
 
 Vitest and Testing Library. Colocate a test with its source file, use `describe`/`it` and accessibility queries (`getByRole`), and test user-facing behaviour. Example: `src/components/ui/button.test.tsx`.
 
-**A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface, not on calls to an internal mock; and assert a specific value, not `toBeDefined()`. CI cannot see these, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a test, spec or story file.
+**A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface, not on calls to an internal mock; and assert a specific value, not `toBeDefined()`. Two more patterns give no signal:
+
+- **Restates a constant.** The expected value is a literal the source holds, and no branch sits between the input and the output (a table entry, a limit, a line of a template). Do not write the test. A table gets one test of the lookup function, and a rule over the whole table when there is one (`src/lib/ingredient-shop-synonyms.test.ts` checks that no synonym key sits in both tables).
+- **Repeats a branch.** The test takes the same path through the source as another test in the file, with only a different literal. Add a case only when it reaches a branch, a boundary or a locale rule that no other test reaches.
+
+CI cannot see these, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a test, spec or story file.
 
 **Test environment.** `.test.tsx` files run in jsdom (the `unit` project); `.test.ts` files run in node (`unit-node`), because booting a window per file was the largest cost in the unit step. A `.test.ts` file that needs a DOM (`renderHook`, `document`, `localStorage`) starts with `// @vitest-environment jsdom`; without it, it fails with `document is not defined` or similar.
 

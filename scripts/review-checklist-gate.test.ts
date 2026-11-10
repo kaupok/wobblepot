@@ -142,12 +142,18 @@ describe('test anti-pattern gate', () => {
     expect(() => classify('TEST_FILES', ['docs/DESIGN.md'])).not.toThrow()
   })
 
-  it('names the three anti-patterns, each with a fix, and the network-boundary exemption', () => {
+  it('names the five anti-patterns, each with a fix, and the network-boundary exemption', () => {
     const body = heredoc('TEST_PROMPT')
-    for (const name of ['**Tautological**', '**Implementation-coupled**', '**Unable to go red**']) {
+    for (const name of [
+      '**Tautological**',
+      '**Implementation-coupled**',
+      '**Unable to go red**',
+      '**Restates a constant**',
+      '**Repeats a branch**',
+    ]) {
       expect(body).toContain(name)
     }
-    expect(body.match(/ Fix: /g)).toHaveLength(3)
+    expect(body.match(/ Fix: /g)).toHaveLength(5)
     expect(body).toContain(
       'Mocking a network boundary (MSW, `apiFetch`) or a paid service is not a finding',
     )
