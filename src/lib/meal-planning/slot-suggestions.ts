@@ -149,8 +149,8 @@ export async function suggestForSlot(
       : scoreCandidate(candidate, SLOT_FIT_WEIGHTS, { pantryIngredientNames })
     return {
       candidate,
-      // The seed goes unused in production; it is passed so a test can
-      // substitute the seeded `scoreJitter`.
+      // The seed goes unused in production; it is passed so a test stub
+      // can read it.
       score:
         score +
         randomScoreJitter({ entryId: entry.id, dateString: jitterDate, candidateId: candidate.id }),

@@ -25,19 +25,17 @@ beforeEach(() => {
 
 describe('getLoadedPostHog', () => {
   it('returns null without importing posthog-js before init', async () => {
-    const { getLoadedPostHog, isPostHogLoaded } = await loadState()
+    const { getLoadedPostHog } = await loadState()
 
-    expect(isPostHogLoaded()).toBe(false)
     await expect(getLoadedPostHog()).resolves.toBeNull()
     expect(posthogImported).not.toHaveBeenCalled()
   })
 
   it('returns the client once init has run', async () => {
-    const { getLoadedPostHog, isPostHogLoaded, markPostHogLoaded } = await loadState()
+    const { getLoadedPostHog, markPostHogLoaded } = await loadState()
 
     markPostHogLoaded()
 
-    expect(isPostHogLoaded()).toBe(true)
     await expect(getLoadedPostHog()).resolves.toBe(posthogMock)
     expect(posthogImported).toHaveBeenCalledOnce()
   })

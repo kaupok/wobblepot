@@ -20,7 +20,7 @@ vi.mock('@/lib/prisma', () => ({
 import { auth } from '@/lib/auth'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { prisma } from '@/lib/prisma'
-import { getCachedMembership, getHasHousehold, getHouseholdIdForUser } from '@/lib/session'
+import { getCachedMembership } from '@/lib/session'
 
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockCount = vi.mocked(prisma.householdMember.count)
@@ -59,24 +59,6 @@ describe('session household accessors', () => {
       where: { userId: 'user-1' },
       select: { householdId: true, household: { select: { locale: true, timezone: true } } },
     })
-  })
-
-  it('derives getHouseholdIdForUser and getHasHousehold from that row', async () => {
-    resolveMembership(MEMBERSHIP)
-
-    await expect(getHouseholdIdForUser('user-1')).resolves.toBe('household-1')
-    await expect(getHasHousehold('user-1')).resolves.toBe(true)
-
-    // `getHasHousehold` used to issue its own `count` — it must not any more,
-    // or `<Header />` reintroduces a third query against the same row.
-    expect(mockCount).not.toHaveBeenCalled()
-  })
-
-  it('reports no household when the row is absent', async () => {
-    resolveMembership(null)
-
-    await expect(getHouseholdIdForUser('user-1')).resolves.toBeNull()
-    await expect(getHasHousehold('user-1')).resolves.toBe(false)
   })
 
   it('resolves the locale off the same membership row', async () => {

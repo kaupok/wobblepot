@@ -42,7 +42,3 @@ export function decisionToGranted(decision: ConsentDecision | null): boolean | n
   if (decision === null) return null
   return decision === 'all'
 }
-
-export function grantedToDecision(granted: boolean): ConsentDecision {
-  return granted ? 'all' : 'essential'
-}

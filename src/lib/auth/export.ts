@@ -268,5 +268,3 @@ export async function exportUserData(userId: string) {
     { timeout: EXPORT_TRANSACTION_TIMEOUT_MS },
   )
 }
-
-export type UserDataExport = Awaited<ReturnType<typeof exportUserData>>

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DietaryType, IngredientCategory, ProteinType } from '@/generated/prisma/enums'
 
 import type { CandidateFilters } from './candidates'
-import { getCandidates, getExcludedProteinTypes, MAX_TIME_MINUTES } from './candidates'
+import { getCandidates, getExcludedProteinTypes } from './candidates'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -821,12 +821,6 @@ describe('net rating (HON-340)', () => {
 
     expect(selectOf()).not.toHaveProperty('planEntries')
     expect(result[0]).not.toHaveProperty('netRating')
-  })
-})
-
-describe('constants', () => {
-  it('exports MAX_TIME_MINUTES as 60 (deprecated, no longer used)', () => {
-    expect(MAX_TIME_MINUTES).toBe(60)
   })
 })
 

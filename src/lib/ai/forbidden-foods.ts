@@ -849,10 +849,6 @@ export function rulesForHousehold(household: {
   return rules
 }
 
-/** Every allergen and dietary type the lists cover. */
-export const COVERED_ALLERGENS = Object.keys(ALLERGEN_GROUPS)
-export const COVERED_DIETS = Object.keys(DIET_GROUPS)
-
 /** Curly apostrophes fold to `'`, so "goat’s cheese" meets the "goat's cheese" false friend. */
 export const normalizeFoodName = (name: string) =>
   name

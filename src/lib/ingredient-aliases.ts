@@ -461,15 +461,3 @@ export function applyIngredientAlias(name: string): string {
   const normalized = name.toLowerCase().trim()
   return INGREDIENT_ALIASES[normalized] ?? findSynonym(name) ?? name
 }
-
-/**
- * Check if a name is an ambiguous term that has an alias, or another English
- * name for a pool ingredient.
- *
- * @param name - The ingredient name to check
- * @returns True if `applyIngredientAlias` would change the name
- */
-export function hasIngredientAlias(name: string): boolean {
-  const normalized = name.toLowerCase().trim()
-  return normalized in INGREDIENT_ALIASES || findSynonym(name) !== undefined
-}

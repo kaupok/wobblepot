@@ -4,11 +4,8 @@ import {
   listRecentlyDeletedHouseholdMeals,
   restoreHouseholdMeal,
 } from '@/lib/deleted-household-meals'
-import {
-  deleteHouseholdMeal,
-  HouseholdMealError,
-  type HouseholdMealRefusal,
-} from '@/lib/household-meals'
+import type { HouseholdMealRefusal } from '@/lib/household-meal-error'
+import { deleteHouseholdMeal, HouseholdMealError } from '@/lib/household-meals'
 import { createEntry, EntryCreateError } from '@/lib/meal-plans/create-entry'
 import { prisma } from '@/lib/prisma'
 

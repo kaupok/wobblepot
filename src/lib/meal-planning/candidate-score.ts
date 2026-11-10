@@ -236,41 +236,7 @@ export interface ScoreJitterSeed {
   candidateId: string
 }
 
-/** FNV-1a: a stable 32-bit hash of the seed string. */
-function hashSeed(seed: string): number {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < seed.length; i++) {
-    hash ^= seed.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return hash >>> 0
-}
-
-/**
- * Deterministic tie-break offset in `[0, SCORE_JITTER_RANGE)` — the reproducible counterpart
- * of {@link randomScoreJitter}, for tests that want to pin a ranking without stubbing a draw.
- *
- * Not what the routes ship. HON-706 made this the production jitter, which froze a slot's
- * top 3 for the whole server day; for a household with no favourites, custom meals or pantry
- * every candidate scores 0 or `kidFriendly`, so that top 3 was decided entirely by this offset
- * and reopening the modal could never show anything else. HON-709 moved production to a
- * per-request draw and kept this as the stand-in a test can substitute for it.
- *
- * Seeded on entry + date + candidate: the same seed always yields the same offset, and changing
- * any one part changes it.
- */
-export function scoreJitter({ entryId, dateString, candidateId }: ScoreJitterSeed): number {
-  // mulberry32, seeded by the hash — one step is enough for a well-distributed value.
-  let state = hashSeed(`${entryId}:${dateString}:${candidateId}`)
-  state = (state + 0x6d2b79f5) | 0
-  let t = state
-  t = Math.imul(t ^ (t >>> 15), t | 1)
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-  const unit = ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  return unit * SCORE_JITTER_RANGE
-}
-
-/** A tie-break offset source. Both {@link scoreJitter} and {@link randomScoreJitter} fit it. */
+/** A tie-break offset source. {@link randomScoreJitter} fits it; a test substitutes a stub. */
 export type ScoreJitterFn = (seed: ScoreJitterSeed) => number
 
 /**
@@ -283,8 +249,7 @@ export type ScoreJitterFn = (seed: ScoreJitterSeed) => number
  * candidates (HON-709).
  *
  * It ignores `seed`. The routes pass one anyway so that this is the single substitution point:
- * a test replaces it with a stub (`vi.mock`) for an exact ranking, or with {@link scoreJitter}
- * for a reproducible one, without the route changing. `Math.random()` lives here and not at the
+ * a test replaces it with a stub (`vi.mock`) for an exact ranking, without the route changing. `Math.random()` lives here and not at the
  * call site, so `scoreCandidate()` stays pure and the routes never draw randomness themselves.
  */
 export const randomScoreJitter: ScoreJitterFn = () => Math.random() * SCORE_JITTER_RANGE

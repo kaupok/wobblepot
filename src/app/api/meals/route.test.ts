@@ -32,7 +32,7 @@ vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
-import { loadMeals, type LoadMealsResult } from '@/lib/meals/load-meals'
+import { loadMeals } from '@/lib/meals/load-meals'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -63,7 +63,7 @@ const RESULT = {
   meals: [{ id: 'meal-1', name: 'Chicken stir fry' }],
   total: 1,
   hasMore: false,
-} as unknown as LoadMealsResult
+} as unknown as Awaited<ReturnType<typeof loadMeals>>
 
 const get = (query = '') => GET(new NextRequest(`http://localhost/api/meals${query}`))
 

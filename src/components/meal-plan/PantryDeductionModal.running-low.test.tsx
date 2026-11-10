@@ -5,9 +5,8 @@ vi.unmock('next-intl')
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import { createMealComponent, createPantryItem } from '@/stories/fixtures'
 import {
-  chiliPantryItem,
-  chiliToTasteComponent,
   fetaComponent,
   fetaPantryItem,
   HAVE_SOME_SERVINGS,
@@ -22,6 +21,27 @@ import {
 } from '@/stories/have-some-fixtures'
 
 import { renderModal } from './PantryDeductionModal.fixtures'
+
+// A staple used "to taste" gets no row.
+const chili = {
+  id: 'chili-flakes',
+  name: 'Chili flakes',
+  category: 'spice',
+  defaultUnit: 'g' as const,
+}
+const chiliToTasteComponent = createMealComponent({
+  ingredientId: chili.id,
+  quantityPerServing: 0,
+  isVague: true,
+  originalPhrase: 'to taste',
+  ingredient: chili,
+})
+const chiliPantryItem = createPantryItem({
+  ingredientId: chili.id,
+  quantity: null,
+  isStaple: true,
+  ingredient: { ...chili, subcategory: null },
+})
 
 describe('PantryDeductionModal', () => {
   describe('"Running low" and staple rows (HON-1588)', () => {

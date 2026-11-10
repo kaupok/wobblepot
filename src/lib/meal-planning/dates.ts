@@ -8,23 +8,6 @@
  */
 
 /**
- * Get the next Monday from today.
- * If today is Monday, returns next week's Monday.
- */
-export function getNextMonday(): Date {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const dayOfWeek = today.getDay()
-  // Sunday = 0, Monday = 1, ..., Saturday = 6
-  // If today is Sunday (0), next Monday is 1 day away
-  // If today is Monday (1), next Monday is 7 days away
-  // If today is Tuesday (2), next Monday is 6 days away
-  const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek
-  today.setDate(today.getDate() + daysUntilMonday)
-  return today
-}
-
-/**
  * Format a date as YYYY-MM-DD string in local time.
  * Avoids UTC timezone shift issues.
  */
@@ -56,70 +39,11 @@ export function parseLocalDate(dateString: string): Date {
 }
 
 /**
- * Check if a date is a Monday.
- */
-export function isMonday(date: Date): boolean {
-  return date.getDay() === 1
-}
-
-/**
  * Check if a date is a weekday (Monday-Friday).
  */
 export function isWeekday(date: Date): boolean {
   const day = date.getDay()
   return day >= 1 && day <= 5
-}
-
-/**
- * Get Monday of the current week.
- * If today is Sunday, returns the Monday that just passed (start of this week).
- * If today is Monday, returns today.
- */
-export function getCurrentWeekMonday(): Date {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const dayOfWeek = today.getDay()
-  // Sunday = 0, Monday = 1, ..., Saturday = 6
-  // If Sunday (0), Monday was 6 days ago
-  // If Monday (1), Monday is today (0 days ago)
-  // If Tuesday (2), Monday was 1 day ago
-  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  today.setDate(today.getDate() - daysSinceMonday)
-  return today
-}
-
-/**
- * Check if a date is a Sunday.
- */
-export function isSunday(date?: Date): boolean {
-  const d = date ?? new Date()
-  return d.getDay() === 0
-}
-
-/**
- * Get the number of days remaining in the current week, including today.
- * Sunday = 1 (only Sunday left), Monday = 7 (full week), Saturday = 2, etc.
- *
- * @param timezone - Optional IANA timezone string (e.g., 'Europe/Tallinn').
- *                   If provided, calculates based on today in that timezone.
- *                   If omitted, uses server/local time.
- */
-export function getDaysRemaining(timezone?: string): number {
-  let dayOfWeek: number
-  if (timezone) {
-    // Get today's date string in the specified timezone, then parse it
-    const todayString = getTodayInTimezone(timezone)
-    const todayDate = parseLocalDate(todayString)
-    dayOfWeek = todayDate.getDay()
-  } else {
-    const today = new Date()
-    dayOfWeek = today.getDay()
-  }
-  // Sunday = 0 -> 1 day remaining (just Sunday)
-  // Monday = 1 -> 7 days remaining
-  // Tuesday = 2 -> 6 days remaining
-  // Saturday = 6 -> 2 days remaining
-  return dayOfWeek === 0 ? 1 : 8 - dayOfWeek
 }
 
 /**
@@ -155,28 +79,6 @@ export function getHourInTimezone(timezone: string, now: Date = new Date()): num
     hourCycle: 'h23',
   })
   return Number(formatter.format(now))
-}
-
-/**
- * Get dates from a start date through the end of that week (Sunday).
- * Used for partial week planning when user signs up mid-week.
- */
-export function getRemainingWeekDates(startDate: Date): Date[] {
-  const dates: Date[] = []
-  const start = new Date(startDate)
-  start.setHours(0, 0, 0, 0)
-
-  // Find the Sunday that ends this week
-  const dayOfWeek = start.getDay()
-  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek
-
-  for (let i = 0; i <= daysUntilSunday; i++) {
-    const date = new Date(start)
-    date.setDate(start.getDate() + i)
-    dates.push(date)
-  }
-
-  return dates
 }
 
 /**

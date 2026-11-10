@@ -44,8 +44,6 @@ export const EMAIL_SENDERS = {
   notifications: 'Wobblepot <notifications@mail.wobblepot.com>',
 } as const
 
-export type EmailSender = keyof typeof EMAIL_SENDERS
-
 /**
  * Prefixes the subject with `[Staging]` outside production so testers can
  * tell at a glance which env the email came from. Apply at every send-site —
