@@ -53,11 +53,13 @@ export function shoppingIngredientArgs(locale: Locale) {
  * A need is at home when its row is a staple not at 0, is covered by another
  * form of the herb, holds "have some" (null) or holds more than 0.
  *
- * A need is to check (`check`, HON-1584) when it is at home, every row that
- * keeps it there holds "have some" (null) and is not running low (a low row
- * is on the list already), two or more meals use it, it is not a cupboard
- * item (`isCupboardIngredient`) and it is not vague. The list
- * assumes "have some" is enough, and the second meal is the one at risk.
+ * A need is to check (`check`, HON-1584) when it has a pantry row (its own,
+ * or for a non-staple a row that covers it), every such row holds "have some"
+ * (null) or 0, two or more meals use it, it is not a cupboard item
+ * (`isCupboardIngredient`) and it is not vague. The list assumes "have some"
+ * is enough, and the second meal is the one at risk. A row marked low or ran
+ * out stays in the check (HON-1638), so the check row shows what the pantry
+ * row says (`stock`), and the need is on the list too.
  *
  * @param today - Start of today in the household's timezone
  */
@@ -77,15 +79,18 @@ export async function pantryShoppingLines(
   // Herb id → in stock through another row of it: a bare herb through its
   // fresh or dried row, a fresh herb through its fresh bare row.
   const coverIds = await loadCoverIds()
-  // Covered herb id → every row that covers it and has not run out. The
-  // check's Add to list sets them all to 0, or another one keeps the need at
-  // home.
-  const coveringRows = new Map<string, (typeof pantryItems)[number][]>()
+  // Covered herb id → every row that covers it, ran out or not. The check's
+  // stock control writes them all, or another one keeps the need at home.
+  const coveringRowsAll = new Map<string, (typeof pantryItems)[number][]>()
   for (const p of pantryItems) {
     const coveredId = coverIds.get(p.ingredientId)
-    if (p.quantity === 0 || !coveredId) continue
-    coveringRows.set(coveredId, [...(coveringRows.get(coveredId) ?? []), p])
+    if (!coveredId) continue
+    coveringRowsAll.set(coveredId, [...(coveringRowsAll.get(coveredId) ?? []), p])
   }
+  // The covering rows that have not run out, which keep the need at home.
+  const coveringRows = new Map(
+    [...coveringRowsAll].map(([id, rows]) => [id, rows.filter((row) => row.quantity !== 0)]),
+  )
 
   const shoppingList: ShoppingListItem[] = []
   const check: PantryCheckItem[] = []
@@ -99,33 +104,38 @@ export async function pantryShoppingLines(
     const low = pantry !== undefined && pantry.lowAt !== null
 
     const coveringRow = coveringRows.get(ingredientId)?.[0]
-    // The rows that keep this need at home, its own row first. A staple at 0
-    // restocks whatever covers it, so none does.
-    const homeRows = restock
-      ? []
-      : [
-          ...(pantry && pantry.quantity !== 0 ? [pantry] : []),
-          ...(pantry?.isStaple ? [] : (coveringRows.get(ingredientId) ?? [])),
-        ]
-    const [first] = homeRows
-    if (first) {
-      const pantryRows = homeRows.map((row) => ({ id: row.id, quantity: row.quantity }))
-      if (
-        mealCount >= 2 &&
-        !isVague &&
-        homeRows.every((row) => row.quantity === null && row.lowAt === null) &&
-        !isCupboardIngredient(ingredient.category, ingredient.subcategory ?? null)
-      ) {
-        check.push({
-          ingredientId,
-          ingredient,
-          totalQuantity: neededQty,
-          mealCount,
-          earliestNeededDate,
-          pantryRows,
-          isStaple: first.isStaple,
-        })
-      }
+    // The rows the check reads and writes, its own row first. A staple
+    // restocks whatever covers it, so only its own row counts.
+    const checkRows = [
+      ...(pantry ? [pantry] : []),
+      ...(pantry?.isStaple ? [] : (coveringRowsAll.get(ingredientId) ?? [])),
+    ]
+    const [first] = checkRows
+    if (
+      first &&
+      mealCount >= 2 &&
+      !isVague &&
+      checkRows.every((row) => row.quantity === null || row.quantity === 0) &&
+      !isCupboardIngredient(ingredient.category, ingredient.subcategory ?? null)
+    ) {
+      check.push({
+        ingredientId,
+        ingredient,
+        totalQuantity: neededQty,
+        mealCount,
+        earliestNeededDate,
+        pantryRows: checkRows.map((row) => ({
+          id: row.id,
+          quantity: row.quantity,
+          low: row.lowAt !== null,
+        })),
+        isStaple: first.isStaple,
+        stock: checkRows.every((row) => row.quantity === 0)
+          ? 'ranOut'
+          : checkRows.some((row) => row.lowAt !== null)
+            ? 'low'
+            : 'haveIt',
+      })
     }
 
     let shoppingQty: number

@@ -6,7 +6,7 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
-import { pantryCheckRows } from '@/stories/pantry-check-fixtures'
+import { pantryCheckRows, pantryCheckRowsMarked } from '@/stories/pantry-check-fixtures'
 
 import { UrgentShopping } from './UrgentShopping'
 
@@ -18,10 +18,11 @@ const meta = {
   args: { todayDate: timelineTodayDate },
   parameters: { layout: 'padded' },
   // The sidebar's real width (`grid-cols-timeline`'s 320px track), so a label
-  // that would overflow the column overflows here too.
+  // that would overflow the column overflows here too, and its column, which
+  // stacks the check card above the list card (`TimelineView`).
   decorators: [
     (Story) => (
-      <div className="w-80">
+      <div className="flex w-80 flex-col gap-6">
         <Story />
       </div>
     ),
@@ -258,8 +259,9 @@ export const TodayOnly: Story = {
   },
 }
 
-// A staple the household marked ran out (HON-1398): with no amount the
-// "Ran out" tag stands alone; with a planned need it follows the amount.
+// A staple the household marked ran out (HON-1398): with no amount "Ran out"
+// stands alone; with a planned need it follows the amount, as muted text, not
+// a badge (HON-1638).
 export const RanOutStaples: Story = {
   args: {
     items: [
@@ -279,12 +281,15 @@ export const RanOutStaples: Story = {
   },
   play: async ({ canvasElement }) => {
     await expectDayGroups(canvasElement, ['Today'])
-    await expect(within(canvasElement).getAllByText('Ran out')).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Ran out')).toBeVisible()
+    await expect(canvas.getByText('6 pc · Ran out')).toBeVisible()
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
   },
 }
 
 // A pantry row the household marked running low (HON-1587): with no amount
-// the tag stands alone; with a planned shortfall it follows the amount.
+// "Running low" stands alone; with a planned shortfall it follows the amount.
 export const RunningLow: Story = {
   args: {
     items: [
@@ -304,7 +309,10 @@ export const RunningLow: Story = {
   },
   play: async ({ canvasElement }) => {
     await expectDayGroups(canvasElement, ['Today'])
-    await expect(within(canvasElement).getAllByText('Running low')).toHaveLength(2)
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Running low')).toBeVisible()
+    await expect(canvas.getByText('200 g · Running low')).toBeVisible()
+    await expect(canvasElement.querySelector('[data-slot="badge"]')).toBeNull()
   },
 }
 
@@ -443,26 +451,57 @@ export const ExpandedPurchased: Story = {
 }
 
 /**
- * The check first, above the day groups, with no tabs: the whole window's
- * "have some" needs, Wednesday's included (HON-1585).
+ * The check as its own plain card above the Shopping list note, with no tabs:
+ * the whole window's needs, Wednesday's included (HON-1585). Each row has the
+ * pantry's stock control on its third line (HON-1638).
  */
 export const WithCheck: Story = {
   args: { items: urgentShoppingItems, check: pantryCheckRows },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.queryByRole('tablist')).not.toBeInTheDocument()
+    const cards = canvasElement.querySelectorAll('[data-slot="card"]')
+    await expect(cards).toHaveLength(2)
+    await expect(cards[0]).not.toHaveAttribute('data-surface')
+    await expect(cards[1]).toHaveAttribute('data-surface', 'note')
+    await expect(canvas.getAllByRole('radiogroup', { name: /^Stock: / })).toHaveLength(3)
     const check = canvas.getByRole('list', { name: 'Enough at home?' })
     await expect(within(check).getByText(/Basil/)).toBeVisible()
     await expect(canvas.getByText('Chicken thigh')).toBeVisible()
   },
 }
 
-/** Nothing to buy for the two days, but the check has rows: the panel shows both. */
+/** Nothing to buy for the two days, but the check has rows: the panel shows both cards. */
 export const NothingToBuyWithCheck: Story = {
   args: { items: [], check: pantryCheckRows },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('list', { name: 'Enough at home?' })).toBeVisible()
     await expect(canvas.getByText('Nothing on the list for today or tomorrow')).toBeVisible()
+  },
+}
+
+/** A row marked low and one ran out stay in the check with that part pressed (HON-1638). */
+export const CheckMarked: Story = {
+  args: {
+    items: [
+      createUrgentShoppingItem({
+        ingredientId: 'carrot',
+        name: 'Carrot',
+        displayQuantity: '',
+        low: true,
+      }),
+    ],
+    check: pantryCheckRowsMarked,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const pressed = (name: string) =>
+      within(canvas.getByRole('radiogroup', { name: `Stock: ${name}` })).getByRole('radio', {
+        checked: true,
+      })
+    await expect(pressed('Carrot')).toHaveAccessibleName('Low')
+    await expect(pressed('Basil')).toHaveAccessibleName('Ran out')
+    await expect(pressed('Garlic')).toHaveAccessibleName('Have it')
   },
 }

@@ -12,7 +12,7 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import { cn } from '@/lib/utils'
 
-import type { PantryCheckRow } from './PantryCheckList'
+import type { PantryCheckRow, PantryRow } from './PantryCheckList'
 import { PantrySection } from './PantrySection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { ShoppingSection } from './ShoppingSection'
@@ -153,22 +153,18 @@ export function InventoryPage({
     [router],
   )
 
-  // The check's Add to list or Undo wrote these rows: the pantry column shows
-  // the new amounts, and the refresh it ran re-reads the list (HON-1585). A 0
-  // is ran out, which clears running low, as the server does (HON-1586).
-  const handlePantryQuantitiesWritten = useCallback(
-    (rows: { id: string; quantity: number | null }[]) => {
-      const written = new Map(rows.map((row) => [row.id, row.quantity]))
-      setPantryItems((prev) =>
-        prev.map((item) => {
-          if (!written.has(item.id)) return item
-          const quantity = written.get(item.id) ?? null
-          return { ...item, quantity, ...(quantity === 0 && { low: false }) }
-        }),
-      )
-    },
-    [],
-  )
+  // The check's stock control wrote these rows: the pantry column shows the
+  // new amount and running low, and the refresh it ran re-reads the list
+  // (HON-1585, HON-1638).
+  const handlePantryQuantitiesWritten = useCallback((rows: PantryRow[]) => {
+    const written = new Map(rows.map((row) => [row.id, row]))
+    setPantryItems((prev) =>
+      prev.map((item) => {
+        const row = written.get(item.id)
+        return row ? { ...item, quantity: row.quantity, low: row.low } : item
+      }),
+    )
+  }, [])
 
   const handlePantryChangesProcessed = useCallback(
     (listStale: boolean) => {

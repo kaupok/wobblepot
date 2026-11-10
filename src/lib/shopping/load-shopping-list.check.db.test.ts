@@ -73,10 +73,43 @@ describe('loadShoppingList — check (HON-1584)', () => {
         mealCount: 2,
         neededByDate: '2026-10-16',
         neededByRelative: 'Homme',
-        pantryRows: [{ id: expect.any(String), quantity: null }],
+        pantryRows: [{ id: expect.any(String), quantity: null, low: false }],
         isStaple: false,
+        stock: 'haveIt',
       },
     ])
     expect(itemsById(list)).toEqual({})
+  })
+
+  // A marked row stays in the check (HON-1638), so the stock control still
+  // shows the pressed part after the refresh, and the item is on the list too.
+  it('keeps a low carrot in the check as low, and lists it as running low', async () => {
+    const { kask } = await plan()
+    await prisma.pantryItem.updateMany({
+      where: { householdId: 'kask', ingredientId: 'ing-test-carrot' },
+      data: { lowAt: NOW },
+    })
+
+    const list = await loadShoppingList(kask, { days: 7 })
+
+    expect(list.check.map((item) => [item.ingredientId, item.stock, item.pantryRows])).toEqual([
+      ['ing-test-carrot', 'low', [{ id: expect.any(String), quantity: null, low: true }]],
+    ])
+    expect(itemsById(list)['ing-test-carrot']).toMatchObject({ low: true })
+  })
+
+  it("keeps a ran-out carrot in the check as ran out, and lists the week's amount", async () => {
+    const { kask } = await plan()
+    await prisma.pantryItem.updateMany({
+      where: { householdId: 'kask', ingredientId: 'ing-test-carrot' },
+      data: { quantity: 0 },
+    })
+
+    const list = await loadShoppingList(kask, { days: 7 })
+
+    expect(list.check.map((item) => [item.ingredientId, item.stock, item.pantryRows])).toEqual([
+      ['ing-test-carrot', 'ranOut', [{ id: expect.any(String), quantity: 0, low: false }]],
+    ])
+    expect(itemsById(list)['ing-test-carrot']).toMatchObject({ quantity: 1160, ranOut: true })
   })
 })

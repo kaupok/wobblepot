@@ -63,7 +63,8 @@ export interface ShoppingListItem {
 /**
  * A "have some" (null) need that two or more planned meals use (HON-1584).
  * The list assumes the pantry has enough, so the shopper checks it against
- * their next shop. It is not a line to buy.
+ * their next shop. It is not a line to buy. A need the household marked low
+ * or ran out stays here with that `stock` (HON-1638), and is on the list too.
  */
 export interface PantryCheckItem {
   ingredientId: string
@@ -72,9 +73,13 @@ export interface PantryCheckItem {
   totalQuantity: number
   mealCount: number
   earliestNeededDate: Date
-  pantryRows: { id: string; quantity: number | null }[]
+  pantryRows: { id: string; quantity: number | null; low: boolean }[]
   isStaple: boolean
+  /** Ran out when every row is at 0; low when any row is low; else have it. */
+  stock: PantryCheckStock
 }
+
+export type PantryCheckStock = 'haveIt' | 'low' | 'ranOut'
 
 /**
  * Shopping list items grouped by ingredient category.

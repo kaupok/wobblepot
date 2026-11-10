@@ -193,6 +193,7 @@ export async function loadShoppingList(
 
   // The "have some" needs that two or more meals use (HON-1584), with the
   // window's whole need, for the shopper to check against their next shop.
+  // A need marked low or ran out stays, with its `stock` (HON-1638).
   const check = result.check
     .map((item) => ({
       ingredientId: item.ingredientId,
@@ -216,6 +217,7 @@ export async function loadShoppingList(
       }),
       pantryRows: item.pantryRows,
       isStaple: item.isStaple,
+      stock: item.stock,
     }))
     .sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
 
