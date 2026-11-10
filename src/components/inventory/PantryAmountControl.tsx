@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
-import { forwardRef, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { FieldError } from '@/components/FieldError'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
@@ -26,54 +26,19 @@ function useUnitLabel(ingredient: PantryItemData['ingredient']) {
   return unit === 'piece' ? pieceLabel : unit
 }
 
-interface PantryAmountButtonProps {
-  item: PantryItemData
-  onClick: () => void
-}
-
 /**
- * An On hand row's amount: "Add amount" at `null` ("have some"), or the amount
- * it holds. A tap opens `PantryAmountField` under the row.
+ * An On hand row's amount as the meta line shows it, such as "5 pc", or `null`
+ * at "have some" (`null`) and at 0. A tap on ⋯ → Add amount opens
+ * `PantryAmountField` under the row.
  */
-export const PantryAmountButton = forwardRef<HTMLButtonElement, PantryAmountButtonProps>(
-  function PantryAmountButton({ item, onClick }, ref) {
-    const tPantry = useTranslations('pantry')
-    const locale = useLocale() as Locale
-    const unitLabel = useUnitLabel(item.ingredient)
-    const name = item.ingredient.name
-
-    if (item.quantity === null || item.quantity <= 0) {
-      return (
-        <Button
-          ref={ref}
-          variant="quiet"
-          size="sm-touch"
-          onClick={onClick}
-          data-amount={item.id}
-          aria-label={tPantry('ariaAddAmount', { name })}
-        >
-          {tPantry('addAmount')}
-        </Button>
-      )
-    }
-
-    // Not grouped, so it reads as the field takes it: "1,800" would type back
-    // as 1.8. The no-break space keeps the unit on the number's line.
-    const amount = `${formatQuantity(item.quantity, locale, { useGrouping: false })} ${unitLabel}`
-    return (
-      <Button
-        ref={ref}
-        variant="ghost"
-        size="sm-touch"
-        onClick={onClick}
-        data-amount={item.id}
-        aria-label={tPantry('ariaAmount', { name, amount })}
-      >
-        {amount}
-      </Button>
-    )
-  },
-)
+export function usePantryAmountLabel(item: PantryItemData): string | null {
+  const locale = useLocale() as Locale
+  const unitLabel = useUnitLabel(item.ingredient)
+  if (item.quantity === null || item.quantity <= 0) return null
+  // Not grouped, so it reads as the field takes it: "1,800" would type back
+  // as 1.8. The no-break space keeps the unit on the number's line.
+  return `${formatQuantity(item.quantity, locale, { useGrouping: false })}\u00a0${unitLabel}`
+}
 
 interface PantryAmountFieldProps {
   item: PantryItemData

@@ -104,9 +104,8 @@ describe('InventoryPage tick then untick', () => {
     expect(untickBody()).toEqual({ ingredientId: 'butter', restoreQuantity: 200 })
     const pantryColumn = within(screen.getByTestId('pantry-column'))
     await waitFor(() =>
-      expect(
-        pantryColumn.getByRole('button', { name: 'Amount: Butter, 200\u00a0g' }),
-      ).toBeInTheDocument(),
+      // The amount starts the row's meta line (HON-1643).
+      expect(pantryColumn.getByText(/^200 g( · |$)/)).toBeInTheDocument(),
     )
   })
 
@@ -179,7 +178,8 @@ describe('InventoryPage tick then untick', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as purchased' }))
     await screen.findByRole('checkbox', { name: 'Mark Butter as not purchased' })
-    await user.click(screen.getByRole('button', { name: 'Remove Butter' }))
+    await user.click(screen.getByRole('button', { name: 'More actions: Butter' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove' }))
     await user.click(await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' }))
     await user.click(await screen.findByRole('checkbox', { name: 'Mark Butter as not purchased' }))
     await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' })
@@ -199,17 +199,16 @@ describe('InventoryPage tick then untick', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as purchased' }))
     const pantryColumn = within(screen.getByTestId('pantry-column'))
-    await user.click(await pantryColumn.findByRole('button', { name: 'Add amount: Butter' }))
-    await user.type(screen.getByRole('textbox', { name: 'How much do you have?' }), '150')
+    await user.click(await pantryColumn.findByRole('button', { name: 'More actions: Butter' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Add amount' }))
+    await user.type(await screen.findByRole('textbox', { name: 'How much do you have?' }), '150')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await pantryColumn.findByRole('button', { name: 'Amount: Butter, 150\u00a0g' })
+    await pantryColumn.findByText(/^150 g( · |$)/)
 
     await user.click(screen.getByRole('checkbox', { name: 'Mark Butter as not purchased' }))
     await screen.findByRole('checkbox', { name: 'Mark Butter as purchased' })
 
     expect(lastFetchBody()).toEqual({ ingredientId: 'butter', restoreQuantity: 200 })
-    expect(
-      pantryColumn.getByRole('button', { name: 'Amount: Butter, 150\u00a0g' }),
-    ).toBeInTheDocument()
+    expect(pantryColumn.getByText(/^150 g( · |$)/)).toBeInTheDocument()
   })
 })

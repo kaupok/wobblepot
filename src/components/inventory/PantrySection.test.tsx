@@ -7,7 +7,7 @@ import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
 import { PantrySection } from './PantrySection'
-import { makeItem, renderSection } from './PantrySection.fixtures'
+import { chooseRowAction, makeItem, moreActions, renderSection } from './PantrySection.fixtures'
 
 // `toast` is callable (the Undo toast) and carries `error` / `success`.
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
@@ -174,10 +174,9 @@ describe('PantrySection remove', () => {
     return render(<Stateful />, { wrapper })
   }
 
+  /** ⋯ → Remove on a row. */
   function clickRemove(name: string) {
-    const button = screen.getByRole('button', { name: `Remove ${name}` })
-    button.focus()
-    fireEvent.click(button)
+    return chooseRowAction(name, 'Remove')
   }
 
   /** The Undo of the nth Undo toast, clicked as Sonner would call it. */
@@ -197,7 +196,7 @@ describe('PantrySection remove', () => {
     const onPantryItemRemoved = vi.fn()
     renderStateful([butter, milk], { onPantryItemRemoved })
 
-    clickRemove('Butter')
+    await clickRemove('Butter')
 
     expect(screen.queryByText('Butter')).not.toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -218,7 +217,7 @@ describe('PantrySection remove', () => {
     const fetchMock = stubPantryApi()
     const onPantryItemRestored = vi.fn()
     renderStateful([butter, milk], { onPantryItemRestored })
-    clickRemove('Butter')
+    await clickRemove('Butter')
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
 
     const blur = clickUndo()
@@ -241,8 +240,8 @@ describe('PantrySection remove', () => {
       '50g needed in next 7 days',
     )
     expect(onPantryItemRestored).toHaveBeenCalledWith('ing-1')
-    // Focus goes to the restored row's Remove (a new id), not <body>.
-    expect(screen.getByRole('button', { name: 'Remove Butter' })).toHaveFocus()
+    // Focus goes to the restored row's ⋯ (a new id), where Remove is, not <body>.
+    expect(moreActions('Butter')).toHaveFocus()
   })
 
   it('removes three rows in a row, and Undo on the second puts back only the second', async () => {
@@ -250,9 +249,9 @@ describe('PantrySection remove', () => {
     const onPantryItemRestored = vi.fn()
     renderStateful([milk, oats, rice], { onPantryItemRestored })
 
-    clickRemove('Milk')
-    clickRemove('Oats')
-    clickRemove('Rice')
+    await clickRemove('Milk')
+    await clickRemove('Oats')
+    await clickRemove('Rice')
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(3))
     expect(vi.mocked(toast).mock.calls.map(([message]) => message)).toEqual([
       'Milk removed from pantry',
@@ -269,29 +268,29 @@ describe('PantrySection remove', () => {
     expect(onPantryItemRestored).toHaveBeenCalledExactlyOnceWith('ing-oats')
   })
 
-  it("focuses the next row's Remove in the group, not <body>", async () => {
+  it("focuses the next row's ⋯ in the group, not <body>", async () => {
     stubPantryApi()
     renderStateful([milk, oats, rice])
 
-    clickRemove('Oats')
+    await clickRemove('Oats')
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Rice' })).toHaveFocus())
+    await waitFor(() => expect(moreActions('Rice')).toHaveFocus())
   })
 
-  it("focuses the previous row's Remove when the last row in a group goes", async () => {
+  it("focuses the previous row's ⋯ when the last row in a group goes", async () => {
     stubPantryApi()
     renderStateful([butter, milk, oats])
 
-    clickRemove('Oats')
+    await clickRemove('Oats')
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Milk' })).toHaveFocus())
+    await waitFor(() => expect(moreActions('Milk')).toHaveFocus())
   })
 
   it('focuses the add search when the group empties', async () => {
     stubPantryApi()
     renderStateful([butter, milk])
 
-    clickRemove('Butter')
+    await clickRemove('Butter')
 
     await waitFor(() => expect(screen.getByLabelText('Add ingredient to pantry')).toHaveFocus())
   })
@@ -301,7 +300,7 @@ describe('PantrySection remove', () => {
     const onPantryItemRestored = vi.fn()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     renderStateful([butter, milk], { onPantryItemRestored })
-    clickRemove('Butter')
+    await clickRemove('Butter')
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
 
     clickUndo()
@@ -324,7 +323,7 @@ describe('PantrySection remove', () => {
     const onPantryItemRemoved = vi.fn()
     renderStateful([butter, milk], { onPantryItemRemoved })
 
-    clickRemove('Butter')
+    await clickRemove('Butter')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to remove item'))
     expect(screen.getByText('Butter')).toBeInTheDocument()
@@ -337,7 +336,7 @@ describe('PantrySection remove', () => {
     const onItemsChange = vi.fn()
     renderSection([makeItem()], onItemsChange)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Butter' }))
+    await clickRemove('Butter')
 
     await waitFor(() => expect(onItemsChange).toHaveBeenCalledTimes(2))
     const restore = onItemsChange.mock.calls[1]![0] as (prev: PantryItemData[]) => PantryItemData[]

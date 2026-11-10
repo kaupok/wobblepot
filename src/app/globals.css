@@ -205,6 +205,17 @@
   grid-template-columns: var(--macro-split);
 }
 
+/* The pantry row (HON-1643): star, name, ⋯ on a narrow row; star, name, stock
+   control, ⋯ on a wide one. The name track can shrink below its content, so a
+   long name wraps instead of pushing ⋯ out. `PantryItemRow` and its skeleton. */
+@utility grid-cols-pantry-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+@utility grid-cols-pantry-row-wide {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
 /* The nutrition legend's Carbs label, centred under its part of the bar
    (HON-1114). Set from measurement in NutritionSummary, so data-driven. */
 @utility left-macro-carbs {

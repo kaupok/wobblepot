@@ -1,13 +1,17 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  chooseRowAction,
   groupOf,
   makeItem,
+  moreActions,
   pressedStock,
   renderSection,
   renderStateful,
+  rowActions,
+  rowOf,
   stockPart,
 } from './PantrySection.fixtures'
 
@@ -48,34 +52,40 @@ describe('PantrySection amount', () => {
     }
   }
 
-  function enterAmount(name: string, text: string) {
-    fireEvent.click(
-      screen.getByRole('button', { name: new RegExp(`^(Add amount|Amount): ${name}`) }),
-    )
+  /** Opens the field from ⋯, as "Add amount" or "Change amount". */
+  async function openAmount(name: string) {
+    await chooseRowAction(name, /^(Add|Change) amount$/)
+  }
+
+  async function enterAmount(name: string, text: string) {
+    await openAmount(name)
     fireEvent.change(screen.getByRole('textbox', { name: 'How much do you have?' }), {
       target: { value: text },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   }
 
-  it('reads "Add amount" on a row at null', () => {
+  it('offers "Add amount" and Remove in ⋯ on a row at null, and no buttons for them on the row', async () => {
     renderSection([trout])
 
-    expect(screen.getByRole('button', { name: 'Add amount: Trout' })).toHaveTextContent(
-      'Add amount',
-    )
+    expect(screen.queryByRole('button', { name: /Add amount/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Trout' })).not.toBeInTheDocument()
+    expect(rowOf('Trout')).toHaveTextContent(/^Trout50g needed in next 7 days/)
+    expect(await rowActions('Trout')).toEqual(['Add amount', 'Remove'])
   })
 
-  it('saves 1800 and shows "1800 g", then focuses the amount', async () => {
+  it('saves 1800 and starts the meta line with "1800 g", then focuses ⋯', async () => {
     const fetchMock = okFetch()
     const onPantryQuantityChanged = vi.fn()
     renderStateful([trout], onPantryQuantityChanged)
 
-    enterAmount('Trout', '1800')
+    await enterAmount('Trout', '1800')
 
-    const amount = await screen.findByRole('button', { name: 'Amount: Trout, 1800\u00a0g' })
-    expect(amount).toHaveTextContent('1800 g')
-    expect(amount).toHaveFocus()
+    await waitFor(() =>
+      expect(rowOf('Trout')).toHaveTextContent('1800 g · 50g needed in next 7 days'),
+    )
+    expect(moreActions('Trout')).toHaveFocus()
+    expect(await rowActions('Trout')).toEqual(['Change amount', 'Remove'])
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(1800))
     // The shopping list beside it re-reads, so the line shrinks or goes.
     await waitFor(() => expect(onPantryQuantityChanged).toHaveBeenCalledTimes(1))
@@ -101,23 +111,23 @@ describe('PantrySection amount', () => {
       }),
     ])
 
-    expect(screen.getByRole('button', { name: 'Amount: Milk, 750\u00a0ml' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Amount: Eggs, 6\u00a0pc' })).toBeInTheDocument()
+    expect(rowOf('Milk')).toHaveTextContent('750 ml · 50g needed')
+    expect(rowOf('Eggs')).toHaveTextContent('6 pc · 50g needed')
   })
 
-  it('opens the field on the amount and saves an empty field as null', async () => {
+  it('opens the field from Change amount and saves an empty field as null', async () => {
     const fetchMock = okFetch()
     renderStateful([{ ...trout, quantity: 1800 }])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Amount: Trout, 1800\u00a0g' }))
+    await chooseRowAction('Trout', 'Change amount')
     const field = screen.getByRole('textbox', { name: 'How much do you have?' })
     expect(field).toHaveValue('1800')
     expect(field).toHaveFocus()
     expect(field).toHaveAttribute('inputmode', 'decimal')
     enterAmountInOpenField('')
 
-    const addAmount = await screen.findByRole('button', { name: 'Add amount: Trout' })
-    expect(addAmount).toHaveFocus()
+    await waitFor(() => expect(rowOf('Trout')).not.toHaveTextContent('1800'))
+    expect(moreActions('Trout')).toHaveFocus()
     expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(null))
   })
 
@@ -132,7 +142,7 @@ describe('PantrySection amount', () => {
     const fetchMock = okFetch()
     renderStateful([trout, makeItem({ quantity: 2 })])
 
-    enterAmount('Trout', '0')
+    await enterAmount('Trout', '0')
 
     await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
     expect(pressedStock('Trout')).toHaveAccessibleName('Ran out')
@@ -145,13 +155,11 @@ describe('PantrySection amount', () => {
     const fetchMock = okFetch()
     renderStateful([{ ...trout, quantity: 1800 }])
 
-    enterAmount('Trout', '0')
+    await enterAmount('Trout', '0')
     await waitFor(() => expect(groupOf('Trout')).toBe('Ran out 1'))
     fireEvent.click(stockPart('Trout', 'Have it'))
 
-    expect(
-      await screen.findByRole('button', { name: 'Amount: Trout, 1800\u00a0g' }),
-    ).toBeInTheDocument()
+    await waitFor(() => expect(rowOf('Trout')).toHaveTextContent('1800 g · '))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     expect(toast.error).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenLastCalledWith('/api/pantry/pantry-trout', patchBody(1800))
@@ -161,19 +169,19 @@ describe('PantrySection amount', () => {
     const fetchMock = okFetch()
     renderStateful([trout])
 
-    enterAmount('Trout', '1,8')
+    await enterAmount('Trout', '1,8')
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith('/api/pantry/pantry-trout', patchBody(1.8)),
     )
-    expect(screen.getByRole('button', { name: 'Amount: Trout, 1.8\u00a0g' })).toBeInTheDocument()
+    expect(rowOf('Trout')).toHaveTextContent('1.8 g · ')
   })
 
-  it.each(['-1', 'abc'])('refuses "%s" with the field error and writes nothing', (text) => {
+  it.each(['-1', 'abc'])('refuses "%s" with the field error and writes nothing', async (text) => {
     const fetchMock = okFetch()
     renderStateful([trout])
 
-    enterAmount('Trout', text)
+    await enterAmount('Trout', text)
 
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a number')
     const field = screen.getByRole('textbox', { name: 'How much do you have?' })
@@ -182,39 +190,49 @@ describe('PantrySection amount', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('cancels without a write and focuses the amount control', () => {
+  it('focuses the field when Add amount opens it, not ⋯', async () => {
+    okFetch()
+    renderStateful([trout])
+
+    await chooseRowAction('Trout', 'Add amount')
+
+    expect(screen.getByRole('textbox', { name: 'How much do you have?' })).toHaveFocus()
+  })
+
+  it('cancels without a write and focuses ⋯', async () => {
     const fetchMock = okFetch()
     renderStateful([trout])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add amount: Trout' }))
+    await openAmount('Trout')
     fireEvent.change(screen.getByRole('textbox', { name: 'How much do you have?' }), {
       target: { value: '500' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('textbox', { name: 'How much do you have?' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add amount: Trout' })).toHaveFocus()
+    expect(moreActions('Trout')).toHaveFocus()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('cancels on Escape too', () => {
+  it('cancels on Escape too', async () => {
     okFetch()
     renderStateful([trout])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add amount: Trout' }))
+    await openAmount('Trout')
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'How much do you have?' }), {
       key: 'Escape',
     })
 
-    expect(screen.getByRole('button', { name: 'Add amount: Trout' })).toHaveFocus()
+    expect(moreActions('Trout')).toHaveFocus()
   })
 
-  it('gives a staple and a ran-out row no amount control', () => {
+  it('offers only Remove in ⋯ on a staple row and a ran-out row', async () => {
     renderSection([salt, { ...trout, quantity: 0 }])
 
-    expect(screen.queryByRole('button', { name: /^(Add amount|Amount):/ })).not.toBeInTheDocument()
-    const stapleRow = screen.getByText('Salt').closest('.p-3') as HTMLElement
-    expect(within(stapleRow).queryByText('Add amount')).not.toBeInTheDocument()
+    expect(await rowActions('Salt')).toEqual(['Remove'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+    expect(await rowActions('Trout')).toEqual(['Remove'])
   })
 
   it('puts the row back and toasts on a failed request', async () => {
@@ -222,22 +240,23 @@ describe('PantrySection amount', () => {
     const onPantryQuantityChanged = vi.fn()
     renderStateful([trout], onPantryQuantityChanged)
 
-    enterAmount('Trout', '1800')
+    await enterAmount('Trout', '1800')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    expect(screen.getByRole('button', { name: 'Add amount: Trout' })).toBeInTheDocument()
+    expect(rowOf('Trout')).not.toHaveTextContent('1800')
     expect(onPantryQuantityChanged).not.toHaveBeenCalled()
   })
 
-  it('follows the row back to its amount when a failed 0 returns it to On hand', async () => {
+  it('follows the row back to its ⋯ when a failed 0 returns it to On hand', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
     renderStateful([{ ...trout, quantity: 1800 }])
 
-    enterAmount('Trout', '0')
+    await enterAmount('Trout', '0')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(groupOf('Trout')).toBe('On hand 1')
-    expect(screen.getByRole('button', { name: 'Amount: Trout, 1800\u00a0g' })).toHaveFocus()
+    expect(rowOf('Trout')).toHaveTextContent('1800 g · ')
+    expect(moreActions('Trout')).toHaveFocus()
   })
 
   it('keeps focus on the stock control when a failed amount above 0 leaves the row in place', async () => {
@@ -248,7 +267,7 @@ describe('PantrySection amount', () => {
     )
     renderStateful([trout])
 
-    enterAmount('Trout', '1800')
+    await enterAmount('Trout', '1800')
     const control = stockPart('Trout', 'Have it')
     control.focus()
     await act(async () => fail(new Response(null, { status: 500 })))

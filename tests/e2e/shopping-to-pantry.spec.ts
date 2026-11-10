@@ -202,10 +202,10 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // User-visible half of the handoff: the item now appears in the pantry
       // column of the same page. At the suite's desktop width /shopping shows
       // both columns; on a phone the pantry is its own /pantry tab (HON-776),
-      // which this spec does not exercise. The per-row remove button
-      // (`pantry.ariaRemove`) is the pantry's own accessible-name anchor, so
+      // which this spec does not exercise. The row's ⋯ button
+      // (`pantry.moreActions`) is the pantry's own accessible-name anchor, so
       // it can't be satisfied by the shopping-list row of the same name.
-      const pantryRow = page.getByRole('button', { name: `Remove ${itemName}` })
+      const pantryRow = page.getByRole('button', { name: `More actions: ${itemName}` })
       await expect(pantryRow).toBeVisible()
 
       // Data half: purchased items land with `quantity: null` — the "have some,
@@ -343,7 +343,9 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       expect(replacementResponse.status(), 'Adding the replacement row failed').toBe(201)
       createdPantryIds.push(replacement.id)
       await page.reload()
-      await page.getByRole('button', { name: `Add amount: ${replacement.name}` }).click()
+      const moreActions = page.getByRole('button', { name: `More actions: ${replacement.name}` })
+      await moreActions.click()
+      await page.getByRole('menuitem', { name: 'Add amount' }).click()
       await page.getByRole('textbox', { name: 'How much do you have?' }).fill(String(STOCKED))
       await Promise.all([
         page.waitForResponse(
@@ -351,11 +353,11 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
         ),
         page.getByRole('button', { name: 'Save' }).click(),
       ])
+      // The amount starts the row's meta line, and focus is back on ⋯ (HON-1643).
+      await expect(moreActions).toBeFocused()
       await expect(
-        page.getByRole('button', {
-          name: new RegExp(`^Amount: ${escapeRegExp(replacement.name)}, ${STOCKED}`),
-        }),
-      ).toBeFocused()
+        page.getByTestId('pantry-column').getByText(new RegExp(`^${STOCKED}\\s(g|ml|pc)\\b`)),
+      ).toBeVisible()
       const remaining = Math.max(0, needBefore - STOCKED)
       expect(toBuy(await shoppingItems(page.request), replacement.id)).toBeCloseTo(remaining)
       if (remaining === 0) {

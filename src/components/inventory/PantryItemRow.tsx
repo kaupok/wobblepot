@@ -1,15 +1,21 @@
 'use client'
 
-import { Star, Trash2 } from 'lucide-react'
+import { MoreHorizontal, PencilLine, Plus, Star, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
-import { PantryAmountButton, PantryAmountField } from './PantryAmountControl'
+import { PantryAmountField, usePantryAmountLabel } from './PantryAmountControl'
 import { type PantryStock, PantryStockControl } from './PantryStockControl'
 
 interface PantryItemRowProps {
@@ -67,20 +73,20 @@ export function PantryItemRow({
 
   const handleToggle = () => onToggleStaple(item.id, item.isStaple)
 
-  // The field replaces the amount button, so closing it would drop focus to
-  // `<body>`: it goes back to the button. A 0 moves the row to Ran out, where
-  // `PantrySection` focuses its stock control.
+  // The field opens under the row and closes back to ⋯, so focus does not
+  // fall to `<body>`. A 0 moves the row to Ran out, where `PantrySection`
+  // focuses its stock control.
   const [isEditingAmount, setIsEditingAmount] = useState(false)
-  const amountButtonRef = useRef<HTMLButtonElement>(null)
-  const focusAmountButton = useRef(false)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
+  const focusMoreButton = useRef(false)
   useEffect(() => {
-    if (isEditingAmount || !focusAmountButton.current) return
-    focusAmountButton.current = false
-    amountButtonRef.current?.focus()
+    if (isEditingAmount || !focusMoreButton.current) return
+    focusMoreButton.current = false
+    moreButtonRef.current?.focus()
   }, [isEditingAmount])
 
   const closeAmountField = () => {
-    focusAmountButton.current = true
+    focusMoreButton.current = true
     setIsEditingAmount(false)
   }
 
@@ -89,15 +95,49 @@ export function PantryItemRow({
     if (quantity !== item.quantity) onSetAmount?.(item, quantity)
   }
 
+  // Radix returns focus to ⋯ as the menu closes, and on a pointer pick it
+  // pulls focus back into the closing menu first (HON-946). So a menu item
+  // only names its action, and the action runs once the menu has closed: the
+  // field then focuses its input, and Remove's focus move to the next row
+  // is the last one.
+  const pendingAction = useRef<'amount' | 'remove' | null>(null)
+  const handleMenuCloseAutoFocus = (event: Event) => {
+    const action = pendingAction.current
+    if (!action) return
+    event.preventDefault()
+    pendingAction.current = null
+    if (action === 'amount') setIsEditingAmount(true)
+    else onRemove(item)
+  }
+
+  const amountLabel = usePantryAmountLabel(item)
+  const name = item.ingredient.name
+  const need =
+    item.neededQuantity !== undefined &&
+    item.neededQuantity > 0 &&
+    item.neededDisplayQuantity &&
+    item.windowDays !== undefined
+      ? // A vague quantity's display is the phrase itself, so it would read
+        // "to taste needed in…" — drop it instead (HON-783).
+        item.isVague
+        ? tPantry('neededInWindowVague', { days: item.windowDays })
+        : tPantry('neededInWindow', {
+            quantity: item.neededDisplayQuantity,
+            days: item.windowDays,
+          })
+      : null
+  const shownAmount = hasAmount ? amountLabel : null
+
   return (
     // No entrance when a ticked shopping item lands here: it happens many
     // times a session, and the row appearing is the change (docs/DESIGN.md →
     // Reject list).
-    <div className="flex flex-col gap-3 p-3">
-      {/* The stock control wraps to its own line and runs under the name and
-          the right side both: at 390px it does not fit beside the amount
-          button. The left shows the state, the right how much (HON-1624). */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="@container flex flex-col gap-3 p-3">
+      {/* A grid, so the stock control moves without moving in the DOM. In a
+          row 28rem wide it sits on the name line, and the name keeps about
+          160px past the star, the control and ⋯ (HON-1643). In a narrower
+          row (a phone) it goes under the meta line, lined up with the name. */}
+      <div className="grid-cols-pantry-row @md:grid-cols-pantry-row-wide grid items-center gap-x-3">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -105,6 +145,7 @@ export function PantryItemRow({
           disabled={isToggling}
           data-staple={item.id}
           aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
+          className="col-start-1 row-start-1"
         >
           <Star
             className={cn(
@@ -115,55 +156,56 @@ export function PantryItemRow({
             )}
           />
         </Button>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Body>{item.ingredient.name}</Body>
-          {item.neededQuantity !== undefined &&
-            item.neededQuantity > 0 &&
-            item.neededDisplayQuantity &&
-            item.windowDays !== undefined && (
-              <Body variant="caption">
-                {/* A vague quantity's display is the phrase itself, so it would
-                    read "to taste needed in…" — drop it instead (HON-783). */}
-                {item.isVague
-                  ? tPantry('neededInWindowVague', { days: item.windowDays })
-                  : tPantry('neededInWindow', {
-                      quantity: item.neededDisplayQuantity,
-                      days: item.windowDays,
-                    })}
-              </Body>
-            )}
+        <div className="col-start-2 row-start-1 min-w-0">
+          <Body>{name}</Body>
         </div>
-        <div className="flex items-center gap-1">
-          {hasAmount && !isEditingAmount && (
-            <PantryAmountButton
-              ref={amountButtonRef}
-              item={item}
-              onClick={() => setIsEditingAmount(true)}
-            />
-          )}
-          <Button
-            variant="quiet-destructive"
-            size="icon-sm"
-            onClick={() => onRemove(item)}
-            data-remove={item.id}
-            aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
+        {(shownAmount || need) && (
+          <div className="col-span-2 col-start-2 row-start-2 @md:col-span-3 @md:col-start-2">
+            {/* The caption is muted already, so the amount reads as one with the need. */}
+            <Body variant="caption">{[shownAmount, need].filter(Boolean).join(' · ')}</Body>
+          </div>
+        )}
         {hasStock && (
-          // Under the name and caption, lined up with the name past the star
-          // (32px and the 12px gap). `gap-y-2` matches the 8px reach of each
-          // part's 44px target, so it stays clear of the buttons above.
-          <div className="basis-full pl-11">
+          // `mt-2` under the meta line matches the 8px reach of each part's
+          // 44px target, so it stays clear of the line above.
+          <div className="col-span-2 col-start-2 row-start-3 mt-2 @md:col-span-1 @md:col-start-3 @md:row-start-1 @md:mt-0">
             <PantryStockControl
               pantryItemId={item.id}
-              name={item.ingredient.name}
+              name={name}
               stock={stock}
               onStockChange={handleStockChange}
             />
           </div>
         )}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              ref={moreButtonRef}
+              variant="ghost"
+              size="icon-sm"
+              data-more={item.id}
+              aria-label={tPantry('moreActions', { name })}
+              className="col-start-3 row-start-1 @md:col-start-4"
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onCloseAutoFocus={handleMenuCloseAutoFocus}>
+            {hasAmount && (
+              <DropdownMenuItem onSelect={() => (pendingAction.current = 'amount')}>
+                {amountLabel ? <PencilLine aria-hidden="true" /> : <Plus aria-hidden="true" />}
+                {amountLabel ? tPantry('changeAmount') : tPantry('addAmount')}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => (pendingAction.current = 'remove')}
+            >
+              <Trash2 aria-hidden="true" />
+              {tPantry('remove')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {hasAmount && isEditingAmount && (
         <PantryAmountField item={item} onSave={handleSaveAmount} onCancel={closeAmountField} />
