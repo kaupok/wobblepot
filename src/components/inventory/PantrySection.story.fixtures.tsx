@@ -64,5 +64,5 @@ export function StatefulPantrySection({
   )
 }
 
-/** Answers the switch's flips and an amount as the route does. */
+/** Answers the stock control's parts and an amount as the route does. */
 export const patchHandler = http.patch('/api/pantry/:id', () => HttpResponse.json({ ok: true }))

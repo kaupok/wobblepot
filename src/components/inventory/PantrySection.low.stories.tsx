@@ -13,6 +13,12 @@ import {
   StatefulPantrySection,
 } from './PantrySection.story.fixtures'
 
+type Canvas = ReturnType<typeof within>
+
+/** A part of the row's stock control, found through the group's name. */
+const part = (canvas: Canvas, group: string, name: string) =>
+  within(canvas.getByRole('radiogroup', { name: group })).getByRole('radio', { name })
+
 const meta = {
   title: 'Feature/Inventory/PantrySection/Running low',
   component: PantrySection,
@@ -23,7 +29,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The Running low toggle on each pantry row whose switch is on (HON-1587). It sits under the name, beside the amount button, because the switch cluster has no width left at 390px. Pressed, it shows a check and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. A row in Ran out has no toggle: ran out replaces low. The other states are in Feature/Inventory/PantrySection.',
+          'The Low part of each pantry row\'s stock control, Have it · Low · Ran out (HON-1624, HON-1587). It sits on its own line under the name; the amount button sits on the right, before Remove. Pressed, it shows a check and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. Low on a row in Ran out sets it to "have some" and low in one request, and the row moves back to On hand. The other states are in Feature/Inventory/PantrySection.',
       },
     },
   },
@@ -63,79 +69,123 @@ export const LowStapleAndOnHand: Story = {
     docs: {
       description: {
         story:
-          'A low staple and a low On hand row, each with the toggle pressed and its check showing. Each stays in its group. The Ran out rows have no toggle.',
+          'A low staple and a low On hand row, each with Low pressed and its check showing. Each stays in its group. The Ran out rows have Ran out pressed.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(
-      canvas.getByRole('button', { name: 'Running low: Sunflower oil' }),
-    ).toHaveAttribute('aria-pressed', 'true')
-    await expect(canvas.getByRole('button', { name: 'Running low: Onion' })).toHaveAttribute(
-      'aria-pressed',
+    await expect(part(canvas, 'Stock: Sunflower oil', 'Low')).toHaveAttribute(
+      'aria-checked',
       'true',
     )
-    await expect(canvas.getByRole('button', { name: 'Running low: Salt' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
-    await expect(
-      canvas.queryByRole('button', { name: 'Running low: Avocado' }),
-    ).not.toBeInTheDocument()
+    await expect(part(canvas, 'Stock: Onion', 'Low')).toHaveAttribute('aria-checked', 'true')
+    await expect(part(canvas, 'Stock: Salt', 'Have it')).toHaveAttribute('aria-checked', 'true')
+    await expect(part(canvas, 'Stock: Salt', 'Low')).toHaveAttribute('aria-checked', 'false')
+    await expect(part(canvas, 'Stock: Avocado', 'Ran out')).toHaveAttribute('aria-checked', 'true')
     await expect(canvas.getByRole('heading', { level: 3, name: 'On hand 4' })).toBeInTheDocument()
   },
 }
 
+// A staple, so the right side holds only Remove. Beside "Lisa kogus" on an
+// On hand row the name has about 140px at 390px and wraps on three lines.
+const tomatoes = createPantryItemData({
+  ingredient: ingredient('tomatoes', 'konserveeritud kooritud terved tomatid', 'vegetable'),
+  isStaple: true,
+})
+
 export const LowEstonianPhone: Story = {
-  args: { items: [lowStaple, ...staples, lowOnHand, ...onHand] },
+  args: { items: [lowStaple, ...staples, lowOnHand, tomatoes, ...onHand] },
   globals: { locale: 'et', viewport: { value: 'mobileIphone', isRotated: false } },
   parameters: {
     docs: {
       description: {
         story:
-          'Estonian on a phone: "Vähe järel" under the name. On an On hand row "Lisa kogus" and the toggle do not fit on one line beside the switch, so the toggle wraps under the amount button and the name keeps its width. The toggle is a 32px box whose `::after` reaches 6px above and below it, so the target is 44px while the row keeps its rhythm.',
+          'Estonian on a phone: Olemas · Vähe · Otsas on one line under the name, and "Lisa kogus" on the right, before Remove. A long name on a row with only Remove on the right (a staple, a Ran out row) wraps on at most two lines. Each part is a 32px box whose `::after` reaches 6px above and below it, so the target is 44px.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const toggle = canvas.getByRole('button', { name: 'Vähe järel: Onion' })
-    await expect(toggle).toHaveTextContent('Vähe järel')
-    await expect(toggle.getBoundingClientRect().height).toBe(32)
-    const target = getComputedStyle(toggle, '::after')
+    const low = part(canvas, 'Varu: Onion', 'Vähe')
+    await expect(low).toHaveAttribute('aria-checked', 'true')
+    await expect(low.getBoundingClientRect().height).toBe(32)
+    const target = getComputedStyle(low, '::after')
     await expect(target.top).toBe('-6px')
     await expect(target.bottom).toBe('-6px')
-    // It wraps rather than run into the switch, and lines up with the amount button.
-    const amount = canvas.getByRole('button', { name: 'Lisa kogus: Onion' })
-    const onionSwitch = canvas.getByRole('switch', { name: 'Olemas: Onion' })
-    await expect(toggle.getBoundingClientRect().right).toBeLessThan(
-      onionSwitch.getBoundingClientRect().left,
+    const group = canvas.getByRole('radiogroup', { name: 'Varu: Onion' })
+    const tops = within(group)
+      .getAllByRole('radio')
+      .map((radio) => radio.getBoundingClientRect().top)
+    await expect(new Set(tops).size).toBe(1)
+    // The amount button sits on the right, beside Remove, above the control.
+    const amount = canvas.getByRole('button', { name: 'Lisa kogus: Onion' }).getBoundingClientRect()
+    const remove = canvas.getByRole('button', { name: 'Eemalda „Onion"' }).getBoundingClientRect()
+    await expect(amount.right).toBeLessThanOrEqual(remove.left)
+    await expect(amount.top).toBe(remove.top)
+    await expect(amount.bottom).toBeLessThan(group.getBoundingClientRect().top)
+
+    // A long name beside Remove alone wraps on at most two of its 28px
+    // lines, and its control still fits one line. Geist must be in, or the
+    // name measures narrow.
+    await document.fonts.ready
+    const longName = canvas.getByText('konserveeritud kooritud terved tomatid')
+    await expect(longName.getBoundingClientRect().height).toBeLessThanOrEqual(56)
+    const longTops = within(
+      canvas.getByRole('radiogroup', { name: 'Varu: konserveeritud kooritud terved tomatid' }),
     )
-    await expect(toggle.getBoundingClientRect().left).toBe(amount.getBoundingClientRect().left)
+      .getAllByRole('radio')
+      .map((radio) => radio.getBoundingClientRect().top)
+    await expect(new Set(longTops).size).toBe(1)
   },
 }
 
-export const ToggleKeepsFocus: Story = {
+export const LowKeepsFocus: Story = {
   args: { items: [...staples, ...onHand] },
   parameters: {
     docs: {
       description: {
         story:
-          'A tap presses the toggle and sends `{ low: true }`; a second tap clears it. The toggle stays mounted, so focus stays on it after the response.',
+          'A tap on Low sends `{ low: true }`; a tap on Have it clears it. The row stays in its group, so focus stays on the pressed part after the response.',
       },
     },
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
-    const toggle = canvas.getByRole('button', { name: 'Running low: Garlic' })
-    await userEvent.click(toggle)
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    const low = part(canvas, 'Stock: Garlic', 'Low')
+    await userEvent.click(low)
+    await expect(low).toHaveAttribute('aria-checked', 'true')
     await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
-    await expect(toggle).toHaveFocus()
-    await userEvent.keyboard(' ')
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await expect(low).toHaveFocus()
+    const haveIt = part(canvas, 'Stock: Garlic', 'Have it')
+    await userEvent.click(haveIt)
+    await expect(haveIt).toHaveAttribute('aria-checked', 'true')
     await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(2))
-    await expect(toggle).toHaveFocus()
+    await expect(haveIt).toHaveFocus()
+  },
+}
+
+export const LowFromRanOut: Story = {
+  args: { items: [...staples, ...onHand, ...ranOut] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Low on a row in Ran out sends one `{ low: true }`, which also sets it to "have some". The row moves back to On hand and focus follows it to its pressed Low.',
+      },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 2' })).toBeInTheDocument()
+    await userEvent.click(part(canvas, 'Stock: Avocado', 'Low'))
+    await waitFor(() =>
+      expect(canvas.getByRole('heading', { level: 3, name: 'On hand 4' })).toBeInTheDocument(),
+    )
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Ran out 1' })).toBeInTheDocument()
+    const low = part(canvas, 'Stock: Avocado', 'Low')
+    await expect(low).toHaveAttribute('aria-checked', 'true')
+    await expect(low).toHaveFocus()
+    await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
   },
 }

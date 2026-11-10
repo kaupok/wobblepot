@@ -6,20 +6,19 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { Button } from '@/components/ui/button'
-import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 
 import { PantryAmountButton, PantryAmountField } from './PantryAmountControl'
-import { PantrySwitch } from './PantrySwitch'
+import { type PantryStock, PantryStockControl } from './PantryStockControl'
 
 interface PantryItemRowProps {
   item: PantryItemData
   onToggleStaple: (id: string, currentIsStaple: boolean) => void
   onRemove: (item: PantryItemData) => void
-  /** Marks a row at 0 as at home again: the switch going on. */
+  /** Marks a row at 0 as at home again: Have it from Ran out. */
   onHaveIt?: (item: PantryItemData) => void
-  /** Marks a row as ran out: the switch going off. */
+  /** Marks a row as ran out: the Ran out part. */
   onRanOut?: (item: PantryItemData) => void
   /**
    * Sets the row's amount, `null` for "have some". Shown on an On hand row
@@ -28,8 +27,9 @@ interface PantryItemRowProps {
    */
   onSetAmount?: (item: PantryItemData, quantity: number | null) => void
   /**
-   * Marks the row running low, or clears it (HON-1587). Shown while the
-   * switch is on: ran out replaces low.
+   * Marks the row running low, or clears it (HON-1587): the Low part, and
+   * Have it from Low. Low on a row at 0 also sets it to have some, in the
+   * same request.
    */
   onSetLow?: (item: PantryItemData, low: boolean) => void
   isToggling?: boolean
@@ -56,13 +56,20 @@ export function PantryItemRow({
   const tPantry = useTranslations('pantry')
   const isRanOut = item.quantity === 0
   const hasAmount = onSetAmount && !item.isStaple && !isRanOut
-  const hasLow = onSetLow && !isRanOut
+  const hasStock = onHaveIt && onRanOut && onSetLow
+  const stock: PantryStock = isRanOut ? 'ranOut' : item.low ? 'low' : 'haveIt'
+
+  const handleStockChange = (next: PantryStock) => {
+    if (next === 'ranOut') onRanOut?.(item)
+    else if (isRanOut && next === 'haveIt') onHaveIt?.(item)
+    else onSetLow?.(item, next === 'low')
+  }
 
   const handleToggle = () => onToggleStaple(item.id, item.isStaple)
 
   // The field replaces the amount button, so closing it would drop focus to
   // `<body>`: it goes back to the button. A 0 moves the row to Ran out, where
-  // `PantrySection` focuses its switch.
+  // `PantrySection` focuses its stock control.
   const [isEditingAmount, setIsEditingAmount] = useState(false)
   const amountButtonRef = useRef<HTMLButtonElement>(null)
   const focusAmountButton = useRef(false)
@@ -87,86 +94,51 @@ export function PantryItemRow({
     // times a session, and the row appearing is the change (docs/DESIGN.md →
     // Reject list).
     <div className="flex flex-col gap-3 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleToggle}
-            disabled={isToggling}
-            data-staple={item.id}
-            aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
-          >
-            <Star
-              className={cn(
-                'size-4',
-                item.isStaple
-                  ? 'fill-warning text-warning'
-                  : 'text-muted-foreground hover:text-warning',
-              )}
-            />
-          </Button>
-          <div className="flex flex-col">
-            <Body>{item.ingredient.name}</Body>
-            {item.neededQuantity !== undefined &&
-              item.neededQuantity > 0 &&
-              item.neededDisplayQuantity &&
-              item.windowDays !== undefined && (
-                <Body variant="caption">
-                  {/* A vague quantity's display is the phrase itself, so it would
-                    read "to taste needed in…" — drop it instead (HON-783). */}
-                  {item.isVague
-                    ? tPantry('neededInWindowVague', { days: item.windowDays })
-                    : tPantry('neededInWindow', {
-                        quantity: item.neededDisplayQuantity,
-                        days: item.windowDays,
-                      })}
-                </Body>
-              )}
-            {/* Under the name, not beside the switch: at 390px a third action
-                squeezed the name and its caption to a word per line. `-ml-3`
-                lines the first label up with the name past the button's
-                padding. Running low sits here for the same reason (HON-1587):
-                beside the switch, "Vähe järel" left the name about 70px. */}
-            {((hasAmount && !isEditingAmount) || hasLow) && (
-              <div className="-ml-3 flex flex-wrap items-center gap-1">
-                {hasAmount && !isEditingAmount && (
-                  <PantryAmountButton
-                    ref={amountButtonRef}
-                    item={item}
-                    onClick={() => setIsEditingAmount(true)}
-                  />
-                )}
-                {hasLow && (
-                  // The visible word is the tag, and the check marks the
-                  // pressed state, so it does not rest on the fill alone.
-                  <Toggle
-                    size="sm-touch"
-                    indicator
-                    pressed={item.low ?? false}
-                    onPressedChange={(low) => onSetLow(item, low)}
-                    data-low={item.id}
-                    aria-label={tPantry('ariaRunningLow', { name: item.ingredient.name })}
-                  >
-                    {tPantry('runningLow')}
-                  </Toggle>
-                )}
-              </div>
+      {/* The stock control wraps to its own line and runs under the name and
+          the right side both: at 390px it does not fit beside the amount
+          button. The left shows the state, the right how much (HON-1624). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleToggle}
+          disabled={isToggling}
+          data-staple={item.id}
+          aria-label={item.isStaple ? tPantry('ariaUnstaple') : tPantry('ariaToggleStaple')}
+        >
+          <Star
+            className={cn(
+              'size-4',
+              item.isStaple
+                ? 'fill-warning text-warning'
+                : 'text-muted-foreground hover:text-warning',
             )}
-          </div>
+          />
+        </Button>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Body>{item.ingredient.name}</Body>
+          {item.neededQuantity !== undefined &&
+            item.neededQuantity > 0 &&
+            item.neededDisplayQuantity &&
+            item.windowDays !== undefined && (
+              <Body variant="caption">
+                {/* A vague quantity's display is the phrase itself, so it would
+                    read "to taste needed in…" — drop it instead (HON-783). */}
+                {item.isVague
+                  ? tPantry('neededInWindowVague', { days: item.windowDays })
+                  : tPantry('neededInWindow', {
+                      quantity: item.neededDisplayQuantity,
+                      days: item.windowDays,
+                    })}
+              </Body>
+            )}
         </div>
-        {/* `gap-1` and the 51px word (English "Ran out" at the phone's 14px
-            caption) keep word, switch and Remove within the 124px the old
-            "Ran out" button and Remove took, so at 390px the name loses no
-            width (HON-1535). */}
         <div className="flex items-center gap-1">
-          {onHaveIt && onRanOut && (
-            <PantrySwitch
-              pantryItemId={item.id}
-              name={item.ingredient.name}
-              checked={!isRanOut}
-              onHaveIt={() => onHaveIt(item)}
-              onRanOut={() => onRanOut(item)}
+          {hasAmount && !isEditingAmount && (
+            <PantryAmountButton
+              ref={amountButtonRef}
+              item={item}
+              onClick={() => setIsEditingAmount(true)}
             />
           )}
           <Button
@@ -179,6 +151,19 @@ export function PantryItemRow({
             <Trash2 className="size-4" />
           </Button>
         </div>
+        {hasStock && (
+          // Under the name and caption, lined up with the name past the star
+          // (32px and the 12px gap). `gap-y-2` keeps each part's 44px target
+          // clear of the buttons above.
+          <div className="basis-full pl-11">
+            <PantryStockControl
+              pantryItemId={item.id}
+              name={item.ingredient.name}
+              stock={stock}
+              onStockChange={handleStockChange}
+            />
+          </div>
+        )}
       </div>
       {hasAmount && isEditingAmount && (
         <PantryAmountField item={item} onSave={handleSaveAmount} onCancel={closeAmountField} />

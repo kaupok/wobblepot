@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { vi } from 'vitest'
 
@@ -24,6 +24,23 @@ export function makeItem(overrides: Partial<PantryItemData> = {}): PantryItemDat
 export function renderSection(items: PantryItemData[], onItemsChange = vi.fn()) {
   const { wrapper } = createQueryWrapper()
   return render(<PantrySection items={items} onItemsChange={onItemsChange} />, { wrapper })
+}
+
+export type StockLabel = 'Have it' | 'Low' | 'Ran out'
+
+/** A row's stock control, Have it · Low · Ran out (HON-1624). */
+export function stockOf(name: string) {
+  return screen.getByRole('radiogroup', { name: `Stock: ${name}` })
+}
+
+/** One part of a row's stock control. */
+export function stockPart(name: string, label: StockLabel) {
+  return within(stockOf(name)).getByRole('radio', { name: label })
+}
+
+/** The part of a row's stock control that is pressed. */
+export function pressedStock(name: string) {
+  return within(stockOf(name)).getByRole('radio', { checked: true })
 }
 
 /** The group a row's name sits in, read from the heading over its `RowGroup`. */

@@ -24,7 +24,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row has a switch: on while the household has it, off at 0, with the state word ("Have it" or "Ran out") beside it. Switch-off sets the row to 0; switch-on sets it back to "have some" (HON-1535). An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples with its switch off. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row has a stock control under its name, Have it · Low · Ran out (HON-1624). Ran out sets the row to 0; Have it from Ran out sets it back to "have some". An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples with Ran out pressed. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -146,7 +146,7 @@ export const Amounts: Story = {
     docs: {
       description: {
         story:
-          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits under the name, so on a phone the name keeps its width; the control is 32px with a 44px target, as the switch is, and the row does not overflow.',
+          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits on the right, before Remove; the stock control has its own line under the name. The control is 32px with a 44px target, as the stock control\'s parts are, and the row does not overflow.',
       },
     },
   },
