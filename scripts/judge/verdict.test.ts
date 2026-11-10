@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
+  checkCitation,
   citationTarget,
   finalizeVerdict,
   gitReaders,
@@ -251,6 +252,34 @@ describe('validateVerdict', () => {
         reasoning: 'r',
       }),
     ).toThrow('duplicateOf')
+  })
+})
+
+describe('checkCitation: Linear mentions', () => {
+  // The subagent quotes the MCP form; `pnpm judge cite` writes the GraphQL form.
+  const source: Readers = {
+    ...readers,
+    linear: () =>
+      'Status: Backlog\n\nFixed in [kaupok/wobblepot#1605](https://linear.app/honkadori/review/fix-32ac) after [HON-1603](https://linear.app/honkadori/issue/HON-1603/recipe-anchovy) landed.',
+  }
+  const quote = (issueLabel: string) => ({
+    source: 'HON-1604 description',
+    quote: `Fixed in <pull-request id="9f1" label="kaupok/wobblepot#1605" href="https://github.com/kaupok/wobblepot/pull/1605" /> after <issue id="ffd04100-1" label="${issueLabel}" href="https://linear.app/honkadori/issue/${issueLabel}/x" /> landed.`,
+  })
+
+  it('verifies an MCP-form quote against the GraphQL form of the same mentions', () => {
+    expect(checkCitation(quote('HON-1603'), source)).toBeNull()
+  })
+
+  it('still fails a quote that mentions a different issue', () => {
+    expect(checkCitation(quote('HON-1602'), source)).toBe('quote not found in HON-1604')
+  })
+
+  it('leaves mentions in git files as they are', () => {
+    const files: Readers = { ...readers, file: () => 'See [HON-1603](https://linear.app/x).' }
+    expect(checkCitation({ source: 'docs/X.md', quote: 'See HON-1603.' }, files)).toBe(
+      'quote not found in docs/X.md',
+    )
   })
 })
 

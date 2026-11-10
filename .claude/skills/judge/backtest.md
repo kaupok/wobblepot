@@ -28,7 +28,7 @@ The later fix often changed the docs, so today's docs leak the answer. Judge eac
 
 Per issue: steps 2, 4 and 5 of `SKILL.md`, with these changes.
 
-- Finalize against the issue's commit: `pnpm --silent judge finalize --verdict <file> --ref $SHA --linear-dir <dir>`. Fetch only cited Linear issues created before the replayed issue, and keep only comments dated before it. Write `Status:` as the cited issue's state at the replayed issue's `createdAt` (from `get_issue` `stateHistory`), not its state today: the target of a past duplicate is usually Done by now, and today's state would hold every correct duplicate verdict.
+- Finalize against the issue's commit: `pnpm --silent judge finalize --verdict <file> --ref $SHA --linear-dir <dir>`. Write the cited issues first with `pnpm --silent judge cite --verdict <file> --linear-dir <dir> --before <the replayed issue's createdAt>`. It skips a cited issue created after that date, keeps only comments dated before it, and writes `Status:` as the cited issue's state at that date, not its state today: the target of a past duplicate is usually Done by now, and today's state would hold every correct duplicate verdict.
 - **Skip step 6.** No comment and no label on a replayed issue, and nothing on any other issue except the HON-1515 report.
 - **Put every replayed issue ID in a code span** (`` `HON-NNN` ``) in any Linear text you write: the plan, the report, a filed issue. Linear turns a plain ID in a comment into a "related" link on the named issue, which is a write to it.
 - Keep each finalized verdict in `$SCRATCH/<ID>/` until the report is posted.
