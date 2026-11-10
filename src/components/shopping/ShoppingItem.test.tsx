@@ -48,8 +48,11 @@ describe('ShoppingItem', () => {
   it('shows the amount and "Ran out" for a ran-out staple a meal needs', () => {
     render(<ShoppingItem item={{ ...ranOutItem, displayQuantity: '300g' }} onToggle={vi.fn()} />)
 
-    expect(screen.getByText('300g')).toBeInTheDocument()
-    expect(screen.getByText('Ran out')).toBeInTheDocument()
+    // Muted text after the amount, as the meal plan shows it, not a badge
+    // (HON-1642).
+    const status = screen.getByText('300g · Ran out')
+    expect(status).toHaveClass('text-muted-foreground')
+    expect(status.closest('label')!.querySelector('[data-slot="badge"]')).toBeNull()
   })
 
   it('shows the name and "Running low" for a low line with no amount, and no "0 g"', () => {
@@ -71,11 +74,12 @@ describe('ShoppingItem', () => {
     const onion = { ...baseItem, name: 'Onion', displayQuantity: '200 g', low: true }
     render(<ShoppingItem item={onion} onToggle={vi.fn()} />)
 
-    expect(screen.getByText('200 g')).toBeInTheDocument()
-    expect(screen.getByText('Running low')).toBeInTheDocument()
+    const status = screen.getByText('200 g · Running low')
+    expect(status).toHaveClass('text-muted-foreground')
+    expect(status.closest('label')!.querySelector('[data-slot="badge"]')).toBeNull()
   })
 
-  it('shows no "Ran out" tag on an ordinary line', () => {
+  it('shows no "Ran out" note on an ordinary line', () => {
     render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
 
     expect(screen.queryByText('Ran out')).not.toBeInTheDocument()

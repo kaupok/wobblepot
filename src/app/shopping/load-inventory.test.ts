@@ -120,6 +120,18 @@ describe('loadInventory', () => {
     expect(data.shoppingData?.groups[0]?.items[0]).not.toHaveProperty('mealCount')
   })
 
+  it('leaves the "Enough at home?" check out of /shopping, which has the pantry column', async () => {
+    // The meal plan shows the check; /shopping does not (HON-1642).
+    mockLoadShoppingList.mockResolvedValue({
+      ...SHOPPING_LIST,
+      check: [{ ingredientId: 'ing-onion', name: 'Onion', stock: 'haveIt' }],
+    } as never)
+
+    const data = await loadInventory(undefined)
+
+    expect(data.shoppingData).not.toHaveProperty('check')
+  })
+
   it('flags a failed pantry load and still renders the shopping list', async () => {
     const error = new Error('pantry down')
     mockLoadPantry.mockRejectedValue(error)

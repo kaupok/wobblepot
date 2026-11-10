@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl'
 
-import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Body } from '@/components/ui/typography'
@@ -31,12 +30,12 @@ export interface ShoppingItemData {
   dueToday?: boolean
   /**
    * A staple the household marked ran out (HON-1398). The row shows a "Ran
-   * out" tag; with an empty `displayQuantity` the tag stands in for the amount.
+   * out" note after the amount, or in its place when there is none.
    */
   restock?: boolean
   /**
    * A pantry row the household marked running low (HON-1586). The row shows a
-   * "Running low" tag after the amount, or in its place when there is none.
+   * "Running low" note after the amount, or in its place when there is none.
    */
   low?: boolean
 }
@@ -61,6 +60,15 @@ export function ShoppingItem({
   showDue = true,
 }: ShoppingItemProps) {
   const tShopping = useTranslations('shopping')
+  // Status as plain text after the amount, as the meal plan's "Enough at
+  // home?" card shows it, so it does not read as a button (HON-1642).
+  const detail = [
+    item.displayQuantity,
+    item.restock && tShopping('ranOut'),
+    item.low && tShopping('runningLow'),
+  ]
+    .filter(Boolean)
+    .join(' · ')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
     onToggle(item.ingredientId, checked)
@@ -99,7 +107,7 @@ export function ShoppingItem({
           >
             {item.name}
           </Body>
-          {item.displayQuantity && (
+          {detail && (
             <Body
               variant="muted"
               className={cn(
@@ -108,11 +116,9 @@ export function ShoppingItem({
                 item.isVague && 'italic',
               )}
             >
-              {item.displayQuantity}
+              {detail}
             </Body>
           )}
-          {item.restock && <Badge variant="warning">{tShopping('ranOut')}</Badge>}
-          {item.low && <Badge variant="warning">{tShopping('runningLow')}</Badge>}
         </div>
       </div>
       {showDue && (

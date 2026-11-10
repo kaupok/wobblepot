@@ -12,7 +12,6 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import { cn } from '@/lib/utils'
 
-import type { PantryCheckRow, PantryRow } from './PantryCheckList'
 import { PantrySection } from './PantrySection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { ShoppingSection } from './ShoppingSection'
@@ -31,7 +30,6 @@ interface ShoppingData {
   groups: ShoppingListGroup[]
   initialPurchasedIds: Set<string>
   customItems?: CustomItemData[]
-  check?: PantryCheckRow[]
 }
 
 /** Which half a phone sees. From `md` up both render, whichever route it is. */
@@ -153,19 +151,6 @@ export function InventoryPage({
     [router],
   )
 
-  // The check's stock control wrote these rows: the pantry column shows the
-  // new amount and running low, and the refresh it ran re-reads the list
-  // (HON-1585, HON-1638).
-  const handlePantryQuantitiesWritten = useCallback((rows: PantryRow[]) => {
-    const written = new Map(rows.map((row) => [row.id, row]))
-    setPantryItems((prev) =>
-      prev.map((item) => {
-        const row = written.get(item.id)
-        return row ? { ...item, quantity: row.quantity, low: row.low } : item
-      }),
-    )
-  }, [])
-
   const handlePantryChangesProcessed = useCallback(
     (listStale: boolean) => {
       // Clear the map after ShoppingSection has processed it
@@ -224,8 +209,6 @@ export function InventoryPage({
               externalPantryChanges={pantryChanges}
               onExternalPantryChangesProcessed={handlePantryChangesProcessed}
               onStapleRanOut={handleStapleRanOut}
-              check={shoppingData.check}
-              onPantryQuantitiesChanged={handlePantryQuantitiesWritten}
             />
           )}
         </div>
