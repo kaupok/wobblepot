@@ -111,7 +111,8 @@ test('an extra added to a day survives a reload and goes on the shopping list', 
     await expect(
       page.getByRole('checkbox', { name: `Mark ${name} as not purchased` }),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible()
+    // And it is in the pantry column: its row's ⋯ (HON-1643).
+    await expect(page.getByRole('button', { name: `More actions: ${name}` })).toBeVisible()
   } finally {
     if (extraId) await page.request.delete(`/api/extras/${extraId}`)
     // So the shared pantry keeps no row of this run.

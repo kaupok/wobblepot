@@ -356,7 +356,10 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       // The amount starts the row's meta line, and focus is back on ⋯ (HON-1643).
       await expect(moreActions).toBeFocused()
       await expect(
-        page.getByTestId('pantry-column').getByText(new RegExp(`^${STOCKED}\\s(g|ml|pc)\\b`)),
+        page
+          .getByTestId('pantry-column')
+          .locator('.\\@container', { has: moreActions })
+          .getByText(new RegExp(`^${STOCKED}\\s(g|ml|pc)\\b`)),
       ).toBeVisible()
       const remaining = Math.max(0, needBefore - STOCKED)
       expect(toBuy(await shoppingItems(page.request), replacement.id)).toBeCloseTo(remaining)
