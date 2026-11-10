@@ -53,11 +53,6 @@ interface PantryCheckListProps {
    * own Caption.
    */
   labelledBy?: string
-  /**
-   * The rows a request wrote, as each lands, a partly failed one included: `/shopping`'s pantry column
-   * holds its own copy of the rows, and the refresh does not reset it.
-   */
-  onQuantitiesChanged?: (rows: PantryRow[]) => void
 }
 
 /** Each part's request body, as the pantry row's control sends it. */
@@ -65,16 +60,6 @@ const STOCK_BODY: Record<PantryStock, { quantity?: number | null; low?: boolean 
   haveIt: { quantity: null, low: false },
   low: { low: true },
   ranOut: { quantity: 0 },
-}
-
-/**
- * The row after a part's request lands, as the server writes it: Low on a row
- * at 0 sets it to "have some" (null), and 0 clears running low (HON-1586).
- */
-function writtenRow(row: PantryRow, stock: PantryStock): PantryRow {
-  if (stock === 'haveIt') return { id: row.id, quantity: null, low: false }
-  if (stock === 'ranOut') return { id: row.id, quantity: 0, low: false }
-  return { id: row.id, quantity: row.quantity === 0 ? null : row.quantity, low: true }
 }
 
 /**
@@ -87,7 +72,7 @@ function writtenRow(row: PantryRow, stock: PantryStock): PantryRow {
  * Shown on every load, with no dismiss. Nothing renders when the check is
  * empty.
  */
-export function PantryCheckList({ items, labelledBy, onQuantitiesChanged }: PantryCheckListProps) {
+export function PantryCheckList({ items, labelledBy }: PantryCheckListProps) {
   const t = useTranslations('today.check')
   const tPantry = useTranslations('pantry')
   const locale = useLocale()
@@ -112,8 +97,8 @@ export function PantryCheckList({ items, labelledBy, onQuantitiesChanged }: Pant
   }
 
   // One request per row: a herb stays at home while any form of it is left.
-  // Each request is settled before any error is thrown, so the rows that
-  // landed reach the pantry column even when another failed.
+  // Each request is settled before any error is thrown, so a row that failed
+  // does not stop the others.
   const mutation = useMutation({
     scope: QUANTITY_SCOPE,
     mutationFn: async ({ stock, rows }: StockChange) => {
@@ -130,10 +115,6 @@ export function PantryCheckList({ items, labelledBy, onQuantitiesChanged }: Pant
           ),
         ),
       )
-      const written = rows
-        .filter((_, i) => results[i]?.status === 'fulfilled')
-        .map((row) => writtenRow(row, stock))
-      if (written.length > 0) onQuantitiesChanged?.(written)
       const failed = results.find((result) => result.status === 'rejected')
       if (failed) throw failed.reason
     },

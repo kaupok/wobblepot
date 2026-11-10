@@ -10,7 +10,10 @@ const meta = {
   tags: ['autodocs'],
   argTypes: {
     variant: { control: 'select', options: ['default', 'outline'] },
-    tone: { control: 'select', options: ['default', 'success', 'destructive', 'primary'] },
+    tone: {
+      control: 'select',
+      options: ['default', 'success', 'destructive', 'warning', 'primary'],
+    },
     shape: { control: 'select', options: ['default', 'circle'] },
     size: {
       control: 'select',
@@ -191,7 +194,7 @@ export const XsTouch: Story = {
 export const AllTones: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      {(['default', 'success', 'destructive'] as const).map((tone) => (
+      {(['default', 'success', 'destructive', 'warning'] as const).map((tone) => (
         <div key={tone} className="flex items-center gap-2">
           <Toggle tone={tone} shape="circle" size="sm" aria-label={`${tone} off`}>
             {tone === 'destructive' ? <ThumbsDown /> : <ThumbsUp />}
@@ -208,7 +211,7 @@ export const AllTones: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    for (const tone of ['default', 'success', 'destructive']) {
+    for (const tone of ['default', 'success', 'destructive', 'warning']) {
       await expect(canvas.getByRole('button', { name: `${tone} off` })).toHaveAttribute(
         'aria-pressed',
         'false',

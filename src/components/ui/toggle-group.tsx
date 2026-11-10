@@ -13,7 +13,9 @@ import { cn } from '@/lib/utils'
 // draws one outline and the parts sit flush inside it, a segmented control
 // (the pantry row's stock state, HON-1624). `type="single"` makes the group a
 // `radiogroup`, gives each part `role="radio"` with `aria-checked`, and moves
-// between the parts with the arrow keys.
+// between the parts with the arrow keys. A part's own `tone` overrides the
+// group's, so a quiet normal state can sit beside toned ones (the stock
+// control's Have it beside Low and Ran out, HON-1641).
 
 type ToggleGroupStyle = VariantProps<typeof toggleVariants> & {
   /** Show a check icon before the label of the pressed part. */
@@ -52,13 +54,17 @@ function ToggleGroup({
 
 function ToggleGroupItem({
   className,
+  tone: itemTone,
   children,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item>) {
-  const { variant, tone, size, indicator } = React.useContext(ToggleGroupContext)
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
+  Pick<VariantProps<typeof toggleVariants>, 'tone'>) {
+  const { variant, tone: groupTone, size, indicator } = React.useContext(ToggleGroupContext)
+  const tone = itemTone ?? groupTone
   return (
     <ToggleGroupPrimitive.Item
       data-slot="toggle-group-item"
+      data-tone={tone ?? 'default'}
       className={cn(
         // The group owns the outline, so a part drops its own border and
         // rounds only the group's outer corners. The focused part rises so

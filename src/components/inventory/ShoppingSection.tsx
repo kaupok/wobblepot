@@ -25,7 +25,6 @@ import type { IngredientCategory } from '@/generated/prisma/enums'
 import type { Locale } from '@/lib/i18n/locales'
 
 import { GroupHeading } from './GroupHeading'
-import { PantryCheckList, type PantryCheckRow, type PantryRow } from './PantryCheckList'
 import { buildClipboardSectionsFor } from './shopping-clipboard-sections'
 import {
   buildAlphabeticalItems,
@@ -73,14 +72,7 @@ interface ShoppingSectionProps {
   onExternalPantryChangesProcessed?: (listStale: boolean) => void
   /** "Add item" marked a staple ran out (HON-1400), by its pantry item id. */
   onStapleRanOut?: (pantryItemId: string) => void
-  /** The needs to check before a shop (HON-1585). */
-  check?: PantryCheckRow[]
-  /** The check's stock control wrote these pantry rows, by pantry item id. */
-  onPantryQuantitiesChanged?: (rows: PantryRow[]) => void
 }
-
-/** One empty list for every render, so `PantryCheckList` does not see a new prop on a default. */
-const NO_CHECK: PantryCheckRow[] = []
 
 export function ShoppingSection({
   emptyVariant,
@@ -95,8 +87,6 @@ export function ShoppingSection({
   externalPantryChanges,
   onExternalPantryChangesProcessed,
   onStapleRanOut,
-  check = NO_CHECK,
-  onPantryQuantitiesChanged,
 }: ShoppingSectionProps) {
   const locale = useLocale() as Locale
   const tShopping = useTranslations('shopping')
@@ -344,9 +334,6 @@ export function ShoppingSection({
               onStapleRanOut={onStapleRanOut}
               disabled={isPending}
             />
-            {/* Above the groups, in every sort mode: the shopper settles what
-                is at home before reading what to buy (HON-1585). */}
-            <PantryCheckList items={check} onQuantitiesChanged={onPantryQuantitiesChanged} />
             {emptyLine && <Body variant="muted">{emptyLine}</Body>}
 
             {/* `totalItems > 0`, here and for urgency: an empty mode wrapper is

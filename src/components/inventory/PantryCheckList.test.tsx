@@ -55,14 +55,12 @@ const basil: PantryCheckRow = {
   stock: 'haveIt',
 }
 
-const onQuantitiesChanged = vi.fn()
-
 function renderList(items: PantryCheckRow[], locale: 'en' | 'et' = 'en') {
   const { wrapper: QueryWrapper } = createQueryWrapper()
   const tree = (rows: PantryCheckRow[]) => (
     <NextIntlClientProvider locale={locale} messages={locale === 'en' ? enMessages : etMessages}>
       <QueryWrapper>
-        <PantryCheckList items={rows} onQuantitiesChanged={onQuantitiesChanged} />
+        <PantryCheckList items={rows} />
       </QueryWrapper>
     </NextIntlClientProvider>
   )
@@ -266,36 +264,7 @@ describe('PantryCheckList', () => {
     expect(part('Carrot', 'Ran out')).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('reports the rows each request wrote, as the server holds them, for the pantry column', async () => {
-    renderList([
-      {
-        ...basil,
-        pantryRows: [
-          { id: 'pantry-basil', quantity: 0, low: false },
-          { id: 'pantry-fresh-basil', quantity: 0, low: false },
-        ],
-        stock: 'ranOut',
-      },
-    ])
-
-    await userEvent.click(part('Basil', 'Low'))
-    // Low on a row at 0 makes it "have some" (null), as the server does.
-    await waitFor(() =>
-      expect(onQuantitiesChanged).toHaveBeenCalledWith([
-        { id: 'pantry-basil', quantity: null, low: true },
-        { id: 'pantry-fresh-basil', quantity: null, low: true },
-      ]),
-    )
-    await userEvent.click(part('Basil', 'Ran out'))
-    await waitFor(() =>
-      expect(onQuantitiesChanged).toHaveBeenLastCalledWith([
-        { id: 'pantry-basil', quantity: 0, low: false },
-        { id: 'pantry-fresh-basil', quantity: 0, low: false },
-      ]),
-    )
-  })
-
-  it('reports the row that landed when the other row of a herb fails', async () => {
+  it('sends every row of a herb and refreshes when one of them fails', async () => {
     fetchMock.mockImplementation(async (url: string) =>
       url.endsWith('pantry-fresh-basil')
         ? new Response('{}', { status: 500 })
@@ -306,10 +275,11 @@ describe('PantryCheckList', () => {
     await userEvent.click(part('Basil', 'Ran out'))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
-    expect(onQuantitiesChanged).toHaveBeenCalledTimes(1)
-    expect(onQuantitiesChanged).toHaveBeenCalledWith([
-      { id: 'pantry-basil', quantity: 0, low: false },
+    expect(patches()).toEqual([
+      ['/api/pantry/pantry-basil', { quantity: 0 }],
+      ['/api/pantry/pantry-fresh-basil', { quantity: 0 }],
     ])
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('keeps focus on the pressed part', async () => {
