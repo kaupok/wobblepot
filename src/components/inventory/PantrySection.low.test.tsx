@@ -4,11 +4,13 @@ import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  chooseRowAction,
   groupOf,
   makeItem,
   pressedStock,
   renderSection,
   renderStateful,
+  rowOf,
   stockPart,
 } from './PantrySection.fixtures'
 
@@ -199,7 +201,7 @@ describe('PantrySection low', () => {
     )
     renderStateful([bread])
 
-    await user.click(screen.getByRole('button', { name: 'Add amount: Bread' }))
+    await chooseRowAction('Bread', 'Add amount')
     await user.type(screen.getByRole('textbox', { name: 'How much do you have?' }), '200')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(failAmount).not.toBeNull())
@@ -250,7 +252,7 @@ describe('PantrySection low', () => {
 
     fireEvent.click(stockPart('Avocado', 'Low'))
     await waitFor(() => expect(failLow).not.toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Add amount: Avocado' }))
+    await chooseRowAction('Avocado', 'Add amount')
     fireEvent.change(screen.getByRole('textbox', { name: 'How much do you have?' }), {
       target: { value: '3' },
     })
@@ -261,7 +263,7 @@ describe('PantrySection low', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
     expect(groupOf('Avocado')).toBe('On hand 1')
     expect(pressedStock('Avocado')).toHaveAccessibleName('Have it')
-    expect(screen.getByRole('button', { name: /^Amount: Avocado, 3/ })).toBeInTheDocument()
+    expect(rowOf('Avocado')).toHaveTextContent(/^Avocado3 pc · /)
   })
 
   it('keeps a Low queued behind a Have it from Ran out that fails', async () => {
@@ -314,9 +316,9 @@ describe('PantrySection low', () => {
     const fetchMock = okFetch()
     renderStateful([salt])
 
-    // The first line (star, Remove), then the stock control under the name, in
-    // reading order: Tab from Remove lands on the pressed part.
-    screen.getByRole('button', { name: 'Remove Salt' }).focus()
+    // The star, then the stock control, then ⋯, in DOM order at every width:
+    // Tab from the star lands on the pressed part.
+    screen.getByRole('button', { name: 'Remove from staples' }).focus()
     await user.tab()
     expect(stockPart('Salt', 'Have it')).toHaveFocus()
 

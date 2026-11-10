@@ -29,7 +29,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The Low part of each pantry row\'s stock control, Have it · Low · Ran out (HON-1624, HON-1587). It sits on its own line under the name; the amount button sits on the right, before Remove. Pressed, it shows a check on the warning fill and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. Low on a row in Ran out sets it to "have some" and low in one request, and the row moves back to On hand. The other states are in Feature/Inventory/PantrySection.',
+          'The Low part of each pantry row\'s stock control, Have it · Low · Ran out (HON-1624, HON-1587). On a phone it sits under the meta line, lined up with the name; in a row 28rem wide it sits on the name line, before ⋯ (HON-1643). Pressed, it shows a check on the warning fill and the row goes on the shopping list as a line with no amount (HON-1586). A low row stays in its group. Low on a row in Ran out sets it to "have some" and low in one request, and the row moves back to On hand. The other states are in Feature/Inventory/PantrySection.',
       },
     },
   },
@@ -97,8 +97,7 @@ export const LowStapleAndOnHand: Story = {
   },
 }
 
-// A staple, so the right side holds only Remove. Beside "Lisa kogus" on an
-// On hand row the name has about 140px at 390px and wraps on three lines.
+// A long name: on a phone only ⋯ sits beside it, so it wraps on at most two lines.
 const tomatoes = createPantryItemData({
   ingredient: ingredient('tomatoes', 'konserveeritud kooritud terved tomatid', 'vegetable'),
   isStaple: true,
@@ -111,7 +110,7 @@ export const LowEstonianPhone: Story = {
     docs: {
       description: {
         story:
-          'Estonian on a phone: Olemas · Vähe · Otsas on one line under the name, and "Lisa kogus" on the right, before Remove. A long name on a row with only Remove on the right (a staple, a Ran out row) wraps on at most two lines. Each part is a 28px `xs-touch` box whose `::after` reaches 8px above and below it, so the target is 44px.',
+          'Estonian on a phone: Olemas · Vähe · Otsas on one line under the meta line, and ⋯ on the name line. A long name beside ⋯ wraps on at most two lines. Each part is a 28px `xs-touch` box whose `::after` reaches 8px above and below it, so the target is 44px.',
       },
     },
   },
@@ -128,14 +127,13 @@ export const LowEstonianPhone: Story = {
       .getAllByRole('radio')
       .map((radio) => radio.getBoundingClientRect().top)
     await expect(new Set(tops).size).toBe(1)
-    // The amount button sits on the right, beside Remove, above the control.
-    const amount = canvas.getByRole('button', { name: 'Lisa kogus: Onion' }).getBoundingClientRect()
-    const remove = canvas.getByRole('button', { name: 'Eemalda „Onion"' }).getBoundingClientRect()
-    await expect(amount.right).toBeLessThanOrEqual(remove.left)
-    await expect(amount.top).toBe(remove.top)
-    await expect(amount.bottom).toBeLessThan(group.getBoundingClientRect().top)
+    // ⋯ sits on the name line, above the control.
+    const more = canvas
+      .getByRole('button', { name: 'Rohkem toiminguid: Onion' })
+      .getBoundingClientRect()
+    await expect(more.bottom).toBeLessThan(group.getBoundingClientRect().top)
 
-    // A long name beside Remove alone wraps on at most two of its 28px
+    // A long name beside ⋯ wraps on at most two of its 28px
     // lines, and its control still fits one line. Geist must be in, or the
     // name measures narrow.
     await document.fonts.ready

@@ -24,8 +24,8 @@ const AMOUNT_KEY = ['pantry', 'amount'] as const
 
 // The stock control's pressed part: Radix moves `data-state="on"` with it.
 const stockSelector = (id: string) => `[data-stock="${id}"] [data-state="on"]`
-const removeSelector = (id: string) => `[data-remove="${id}"]`
-const amountSelector = (id: string) => `[data-amount="${id}"]`
+// A row's ⋯ menu, which holds Add amount and Remove (HON-1643).
+const moreSelector = (id: string) => `[data-more="${id}"]`
 // The add search is the section's only input.
 const ADD_INPUT_SELECTOR = 'input'
 
@@ -255,12 +255,12 @@ export function PantrySection({
     },
     onSuccess: () => onPantryQuantityChanged?.(),
     onError: (_error, { item, quantity }) => {
-      // A 0 that failed brings the row back to On hand, where its amount
-      // button returns, so follow the row to the control the household used.
+      // A 0 that failed brings the row back to On hand, so follow the row to
+      // its ⋯, which holds Add amount again.
       // Any other amount leaves the row in place, so focus stays where it is.
       const control = sectionRef.current?.querySelector(`[data-stock="${item.id}"]`)
       if (quantity === 0 && control?.contains(document.activeElement)) {
-        focusAfterRender.current = amountSelector(item.id)
+        focusAfterRender.current = moreSelector(item.id)
       }
       // Only a 0 cleared low, so only a 0 puts it back: a Running low tap
       // queued behind a failed amount keeps its own state.
@@ -294,7 +294,7 @@ export function PantrySection({
       ),
     onSuccess: (data, item) => {
       const restored = { ...item, ...data }
-      focusAfterRender.current = removeSelector(restored.id)
+      focusAfterRender.current = moreSelector(restored.id)
       onItemsChange((prev) => [...prev, restored].sort(comparePantryItems(locale)))
       onPantryItemRestored?.(item.ingredient.id)
     },
@@ -309,8 +309,8 @@ export function PantrySection({
   })
 
   // Remove takes the row out at once, with no confirmation: the toast's Undo
-  // puts it back (HON-1355). Focus goes to the next row's Remove in the same
-  // group, so a household can clear several in a row.
+  // puts it back (HON-1355). Focus goes to the next row's ⋯ in the same
+  // group, where Remove is, so a household can clear several in a row.
   const removeMutation = useMutation({
     // The route answers 204 with no body.
     mutationFn: (item: PantryItemData) =>
@@ -319,7 +319,7 @@ export function PantrySection({
       const group = removed.isStaple ? staples : removed.quantity === 0 ? ranOut : onHand
       const index = group.findIndex((item) => item.id === removed.id)
       const next = group[index + 1] ?? group[index - 1]
-      focusAfterRender.current = next ? removeSelector(next.id) : ADD_INPUT_SELECTOR
+      focusAfterRender.current = next ? moreSelector(next.id) : ADD_INPUT_SELECTOR
       onItemsChange((prev) => prev.filter((item) => item.id !== removed.id))
     },
     // The Undo waits for the DELETE, because a POST before it lands is a 409.

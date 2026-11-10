@@ -24,7 +24,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row has a stock control under its name, Have it · Low · Ran out (HON-1624). Ran out sets the row to 0; Have it from Ran out sets it back to "have some". An On hand row has an amount control: "Add amount" at "have some", or the amount it holds, in the unit the pantry shows. A tap opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples with Ran out pressed. Each row has a star toggle and a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
+          'The pantry half of `/shopping`. An `InlineAddItem` search, then rows split into "Staples", "On hand" and "Ran out" (a non-staple at quantity 0). Every row has a stock control, Have it · Low · Ran out (HON-1624): on the name line in a row 28rem wide, under the meta line in a narrower one (HON-1643). Ran out sets the row to 0; Have it from Ran out sets it back to "have some". An On hand row\'s ⋯ menu has "Add amount" at "have some", or "Change amount" when it holds one; the amount starts the meta line, in the unit the pantry shows. It opens a field under the row; empty saves "have some", 0 moves the row to Ran out (HON-1402). A staple at 0 stays under Staples with Ran out pressed. Each row has a star toggle, and its ⋯ menu a Remove that takes the row out at once, with no confirmation: the toast offers Undo for 6 seconds, which posts the row back with its quantity and staple state (HON-1355). Toggles and removals update optimistically and roll back with a toast if the API call fails. On a phone it is the whole of `/pantry`; from `md` up it is the left column of both `/pantry` and `/shopping`.',
       },
     },
   },
@@ -140,33 +140,110 @@ const withAmounts: PantryItemData[] = [
   ...onHand,
 ]
 
+/** Opens a row's ⋯ menu, which Radix portals to the body, and picks an item. */
+async function chooseAction(canvasElement: HTMLElement, name: string, action: string) {
+  await userEvent.click(
+    within(canvasElement).getByRole('button', { name: `More actions: ${name}` }),
+  )
+  await userEvent.click(await within(document.body).findByRole('menuitem', { name: action }))
+}
+
+/** Closes the open ⋯ menu and waits for it to leave, so the next one is alone. */
+async function closeMenu() {
+  await userEvent.keyboard('{Escape}')
+  await waitFor(() => expect(within(document.body).queryByRole('menu')).toBeNull())
+}
+
+/** The items in the open ⋯ menu. */
+async function menuItems() {
+  const items = await within(document.body).findAllByRole('menuitem')
+  return items.map((item) => item.textContent)
+}
+
 export const Amounts: Story = {
   args: { items: withAmounts },
   parameters: {
     docs: {
       description: {
         story:
-          'An On hand row with an amount shows it ("1800 g"); the others read "Add amount". Staples have no amount control, because completing a meal never takes a staple off. It sits on the right, before Remove; the stock control has its own line under the name. The control is 32px with a 44px target, and the row does not overflow.',
+          'A phone-width row. An On hand row with an amount starts its meta line with it ("1800 g · …"). The row holds only the star and ⋯ on the name line, with no "Add amount" or Remove button; the stock control sits under the meta line, lined up with the name. ⋯ offers "Change amount" on a row with an amount, "Add amount" on one without, and only Remove on a staple. No row overflows.',
       },
     },
   },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const amount = canvas.getByRole('button', { name: 'Amount: Whole trout, 1800\u00a0g' })
-    await expect(amount).toHaveTextContent('1800 g')
-    await expect(canvas.getByRole('button', { name: 'Add amount: Garlic' })).toBeInTheDocument()
-    await expect(canvas.getAllByRole('button', { name: /^Add amount:/ })).toHaveLength(3)
-    await expect(canvas.queryByRole('button', { name: /^(Add amount|Amount): Salt/ })).toBeNull()
+    await expect(
+      canvas.queryByRole('button', { name: /^(Add amount|Remove(?! from staples))/ }),
+    ).toBeNull()
+    const trout = canvas.getByText('Whole trout').closest('.\\@container') as HTMLElement
+    await expect(trout).toHaveTextContent('1800 g')
 
-    await expect(Math.round(amount.getBoundingClientRect().height)).toBe(32)
-    const after = getComputedStyle(amount, '::after')
-    await expect(after.top).toBe('-6px')
-    await expect(after.bottom).toBe('-6px')
-    for (const button of canvas.getAllByRole('button', { name: /^(Add amount|Amount):/ })) {
-      const row = button.closest('.p-3') as HTMLElement
+    // ⋯ on the name line; the control under the meta line, from the name's left edge.
+    const name = canvas.getByText('Whole trout').getBoundingClientRect()
+    const more = canvas.getByRole('button', { name: 'More actions: Whole trout' })
+    const control = canvas.getByRole('radiogroup', { name: 'Stock: Whole trout' })
+    const meta = within(trout)
+      .getByText(/^1800 g/)
+      .getBoundingClientRect()
+    await expect(Math.abs(more.getBoundingClientRect().top - name.top)).toBeLessThan(8)
+    await expect(control.getBoundingClientRect().top).toBeGreaterThanOrEqual(meta.bottom)
+    await expect(Math.round(control.getBoundingClientRect().left)).toBe(Math.round(name.left))
+    for (const row of canvasElement.querySelectorAll<HTMLElement>('.\\@container')) {
       await expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth)
     }
+
+    await userEvent.click(more)
+    await expect(await menuItems()).toEqual(['Change amount', 'Remove'])
+    await closeMenu()
+    await userEvent.click(canvas.getByRole('button', { name: 'More actions: Garlic' }))
+    await expect(await menuItems()).toEqual(['Add amount', 'Remove'])
+    await closeMenu()
+    await userEvent.click(canvas.getByRole('button', { name: 'More actions: Salt' }))
+    await expect(await menuItems()).toEqual(['Remove'])
+    await closeMenu()
+  },
+}
+
+export const WideRow: Story = {
+  args: { items: withAmounts },
+  decorators: [
+    (Story) => (
+      <div className="w-3xl">
+        <Story />
+      </div>
+    ),
+  ],
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A desktop-width row (the pantry column is about 880px at 1280px): the stock control sits on the name line, before ⋯, so a row with a need is two lines.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trout = canvas.getByText('Whole trout').closest('.\\@container') as HTMLElement
+    const name = canvas.getByText('Whole trout').getBoundingClientRect()
+    const control = canvas.getByRole('radiogroup', { name: 'Stock: Whole trout' })
+    const more = canvas.getByRole('button', { name: 'More actions: Whole trout' })
+    const meta = within(trout)
+      .getByText(/^1800 g/)
+      .getBoundingClientRect()
+    // The meta line starts under the name, not under the star.
+    await expect(Math.round(meta.left)).toBe(Math.round(name.left))
+    // Both on the name line, above the meta line; ⋯ after the control.
+    await expect(control.getBoundingClientRect().bottom).toBeLessThanOrEqual(meta.top + 1)
+    await expect(Math.abs(control.getBoundingClientRect().top - name.top)).toBeLessThan(8)
+    await expect(more.getBoundingClientRect().left).toBeGreaterThan(
+      control.getBoundingClientRect().right,
+    )
+    // 32px name line + 20px meta line + 24px padding: two lines. The
+    // `RowGroup` divider under the row is not the row's.
+    const style = getComputedStyle(trout)
+    const divider = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+    await expect(Math.round(trout.getBoundingClientRect().height - divider)).toBe(76)
   },
 }
 
@@ -176,15 +253,15 @@ export const EnterAmount: Story = {
     docs: {
       description: {
         story:
-          '"Add amount" opens one field under the row, with the decimal keypad on a phone. Text that is not a number shows "Enter a number" and saves nothing; "1800" saves, shows "1800 g" and puts focus back on the control.',
+          '⋯ → "Add amount" opens one field under the row, with the decimal keypad on a phone. Text that is not a number shows "Enter a number" and saves nothing; "1800" saves, starts the meta line with "1800 g", and puts focus back on ⋯, whose item now reads "Change amount".',
       },
     },
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Add amount: Short-grain rice' }))
-    const field = canvas.getByRole('textbox', { name: 'How much do you have?' })
-    await expect(field).toHaveFocus()
+    await chooseAction(canvasElement, 'Short-grain rice', 'Add amount')
+    const field = await canvas.findByRole('textbox', { name: 'How much do you have?' })
+    await waitFor(() => expect(field).toHaveFocus())
     await expect(field).toHaveAttribute('inputmode', 'decimal')
 
     await userEvent.type(field, 'abc')
@@ -196,11 +273,14 @@ export const EnterAmount: Story = {
     await userEvent.type(field, '1800')
     await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
 
-    const amount = await canvas.findByRole('button', {
-      name: 'Amount: Short-grain rice, 1800\u00a0g',
-    })
-    await waitFor(() => expect(amount).toHaveFocus())
+    const row = canvas.getByText('Short-grain rice').closest('.\\@container') as HTMLElement
+    await waitFor(() => expect(row).toHaveTextContent('1800 g'))
+    const more = canvas.getByRole('button', { name: 'More actions: Short-grain rice' })
+    await waitFor(() => expect(more).toHaveFocus())
     await waitFor(() => expect(args.onPantryQuantityChanged).toHaveBeenCalledTimes(1))
+    await userEvent.click(more)
+    await expect(await menuItems()).toEqual(['Change amount', 'Remove'])
+    await closeMenu()
   },
 }
 
@@ -210,15 +290,15 @@ export const EnterAmountOpen: Story = {
     docs: {
       description: {
         story:
-          'The field open on a row with an amount: it opens on the amount, with the hint under it. Checked by axe with the error showing.',
+          'The field open on a row with an amount, from ⋯ → "Change amount": it opens on the amount, with the hint under it. Checked by axe with the error showing.',
       },
     },
   },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Amount: Whole trout, 1800\u00a0g' }))
-    const field = canvas.getByRole('textbox', { name: 'How much do you have?' })
+    await chooseAction(canvasElement, 'Whole trout', 'Change amount')
+    const field = await canvas.findByRole('textbox', { name: 'How much do you have?' })
     await expect(field).toHaveValue('1800')
     await expect(canvas.getByText('Leave empty if you do not know')).toBeInTheDocument()
     await userEvent.clear(field)
@@ -247,8 +327,8 @@ const restoreHandler = http.post('/api/pantry', async ({ request }) => {
 })
 
 /**
- * Remove three rows with no dialog, then Undo the second: only Lemon comes
- * back, and focus is on its Remove, never the page body.
+ * ⋯ → Remove on three rows with no dialog, then Undo the second: only Lemon
+ * comes back, and focus is on its ⋯, never the page body.
  */
 export const RemoveAndUndo: Story = {
   parameters: {
@@ -274,12 +354,14 @@ export const RemoveAndUndo: Story = {
     const canvas = within(canvasElement)
     const page = within(document.body)
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove Garlic' }))
+    await chooseAction(canvasElement, 'Garlic', 'Remove')
     await expect(canvas.queryByRole('alertdialog')).not.toBeInTheDocument()
-    // Focus moves to the next row's Remove, so the next click needs no aim.
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Remove Lemon' })).toHaveFocus())
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove Lemon' }))
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove Salt' }))
+    // Focus moves to the next row's ⋯, so the next pick needs no aim.
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: 'More actions: Lemon' })).toHaveFocus(),
+    )
+    await chooseAction(canvasElement, 'Lemon', 'Remove')
+    await chooseAction(canvasElement, 'Salt', 'Remove')
     await waitFor(() => expect(args.onPantryItemRemoved).toHaveBeenCalledTimes(3))
     await expect(canvas.queryByText('Garlic')).not.toBeInTheDocument()
 
@@ -287,7 +369,9 @@ export const RemoveAndUndo: Story = {
     if (!lemonToast) throw new Error('expected the Lemon toast')
     await userEvent.click(within(lemonToast).getByRole('button', { name: 'Undo' }))
 
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Remove Lemon' })).toHaveFocus())
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: 'More actions: Lemon' })).toHaveFocus(),
+    )
     await expect(canvas.queryByText('Garlic')).not.toBeInTheDocument()
     await expect(canvas.queryByText('Salt')).not.toBeInTheDocument()
     await expect(args.onPantryItemRestored).toHaveBeenCalledWith('lemon')

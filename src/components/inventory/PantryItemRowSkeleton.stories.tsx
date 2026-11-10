@@ -23,17 +23,10 @@ const meta = {
     docs: {
       description: {
         component:
-          'The placeholder `/shopping` shows for each pantry row while the list loads. Same contract as `ShoppingItemSkeleton` — the play function measures it against the live row — but against `PantrySection`\'s `PantryItemRow`, which is what the screen renders. (`components/pantry/PantryItem.tsx` reads like the counterpart and is not one: it has no callsite outside its own story and test.) A pantry row has no `min-h-touch` floor: its height comes from the name, the "needed in window" caption and the stock control beside its two `icon-sm` buttons, over the stock control on its own line. The live rows here have no amount button, as a staple does not.',
+          'The placeholder `/shopping` shows for each pantry row while the list loads. Same contract as `ShoppingItemSkeleton` — the play function measures it against the live row — but against `PantrySection`\'s `PantryItemRow`, which is what the screen renders. (`components/pantry/PantryItem.tsx` reads like the counterpart and is not one: it has no callsite outside its own story and test.) A pantry row has no `min-h-touch` floor: its height comes from the name line (the name beside its two `icon-sm` buttons), the "needed in window" caption, and the stock control. A row 28rem wide puts the control on the name line; a narrower one puts it under the caption. The skeleton uses the same `@container` breakpoint, so both layouts are measured.',
       },
     },
   },
-  decorators: [
-    (Story) => (
-      <div className="max-w-md">
-        <Story />
-      </div>
-    ),
-  ],
 } satisfies Meta<typeof PantryItemRowSkeleton>
 
 export default meta
@@ -49,8 +42,8 @@ export const Default: Story = {
   ),
 }
 
-export const AgainstLiveRow: Story = {
-  render: () => (
+function AgainstLiveRows() {
+  return (
     <div className="flex flex-col gap-2">
       <RowGroup data-testid="skeleton">
         <PantryItemRowSkeleton />
@@ -80,22 +73,62 @@ export const AgainstLiveRow: Story = {
         />
       </RowGroup>
     </div>
-  ),
+  )
+}
+
+/**
+ * The skeleton matches the row with the caption, and the row without it is
+ * 20px shorter. That delta is asserted too, so the choice of which variant to
+ * mirror stays a decision rather than a stale comment.
+ */
+async function expectSkeletonMatches(canvasElement: HTMLElement, height: number) {
+  const canvas = within(canvasElement)
+  const skeleton = rowHeight(canvas.getByTestId('skeleton'))
+  expect(skeleton).toBe(height)
+  expect(rowHeight(canvas.getByTestId('pantry-row-needed'))).toBe(skeleton)
+  // If the caption stopped being optional — or grew a `gap-*` — this fails.
+  expect(rowHeight(canvas.getByTestId('pantry-row'))).toBe(skeleton - 20)
+}
+
+export const AgainstLiveRow: Story = {
+  decorators: [
+    (Story) => (
+      <div className="max-w-sm">
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => <AgainstLiveRows />,
   parameters: {
     docs: {
       description: {
         story:
-          'The skeleton above both variants of the row it replaces, each in its own `RowGroup`, which is where the border now lives. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to. The bottom row is the same component without the caption, 16px shorter; that delta is asserted too, so the choice of which variant to mirror stays a decision rather than a stale comment.',
+          'A phone-width row: the stock control sits under the caption, lined up with the name, and ⋯ stays on the name line. The skeleton above both variants of the row it replaces, each in its own `RowGroup`, which is where the border lives. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to.',
       },
     },
   },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const skeleton = rowHeight(canvas.getByTestId('skeleton'))
+  // 32px name line + 20px caption + 8px + 28px control + 24px padding, and
+  // the `RowGroup`'s 1px borders.
+  play: async ({ canvasElement }) => expectSkeletonMatches(canvasElement, 114),
+}
 
-    expect(skeleton).toBe(rowHeight(canvas.getByTestId('pantry-row-needed')))
-    // Pins the variant the skeleton knowingly does not mirror. If the caption
-    // stopped being optional — or grew a `gap-*` — this is what fails.
-    expect(rowHeight(canvas.getByTestId('pantry-row'))).toBe(skeleton - 16)
+export const AgainstLiveRowWide: Story = {
+  decorators: [
+    (Story) => (
+      <div className="w-3xl">
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => <AgainstLiveRows />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A desktop-width row: the stock control sits on the name line, before ⋯, so a row with a need is two lines.',
+      },
+    },
   },
+  // 32px name line + 20px caption + 24px padding + the 1px borders.
+  play: async ({ canvasElement }) => expectSkeletonMatches(canvasElement, 78),
 }
