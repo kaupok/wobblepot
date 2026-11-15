@@ -38,9 +38,10 @@ describe('addNote', () => {
     expect(addNote(['  Mild spice. '], 'Mild spice.')).toEqual({ status: 'unchanged' })
   })
 
-  it('is unchanged for a replacement that repeats another note', () => {
-    expect(addNote(NOTES, 'Mild spice.', 'No mince two days in a row.')).toEqual({
-      status: 'unchanged',
+  it('drops the replaced note when the replacement repeats another note', () => {
+    expect(addNote(['Mild spice.', 'Medium spice.'], 'mild spice.', 'Medium spice.')).toEqual({
+      status: 'replaced',
+      notes: ['Mild spice.'],
     })
   })
 

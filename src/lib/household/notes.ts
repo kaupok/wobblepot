@@ -25,14 +25,16 @@ function sameNote(a: string, b: string) {
  * Appends `note`, or puts it in the place of the note whose text is exactly
  * `replaces`. A note already in the list (trimmed, case-insensitive) is
  * `unchanged`; the note being replaced does not count, so a replace can fix
- * only the case.
+ * only the case. A replace whose note is already another note in the list
+ * drops the replaced one, so the retired rule leaves the prompts.
  */
 export function addNote(notes: readonly string[], note: string, replaces?: string): AddNoteResult {
   const index = replaces === undefined ? -1 : notes.indexOf(replaces)
   if (replaces !== undefined && index === -1) return { status: 'no_match' }
 
   if (notes.some((existing, i) => i !== index && sameNote(existing, note))) {
-    return { status: 'unchanged' }
+    if (index === -1) return { status: 'unchanged' }
+    return { status: 'replaced', notes: notes.filter((_, i) => i !== index) }
   }
 
   if (index === -1) {

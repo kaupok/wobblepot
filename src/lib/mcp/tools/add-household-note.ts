@@ -31,7 +31,7 @@ export const addHouseholdNote = defineTool({
     outcome: z
       .enum(['added', 'replaced', 'unchanged'])
       .describe(
-        'added: the note is now last in the list. replaced: the note took the place of replaces. unchanged: the list already had this note, so nothing was saved.',
+        'added: the note is now last in the list. replaced: the note took the place of replaces, or replaces was removed because the list already had the note. unchanged: the list already had this note, so nothing was saved.',
       ),
     notes: notesOutput,
   }),
