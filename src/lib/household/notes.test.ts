@@ -45,6 +45,13 @@ describe('addNote', () => {
     })
   })
 
+  it('replaces a stored note with spaces around it', () => {
+    expect(addNote(['  Mild spice. '], 'Medium spice.', 'Mild spice.')).toEqual({
+      status: 'replaced',
+      notes: ['Medium spice.'],
+    })
+  })
+
   it('is no_match when replaces is not the exact text of a note', () => {
     expect(addNote(NOTES, 'Fish on Fridays.', 'mild spice')).toEqual({ status: 'no_match' })
   })
@@ -64,6 +71,13 @@ describe('removeNote', () => {
     expect(removeNote(NOTES, 'Office days need an easy dinner.')).toEqual({
       status: 'removed',
       notes: ['Mild spice.', 'No mince two days in a row.'],
+    })
+  })
+
+  it('removes a stored note with spaces around it', () => {
+    expect(removeNote(['  Mild spice. ', 'Fish on Fridays.'], 'Mild spice.')).toEqual({
+      status: 'removed',
+      notes: ['Fish on Fridays.'],
     })
   })
 
