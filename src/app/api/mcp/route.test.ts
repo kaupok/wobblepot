@@ -63,7 +63,7 @@ import {
 } from '@/test/mcp'
 
 import { GET, OPTIONS, POST } from './route'
-import { WRITE_TOOL_ARGS } from './route.fixtures'
+import { WRITE_TOOL_ANNOTATIONS, WRITE_TOOL_ARGS } from './route.fixtures'
 
 const actualRequireMcpAuth = vi.mocked(requireMcpAuth).getMockImplementation()!
 
@@ -232,41 +232,15 @@ describe('/api/mcp', () => {
             openWorldHint: false,
           })
         }
-        const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
-        expect(annotations.mark_purchased).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.check_shopping_item).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.set_pantry_status).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.set_staple).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.add_to_pantry).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.remove_from_pantry).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.add_shopping_item).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.rate_meal).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.swap_meal).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.adjust_meal).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.change_meal_ingredients).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.create_meal).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.update_meal).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.plan_fridge_meal).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.fill_plan).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.clear_meal).toEqual({
-          ...write,
-          destructiveHint: true,
-          idempotentHint: false,
-        })
-        expect(annotations.set_meal_status).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.set_meal_servings).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.remove_shopping_item).toEqual({ ...write, idempotentHint: false })
-        expect(annotations.set_favourite).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.set_extra_amount).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.delete_meal).toEqual({
-          ...write,
-          destructiveHint: true,
-          idempotentHint: false,
-        })
-        expect(annotations.restore_meal).toEqual({ ...write, idempotentHint: true })
+        expect(Object.keys(WRITE_TOOL_ANNOTATIONS).sort()).toEqual([...WRITE_TOOL_NAMES].sort())
+        for (const [name, hints] of Object.entries(WRITE_TOOL_ANNOTATIONS)) {
+          expect(annotations[name], name).toEqual({
+            readOnlyHint: false,
+            destructiveHint: false,
+            openWorldHint: false,
+            ...hints,
+          })
+        }
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
       },

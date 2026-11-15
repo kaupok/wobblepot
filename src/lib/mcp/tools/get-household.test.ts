@@ -93,7 +93,7 @@ describe('get_household', () => {
         filters:
           'allergensToAvoid and ingredientsToAvoid filter list_meals, plan_meal, swap_meal and plan generation; dietaryType filters plan_meal, swap_meal and plan generation but not list_meals, so check a listed meal against the diet yourself. A meal that breaks a filter is left out or refused.',
         notesForAi:
-          'restrictions ("Notes for the AI" on the settings page) goes to the AI prompt in four features: plan generation, Imagine, Adjust recipe (adjust_meal) and the cook question. list_meals, plan_meal and swap_meal ignore it, so check these notes yourself before you plan or suggest a meal.',
+          'restrictions ("Notes for the AI" on the settings page) goes to the AI prompt in four features: plan generation, Imagine, Adjust recipe (adjust_meal) and the cook question. list_meals, plan_meal and swap_meal ignore it, so check these notes yourself before you plan or suggest a meal. When the user states a lasting rule or asks you to remember one, save it with add_household_note; remove one that no longer holds with remove_household_note.',
       },
     })
     expect(getHousehold.outputSchema.safeParse(result.structuredContent).success).toBe(true)

@@ -43,4 +43,45 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
   set_extra_amount: { extraId: 'extra-1', quantity: 1500, unit: 'ml' },
   delete_meal: { mealId: 'meal-1' },
   restore_meal: { mealId: 'meal-1' },
+  add_household_note: { note: 'Office days need an easy dinner.' },
+  remove_household_note: { note: 'Office days need an easy dinner.' },
+}
+
+/**
+ * The hints each write tool is listed with, over `readOnlyHint: false`,
+ * `destructiveHint: false` and `openWorldHint: false`. A destructive tool is
+ * one whose delete the app cannot undo, or whose second call refuses.
+ */
+export const WRITE_TOOL_ANNOTATIONS: Record<
+  string,
+  { destructiveHint?: true; idempotentHint: boolean }
+> = {
+  mark_purchased: { idempotentHint: true },
+  check_shopping_item: { idempotentHint: true },
+  set_pantry_status: { idempotentHint: true },
+  set_staple: { idempotentHint: true },
+  add_to_pantry: { idempotentHint: false },
+  remove_from_pantry: { idempotentHint: true },
+  add_shopping_item: { idempotentHint: false },
+  rate_meal: { idempotentHint: true },
+  swap_meal: { idempotentHint: false },
+  adjust_meal: { idempotentHint: false },
+  change_meal_ingredients: { idempotentHint: false },
+  create_meal: { idempotentHint: false },
+  update_meal: { idempotentHint: true },
+  plan_meal: { idempotentHint: false },
+  plan_fridge_meal: { idempotentHint: false },
+  fill_plan: { idempotentHint: false },
+  add_extra: { idempotentHint: false },
+  remove_extra: { idempotentHint: false },
+  clear_meal: { destructiveHint: true, idempotentHint: false },
+  set_meal_status: { idempotentHint: true },
+  set_meal_servings: { idempotentHint: true },
+  remove_shopping_item: { idempotentHint: false },
+  set_favourite: { idempotentHint: true },
+  set_extra_amount: { idempotentHint: true },
+  delete_meal: { destructiveHint: true, idempotentHint: false },
+  restore_meal: { idempotentHint: true },
+  add_household_note: { idempotentHint: false },
+  remove_household_note: { destructiveHint: true, idempotentHint: false },
 }
