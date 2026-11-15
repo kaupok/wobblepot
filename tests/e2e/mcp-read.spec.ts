@@ -124,6 +124,7 @@ test.describe('MCP server', () => {
         update_meal: false,
         plan_meal: false,
         plan_fridge_meal: false,
+        fill_plan: false,
         add_extra: false,
         remove_extra: false,
         clear_meal: false,
