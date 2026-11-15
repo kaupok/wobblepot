@@ -5,6 +5,7 @@ import { type Implementation, McpServer } from '@modelcontextprotocol/server'
 import { instrumentMcpServer } from './analytics'
 import { type McpCallerContext, type McpTool, runTool, toolAnnotations } from './context'
 import { addExtra } from './tools/add-extra'
+import { addHouseholdNote } from './tools/add-household-note'
 import { addShoppingItem } from './tools/add-shopping-item'
 import { addToPantry } from './tools/add-to-pantry'
 import { adjustMeal } from './tools/adjust-meal'
@@ -26,6 +27,7 @@ import { planMeal } from './tools/plan-meal'
 import { rateMeal } from './tools/rate-meal'
 import { removeExtra } from './tools/remove-extra'
 import { removeFromPantry } from './tools/remove-from-pantry'
+import { removeHouseholdNote } from './tools/remove-household-note'
 import { removeShoppingItem } from './tools/remove-shopping-item'
 import { restoreMeal } from './tools/restore-meal'
 import { setExtraAmount } from './tools/set-extra-amount'
@@ -41,7 +43,7 @@ import { updateMeal } from './tools/update-meal'
  * Every tool the server lists, for every token. The write tools (HON-1154,
  * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314, HON-1281, HON-1329,
  * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337, HON-1385, HON-1459, HON-1497,
- * HON-1649) need
+ * HON-1649, HON-1651) need
  * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
  * so the model can tell the user what to do.
  */
@@ -78,6 +80,8 @@ export const MCP_TOOLS: readonly McpTool[] = [
   setExtraAmount,
   deleteMeal,
   restoreMeal,
+  addHouseholdNote,
+  removeHouseholdNote,
 ] as McpTool[]
 
 export const MCP_SERVER_DESCRIPTION = "Wobblepot is the household's meal planner."
@@ -110,7 +114,7 @@ export function mcpServerInfo(origin: string): Implementation {
  */
 export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
   const server = new McpServer(mcpServerInfo(origin), {
-    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), update its shopping list, pantry and meal plan, and add, change and delete recipes. The update tools work only when the user allowed this assistant to make changes.`,
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), update its shopping list, pantry, meal plan and notes for the AI, and add, change and delete recipes. The update tools work only when the user allowed this assistant to make changes.`,
   })
 
   for (const tool of MCP_TOOLS) {
