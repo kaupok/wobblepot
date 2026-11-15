@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 
+import type { MealType } from '@/generated/prisma/enums'
 import { serverEnv } from '@/lib/env'
 import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -27,12 +28,40 @@ import {
 } from './types'
 import { toAiUsageStats, withUsageOnFailure } from './usage'
 
+/** An empty slot no candidate fits, so the fill leaves it empty. */
+export interface UnfilledSlot {
+  date: string
+  mealType: MealType
+}
+
+/** What Fill empty days returns: the range, and which of its entries the run wrote. */
+export interface FillEmptySlotsResult extends GeneratePlanResult {
+  /** The entries this run created or gave a meal; every other entry is as it was. */
+  filledEntryIds: string[]
+  /** The empty slots left empty, because no meal of the household suits their meal type. */
+  unfilledSlots: UnfilledSlot[]
+}
+
+/**
+ * Thrown when the range has empty slots but no candidate fits any of them. A
+ * {@link NoEmptySlotsError}, so a caller that does not tell the two apart
+ * still reads it as nothing to fill (HON-1649).
+ */
+export class NoFillableSlotsError extends NoEmptySlotsError {
+  constructor(readonly unfilledSlots: UnfilledSlot[]) {
+    super()
+    this.name = 'NoFillableSlotsError'
+  }
+}
+
 /**
  * Fill empty slots in an existing meal plan with AI-generated meals.
  * Keeps every entry with a meal, and the household's note in a slot it fills.
  * Throws NoEmptySlotsError if there are no empty slots to fill.
  */
-export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<GeneratePlanResult> {
+export async function fillEmptySlots(
+  options: FillEmptySlotsOptions,
+): Promise<FillEmptySlotsResult> {
   const {
     planId,
     householdId,
@@ -154,11 +183,13 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   // Check for unfillable slots (empty candidate pool for a meal type) and collect warnings
   const warnings: string[] = []
+  const unfilledSlots: UnfilledSlot[] = []
   const fillableSlots = emptySlots.filter((slot) => {
     const pool = candidatesByMealType.get(slot.mealType)
     if (!pool || pool.length === 0) {
       const dateStr = toDateString(slot.date)
       warnings.push(`No ${slot.mealType} candidates available for ${dateStr}`)
+      unfilledSlots.push({ date: dateStr, mealType: slot.mealType })
       return false
     }
     return true
@@ -166,7 +197,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   // If no fillable slots remain, throw with warnings context
   if (fillableSlots.length === 0) {
-    throw new NoEmptySlotsError()
+    throw new NoFillableSlotsError(unfilledSlots)
   }
 
   // Request for the fillable slots only
@@ -264,6 +295,17 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     throw new Error('Plan not found after update')
   }
 
+  // The entries this run wrote: its slots, holding the meal it picked. An
+  // entry the household filled meanwhile keeps its own meal (HON-1649).
+  const writtenMeals = new Map(
+    validatedPlan.map((fill) => [slotKey(fill.date, fill.mealType), fill.mealId]),
+  )
+  const filledEntryIds = updatedPlan.entries.flatMap((entry) =>
+    entry.mealId !== null && writtenMeals.get(slotKey(entry.date, entry.mealType)) === entry.mealId
+      ? [entry.id]
+      : [],
+  )
+
   return {
     id: updatedPlan.id,
     startDate: toDateString(startDate),
@@ -283,6 +325,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
           }
         : null,
     })),
+    filledEntryIds,
+    unfilledSlots,
     ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

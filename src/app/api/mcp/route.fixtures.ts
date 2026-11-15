@@ -32,6 +32,7 @@ export const WRITE_TOOL_ARGS: Record<string, Record<string, unknown>> = {
     mealType: 'dinner',
     items: [{ label: 'Leftover mash' }],
   },
+  fill_plan: { startDate: '2026-10-15', days: 7 },
   add_extra: { date: '2026-10-15', name: 'red wine', quantity: 750, unit: 'ml' },
   remove_extra: { extraId: 'extra-1' },
   clear_meal: { date: '2026-10-15', mealType: 'dinner' },

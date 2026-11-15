@@ -5,7 +5,6 @@ import { z } from 'zod'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
 import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
-import { fillEmptySlots } from '@/lib/ai/fill-plan'
 import { createEmptyPlan, generateMealPlan } from '@/lib/ai/generate-plan'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import {
@@ -26,6 +25,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { getExcludedIngredientIds } from '@/lib/household/excluded-ingredients'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
+import { fillHouseholdEmptySlots, MAX_PLAN_DAYS } from '@/lib/meal-plans/fill-empty'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { withRequestId } from '@/lib/request-id'
 
@@ -37,9 +37,6 @@ const generateRequestSchema = z.object({
   planId: z.string().optional(),
   mode: z.enum(['generate', 'empty', 'fill-empty']).default('generate'),
 })
-
-/** Maximum number of days allowed in a single generation request. */
-const MAX_DAYS = 14
 
 /**
  * Every error body carries a `code` from `MealPlanGenerateErrorCode` (HON-725).
@@ -153,25 +150,13 @@ async function handlePOST(request: Request) {
   }
 
   const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  if (dayCount > MAX_DAYS) {
+  if (dayCount > MAX_PLAN_DAYS) {
     return errorJson(
       'invalid_request',
-      { error: `Date range cannot exceed ${MAX_DAYS} days` },
+      { error: `Date range cannot exceed ${MAX_PLAN_DAYS} days` },
       { status: 400 },
     )
   }
-
-  // Get household preferences
-  const preferences = household.preferences
-  const dietaryType = preferences?.dietaryType ?? null
-  const allergensToAvoid = preferences?.allergensToAvoid ?? []
-  const excludedIngredientIds = await getExcludedIngredientIds(
-    household.id,
-    preferences?.excludedIngredients ?? [],
-  )
-  const restrictions = preferences?.restrictions ?? []
-  const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
-  const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
 
   // Handle fill-empty mode
   if (mode === 'fill-empty') {
@@ -184,22 +169,13 @@ async function handlePOST(request: Request) {
     }
 
     try {
-      const result = await fillEmptySlots({
+      // Fill days reads the preferences itself, shared with `fill_plan` (HON-1649).
+      const result = await fillHouseholdEmptySlots(household, {
         aiBudgetMs: PLAN_AI_BUDGET_MS,
         planId,
-        householdId: household.id,
         startDate,
         endDate,
-        dietaryType,
-        allergensToAvoid,
-        excludedIngredientIds,
-        restrictions,
         locale,
-        weekdayMealTypes,
-        weekendMealTypes,
-        timezone: household.timezone,
-        onAiUsage: (usage) =>
-          recordAiUsage({ householdId: household.id, feature: 'plan_fill_empty', ...usage }),
       })
 
       return NextResponse.json(result, { status: 200 })
@@ -292,6 +268,18 @@ async function handlePOST(request: Request) {
       )
     }
   }
+
+  // Get household preferences
+  const preferences = household.preferences
+  const dietaryType = preferences?.dietaryType ?? null
+  const allergensToAvoid = preferences?.allergensToAvoid ?? []
+  const excludedIngredientIds = await getExcludedIngredientIds(
+    household.id,
+    preferences?.excludedIngredients ?? [],
+  )
+  const restrictions = preferences?.restrictions ?? []
+  const weekdayMealTypes = preferences?.weekdayMealTypes ?? ['dinner']
+  const weekendMealTypes = preferences?.weekendMealTypes ?? ['dinner']
 
   try {
     // Generate meal plan (default mode)
