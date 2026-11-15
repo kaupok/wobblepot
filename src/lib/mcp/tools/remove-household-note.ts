@@ -3,10 +3,10 @@ import 'server-only'
 import { z } from 'zod'
 
 import { removeNote } from '@/lib/household/notes'
-import { updateHouseholdPreferences } from '@/lib/household/preferences'
+import { editHouseholdNotes } from '@/lib/household/preferences'
 import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 
-import { loadOwnerNotes, noMatchError, notesOutput } from './household-notes'
+import { noMatchError, notesOutput, requireOwner } from './household-notes'
 
 export const removeHouseholdNote = defineTool({
   name: 'remove_household_note',
@@ -24,10 +24,11 @@ export const removeHouseholdNote = defineTool({
     notes: notesOutput,
   }),
   run: async (household, { note }, caller) => {
-    const notes = await loadOwnerNotes(caller.userId)
-    const result = removeNote(notes, note)
-    if (result.status === 'no_match') throw noMatchError(notes)
-    await updateHouseholdPreferences(household.id, { restrictions: result.notes })
+    await requireOwner(caller.userId)
+    const { before, result } = await editHouseholdNotes(household.id, (notes) =>
+      removeNote(notes, note),
+    )
+    if (result.status === 'no_match') throw noMatchError(before)
     return { outcome: 'removed' as const, removed: note, notes: result.notes }
   },
 })

@@ -76,6 +76,40 @@ export async function updateHouseholdPreferences(
 }
 
 /**
+ * Edit a household's "Notes for the AI" (`restrictions`) in one transaction,
+ * for the MCP note tools (HON-1651). `edit` gets the stored notes and returns
+ * a result; a result with `notes` is saved, any other is not. Returns the
+ * notes as they were before, and the result.
+ *
+ * The household row is locked first, so two calls at once queue: without it
+ * both read the same list and the second write drops the first note, or both
+ * pass the 30-note cap. The same lock as `addMember`.
+ */
+export async function editHouseholdNotes<Result extends { status: string; notes?: string[] }>(
+  householdId: string,
+  edit: (notes: string[]) => Result,
+): Promise<{ before: string[]; result: Result }> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM "household" WHERE "id" = ${householdId} FOR NO KEY UPDATE`
+    const row = await tx.householdPreferences.findUnique({
+      where: { householdId },
+      select: { restrictions: true },
+    })
+    const before = row?.restrictions ?? []
+    const result = edit(before)
+    if (result.notes) {
+      const restrictions = result.notes
+      await tx.householdPreferences.upsert({
+        where: { householdId },
+        update: { restrictions },
+        create: { householdId, restrictions },
+      })
+    }
+    return { before, result }
+  })
+}
+
+/**
  * The member whose preferences are saved, with their household as
  * `getHouseholdMembership` returns it.
  */

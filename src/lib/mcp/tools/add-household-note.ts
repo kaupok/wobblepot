@@ -3,10 +3,10 @@ import 'server-only'
 import { z } from 'zod'
 
 import { addNote, MAX_HOUSEHOLD_NOTES } from '@/lib/household/notes'
-import { updateHouseholdPreferences } from '@/lib/household/preferences'
+import { editHouseholdNotes } from '@/lib/household/preferences'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
 
-import { loadOwnerNotes, noMatchError, notesOutput, noteText } from './household-notes'
+import { noMatchError, notesOutput, noteText, requireOwner } from './household-notes'
 
 export const FULL_MESSAGE = `The household already has ${MAX_HOUSEHOLD_NOTES} notes for the AI, the most an assistant may save. Replace a note (pass replaces) or remove one with remove_household_note first. Nothing was changed.`
 
@@ -36,17 +36,19 @@ export const addHouseholdNote = defineTool({
     notes: notesOutput,
   }),
   run: async (household, { note, replaces }, caller) => {
-    const notes = await loadOwnerNotes(caller.userId)
-    const result = addNote(notes, note, replaces)
+    await requireOwner(caller.userId)
+    const { before, result } = await editHouseholdNotes(household.id, (notes) =>
+      addNote(notes, note, replaces),
+    )
     switch (result.status) {
       case 'no_match':
-        throw noMatchError(notes)
+        throw noMatchError(before)
       case 'full':
         throw new ToolInputError(FULL_MESSAGE)
       case 'unchanged':
-        return { outcome: 'unchanged' as const, notes }
+        return { outcome: 'unchanged' as const, notes: before }
+      default:
+        return { outcome: result.status, notes: result.notes }
     }
-    await updateHouseholdPreferences(household.id, { restrictions: result.notes })
-    return { outcome: result.status, notes: result.notes }
   },
 })

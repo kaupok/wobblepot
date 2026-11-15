@@ -23,14 +23,10 @@ export const notesOutput = z
     'Every note for the AI after this call, in order: what get_household returns as restrictions.',
   )
 
-/**
- * The caller's current notes, read fresh, after the owner check that
- * `PATCH /api/households/me/preferences` also makes.
- */
-export async function loadOwnerNotes(userId: string): Promise<string[]> {
+/** The owner check that `PATCH /api/households/me/preferences` also makes. */
+export async function requireOwner(userId: string) {
   const membership = await getHouseholdMembership(userId)
   if (membership?.role !== 'owner') throw new ToolInputError(NOT_OWNER_MESSAGE)
-  return membership.household.preferences?.restrictions ?? []
 }
 
 /** The refusal for a note text that matches no note, with the notes the model can pick from. */

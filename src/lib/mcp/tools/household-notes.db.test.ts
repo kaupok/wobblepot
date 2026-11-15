@@ -112,6 +112,18 @@ describe('add_household_note', () => {
     expect(await storedNotes()).toEqual(['  Mild spice. ', 'Fish on Fridays.'])
   })
 
+  it('keeps both notes when two adds run at once', async () => {
+    await world(['Mild spice.'])
+
+    await Promise.all([add({ note: 'Fish on Fridays.' }), add({ note: 'No mince on Mondays.' })])
+
+    expect((await storedNotes()).sort()).toEqual([
+      'Fish on Fridays.',
+      'Mild spice.',
+      'No mince on Mondays.',
+    ])
+  })
+
   it('refuses an add to a list of 30 notes, and the list stays', async () => {
     const full = Array.from({ length: 30 }, (_, i) => `Note ${i + 1}.`)
     await world(full)
