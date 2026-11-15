@@ -37,8 +37,11 @@ function day(offset: number): string {
   return toDateString(date)
 }
 
-/** Alder plans dinners only: a planned dinner tomorrow, a note on day 3, day 2 empty. */
-async function world() {
+/**
+ * Alder has a planned dinner tomorrow, a note on day 3's dinner, and day 2's
+ * dinner empty. Its recipes are all dinners, so a breakfast slot has no candidate.
+ */
+async function world(mealTypes: Array<'breakfast' | 'dinner'> = ['dinner']) {
   for (const id of ['kept-curry', 'new-soup', 'new-stew']) {
     await prisma.meal.create({
       data: {
@@ -54,7 +57,7 @@ async function world() {
       name: 'Alder',
       locale: 'et',
       timezone: 'UTC',
-      preferences: { create: { weekdayMealTypes: ['dinner'], weekendMealTypes: ['dinner'] } },
+      preferences: { create: { weekdayMealTypes: mealTypes, weekendMealTypes: mealTypes } },
       mealPlans: { create: { id: 'plan-alder' } },
     },
     include: { preferences: true },
@@ -86,7 +89,7 @@ describe('fill_plan on the database (HON-1649)', () => {
 
   it('fills only the empty slots, keeps every earlier entry, and returns what it wrote', async () => {
     const { runTool, fillPlan, generateObject } = await load()
-    const household = await world()
+    const household = await world(['breakfast', 'dinner'])
     generateObject.mockResolvedValueOnce({
       object: {
         entries: [
@@ -122,6 +125,7 @@ describe('fill_plan on the database (HON-1649)', () => {
           meal: { id: 'new-stew', name: 'new-stew et' },
         },
       ],
+      unfilled: [1, 2, 3].map((offset) => ({ date: day(offset), mealType: 'breakfast' })),
     })
     expect(written.map(({ id, mealId, note }) => ({ id, mealId, note }))).toEqual([
       { id: 'kept', mealId: 'kept-curry', note: null },
@@ -142,7 +146,28 @@ describe('fill_plan on the database (HON-1649)', () => {
       { startDate: day(1), days: 1 },
     )
 
-    expect(result.structuredContent).toEqual({ outcome: 'unchanged', entries: [] })
+    expect(result.structuredContent).toEqual({ outcome: 'unchanged', entries: [], unfilled: [] })
+    expect(generateObject.mock.calls).toHaveLength(callsBefore)
+    expect(await rows()).toEqual(before)
+  })
+
+  it('names the empty slots no recipe fits, with no model call', async () => {
+    const { runTool, fillPlan, generateObject } = await load()
+    const household = await world(['breakfast', 'dinner'])
+    const before = await rows()
+    const callsBefore = generateObject.mock.calls.length
+
+    const result = await runTool(
+      fillPlan,
+      { userId: 'user-1', household, scopes: WRITE_SCOPES },
+      { startDate: day(1), days: 1 },
+    )
+
+    expect(result.structuredContent).toEqual({
+      outcome: 'unchanged',
+      entries: [],
+      unfilled: [{ date: day(1), mealType: 'breakfast' }],
+    })
     expect(generateObject.mock.calls).toHaveLength(callsBefore)
     expect(await rows()).toEqual(before)
   })

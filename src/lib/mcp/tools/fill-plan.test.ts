@@ -92,6 +92,7 @@ describe('fill_plan', () => {
         },
       ],
       filledEntryIds: ['new'],
+      unfilledSlots: [{ date: '2026-10-23', mealType: 'breakfast' }],
     } as never)
 
     const result = await call()
@@ -106,6 +107,7 @@ describe('fill_plan', () => {
           meal: { id: 'meal-soup', name: 'Soup' },
         },
       ],
+      unfilled: [{ date: '2026-10-23', mealType: 'breakfast' }],
     })
     expect(fillHouseholdEmptySlots).toHaveBeenCalledWith(household, {
       planId: 'plan-a',
@@ -121,7 +123,7 @@ describe('fill_plan', () => {
 
     const result = await call()
 
-    expect(result.structuredContent).toEqual({ outcome: 'unchanged', entries: [] })
+    expect(result.structuredContent).toEqual({ outcome: 'unchanged', entries: [], unfilled: [] })
   })
 
   it('refuses a start before today', async () => {

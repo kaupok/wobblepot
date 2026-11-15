@@ -3,6 +3,7 @@ import 'server-only'
 import { z } from 'zod'
 
 import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { NoFillableSlotsError } from '@/lib/ai/fill-plan'
 import { InsufficientCandidatesError, NoEmptySlotsError } from '@/lib/ai/types'
 import { AiCostCapExceededError, assertUnderCap, capResetDate } from '@/lib/ai/usage'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -34,7 +35,9 @@ export const fillPlan = defineTool({
   outputSchema: z.object({
     outcome: z
       .enum(['filled', 'unchanged'])
-      .describe('filled: the meals in entries were planned. unchanged: no slot was empty.'),
+      .describe(
+        'filled: the meals in entries were planned. unchanged: nothing was written, because no slot was empty or no recipe fits the empty ones (see unfilled).',
+      ),
     entries: z
       .array(
         z.object({
@@ -45,6 +48,11 @@ export const fillPlan = defineTool({
         }),
       )
       .describe('The entries this call planned. Every other entry is as it was.'),
+    unfilled: z
+      .array(z.object({ date: z.iso.date(), mealType: z.enum(['breakfast', 'lunch', 'dinner']) }))
+      .describe(
+        'Empty slots left empty, because no recipe of the household suits that meal type. Tell the user; they can add a recipe, or plan the slot with plan_meal or plan_fridge_meal.',
+      ),
   }),
   run: async (household, { startDate, days }, caller) => {
     const { today, lastDay } = writableDays(household.timezone)
@@ -101,7 +109,12 @@ export const fillPlan = defineTool({
       })
     } catch (error) {
       // Thrown before the model call, so nothing was written.
-      if (error instanceof NoEmptySlotsError) return { outcome: 'unchanged' as const, entries: [] }
+      if (error instanceof NoFillableSlotsError) {
+        return { outcome: 'unchanged' as const, entries: [], unfilled: error.unfilledSlots }
+      }
+      if (error instanceof NoEmptySlotsError) {
+        return { outcome: 'unchanged' as const, entries: [], unfilled: [] }
+      }
       if (error instanceof InsufficientCandidatesError) {
         throw new ToolInputError(
           `${error.message}, so the required dinners cannot be planned. Add or favourite such a recipe, or change the household's diet, then try again. Nothing was changed.`,
@@ -131,6 +144,7 @@ export const fillPlan = defineTool({
         entryId: entry.id,
         meal: { id: entry.meal.id, name: names.get(entry.meal.id) ?? entry.meal.name },
       })),
+      unfilled: result.unfilledSlots,
     }
   },
 })
