@@ -248,6 +248,7 @@ describe('/api/mcp', () => {
         expect(annotations.update_meal).toEqual({ ...write, idempotentHint: true })
         expect(annotations.plan_meal).toEqual({ ...write, idempotentHint: false })
         expect(annotations.plan_fridge_meal).toEqual({ ...write, idempotentHint: false })
+        expect(annotations.fill_plan).toEqual({ ...write, idempotentHint: false })
         expect(annotations.add_extra).toEqual({ ...write, idempotentHint: false })
         expect(annotations.remove_extra).toEqual({ ...write, idempotentHint: false })
         expect(annotations.clear_meal).toEqual({

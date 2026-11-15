@@ -13,6 +13,7 @@ import { checkShoppingItem } from './tools/check-shopping-item'
 import { clearMeal } from './tools/clear-meal'
 import { createMeal } from './tools/create-meal'
 import { deleteMeal } from './tools/delete-meal'
+import { fillPlan } from './tools/fill-plan'
 import { getHousehold } from './tools/get-household'
 import { getMeal } from './tools/get-meal'
 import { getMealPlan } from './tools/get-meal-plan'
@@ -39,7 +40,8 @@ import { updateMeal } from './tools/update-meal'
 /**
  * Every tool the server lists, for every token. The write tools (HON-1154,
  * HON-1173, HON-1174, HON-1246, HON-1305, HON-1306, HON-1311, HON-1314, HON-1281, HON-1329,
- * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337, HON-1385, HON-1459, HON-1497) need
+ * HON-1330, HON-1331, HON-1332, HON-1333, HON-1334, HON-1337, HON-1385, HON-1459, HON-1497,
+ * HON-1649) need
  * `mcp:write`; `runTool` answers a read-only token with the reconnect message,
  * so the model can tell the user what to do.
  */
@@ -65,6 +67,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
   updateMeal,
   planMeal,
   planFridgeMeal,
+  fillPlan,
   addExtra,
   removeExtra,
   clearMeal,

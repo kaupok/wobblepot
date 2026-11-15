@@ -27,12 +27,20 @@ import {
 } from './types'
 import { toAiUsageStats, withUsageOnFailure } from './usage'
 
+/** What Fill empty days returns: the range, and which of its entries the run wrote. */
+export interface FillEmptySlotsResult extends GeneratePlanResult {
+  /** The entries this run created or gave a meal; every other entry is as it was. */
+  filledEntryIds: string[]
+}
+
 /**
  * Fill empty slots in an existing meal plan with AI-generated meals.
  * Keeps every entry with a meal, and the household's note in a slot it fills.
  * Throws NoEmptySlotsError if there are no empty slots to fill.
  */
-export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<GeneratePlanResult> {
+export async function fillEmptySlots(
+  options: FillEmptySlotsOptions,
+): Promise<FillEmptySlotsResult> {
   const {
     planId,
     householdId,
@@ -264,6 +272,17 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     throw new Error('Plan not found after update')
   }
 
+  // The entries this run wrote: its slots, holding the meal it picked. An
+  // entry the household filled meanwhile keeps its own meal (HON-1649).
+  const writtenMeals = new Map(
+    validatedPlan.map((fill) => [slotKey(fill.date, fill.mealType), fill.mealId]),
+  )
+  const filledEntryIds = updatedPlan.entries.flatMap((entry) =>
+    entry.mealId !== null && writtenMeals.get(slotKey(entry.date, entry.mealType)) === entry.mealId
+      ? [entry.id]
+      : [],
+  )
+
   return {
     id: updatedPlan.id,
     startDate: toDateString(startDate),
@@ -283,6 +302,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
           }
         : null,
     })),
+    filledEntryIds,
     ...(warnings.length > 0 ? { warnings } : {}),
   }
 }
