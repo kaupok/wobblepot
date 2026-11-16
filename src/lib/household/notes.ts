@@ -1,5 +1,5 @@
 /**
- * The household's "Notes for the AI" (`HouseholdPreferences.restrictions`, one
+ * The "Household notes" (`HouseholdPreferences.restrictions`, one
  * note per line on Household → Meal preferences) as a list an assistant edits
  * one note at a time (HON-1651). Pure, so the MCP tools own the owner check
  * and the write.

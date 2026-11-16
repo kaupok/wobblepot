@@ -7,7 +7,7 @@ import { ToolInputError } from '@/lib/mcp/context'
 
 /** What both note tools answer to a member who is not the owner. */
 export const NOT_OWNER_MESSAGE =
-  "Only the household's owner can change the notes for the AI. The owner changes them on Household → Meal preferences in Wobblepot. Nothing was changed."
+  "Only the household's owner can change the household notes. The owner changes them on Household → Meal preferences in Wobblepot. Nothing was changed."
 
 /** The note text both tools accept: one line, as the form stores one note per line. */
 export const noteText = z
@@ -20,7 +20,7 @@ export const noteText = z
 export const notesOutput = z
   .array(z.string())
   .describe(
-    'Every note for the AI after this call, in order: what get_household returns as restrictions.',
+    'Every household note after this call, in order: what get_household returns as restrictions.',
   )
 
 /** The owner check that `PATCH /api/households/me/preferences` also makes. */

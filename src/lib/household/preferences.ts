@@ -76,7 +76,7 @@ export async function updateHouseholdPreferences(
 }
 
 /**
- * Edit a household's "Notes for the AI" (`restrictions`) in one transaction,
+ * Edit a household's "Household notes" (`restrictions`) in one transaction,
  * for the MCP note tools (HON-1651). `edit` gets the stored notes and returns
  * a result; a result with `notes` is saved, any other is not. Returns the
  * notes as they were before, and the result.
