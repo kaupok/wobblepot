@@ -101,7 +101,6 @@ export const draftSlotsSchema = z.array(draftSlotSchema).min(1).max(DRAFT_SLOTS_
 
 export type DraftSlot = z.output<typeof draftSlotSchema>
 export type DraftItem = z.output<typeof draftItemSchema>
-export type DraftMealType = z.output<typeof mealTypeSchema>
 
 /** One key per slot, so a draft slot, a stored entry and a `leftoverOf` meet. */
 export function slotKey(slot: { date: string; mealType: string }): string {

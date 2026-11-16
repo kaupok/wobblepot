@@ -23,7 +23,7 @@ export type { DraftHousehold } from './context'
 export type { DraftNeed } from './needs'
 export type { DraftProblem, DraftWarning } from './rules'
 export { draftItemSchema, type DraftSlot, draftSlotSchema, draftSlotsSchema } from './schema'
-export type { WeekDay, WeekSlot } from './week'
+export type { WeekDay } from './week'
 
 export interface DraftCheck {
   problems: DraftProblem[]
