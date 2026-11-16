@@ -60,6 +60,10 @@ export const listMeals = defineTool({
           .enum(['main', 'side'])
           .describe('main: a meal on its own. side: a side dish, for plan_meal role side.'),
         proteinType: z.string().nullable(),
+        timeMinutes: z
+          .number()
+          .nullable()
+          .describe('The cooking time in minutes, or null when the recipe has none.'),
         isFavorite: z.boolean(),
         isOwnRecipe: z.boolean(),
         lastCookedOn: z
@@ -92,6 +96,7 @@ export const listMeals = defineTool({
         mealTypes: meal.suitableFor,
         course: meal.course,
         proteinType: meal.primaryProteinType,
+        timeMinutes: meal.timeMinutes,
         isFavorite: meal.isFavorite,
         isOwnRecipe: meal.isCustom,
         lastCookedOn: meal.lastCookedOn,

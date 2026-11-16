@@ -50,6 +50,7 @@ The meals planned by date and meal type, and each day's extras.
       "items": [],
       "mealId": "cm…",
       "mealName": "Chicken soup",
+      "timeMinutes": 40,
       "servings": 4,
       "cookServings": 6.5,
       "leftoversFor": [{ "date": "2026-10-15", "mealType": "lunch", "servings": 2.5 }],
@@ -68,6 +69,7 @@ The meals planned by date and meal type, and each day's extras.
       ],
       "mealId": null,
       "mealName": null,
+      "timeMinutes": null,
       "servings": 4,
       "cookServings": 4,
       "leftoversFor": [],
@@ -96,7 +98,7 @@ The meals planned by date and meal type, and each day's extras.
 }
 ```
 
-`mealType` is `breakfast`, `lunch` or `dinner`. `mealId` and `mealName` are `null` for an entry with no meal. Dish names are in the household's language.
+`mealType` is `breakfast`, `lunch` or `dinner`. `mealId` and `mealName` are `null` for an entry with no meal. Dish names are in the household's language. `timeMinutes` is the recipe's cooking time, or `null` when it has none or the entry has no recipe.
 
 `kind` is `recipe` for a meal from a recipe, or `fridge` for a fridge meal: a planned meal made of what is at home, with no recipe (HON-1281). A fridge meal lists its `items` in order; `items` is empty for `recipe`. An item's `source` is `pantry` (an ingredient, named in the household's language), `leftover` (what is left of an earlier meal, cooked or planned, named by that meal; `null` when the meal was deleted since) or `text` (the household's own words). A leftover item carries its meal's `sourceEntryId` and the `servings` it takes (`null` when none was set); both are `null` on the other items.
 

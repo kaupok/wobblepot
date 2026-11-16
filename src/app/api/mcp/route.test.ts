@@ -81,6 +81,7 @@ const READ_TOOL_NAMES = [
   'list_meals',
   'get_meal',
   'get_household',
+  'check_plan',
 ]
 const WRITE_TOOL_NAMES = Object.keys(WRITE_TOOL_ARGS)
 
@@ -357,7 +358,10 @@ describe('/api/mcp', () => {
     })
 
     it('answers every tool with the onboarding message for an account without a household', async () => {
-      const args: Record<string, Record<string, unknown>> = { get_meal: { mealId: 'meal-1' } }
+      const args: Record<string, Record<string, unknown>> = {
+        get_meal: { mealId: 'meal-1' },
+        check_plan: { slots: [{ date: '2026-10-15', mealType: 'dinner', clear: true }] },
+      }
 
       for (const name of READ_TOOL_NAMES) {
         const result = await callTool('user-without-household', name, args[name] ?? {})
