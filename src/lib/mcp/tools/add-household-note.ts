@@ -8,13 +8,13 @@ import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context
 
 import { noMatchError, notesOutput, noteText, requireOwner } from './household-notes'
 
-export const FULL_MESSAGE = `The household already has ${MAX_HOUSEHOLD_NOTES} notes for the AI, the most an assistant may save. Replace a note (pass replaces) or remove one with remove_household_note first. Nothing was changed.`
+export const FULL_MESSAGE = `The household already has ${MAX_HOUSEHOLD_NOTES} household notes, the most an assistant may save. Replace a note (pass replaces) or remove one with remove_household_note first. Nothing was changed.`
 
 export const addHouseholdNote = defineTool({
   name: 'add_household_note',
-  title: 'Save a note for the AI',
+  title: 'Save a household note',
   description:
-    "Saves a lasting rule in the household's \"Notes for the AI\" (restrictions in get_household), which the household sees and edits on Household → Meal preferences. Wobblepot's AI reads these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Save a note only when the user states a rule that holds from now on (\"office days need an easy dinner\") or agrees when you ask whether to remember it; a wish for one meal or one week is not a note. Write it as one short sentence in the household's language. Allergens and ingredients to avoid are not notes, because nothing enforces a note: ask the user to set them on Household → Meal preferences. To change a rule, pass the old note's exact text as replaces, so the note keeps its place. Only the household's owner can change notes.",
+    'Saves a lasting rule in the "Household notes" (restrictions in get_household), which the household sees and edits on Household → Meal preferences. Wobblepot\'s AI reads these notes when it generates a plan, imagines a meal, adjusts a recipe or answers a cooking question. Save a note only when the user states a rule that holds from now on ("office days need an easy dinner") or agrees when you ask whether to remember it; a wish for one meal or one week is not a note. Write it as one short sentence in the household\'s language. Allergens and ingredients to avoid are not notes, because nothing enforces a note: ask the user to set them on Household → Meal preferences. To change a rule, pass the old note\'s exact text as replaces, so the note keeps its place. Only the household\'s owner can change notes.',
   annotations: { ...WRITE_ANNOTATIONS, idempotentHint: false },
   inputSchema: z.object({
     note: noteText.describe('The rule as one short sentence, at most 200 characters.'),

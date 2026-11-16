@@ -10,9 +10,9 @@ import { noMatchError, notesOutput, requireOwner } from './household-notes'
 
 export const removeHouseholdNote = defineTool({
   name: 'remove_household_note',
-  title: 'Remove a note for the AI',
+  title: 'Remove a household note',
   description:
-    "Removes one note from the household's \"Notes for the AI\" (restrictions in get_household). Use it when the user says a rule no longer holds. Pass the note's exact text from get_household. To change a rule instead, use add_household_note with replaces. Only the household's owner can change notes.",
+    'Removes one note from the "Household notes" (restrictions in get_household). Use it when the user says a rule no longer holds. Pass the note\'s exact text from get_household. To change a rule instead, use add_household_note with replaces. Only the household\'s owner can change notes.',
   // A second call refuses, because the note is gone.
   annotations: { ...WRITE_ANNOTATIONS, destructiveHint: true, idempotentHint: false },
   inputSchema: z.object({

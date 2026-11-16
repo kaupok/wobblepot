@@ -86,13 +86,13 @@ describe('FoodPreferencesForm', () => {
       renderForm()
 
       const food = screen.getByRole('heading', { name: 'Food preferences' }).closest('section')!
-      expect(within(food).getByLabelText('Notes for the AI (optional)')).toBeInTheDocument()
+      expect(within(food).getByLabelText('Household notes (optional)')).toBeInTheDocument()
       expect(within(food).getByLabelText('Ingredients to avoid (optional)')).toBeInTheDocument()
     })
 
-    // The DPIA's allergen notice (HON-666) and the AI notes help (HON-1326)
+    // The DPIA's allergen notice (HON-666) and the Household notes help (HON-1326)
     // are the only helper copy; the fields' placeholders carry examples.
-    it('renders only the allergen and AI notes helper lines', () => {
+    it('renders only the allergen and Household notes helper lines', () => {
       const { container } = renderForm()
 
       const helpers = Array.from(container.querySelectorAll('p.text-muted-foreground')).map(
@@ -198,7 +198,7 @@ describe('FoodPreferencesForm', () => {
       for (const name of ['No preference', 'Vegetarian', 'Vegan', 'Pescatarian']) {
         expect(screen.getByRole('radio', { name })).toBeDisabled()
       }
-      expect(screen.getByLabelText('Notes for the AI (optional)')).toBeDisabled()
+      expect(screen.getByLabelText('Household notes (optional)')).toBeDisabled()
       expect(screen.getByLabelText('Ingredients to avoid (optional)')).toBeDisabled()
     })
 
@@ -351,8 +351,8 @@ describe('FoodPreferencesForm', () => {
   })
 
   // HON-1342: free text, one note per line, stored as the same `string[]`.
-  describe('notes for the AI', () => {
-    const notesField = () => screen.getByLabelText('Notes for the AI (optional)')
+  describe('household notes', () => {
+    const notesField = () => screen.getByLabelText('Household notes (optional)')
 
     it('is a multi-line text field, not a tag input', () => {
       renderForm({ preferences: { ...defaultPreferences, restrictions: ['halal'] } })

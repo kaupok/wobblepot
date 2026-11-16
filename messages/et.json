@@ -1630,7 +1630,7 @@
       "dietaryTypeLabel": "Toitumisviis",
       "allergensLabel": "Vältida tuleb allergeene",
       "allergensAiNotice": "Siin märgitud allergeenid saadetakse meie tehisintellekti pakkujale, et toidukavad neid väldiksid. Täpsemalt <privacy>privaatsuspoliitikas</privacy>.",
-      "restrictionsLabel": "Märkmed AI-le (vabatahtlik)",
+      "restrictionsLabel": "Leibkonna märkmed (vabatahtlik)",
       "restrictionsPlaceholder": "nt lastele vähem soola. Eelista valgurikkaid toite.",
       "restrictionsHelp": "AI järgib neid märkmeid, kui see koostab plaani, mõtleb välja toidu, kohandab retsepti või vastab küsimusele toiduvalmistamise kohta. Vaheta, retseptide loend ja ühendatud assistendi planeeritud toidud neid ei kontrolli. Et hoida koostisosa kõigist toitudest eemal, lisa see väljale „Koostisosad, mida vältida“. Ühendatud assistent saab siia märkme lisada, kui palud tal midagi meelde jätta.",
       "excludedLabel": "Koostisosad, mida vältida (vabatahtlik)",

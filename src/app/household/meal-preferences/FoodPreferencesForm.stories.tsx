@@ -15,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Household → Meal preferences (HON-1257): the Food preferences section, a Section-level h2 and its own form (HON-960, HON-961): dietary type, allergens, notes for the AI and ingredients to avoid. The Save button shows only while a field differs from the saved value, and saves only these four fields.',
+          'Household → Meal preferences (HON-1257): the Food preferences section, a Section-level h2 and its own form (HON-960, HON-961): dietary type, allergens, household notes and ingredients to avoid. The Save button shows only while a field differs from the saved value, and saves only these four fields.',
       },
     },
   },
@@ -112,7 +112,7 @@ export const NonOwner: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: 'Gluten' })).toBeDisabled()
     await expect(canvas.getByRole('radio', { name: 'Vegan' })).toBeDisabled()
-    await expect(canvas.getByLabelText('Notes for the AI (optional)')).toBeDisabled()
+    await expect(canvas.getByLabelText('Household notes (optional)')).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   },
 }
@@ -275,7 +275,7 @@ export const Phone: Story = {
 
 /**
  * Estonian at phone width, inside the page's `px-4` gutters: the chip rows
- * wrap, and the AI notes field keeps its Estonian name and help (HON-1326).
+ * wrap, and the Household notes field keeps its Estonian name and help (HON-1326).
  */
 export const PhoneEstonian: Story = {
   globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
@@ -290,7 +290,7 @@ export const PhoneEstonian: Story = {
     const canvas = within(canvasElement)
     const form = canvas.getByRole('form')
     await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
-    const notes = canvas.getByLabelText('Märkmed AI-le (vabatahtlik)')
+    const notes = canvas.getByLabelText('Leibkonna märkmed (vabatahtlik)')
     await expect(notes).toHaveAttribute(
       'placeholder',
       'nt lastele vähem soola. Eelista valgurikkaid toite.',
@@ -323,7 +323,7 @@ export const LongNotesPhone: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const notes = canvas.getByLabelText('Notes for the AI (optional)')
+    const notes = canvas.getByLabelText('Household notes (optional)')
     await expect(notes).toHaveValue(
       'Less salt for the kids, and nothing spicier than a mild paprika on weeknights\nFavour high-protein dishes',
     )

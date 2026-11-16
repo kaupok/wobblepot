@@ -45,8 +45,8 @@ function renderForm(overrides: Partial<Props> = {}) {
 }
 
 /**
- * The help under the notes and ingredients fields of Food preferences: what reads the notes
- * for the AI, and what each ingredient to avoid excludes. The other cases are
+ * The help under the notes and ingredients fields of Food preferences: what reads the household
+ * notes, and what each ingredient to avoid excludes. The other cases are
  * in `FoodPreferencesForm.test.tsx`.
  */
 describe('FoodPreferencesForm field help', () => {
@@ -61,11 +61,11 @@ describe('FoodPreferencesForm field help', () => {
 
   // HON-1326: the field reaches only the AI prompts, so its help names what
   // does and does not read it.
-  describe('notes for the AI', () => {
-    it('describes the AI notes input with what reads it', () => {
+  describe('household notes', () => {
+    it('describes the Household notes input with what reads it', () => {
       renderForm()
 
-      const notes = screen.getByLabelText('Notes for the AI (optional)')
+      const notes = screen.getByLabelText('Household notes (optional)')
       expect(notes).toHaveAttribute(
         'placeholder',
         'e.g., Less salt for the kids. Favour high-protein dishes.',
@@ -81,7 +81,7 @@ describe('FoodPreferencesForm field help', () => {
         'et',
       )
 
-      const notes = screen.getByLabelText('Märkmed AI-le (vabatahtlik)')
+      const notes = screen.getByLabelText('Leibkonna märkmed (vabatahtlik)')
       expect(notes).toHaveAttribute(
         'placeholder',
         'nt lastele vähem soola. Eelista valgurikkaid toite.',

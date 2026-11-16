@@ -69,7 +69,7 @@ export function FoodPreferencesForm({
   })
   const [dietaryType, setDietaryType] = useState<DietaryType | null>(saved.dietaryType)
   const [allergensToAvoid, setAllergensToAvoid] = useState<Allergen[]>(saved.allergensToAvoid)
-  // "Notes for the AI" is free text, one note per line (HON-1342).
+  // "Household notes" is free text, one note per line (HON-1342).
   const [restrictionsText, setRestrictionsText] = useState(saved.restrictions.join('\n'))
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>(
     saved.excludedIngredients,

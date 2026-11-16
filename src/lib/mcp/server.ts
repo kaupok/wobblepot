@@ -118,7 +118,7 @@ export function mcpServerInfo(origin: string): Implementation {
  */
 export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
   const server = new McpServer(mcpServerInfo(origin), {
-    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), check a draft week (check_plan), update its shopping list, pantry, meal plan and notes for the AI, and add, change and delete recipes. The update tools work only when the user allowed this assistant to make changes.`,
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals, and its rules and servings (get_household), check a draft week (check_plan), update its shopping list, pantry, meal plan and household notes, and add, change and delete recipes. The update tools work only when the user allowed this assistant to make changes.`,
   })
 
   for (const tool of MCP_TOOLS) {
