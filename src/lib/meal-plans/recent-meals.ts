@@ -85,7 +85,7 @@ export async function loadLeftoverSources(
 }
 
 /** The first day a source may be on: `RECENT_MEALS_DAYS` before the fridge meal's day. */
-function earliestSourceDate(targetDate: string): string {
+export function earliestSourceDate(targetDate: string): string {
   const earliest = parseLocalDate(targetDate)
   earliest.setDate(earliest.getDate() - RECENT_MEALS_DAYS)
   return toDateString(earliest)
@@ -184,7 +184,8 @@ export async function findLeftoverSourceProblem(
   return null
 }
 
-interface SourceRow {
+/** A source entry as the rule reads it, stored or as a draft week will write it (HON-1652). */
+export interface SourceRow {
   date: Date
   mealType: MealType
   status: MealPlanEntryStatus
@@ -193,7 +194,7 @@ interface SourceRow {
   mainEntryId: string | null
 }
 
-function sourceProblem(
+export function sourceProblem(
   source: SourceRow | undefined,
   servings: number | undefined,
   target: { date: string; mealType: MealType },

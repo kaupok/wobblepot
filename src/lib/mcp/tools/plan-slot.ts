@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { type McpHousehold, ToolInputError } from '@/lib/mcp/context'
-import { getTodayInTimezone, parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { cookServingsSelect } from '@/lib/meal-planning/servings'
 import { prisma } from '@/lib/prisma'
 
@@ -37,16 +37,8 @@ export const entryIdInput = {
     ),
 }
 
-/** How far ahead `plan_meal` and `add_extra` may write, in days after today. */
-export const MAX_DAYS_AHEAD = 28
-
-/** Today and the last day a tool may write to, YYYY-MM-DD in the household's timezone. */
-export function writableDays(timezone: string): { today: string; lastDay: string } {
-  const today = getTodayInTimezone(timezone)
-  const lastDay = parseLocalDate(today)
-  lastDay.setDate(lastDay.getDate() + MAX_DAYS_AHEAD)
-  return { today, lastDay: toDateString(lastDay) }
-}
+// The draft tools' lib module reads these too (HON-1652), so they live in `src/lib`.
+export { MAX_DAYS_AHEAD, writableDays } from '@/lib/meal-planning/writable-days'
 
 /**
  * The household's plan entry for one day and meal type, with its meal's name

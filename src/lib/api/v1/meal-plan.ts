@@ -131,6 +131,10 @@ export const mealPlanOutputSchema = z.object({
         .describe("A fridge meal's items, in order. Empty for a recipe entry."),
       mealId: z.string().nullable(),
       mealName: z.string().nullable(),
+      timeMinutes: z
+        .number()
+        .nullable()
+        .describe("The recipe's cooking time in minutes, or null when it has none."),
       servings: z
         .number()
         .describe("The meal's own servings: the household's, or the entry's override."),
@@ -220,6 +224,7 @@ export async function readMealPlan(
       items: entry.items.map(toFridgeItemOutput),
       mealId: entry.meal?.id ?? null,
       mealName: entry.meal?.name ?? null,
+      timeMinutes: entry.meal?.timeMinutes ?? null,
       servings: getEffectiveServings(entry, householdServings),
       cookServings: entry.cookServings,
       leftoversFor: entry.leftoversFor,
