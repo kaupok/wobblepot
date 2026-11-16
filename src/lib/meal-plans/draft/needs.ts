@@ -3,6 +3,7 @@ import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { aggregateComponents } from '@/lib/meal-planning/shopping-list'
 
 import type { DraftContext, DraftView } from './context'
+import { slotKey } from './schema'
 import { draftLeftoverServings, type WeekDay } from './week'
 
 /**
@@ -49,8 +50,13 @@ export function buildNeeds(
     const entry = view.named.has(key) ? undefined : ctx.mains.get(key)
     const meal =
       entry?.status === 'planned' && entry.mealId ? ctx.meals.get(entry.mealId) : undefined
-    if (!entry || !meal || servings === 0) return []
-    return [{ date: parseLocalDate(entry.date), servings, meal }]
+    // A named lunch that took from this dinner before the draft adds only the difference.
+    const before = (entry?.leftoverItems ?? [])
+      .filter((lunch) => lunch.status !== 'skipped' && view.named.has(slotKey(lunch)))
+      .reduce((sum, lunch) => sum + (lunch.servings ?? 0), 0)
+    const added = servings - before
+    if (!entry || !meal || added <= 0) return []
+    return [{ date: parseLocalDate(entry.date), servings: added, meal }]
   })
   const needed = aggregateComponents(
     [...own, ...kept].map(({ date, servings, meal }) => ({

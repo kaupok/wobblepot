@@ -188,7 +188,18 @@ function itemProblem(
     earliestSourceDate(slot.date),
   )
   if (problem === null) return null
-  if (restore && CHANGED_SOURCE_PROBLEMS.has(problem)) return null
+  // A signed Undo, or a link the lunch already stores, passes what a later
+  // change of its source causes, as `findLeftoverSourceProblem` passes it.
+  const isStored =
+    main.from === 'kept' &&
+    Boolean(
+      ctx.mains
+        .get(slotKey(slot))
+        ?.items.some(
+          (row) => row.sourceEntryId === main.entry.id && row.servings === (item.servings ?? null),
+        ),
+    )
+  if ((restore || isStored) && CHANGED_SOURCE_PROBLEMS.has(problem)) return null
   if (problem === 'notFound') return notFound
   return { code: problem, message: SOURCE_MESSAGES[problem] }
 }

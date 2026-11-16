@@ -222,4 +222,44 @@ describe('check_plan', () => {
       ]),
     ).toEqual([['ing-beef', 200, day(1)]])
   })
+
+  it("passes a lunch's own link sent back, though its dinner was skipped since", async () => {
+    const household = await world()
+    await entry('skipped-dinner', day(1), 'dinner', { mealId: 'stew', status: 'skipped' })
+    await entry('lunch', day(2), 'lunch', {
+      kind: 'fridge',
+      items: { create: { sourceEntryId: 'skipped-dinner', servings: 2, position: 0 } },
+    })
+
+    const result = await check(household, [
+      {
+        date: day(2),
+        mealType: 'lunch',
+        items: [{ sourceEntryId: 'skipped-dinner', servings: 2 }, { label: 'Bread' }],
+      },
+    ])
+
+    expect(result.problems).toEqual([])
+  })
+
+  it("adds only the extra serving when a lunch's kept link to a kept dinner grows from 2 to 3", async () => {
+    const household = await world()
+    await entry('kept-dinner', day(1), 'dinner', { mealId: 'stew' })
+    await entry('lunch', day(2), 'lunch', {
+      kind: 'fridge',
+      items: { create: { sourceEntryId: 'kept-dinner', servings: 2, position: 0 } },
+    })
+
+    const result = await check(household, [
+      {
+        date: day(2),
+        mealType: 'lunch',
+        items: [{ sourceEntryId: 'kept-dinner', servings: 3 }, { label: 'Bread' }],
+      },
+    ])
+
+    expect(result.needs.map(({ ingredientId, quantity }) => [ingredientId, quantity])).toEqual([
+      ['ing-beef', 100],
+    ])
+  })
 })
