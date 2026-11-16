@@ -105,11 +105,11 @@ async function check(household: Household, slots: unknown[]) {
   return result.structuredContent as Awaited<ReturnType<typeof CheckPlan.run>>
 }
 
-async function apply(household: Household, slots: unknown[]) {
+async function apply(household: Household, slots: unknown[], restoreToken?: string) {
   const result = await runTool(
     applyPlan,
     { userId: 'user-1', household, scopes: WRITE_SCOPES },
-    applyPlan.inputSchema.parse({ slots }),
+    applyPlan.inputSchema.parse({ slots, restoreToken }),
   )
   return result.structuredContent as Awaited<ReturnType<typeof ApplyPlan.run>>
 }
@@ -379,14 +379,14 @@ describe('apply_plan', () => {
       {
         date: day(2),
         mealType: 'lunch',
-        items: [{ leftoverOf: { date: day(1), mealType: 'dinner' }, servings: 1.5, restore: true }],
+        items: [{ leftoverOf: { date: day(1), mealType: 'dinner' }, servings: 1.5 }],
       },
       { date: day(3), mealType: 'dinner', clear: true },
     ])
     expect((await slotRows(day(1), 'dinner')).map((row) => row.mealId)).toEqual(['goulash'])
     expect(await slotRows(day(2), 'lunch')).toEqual([])
 
-    const undone = await apply(household, applied.previous!)
+    const undone = await apply(household, applied.previous!, applied.restoreToken)
 
     expect(undone.outcome).toBe('applied')
     const [dinner] = await slotRows(day(1), 'dinner')
@@ -412,13 +412,13 @@ describe('apply_plan', () => {
     const applied = await apply(household, [
       { date: day(2), mealType: 'lunch', items: [{ label: 'Soup from the freezer' }] },
     ])
-    const undone = await apply(household, applied.previous!)
+    const undone = await apply(household, applied.previous!, applied.restoreToken)
 
     expect(applied.previous).toEqual([
       {
         date: day(2),
         mealType: 'lunch',
-        items: [{ sourceEntryId: 'skipped-dinner', servings: 2, restore: true }],
+        items: [{ sourceEntryId: 'skipped-dinner', servings: 2 }],
       },
     ])
     expect(undone.outcome).toBe('applied')
@@ -460,6 +460,67 @@ describe('apply_plan', () => {
 
     expect(result.problems.map(({ date, code }) => [date, code])).toEqual([
       [day(2), 'duplicateSource'],
+    ])
+  })
+
+  it("refuses that lunch's link without the token, or with another draft's token", async () => {
+    const household = await world()
+    await entry('skipped-dinner', day(1), 'dinner', { mealId: 'stew', status: 'skipped' })
+    await entry('old-lunch', day(2), 'lunch', {
+      kind: 'fridge',
+      items: { create: { sourceEntryId: 'skipped-dinner', servings: 2, position: 0 } },
+    })
+    const applied = await apply(household, [
+      { date: day(2), mealType: 'lunch', items: [{ label: 'Soup from the freezer' }] },
+    ])
+    const changed = [
+      {
+        date: day(2),
+        mealType: 'lunch',
+        items: [{ sourceEntryId: 'skipped-dinner', servings: 3 }],
+      },
+    ]
+
+    const untokened = await apply(household, applied.previous!)
+    const forged = await apply(household, changed, applied.restoreToken)
+
+    expect(untokened.problems?.map(({ code }) => code)).toEqual(['skipped'])
+    expect(forged.problems?.map(({ code }) => code)).toEqual(['skipped'])
+    const [lunch] = await slotRows(day(2), 'lunch')
+    expect(lunch!.items).toEqual([expect.objectContaining({ label: 'Soup from the freezer' })])
+  })
+
+  it('puts back a lunch whose source became a fridge meal, with the lunch first in the draft', async () => {
+    const household = await world()
+    await entry('fridge-dinner', day(1), 'dinner', {
+      kind: 'fridge',
+      items: { create: { label: 'Rice', position: 0 } },
+    })
+    await entry('old-lunch', day(2), 'lunch', {
+      kind: 'fridge',
+      items: { create: { sourceEntryId: 'fridge-dinner', servings: 1, position: 0 } },
+    })
+
+    const applied = await apply(household, [
+      { date: day(2), mealType: 'lunch', items: [{ label: 'Toast' }] },
+      { date: day(1), mealType: 'dinner', items: [{ label: 'Pizza' }] },
+    ])
+    const undone = await apply(household, applied.previous!, applied.restoreToken)
+
+    expect(applied.previous).toEqual([
+      {
+        date: day(2),
+        mealType: 'lunch',
+        items: [{ leftoverOf: { date: day(1), mealType: 'dinner' }, servings: 1 }],
+      },
+      { date: day(1), mealType: 'dinner', items: [{ label: 'Rice' }] },
+    ])
+    expect(undone.outcome).toBe('applied')
+    const [dinner] = await slotRows(day(1), 'dinner')
+    const [lunch] = await slotRows(day(2), 'lunch')
+    expect(dinner!.items).toEqual([expect.objectContaining({ label: 'Rice' })])
+    expect(lunch!.items).toEqual([
+      expect.objectContaining({ sourceEntryId: dinner!.id, servings: 1 }),
     ])
   })
 })

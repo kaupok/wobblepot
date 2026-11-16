@@ -151,19 +151,15 @@ function leftoverServingsBySource(ctx: DraftContext, view: DraftView): Map<strin
 /**
  * A stored fridge item in the draft's input shape. `isNamed` says whether the
  * source's slot is in the draft, so it is named by slot (`leftoverOf`) and
- * not by an id the write replaces. `restore` marks a leftover for `previous`.
+ * not by an id the write replaces.
  */
 export function toDraftItem(
   item: StoredEntry['items'][number],
   isNamed: (key: string) => boolean,
-  restore = false,
 ): DraftItem {
   if (item.ingredientId) return { ingredientId: item.ingredientId }
   if (item.sourceEntryId) {
-    const servings = {
-      ...(item.servings !== null && { servings: item.servings }),
-      ...(restore && { restore: true as const }),
-    }
+    const servings = item.servings === null ? {} : { servings: item.servings }
     return item.source && isNamed(slotKey(item.source))
       ? { leftoverOf: item.source, ...servings }
       : { sourceEntryId: item.sourceEntryId, ...servings }

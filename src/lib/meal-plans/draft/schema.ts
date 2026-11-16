@@ -26,22 +26,10 @@ const leftoverServings = leftoverServingsSchema
     'How much of the source meal this meal takes, 0.5 to 20 in steps of 0.5. Required while the source is not cooked yet: it then cooks and buys for these servings too.',
   )
 
-/**
- * A link `apply_plan` saved before, which its `previous` sends back. It passes
- * the source changes the app's own Undo passes (`CHANGED_SOURCE_PROBLEMS`):
- * a dinner skipped or made a fridge meal since keeps its lunches.
- */
-const restore = z
-  .literal(true)
-  .optional()
-  .describe(
-    "Set only in apply_plan's previous: a link saved before, which comes back even if its source changed since. Do not set it yourself.",
-  )
-
 export const draftItemSchema = z.union([
   z.object({ ingredientId: z.string().min(1) }).strict(),
   z.object({ label: z.string().trim().min(1).max(FRIDGE_ITEM_LABEL_MAX) }).strict(),
-  z.object({ sourceEntryId: z.string().min(1), servings: leftoverServings, restore }).strict(),
+  z.object({ sourceEntryId: z.string().min(1), servings: leftoverServings }).strict(),
   z
     .object({
       leftoverOf: z
@@ -49,7 +37,6 @@ export const draftItemSchema = z.union([
         .strict()
         .describe('The slot whose main meal gives the leftovers, as it is after this draft.'),
       servings: leftoverServings,
-      restore,
     })
     .strict(),
 ])

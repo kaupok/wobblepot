@@ -74,10 +74,12 @@ const SOURCE_MESSAGES: Record<Exclude<LeftoverSourceProblem, 'notFound'>, string
     'That meal is not cooked yet, so give servings: how much of it this meal takes.',
 }
 
+/** `restore`: the draft is `apply_plan`'s signed `previous` (`isRestore`). */
 export function findProblems(
   ctx: DraftContext,
   view: DraftView,
   slots: readonly DraftSlot[],
+  restore = false,
 ): DraftProblem[] {
   const problems: DraftProblem[] = []
   const seen = new Set<string>()
@@ -119,7 +121,7 @@ export function findProblems(
       // A dinner once per lunch (HON-1441), whether named by id or by slot.
       const sources = new Set<string>()
       for (const item of slot.items) {
-        const problem = itemProblem(ctx, view, slot, item)
+        const problem = itemProblem(ctx, view, slot, item, restore)
         if (problem) add(problem.code, problem.message)
         const source = sourceOf(ctx, view, item)
         if (source && sources.has(source)) {
@@ -153,6 +155,7 @@ function itemProblem(
   view: DraftView,
   slot: DraftSlot,
   item: DraftItem,
+  restore: boolean,
 ): { code: DraftProblemCode; message: string } | null {
   const notFound = {
     code: 'itemNotFound' as const,
@@ -185,7 +188,7 @@ function itemProblem(
     earliestSourceDate(slot.date),
   )
   if (problem === null) return null
-  if (item.restore && CHANGED_SOURCE_PROBLEMS.has(problem)) return null
+  if (restore && CHANGED_SOURCE_PROBLEMS.has(problem)) return null
   if (problem === 'notFound') return notFound
   return { code: problem, message: SOURCE_MESSAGES[problem] }
 }

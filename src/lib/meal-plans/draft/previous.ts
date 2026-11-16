@@ -9,8 +9,8 @@ import { toDraftItem } from './week'
  *
  * An empty slot is `clear`. A leftover whose source the draft also changes is
  * `leftoverOf`, because the write gives that source a new id; any other is
- * its `sourceEntryId`. Each is marked `restore`, so a source changed since the
- * link was saved does not refuse the Undo. The shape has no skip, so a skipped meal comes back
+ * its `sourceEntryId`. `apply_plan` signs them (`signRestore`), so a source
+ * changed since the link was saved does not refuse the Undo. The shape has no skip, so a skipped meal comes back
  * planned. A note, sides and Adjust recipe changes are not restored
  * (`losesChanges`).
  */
@@ -22,9 +22,7 @@ export function previousSlots(ctx: DraftContext, view: DraftView): DraftSlot[] {
       return {
         date,
         mealType,
-        items: entry.items.map((item) =>
-          toDraftItem(item, (source) => view.named.has(source), true),
-        ),
+        items: entry.items.map((item) => toDraftItem(item, (source) => view.named.has(source))),
       }
     }
     if (entry.kind === 'meal' && entry.mealId) {
