@@ -2,8 +2,8 @@ import { type DisplayUnit, displayUnit } from '@/lib/i18n/format-shopping-quanti
 import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { aggregateComponents } from '@/lib/meal-planning/shopping-list'
 
-import type { DraftContext } from './context'
-import type { WeekDay } from './week'
+import type { DraftContext, DraftView } from './context'
+import { draftLeftoverServings, type WeekDay } from './week'
 
 /**
  * One ingredient the draft's recipe meals need, and what the pantry says of
@@ -27,22 +27,37 @@ export interface DraftNeed {
   }
 }
 
-/** The needs of the draft's own recipe meals, at the cook servings the week shows. */
-export function buildNeeds(ctx: DraftContext, week: readonly WeekDay[]): DraftNeed[] {
+/**
+ * What the draft adds to buy, at the servings the week shows: its own recipe
+ * meals at their cook servings, and a kept planned dinner at the servings a
+ * draft lunch now takes from it.
+ */
+export function buildNeeds(
+  ctx: DraftContext,
+  view: DraftView,
+  week: readonly WeekDay[],
+): DraftNeed[] {
+  const own = week.flatMap((day) =>
+    day.slots.flatMap((slot) => {
+      const meal = slot.changed && slot.mealId ? ctx.meals.get(slot.mealId) : undefined
+      if (!meal || !slot.cookServings) return []
+      return [{ date: parseLocalDate(slot.date), servings: slot.cookServings, meal }]
+    }),
+  )
+  // A kept dinner may be on a day the draft does not name, so not in `week`.
+  const kept = [...draftLeftoverServings(ctx, view)].flatMap(([key, servings]) => {
+    const entry = view.named.has(key) ? undefined : ctx.mains.get(key)
+    const meal =
+      entry?.status === 'planned' && entry.mealId ? ctx.meals.get(entry.mealId) : undefined
+    if (!entry || !meal || servings === 0) return []
+    return [{ date: parseLocalDate(entry.date), servings, meal }]
+  })
   const needed = aggregateComponents(
-    week.flatMap((day) =>
-      day.slots.flatMap((slot) => {
-        const meal = slot.changed && slot.mealId ? ctx.meals.get(slot.mealId) : undefined
-        if (!meal || slot.cookServings === null) return []
-        return [
-          {
-            date: parseLocalDate(slot.date),
-            servings: slot.cookServings,
-            components: meal.components,
-          },
-        ]
-      }),
-    ),
+    [...own, ...kept].map(({ date, servings, meal }) => ({
+      date,
+      servings,
+      components: meal.components,
+    })),
     ctx.locale,
   )
 

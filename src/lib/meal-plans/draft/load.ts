@@ -1,5 +1,6 @@
 import 'server-only'
 
+import type { Prisma } from '@/generated/prisma/client'
 import { loadHouseholdServings } from '@/lib/household'
 import { mealTranslationsInclude, translateMeal } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -51,6 +52,29 @@ export async function loadDraftContext(
   }
   const mealIds = [...mealTypesByMeal.keys()]
 
+  // The draft's own meals, and the kept dinners a draft lunch takes from, whose
+  // added servings are needs too.
+  const findMeals = (where: Prisma.MealWhereInput) =>
+    prisma.meal.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        timeMinutes: true,
+        primaryProteinType: true,
+        ...mealTranslationsInclude(locale),
+        components: {
+          select: {
+            ingredientId: true,
+            quantityPerServing: true,
+            isVague: true,
+            originalPhrase: true,
+            ingredient: shoppingIngredientArgs(locale),
+          },
+        },
+      },
+    })
+
   const [entries, meals, ingredients, householdServings, fits] = await Promise.all([
     prisma.mealPlanEntry.findMany({
       where: {
@@ -99,25 +123,7 @@ export async function loadDraftContext(
     }),
     mealIds.length === 0
       ? []
-      : prisma.meal.findMany({
-          where: { id: { in: mealIds }, ...visibleMealWhere(household.id) },
-          select: {
-            id: true,
-            name: true,
-            timeMinutes: true,
-            primaryProteinType: true,
-            ...mealTranslationsInclude(locale),
-            components: {
-              select: {
-                ingredientId: true,
-                quantityPerServing: true,
-                isVague: true,
-                originalPhrase: true,
-                ingredient: shoppingIngredientArgs(locale),
-              },
-            },
-          },
-        }),
+      : findMeals({ id: { in: mealIds }, ...visibleMealWhere(household.id) }),
     ingredientIds.length === 0
       ? []
       : prisma.ingredient.findMany({
@@ -141,17 +147,6 @@ export async function loadDraftContext(
       ),
     ),
   ])
-
-  const componentIngredientIds = [
-    ...new Set(meals.flatMap((meal) => meal.components.map((c) => c.ingredientId))),
-  ]
-  const pantryRows =
-    componentIngredientIds.length === 0
-      ? []
-      : await prisma.pantryItem.findMany({
-          where: { householdId: household.id, ingredientId: { in: componentIngredientIds } },
-          select: { ingredientId: true, quantity: true, lowAt: true },
-        })
 
   const stored = new Map<string, StoredEntry>()
   const mains = new Map<string, StoredEntry>()
@@ -197,6 +192,37 @@ export async function loadDraftContext(
     if (row.mainEntryId === null) mains.set(slotKey(row), row)
   }
 
+  const loadedMealIds = new Set(meals.map((meal) => meal.id))
+  const keptSourceMealIds = [
+    ...new Set(
+      items.flatMap((item) => {
+        const source =
+          'sourceEntryId' in item
+            ? stored.get(item.sourceEntryId)
+            : 'leftoverOf' in item &&
+                !slots.some((slot) => slotKey(slot) === slotKey(item.leftoverOf))
+              ? mains.get(slotKey(item.leftoverOf))
+              : undefined
+        return source?.mealId && !loadedMealIds.has(source.mealId) ? [source.mealId] : []
+      }),
+    ),
+  ]
+  const allMeals = [
+    ...meals,
+    ...(keptSourceMealIds.length === 0 ? [] : await findMeals({ id: { in: keptSourceMealIds } })),
+  ]
+
+  const componentIngredientIds = [
+    ...new Set(allMeals.flatMap((meal) => meal.components.map((c) => c.ingredientId))),
+  ]
+  const pantryRows =
+    componentIngredientIds.length === 0
+      ? []
+      : await prisma.pantryItem.findMany({
+          where: { householdId: household.id, ingredientId: { in: componentIngredientIds } },
+          select: { ingredientId: true, quantity: true, lowAt: true },
+        })
+
   return {
     locale,
     today,
@@ -205,7 +231,7 @@ export async function loadDraftContext(
     stored,
     mains,
     meals: new Map(
-      meals.map((meal) => [
+      allMeals.map((meal) => [
         meal.id,
         {
           id: meal.id,

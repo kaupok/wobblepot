@@ -121,14 +121,27 @@ export function buildWeek(
 
 /**
  * The servings each source slot's leftover meals take after the draft, by
- * `slotKey`: the draft's fridge meals, and the kept lunches of a kept source.
- * A skipped lunch takes nothing, as `cookServingsSelect` counts.
+ * `slotKey`: the draft's fridge meals (`draftLeftoverServings`), and the kept
+ * lunches of a kept source. A skipped lunch takes nothing, as
+ * `cookServingsSelect` counts.
  */
 function leftoverServingsBySource(ctx: DraftContext, view: DraftView): Map<string, number> {
-  const totals = new Map<string, number>()
-  const add = (key: string, servings: number | null | undefined) =>
-    totals.set(key, (totals.get(key) ?? 0) + (servings ?? 0))
+  const totals = draftLeftoverServings(ctx, view)
+  for (const [key, entry] of ctx.mains) {
+    if (view.named.has(key)) continue
+    for (const lunch of entry.leftoverItems) {
+      if (lunch.status === 'skipped' || view.named.has(slotKey(lunch))) continue
+      totals.set(key, (totals.get(key) ?? 0) + (lunch.servings ?? 0))
+    }
+  }
+  return totals
+}
 
+/** The servings the draft's own fridge meals take from each source slot, by `slotKey`. */
+export function draftLeftoverServings(ctx: DraftContext, view: DraftView): Map<string, number> {
+  const totals = new Map<string, number>()
+  const add = (key: string, servings: number | undefined) =>
+    totals.set(key, (totals.get(key) ?? 0) + (servings ?? 0))
   for (const slot of view.named.values()) {
     if (!('items' in slot)) continue
     for (const item of slot.items) {
@@ -137,12 +150,6 @@ function leftoverServingsBySource(ctx: DraftContext, view: DraftView): Map<strin
         const source = ctx.stored.get(item.sourceEntryId)
         if (source) add(slotKey(source), item.servings)
       }
-    }
-  }
-  for (const [key, entry] of ctx.mains) {
-    if (view.named.has(key)) continue
-    for (const lunch of entry.leftoverItems) {
-      if (lunch.status !== 'skipped' && !view.named.has(slotKey(lunch))) add(key, lunch.servings)
     }
   }
   return totals

@@ -2,8 +2,8 @@ import 'server-only'
 
 import { z } from 'zod'
 
-import { defineTool, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
-import { applyDraft, draftSlotSchema } from '@/lib/meal-plans/draft'
+import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+import { applyDraft, DraftConflictError, draftSlotSchema } from '@/lib/meal-plans/draft'
 
 import { DRAFT_FLOW } from './check-plan'
 import { draftInputSchema, problemSchema, warningSchema, weekSchema } from './plan-draft-output'
@@ -37,5 +37,14 @@ export const applyPlan = defineTool({
       .optional()
       .describe('Send it with previous to undo. It matches only these slots, unchanged.'),
   }),
-  run: async (household, { slots, restoreToken }) => applyDraft(household, slots, restoreToken),
+  run: async (household, { slots, restoreToken }) => {
+    try {
+      return await applyDraft(household, slots, restoreToken)
+    } catch (error) {
+      if (!(error instanceof DraftConflictError)) throw error
+      throw new ToolInputError(
+        'A slot of this draft changed while this ran, such as a meal marked cooked. Use get_meal_plan, then check_plan again. Nothing was changed.',
+      )
+    }
+  },
 })

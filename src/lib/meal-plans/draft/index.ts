@@ -19,6 +19,7 @@ import { buildWeek, type WeekDay } from './week'
  * and so will the planning chat (HON-1650).
  */
 
+export { DraftConflictError } from './apply'
 export type { DraftHousehold } from './context'
 export type { DraftNeed } from './needs'
 export type { DraftProblem, DraftWarning } from './rules'
@@ -53,7 +54,7 @@ export async function checkDraft(
   return {
     problems: findProblems(ctx, view, slots),
     warnings: findWarnings(ctx, view),
-    needs: buildNeeds(ctx, week),
+    needs: buildNeeds(ctx, view, week),
     week,
   }
 }
